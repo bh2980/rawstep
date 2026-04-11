@@ -47,9 +47,13 @@ export class TraceRecorder {
     observation: Observation,
     decision: Decision,
     execution: ExecutionRecord,
-    verification?: VerificationRecord
+    verification?: VerificationRecord,
+    developerScreenshot?: {
+      pngBase64: string;
+      viewport: { w: number; h: number };
+    }
   ): Promise<void> {
-    const recordedObservation = await this.serializeObservation(step, observation);
+    const recordedObservation = await this.serializeObservation(step, observation, developerScreenshot);
     const record: StepRecord = {
       step,
       timestamp: new Date().toISOString(),
@@ -100,12 +104,25 @@ export class TraceRecorder {
     return this.session;
   }
 
-  private async serializeObservation(step: number, observation: Observation): Promise<RecordedObservation> {
+  private async serializeObservation(
+    step: number,
+    observation: Observation,
+    developerScreenshot?: {
+      pngBase64: string;
+      viewport: { w: number; h: number };
+    }
+  ): Promise<RecordedObservation> {
     if (observation.kind !== "keyboard") {
-      return {
+      const recorded: RecordedObservation = {
         kind: "screenreader",
         announcement: observation.announcement
       };
+
+      if (developerScreenshot) {
+        recorded.screenshot = await serializeScreenshot(step, developerScreenshot, this.screenshotsDir);
+      }
+
+      return recorded;
     }
 
     return serializeKeyboardObservation(step, observation, this.screenshotsDir);
@@ -117,20 +134,31 @@ async function serializeKeyboardObservation(
   observation: KeyboardObservation,
   screenshotsDir: string
 ): Promise<RecordedKeyboardObservation> {
+  return {
+    kind: "keyboard",
+    screenshot: await serializeScreenshot(step, observation.screenshot, screenshotsDir),
+    browserChrome: observation.browserChrome,
+    scrollHint: observation.scrollHint
+  };
+}
+
+async function serializeScreenshot(
+  step: number,
+  screenshot: {
+    pngBase64: string;
+    viewport: { w: number; h: number };
+  },
+  screenshotsDir: string
+): Promise<{ path: string; viewport: { w: number; h: number } }> {
   const filename = `step-${String(step).padStart(3, "0")}.png`;
   const relativePath = `screenshots/${filename}`;
   const absolutePath = join(screenshotsDir, filename);
 
-  await writeFile(absolutePath, Buffer.from(observation.screenshot.pngBase64, "base64"));
+  await writeFile(absolutePath, Buffer.from(screenshot.pngBase64, "base64"));
 
   return {
-    kind: "keyboard",
-    screenshot: {
-      path: relativePath,
-      viewport: observation.screenshot.viewport
-    },
-    browserChrome: observation.browserChrome,
-    scrollHint: observation.scrollHint
+    path: relativePath,
+    viewport: screenshot.viewport
   };
 }
 

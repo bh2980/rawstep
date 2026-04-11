@@ -88,7 +88,11 @@ describe("reporter", () => {
             timestamp: "2026-04-12T00:00:01.000Z",
             observation: {
               kind: "screenreader",
-              announcement: "Get started button"
+              announcement: "Get started button",
+              screenshot: {
+                path: "screenshots/step-000.png",
+                viewport: { w: 1280, h: 800 }
+              }
             },
             decision: {
               action: { srCommand: "nextItem" },
@@ -119,6 +123,8 @@ describe("reporter", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("srCommand(nextItem)");
     expect(html).toContain("Get started button");
+    expect(html).toContain("../screenshots/step-000.png");
+    expect(html).not.toContain("No screenshot");
   });
 
   it("renders verification results in the HTML report", async () => {

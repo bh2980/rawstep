@@ -85,6 +85,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       }
 
       const observation = await observer.observe();
+      const developerScreenshot = observation.kind === "screenreader"
+        ? await captureDeveloperScreenshot(browser.page)
+        : undefined;
       const context = {
         goal: task.goal,
         allowedKeys: allowsRawKeyActions(task.mode) ? ALLOWED_KEYS : [],
@@ -98,7 +101,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       if ("verdict" in decision) {
         if (decision.verdict === "success" && task.verify) {
           const verification = await verifyTask(task, browser);
-          await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, verification);
+          await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, verification, developerScreenshot);
 
           if (verification.passed) {
             endedBy = "success";
@@ -122,7 +125,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           continue;
         }
 
-        await trace.append(step, observation, decision, { ok: true, costDelta: 0 });
+        await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, undefined, developerScreenshot);
         endedBy = decision.verdict;
         break;
       }
@@ -133,7 +136,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         }
 
         const execution = await actuator.execute(decision.action, task.input);
-        await trace.append(step, observation, decision, execution);
+        await trace.append(step, observation, decision, execution, undefined, developerScreenshot);
 
         if (!execution.ok) {
           continue;
@@ -144,7 +147,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           ok: false,
           error: message,
           costDelta: 0
-        });
+        }, undefined, developerScreenshot);
 
         if (error instanceof NotAllowedActionError) {
           endedBy = "error";
@@ -217,4 +220,16 @@ function isScreenReaderMode(mode: UserModel): boolean {
 
 function allowsRawKeyActions(mode: UserModel): boolean {
   return mode === "keyboard" || mode === "screenreader-hybrid";
+}
+
+async function captureDeveloperScreenshot(
+  page: BrowserSession["page"]
+): Promise<{ pngBase64: string; viewport: { w: number; h: number } }> {
+  const viewport = page.viewportSize() ?? { width: 1280, height: 800 };
+  const buffer = await page.screenshot({ type: "png" });
+
+  return {
+    pngBase64: buffer.toString("base64"),
+    viewport: { w: viewport.width, h: viewport.height }
+  };
 }

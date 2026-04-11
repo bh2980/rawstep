@@ -66,4 +66,42 @@ describe("TraceRecorder", () => {
     const metrics = JSON.parse(await readFile(join(outDir, "metrics.json"), "utf8")) as { endedBy: string };
     expect(metrics.endedBy).toBe("stuck");
   });
+
+  it("writes developer screenshots for screenreader observations without exposing them to the agent path", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-trace-screenreader-"));
+    const task: Task = {
+      id: "trace-screenreader-test",
+      url: "file:///trace-screenreader-test.html",
+      goal: "Trace one screenreader step.",
+      mode: "screenreader-strict",
+      maxSteps: 1,
+      timeoutMs: 1000
+    };
+
+    const recorder = new TraceRecorder(task, outDir);
+    await recorder.initialize();
+
+    await recorder.append(
+      0,
+      {
+        kind: "screenreader",
+        announcement: "Get started button"
+      },
+      { action: { srCommand: "nextItem" }, rationale: "Move to the next item." },
+      { ok: true, costDelta: 1 },
+      undefined,
+      {
+        pngBase64: Buffer.from("fake-sr-png").toString("base64"),
+        viewport: { w: 1280, h: 800 }
+      }
+    );
+
+    const session = await recorder.finalize("success");
+
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
+    }
+    await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
+  });
 });

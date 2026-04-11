@@ -432,6 +432,9 @@ describe("runTask", () => {
       action: { srCommand: "nextItem" },
       rationale: "Move to the next announced item."
     });
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
+    }
     expect(session.aggregate.actionCounts).toEqual({
       srCommandCount: 1,
       rawKeyCount: 0,

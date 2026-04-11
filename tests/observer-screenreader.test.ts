@@ -71,9 +71,11 @@ describe("observer-screenreader", () => {
       .mockResolvedValueOnce(["Initial announcement"])
       .mockResolvedValueOnce(["After next item"]);
 
+    const evaluate = vi.fn(async () => undefined);
     const runtime = await createVoiceOverRuntime(
       {
-        bringToFront: vi.fn(async () => undefined)
+        bringToFront: vi.fn(async () => undefined),
+        evaluate
       } as never,
       {
         importGuidepup: async () => ({
@@ -110,6 +112,7 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
+    expect(evaluate).toHaveBeenCalledTimes(3);
     expect(firstObservation).toEqual({
       kind: "screenreader",
       announcement: "Initial announcement"

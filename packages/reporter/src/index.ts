@@ -164,7 +164,7 @@ function renderStep(step: StepRecord): string {
   const decision = "action" in step.decision
     ? `Action: <code>${escapeHtml(formatAction(step.decision.action))}</code>`
     : `Verdict: <code>${escapeHtml(step.decision.verdict)}</code>`;
-  const screenshotHtml = step.observation.kind === "keyboard"
+  const screenshotHtml = "screenshot" in step.observation && step.observation.screenshot
     ? `<img src="${escapeHtml(toReportImagePath(step.observation.screenshot.path))}" alt="Step ${step.step} screenshot" />`
     : `<div>No screenshot</div>`;
   const observationHtml = step.observation.kind === "keyboard"

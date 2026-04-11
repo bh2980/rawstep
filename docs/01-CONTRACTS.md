@@ -104,6 +104,8 @@ export type ScreenReaderObservation = {
 export type Observation = KeyboardObservation | ScreenReaderObservation;
 ```
 
+screenreader 모드의 **agent observation** 은 announcement-only다. 개발자 디버깅용 screenshot은 trace/report에만 저장되고 agent에는 전달되지 않는다.
+
 **KeyboardObservation JSON 예시**
 
 ```json

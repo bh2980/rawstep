@@ -72,7 +72,9 @@ export async function createVoiceOverRuntime(
 
   try {
     await page.bringToFront();
+    await focusPageRoot(page);
     await voiceOver.start();
+    await focusPageRoot(page);
   } catch (error) {
     throw new Error(
       `Failed to start VoiceOver for screenreader mode. Ensure VoiceOver is available and accessibility permissions are granted. ${getErrorMessage(error)}`
@@ -90,6 +92,8 @@ export async function createVoiceOverRuntime(
       } catch {
         // Best effort cleanup only.
       }
+
+      await cleanupBootstrapFocus(page);
     }
   };
 }
@@ -164,4 +168,33 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+async function focusPageRoot(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const target = document.body ?? document.documentElement;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (!target.hasAttribute("tabindex")) {
+      target.setAttribute("tabindex", "-1");
+      target.setAttribute("data-a11y-bootstrap-tabindex", "true");
+    }
+
+    target.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  });
+}
+
+async function cleanupBootstrapFocus(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const target = document.querySelector("[data-a11y-bootstrap-tabindex='true']");
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    target.removeAttribute("tabindex");
+    target.removeAttribute("data-a11y-bootstrap-tabindex");
+  });
 }

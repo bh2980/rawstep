@@ -132,6 +132,10 @@ export type RecordedKeyboardObservation = {
 export type RecordedScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
+  screenshot?: {
+    path: string;
+    viewport: { w: number; h: number };
+  };
 };
 
 export type RecordedObservation = RecordedKeyboardObservation | RecordedScreenReaderObservation;
