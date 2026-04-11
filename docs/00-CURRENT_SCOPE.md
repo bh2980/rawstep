@@ -33,8 +33,9 @@
 
 **산출물**
 - `trace.jsonl` (step별 append)
-- `metrics.json` (집계: result, totalSteps, durationMs, actionCounts, terminatedAtStep, failurePoint)
+- `metrics.json` (집계: result, totalSteps, durationMs, actionCounts, terminatedAtStep, failurePoint, timing breakdown)
 - `report/index.html` (step replay + 비용 요약 + 실패 하이라이트)
+- screenreader 리포트용 개발자 screenshot 정책 (`all | important | failure-only | none`)
 
 **허용 키**
 `Tab`, `Shift+Tab`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, `Space`, `Escape`

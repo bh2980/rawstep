@@ -11,6 +11,7 @@
 runTask(task) -> TraceSession:
   trace = TraceRecorder(task)
   browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
+  screenshotPolicy = options.screenshotPolicy ?? "all"
   if task.mode == "keyboard":
     observer = KeyboardObserver(browser.page)
     screenReaderRuntime = null
@@ -37,10 +38,16 @@ runTask(task) -> TraceSession:
       }
 
       decision = await agent.decide(ctx, obs)  # malformed → {verdict:"stuck", ...}
+      verdictAnalysis = null
 
       if decision.verdict == "success" and task.verify:
         verification = verifyTask(task, browser)
-        trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verification)
+        verdictAnalysis = {
+          agentVerdict: "success",
+          verificationResult: verification.passed ? "passed" : "failed",
+          finalResult: verification.passed ? "success" : "continued"
+        }
+        trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verification, verdictAnalysis)
         if verification.passed:
           endedBy = "success"; break
         verificationFailures += 1
@@ -50,11 +57,21 @@ runTask(task) -> TraceSession:
         continue
 
       if decision.verdict == "success":
-        trace.append(step, obs, decision, execution={ok:true, costDelta:0})
+        verdictAnalysis = {
+          agentVerdict: "success",
+          verificationResult: "not-run",
+          finalResult: "success"
+        }
+        trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
         endedBy = "success"; break
 
       if decision.verdict == "stuck":
-        trace.append(step, obs, decision, execution={ok:true, costDelta:0})
+        verdictAnalysis = {
+          agentVerdict: "stuck",
+          verificationResult: "not-run",
+          finalResult: "failure"
+        }
+        trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
         endedBy = "stuck"; break
 
       try:
@@ -121,6 +138,35 @@ settle(page):
 - `trace.append()` 가 호출되는 시점에, base64를 `<out>/screenshots/step-###.png` 로 **디스크에 flush** 하고 JSONL에는 **상대 경로만** 기록.
 - 이유: trace.jsonl이 base64로 부풀어 오르면 diff·검토가 불가능. HTML 리포트도 상대 경로를 그대로 `<img>` src로 쓴다.
 - `previousScreenshot` 은 trace에는 저장하지 않는다 (직전 step의 screenshot 파일을 재사용하면 된다). agent에게 전달할 때만 동일한 PNG를 한 번 더 base64로 보낸다.
+
+screenreader 모드의 개발자용 screenshot은 정책으로 줄일 수 있다.
+
+- `all` — 모든 step 저장
+- `important` — verdict step, verification step, 실행 실패 step, `typeText(task)`, `srCommand(act)` 저장
+- `failure-only` — 실행 실패, verifier 실패, non-success verdict step 저장
+- `none` — screenreader 리포트용 screenshot 저장 안 함
+
+keyboard screenshot은 agent 입력 그 자체이므로 이 정책의 영향을 받지 않는다.
+
+---
+
+## §timing 계측 규칙
+
+aggregate timing:
+
+- `setupMs` — browser/session/runtime 초기화 전체 시간
+- `browserLaunchMs` — Playwright browser launch 시간
+- `pageLoadMs` — `goto` + 초기 page load 시간
+- `voiceOverInitMs` — Guidepup VoiceOver 세션 start 시간
+- `firstAnnouncementWaitMs` — 첫 spoken announcement를 확보하는 데 걸린 시간
+- `reportMs` — HTML report 생성 시간
+
+step timing:
+
+- `observeMs` — observer가 이번 step 관측을 수집하는 시간
+- `decideMs` — agent가 decision을 만드는 시간
+- `executeMs` — actuator가 action을 수행하는 시간
+- `verifyMs` — verifier가 실행된 시간 (없으면 0)
 
 ---
 

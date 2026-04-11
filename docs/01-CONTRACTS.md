@@ -98,13 +98,14 @@ export type KeyboardObservation = {
 export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;              // 직전 action 이후 SR이 말한 텍스트 전부
+  announcementCapture: "log" | "fallback" | "none";
   previousAnnouncement?: string;     // 직전 1개
 };
 
 export type Observation = KeyboardObservation | ScreenReaderObservation;
 ```
 
-screenreader 모드의 **agent observation** 은 announcement-only다. 개발자 디버깅용 screenshot은 trace/report에만 저장되고 agent에는 전달되지 않는다.
+screenreader 모드의 **agent observation** 은 announcement-only다. `announcementCapture` 와 개발자 디버깅용 screenshot은 trace/report에만 저장되고 agent 프롬프트에는 전달되지 않는다.
 
 **KeyboardObservation JSON 예시**
 
@@ -199,6 +200,15 @@ export type StepRecord = {
     executeMs: number;                 // action 실행 시간
     verifyMs: number;                  // verifier 시간 (없으면 0)
   };
+  verification?: {
+    passed: boolean;
+    failures: string[];
+  };
+  verdictAnalysis?: {
+    agentVerdict: "success" | "stuck";
+    verificationResult: "passed" | "failed" | "not-run";
+    finalResult: "success" | "failure" | "continued";
+  };
 };
 
 export type TraceSession = {
@@ -212,6 +222,10 @@ export type TraceSession = {
     durationMs: number;
     timings: {
       setupMs: number;                 // 브라우저/VO/runtime 초기화 시간
+      browserLaunchMs: number;         // browser launch 시간
+      pageLoadMs: number;              // goto + 초기 load 시간
+      voiceOverInitMs: number;         // Guidepup VoiceOver 시작 시간
+      firstAnnouncementWaitMs: number; // 첫 announcement 확보 시간
       reportMs: number;                // 최종 HTML report 생성 시간
     };
     actionCounts: {
@@ -272,5 +286,10 @@ recent history: {history JSON}
 observation: {observation JSON}
 keyboard 모드일 때만 screenshot image block 추가
 ```
+
+실제 agent 프롬프트용 observation은 runtime observation보다 축소된다.
+
+- keyboard: `browserChrome.title` 은 빼고 `urlPath` 만 남긴다.
+- screenreader: `announcementCapture` 는 빼고 `announcement`, `previousAnnouncement` 만 남긴다.
 
 응답 파서는 malformed JSON 또는 허용되지 않은 key 사용 시 `{ verdict: "stuck", rationale: "agent returned malformed decision: <snippet>" }` 로 강제 변환한다. 에이전트가 치트하려고 해도 stuck 처리될 뿐이며, 예외로 루프가 깨지지 않는다.

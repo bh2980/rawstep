@@ -109,7 +109,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 현재 viewport screenshot
 - 직전 screenshot **1장** (사람이 "방금 전 화면"을 기억하는 것의 등가물.
   여러 장을 주면 사람보다 기억력이 좋아지므로 주지 않습니다)
-- 브라우저 크롬에 보이는 정보 등가물: 탭 제목, URL path
+- 브라우저 크롬에 보이는 정보 등가물: URL path
 - 스크롤 위치 힌트 (`top`/`middle`/`bottom` 수준 — 스크롤바를 시각적으로
   보는 것에 준합니다. `scrollTop=1234px` 같은 정밀 수치는 주지 않습니다)
 
@@ -117,6 +117,8 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 - 직전 액션 이후 screen reader가 실제로 말한 announcement 텍스트
 - 직전 announcement 1개 (사람의 단기 청각 기억 등가물)
+- announcement를 어떻게 잡았는지 나타내는 capture 메타
+  (`log`, `fallback`, `none`)는 trace/report에만 저장하고, agent 프롬프트에는 넣지 않습니다.
 - agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
 - 다만 개발자용 trace/report에는 디버깅을 위해 step 시점 screenshot을 별도로 저장할 수 있습니다. 이 이미지는 agent 입력에는 절대 들어가지 않습니다.
 
@@ -155,6 +157,8 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
   agent 자체는 그 이미지를 보지 못합니다.
 - **입력 비용** — 전체 키 입력 수, 키 종류별 분포.
 - **타이밍 분해** — setup / report 와 각 step의 observe / decide / execute / verify 시간.
+- **세부 setup 타이밍** — browser launch / page load / VoiceOver init / first announcement wait.
+- **성공 근거 분리** — agent가 success라고 주장한 것과 verifier가 실제로 통과시킨 것을 따로 보여줍니다.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.
 - **Oracle check (선택)** — 에이전트가 자칭한 성공을 외부에서 독립적으로
   검증한 결과.
@@ -182,9 +186,9 @@ a11y/
 ```bash
 pnpm install
 pnpm build
-pnpm a11y-task run examples/tasks/add-to-cart.yml \
+pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard --out ./report
-open ./report/index.html
+open ./report/report/index.html
 ```
 
 macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
@@ -215,6 +219,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard \
   --out ./report \
+  --screenshots important \
   --provider openai-compatible \
   --model openrouter/auto \
   --base-url https://openrouter.ai/api/v1
@@ -222,6 +227,15 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
+
+`--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
+
+- `all` — 모든 step 저장
+- `important` — verdict step, verification step, 실행 실패 step, `typeText(task)`, `srCommand(act)` 만 저장
+- `failure-only` — 실패와 verifier 실패 위주로만 저장
+- `none` — screenreader 리포트용 개발자 스크린샷을 저장하지 않음
+
+keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영향을 받지 않습니다.
 
 ## 상태와 한계
 
