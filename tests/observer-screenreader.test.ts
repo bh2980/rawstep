@@ -199,4 +199,67 @@ describe("observer-screenreader", () => {
     expect(act).toHaveBeenCalled();
     expect(stop).toHaveBeenCalled();
   });
+
+  it("retries the initial observation once when the first capture is empty", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const evaluate = vi.fn(async () => undefined);
+    const runtime = await createVoiceOverRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate
+      } as never,
+      {
+        observeProfiles: {
+          initial: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 3
+          }
+        },
+        importGuidepup: async () => ({
+          voiceOver: {
+            start: vi.fn(async () => undefined),
+            stop: vi.fn(async () => undefined),
+            next: vi.fn(async () => undefined),
+            previous: vi.fn(async () => undefined),
+            act: vi.fn(async () => undefined),
+            perform: vi.fn(async () => undefined),
+            lastSpokenPhrase: vi
+              .fn<() => Promise<string>>()
+              .mockResolvedValueOnce("")
+              .mockResolvedValueOnce("Recovered initial announcement"),
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([]),
+            clearSpokenPhraseLog: vi.fn(async () => undefined),
+            keyboardCommands: {
+              findNextHeading: "findNextHeading",
+              findPreviousHeading: "findPreviousHeading",
+              findNextControl: "findNextControl",
+              findPreviousControl: "findPreviousControl"
+            }
+          }
+        })
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation).toEqual({
+      kind: "screenreader",
+      announcement: "Recovered initial announcement",
+      announcementCapture: "fallback"
+    });
+    expect(evaluate).toHaveBeenCalledTimes(4);
+  });
 });

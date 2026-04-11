@@ -49,6 +49,11 @@ export type RunTaskOptions = {
 
 export * from "./verifier";
 
+type RunnerObserver = {
+  observe(): Promise<Observation>;
+  prepareNextObservation?(profile: "initial" | "default" | "interactive"): void;
+};
+
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
@@ -226,6 +231,10 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         if (!execution.ok) {
           continue;
         }
+
+        if (shouldUseInteractiveObservation(decision)) {
+          observer.prepareNextObservation?.("interactive");
+        }
       } catch (error) {
         const message = getErrorMessage(error);
         const executeMs = Date.now() - executeStartedAt;
@@ -303,7 +312,7 @@ function createObserver(
   mode: Task["mode"],
   browser: BrowserSession,
   screenReaderRuntime?: ScreenReaderRuntime
-): { observe(): Promise<Observation> } {
+): RunnerObserver {
   if (isScreenReaderMode(mode)) {
     if (!screenReaderRuntime) {
       throw new Error("Screen reader runtime was not initialized.");
@@ -313,6 +322,10 @@ function createObserver(
   }
 
   return new KeyboardObserver(browser.page);
+}
+
+function shouldUseInteractiveObservation(decision: Extract<Decision, { action: unknown }>): boolean {
+  return "srCommand" in decision.action && decision.action.srCommand === "act";
 }
 
 function isScreenReaderMode(mode: UserModel): boolean {

@@ -655,6 +655,77 @@ describe("runTask", () => {
     });
   });
 
+  it("switches the next screenreader observation to interactive after a successful act command", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-interactive-"));
+    const observedProfiles: string[] = [];
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-interactive",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Activate the main button.",
+        mode: "screenreader-strict",
+        maxSteps: 3,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+
+              if (observeCalls === 1) {
+                return {
+                  kind: "screenreader",
+                  announcement: "Get started button",
+                  announcementCapture: "log"
+                };
+              }
+
+              return {
+                kind: "screenreader",
+                announcement: "Started!",
+                announcementCapture: "log"
+              };
+            },
+            prepareNextObservation: (profile) => {
+              observedProfiles.push(profile);
+            }
+          },
+          controller: {
+            execute: async () => undefined
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async () => {
+            if (observeCalls === 1) {
+              return {
+                action: { srCommand: "act" as const },
+                rationale: "Activate the button."
+              };
+            }
+
+            return {
+              verdict: "success" as const,
+              rationale: "The result announcement is present."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(observedProfiles).toEqual(["interactive"]);
+  });
+
   it("feeds verifier feedback back into the screenreader-hybrid path", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-verify-"));
     const seenHistorySources: string[][] = [];

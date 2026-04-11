@@ -140,7 +140,7 @@ export async function createVoiceOverRuntime(
 
   const readAnnouncement = createAnnouncementReader(voiceOver, dependencies.observeProfiles);
   const firstAnnouncementWaitStartedAt = Date.now();
-  const firstAnnouncement = await readAnnouncement("initial");
+  const firstAnnouncement = await captureInitialAnnouncement(page, readAnnouncement);
   const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
 
   return {
@@ -160,6 +160,22 @@ export async function createVoiceOverRuntime(
       await cleanupBootstrapFocus(page);
     }
   };
+}
+
+async function captureInitialAnnouncement(
+  page: Page,
+  readAnnouncement: AnnouncementReader
+): Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">> {
+  const firstAttempt = await readAnnouncement("initial");
+  if (firstAttempt.announcementCapture !== "none") {
+    return firstAttempt;
+  }
+
+  await focusPageRoot(page);
+  const secondAttempt = await readAnnouncement("initial");
+  return secondAttempt.announcementCapture === "none"
+    ? firstAttempt
+    : secondAttempt;
 }
 
 export function createAnnouncementReader(voiceOver: Pick<
