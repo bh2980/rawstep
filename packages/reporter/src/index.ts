@@ -200,6 +200,8 @@ function renderStep(step: StepRecord): string {
     : `<ul>
         <li>Announcement: ${step.observation.announcement ? escapeHtml(step.observation.announcement) : "<em>none captured</em>"}</li>
         <li>Announcement capture: <code>${escapeHtml(step.observation.announcementCapture)}</code></li>
+        <li>Announcement count: <code>${step.observation.announcementCount ?? 0}</code></li>
+        <li>Observe reason: <code>${escapeHtml(step.observation.observeReason ?? "unknown")}</code></li>
       </ul>`;
   const executionHtml = step.execution.ok
     ? `Execution ok. Cost delta: <code>${step.execution.costDelta}</code>`

@@ -117,6 +117,35 @@ settle(page):
 
 ---
 
+## §screenreader observe 규칙
+
+screenreader observe는 단발 읽기가 아니라 **폴링 기반 수집기**로 동작한다.
+
+- `spokenPhraseLog()` 를 짧은 간격으로 폴링한다.
+- 새 phrase가 들어오면 버퍼에 누적한다.
+- 마지막 새 phrase 이후 `silenceWindowMs` 동안 변화가 없으면 관측을 종료한다.
+- 그래도 너무 오래 걸리면 `maxObserveMs` 에서 종료한다.
+
+프로파일은 세 가지다.
+
+- `initial` — step 0 첫 발화 확보용. 가장 관대하게 기다린다.
+- `default` — 일반 탐색용.
+- `interactive` — `srCommand(act)` 직후처럼 상태 변화가 기대되는 step용.
+
+step 0은 `initial` 프로파일을 먼저 쓰고, 첫 결과가 `announcementCapture: "none"`이면
+페이지 루트에 다시 포커스를 맞춘 뒤 `initial` 로 한 번 더 재수집한다.
+
+`srCommand(act)` 가 성공적으로 실행된 step의 **다음 observation** 은 `interactive`
+프로파일을 사용한다.
+
+screenreader observation trace에는 아래 메타가 함께 저장된다.
+
+- `announcementCapture` — `log` | `fallback` | `none`
+- `announcementCount` — 이번 step에서 잡은 phrase 개수
+- `observeReason` — `silence` | `timeout` | `fallback`
+
+---
+
 ## §timeout / maxSteps / verdict 규칙
 
 | 상황 | `aggregate.endedBy` | `aggregate.result` | `failurePoint` |

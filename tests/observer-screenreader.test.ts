@@ -27,17 +27,21 @@ describe("observer-screenreader", () => {
       default: {
         pollIntervalMs: 1,
         silenceWindowMs: 1,
-        maxObserveMs: 3
+        maxObserveMs: 4
       }
     });
 
     await expect(reader()).resolves.toEqual({
       announcement: "Heading\nGet started button",
-      announcementCapture: "log"
+      announcementCapture: "log",
+      announcementCount: 2,
+      observeReason: "silence"
     });
     await expect(reader()).resolves.toEqual({
       announcement: "",
-      announcementCapture: "none"
+      announcementCapture: "none",
+      announcementCount: 0,
+      observeReason: "timeout"
     });
   });
 
@@ -60,7 +64,9 @@ describe("observer-screenreader", () => {
 
     await expect(reader("initial")).resolves.toEqual({
       announcement: "Main landmark",
-      announcementCapture: "fallback"
+      announcementCapture: "fallback",
+      announcementCount: 1,
+      observeReason: "fallback"
     });
   });
 
@@ -84,7 +90,9 @@ describe("observer-screenreader", () => {
 
     await expect(reader()).resolves.toEqual({
       announcement: "Welcome\nMain landmark",
-      announcementCapture: "log"
+      announcementCapture: "log",
+      announcementCount: 2,
+      observeReason: "silence"
     });
   });
 
@@ -180,12 +188,16 @@ describe("observer-screenreader", () => {
     expect(firstObservation).toEqual({
       kind: "screenreader",
       announcement: "Initial announcement",
-      announcementCapture: "log"
+      announcementCapture: "log",
+      announcementCount: 1,
+      observeReason: "silence"
     });
     expect(secondObservation).toEqual({
       kind: "screenreader",
       announcement: "After next item",
       announcementCapture: "log",
+      announcementCount: 1,
+      observeReason: "silence",
       previousAnnouncement: "Initial announcement"
     });
     expect(runtime.setupTimings.voiceOverInitMs).toBeGreaterThanOrEqual(0);
@@ -258,7 +270,9 @@ describe("observer-screenreader", () => {
     expect(firstObservation).toEqual({
       kind: "screenreader",
       announcement: "Recovered initial announcement",
-      announcementCapture: "fallback"
+      announcementCapture: "fallback",
+      announcementCount: 1,
+      observeReason: "fallback"
     });
     expect(evaluate).toHaveBeenCalledTimes(4);
   });

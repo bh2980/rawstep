@@ -77,6 +77,8 @@ export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
   announcementCapture: "log" | "fallback" | "none";
+  announcementCount?: number;
+  observeReason?: "silence" | "timeout" | "fallback";
   previousAnnouncement?: string;
 };
 
@@ -134,6 +136,8 @@ export type RecordedScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
   announcementCapture: "log" | "fallback" | "none";
+  announcementCount?: number;
+  observeReason?: "silence" | "timeout" | "fallback";
   screenshot?: {
     path: string;
     viewport: { w: number; h: number };

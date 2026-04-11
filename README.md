@@ -119,6 +119,9 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 직전 announcement 1개 (사람의 단기 청각 기억 등가물)
 - announcement를 어떻게 잡았는지 나타내는 capture 메타
   (`log`, `fallback`, `none`)는 trace/report에만 저장하고, agent 프롬프트에는 넣지 않습니다.
+- trace/report에는 `announcementCount`, `observeReason` 도 함께 저장합니다.
+  즉 이번 step에서 몇 개의 spoken phrase를 붙잡았는지, silence로 관측을 닫았는지
+  timeout/fallback으로 닫았는지를 사람이 나중에 읽을 수 있습니다.
 - agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
 - 다만 개발자용 trace/report에는 디버깅을 위해 step 시점 screenshot을 별도로 저장할 수 있습니다. 이 이미지는 agent 입력에는 절대 들어가지 않습니다.
 
@@ -158,6 +161,8 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 - **입력 비용** — 전체 키 입력 수, 키 종류별 분포.
 - **타이밍 분해** — setup / report 와 각 step의 observe / decide / execute / verify 시간.
 - **세부 setup 타이밍** — browser launch / page load / VoiceOver init / first announcement wait.
+- **관측 근거** — screenreader step마다 announcement capture 경로, phrase 수,
+  observe 종료 이유(`silence`, `timeout`, `fallback`)를 같이 보여줍니다.
 - **성공 근거 분리** — agent가 success라고 주장한 것과 verifier가 실제로 통과시킨 것을 따로 보여줍니다.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.
 - **Oracle check (선택)** — 에이전트가 자칭한 성공을 외부에서 독립적으로

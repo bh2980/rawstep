@@ -99,13 +99,17 @@ export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;              // 직전 action 이후 SR이 말한 텍스트 전부
   announcementCapture: "log" | "fallback" | "none";
+  announcementCount?: number;
+  observeReason?: "silence" | "timeout" | "fallback";
   previousAnnouncement?: string;     // 직전 1개
 };
 
 export type Observation = KeyboardObservation | ScreenReaderObservation;
 ```
 
-screenreader 모드의 **agent observation** 은 announcement-only다. `announcementCapture` 와 개발자 디버깅용 screenshot은 trace/report에만 저장되고 agent 프롬프트에는 전달되지 않는다.
+screenreader 모드의 **agent observation** 은 announcement-only다. `announcementCapture`,
+`announcementCount`, `observeReason` 와 개발자 디버깅용 screenshot은 trace/report에만
+저장되고 agent 프롬프트에는 전달되지 않는다.
 
 **KeyboardObservation JSON 예시**
 

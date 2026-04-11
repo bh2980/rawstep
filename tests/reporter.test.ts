@@ -107,6 +107,8 @@ describe("reporter", () => {
               kind: "screenreader",
               announcement: "Get started button",
               announcementCapture: "log",
+              announcementCount: 1,
+              observeReason: "silence",
               screenshot: {
                 path: "screenshots/step-000.png",
                 viewport: { w: 1280, h: 800 }
@@ -157,6 +159,9 @@ describe("reporter", () => {
     expect(html).toContain("Get started button");
     expect(html).toContain("Announcement capture");
     expect(html).toContain("log");
+    expect(html).toContain("Announcement count");
+    expect(html).toContain("Observe reason");
+    expect(html).toContain("silence");
     expect(html).toContain("../screenshots/step-000.png");
     expect(html).not.toContain("No screenshot");
   });

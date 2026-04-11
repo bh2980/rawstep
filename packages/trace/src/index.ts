@@ -154,7 +154,9 @@ export class TraceRecorder {
       const recorded: RecordedObservation = {
         kind: "screenreader",
         announcement: observation.announcement,
-        announcementCapture: observation.announcementCapture
+        announcementCapture: observation.announcementCapture,
+        announcementCount: observation.announcementCount,
+        observeReason: observation.observeReason
       };
 
       if (developerScreenshot) {

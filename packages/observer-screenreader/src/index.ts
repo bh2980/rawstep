@@ -58,14 +58,14 @@ const DEFAULT_OBSERVE_PROFILES: Record<ScreenReaderObserveProfileName, ScreenRea
     allowFallback: true
   },
   default: {
-    pollIntervalMs: 120,
-    silenceWindowMs: 700,
-    maxObserveMs: 4000,
+    pollIntervalMs: 100,
+    silenceWindowMs: 500,
+    maxObserveMs: 3000,
     allowFallback: false
   },
   interactive: {
     pollIntervalMs: 120,
-    silenceWindowMs: 700,
+    silenceWindowMs: 800,
     maxObserveMs: 5000,
     allowFallback: false
   }
@@ -73,16 +73,16 @@ const DEFAULT_OBSERVE_PROFILES: Record<ScreenReaderObserveProfileName, ScreenRea
 
 type AnnouncementReader = (
   profile?: ScreenReaderObserveProfileName
-) => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">>;
+) => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture" | "announcementCount" | "observeReason">>;
 
 export class ScreenReaderObserver {
   private previousAnnouncement?: string;
-  private pendingInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">;
+  private pendingInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture" | "announcementCount" | "observeReason">;
   private nextProfile: ScreenReaderObserveProfileName = "default";
 
   constructor(
     private readonly readAnnouncement: AnnouncementReader,
-    private readonly prefetchedInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">
+    private readonly prefetchedInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture" | "announcementCount" | "observeReason">
   ) {
     this.pendingInitialObservation = prefetchedInitialObservation;
   }
@@ -99,7 +99,9 @@ export class ScreenReaderObserver {
     const observation: ScreenReaderObservation = {
       kind: "screenreader",
       announcement: announcementState.announcement,
-      announcementCapture: announcementState.announcementCapture
+      announcementCapture: announcementState.announcementCapture,
+      announcementCount: announcementState.announcementCount,
+      observeReason: announcementState.observeReason
     };
 
     if (this.previousAnnouncement !== undefined) {
@@ -165,7 +167,7 @@ export async function createVoiceOverRuntime(
 async function captureInitialAnnouncement(
   page: Page,
   readAnnouncement: AnnouncementReader
-): Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">> {
+): Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture" | "announcementCount" | "observeReason">> {
   const firstAttempt = await readAnnouncement("initial");
   if (firstAttempt.announcementCapture !== "none") {
     return firstAttempt;
@@ -203,7 +205,9 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
         if (lastNewPhraseAt !== undefined && Date.now() - lastNewPhraseAt >= profile.silenceWindowMs) {
           return {
             announcement: collected.join("\n"),
-            announcementCapture: "log"
+            announcementCapture: "log",
+            announcementCount: collected.length,
+            observeReason: "silence"
           };
         }
       }
@@ -214,7 +218,9 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
     if (collected.length > 0) {
       return {
         announcement: collected.join("\n"),
-        announcementCapture: "log"
+        announcementCapture: "log",
+        announcementCount: collected.length,
+        observeReason: "timeout"
       };
     }
 
@@ -223,17 +229,23 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
       return fallback
         ? {
             announcement: fallback,
-            announcementCapture: "fallback"
+            announcementCapture: "fallback",
+            announcementCount: 1,
+            observeReason: "fallback"
           }
         : {
             announcement: "",
-            announcementCapture: "none"
+            announcementCapture: "none",
+            announcementCount: 0,
+            observeReason: "timeout"
           };
     }
 
     return {
       announcement: "",
-      announcementCapture: "none"
+      announcementCapture: "none",
+      announcementCount: 0,
+      observeReason: "timeout"
     };
   };
 }

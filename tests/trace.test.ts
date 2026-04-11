@@ -109,7 +109,9 @@ describe("TraceRecorder", () => {
       {
         kind: "screenreader",
         announcement: "Get started button",
-        announcementCapture: "log"
+        announcementCapture: "log",
+        announcementCount: 1,
+        observeReason: "silence"
       },
       { action: { srCommand: "nextItem" }, rationale: "Move to the next item." },
       { ok: true, costDelta: 1 },
@@ -128,6 +130,8 @@ describe("TraceRecorder", () => {
     if (session.steps[0].observation.kind === "screenreader") {
       expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
       expect(session.steps[0].observation.announcementCapture).toBe("log");
+      expect(session.steps[0].observation.announcementCount).toBe(1);
+      expect(session.steps[0].observation.observeReason).toBe("silence");
     }
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
   });
