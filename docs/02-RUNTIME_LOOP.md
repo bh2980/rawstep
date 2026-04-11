@@ -1,7 +1,7 @@
 # RUNTIME_LOOP
 
 > runner 구현의 **유일한 근거**. 이 문서와 다르게 구현하면 버그다.
-> 이 루프를 확장하지 말 것. 여기 있는 것만이 v1의 전부다.
+> 여기 적힌 루프가 현재 keyboard + screenreader 공통 실행 모델이다.
 
 ---
 
@@ -9,11 +9,15 @@
 
 ```
 runTask(task) -> TraceSession:
-  validate_mode(task.mode)                    # "screenreader" → throw
   trace = TraceRecorder(task)
-  browser = createBrowserSession(task.url)
-  observer = KeyboardObserver(browser.page)
-  actuator = Actuator(browser.page)
+  browser = createBrowserSession(task.url, headless = (task.mode != "screenreader"))
+  if task.mode == "keyboard":
+    observer = KeyboardObserver(browser.page)
+    screenReaderRuntime = null
+  else:
+    screenReaderRuntime = createVoiceOverRuntime(browser.page)
+    observer = screenReaderRuntime.observer
+  actuator = Actuator(browser.page, { screenReaderController: screenReaderRuntime?.controller })
   agent = LLMAgent(model, userModel=task.mode)
 
   deadline = now() + task.timeoutMs
@@ -28,6 +32,7 @@ runTask(task) -> TraceSession:
       ctx = {
         goal: task.goal,
         allowedKeys: ALLOWED_KEYS,
+        allowedScreenReaderCommands: SCREENREADER_COMMANDS if task.mode == "screenreader" else undefined,
         history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback),
       }
 
@@ -67,6 +72,8 @@ runTask(task) -> TraceSession:
       endedBy = "maxSteps"
 
   finally:
+    if screenReaderRuntime:
+      screenReaderRuntime.close()
     browser.close()
     trace.finalize(endedBy)
 
@@ -93,16 +100,16 @@ settle(page):
 
 ## §timeout / maxSteps / verdict 규칙
 
-| 상황 | `aggregate.endedBy` | `reachedGoal` | `failurePoint` |
+| 상황 | `aggregate.endedBy` | `aggregate.result` | `failurePoint` |
 |---|---|---|---|
-| agent가 `verdict:"success"` 반환 + verifier 통과 | `"success"` | `true` | 없음 |
-| agent가 `verdict:"success"` 반환 + verifier 실패 2회 | `"stuck"` | `false` | 마지막 step |
-| agent가 `verdict:"stuck"` 반환 | `"stuck"` | `false` | 마지막 step |
-| step 루프가 `maxSteps` 에 도달 | `"maxSteps"` | `false` | 마지막 step |
-| `now() >= deadline` | `"timeout"` | `false` | 마지막 완료된 step |
-| actuator가 NotAllowedKeyError throw | `"error"` | `false` | 에러 발생 step |
+| agent가 `verdict:"success"` 반환 + verifier 통과 | `"success"` | `"success"` | 없음 |
+| agent가 `verdict:"success"` 반환 + verifier 실패 2회 | `"stuck"` | `"failure"` | 마지막 step |
+| agent가 `verdict:"stuck"` 반환 | `"stuck"` | `"failure"` | 마지막 step |
+| step 루프가 `maxSteps` 에 도달 | `"maxSteps"` | `"failure"` | 마지막 step |
+| `now() >= deadline` | `"timeout"` | `"failure"` | 마지막 완료된 step |
+| actuator가 NotAllowedKeyError throw | `"error"` | `"failure"` | 에러 발생 step |
 
-**원칙**: `reachedGoal = (endedBy === "success")`. 다른 모든 경로는 false. oracle이 독립적으로 overwrite하는 필드는 v3+.
+**원칙**: `result = (endedBy === "success" ? "success" : "failure")`. 다른 모든 경로는 failure다. oracle이 독립적으로 overwrite하는 필드는 v3+.
 
 ---
 
@@ -127,8 +134,8 @@ agent에게 recentDecisions로 넘기는 최근 결정의 개수. 사람의 작�
 
 ## §금지 사항 (runner 구현 시)
 
-- `page.evaluate`, `page.$`, `page.$$`, `page.locator` 사용 금지
+- runner와 agent에서는 `page.evaluate`, `page.$`, `page.$$`, `page.locator` 사용 금지
 - `page.accessibility.snapshot()` 사용 금지 (D-002, D-007)
 - `page.waitForSelector`, `page.waitForFunction` 사용 금지 (DOM 암묵적 접근)
-- 허용된 Playwright API: `goto`, `keyboard.press`, `keyboard.type`, `screenshot`, `viewportSize`, `title`, `url`, `waitForLoadState("networkidle")`, `close`
+- 허용된 Playwright API: `goto`, `keyboard.press`, `keyboard.type`, `screenshot`, `viewportSize`, `title`, `url`, `waitForLoadState("networkidle")`, `close`, `bringToFront`
 - 새 Playwright API를 쓰고 싶으면 D-002 위반 여부부터 확인하고 DECISIONS.md 에 추가 결정을 남긴다

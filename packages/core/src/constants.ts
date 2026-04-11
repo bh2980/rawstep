@@ -10,6 +10,16 @@ export const ALLOWED_KEYS = [
   "Escape"
 ] as const;
 
+export const SCREENREADER_COMMANDS = [
+  "nextItem",
+  "previousItem",
+  "nextHeading",
+  "previousHeading",
+  "nextFormControl",
+  "previousFormControl",
+  "act"
+] as const;
+
 export const SCROLL_HINTS = ["top", "middle", "bottom"] as const;
 
 export const DEFAULT_VIEWPORT = {
@@ -23,6 +33,7 @@ export const HISTORY_WINDOW = 8;
 export const SETTLE_MS = 120;
 
 export type AllowedKey = (typeof ALLOWED_KEYS)[number];
+export type ScreenReaderCommand = (typeof SCREENREADER_COMMANDS)[number];
 export type ScrollHint = (typeof SCROLL_HINTS)[number];
 
 export function isAllowedKey(value: string): value is AllowedKey {
@@ -31,6 +42,10 @@ export function isAllowedKey(value: string): value is AllowedKey {
 
 export function isScrollHint(value: string): value is ScrollHint {
   return (SCROLL_HINTS as readonly string[]).includes(value);
+}
+
+export function isScreenReaderCommand(value: string): value is ScreenReaderCommand {
+  return (SCREENREADER_COMMANDS as readonly string[]).includes(value);
 }
 
 export function createEmptyKeyCounts(): Record<AllowedKey, number> {

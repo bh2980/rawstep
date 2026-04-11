@@ -13,6 +13,7 @@
     "@a11y-task/browser": "workspace:*",
     "@a11y-task/core": "workspace:*",
     "@a11y-task/observer-keyboard": "workspace:*",
+    "@a11y-task/observer-screenreader": "workspace:*",
     "@a11y-task/trace": "workspace:*"
   }
 }

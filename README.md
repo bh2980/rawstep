@@ -58,12 +58,13 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 ### `screenreader` — 시각장애, 키보드 + 스크린 리더
 
-- 관측 채널: [Guidepup](https://guidepup.dev/)을 통해 수집되는 screen
-  reader의 spoken announcement text (macOS VoiceOver / Windows NVDA).
-  에이전트는 **스크린 리더가 실제로 말한 내용만** 읽습니다.
-- 행동 공간: 위와 동일한 제한 키셋.
-- screenshot 없음. DOM 없음. accessibility tree 없음. 에이전트는 말 그대로
-  "보지 못합니다".
+- 관측 채널: [Guidepup](https://guidepup.dev/)을 통해 수집되는 macOS
+  VoiceOver의 spoken announcement text.
+- 행동 공간: 제한 키셋 + screen reader canonical command
+  (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
+  `nextFormControl`, `previousFormControl`, `act`).
+- screenshot 없음. DOM 없음. accessibility tree 없음. 브라우저 title/URL path
+  힌트도 없음. 에이전트는 말 그대로 "보지 못합니다".
 
 두 모델 모두 동일한 키 화이트리스트를 공유합니다. 이는 실제 사용자가
 갖는 행동 표면과 결과를 비교 가능한 수준으로 맞추기 위해서입니다.
@@ -112,6 +113,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 - 직전 액션 이후 screen reader가 실제로 말한 announcement 텍스트
 - 직전 announcement 1개 (사람의 단기 청각 기억 등가물)
+- agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
 
 ### 의도적으로 주지 않는 정보
 
@@ -177,6 +179,8 @@ pnpm a11y-task run examples/tasks/add-to-cart.yml \
 open ./report/index.html
 ```
 
+macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
+
 ### LLM provider 설정
 
 기본 provider는 `anthropic` 입니다.
@@ -215,7 +219,7 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
-- Screen reader 모드는 v1에서 macOS VoiceOver (Guidepup)만 지원합니다.
-  NVDA는 후속 릴리스 예정.
+- Screen reader 모드는 현재 macOS VoiceOver (Guidepup)만 지원합니다.
+  NVDA는 후속 릴리스 예정입니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.

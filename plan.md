@@ -26,7 +26,7 @@ README가 "무엇/왜"를 설명한다면, 이 문서는 "어떻게 만들 것�
 ### 비목표
 
 - 자동 판정/점수화 (axe와 경쟁하지 않는다)
-- 실제 보조기기의 완벽한 시뮬레이션 (VoiceOver의 모든 제스처 재현은 범위 밖)
+- 실제 보조기기의 완벽한 시뮬레이션 (현재는 macOS VoiceOver command subset만 구현)
 - 임의 텍스트 입력 (v1에서는 제외 — 한계로 명시)
 
 ---
@@ -146,7 +146,7 @@ a11y/
 | **observer-screenreader** | Guidepup VoiceOver/NVDA 구동, 직전 액션 이후의 spoken phrase + 직전 announcement 1개 수집 | `ScreenReaderObserver.observe() → ScreenReaderObservation` | guidepup, browser, core |
 | **agent** | LLM 호출, 시스템 프롬프트 주입, `(context, observation) → {action OR verdict, rationale}` 파싱. 컨텍스트(goal/allowedKeys/history)와 관측(screenshot or announcement)을 분리해 프롬프트 구성 | `LLMAgent(model, userModel)` | @anthropic-ai/sdk, core |
 | **runner** | 루프 제어, timeout / max step, step 조립, trace 기록 | `runTask(task, {observer, actuator, agent, trace})` | core, trace |
-| **trace** | append-only `StepRecord[]`, aggregate (`totalSteps`, `totalKeystrokes`, `reachedGoal`, `failurePoint`), JSON 직렬화 | `TraceRecorder` | core |
+| **trace** | append-only `StepRecord[]`, aggregate (`result`, `totalSteps`, `durationMs`, `actionCounts`, `terminatedAtStep`, `failurePoint`), JSON 직렬화 | `TraceRecorder` | core |
 | **reporter** | trace JSON → 정적 HTML 리포트(step 썸네일/트랜스크립트, 비용 차트, 실패 하이라이트) | `renderReport(trace, outDir)` | core |
 | **cli** | task yml 로드, 모드 선택, runner 구동, reporter 호출 | `a11y-task` 바이너리 | 모두 |
 
@@ -229,6 +229,6 @@ greenfield이므로 아래를 전부 신규 생성:
 ## 8. 열린 질문 (기본값 가정)
 
 1. **LLM 백엔드**: Anthropic SDK + `claude-opus-4-6`.
-2. **SR 대상**: v1은 macOS VoiceOver (Guidepup). NVDA는 후속.
-3. **텍스트 입력**: v1에서 제외, 필요 시 "blocked" 스텝으로 trace 기록.
+2. **스크린 리더 대상**: 현재는 macOS VoiceOver (Guidepup)만 구현. NVDA는 후속.
+3. **텍스트 입력**: 임의 자유 입력은 제외. task-scoped 고정 문자열만 허용.
 4. **패키지 매니저 / 언어**: pnpm workspace + TypeScript.

@@ -1,16 +1,29 @@
 import { Actuator, NotAllowedActionError } from "@a11y-task/actuator";
 import { LLMAgent, type LLMAgentOptions } from "@a11y-task/agent";
-import { closeBrowserSession, createBrowserSession, settlePage } from "@a11y-task/browser";
+import {
+  closeBrowserSession,
+  createBrowserSession,
+  settlePage,
+  type BrowserSession,
+  type CreateBrowserSessionOptions
+} from "@a11y-task/browser";
 import {
   ALLOWED_KEYS,
   HISTORY_WINDOW,
+  SCREENREADER_COMMANDS,
   type AgentHistoryEntry,
   type Agent,
   type EndedBy,
+  type Observation,
   type Task,
   type TraceSession
 } from "@a11y-task/core";
 import { KeyboardObserver } from "@a11y-task/observer-keyboard";
+import {
+  createVoiceOverRuntime,
+  type ScreenReaderRuntime,
+  type ScreenReaderRuntimeFactory
+} from "@a11y-task/observer-screenreader";
 import { TraceRecorder } from "@a11y-task/trace";
 import {
   formatVerificationFeedback,
@@ -22,25 +35,18 @@ export type RunTaskOptions = {
   outDir: string;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
+  browserSessionFactory?: (
+    url: string,
+    options?: CreateBrowserSessionOptions
+  ) => Promise<BrowserSession>;
+  screenReaderRuntimeFactory?: ScreenReaderRuntimeFactory;
 };
 
 export * from "./verifier";
 
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
-  if (task.mode !== "keyboard") {
-    throw new Error("screenreader mode is planned for v2. Use --mode keyboard in v1.");
-  }
-
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
-
-  const browser = await createBrowserSession(task.url);
-  const observer = new KeyboardObserver(browser.page);
-  const actuator = new Actuator(browser.page);
-  const agent = options.agent ?? new LLMAgent(task.mode, {
-    ...options.agentOptions,
-    taskInput: task.input
-  });
 
   const deadline = Date.now() + task.timeoutMs;
   const verifierFeedback: AgentHistoryEntry[] = [];
@@ -49,8 +55,28 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   let session: TraceSession | undefined;
   let unexpectedError: unknown;
   let failureReasonOverride: string | undefined;
+  let browser: BrowserSession | undefined;
+  let screenReaderRuntime: ScreenReaderRuntime | undefined;
+  let actuator: Actuator | undefined;
 
   try {
+    const browserFactory = options.browserSessionFactory ?? createBrowserSession;
+    browser = await browserFactory(task.url, {
+      headless: task.mode !== "screenreader"
+    });
+    screenReaderRuntime = task.mode === "screenreader"
+      ? await (options.screenReaderRuntimeFactory ?? createVoiceOverRuntime)(browser.page)
+      : undefined;
+
+    const observer = createObserver(task.mode, browser, screenReaderRuntime);
+    actuator = new Actuator(browser.page, {
+      screenReaderController: screenReaderRuntime?.controller
+    });
+    const agent = options.agent ?? new LLMAgent(task.mode, {
+      ...options.agentOptions,
+      taskInput: task.input
+    });
+
     for (let step = 0; step < task.maxSteps; step += 1) {
       if (Date.now() >= deadline) {
         endedBy = "timeout";
@@ -61,6 +87,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const context = {
         goal: task.goal,
         allowedKeys: ALLOWED_KEYS,
+        allowedScreenReaderCommands: task.mode === "screenreader"
+          ? SCREENREADER_COMMANDS
+          : undefined,
         history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback)
       };
       const decision = await agent.decide(context, observation);
@@ -130,8 +159,13 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     unexpectedError = error;
     endedBy = endedBy ?? "error";
   } finally {
-    await closeBrowserSession(browser);
-    session = await trace.finalize(endedBy ?? "error", actuator.keyCounts, failureReasonOverride);
+    if (screenReaderRuntime) {
+      await screenReaderRuntime.close();
+    }
+    if (browser) {
+      await closeBrowserSession(browser);
+    }
+    session = await trace.finalize(endedBy ?? "error", failureReasonOverride);
   }
 
   if (unexpectedError) {
@@ -154,4 +188,20 @@ function buildHistoryWindow(
   verifierFeedback: AgentHistoryEntry[]
 ): AgentHistoryEntry[] {
   return [...agentHistory, ...verifierFeedback].slice(-HISTORY_WINDOW);
+}
+
+function createObserver(
+  mode: Task["mode"],
+  browser: BrowserSession,
+  screenReaderRuntime?: ScreenReaderRuntime
+): { observe(): Promise<Observation> } {
+  if (mode === "screenreader") {
+    if (!screenReaderRuntime) {
+      throw new Error("Screen reader runtime was not initialized.");
+    }
+
+    return screenReaderRuntime.observer;
+  }
+
+  return new KeyboardObserver(browser.page);
 }

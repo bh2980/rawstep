@@ -29,6 +29,34 @@ describe("Actuator", () => {
     await expect(actuator.press("KeyA")).rejects.toBeInstanceOf(NotAllowedActionError);
   });
 
+  it("delegates screen reader commands to the configured controller", async () => {
+    const execute = vi.fn(async () => undefined);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined) }
+      } as never,
+      {
+        screenReaderController: { execute }
+      }
+    );
+
+    const result = await actuator.execute({ srCommand: "nextItem" });
+
+    expect(execute).toHaveBeenCalledWith("nextItem");
+    expect(result).toEqual({ ok: true, costDelta: 1 });
+    expect(actuator.cost).toBe(1);
+  });
+
+  it("rejects screen reader commands when no controller is configured", async () => {
+    const actuator = new Actuator({
+      keyboard: { press: vi.fn(async () => undefined) }
+    } as never);
+
+    await expect(actuator.execute({ srCommand: "nextItem" })).rejects.toThrow(
+      "Screen reader commands are not available"
+    );
+  });
+
   it("types task text into a focused input", async () => {
     const type = vi.fn(async () => undefined);
     const evaluate = vi.fn(async () => true);

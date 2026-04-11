@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
   ALLOWED_KEYS,
+  SCREENREADER_COMMANDS,
   isAllowedKey,
+  isScreenReaderCommand,
   type Agent,
   type AgentContext,
   type Decision,
@@ -82,7 +84,11 @@ export class LLMAgent implements Agent {
   private readonly taskInput?: TaskInput;
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
-    const systemPrompt = buildSystemPrompt(this.userModel, this.taskInput);
+    const systemPrompt = buildSystemPrompt(
+      this.userModel,
+      this.taskInput,
+      ctx.allowedScreenReaderCommands
+    );
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);
 
     try {
@@ -262,35 +268,16 @@ class StubProviderClient implements AgentProviderClient {
   }
 }
 
-export function buildSystemPrompt(userModel: UserModel, taskInput?: TaskInput): string {
-  const lines = [
-    `너는 ${userModel} 사용자를 시뮬레이션한다.`,
-    `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
-    "마우스 클릭과 자유 텍스트 입력은 사용할 수 없다.",
-    "너는 DOM, 셀렉터, 접근성 트리에 접근할 수 없다.",
-    "focus ring 또는 focus outline은 현재 키보드 포커스가 있는 요소 주위에 보이는 테두리나 강조 표시다.",
-    "키보드 과업에서는 현재 포커스 위치를 추정할 때 이 시각적 신호를 우선 사용하라.",
-    "Tab / Shift+Tab은 포커스 가능한 요소 사이를 앞뒤로 이동할 때 사용한다.",
-    "Enter / Space는 현재 포커스된 버튼, 링크, 컨트롤을 활성화할 때 사용한다.",
-    "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
-    "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
-    "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
-    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.',
-  ];
-
-  if (taskInput) {
-    lines.push('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
-    lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
-    lines.push("입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라.");
-    lines.push(
-      'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-    );
-  } else {
-    lines.push('JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}');
+export function buildSystemPrompt(
+  userModel: UserModel,
+  taskInput?: TaskInput,
+  allowedScreenReaderCommands: readonly string[] = SCREENREADER_COMMANDS
+): string {
+  if (userModel === "screenreader") {
+    return buildScreenReaderSystemPrompt(taskInput, allowedScreenReaderCommands);
   }
 
-  return lines.join("\n");
+  return buildKeyboardSystemPrompt(taskInput);
 }
 
 export function buildPromptParts(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): PromptPart[] {
@@ -367,7 +354,7 @@ export function parseDecision(raw: string): Decision {
 
   try {
     const candidate = JSON.parse(extractJsonObject(raw)) as {
-      action?: { key?: string; typeText?: string };
+      action?: { key?: string; typeText?: string; srCommand?: string };
       verdict?: string;
       rationale?: string;
     };
@@ -386,8 +373,9 @@ export function parseDecision(raw: string): Decision {
     if (candidate.action) {
       const key = candidate.action.key;
       const typeText = candidate.action.typeText;
+      const srCommand = candidate.action.srCommand;
 
-      if (Boolean(key) === Boolean(typeText)) {
+      if ([key, typeText, srCommand].filter(Boolean).length !== 1) {
         return malformedDecision(snippet);
       }
 
@@ -405,6 +393,13 @@ export function parseDecision(raw: string): Decision {
       if (typeText === "task") {
         return {
           action: { typeText: "task" },
+          rationale
+        };
+      }
+
+      if (srCommand && isScreenReaderCommand(srCommand)) {
+        return {
+          action: { srCommand },
           rationale
         };
       }
@@ -474,6 +469,71 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
         : "images: 현재 스크린샷 1장이 첨부되어 있다. 직전 스크린샷은 없다 (첫 번째 스텝)."
     );
   }
+
+  return lines.join("\n");
+}
+
+function buildKeyboardSystemPrompt(taskInput?: TaskInput): string {
+  const lines = [
+    "너는 keyboard 사용자를 시뮬레이션한다.",
+    `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
+    "마우스 클릭과 자유 텍스트 입력은 사용할 수 없다.",
+    "너는 DOM, 셀렉터, 접근성 트리에 접근할 수 없다.",
+    "focus ring 또는 focus outline은 현재 키보드 포커스가 있는 요소 주위에 보이는 테두리나 강조 표시다.",
+    "키보드 과업에서는 현재 포커스 위치를 추정할 때 이 시각적 신호를 우선 사용하라.",
+    "Tab / Shift+Tab은 포커스 가능한 요소 사이를 앞뒤로 이동할 때 사용한다.",
+    "Enter / Space는 현재 포커스된 버튼, 링크, 컨트롤을 활성화할 때 사용한다.",
+    "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
+    "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
+    "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+  ];
+
+  if (taskInput) {
+    lines.push('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
+    lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
+    lines.push("입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라.");
+    lines.push(
+      'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+    );
+  } else {
+    lines.push('JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}');
+  }
+
+  return lines.join("\n");
+}
+
+function buildScreenReaderSystemPrompt(
+  taskInput: TaskInput | undefined,
+  allowedScreenReaderCommands: readonly string[]
+): string {
+  const lines = [
+    "너는 전맹 screenreader 사용자를 시뮬레이션한다.",
+    "너는 화면을 볼 수 없다. 스크린샷이나 시각적 단서를 상상하지 마라.",
+    "너는 announcement와 recent history만 믿고 추론해야 한다.",
+    "너는 DOM, 셀렉터, 접근성 트리, 브라우저 제목, URL 경로에 접근할 수 없다.",
+    `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 이다.`,
+    `너에게 허용된 screenreader command는 ${allowedScreenReaderCommands.join(", ")} 이다.`,
+    "nextItem / previousItem은 읽기 커서를 앞뒤 항목으로 이동할 때 사용한다.",
+    "nextHeading / previousHeading은 제목 단위로 이동할 때 사용한다.",
+    "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
+    "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
+    "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+  ];
+
+  if (taskInput) {
+    lines.push('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
+    lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
+  }
+
+  lines.push(
+    taskInput
+      ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+      : 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+  );
 
   return lines.join("\n");
 }

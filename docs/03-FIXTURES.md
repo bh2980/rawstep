@@ -21,8 +21,8 @@
 > "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라."
 
 **기대 결과**
-- `reachedGoal: true`
-- `totalKeystrokes` ≤ 10 (Tab × 2 + Enter 가 최소)
+- `result: "success"`
+- `actionCounts.rawKeyCount` ≤ 10 (Tab × 2 + Enter 가 최소)
 - `endedBy: "success"`
 
 **왜 이 fixture가 있는가**: 전체 파이프라인이 살아있는지 매 커밋마다 확인하는 카나리. 실패하면 구현이 깨진 것.
@@ -43,7 +43,7 @@
 > "Dialog를 열었다가 Confirm 없이 닫아라. 페이지가 처음 상태로 돌아간 것이 보여야 한다."
 
 **기대 결과**
-- `reachedGoal: true`
+- `result: "success"`
 - step 수: Tab → Enter(open) → Escape(close) 최소. trace에 이 순서가 관찰되면 성공.
 - `endedBy: "success"`
 
@@ -66,10 +66,10 @@
 > "Buy now 버튼을 찾아서 활성화하라."
 
 **기대 결과** (둘 중 하나여야 한다)
-- `reachedGoal: false`, `endedBy: "stuck"` — agent가 "포커스 위치를 못 찾겠다"고 선언
-- `reachedGoal: false`, `endedBy: "maxSteps"` — agent가 무한 Tab을 돌다 소진
+- `result: "failure"`, `endedBy: "stuck"` — agent가 "포커스 위치를 못 찾겠다"고 선언
+- `result: "failure"`, `endedBy: "maxSteps"` — agent가 무한 Tab을 돌다 소진
 
-**왜 이 fixture가 있는가**: 만약 여기서 `reachedGoal: true` 가 나온다면, 둘 중 하나다.
+**왜 이 fixture가 있는가**: 만약 여기서 `result: "success"` 가 나온다면, 둘 중 하나다.
 1. agent가 DOM이나 activeElement를 어떻게든 보고 있다 → 치팅 발생, 즉시 버그 리포트
 2. focus indicator 부재가 우연히 문제가 안 됐다 (drop-through 성공) → goal 난이도를 올려서 재현 가능하게 만든다
 

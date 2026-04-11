@@ -44,18 +44,10 @@ describe("CLI", () => {
     await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
   });
 
-  it("rejects screenreader mode in v1", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-"));
-    const exitCode = await runCli([
-      "run",
-      resolve("examples/tasks/simple-cta.yml"),
-      "--mode",
-      "screenreader",
-      "--out",
-      outDir
-    ]);
+  it("loads screenreader mode tasks without rejecting them at parse time", async () => {
+    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader");
 
-    expect(exitCode).toBe(1);
+    expect(task.mode).toBe("screenreader");
   });
 
   it("parses provider CLI flags", () => {

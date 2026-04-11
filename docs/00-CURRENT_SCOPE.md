@@ -1,22 +1,24 @@
-# CURRENT_SCOPE (v1)
+# CURRENT_SCOPE
 
 > 이 문서는 **이번 단계의 범위를 강제**한다. 다른 모든 문서는 이 범위 안에서만 쓰인다.
 > 작업을 시작하기 전과 PR 전에 스캔한다.
 
 ## 이번 단계 목표
 
-**v1**: `keyboard` 모드 하나로 관측–판단–행동 루프를 end-to-end로 완성하고, 3개의 로컬 fixture에 대해 trace + 최소 HTML 리포트를 생성한다.
+**현재 단계**: `keyboard` 와 `screenreader` 모드를 모두 end-to-end로 완성하고, 로컬 fixture에 대해 trace + 최소 HTML 리포트를 생성한다.
 
 ## 포함 (v1 delivery)
 
 **모드**
-- `keyboard` only
+- `keyboard`
+- `screenreader` (macOS VoiceOver + Guidepup)
 
 **패키지**
-- `core` — 모든 타입 정의 (`ScreenReaderObservation` 포함 — 타입만 선언, 구현 없음)
+- `core` — 모든 타입 정의 (`ScreenReaderObservation`, `ScreenReaderCommand` 포함)
 - `browser` — Playwright 세션 래퍼
 - `actuator` — 화이트리스트 키 입력기
 - `observer-keyboard` — screenshot 관측자
+- `observer-screenreader` — Guidepup VoiceOver announcement 관측자
 - `agent` — provider 어댑터 (`anthropic` + `openai-compatible` + `stub`)
 - `runner` — 관측–판단–행동 루프
 - `trace` — append-only TraceRecorder
@@ -30,19 +32,16 @@
 
 **산출물**
 - `trace.jsonl` (step별 append)
-- `metrics.json` (집계: totalSteps, totalKeystrokes, reachedGoal, failurePoint)
+- `metrics.json` (집계: result, totalSteps, durationMs, actionCounts, terminatedAtStep, failurePoint)
 - `report/index.html` (step replay + 비용 요약 + 실패 하이라이트)
 
 **허용 키**
 `Tab`, `Shift+Tab`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Enter`, `Space`, `Escape`
 
-## 제외 (v1에 포함하지 않음)
+## 제외 (현재 단계에 포함하지 않음)
 
-- **`screenreader` 모드** → v2 (Guidepup VoiceOver). `--mode screenreader` 지정 시 명시적 에러.
-- **`observer-screenreader` 패키지** → v2에서 신설. v1에서는 파일/폴더 생성하지 않음.
 - **임의 자유 텍스트 입력** → 금지. 다만 task가 고정 문자열을 제공한 경우에만 제한된 text input action 허용
-- **Oracle 자동 검증** → v3+
-- **NVDA** → v3+
+- **NVDA** → 후속 릴리스
 - **다중 세션 병렬 실행** → v3+
 - **CI 통합** → v3+
 - **점수화 / 등급 산출** → 영구 비목표
@@ -54,11 +53,12 @@
 1. `pnpm install && pnpm -r build` 가 에러 없이 끝난다.
 2. `pnpm a11y-task run examples/tasks/simple-cta.yml --mode keyboard --out ./out/simple-cta` 가 에러 없이 끝난다.
 3. `out/simple-cta/trace.jsonl` 에 최소 1개 이상의 `StepRecord` 가 있다.
-4. `out/simple-cta/metrics.json` 에 `reachedGoal: true` 가 기록된다.
+4. `out/simple-cta/metrics.json` 에 `result: "success"` 가 기록된다.
 5. `out/simple-cta/report/index.html` 이 생성되고, 브라우저로 열었을 때 step replay가 렌더된다.
-6. `pnpm a11y-task run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus` 를 실행하면 `metrics.json` 의 `reachedGoal: false` 이고 `failurePoint` 가 기록된다.
-7. `pnpm a11y-task run <any> --mode screenreader` 는 명시적 에러로 종료 (v2 안내 포함).
-8. `packages/agent/` 에서 `page.evaluate`, `querySelector`, `activeElement`, `accessibility` 문자열이 grep 되지 않는다.
+6. `pnpm a11y-task run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus` 를 실행하면 `metrics.json` 의 `result: "failure"` 이고 `failurePoint` 가 기록된다.
+7. macOS에서 `pnpm a11y-task run <any> --mode screenreader` 실행 시 trace와 report가 생성된다.
+8. macOS가 아닌 환경에서 `--mode screenreader` 실행 시 명확한 환경 에러로 종료된다.
+9. `packages/agent/` 에서 `page.evaluate`, `querySelector`, `activeElement`, `accessibility` 문자열이 grep 되지 않는다.
 
 ## 참고
 

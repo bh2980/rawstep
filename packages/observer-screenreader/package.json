@@ -1,0 +1,16 @@
+{
+  "name": "@a11y-task/observer-screenreader",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@a11y-task/actuator": "workspace:*",
+    "@a11y-task/core": "workspace:*",
+    "@guidepup/guidepup": "^0.24.1",
+    "playwright": "^1.59.1"
+  }
+}

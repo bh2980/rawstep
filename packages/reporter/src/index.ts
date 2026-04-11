@@ -1,4 +1,4 @@
-import type { Action, AllowedKey, StepRecord, TraceSession } from "@a11y-task/core";
+import type { Action, StepRecord, TraceSession } from "@a11y-task/core";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 
@@ -14,7 +14,7 @@ export async function renderReport(session: TraceSession, outDir: string): Promi
 
 function renderHtml(session: TraceSession): string {
   const stepCards = session.steps.map((step) => renderStep(step)).join("\n");
-  const keyCounts = renderKeyCounts(session.aggregate.keyCounts);
+  const actionCounts = renderActionCounts(session.aggregate.actionCounts);
   const failureHtml = session.aggregate.failurePoint
     ? `<p class="failure">Failure point: step ${session.aggregate.failurePoint.stepIndex} - ${escapeHtml(session.aggregate.failurePoint.reason)}</p>`
     : "";
@@ -125,28 +125,32 @@ function renderHtml(session: TraceSession): string {
       <section class="hero">
         <h1>a11y-task report</h1>
         <p><strong>${escapeHtml(session.task.id)}</strong> - ${escapeHtml(session.task.goal)}</p>
-        <p>Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>. Reached goal: <code>${session.aggregate.reachedGoal ? "true" : "false"}</code>.</p>
+        <p>Result: <code>${escapeHtml(session.aggregate.result)}</code>. Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>.</p>
         ${failureHtml}
         <div class="summary">
+          <div class="summary-card">
+            <span class="label">Result</span>
+            <span class="value">${escapeHtml(session.aggregate.result)}</span>
+          </div>
           <div class="summary-card">
             <span class="label">Total steps</span>
             <span class="value">${session.aggregate.totalSteps}</span>
           </div>
           <div class="summary-card">
-            <span class="label">Keystrokes</span>
-            <span class="value">${session.aggregate.totalKeystrokes}</span>
+            <span class="label">Duration</span>
+            <span class="value">${session.aggregate.durationMs} ms</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Terminated at step</span>
+            <span class="value">${session.aggregate.terminatedAtStep ?? "-"}</span>
           </div>
           <div class="summary-card">
             <span class="label">Mode</span>
             <span class="value">${escapeHtml(session.task.mode)}</span>
           </div>
-          <div class="summary-card">
-            <span class="label">Started</span>
-            <span class="value">${escapeHtml(session.startedAt)}</span>
-          </div>
         </div>
-        <h2>Key distribution</h2>
-        ${keyCounts}
+        <h2>Action counts</h2>
+        ${actionCounts}
       </section>
       <section class="steps">
         ${stepCards}
@@ -198,16 +202,19 @@ function formatAction(action: Action): string {
     return action.key;
   }
 
+  if ("srCommand" in action) {
+    return `srCommand(${action.srCommand})`;
+  }
+
   return "typeText(task)";
 }
 
-function renderKeyCounts(keyCounts: Record<AllowedKey, number>): string {
-  const items = Object.entries(keyCounts)
-    .filter(([, count]) => count > 0)
-    .map(([key, count]) => `<li><code>${escapeHtml(key)}</code>: ${count}</li>`)
-    .join("");
-
-  return items ? `<ul>${items}</ul>` : "<p>No keys were pressed.</p>";
+function renderActionCounts(actionCounts: TraceSession["aggregate"]["actionCounts"]): string {
+  return `<ul>
+    <li><code>srCommandCount</code>: ${actionCounts.srCommandCount}</li>
+    <li><code>rawKeyCount</code>: ${actionCounts.rawKeyCount}</li>
+    <li><code>typeTextCount</code>: ${actionCounts.typeTextCount}</li>
+  </ul>`;
 }
 
 function toReportImagePath(relativeScreenshotPath: string): string {

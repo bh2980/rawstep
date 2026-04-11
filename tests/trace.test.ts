@@ -1,4 +1,4 @@
-import { createEmptyKeyCounts, type KeyboardObservation, type Task } from "@a11y-task/core";
+import type { KeyboardObservation, Task } from "@a11y-task/core";
 import { TraceRecorder } from "@a11y-task/trace";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -47,11 +47,16 @@ describe("TraceRecorder", () => {
       { ok: true, costDelta: 1 }
     );
 
-    const keyCounts = createEmptyKeyCounts();
-    keyCounts.Tab = 1;
-    const session = await recorder.finalize("stuck", keyCounts);
+    const session = await recorder.finalize("stuck");
 
-    expect(session.aggregate.totalKeystrokes).toBe(2);
+    expect(session.aggregate.result).toBe("failure");
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 0,
+      rawKeyCount: 1,
+      typeTextCount: 1
+    });
+    expect(session.aggregate.terminatedAtStep).toBe(1);
+    expect(session.aggregate.durationMs).toBeGreaterThanOrEqual(0);
     expect(session.aggregate.failurePoint?.stepIndex).toBe(1);
 
     const jsonl = await readFile(join(outDir, "trace.jsonl"), "utf8");

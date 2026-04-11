@@ -1,4 +1,11 @@
-import { createEmptyKeyCounts, isAllowedKey, type Action, type AllowedKey, type TaskInput } from "@a11y-task/core";
+import {
+  createEmptyKeyCounts,
+  isAllowedKey,
+  type Action,
+  type AllowedKey,
+  type ScreenReaderCommand,
+  type TaskInput
+} from "@a11y-task/core";
 import type { Page } from "playwright";
 
 export class NotAllowedActionError extends Error {
@@ -14,11 +21,20 @@ export type ActionExecutionResult = {
   error?: string;
 };
 
+export interface ScreenReaderController {
+  execute(command: ScreenReaderCommand): Promise<void>;
+}
+
 export class Actuator {
   readonly keyCounts: Record<AllowedKey, number>;
   cost = 0;
 
-  constructor(private readonly page: Page) {
+  constructor(
+    private readonly page: Page,
+    private readonly options: {
+      screenReaderController?: ScreenReaderController;
+    } = {}
+  ) {
     this.keyCounts = createEmptyKeyCounts();
   }
 
@@ -35,6 +51,18 @@ export class Actuator {
   async execute(action: Action, taskInput?: TaskInput): Promise<ActionExecutionResult> {
     if ("key" in action) {
       await this.press(action.key);
+      return { ok: true, costDelta: 1 };
+    }
+
+    if ("srCommand" in action) {
+      if (!this.options.screenReaderController) {
+        throw new NotAllowedActionError(
+          "Screen reader commands are not available without a screen reader controller."
+        );
+      }
+
+      await this.options.screenReaderController.execute(action.srCommand);
+      this.cost += 1;
       return { ok: true, costDelta: 1 };
     }
 

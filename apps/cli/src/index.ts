@@ -56,7 +56,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     process.stdout.write(
       [
         `Task ${session.task.id} finished with ${session.aggregate.endedBy}.`,
-        `Reached goal: ${session.aggregate.reachedGoal}.`,
+        `Result: ${session.aggregate.result}.`,
         `Outputs:`,
         `- ${resolve(options.outDir, "trace.jsonl")}`,
         `- ${resolve(options.outDir, "metrics.json")}`,
@@ -81,9 +81,6 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
   }
 
   const mode = overrideMode ?? parsed.mode ?? "keyboard";
-  if (mode !== "keyboard") {
-    throw new Error("screenreader mode is planned for v2. Use --mode keyboard in v1.");
-  }
 
   return {
     id: parsed.id ?? stripFileExtension(basename(absoluteTaskFile)),
@@ -99,7 +96,7 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
 
 export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
-    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard --out <dir>");
+    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard|screenreader --out <dir>");
   }
 
   const taskFile = argv[0];
@@ -190,7 +187,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 

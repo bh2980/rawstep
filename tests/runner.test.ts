@@ -1,4 +1,5 @@
 import { LLMAgent } from "@a11y-task/agent";
+import { createBrowserSession } from "@a11y-task/browser";
 import { runTask } from "@a11y-task/runner";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -31,8 +32,12 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("success");
-    expect(session.aggregate.reachedGoal).toBe(true);
-    expect(session.aggregate.totalKeystrokes).toBe(3);
+    expect(session.aggregate.result).toBe("success");
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 0,
+      rawKeyCount: 3,
+      typeTextCount: 0
+    });
     expect(session.steps.at(-1)?.verification?.passed).toBe(true);
   });
 
@@ -54,7 +59,7 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("stuck");
-    expect(session.aggregate.reachedGoal).toBe(false);
+    expect(session.aggregate.result).toBe("failure");
   });
 
   it("ends by maxSteps when the agent never returns a verdict", async () => {
@@ -347,9 +352,148 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("success");
-    expect(session.aggregate.totalKeystrokes).toBe(2);
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 0,
+      rawKeyCount: 1,
+      typeTextCount: 1
+    });
     expect(session.steps[0].execution).toEqual({ ok: true, costDelta: 1 });
     expect(session.steps[1].execution).toEqual({ ok: true, costDelta: 1 });
     expect(session.steps[2].verification?.passed).toBe(true);
+  });
+
+  it("runs the screenreader path with mocked announcements and canonical commands", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-"));
+    const observedCommands: string[] = [];
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-basic",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Find and activate the main call to action.",
+        mode: "screenreader",
+        maxSteps: 3,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+
+              if (observeCalls === 1) {
+                return {
+                  kind: "screenreader",
+                  announcement: "Simple CTA heading"
+                };
+              }
+
+              return {
+                kind: "screenreader",
+                announcement: "Get started button"
+              };
+            }
+          },
+          controller: {
+            execute: async (command) => {
+              observedCommands.push(command);
+            }
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async (ctx, obs) => {
+            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            expect(obs.kind).toBe("screenreader");
+
+            if (observeCalls === 1) {
+              return {
+                action: { srCommand: "nextItem" },
+                rationale: "Move to the next announced item."
+              };
+            }
+
+            return {
+              verdict: "success",
+              rationale: "The button announcement is present."
+            };
+          }
+        }
+      }
+    );
+
+    expect(observedCommands).toEqual(["nextItem"]);
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    expect(session.steps[0].decision).toEqual({
+      action: { srCommand: "nextItem" },
+      rationale: "Move to the next announced item."
+    });
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 1,
+      rawKeyCount: 0,
+      typeTextCount: 0
+    });
+  });
+
+  it("feeds verifier feedback back into the screenreader path", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-verify-"));
+    const seenHistorySources: string[][] = [];
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-verify",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Reach verified success.",
+        mode: "screenreader",
+        maxSteps: 3,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ textVisible: "Never appears" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Get started button"
+            })
+          },
+          controller: {
+            execute: async () => undefined
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async (ctx) => {
+            seenHistorySources.push(ctx.history.map((entry) => entry.source));
+            callCount += 1;
+
+            if (callCount === 1) {
+              return {
+                verdict: "success",
+                rationale: "Sounds complete."
+              };
+            }
+
+            return {
+              verdict: "stuck",
+              rationale: "Verifier says it is not complete."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(session.steps[0].verification?.passed).toBe(false);
+    expect(seenHistorySources[1]).toContain("verifier");
   });
 });

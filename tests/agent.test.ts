@@ -68,6 +68,18 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses valid screen reader command JSON", () => {
+    const decision = parseDecision('{"action":{"srCommand":"nextItem"},"rationale":"Move to the next announced item."}');
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect("srCommand" in decision.action).toBe(true);
+      if ("srCommand" in decision.action) {
+        expect(decision.action.srCommand).toBe("nextItem");
+      }
+    }
+  });
+
   it("turns malformed output into stuck verdict", () => {
     const decision = parseDecision("not valid json");
 
@@ -80,6 +92,16 @@ describe("agent helpers", () => {
 
   it("treats mixed key and typeText actions as malformed", () => {
     const decision = parseDecision('{"action":{"key":"Tab","typeText":"task"},"rationale":"Invalid."}');
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain("malformed decision");
+    }
+  });
+
+  it("treats mixed key and srCommand actions as malformed", () => {
+    const decision = parseDecision('{"action":{"key":"Tab","srCommand":"nextItem"},"rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -109,6 +131,19 @@ describe("agent helpers", () => {
     expect(prompt).toContain("고정 문자열");
     expect(prompt).toContain("임의 텍스트를 생성하거나 수정하지 마라");
     expect(prompt).toContain("입력 가능 여부는 화면 신호로만 추정");
+  });
+
+  it("builds the screenreader system prompt with announcement-only constraints", () => {
+    const prompt = buildSystemPrompt("screenreader");
+
+    expect(prompt).toContain("전맹 screenreader 사용자");
+    expect(prompt).toContain("announcement");
+    expect(prompt).toContain("화면을 볼 수 없다");
+    expect(prompt).toContain("nextItem");
+    expect(prompt).toContain("nextHeading");
+    expect(prompt).not.toContain("focus ring");
+    expect(prompt).toContain("브라우저 제목");
+    expect(prompt).toContain("스크린샷");
   });
 
   it("resolves anthropic config from the shared env vars", () => {
@@ -229,6 +264,8 @@ describe("buildUserPromptText", () => {
     const text = buildUserPromptText(makeKeyboardContext(), obs);
 
     expect(text).not.toContain("images:");
+    expect(text).toContain('"announcement":"Submit button"');
+    expect(text).not.toContain("urlPath");
   });
 
   it("task input text가 있으면 user prompt에 포함된다", () => {

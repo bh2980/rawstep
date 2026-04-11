@@ -28,8 +28,15 @@ export type BrowserSession = {
   close(): Promise<void>;
 };
 
-export async function createBrowserSession(url: string): Promise<BrowserSession> {
-  const browser = await chromium.launch({ headless: true });
+export type CreateBrowserSessionOptions = {
+  headless?: boolean;
+};
+
+export async function createBrowserSession(
+  url: string,
+  options: CreateBrowserSessionOptions = {}
+): Promise<BrowserSession> {
+  const browser = await chromium.launch({ headless: options.headless ?? true });
   const context = await browser.newContext({
     viewport: {
       width: DEFAULT_VIEWPORT.w,

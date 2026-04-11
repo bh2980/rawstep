@@ -1,4 +1,4 @@
-import type { AllowedKey, ScrollHint } from "./constants";
+import type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
 
 export {
   ALLOWED_KEYS,
@@ -6,13 +6,15 @@ export {
   DEFAULT_TIMEOUT_MS,
   DEFAULT_VIEWPORT,
   HISTORY_WINDOW,
+  SCREENREADER_COMMANDS,
   SETTLE_MS,
   SCROLL_HINTS,
   createEmptyKeyCounts,
   isAllowedKey,
+  isScreenReaderCommand,
   isScrollHint
 } from "./constants";
-export type { AllowedKey, ScrollHint } from "./constants";
+export type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
 
 export type UserModel = "keyboard" | "screenreader";
 
@@ -81,7 +83,8 @@ export type Observation = KeyboardObservation | ScreenReaderObservation;
 
 export type Action =
   | { key: AllowedKey }
-  | { typeText: "task" };
+  | { typeText: "task" }
+  | { srCommand: ScreenReaderCommand };
 export type Verdict = "success" | "stuck";
 export type EndedBy = Verdict | "maxSteps" | "timeout" | "error";
 
@@ -99,6 +102,7 @@ export type AgentHistoryEntry = {
 export type AgentContext = {
   goal: string;
   allowedKeys: readonly AllowedKey[];
+  allowedScreenReaderCommands?: readonly ScreenReaderCommand[];
   history: AgentHistoryEntry[];
 };
 
@@ -151,11 +155,20 @@ export type FailurePoint = {
   reason: string;
 };
 
+export type Result = "success" | "failure";
+
+export type ActionCounts = {
+  srCommandCount: number;
+  rawKeyCount: number;
+  typeTextCount: number;
+};
+
 export type TraceAggregate = {
+  result: Result;
   totalSteps: number;
-  totalKeystrokes: number;
-  keyCounts: Record<AllowedKey, number>;
-  reachedGoal: boolean;
+  durationMs: number;
+  actionCounts: ActionCounts;
+  terminatedAtStep: number | null;
   endedBy: EndedBy;
   failurePoint?: FailurePoint;
 };

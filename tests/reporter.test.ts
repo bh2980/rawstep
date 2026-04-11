@@ -48,20 +48,15 @@ describe("reporter", () => {
           }
         ],
         aggregate: {
+          result: "failure",
           totalSteps: 1,
-          totalKeystrokes: 1,
-          keyCounts: {
-            Tab: 0,
-            "Shift+Tab": 0,
-            ArrowUp: 0,
-            ArrowDown: 0,
-            ArrowLeft: 0,
-            ArrowRight: 0,
-            Enter: 0,
-            Space: 0,
-            Escape: 0
+          durationMs: 5000,
+          actionCounts: {
+            srCommandCount: 0,
+            rawKeyCount: 0,
+            typeTextCount: 1
           },
-          reachedGoal: false,
+          terminatedAtStep: 0,
           endedBy: "maxSteps"
         }
       } satisfies TraceSession,
@@ -70,6 +65,60 @@ describe("reporter", () => {
 
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("typeText(task)");
+    expect(html).toContain("typeTextCount");
+  });
+
+  it("renders screenreader actions in the HTML report", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-screenreader-"));
+    const reportPath = await renderReport(
+      {
+        task: {
+          id: "screenreader-task",
+          url: "file:///screenreader-task.html",
+          goal: "Move to the next announced item.",
+          mode: "screenreader",
+          maxSteps: 2,
+          timeoutMs: 1000
+        },
+        startedAt: "2026-04-12T00:00:00.000Z",
+        endedAt: "2026-04-12T00:00:03.000Z",
+        steps: [
+          {
+            step: 0,
+            timestamp: "2026-04-12T00:00:01.000Z",
+            observation: {
+              kind: "screenreader",
+              announcement: "Get started button"
+            },
+            decision: {
+              action: { srCommand: "nextItem" },
+              rationale: "Move the VoiceOver cursor forward."
+            },
+            execution: {
+              ok: true,
+              costDelta: 1
+            }
+          }
+        ],
+        aggregate: {
+          result: "failure",
+          totalSteps: 1,
+          durationMs: 3000,
+          actionCounts: {
+            srCommandCount: 1,
+            rawKeyCount: 0,
+            typeTextCount: 0
+          },
+          terminatedAtStep: 0,
+          endedBy: "maxSteps"
+        }
+      } satisfies TraceSession,
+      outDir
+    );
+
+    const html = await readFile(reportPath, "utf8");
+    expect(html).toContain("srCommand(nextItem)");
+    expect(html).toContain("Get started button");
   });
 
   it("renders verification results in the HTML report", async () => {
@@ -120,20 +169,15 @@ describe("reporter", () => {
           }
         ],
         aggregate: {
+          result: "failure",
           totalSteps: 1,
-          totalKeystrokes: 0,
-          keyCounts: {
-            Tab: 0,
-            "Shift+Tab": 0,
-            ArrowUp: 0,
-            ArrowDown: 0,
-            ArrowLeft: 0,
-            ArrowRight: 0,
-            Enter: 0,
-            Space: 0,
-            Escape: 0
+          durationMs: 5000,
+          actionCounts: {
+            srCommandCount: 0,
+            rawKeyCount: 0,
+            typeTextCount: 0
           },
-          reachedGoal: false,
+          terminatedAtStep: 0,
           endedBy: "stuck",
           failurePoint: {
             stepIndex: 0,

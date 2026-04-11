@@ -1,5 +1,5 @@
 import {
-  createEmptyKeyCounts,
+  type ActionCounts,
   type AgentHistoryEntry,
   type Decision,
   type EndedBy,
@@ -74,14 +74,14 @@ export class TraceRecorder {
 
   async finalize(
     endedBy: EndedBy,
-    keyCounts = createEmptyKeyCounts(),
     failureReasonOverride?: string
   ): Promise<TraceSession> {
-    const aggregate = buildAggregate(this.steps, endedBy, keyCounts, failureReasonOverride);
+    const endedAt = new Date().toISOString();
+    const aggregate = buildAggregate(this.steps, this.startedAt, endedAt, endedBy, failureReasonOverride);
     const session: TraceSession = {
       task: this.task,
       startedAt: this.startedAt,
-      endedAt: new Date().toISOString(),
+      endedAt,
       steps: [...this.steps],
       aggregate
     };
@@ -136,16 +136,18 @@ async function serializeKeyboardObservation(
 
 function buildAggregate(
   steps: StepRecord[],
+  startedAt: string,
+  endedAt: string,
   endedBy: EndedBy,
-  keyCounts: TraceAggregate["keyCounts"],
   failureReasonOverride?: string
 ): TraceAggregate {
-  const totalKeystrokes = steps.reduce((sum, step) => sum + step.execution.costDelta, 0);
+  const actionCounts = countActions(steps);
   const aggregate: TraceAggregate = {
+    result: endedBy === "success" ? "success" : "failure",
     totalSteps: steps.length,
-    totalKeystrokes,
-    keyCounts,
-    reachedGoal: endedBy === "success",
+    durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+    actionCounts,
+    terminatedAtStep: steps.length > 0 ? steps[steps.length - 1].step : null,
     endedBy
   };
 
@@ -157,6 +159,34 @@ function buildAggregate(
   }
 
   return aggregate;
+}
+
+function countActions(steps: StepRecord[]): ActionCounts {
+  return steps.reduce<ActionCounts>(
+    (counts, step) => {
+      if (!("action" in step.decision)) {
+        return counts;
+      }
+
+      if ("srCommand" in step.decision.action) {
+        counts.srCommandCount += 1;
+        return counts;
+      }
+
+      if ("key" in step.decision.action) {
+        counts.rawKeyCount += 1;
+        return counts;
+      }
+
+      counts.typeTextCount += 1;
+      return counts;
+    },
+    {
+      srCommandCount: 0,
+      rawKeyCount: 0,
+      typeTextCount: 0
+    }
+  );
 }
 
 function failureReason(endedBy: EndedBy, lastStep: StepRecord): string {
