@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@a11y-task/core": ["packages/core/src"],
+      "@a11y-task/browser": ["packages/browser/src"],
+      "@a11y-task/actuator": ["packages/actuator/src"],
+      "@a11y-task/observer-keyboard": ["packages/observer-keyboard/src"],
+      "@a11y-task/agent": ["packages/agent/src"],
+      "@a11y-task/runner": ["packages/runner/src"],
+      "@a11y-task/trace": ["packages/trace/src"],
+      "@a11y-task/reporter": ["packages/reporter/src"]
+    }
+  }
+}

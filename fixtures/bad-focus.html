@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bad Focus Fixture</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Georgia, serif;
+        background: linear-gradient(135deg, #f6e6df, #e8ebee);
+      }
+      main {
+        width: min(760px, calc(100vw - 48px));
+        padding: 40px;
+        background: rgba(255, 255, 255, 0.94);
+        border-radius: 26px;
+        box-shadow: 0 18px 48px rgba(48, 45, 56, 0.12);
+      }
+      a, button {
+        font: inherit;
+      }
+      button {
+        margin-top: 20px;
+        padding: 12px 20px;
+        border-radius: 999px;
+        border: none;
+        background: #7b1f25;
+        color: white;
+      }
+      *:focus {
+        outline: none;
+      }
+      #result[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Invisible focus state</h1>
+      <p>The page removes all focus outlines.</p>
+      <a href="#s1">Section 1</a>
+      <a href="#s2">Section 2</a>
+      <div>
+        <button id="cta" type="button">Buy now</button>
+      </div>
+      <p id="result" hidden>Purchased.</p>
+    </main>
+    <script>
+      const button = document.getElementById("cta");
+      const result = document.getElementById("result");
+      button.addEventListener("click", () => {
+        result.hidden = false;
+        document.title = "Bad Focus Completed";
+      });
+    </script>
+  </body>
+</html>

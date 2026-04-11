@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+
+import { LLMAgent } from "@a11y-task/agent";
+import {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_TIMEOUT_MS,
+  type Task,
+  type UserModel
+} from "@a11y-task/core";
+import { renderReport } from "@a11y-task/reporter";
+import { runTask } from "@a11y-task/runner";
+import { mkdir, readFile } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import YAML from "yaml";
+
+type CliRunOptions = {
+  taskFile: string;
+  mode?: UserModel;
+  outDir: string;
+};
+
+type TaskFileShape = Partial<Task> & {
+  url?: string;
+  goal?: string;
+  id?: string;
+};
+
+export async function runCli(argv = process.argv.slice(2)): Promise<number> {
+  try {
+    const command = argv[0];
+    if (command !== "run") {
+      printUsage();
+      return 1;
+    }
+
+    const options = parseRunArgs(argv.slice(1));
+    const task = await loadTask(options.taskFile, options.mode);
+    const agent = new LLMAgent(task.mode);
+
+    await mkdir(options.outDir, { recursive: true });
+    const session = await runTask(task, {
+      outDir: options.outDir,
+      agent
+    });
+    const reportPath = await renderReport(session, options.outDir);
+
+    process.stdout.write(
+      [
+        `Task ${session.task.id} finished with ${session.aggregate.endedBy}.`,
+        `Reached goal: ${session.aggregate.reachedGoal}.`,
+        `Outputs:`,
+        `- ${resolve(options.outDir, "trace.jsonl")}`,
+        `- ${resolve(options.outDir, "metrics.json")}`,
+        `- ${reportPath}`
+      ].join("\n") + "\n"
+    );
+
+    return 0;
+  } catch (error) {
+    process.stderr.write(`${getErrorMessage(error)}\n`);
+    return 1;
+  }
+}
+
+export async function loadTask(taskFile: string, overrideMode?: UserModel): Promise<Task> {
+  const absoluteTaskFile = resolve(taskFile);
+  const raw = await readFile(absoluteTaskFile, "utf8");
+  const parsed = YAML.parse(raw) as TaskFileShape;
+
+  if (!parsed.url || !parsed.goal) {
+    throw new Error("Task file must include url and goal.");
+  }
+
+  const mode = overrideMode ?? parsed.mode ?? "keyboard";
+  if (mode !== "keyboard") {
+    throw new Error("screenreader mode is planned for v2. Use --mode keyboard in v1.");
+  }
+
+  return {
+    id: parsed.id ?? stripFileExtension(basename(absoluteTaskFile)),
+    url: resolveTaskUrl(parsed.url, absoluteTaskFile),
+    goal: parsed.goal,
+    mode,
+    maxSteps: parsed.maxSteps ?? DEFAULT_MAX_STEPS,
+    timeoutMs: parsed.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  };
+}
+
+function parseRunArgs(argv: string[]): CliRunOptions {
+  if (argv.length === 0) {
+    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard --out <dir>");
+  }
+
+  const taskFile = argv[0];
+  let mode: UserModel | undefined;
+  let outDir: string | undefined;
+
+  for (let index = 1; index < argv.length; index += 1) {
+    const token = argv[index];
+    const next = argv[index + 1];
+
+    if (token === "--mode") {
+      if (!next) {
+        throw new Error("Missing value for --mode.");
+      }
+      mode = next as UserModel;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--out") {
+      if (!next) {
+        throw new Error("Missing value for --out.");
+      }
+      outDir = next;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${token}`);
+  }
+
+  if (!outDir) {
+    throw new Error("Missing --out <dir>.");
+  }
+
+  return {
+    taskFile,
+    mode,
+    outDir: resolve(outDir)
+  };
+}
+
+function resolveTaskUrl(rawUrl: string, taskFile: string): string {
+  if (/^https?:\/\//.test(rawUrl) || rawUrl.startsWith("file://")) {
+    return rawUrl;
+  }
+
+  const absolutePath = resolve(dirname(taskFile), rawUrl);
+  return pathToFileURL(absolutePath).toString();
+}
+
+function stripFileExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, "");
+}
+
+function printUsage(): void {
+  process.stderr.write("Usage: a11y-task run <task.yml> --mode keyboard --out <dir>\n");
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+if (require.main === module) {
+  void runCli().then((exitCode) => {
+    process.exitCode = exitCode;
+  });
+}

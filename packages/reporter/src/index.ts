@@ -1,0 +1,212 @@
+import type { AllowedKey, StepRecord, TraceSession } from "@a11y-task/core";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join, posix } from "node:path";
+
+export async function renderReport(session: TraceSession, outDir: string): Promise<string> {
+  const reportDir = join(outDir, "report");
+  const reportPath = join(reportDir, "index.html");
+
+  await mkdir(reportDir, { recursive: true });
+  await writeFile(reportPath, renderHtml(session), "utf8");
+
+  return reportPath;
+}
+
+function renderHtml(session: TraceSession): string {
+  const stepCards = session.steps.map((step) => renderStep(step)).join("\n");
+  const keyCounts = renderKeyCounts(session.aggregate.keyCounts);
+  const failureHtml = session.aggregate.failurePoint
+    ? `<p class="failure">Failure point: step ${session.aggregate.failurePoint.stepIndex} - ${escapeHtml(session.aggregate.failurePoint.reason)}</p>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>a11y-task report - ${escapeHtml(session.task.id)}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        background: #f4efe6;
+        color: #1f1b16;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background:
+          radial-gradient(circle at top left, rgba(201, 122, 72, 0.18), transparent 32%),
+          linear-gradient(180deg, #f7f1e8 0%, #eee1cf 100%);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+      .hero, .step {
+        background: rgba(255, 251, 246, 0.9);
+        border: 1px solid rgba(65, 45, 21, 0.12);
+        border-radius: 20px;
+        box-shadow: 0 18px 45px rgba(76, 48, 20, 0.08);
+      }
+      .hero {
+        padding: 24px;
+        margin-bottom: 24px;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .summary-card {
+        background: #fff7ef;
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #7a5d45;
+      }
+      .value {
+        display: block;
+        margin-top: 8px;
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .steps {
+        display: grid;
+        gap: 18px;
+      }
+      .step {
+        padding: 18px;
+      }
+      .step-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(280px, 1fr) minmax(260px, 320px);
+      }
+      img {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(65, 45, 21, 0.12);
+        background: #fff;
+      }
+      ul {
+        padding-left: 18px;
+      }
+      code {
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        background: rgba(65, 45, 21, 0.08);
+        padding: 2px 6px;
+        border-radius: 999px;
+      }
+      .failure {
+        color: #9c321a;
+        font-weight: 700;
+      }
+      @media (max-width: 820px) {
+        body {
+          padding: 16px;
+        }
+        .step-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>a11y-task report</h1>
+        <p><strong>${escapeHtml(session.task.id)}</strong> - ${escapeHtml(session.task.goal)}</p>
+        <p>Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>. Reached goal: <code>${session.aggregate.reachedGoal ? "true" : "false"}</code>.</p>
+        ${failureHtml}
+        <div class="summary">
+          <div class="summary-card">
+            <span class="label">Total steps</span>
+            <span class="value">${session.aggregate.totalSteps}</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Keystrokes</span>
+            <span class="value">${session.aggregate.totalKeystrokes}</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Mode</span>
+            <span class="value">${escapeHtml(session.task.mode)}</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Started</span>
+            <span class="value">${escapeHtml(session.startedAt)}</span>
+          </div>
+        </div>
+        <h2>Key distribution</h2>
+        ${keyCounts}
+      </section>
+      <section class="steps">
+        ${stepCards}
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+function renderStep(step: StepRecord): string {
+  const decision = "action" in step.decision
+    ? `Action: <code>${escapeHtml(step.decision.action.key)}</code>`
+    : `Verdict: <code>${escapeHtml(step.decision.verdict)}</code>`;
+  const screenshotHtml = step.observation.kind === "keyboard"
+    ? `<img src="${escapeHtml(toReportImagePath(step.observation.screenshot.path))}" alt="Step ${step.step} screenshot" />`
+    : `<div>No screenshot</div>`;
+  const observationHtml = step.observation.kind === "keyboard"
+    ? `<ul>
+        <li>Title: ${escapeHtml(step.observation.browserChrome.title)}</li>
+        <li>URL path: ${escapeHtml(step.observation.browserChrome.urlPath)}</li>
+        <li>Scroll hint: ${escapeHtml(step.observation.scrollHint ?? "top")}</li>
+      </ul>`
+    : `<p>${escapeHtml(step.observation.announcement)}</p>`;
+  const executionHtml = step.execution.ok
+    ? `Execution ok. Cost delta: <code>${step.execution.costDelta}</code>`
+    : `Execution failed. Error: <code>${escapeHtml(step.execution.error ?? "unknown")}</code>`;
+
+  return `<article class="step">
+    <h2>Step ${step.step}</h2>
+    <div class="step-grid">
+      <div>${screenshotHtml}</div>
+      <div>
+        <p>${decision}</p>
+        <p>${escapeHtml(step.decision.rationale)}</p>
+        ${observationHtml}
+        <p>${executionHtml}</p>
+        <p>Recorded at <code>${escapeHtml(step.timestamp)}</code></p>
+      </div>
+    </div>
+  </article>`;
+}
+
+function renderKeyCounts(keyCounts: Record<AllowedKey, number>): string {
+  const items = Object.entries(keyCounts)
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `<li><code>${escapeHtml(key)}</code>: ${count}</li>`)
+    .join("");
+
+  return items ? `<ul>${items}</ul>` : "<p>No keys were pressed.</p>";
+}
+
+function toReportImagePath(relativeScreenshotPath: string): string {
+  return posix.join("..", ...relativeScreenshotPath.split("/"));
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
