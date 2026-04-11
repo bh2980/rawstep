@@ -19,9 +19,16 @@ describe("observer-screenreader", () => {
       spokenPhraseLog: vi
         .fn<() => Promise<string[]>>()
         .mockResolvedValueOnce(["Heading", "Get started button"])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
       clearSpokenPhraseLog: vi.fn(async () => undefined),
       lastSpokenPhrase: vi.fn(async () => "Welcome")
+    }, {
+      default: {
+        pollIntervalMs: 1,
+        silenceWindowMs: 1,
+        maxObserveMs: 3
+      }
     });
 
     await expect(reader()).resolves.toEqual({
@@ -36,14 +43,48 @@ describe("observer-screenreader", () => {
 
   it("uses the last spoken phrase for the initial observation when the log is empty", async () => {
     const reader = createAnnouncementReader({
-      spokenPhraseLog: vi.fn(async () => []),
+      spokenPhraseLog: vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
       clearSpokenPhraseLog: vi.fn(async () => undefined),
       lastSpokenPhrase: vi.fn(async () => "Main landmark")
+    }, {
+      initial: {
+        pollIntervalMs: 1,
+        silenceWindowMs: 1,
+        maxObserveMs: 3
+      }
+    });
+
+    await expect(reader("initial")).resolves.toEqual({
+      announcement: "Main landmark",
+      announcementCapture: "fallback"
+    });
+  });
+
+  it("keeps polling until spoken phrases go quiet and then returns the collected text", async () => {
+    const reader = createAnnouncementReader({
+      spokenPhraseLog: vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce(["Welcome"])
+        .mockResolvedValueOnce(["Main landmark"])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
+      clearSpokenPhraseLog: vi.fn(async () => undefined),
+      lastSpokenPhrase: vi.fn(async () => "")
+    }, {
+      default: {
+        pollIntervalMs: 1,
+        silenceWindowMs: 1,
+        maxObserveMs: 6
+      }
     });
 
     await expect(reader()).resolves.toEqual({
-      announcement: "Main landmark",
-      announcementCapture: "fallback"
+      announcement: "Welcome\nMain landmark",
+      announcementCapture: "log"
     });
   });
 
@@ -78,7 +119,9 @@ describe("observer-screenreader", () => {
     const spokenPhraseLog = vi
       .fn<() => Promise<string[]>>()
       .mockResolvedValueOnce(["Initial announcement"])
-      .mockResolvedValueOnce(["After next item"]);
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(["After next item"])
+      .mockResolvedValueOnce([]);
 
     const evaluate = vi.fn(async () => undefined);
     const runtime = await createVoiceOverRuntime(
@@ -87,6 +130,18 @@ describe("observer-screenreader", () => {
         evaluate
       } as never,
       {
+        observeProfiles: {
+          initial: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 6
+          },
+          default: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 6
+          }
+        },
         importGuidepup: async () => ({
           voiceOver: {
             start,

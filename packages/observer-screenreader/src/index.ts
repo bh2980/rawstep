@@ -38,21 +38,63 @@ export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRun
 
 export type VoiceOverRuntimeDependencies = {
   importGuidepup?: () => Promise<GuidepupModule>;
+  observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
 };
+
+export type ScreenReaderObserveProfileName = "initial" | "default" | "interactive";
+
+type ScreenReaderObserveProfile = {
+  pollIntervalMs: number;
+  silenceWindowMs: number;
+  maxObserveMs: number;
+  allowFallback: boolean;
+};
+
+const DEFAULT_OBSERVE_PROFILES: Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile> = {
+  initial: {
+    pollIntervalMs: 120,
+    silenceWindowMs: 700,
+    maxObserveMs: 6000,
+    allowFallback: true
+  },
+  default: {
+    pollIntervalMs: 120,
+    silenceWindowMs: 700,
+    maxObserveMs: 4000,
+    allowFallback: false
+  },
+  interactive: {
+    pollIntervalMs: 120,
+    silenceWindowMs: 700,
+    maxObserveMs: 5000,
+    allowFallback: false
+  }
+};
+
+type AnnouncementReader = (
+  profile?: ScreenReaderObserveProfileName
+) => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">>;
 
 export class ScreenReaderObserver {
   private previousAnnouncement?: string;
   private pendingInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">;
+  private nextProfile: ScreenReaderObserveProfileName = "default";
 
   constructor(
-    private readonly readAnnouncement: () => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">>,
+    private readonly readAnnouncement: AnnouncementReader,
     private readonly prefetchedInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">
   ) {
     this.pendingInitialObservation = prefetchedInitialObservation;
   }
 
+  prepareNextObservation(profile: ScreenReaderObserveProfileName): void {
+    this.nextProfile = profile;
+  }
+
   async observe(): Promise<ScreenReaderObservation> {
-    const announcementState = this.pendingInitialObservation ?? await this.readAnnouncement();
+    const profile = this.pendingInitialObservation ? "initial" : this.nextProfile;
+    this.nextProfile = "default";
+    const announcementState = this.pendingInitialObservation ?? await this.readAnnouncement(profile);
     this.pendingInitialObservation = undefined;
     const observation: ScreenReaderObservation = {
       kind: "screenreader",
@@ -96,9 +138,9 @@ export async function createVoiceOverRuntime(
     );
   }
 
-  const readAnnouncement = createAnnouncementReader(voiceOver);
+  const readAnnouncement = createAnnouncementReader(voiceOver, dependencies.observeProfiles);
   const firstAnnouncementWaitStartedAt = Date.now();
-  const firstAnnouncement = await readAnnouncement();
+  const firstAnnouncement = await readAnnouncement("initial");
   const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
 
   return {
@@ -123,27 +165,44 @@ export async function createVoiceOverRuntime(
 export function createAnnouncementReader(voiceOver: Pick<
   VoiceOverApi,
   "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog"
->): () => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">> {
-  let firstObservation = true;
+>,
+profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {}
+): AnnouncementReader {
+  const resolvedProfiles = resolveObserveProfiles(profiles);
 
-  return async () => {
-    const log = await voiceOver.spokenPhraseLog();
-    const phrases = log
-      .map((phrase) => phrase.trim())
-      .filter(Boolean);
+  return async (profileName = "default") => {
+    const profile = resolvedProfiles[profileName];
+    const collected: string[] = [];
+    const startedAt = Date.now();
+    let lastNewPhraseAt: number | undefined;
 
-    await voiceOver.clearSpokenPhraseLog();
+    while (Date.now() - startedAt < profile.maxObserveMs) {
+      const phrases = await readAndClearSpokenPhrases(voiceOver);
+      if (phrases.length > 0) {
+        collected.push(...phrases);
+        lastNewPhraseAt = Date.now();
+      }
 
-    if (phrases.length > 0) {
-      firstObservation = false;
+      if (collected.length > 0) {
+        if (lastNewPhraseAt !== undefined && Date.now() - lastNewPhraseAt >= profile.silenceWindowMs) {
+          return {
+            announcement: collected.join("\n"),
+            announcementCapture: "log"
+          };
+        }
+      }
+
+      await sleep(profile.pollIntervalMs);
+    }
+
+    if (collected.length > 0) {
       return {
-        announcement: phrases.join("\n"),
+        announcement: collected.join("\n"),
         announcementCapture: "log"
       };
     }
 
-    if (firstObservation) {
-      firstObservation = false;
+    if (profile.allowFallback) {
       const fallback = (await voiceOver.lastSpokenPhrase()).trim();
       return fallback
         ? {
@@ -233,5 +292,33 @@ async function cleanupBootstrapFocus(page: Page): Promise<void> {
 
     target.removeAttribute("tabindex");
     target.removeAttribute("data-a11y-bootstrap-tabindex");
+  });
+}
+
+async function readAndClearSpokenPhrases(voiceOver: Pick<
+  VoiceOverApi,
+  "spokenPhraseLog" | "clearSpokenPhraseLog"
+>): Promise<string[]> {
+  const log = (await voiceOver.spokenPhraseLog()) ?? [];
+  const phrases = log
+    .map((phrase) => phrase.trim())
+    .filter(Boolean);
+  await voiceOver.clearSpokenPhraseLog();
+  return phrases;
+}
+
+function resolveObserveProfiles(
+  overrides: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>
+): Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile> {
+  return {
+    initial: { ...DEFAULT_OBSERVE_PROFILES.initial, ...overrides.initial },
+    default: { ...DEFAULT_OBSERVE_PROFILES.default, ...overrides.default },
+    interactive: { ...DEFAULT_OBSERVE_PROFILES.interactive, ...overrides.interactive }
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
   });
 }
