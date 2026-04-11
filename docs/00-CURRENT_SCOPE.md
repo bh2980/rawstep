@@ -5,13 +5,14 @@
 
 ## 이번 단계 목표
 
-**현재 단계**: `keyboard` 와 `screenreader` 모드를 모두 end-to-end로 완성하고, 로컬 fixture에 대해 trace + 최소 HTML 리포트를 생성한다.
+**현재 단계**: `keyboard`, `screenreader-strict`, `screenreader-hybrid` 모드를 end-to-end로 완성하고, 로컬 fixture에 대해 trace + 최소 HTML 리포트를 생성한다.
 
 ## 포함 (v1 delivery)
 
 **모드**
 - `keyboard`
-- `screenreader` (macOS VoiceOver + Guidepup)
+- `screenreader-strict` (macOS VoiceOver + Guidepup)
+- `screenreader-hybrid` (macOS VoiceOver + Guidepup)
 
 **패키지**
 - `core` — 모든 타입 정의 (`ScreenReaderObservation`, `ScreenReaderCommand` 포함)
@@ -56,9 +57,10 @@
 4. `out/simple-cta/metrics.json` 에 `result: "success"` 가 기록된다.
 5. `out/simple-cta/report/index.html` 이 생성되고, 브라우저로 열었을 때 step replay가 렌더된다.
 6. `pnpm a11y-task run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus` 를 실행하면 `metrics.json` 의 `result: "failure"` 이고 `failurePoint` 가 기록된다.
-7. macOS에서 `pnpm a11y-task run <any> --mode screenreader` 실행 시 trace와 report가 생성된다.
-8. macOS가 아닌 환경에서 `--mode screenreader` 실행 시 명확한 환경 에러로 종료된다.
-9. `packages/agent/` 에서 `page.evaluate`, `querySelector`, `activeElement`, `accessibility` 문자열이 grep 되지 않는다.
+7. macOS에서 `pnpm a11y-task run <any> --mode screenreader-strict` 실행 시 trace와 report가 생성된다.
+8. macOS에서 `pnpm a11y-task run <any> --mode screenreader-hybrid` 실행 시 trace와 report가 생성된다.
+9. macOS가 아닌 환경에서 `--mode screenreader-strict` 또는 `--mode screenreader-hybrid` 실행 시 명확한 환경 에러로 종료된다.
+10. `packages/agent/` 에서 `page.evaluate`, `querySelector`, `activeElement`, `accessibility` 문자열이 grep 되지 않는다.
 
 ## 참고
 

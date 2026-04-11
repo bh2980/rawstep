@@ -16,6 +16,7 @@ import {
   type EndedBy,
   type Observation,
   type Task,
+  type UserModel,
   type TraceSession
 } from "@a11y-task/core";
 import { KeyboardObserver } from "@a11y-task/observer-keyboard";
@@ -62,9 +63,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   try {
     const browserFactory = options.browserSessionFactory ?? createBrowserSession;
     browser = await browserFactory(task.url, {
-      headless: task.mode !== "screenreader"
+      headless: !isScreenReaderMode(task.mode)
     });
-    screenReaderRuntime = task.mode === "screenreader"
+    screenReaderRuntime = isScreenReaderMode(task.mode)
       ? await (options.screenReaderRuntimeFactory ?? createVoiceOverRuntime)(browser.page)
       : undefined;
 
@@ -86,8 +87,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const observation = await observer.observe();
       const context = {
         goal: task.goal,
-        allowedKeys: ALLOWED_KEYS,
-        allowedScreenReaderCommands: task.mode === "screenreader"
+        allowedKeys: allowsRawKeyActions(task.mode) ? ALLOWED_KEYS : [],
+        allowedScreenReaderCommands: isScreenReaderMode(task.mode)
           ? SCREENREADER_COMMANDS
           : undefined,
         history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback)
@@ -127,6 +128,10 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       }
 
       try {
+        if ("key" in decision.action && !allowsRawKeyActions(task.mode)) {
+          throw new NotAllowedActionError("Raw key actions are not allowed in screenreader-strict mode.");
+        }
+
         const execution = await actuator.execute(decision.action, task.input);
         await trace.append(step, observation, decision, execution);
 
@@ -195,7 +200,7 @@ function createObserver(
   browser: BrowserSession,
   screenReaderRuntime?: ScreenReaderRuntime
 ): { observe(): Promise<Observation> } {
-  if (mode === "screenreader") {
+  if (isScreenReaderMode(mode)) {
     if (!screenReaderRuntime) {
       throw new Error("Screen reader runtime was not initialized.");
     }
@@ -204,4 +209,12 @@ function createObserver(
   }
 
   return new KeyboardObserver(browser.page);
+}
+
+function isScreenReaderMode(mode: UserModel): boolean {
+  return mode === "screenreader-strict" || mode === "screenreader-hybrid";
+}
+
+function allowsRawKeyActions(mode: UserModel): boolean {
+  return mode === "keyboard" || mode === "screenreader-hybrid";
 }

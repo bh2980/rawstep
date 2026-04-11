@@ -133,17 +133,26 @@ describe("agent helpers", () => {
     expect(prompt).toContain("입력 가능 여부는 화면 신호로만 추정");
   });
 
-  it("builds the screenreader system prompt with announcement-only constraints", () => {
-    const prompt = buildSystemPrompt("screenreader");
+  it("builds the screenreader-strict system prompt without raw key examples", () => {
+    const prompt = buildSystemPrompt("screenreader-strict");
 
-    expect(prompt).toContain("전맹 screenreader 사용자");
+    expect(prompt).toContain("screenreader-strict");
     expect(prompt).toContain("announcement");
     expect(prompt).toContain("화면을 볼 수 없다");
+    expect(prompt).toContain("일반 키보드 탐색 키는 사용할 수 없다");
     expect(prompt).toContain("nextItem");
-    expect(prompt).toContain("nextHeading");
+    expect(prompt).not.toContain('"action":{"key":"Tab"}');
     expect(prompt).not.toContain("focus ring");
-    expect(prompt).toContain("브라우저 제목");
-    expect(prompt).toContain("스크린샷");
+  });
+
+  it("builds the screenreader-hybrid system prompt with raw key examples", () => {
+    const prompt = buildSystemPrompt("screenreader-hybrid");
+
+    expect(prompt).toContain("screenreader-hybrid");
+    expect(prompt).toContain("announcement");
+    expect(prompt).toContain("함께 사용할 수 있다");
+    expect(prompt).toContain('"action":{"key":"Tab"}');
+    expect(prompt).toContain("nextHeading");
   });
 
   it("resolves anthropic config from the shared env vars", () => {

@@ -44,10 +44,32 @@ describe("CLI", () => {
     await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
   });
 
-  it("loads screenreader mode tasks without rejecting them at parse time", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader");
+  it("loads screenreader-hybrid mode tasks without rejecting them at parse time", async () => {
+    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader-hybrid");
 
-    expect(task.mode).toBe("screenreader");
+    expect(task.mode).toBe("screenreader-hybrid");
+  });
+
+  it("loads screenreader-strict mode tasks without rejecting them at parse time", async () => {
+    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader-strict");
+
+    expect(task.mode).toBe("screenreader-strict");
+  });
+
+  it("rejects the removed legacy screenreader mode", async () => {
+    await expect(loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader" as never)).rejects.toThrow(
+      "Unsupported mode"
+    );
+  });
+
+  it("rejects legacy screenreader mode on the CLI", () => {
+    expect(() => parseRunArgs([
+      resolve("examples/tasks/simple-cta.yml"),
+      "--mode",
+      "screenreader",
+      "--out",
+      "./tmp/out"
+    ])).toThrow("Unsupported mode");
   });
 
   it("parses provider CLI flags", () => {

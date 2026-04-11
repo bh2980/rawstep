@@ -80,7 +80,7 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
     throw new Error("Task file must include url and goal.");
   }
 
-  const mode = overrideMode ?? parsed.mode ?? "keyboard";
+  const mode = parseUserModel(overrideMode ?? parsed.mode ?? "keyboard");
 
   return {
     id: parsed.id ?? stripFileExtension(basename(absoluteTaskFile)),
@@ -96,7 +96,7 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
 
 export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
-    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard|screenreader --out <dir>");
+    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir>");
   }
 
   const taskFile = argv[0];
@@ -114,7 +114,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       if (!next) {
         throw new Error("Missing value for --mode.");
       }
-      mode = next as UserModel;
+      mode = parseUserModel(next);
       index += 1;
       continue;
     }
@@ -187,7 +187,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 
@@ -214,6 +214,20 @@ function validateTaskInput(raw: unknown): Task["input"] {
   }
 
   return { text };
+}
+
+function parseUserModel(value: unknown): UserModel {
+  if (
+    value === "keyboard"
+    || value === "screenreader-strict"
+    || value === "screenreader-hybrid"
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    `Unsupported mode: ${String(value)}. Expected one of keyboard, screenreader-strict, screenreader-hybrid.`
+  );
 }
 
 if (require.main === module) {

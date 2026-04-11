@@ -1,7 +1,7 @@
 # RUNTIME_LOOP
 
 > runner 구현의 **유일한 근거**. 이 문서와 다르게 구현하면 버그다.
-> 여기 적힌 루프가 현재 keyboard + screenreader 공통 실행 모델이다.
+> 여기 적힌 루프가 현재 keyboard + screenreader-strict + screenreader-hybrid 공통 실행 모델이다.
 
 ---
 
@@ -10,7 +10,7 @@
 ```
 runTask(task) -> TraceSession:
   trace = TraceRecorder(task)
-  browser = createBrowserSession(task.url, headless = (task.mode != "screenreader"))
+  browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
   if task.mode == "keyboard":
     observer = KeyboardObserver(browser.page)
     screenReaderRuntime = null
@@ -31,8 +31,8 @@ runTask(task) -> TraceSession:
       obs = observer.observe()                # §settle 이 먼저 수행됨
       ctx = {
         goal: task.goal,
-        allowedKeys: ALLOWED_KEYS,
-        allowedScreenReaderCommands: SCREENREADER_COMMANDS if task.mode == "screenreader" else undefined,
+        allowedKeys: ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
+        allowedScreenReaderCommands: SCREENREADER_COMMANDS if task.mode != "keyboard" else undefined,
         history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback),
       }
 
@@ -58,6 +58,8 @@ runTask(task) -> TraceSession:
         endedBy = "stuck"; break
 
       try:
+        if decision.action.key and task.mode == "screenreader-strict":
+          throw NotAllowedKeyError("Raw key actions are not allowed in screenreader-strict mode.")
         execution = actuator.execute(decision.action, task.input)
         trace.append(step, obs, decision, execution)
         if !execution.ok:

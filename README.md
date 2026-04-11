@@ -27,7 +27,7 @@
 1. URL
 2. 자연어로 쓴 과업 (예: *"첫 번째 상품을 장바구니에 담고 장바구니 화면을
    연다"*)
-3. 사용자 모델: `keyboard` 또는 `screenreader`
+3. 사용자 모델: `keyboard`, `screenreader-strict`, 또는 `screenreader-hybrid`
 
 그러면 Playwright로 브라우저를 띄우고, 선택한 사용자 모델과 **동일한 관측/
 행동 제약** 아래에 AI 에이전트를 앉혀 시도를 시작합니다. 모든 step이
@@ -56,18 +56,22 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 행동 공간: `Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`.
 - 마우스 없음. 자유 타이핑 없음.
 
-### `screenreader` — 시각장애, 키보드 + 스크린 리더
+### `screenreader-strict` — 순수 SR 탐색 실험 모드
 
 - 관측 채널: [Guidepup](https://guidepup.dev/)을 통해 수집되는 macOS
   VoiceOver의 spoken announcement text.
-- 행동 공간: 제한 키셋 + screen reader canonical command
+- 행동 공간: screen reader canonical command
   (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
-  `nextFormControl`, `previousFormControl`, `act`).
+  `nextFormControl`, `previousFormControl`, `act`) + opt-in `typeText`.
 - screenshot 없음. DOM 없음. accessibility tree 없음. 브라우저 title/URL path
   힌트도 없음. 에이전트는 말 그대로 "보지 못합니다".
 
-두 모델 모두 동일한 키 화이트리스트를 공유합니다. 이는 실제 사용자가
-갖는 행동 표면과 결과를 비교 가능한 수준으로 맞추기 위해서입니다.
+### `screenreader-hybrid` — 현실적 사용 모드
+
+- 관측 채널: `screenreader-strict`와 동일.
+- 행동 공간: screen reader canonical command + 일반 키
+  (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + opt-in `typeText`.
+- 스크린 리더 탐색과 일반 키보드 입력을 같이 허용한다.
 
 ## 관측 채널과 행동 공간을 어떻게 제한하는가
 
@@ -109,7 +113,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 스크롤 위치 힌트 (`top`/`middle`/`bottom` 수준 — 스크롤바를 시각적으로
   보는 것에 준합니다. `scrollTop=1234px` 같은 정밀 수치는 주지 않습니다)
 
-**`screenreader` 모드 관측**
+**`screenreader-strict` / `screenreader-hybrid` 모드 관측**
 
 - 직전 액션 이후 screen reader가 실제로 말한 announcement 텍스트
 - 직전 announcement 1개 (사람의 단기 청각 기억 등가물)
@@ -219,7 +223,7 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
-- Screen reader 모드는 현재 macOS VoiceOver (Guidepup)만 지원합니다.
+- Screen reader strict/hybrid 모드는 현재 macOS VoiceOver (Guidepup)만 지원합니다.
   NVDA는 후속 릴리스 예정입니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.

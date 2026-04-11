@@ -273,8 +273,12 @@ export function buildSystemPrompt(
   taskInput?: TaskInput,
   allowedScreenReaderCommands: readonly string[] = SCREENREADER_COMMANDS
 ): string {
-  if (userModel === "screenreader") {
-    return buildScreenReaderSystemPrompt(taskInput, allowedScreenReaderCommands);
+  if (userModel === "screenreader-strict") {
+    return buildScreenReaderStrictSystemPrompt(taskInput, allowedScreenReaderCommands);
+  }
+
+  if (userModel === "screenreader-hybrid") {
+    return buildScreenReaderHybridSystemPrompt(taskInput, allowedScreenReaderCommands);
   }
 
   return buildKeyboardSystemPrompt(taskInput);
@@ -504,17 +508,52 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput): string {
   return lines.join("\n");
 }
 
-function buildScreenReaderSystemPrompt(
+function buildScreenReaderStrictSystemPrompt(
   taskInput: TaskInput | undefined,
   allowedScreenReaderCommands: readonly string[]
 ): string {
   const lines = [
-    "너는 전맹 screenreader 사용자를 시뮬레이션한다.",
+    "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-strict 이다.",
+    "너는 화면을 볼 수 없다. 스크린샷이나 시각적 단서를 상상하지 마라.",
+    "너는 announcement와 recent history만 믿고 추론해야 한다.",
+    "너는 DOM, 셀렉터, 접근성 트리, 브라우저 제목, URL 경로에 접근할 수 없다.",
+    "일반 키보드 탐색 키는 사용할 수 없다.",
+    `너에게 허용된 screenreader command는 ${allowedScreenReaderCommands.join(", ")} 이다.`,
+    "nextItem / previousItem은 읽기 커서를 앞뒤 항목으로 이동할 때 사용한다.",
+    "nextHeading / previousHeading은 제목 단위로 이동할 때 사용한다.",
+    "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
+    "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
+    "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+  ];
+
+  if (taskInput) {
+    lines.push('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
+    lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
+  }
+
+  lines.push(
+    taskInput
+      ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+      : 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+  );
+
+  return lines.join("\n");
+}
+
+function buildScreenReaderHybridSystemPrompt(
+  taskInput: TaskInput | undefined,
+  allowedScreenReaderCommands: readonly string[]
+): string {
+  const lines = [
+    "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-hybrid 이다.",
     "너는 화면을 볼 수 없다. 스크린샷이나 시각적 단서를 상상하지 마라.",
     "너는 announcement와 recent history만 믿고 추론해야 한다.",
     "너는 DOM, 셀렉터, 접근성 트리, 브라우저 제목, URL 경로에 접근할 수 없다.",
     `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 이다.`,
     `너에게 허용된 screenreader command는 ${allowedScreenReaderCommands.join(", ")} 이다.`,
+    "이 모드에서는 screenreader command와 일반 키를 함께 사용할 수 있다.",
     "nextItem / previousItem은 읽기 커서를 앞뒤 항목으로 이동할 때 사용한다.",
     "nextHeading / previousHeading은 제목 단위로 이동할 때 사용한다.",
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",

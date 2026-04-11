@@ -68,7 +68,7 @@ describe("reporter", () => {
     expect(html).toContain("typeTextCount");
   });
 
-  it("renders screenreader actions in the HTML report", async () => {
+  it("renders screenreader-hybrid actions in the HTML report", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-screenreader-"));
     const reportPath = await renderReport(
       {
@@ -76,7 +76,7 @@ describe("reporter", () => {
           id: "screenreader-task",
           url: "file:///screenreader-task.html",
           goal: "Move to the next announced item.",
-          mode: "screenreader",
+          mode: "screenreader-hybrid",
           maxSteps: 2,
           timeoutMs: 1000
         },

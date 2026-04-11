@@ -362,7 +362,7 @@ describe("runTask", () => {
     expect(session.steps[2].verification?.passed).toBe(true);
   });
 
-  it("runs the screenreader path with mocked announcements and canonical commands", async () => {
+  it("runs the screenreader-hybrid path with mocked announcements and canonical commands", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-"));
     const observedCommands: string[] = [];
     let observeCalls = 0;
@@ -372,7 +372,7 @@ describe("runTask", () => {
         id: "screenreader-basic",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Find and activate the main call to action.",
-        mode: "screenreader",
+        mode: "screenreader-hybrid",
         maxSteps: 3,
         timeoutMs: 60_000
       },
@@ -439,7 +439,129 @@ describe("runTask", () => {
     });
   });
 
-  it("feeds verifier feedback back into the screenreader path", async () => {
+  it("fails when screenreader-strict returns a raw key action", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-key-"));
+
+    const session = await runTask(
+      {
+        id: "screenreader-strict-key",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Do not allow raw keys.",
+        mode: "screenreader-strict",
+        maxSteps: 2,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Simple CTA heading"
+            })
+          },
+          controller: {
+            execute: async () => undefined
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async (ctx) => {
+            expect(ctx.allowedKeys).toEqual([]);
+            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            return {
+              action: { key: "Tab" },
+              rationale: "This should be rejected in strict mode."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("error");
+    expect(session.steps[0].execution.error).toBe("Raw key actions are not allowed in screenreader-strict mode.");
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 0,
+      rawKeyCount: 1,
+      typeTextCount: 0
+    });
+  });
+
+  it("runs the screenreader-strict path with screen reader commands only", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-"));
+    const observedCommands: string[] = [];
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-strict-basic",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Find and activate the main call to action.",
+        mode: "screenreader-strict",
+        maxSteps: 3,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+
+              if (observeCalls === 1) {
+                return {
+                  kind: "screenreader",
+                  announcement: "Simple CTA heading"
+                };
+              }
+
+              return {
+                kind: "screenreader",
+                announcement: "Get started button"
+              };
+            }
+          },
+          controller: {
+            execute: async (command) => {
+              observedCommands.push(command);
+            }
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async (ctx, obs) => {
+            expect(ctx.allowedKeys).toEqual([]);
+            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            expect(obs.kind).toBe("screenreader");
+
+            if (observeCalls === 1) {
+              return {
+                action: { srCommand: "nextItem" },
+                rationale: "Move to the next announced item."
+              };
+            }
+
+            return {
+              verdict: "success",
+              rationale: "The button announcement is present."
+            };
+          }
+        }
+      }
+    );
+
+    expect(observedCommands).toEqual(["nextItem"]);
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 1,
+      rawKeyCount: 0,
+      typeTextCount: 0
+    });
+  });
+
+  it("feeds verifier feedback back into the screenreader-hybrid path", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-verify-"));
     const seenHistorySources: string[][] = [];
     let callCount = 0;
@@ -449,7 +571,7 @@ describe("runTask", () => {
         id: "screenreader-verify",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Reach verified success.",
-        mode: "screenreader",
+        mode: "screenreader-hybrid",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {

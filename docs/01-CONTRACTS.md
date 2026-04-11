@@ -8,13 +8,13 @@
 ## §1. Task
 
 ```ts
-export type UserModel = "keyboard" | "screenreader";
+export type UserModel = "keyboard" | "screenreader-strict" | "screenreader-hybrid";
 
 export type Task = {
   id: string;              // kebab-case, 파일명과 일치
   url: string;             // http(s):// 또는 file:// 허용
   goal: string;            // 자연어 과업 설명 (agent 프롬프트에 그대로 삽입)
-  mode: UserModel;         // "keyboard" | "screenreader"
+  mode: UserModel;         // "keyboard" | "screenreader-strict" | "screenreader-hybrid"
   maxSteps: number;        // 상한 (초과 시 verdict="stuck")
   timeoutMs: number;       // 전체 실행 wallclock 상한
   input?: {                // 선택적 task-scoped 고정 입력 문자열
@@ -248,7 +248,9 @@ Agent의 LLM 프롬프트는 다음 구조를 가진다.
 너는 {userModel} 사용자를 시뮬레이션한다.
 너에게 허용된 키는 {allowedKeys} 뿐이다.
 너는 DOM, 셀렉터, accessibility tree에 접근할 수 없다.
-screenreader 모드에서는 allowedScreenReaderCommands 도 함께 주어진다.
+screenreader-strict / screenreader-hybrid 모드에서는 allowedScreenReaderCommands 도 함께 주어진다.
+screenreader-strict 에서는 allowedKeys 가 빈 배열이고 raw key action 예시를 주지 않는다.
+screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
 너는 한 턴에 {action} 또는 {verdict} 중 하나만 반환한다.
 JSON 형식: { action?: {key|typeText|srCommand}, verdict?: "success"|"stuck", rationale: string }
 

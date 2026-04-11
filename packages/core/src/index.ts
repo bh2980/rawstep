@@ -16,7 +16,7 @@ export {
 } from "./constants";
 export type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
 
-export type UserModel = "keyboard" | "screenreader";
+export type UserModel = "keyboard" | "screenreader-strict" | "screenreader-hybrid";
 
 export type RequestVerificationRule = {
   requestSeen: {
