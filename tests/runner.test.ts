@@ -20,7 +20,7 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { backend: "stub" })
+        agent: new LLMAgent("keyboard", { provider: "stub" })
       }
     );
 
@@ -42,7 +42,7 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { backend: "stub" })
+        agent: new LLMAgent("keyboard", { provider: "stub" })
       }
     );
 
@@ -89,7 +89,7 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { backend: "stub" })
+        agent: new LLMAgent("keyboard", { provider: "stub" })
       }
     );
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { LLMAgent } from "@a11y-task/agent";
+import { LLMAgent, type AgentProvider } from "@a11y-task/agent";
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TIMEOUT_MS,
@@ -18,6 +18,9 @@ type CliRunOptions = {
   taskFile: string;
   mode?: UserModel;
   outDir: string;
+  provider?: AgentProvider;
+  model?: string;
+  baseURL?: string;
 };
 
 type TaskFileShape = Partial<Task> & {
@@ -36,7 +39,11 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 
     const options = parseRunArgs(argv.slice(1));
     const task = await loadTask(options.taskFile, options.mode);
-    const agent = new LLMAgent(task.mode);
+    const agent = new LLMAgent(task.mode, {
+      provider: options.provider,
+      model: options.model,
+      baseURL: options.baseURL
+    });
 
     await mkdir(options.outDir, { recursive: true });
     const session = await runTask(task, {
@@ -87,7 +94,7 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
   };
 }
 
-function parseRunArgs(argv: string[]): CliRunOptions {
+export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
     throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard --out <dir>");
   }
@@ -95,6 +102,9 @@ function parseRunArgs(argv: string[]): CliRunOptions {
   const taskFile = argv[0];
   let mode: UserModel | undefined;
   let outDir: string | undefined;
+  let provider: AgentProvider | undefined;
+  let model: string | undefined;
+  let baseURL: string | undefined;
 
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index];
@@ -118,6 +128,33 @@ function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--provider") {
+      if (!next) {
+        throw new Error("Missing value for --provider.");
+      }
+      provider = next as AgentProvider;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--model") {
+      if (!next) {
+        throw new Error("Missing value for --model.");
+      }
+      model = next;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--base-url") {
+      if (!next) {
+        throw new Error("Missing value for --base-url.");
+      }
+      baseURL = next;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${token}`);
   }
 
@@ -128,7 +165,10 @@ function parseRunArgs(argv: string[]): CliRunOptions {
   return {
     taskFile,
     mode,
-    outDir: resolve(outDir)
+    outDir: resolve(outDir),
+    provider,
+    model,
+    baseURL
   };
 }
 
@@ -146,7 +186,9 @@ function stripFileExtension(filename: string): string {
 }
 
 function printUsage(): void {
-  process.stderr.write("Usage: a11y-task run <task.yml> --mode keyboard --out <dir>\n");
+  process.stderr.write(
+    "Usage: a11y-task run <task.yml> --mode keyboard --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+  );
 }
 
 function getErrorMessage(error: unknown): string {

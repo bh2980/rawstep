@@ -177,6 +177,40 @@ pnpm a11y-task run examples/tasks/add-to-cart.yml \
 open ./report/index.html
 ```
 
+### LLM provider 설정
+
+기본 provider는 `anthropic` 입니다.
+
+```bash
+export A11Y_TASK_AGENT_PROVIDER=anthropic
+export A11Y_TASK_AGENT_API_KEY=your-key
+export A11Y_TASK_AGENT_MODEL=claude-3-5-sonnet-latest
+```
+
+OpenRouter, OpenAI, vLLM, LM Studio 같은 OpenAI-compatible API는 아래처럼
+설정합니다.
+
+```bash
+export A11Y_TASK_AGENT_PROVIDER=openai-compatible
+export A11Y_TASK_AGENT_API_KEY=your-key
+export A11Y_TASK_AGENT_MODEL=openrouter/auto
+export A11Y_TASK_AGENT_BASE_URL=https://openrouter.ai/api/v1
+```
+
+CLI에서 실행별로 덮어쓸 수도 있습니다.
+
+```bash
+pnpm a11y-task run examples/tasks/simple-cta.yml \
+  --mode keyboard \
+  --out ./report \
+  --provider openai-compatible \
+  --model openrouter/auto \
+  --base-url https://openrouter.ai/api/v1
+```
+
+`keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
+이미지 입력을 지원해야 합니다.
+
 ## 상태와 한계
 
 - 자유 텍스트 입력은 v1 범위 밖입니다. 입력이 필요한 폼은 "blocked"

@@ -17,7 +17,7 @@
 - `browser` — Playwright 세션 래퍼
 - `actuator` — 화이트리스트 키 입력기
 - `observer-keyboard` — screenshot 관측자
-- `agent` — Anthropic `claude-opus-4-6` 어댑터
+- `agent` — provider 어댑터 (`anthropic` + `openai-compatible` + `stub`)
 - `runner` — 관측–판단–행동 루프
 - `trace` — append-only TraceRecorder
 - `reporter` — 최소 HTML 리포트
