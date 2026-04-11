@@ -81,7 +81,7 @@ export function buildSystemPrompt(userModel: UserModel): string {
   return [
     `너는 ${userModel} 사용자를 시뮬레이션한다.`,
     `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
-    "너는 DOM, 셀렉터, accessibility tree에 접근할 수 없다.",
+    "너는 DOM, 셀렉터, 접근성 트리에 접근할 수 없다.",
     '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.',
     'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
   ].join("\n");

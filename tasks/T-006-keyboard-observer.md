@@ -1,5 +1,7 @@
 # T-006 keyboard observer
 
+완료일: `2026-04-11`
+
 ## 작업 ID
 
 `T-006`
