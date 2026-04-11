@@ -44,6 +44,12 @@ describe("reporter", () => {
             execution: {
               ok: true,
               costDelta: 1
+            },
+            timings: {
+              observeMs: 11,
+              decideMs: 22,
+              executeMs: 33,
+              verifyMs: 0
             }
           }
         ],
@@ -51,6 +57,10 @@ describe("reporter", () => {
           result: "failure",
           totalSteps: 1,
           durationMs: 5000,
+          timings: {
+            setupMs: 120,
+            reportMs: 45
+          },
           actionCounts: {
             srCommandCount: 0,
             rawKeyCount: 0,
@@ -66,6 +76,8 @@ describe("reporter", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("typeText(task)");
     expect(html).toContain("typeTextCount");
+    expect(html).toContain("Observe: 11 ms");
+    expect(html).toContain("Setup");
   });
 
   it("renders screenreader-hybrid actions in the HTML report", async () => {
@@ -101,6 +113,12 @@ describe("reporter", () => {
             execution: {
               ok: true,
               costDelta: 1
+            },
+            timings: {
+              observeMs: 10,
+              decideMs: 20,
+              executeMs: 30,
+              verifyMs: 0
             }
           }
         ],
@@ -108,6 +126,10 @@ describe("reporter", () => {
           result: "failure",
           totalSteps: 1,
           durationMs: 3000,
+          timings: {
+            setupMs: 100,
+            reportMs: 40
+          },
           actionCounts: {
             srCommandCount: 1,
             rawKeyCount: 0,
@@ -168,6 +190,12 @@ describe("reporter", () => {
               ok: true,
               costDelta: 0
             },
+            timings: {
+              observeMs: 12,
+              decideMs: 24,
+              executeMs: 0,
+              verifyMs: 18
+            },
             verification: {
               passed: false,
               failures: ['Verification failed: expected visible text "Started!" was not observed.']
@@ -178,6 +206,10 @@ describe("reporter", () => {
           result: "failure",
           totalSteps: 1,
           durationMs: 5000,
+          timings: {
+            setupMs: 130,
+            reportMs: 55
+          },
           actionCounts: {
             srCommandCount: 0,
             rawKeyCount: 0,

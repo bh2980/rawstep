@@ -38,7 +38,12 @@ describe("runTask", () => {
       rawKeyCount: 3,
       typeTextCount: 0
     });
+    expect(session.aggregate.timings.setupMs).toBeGreaterThanOrEqual(0);
+    expect(session.steps[0]?.timings.observeMs).toBeGreaterThanOrEqual(0);
+    expect(session.steps[0]?.timings.decideMs).toBeGreaterThanOrEqual(0);
+    expect(session.steps[0]?.timings.executeMs).toBeGreaterThanOrEqual(0);
     expect(session.steps.at(-1)?.verification?.passed).toBe(true);
+    expect(session.steps.at(-1)?.timings.verifyMs).toBeGreaterThanOrEqual(0);
   });
 
   it("records a stuck result for the bad focus fixture with the stub agent", async () => {

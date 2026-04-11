@@ -141,6 +141,14 @@ function renderHtml(session: TraceSession): string {
             <span class="value">${session.aggregate.durationMs} ms</span>
           </div>
           <div class="summary-card">
+            <span class="label">Setup</span>
+            <span class="value">${session.aggregate.timings.setupMs} ms</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Report</span>
+            <span class="value">${session.aggregate.timings.reportMs} ms</span>
+          </div>
+          <div class="summary-card">
             <span class="label">Terminated at step</span>
             <span class="value">${session.aggregate.terminatedAtStep ?? "-"}</span>
           </div>
@@ -180,6 +188,12 @@ function renderStep(step: StepRecord): string {
   const verificationHtml = step.verification
     ? renderVerification(step.verification)
     : "";
+  const timingsHtml = `<ul>
+        <li>Observe: ${step.timings.observeMs} ms</li>
+        <li>Decide: ${step.timings.decideMs} ms</li>
+        <li>Execute: ${step.timings.executeMs} ms</li>
+        <li>Verify: ${step.timings.verifyMs} ms</li>
+      </ul>`;
 
   return `<article class="step">
     <h2>Step ${step.step}</h2>
@@ -190,6 +204,7 @@ function renderStep(step: StepRecord): string {
         <p>${escapeHtml(step.decision.rationale)}</p>
         ${observationHtml}
         <p>${executionHtml}</p>
+        ${timingsHtml}
         ${verificationHtml}
         <p>Recorded at <code>${escapeHtml(step.timestamp)}</code></p>
       </div>

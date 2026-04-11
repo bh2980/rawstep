@@ -25,6 +25,8 @@ export class TraceRecorder {
   private readonly screenshotsDir: string;
   private readonly steps: StepRecord[] = [];
   private session?: TraceSession;
+  private setupMs = 0;
+  private reportMs = 0;
 
   constructor(
     private readonly task: Task,
@@ -47,6 +49,7 @@ export class TraceRecorder {
     observation: Observation,
     decision: Decision,
     execution: ExecutionRecord,
+    timings: StepRecord["timings"],
     verification?: VerificationRecord,
     developerScreenshot?: {
       pngBase64: string;
@@ -60,6 +63,7 @@ export class TraceRecorder {
       observation: recordedObservation,
       decision,
       execution,
+      timings,
       verification
     };
 
@@ -81,7 +85,15 @@ export class TraceRecorder {
     failureReasonOverride?: string
   ): Promise<TraceSession> {
     const endedAt = new Date().toISOString();
-    const aggregate = buildAggregate(this.steps, this.startedAt, endedAt, endedBy, failureReasonOverride);
+    const aggregate = buildAggregate(
+      this.steps,
+      this.startedAt,
+      endedAt,
+      endedBy,
+      this.setupMs,
+      this.reportMs,
+      failureReasonOverride
+    );
     const session: TraceSession = {
       task: this.task,
       startedAt: this.startedAt,
@@ -91,8 +103,7 @@ export class TraceRecorder {
     };
 
     this.session = session;
-    await writeFile(this.traceJsonPath, JSON.stringify(session, null, 2), "utf8");
-    await writeFile(this.metricsPath, JSON.stringify(aggregate, null, 2), "utf8");
+    await persistFinalizedTraceSession(session, this.outDir);
     return session;
   }
 
@@ -102,6 +113,18 @@ export class TraceRecorder {
     }
 
     return this.session;
+  }
+
+  setSetupMs(durationMs: number): void {
+    this.setupMs = Math.max(0, durationMs);
+  }
+
+  setReportMs(durationMs: number): void {
+    this.reportMs = Math.max(0, durationMs);
+
+    if (this.session) {
+      this.session.aggregate.timings.reportMs = this.reportMs;
+    }
   }
 
   private async serializeObservation(
@@ -127,6 +150,11 @@ export class TraceRecorder {
 
     return serializeKeyboardObservation(step, observation, this.screenshotsDir);
   }
+}
+
+export async function persistFinalizedTraceSession(session: TraceSession, outDir: string): Promise<void> {
+  await writeFile(join(outDir, "trace.json"), JSON.stringify(session, null, 2), "utf8");
+  await writeFile(join(outDir, "metrics.json"), JSON.stringify(session.aggregate, null, 2), "utf8");
 }
 
 async function serializeKeyboardObservation(
@@ -167,6 +195,8 @@ function buildAggregate(
   startedAt: string,
   endedAt: string,
   endedBy: EndedBy,
+  setupMs: number,
+  reportMs: number,
   failureReasonOverride?: string
 ): TraceAggregate {
   const actionCounts = countActions(steps);
@@ -174,6 +204,10 @@ function buildAggregate(
     result: endedBy === "success" ? "success" : "failure",
     totalSteps: steps.length,
     durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+    timings: {
+      setupMs: Math.max(0, setupMs),
+      reportMs: Math.max(0, reportMs)
+    },
     actionCounts,
     terminatedAtStep: steps.length > 0 ? steps[steps.length - 1].step : null,
     endedBy

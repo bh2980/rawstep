@@ -193,6 +193,12 @@ export type StepRecord = {
     error?: string;                    // whitelist 위반 등
     costDelta: number;                 // 이 step에서 추가된 action cost (0 or 1)
   };
+  timings: {
+    observeMs: number;                 // 관측 수집 시간
+    decideMs: number;                  // agent 판단 시간
+    executeMs: number;                 // action 실행 시간
+    verifyMs: number;                  // verifier 시간 (없으면 0)
+  };
 };
 
 export type TraceSession = {
@@ -204,6 +210,10 @@ export type TraceSession = {
     result: "success" | "failure";
     totalSteps: number;
     durationMs: number;
+    timings: {
+      setupMs: number;                 // 브라우저/VO/runtime 초기화 시간
+      reportMs: number;                // 최종 HTML report 생성 시간
+    };
     actionCounts: {
       srCommandCount: number;
       rawKeyCount: number;

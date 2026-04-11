@@ -9,7 +9,7 @@ import {
 } from "@a11y-task/core";
 import { renderReport } from "@a11y-task/reporter";
 import { runTask, validateVerifySpec } from "@a11y-task/runner";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import YAML from "yaml";
@@ -51,7 +51,11 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       outDir: options.outDir,
       agent
     });
-    const reportPath = await renderReport(session, options.outDir);
+    const reportStartedAt = Date.now();
+    let reportPath = await renderReport(session, options.outDir);
+    session.aggregate.timings.reportMs = Date.now() - reportStartedAt;
+    await persistSessionArtifacts(session, options.outDir);
+    reportPath = await renderReport(session, options.outDir);
 
     process.stdout.write(
       [
@@ -69,6 +73,11 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     process.stderr.write(`${getErrorMessage(error)}\n`);
     return 1;
   }
+}
+
+async function persistSessionArtifacts(session: Awaited<ReturnType<typeof runTask>>, outDir: string): Promise<void> {
+  await writeFile(resolve(outDir, "trace.json"), JSON.stringify(session, null, 2), "utf8");
+  await writeFile(resolve(outDir, "metrics.json"), JSON.stringify(session.aggregate, null, 2), "utf8");
 }
 
 export async function loadTask(taskFile: string, overrideMode?: UserModel): Promise<Task> {

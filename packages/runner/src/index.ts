@@ -48,6 +48,7 @@ export * from "./verifier";
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
+  const setupStartedAt = Date.now();
 
   const deadline = Date.now() + task.timeoutMs;
   const verifierFeedback: AgentHistoryEntry[] = [];
@@ -77,6 +78,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       ...options.agentOptions,
       taskInput: task.input
     });
+    trace.setSetupMs(Date.now() - setupStartedAt);
 
     for (let step = 0; step < task.maxSteps; step += 1) {
       if (Date.now() >= deadline) {
@@ -84,10 +86,12 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         break;
       }
 
+      const observeStartedAt = Date.now();
       const observation = await observer.observe();
       const developerScreenshot = observation.kind === "screenreader"
         ? await captureDeveloperScreenshot(browser.page)
         : undefined;
+      const observeMs = Date.now() - observeStartedAt;
       const context = {
         goal: task.goal,
         allowedKeys: allowsRawKeyActions(task.mode) ? ALLOWED_KEYS : [],
@@ -96,12 +100,29 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           : undefined,
         history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback)
       };
+      const decideStartedAt = Date.now();
       const decision = await agent.decide(context, observation);
+      const decideMs = Date.now() - decideStartedAt;
 
       if ("verdict" in decision) {
         if (decision.verdict === "success" && task.verify) {
+          const verifyStartedAt = Date.now();
           const verification = await verifyTask(task, browser);
-          await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, verification, developerScreenshot);
+          const verifyMs = Date.now() - verifyStartedAt;
+          await trace.append(
+            step,
+            observation,
+            decision,
+            { ok: true, costDelta: 0 },
+            {
+              observeMs,
+              decideMs,
+              executeMs: 0,
+              verifyMs
+            },
+            verification,
+            developerScreenshot
+          );
 
           if (verification.passed) {
             endedBy = "success";
@@ -125,28 +146,62 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           continue;
         }
 
-        await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, undefined, developerScreenshot);
+        await trace.append(
+          step,
+          observation,
+          decision,
+          { ok: true, costDelta: 0 },
+          {
+            observeMs,
+            decideMs,
+            executeMs: 0,
+            verifyMs: 0
+          },
+          undefined,
+          developerScreenshot
+        );
         endedBy = decision.verdict;
         break;
       }
 
+      const executeStartedAt = Date.now();
       try {
         if ("key" in decision.action && !allowsRawKeyActions(task.mode)) {
           throw new NotAllowedActionError("Raw key actions are not allowed in screenreader-strict mode.");
         }
 
         const execution = await actuator.execute(decision.action, task.input);
-        await trace.append(step, observation, decision, execution, undefined, developerScreenshot);
+        const executeMs = Date.now() - executeStartedAt;
+        await trace.append(
+          step,
+          observation,
+          decision,
+          execution,
+          {
+            observeMs,
+            decideMs,
+            executeMs,
+            verifyMs: 0
+          },
+          undefined,
+          developerScreenshot
+        );
 
         if (!execution.ok) {
           continue;
         }
       } catch (error) {
         const message = getErrorMessage(error);
+        const executeMs = Date.now() - executeStartedAt;
         await trace.append(step, observation, decision, {
           ok: false,
           error: message,
           costDelta: 0
+        }, {
+          observeMs,
+          decideMs,
+          executeMs,
+          verifyMs: 0
         }, undefined, developerScreenshot);
 
         if (error instanceof NotAllowedActionError) {

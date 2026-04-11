@@ -146,6 +146,12 @@ export type StepRecord = {
   observation: RecordedObservation;
   decision: Decision;
   execution: ExecutionRecord;
+  timings: {
+    observeMs: number;
+    decideMs: number;
+    executeMs: number;
+    verifyMs: number;
+  };
   verification?: VerificationRecord;
 };
 
@@ -171,6 +177,10 @@ export type TraceAggregate = {
   result: Result;
   totalSteps: number;
   durationMs: number;
+  timings: {
+    setupMs: number;
+    reportMs: number;
+  };
   actionCounts: ActionCounts;
   terminatedAtStep: number | null;
   endedBy: EndedBy;

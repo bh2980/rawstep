@@ -154,6 +154,7 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 - screenreader 리포트도 개발자 디버깅용 screenshot을 함께 보여줄 수 있지만,
   agent 자체는 그 이미지를 보지 못합니다.
 - **입력 비용** — 전체 키 입력 수, 키 종류별 분포.
+- **타이밍 분해** — setup / report 와 각 step의 observe / decide / execute / verify 시간.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.
 - **Oracle check (선택)** — 에이전트가 자칭한 성공을 외부에서 독립적으로
   검증한 결과.

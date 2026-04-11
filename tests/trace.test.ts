@@ -37,23 +37,36 @@ describe("TraceRecorder", () => {
       0,
       observation,
       { action: { key: "Tab" }, rationale: "Move focus." },
-      { ok: true, costDelta: 1 }
+      { ok: true, costDelta: 1 },
+      { observeMs: 10, decideMs: 20, executeMs: 30, verifyMs: 0 }
     );
 
     await recorder.append(
       1,
       observation,
       { action: { typeText: "task" }, rationale: "Type the task text." },
-      { ok: true, costDelta: 1 }
+      { ok: true, costDelta: 1 },
+      { observeMs: 11, decideMs: 21, executeMs: 31, verifyMs: 0 }
     );
 
+    recorder.setSetupMs(123);
     const session = await recorder.finalize("stuck");
 
     expect(session.aggregate.result).toBe("failure");
+    expect(session.steps[0].timings).toEqual({
+      observeMs: 10,
+      decideMs: 20,
+      executeMs: 30,
+      verifyMs: 0
+    });
     expect(session.aggregate.actionCounts).toEqual({
       srCommandCount: 0,
       rawKeyCount: 1,
       typeTextCount: 1
+    });
+    expect(session.aggregate.timings).toEqual({
+      setupMs: 123,
+      reportMs: 0
     });
     expect(session.aggregate.terminatedAtStep).toBe(1);
     expect(session.aggregate.durationMs).toBeGreaterThanOrEqual(0);
@@ -89,6 +102,7 @@ describe("TraceRecorder", () => {
       },
       { action: { srCommand: "nextItem" }, rationale: "Move to the next item." },
       { ok: true, costDelta: 1 },
+      { observeMs: 9, decideMs: 19, executeMs: 29, verifyMs: 0 },
       undefined,
       {
         pngBase64: Buffer.from("fake-sr-png").toString("base64"),
