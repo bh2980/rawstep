@@ -466,6 +466,55 @@ describe("runTask", () => {
     });
   });
 
+  it("can disable developer screenshots for screenreader steps", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-no-shots-"));
+
+    const session = await runTask(
+      {
+        id: "screenreader-no-shots",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Finish without saving developer screenshots.",
+        mode: "screenreader-strict",
+        maxSteps: 2,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        screenshotPolicy: "none",
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Get started button",
+              announcementCapture: "log"
+            })
+          },
+          controller: {
+            execute: async () => undefined
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async () => ({
+            verdict: "success",
+            rationale: "The button announcement is present."
+          })
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.screenshot).toBeUndefined();
+    }
+  });
+
   it("fails when screenreader-strict returns a raw key action", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-key-"));
 
@@ -667,5 +716,73 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps[0].verification?.passed).toBe(false);
     expect(seenHistorySources[1]).toContain("verifier");
+  });
+
+  it("stores only failed screenreader steps when screenshot policy is failure-only", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-failure-shots-"));
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-failure-shots",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Reach verified success.",
+        mode: "screenreader-hybrid",
+        maxSteps: 3,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ textVisible: "Never appears" }]
+        }
+      },
+      {
+        outDir,
+        screenshotPolicy: "failure-only",
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async () => ({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Get started button",
+              announcementCapture: "log"
+            })
+          },
+          controller: {
+            execute: async () => undefined
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
+          },
+          close: async () => undefined
+        }),
+        agent: {
+          decide: async () => {
+            callCount += 1;
+
+            if (callCount === 1) {
+              return {
+                action: { srCommand: "nextItem" },
+                rationale: "Move once before deciding."
+              };
+            }
+
+            return {
+              verdict: "success",
+              rationale: "Sounds complete."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    expect(session.steps[1].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.screenshot).toBeUndefined();
+    }
+    if (session.steps[1].observation.kind === "screenreader") {
+      expect(session.steps[1].observation.screenshot?.path).toBe("screenshots/step-001.png");
+    }
   });
 });

@@ -79,6 +79,8 @@ describe("CLI", () => {
       "keyboard",
       "--out",
       "./tmp/out",
+      "--screenshots",
+      "failure-only",
       "--provider",
       "openai-compatible",
       "--model",
@@ -90,6 +92,19 @@ describe("CLI", () => {
     expect(parsed.provider).toBe("openai-compatible");
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
+    expect(parsed.screenshotPolicy).toBe("failure-only");
+  });
+
+  it("rejects invalid screenshot policies on the CLI", () => {
+    expect(() => parseRunArgs([
+      resolve("examples/tasks/simple-cta.yml"),
+      "--mode",
+      "screenreader-strict",
+      "--out",
+      "./tmp/out",
+      "--screenshots",
+      "weird"
+    ])).toThrow("Unsupported screenshot policy");
   });
 
   it("fails fast when openai-compatible is missing a model", async () => {

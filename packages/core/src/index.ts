@@ -182,6 +182,8 @@ export type ActionCounts = {
   typeTextCount: number;
 };
 
+export type ScreenshotPolicy = "all" | "important" | "failure-only" | "none";
+
 export type TraceAggregate = {
   result: Result;
   totalSteps: number;

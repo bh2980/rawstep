@@ -4,6 +4,7 @@ import { LLMAgent, type AgentProvider } from "@a11y-task/agent";
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TIMEOUT_MS,
+  type ScreenshotPolicy,
   type Task,
   type UserModel
 } from "@a11y-task/core";
@@ -18,6 +19,7 @@ type CliRunOptions = {
   taskFile: string;
   mode?: UserModel;
   outDir: string;
+  screenshotPolicy?: ScreenshotPolicy;
   provider?: AgentProvider;
   model?: string;
   baseURL?: string;
@@ -49,7 +51,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     await mkdir(options.outDir, { recursive: true });
     const session = await runTask(task, {
       outDir: options.outDir,
-      agent
+      agent,
+      screenshotPolicy: options.screenshotPolicy
     });
     const reportStartedAt = Date.now();
     let reportPath = await renderReport(session, options.outDir);
@@ -111,6 +114,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   const taskFile = argv[0];
   let mode: UserModel | undefined;
   let outDir: string | undefined;
+  let screenshotPolicy: ScreenshotPolicy | undefined;
   let provider: AgentProvider | undefined;
   let model: string | undefined;
   let baseURL: string | undefined;
@@ -146,6 +150,15 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--screenshots") {
+      if (!next) {
+        throw new Error("Missing value for --screenshots.");
+      }
+      screenshotPolicy = parseScreenshotPolicy(next);
+      index += 1;
+      continue;
+    }
+
     if (token === "--model") {
       if (!next) {
         throw new Error("Missing value for --model.");
@@ -175,6 +188,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     taskFile,
     mode,
     outDir: resolve(outDir),
+    screenshotPolicy,
     provider,
     model,
     baseURL
@@ -196,7 +210,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 
@@ -236,6 +250,21 @@ function parseUserModel(value: unknown): UserModel {
 
   throw new Error(
     `Unsupported mode: ${String(value)}. Expected one of keyboard, screenreader-strict, screenreader-hybrid.`
+  );
+}
+
+function parseScreenshotPolicy(value: unknown): ScreenshotPolicy {
+  if (
+    value === "all"
+    || value === "important"
+    || value === "failure-only"
+    || value === "none"
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    `Unsupported screenshot policy: ${String(value)}. Expected one of all, important, failure-only, none.`
   );
 }
 

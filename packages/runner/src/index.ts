@@ -13,8 +13,10 @@ import {
   SCREENREADER_COMMANDS,
   type AgentHistoryEntry,
   type Agent,
+  type Decision,
   type EndedBy,
   type Observation,
+  type ScreenshotPolicy,
   type Task,
   type UserModel,
   type TraceSession,
@@ -35,6 +37,7 @@ import {
 
 export type RunTaskOptions = {
   outDir: string;
+  screenshotPolicy?: ScreenshotPolicy;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
   browserSessionFactory?: (
@@ -62,6 +65,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   let screenReaderRuntime: ScreenReaderRuntime | undefined;
   let actuator: Actuator | undefined;
 
+  const screenshotPolicy = options.screenshotPolicy ?? "all";
   try {
     const browserFactory = options.browserSessionFactory ?? createBrowserSession;
     browser = await browserFactory(task.url, {
@@ -97,9 +101,6 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 
       const observeStartedAt = Date.now();
       const observation = await observer.observe();
-      const developerScreenshot = observation.kind === "screenreader"
-        ? await captureDeveloperScreenshot(browser.page)
-        : undefined;
       const observeMs = Date.now() - observeStartedAt;
       const context = {
         goal: task.goal,
@@ -118,6 +119,15 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           const verifyStartedAt = Date.now();
           const verification = await verifyTask(task, browser);
           const verifyMs = Date.now() - verifyStartedAt;
+          const developerScreenshot = shouldCaptureDeveloperScreenshot(
+            screenshotPolicy,
+            observation,
+            decision,
+            undefined,
+            verification
+          )
+            ? await captureDeveloperScreenshot(browser.page)
+            : undefined;
           await trace.append(
             step,
             observation,
@@ -173,7 +183,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           },
           undefined,
           createVerdictAnalysis(decision.verdict, undefined, decision.verdict === "success" ? "success" : "failure"),
-          developerScreenshot
+          shouldCaptureDeveloperScreenshot(screenshotPolicy, observation, decision)
+            ? await captureDeveloperScreenshot(browser.page)
+            : undefined
         );
         endedBy = decision.verdict;
         break;
@@ -187,6 +199,14 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 
         const execution = await actuator.execute(decision.action, task.input);
         const executeMs = Date.now() - executeStartedAt;
+        const developerScreenshot = shouldCaptureDeveloperScreenshot(
+          screenshotPolicy,
+          observation,
+          decision,
+          execution
+        )
+          ? await captureDeveloperScreenshot(browser.page)
+          : undefined;
         await trace.append(
           step,
           observation,
@@ -209,16 +229,26 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       } catch (error) {
         const message = getErrorMessage(error);
         const executeMs = Date.now() - executeStartedAt;
-        await trace.append(step, observation, decision, {
+        const failedExecution = {
           ok: false,
           error: message,
           costDelta: 0
+        } as const;
+        await trace.append(step, observation, decision, {
+          ...failedExecution
         }, {
           observeMs,
           decideMs,
           executeMs,
           verifyMs: 0
-        }, undefined, undefined, developerScreenshot);
+        }, undefined, undefined, shouldCaptureDeveloperScreenshot(
+          screenshotPolicy,
+          observation,
+          decision,
+          failedExecution
+        )
+          ? await captureDeveloperScreenshot(browser.page)
+          : undefined);
 
         if (error instanceof NotAllowedActionError) {
           endedBy = "error";
@@ -307,6 +337,59 @@ function createVerdictAnalysis(
       : "not-run",
     finalResult
   };
+}
+
+function shouldCaptureDeveloperScreenshot(
+  policy: ScreenshotPolicy,
+  observation: Observation,
+  decision: Decision,
+  execution?: { ok: boolean },
+  verification?: { passed: boolean }
+): boolean {
+  if (observation.kind !== "screenreader") {
+    return false;
+  }
+
+  switch (policy) {
+    case "all":
+      return true;
+    case "none":
+      return false;
+    case "failure-only":
+      if (verification) {
+        return !verification.passed;
+      }
+
+      if ("verdict" in decision) {
+        return decision.verdict !== "success";
+      }
+
+      return execution?.ok === false;
+    case "important":
+      if (verification) {
+        return true;
+      }
+
+      if ("verdict" in decision) {
+        return true;
+      }
+
+      if (execution?.ok === false) {
+        return true;
+      }
+
+      if ("action" in decision) {
+        if ("typeText" in decision.action) {
+          return true;
+        }
+
+        if ("srCommand" in decision.action) {
+          return decision.action.srCommand === "act";
+        }
+      }
+
+      return false;
+  }
 }
 
 async function captureDeveloperScreenshot(
