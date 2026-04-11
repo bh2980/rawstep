@@ -12,6 +12,7 @@ import {
   type Task,
   type TraceAggregate,
   type TraceSession,
+  type VerdictAnalysis,
   type VerificationRecord
 } from "@a11y-task/core";
 import { mkdir, appendFile, writeFile } from "node:fs/promises";
@@ -25,7 +26,13 @@ export class TraceRecorder {
   private readonly screenshotsDir: string;
   private readonly steps: StepRecord[] = [];
   private session?: TraceSession;
-  private setupMs = 0;
+  private setupTimings: Omit<TraceAggregate["timings"], "reportMs"> = {
+    setupMs: 0,
+    browserLaunchMs: 0,
+    pageLoadMs: 0,
+    voiceOverInitMs: 0,
+    firstAnnouncementWaitMs: 0
+  };
   private reportMs = 0;
 
   constructor(
@@ -51,6 +58,7 @@ export class TraceRecorder {
     execution: ExecutionRecord,
     timings: StepRecord["timings"],
     verification?: VerificationRecord,
+    verdictAnalysis?: VerdictAnalysis,
     developerScreenshot?: {
       pngBase64: string;
       viewport: { w: number; h: number };
@@ -64,7 +72,8 @@ export class TraceRecorder {
       decision,
       execution,
       timings,
-      verification
+      verification,
+      verdictAnalysis
     };
 
     this.steps.push(record);
@@ -90,7 +99,7 @@ export class TraceRecorder {
       this.startedAt,
       endedAt,
       endedBy,
-      this.setupMs,
+      this.setupTimings,
       this.reportMs,
       failureReasonOverride
     );
@@ -115,8 +124,14 @@ export class TraceRecorder {
     return this.session;
   }
 
-  setSetupMs(durationMs: number): void {
-    this.setupMs = Math.max(0, durationMs);
+  setSetupTimings(timings: Omit<TraceAggregate["timings"], "reportMs">): void {
+    this.setupTimings = {
+      setupMs: Math.max(0, timings.setupMs),
+      browserLaunchMs: Math.max(0, timings.browserLaunchMs),
+      pageLoadMs: Math.max(0, timings.pageLoadMs),
+      voiceOverInitMs: Math.max(0, timings.voiceOverInitMs),
+      firstAnnouncementWaitMs: Math.max(0, timings.firstAnnouncementWaitMs)
+    };
   }
 
   setReportMs(durationMs: number): void {
@@ -138,7 +153,8 @@ export class TraceRecorder {
     if (observation.kind !== "keyboard") {
       const recorded: RecordedObservation = {
         kind: "screenreader",
-        announcement: observation.announcement
+        announcement: observation.announcement,
+        announcementCapture: observation.announcementCapture
       };
 
       if (developerScreenshot) {
@@ -195,7 +211,7 @@ function buildAggregate(
   startedAt: string,
   endedAt: string,
   endedBy: EndedBy,
-  setupMs: number,
+  setupTimings: Omit<TraceAggregate["timings"], "reportMs">,
   reportMs: number,
   failureReasonOverride?: string
 ): TraceAggregate {
@@ -205,7 +221,11 @@ function buildAggregate(
     totalSteps: steps.length,
     durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
     timings: {
-      setupMs: Math.max(0, setupMs),
+      setupMs: Math.max(0, setupTimings.setupMs),
+      browserLaunchMs: Math.max(0, setupTimings.browserLaunchMs),
+      pageLoadMs: Math.max(0, setupTimings.pageLoadMs),
+      voiceOverInitMs: Math.max(0, setupTimings.voiceOverInitMs),
+      firstAnnouncementWaitMs: Math.max(0, setupTimings.firstAnnouncementWaitMs),
       reportMs: Math.max(0, reportMs)
     },
     actionCounts,

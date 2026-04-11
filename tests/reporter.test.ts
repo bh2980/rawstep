@@ -59,6 +59,10 @@ describe("reporter", () => {
           durationMs: 5000,
           timings: {
             setupMs: 120,
+            browserLaunchMs: 20,
+            pageLoadMs: 30,
+            voiceOverInitMs: 0,
+            firstAnnouncementWaitMs: 0,
             reportMs: 45
           },
           actionCounts: {
@@ -78,6 +82,7 @@ describe("reporter", () => {
     expect(html).toContain("typeTextCount");
     expect(html).toContain("Observe: 11 ms");
     expect(html).toContain("Setup");
+    expect(html).toContain("Browser launch");
   });
 
   it("renders screenreader-hybrid actions in the HTML report", async () => {
@@ -101,6 +106,7 @@ describe("reporter", () => {
             observation: {
               kind: "screenreader",
               announcement: "Get started button",
+              announcementCapture: "log",
               screenshot: {
                 path: "screenshots/step-000.png",
                 viewport: { w: 1280, h: 800 }
@@ -128,6 +134,10 @@ describe("reporter", () => {
           durationMs: 3000,
           timings: {
             setupMs: 100,
+            browserLaunchMs: 10,
+            pageLoadMs: 20,
+            voiceOverInitMs: 30,
+            firstAnnouncementWaitMs: 40,
             reportMs: 40
           },
           actionCounts: {
@@ -145,6 +155,8 @@ describe("reporter", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("srCommand(nextItem)");
     expect(html).toContain("Get started button");
+    expect(html).toContain("Announcement capture");
+    expect(html).toContain("log");
     expect(html).toContain("../screenshots/step-000.png");
     expect(html).not.toContain("No screenshot");
   });
@@ -199,6 +211,11 @@ describe("reporter", () => {
             verification: {
               passed: false,
               failures: ['Verification failed: expected visible text "Started!" was not observed.']
+            },
+            verdictAnalysis: {
+              agentVerdict: "success",
+              verificationResult: "failed",
+              finalResult: "continued"
             }
           }
         ],
@@ -208,6 +225,10 @@ describe("reporter", () => {
           durationMs: 5000,
           timings: {
             setupMs: 130,
+            browserLaunchMs: 13,
+            pageLoadMs: 26,
+            voiceOverInitMs: 0,
+            firstAnnouncementWaitMs: 0,
             reportMs: 55
           },
           actionCounts: {
@@ -228,6 +249,8 @@ describe("reporter", () => {
 
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("Verification: <code>failed</code>");
+    expect(html).toContain("Agent verdict");
+    expect(html).toContain("Final result at this step");
     expect(html).toContain("expected visible text");
     expect(html).toContain("Verified success was not reached");
   });

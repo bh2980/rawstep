@@ -39,10 +39,17 @@ describe("runTask", () => {
       typeTextCount: 0
     });
     expect(session.aggregate.timings.setupMs).toBeGreaterThanOrEqual(0);
+    expect(session.aggregate.timings.browserLaunchMs).toBeGreaterThanOrEqual(0);
+    expect(session.aggregate.timings.pageLoadMs).toBeGreaterThanOrEqual(0);
     expect(session.steps[0]?.timings.observeMs).toBeGreaterThanOrEqual(0);
     expect(session.steps[0]?.timings.decideMs).toBeGreaterThanOrEqual(0);
     expect(session.steps[0]?.timings.executeMs).toBeGreaterThanOrEqual(0);
     expect(session.steps.at(-1)?.verification?.passed).toBe(true);
+    expect(session.steps.at(-1)?.verdictAnalysis).toEqual({
+      agentVerdict: "success",
+      verificationResult: "passed",
+      finalResult: "success"
+    });
     expect(session.steps.at(-1)?.timings.verifyMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -158,6 +165,11 @@ describe("runTask", () => {
     expect(session.steps[0].verification).toEqual({
       passed: false,
       failures: ['Verification failed: expected visible text "Never appears" was not observed.']
+    });
+    expect(session.steps[0].verdictAnalysis).toEqual({
+      agentVerdict: "success",
+      verificationResult: "failed",
+      finalResult: "continued"
     });
     expect(observedHistorySources[1]).toContain("verifier");
   });
@@ -392,13 +404,15 @@ describe("runTask", () => {
               if (observeCalls === 1) {
                 return {
                   kind: "screenreader",
-                  announcement: "Simple CTA heading"
+                  announcement: "Simple CTA heading",
+                  announcementCapture: "log"
                 };
               }
 
               return {
                 kind: "screenreader",
-                announcement: "Get started button"
+                announcement: "Get started button",
+                announcementCapture: "log"
               };
             }
           },
@@ -406,6 +420,10 @@ describe("runTask", () => {
             execute: async (command) => {
               observedCommands.push(command);
             }
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
         }),
@@ -439,6 +457,7 @@ describe("runTask", () => {
     });
     if (session.steps[0].observation.kind === "screenreader") {
       expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
+      expect(session.steps[0].observation.announcementCapture).toBe("log");
     }
     expect(session.aggregate.actionCounts).toEqual({
       srCommandCount: 1,
@@ -466,11 +485,16 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: "Simple CTA heading"
+              announcement: "Simple CTA heading",
+              announcementCapture: "log"
             })
           },
           controller: {
             execute: async () => undefined
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
         }),
@@ -521,13 +545,15 @@ describe("runTask", () => {
               if (observeCalls === 1) {
                 return {
                   kind: "screenreader",
-                  announcement: "Simple CTA heading"
+                  announcement: "Simple CTA heading",
+                  announcementCapture: "log"
                 };
               }
 
               return {
                 kind: "screenreader",
-                announcement: "Get started button"
+                announcement: "Get started button",
+                announcementCapture: "log"
               };
             }
           },
@@ -535,6 +561,10 @@ describe("runTask", () => {
             execute: async (command) => {
               observedCommands.push(command);
             }
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
         }),
@@ -567,6 +597,13 @@ describe("runTask", () => {
       rawKeyCount: 0,
       typeTextCount: 0
     });
+    expect(session.aggregate.timings.voiceOverInitMs).toBe(12);
+    expect(session.aggregate.timings.firstAnnouncementWaitMs).toBe(34);
+    expect(session.steps[1].verdictAnalysis).toEqual({
+      agentVerdict: "success",
+      verificationResult: "not-run",
+      finalResult: "success"
+    });
   });
 
   it("feeds verifier feedback back into the screenreader-hybrid path", async () => {
@@ -593,11 +630,16 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: "Get started button"
+              announcement: "Get started button",
+              announcementCapture: "log"
             })
           },
           controller: {
             execute: async () => undefined
+          },
+          setupTimings: {
+            voiceOverInitMs: 12,
+            firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
         }),

@@ -49,7 +49,13 @@ describe("TraceRecorder", () => {
       { observeMs: 11, decideMs: 21, executeMs: 31, verifyMs: 0 }
     );
 
-    recorder.setSetupMs(123);
+    recorder.setSetupTimings({
+      setupMs: 123,
+      browserLaunchMs: 23,
+      pageLoadMs: 34,
+      voiceOverInitMs: 0,
+      firstAnnouncementWaitMs: 0
+    });
     const session = await recorder.finalize("stuck");
 
     expect(session.aggregate.result).toBe("failure");
@@ -66,6 +72,10 @@ describe("TraceRecorder", () => {
     });
     expect(session.aggregate.timings).toEqual({
       setupMs: 123,
+      browserLaunchMs: 23,
+      pageLoadMs: 34,
+      voiceOverInitMs: 0,
+      firstAnnouncementWaitMs: 0,
       reportMs: 0
     });
     expect(session.aggregate.terminatedAtStep).toBe(1);
@@ -98,11 +108,13 @@ describe("TraceRecorder", () => {
       0,
       {
         kind: "screenreader",
-        announcement: "Get started button"
+        announcement: "Get started button",
+        announcementCapture: "log"
       },
       { action: { srCommand: "nextItem" }, rationale: "Move to the next item." },
       { ok: true, costDelta: 1 },
       { observeMs: 9, decideMs: 19, executeMs: 29, verifyMs: 0 },
+      undefined,
       undefined,
       {
         pngBase64: Buffer.from("fake-sr-png").toString("base64"),
@@ -115,6 +127,7 @@ describe("TraceRecorder", () => {
     expect(session.steps[0].observation.kind).toBe("screenreader");
     if (session.steps[0].observation.kind === "screenreader") {
       expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
+      expect(session.steps[0].observation.announcementCapture).toBe("log");
     }
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
   });

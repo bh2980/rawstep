@@ -202,7 +202,8 @@ describe("agent helpers", () => {
       makeKeyboardContext(),
       {
         kind: "screenreader",
-        announcement: "Submit button"
+        announcement: "Submit button",
+        announcementCapture: "log"
       }
     );
 
@@ -269,7 +270,7 @@ describe("buildUserPromptText", () => {
   });
 
   it("screenreader observation에는 이미지 설명이 포함되지 않는다", () => {
-    const obs: Observation = { kind: "screenreader", announcement: "Submit button" };
+    const obs: Observation = { kind: "screenreader", announcement: "Submit button", announcementCapture: "log" };
     const text = buildUserPromptText(makeKeyboardContext(), obs);
 
     expect(text).not.toContain("images:");

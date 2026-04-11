@@ -76,6 +76,7 @@ export type KeyboardObservation = {
 export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
+  announcementCapture: "log" | "fallback" | "none";
   previousAnnouncement?: string;
 };
 
@@ -132,6 +133,7 @@ export type RecordedKeyboardObservation = {
 export type RecordedScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
+  announcementCapture: "log" | "fallback" | "none";
   screenshot?: {
     path: string;
     viewport: { w: number; h: number };
@@ -153,11 +155,18 @@ export type StepRecord = {
     verifyMs: number;
   };
   verification?: VerificationRecord;
+  verdictAnalysis?: VerdictAnalysis;
 };
 
 export type VerificationRecord = {
   passed: boolean;
   failures: string[];
+};
+
+export type VerdictAnalysis = {
+  agentVerdict: Verdict;
+  verificationResult: "passed" | "failed" | "not-run";
+  finalResult: "success" | "failure" | "continued";
 };
 
 export type FailurePoint = {
@@ -179,6 +188,10 @@ export type TraceAggregate = {
   durationMs: number;
   timings: {
     setupMs: number;
+    browserLaunchMs: number;
+    pageLoadMs: number;
+    voiceOverInitMs: number;
+    firstAnnouncementWaitMs: number;
     reportMs: number;
   };
   actionCounts: ActionCounts;

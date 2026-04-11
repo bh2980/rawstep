@@ -27,6 +27,10 @@ type GuidepupModule = {
 export type ScreenReaderRuntime = {
   observer: ScreenReaderObserver;
   controller: ScreenReaderController;
+  setupTimings: {
+    voiceOverInitMs: number;
+    firstAnnouncementWaitMs: number;
+  };
   close(): Promise<void>;
 };
 
@@ -38,21 +42,29 @@ export type VoiceOverRuntimeDependencies = {
 
 export class ScreenReaderObserver {
   private previousAnnouncement?: string;
+  private pendingInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">;
 
-  constructor(private readonly readAnnouncement: () => Promise<string>) {}
+  constructor(
+    private readonly readAnnouncement: () => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">>,
+    private readonly prefetchedInitialObservation?: Pick<ScreenReaderObservation, "announcement" | "announcementCapture">
+  ) {
+    this.pendingInitialObservation = prefetchedInitialObservation;
+  }
 
   async observe(): Promise<ScreenReaderObservation> {
-    const announcement = await this.readAnnouncement();
+    const announcementState = this.pendingInitialObservation ?? await this.readAnnouncement();
+    this.pendingInitialObservation = undefined;
     const observation: ScreenReaderObservation = {
       kind: "screenreader",
-      announcement
+      announcement: announcementState.announcement,
+      announcementCapture: announcementState.announcementCapture
     };
 
     if (this.previousAnnouncement !== undefined) {
       observation.previousAnnouncement = this.previousAnnouncement;
     }
 
-    this.previousAnnouncement = announcement;
+    this.previousAnnouncement = announcementState.announcement;
     return observation;
   }
 }
@@ -70,11 +82,14 @@ export async function createVoiceOverRuntime(
 
   const { voiceOver } = await importGuidepup();
 
+  let voiceOverInitMs = 0;
   try {
+    const voiceOverInitStartedAt = Date.now();
     await page.bringToFront();
     await focusPageRoot(page);
     await voiceOver.start();
     await focusPageRoot(page);
+    voiceOverInitMs = Date.now() - voiceOverInitStartedAt;
   } catch (error) {
     throw new Error(
       `Failed to start VoiceOver for screenreader mode. Ensure VoiceOver is available and accessibility permissions are granted. ${getErrorMessage(error)}`
@@ -82,10 +97,17 @@ export async function createVoiceOverRuntime(
   }
 
   const readAnnouncement = createAnnouncementReader(voiceOver);
+  const firstAnnouncementWaitStartedAt = Date.now();
+  const firstAnnouncement = await readAnnouncement();
+  const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
 
   return {
-    observer: new ScreenReaderObserver(readAnnouncement),
+    observer: new ScreenReaderObserver(readAnnouncement, firstAnnouncement),
     controller: new VoiceOverCommandController(voiceOver),
+    setupTimings: {
+      voiceOverInitMs,
+      firstAnnouncementWaitMs
+    },
     close: async () => {
       try {
         await voiceOver.stop();
@@ -101,7 +123,7 @@ export async function createVoiceOverRuntime(
 export function createAnnouncementReader(voiceOver: Pick<
   VoiceOverApi,
   "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog"
->): () => Promise<string> {
+>): () => Promise<Pick<ScreenReaderObservation, "announcement" | "announcementCapture">> {
   let firstObservation = true;
 
   return async () => {
@@ -114,15 +136,30 @@ export function createAnnouncementReader(voiceOver: Pick<
 
     if (phrases.length > 0) {
       firstObservation = false;
-      return phrases.join("\n");
+      return {
+        announcement: phrases.join("\n"),
+        announcementCapture: "log"
+      };
     }
 
     if (firstObservation) {
       firstObservation = false;
-      return (await voiceOver.lastSpokenPhrase()).trim();
+      const fallback = (await voiceOver.lastSpokenPhrase()).trim();
+      return fallback
+        ? {
+            announcement: fallback,
+            announcementCapture: "fallback"
+          }
+        : {
+            announcement: "",
+            announcementCapture: "none"
+          };
     }
 
-    return "";
+    return {
+      announcement: "",
+      announcementCapture: "none"
+    };
   };
 }
 

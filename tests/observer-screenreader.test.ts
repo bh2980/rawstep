@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("observer-screenreader", () => {
-  it("reads the spoken phrase log first and then falls back to empty announcements", async () => {
+  it("reads the spoken phrase log first and then reports none when no text was captured", async () => {
     const reader = createAnnouncementReader({
       spokenPhraseLog: vi
         .fn<() => Promise<string[]>>()
@@ -24,8 +24,14 @@ describe("observer-screenreader", () => {
       lastSpokenPhrase: vi.fn(async () => "Welcome")
     });
 
-    await expect(reader()).resolves.toBe("Heading\nGet started button");
-    await expect(reader()).resolves.toBe("");
+    await expect(reader()).resolves.toEqual({
+      announcement: "Heading\nGet started button",
+      announcementCapture: "log"
+    });
+    await expect(reader()).resolves.toEqual({
+      announcement: "",
+      announcementCapture: "none"
+    });
   });
 
   it("uses the last spoken phrase for the initial observation when the log is empty", async () => {
@@ -35,7 +41,10 @@ describe("observer-screenreader", () => {
       lastSpokenPhrase: vi.fn(async () => "Main landmark")
     });
 
-    await expect(reader()).resolves.toBe("Main landmark");
+    await expect(reader()).resolves.toEqual({
+      announcement: "Main landmark",
+      announcementCapture: "fallback"
+    });
   });
 
   it("rejects screenreader runtime creation on non-macOS platforms", async () => {
@@ -115,13 +124,17 @@ describe("observer-screenreader", () => {
     expect(evaluate).toHaveBeenCalledTimes(3);
     expect(firstObservation).toEqual({
       kind: "screenreader",
-      announcement: "Initial announcement"
+      announcement: "Initial announcement",
+      announcementCapture: "log"
     });
     expect(secondObservation).toEqual({
       kind: "screenreader",
       announcement: "After next item",
+      announcementCapture: "log",
       previousAnnouncement: "Initial announcement"
     });
+    expect(runtime.setupTimings.voiceOverInitMs).toBeGreaterThanOrEqual(0);
+    expect(runtime.setupTimings.firstAnnouncementWaitMs).toBeGreaterThanOrEqual(0);
     expect(next).toHaveBeenCalled();
     expect(previous).toHaveBeenCalled();
     expect(perform).toHaveBeenCalledWith("findNextHeading");

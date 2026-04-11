@@ -145,6 +145,22 @@ function renderHtml(session: TraceSession): string {
             <span class="value">${session.aggregate.timings.setupMs} ms</span>
           </div>
           <div class="summary-card">
+            <span class="label">Browser launch</span>
+            <span class="value">${session.aggregate.timings.browserLaunchMs} ms</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Page load</span>
+            <span class="value">${session.aggregate.timings.pageLoadMs} ms</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">VoiceOver init</span>
+            <span class="value">${session.aggregate.timings.voiceOverInitMs} ms</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">First announcement wait</span>
+            <span class="value">${session.aggregate.timings.firstAnnouncementWaitMs} ms</span>
+          </div>
+          <div class="summary-card">
             <span class="label">Report</span>
             <span class="value">${session.aggregate.timings.reportMs} ms</span>
           </div>
@@ -181,12 +197,18 @@ function renderStep(step: StepRecord): string {
         <li>URL path: ${escapeHtml(step.observation.browserChrome.urlPath)}</li>
         <li>Scroll hint: ${escapeHtml(step.observation.scrollHint ?? "top")}</li>
       </ul>`
-    : `<p>${escapeHtml(step.observation.announcement)}</p>`;
+    : `<ul>
+        <li>Announcement: ${step.observation.announcement ? escapeHtml(step.observation.announcement) : "<em>none captured</em>"}</li>
+        <li>Announcement capture: <code>${escapeHtml(step.observation.announcementCapture)}</code></li>
+      </ul>`;
   const executionHtml = step.execution.ok
     ? `Execution ok. Cost delta: <code>${step.execution.costDelta}</code>`
     : `Execution failed. Error: <code>${escapeHtml(step.execution.error ?? "unknown")}</code>`;
   const verificationHtml = step.verification
     ? renderVerification(step.verification)
+    : "";
+  const verdictAnalysisHtml = step.verdictAnalysis
+    ? renderVerdictAnalysis(step.verdictAnalysis)
     : "";
   const timingsHtml = `<ul>
         <li>Observe: ${step.timings.observeMs} ms</li>
@@ -204,6 +226,7 @@ function renderStep(step: StepRecord): string {
         <p>${escapeHtml(step.decision.rationale)}</p>
         ${observationHtml}
         <p>${executionHtml}</p>
+        ${verdictAnalysisHtml}
         ${timingsHtml}
         ${verificationHtml}
         <p>Recorded at <code>${escapeHtml(step.timestamp)}</code></p>
@@ -246,6 +269,14 @@ function renderVerification(verification: NonNullable<StepRecord["verification"]
     : "";
 
   return `<div><p>${summary}</p>${failures}</div>`;
+}
+
+function renderVerdictAnalysis(verdictAnalysis: NonNullable<StepRecord["verdictAnalysis"]>): string {
+  return `<ul>
+    <li>Agent verdict: <code>${escapeHtml(verdictAnalysis.agentVerdict)}</code></li>
+    <li>Verification result: <code>${escapeHtml(verdictAnalysis.verificationResult)}</code></li>
+    <li>Final result at this step: <code>${escapeHtml(verdictAnalysis.finalResult)}</code></li>
+  </ul>`;
 }
 
 function escapeHtml(value: string): string {

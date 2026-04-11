@@ -17,7 +17,8 @@ import {
   type Observation,
   type Task,
   type UserModel,
-  type TraceSession
+  type TraceSession,
+  type VerdictAnalysis
 } from "@a11y-task/core";
 import { KeyboardObserver } from "@a11y-task/observer-keyboard";
 import {
@@ -66,6 +67,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     browser = await browserFactory(task.url, {
       headless: !isScreenReaderMode(task.mode)
     });
+    const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
+    const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;
     screenReaderRuntime = isScreenReaderMode(task.mode)
       ? await (options.screenReaderRuntimeFactory ?? createVoiceOverRuntime)(browser.page)
       : undefined;
@@ -78,7 +81,13 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       ...options.agentOptions,
       taskInput: task.input
     });
-    trace.setSetupMs(Date.now() - setupStartedAt);
+    trace.setSetupTimings({
+      setupMs: Date.now() - setupStartedAt,
+      browserLaunchMs,
+      pageLoadMs,
+      voiceOverInitMs: screenReaderRuntime?.setupTimings.voiceOverInitMs ?? 0,
+      firstAnnouncementWaitMs: screenReaderRuntime?.setupTimings.firstAnnouncementWaitMs ?? 0
+    });
 
     for (let step = 0; step < task.maxSteps; step += 1) {
       if (Date.now() >= deadline) {
@@ -121,6 +130,11 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
               verifyMs
             },
             verification,
+            createVerdictAnalysis(decision.verdict, verification, verification.passed
+              ? "success"
+              : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
+                ? "failure"
+                : "continued"),
             developerScreenshot
           );
 
@@ -158,6 +172,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             verifyMs: 0
           },
           undefined,
+          createVerdictAnalysis(decision.verdict, undefined, decision.verdict === "success" ? "success" : "failure"),
           developerScreenshot
         );
         endedBy = decision.verdict;
@@ -184,6 +199,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             verifyMs: 0
           },
           undefined,
+          undefined,
           developerScreenshot
         );
 
@@ -202,7 +218,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           decideMs,
           executeMs,
           verifyMs: 0
-        }, undefined, developerScreenshot);
+        }, undefined, undefined, developerScreenshot);
 
         if (error instanceof NotAllowedActionError) {
           endedBy = "error";
@@ -275,6 +291,22 @@ function isScreenReaderMode(mode: UserModel): boolean {
 
 function allowsRawKeyActions(mode: UserModel): boolean {
   return mode === "keyboard" || mode === "screenreader-hybrid";
+}
+
+function createVerdictAnalysis(
+  agentVerdict: VerdictAnalysis["agentVerdict"],
+  verification: { passed: boolean } | undefined,
+  finalResult: VerdictAnalysis["finalResult"]
+): VerdictAnalysis {
+  return {
+    agentVerdict,
+    verificationResult: verification
+      ? verification.passed
+        ? "passed"
+        : "failed"
+      : "not-run",
+    finalResult
+  };
 }
 
 async function captureDeveloperScreenshot(

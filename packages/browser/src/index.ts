@@ -25,6 +25,10 @@ export type BrowserSession = {
   context: BrowserContext;
   page: Page;
   network: NetworkLog;
+  setupTimings?: {
+    browserLaunchMs: number;
+    pageLoadMs: number;
+  };
   close(): Promise<void>;
 };
 
@@ -36,7 +40,10 @@ export async function createBrowserSession(
   url: string,
   options: CreateBrowserSessionOptions = {}
 ): Promise<BrowserSession> {
+  const browserLaunchStartedAt = Date.now();
   const browser = await chromium.launch({ headless: options.headless ?? true });
+  const browserLaunchMs = Date.now() - browserLaunchStartedAt;
+  const pageLoadStartedAt = Date.now();
   const context = await browser.newContext({
     viewport: {
       width: DEFAULT_VIEWPORT.w,
@@ -69,12 +76,17 @@ export async function createBrowserSession(
 
   await page.goto(url, { waitUntil: "load" });
   await waitForNetworkIdleBestEffort(page);
+  const pageLoadMs = Date.now() - pageLoadStartedAt;
 
   return {
     browser,
     context,
     page,
     network,
+    setupTimings: {
+      browserLaunchMs,
+      pageLoadMs
+    },
     close: async () => {
       await context.close();
       await browser.close();

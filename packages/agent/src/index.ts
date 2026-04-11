@@ -454,7 +454,11 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
           },
           hasPreviousScreenshot: Boolean(obs.previousScreenshot)
         }
-      : obs;
+      : {
+          kind: obs.kind,
+          announcement: obs.announcement,
+          previousAnnouncement: obs.previousAnnouncement
+        };
 
   const lines = [
     `goal: ${ctx.goal}`,
