@@ -40,7 +40,7 @@
 
 - **`screenreader` 모드** → v2 (Guidepup VoiceOver). `--mode screenreader` 지정 시 명시적 에러.
 - **`observer-screenreader` 패키지** → v2에서 신설. v1에서는 파일/폴더 생성하지 않음.
-- **자유 텍스트 입력** → 입력 필요 폼은 "blocked" step으로 기록
+- **임의 자유 텍스트 입력** → 금지. 다만 task가 고정 문자열을 제공한 경우에만 제한된 text input action 허용
 - **Oracle 자동 검증** → v3+
 - **NVDA** → v3+
 - **다중 세션 병렬 실행** → v3+

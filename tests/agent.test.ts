@@ -1,6 +1,7 @@
 import {
   buildPromptParts,
   buildSystemPrompt,
+  buildUserPromptText,
   parseDecision,
   resolveAgentConfig,
   toAnthropicMessageContent,
@@ -20,7 +21,7 @@ function makeKeyboardContext(): AgentContext {
   return {
     goal: "Finish the task.",
     allowedKeys: ["Tab", "Enter"],
-    history: [{ stepIndex: 0, action: { key: "Tab" }, rationale: "Move forward." }]
+    history: [{ stepIndex: 0, source: "agent", action: { key: "Tab" }, rationale: "Move forward." }]
   };
 }
 
@@ -48,12 +49,37 @@ describe("agent helpers", () => {
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
-      expect(decision.action.key).toBe("Tab");
+      expect("key" in decision.action).toBe(true);
+      if ("key" in decision.action) {
+        expect(decision.action.key).toBe("Tab");
+      }
+    }
+  });
+
+  it("parses valid task text input JSON", () => {
+    const decision = parseDecision('{"action":{"typeText":"task"},"rationale":"Type the task text."}');
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect("typeText" in decision.action).toBe(true);
+      if ("typeText" in decision.action) {
+        expect(decision.action.typeText).toBe("task");
+      }
     }
   });
 
   it("turns malformed output into stuck verdict", () => {
     const decision = parseDecision("not valid json");
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain("malformed decision");
+    }
+  });
+
+  it("treats mixed key and typeText actions as malformed", () => {
+    const decision = parseDecision('{"action":{"key":"Tab","typeText":"task"},"rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -68,6 +94,21 @@ describe("agent helpers", () => {
     expect(prompt).toContain("keyboard");
     expect(prompt).toContain("DOM");
     expect(prompt).toContain("Tab");
+    expect(prompt).toContain("마우스 클릭");
+    expect(prompt).toContain("focus ring");
+    expect(prompt).toContain("Enter / Space");
+    expect(prompt).toContain("상태 변화");
+    expect(prompt).toContain("step 0");
+    expect(prompt).not.toContain('"typeText":"task"');
+  });
+
+  it("includes task-scoped text input rules only when input text is provided", () => {
+    const prompt = buildSystemPrompt("keyboard", { text: "passport" });
+
+    expect(prompt).toContain('"typeText":"task"');
+    expect(prompt).toContain("고정 문자열");
+    expect(prompt).toContain("임의 텍스트를 생성하거나 수정하지 마라");
+    expect(prompt).toContain("입력 가능 여부는 화면 신호로만 추정");
   });
 
   it("resolves anthropic config from the shared env vars", () => {
@@ -159,5 +200,47 @@ describe("agent helpers", () => {
         }
       }
     ]);
+  });
+});
+
+describe("buildUserPromptText", () => {
+  it("previousScreenshot 있으면 현재/직전 이미지 설명이 포함된다", () => {
+    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(text).toContain("현재 스크린샷");
+    expect(text).toContain("직전 스크린샷");
+    expect(text).toContain("focus ring");
+  });
+
+  it("previousScreenshot 없으면 첫 번째 스텝 설명이 포함된다", () => {
+    const obs: Observation = {
+      kind: "keyboard",
+      screenshot: { pngBase64: "current-image", viewport: { w: 1280, h: 720 } },
+      browserChrome: { title: "Page", urlPath: "/" },
+    };
+    const text = buildUserPromptText(makeKeyboardContext(), obs);
+
+    expect(text).toContain("첫 번째 스텝");
+    expect(text).not.toContain("두 번째 이미지는 직전 스크린샷");
+  });
+
+  it("screenreader observation에는 이미지 설명이 포함되지 않는다", () => {
+    const obs: Observation = { kind: "screenreader", announcement: "Submit button" };
+    const text = buildUserPromptText(makeKeyboardContext(), obs);
+
+    expect(text).not.toContain("images:");
+  });
+
+  it("task input text가 있으면 user prompt에 포함된다", () => {
+    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation(), { text: "passport" });
+
+    expect(text).toContain('task input text: "passport"');
+  });
+
+  it("keyboard prompt observation에는 browser title이 포함되지 않는다", () => {
+    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(text).not.toContain("Simple CTA Fixture");
+    expect(text).toContain('"urlPath":"/fixture"');
   });
 });

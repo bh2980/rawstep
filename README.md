@@ -213,8 +213,8 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 
 ## 상태와 한계
 
-- 자유 텍스트 입력은 v1 범위 밖입니다. 입력이 필요한 폼은 "blocked"
-  step으로 기록됩니다.
+- 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
+  제한된 text input action을 허용합니다.
 - Screen reader 모드는 v1에서 macOS VoiceOver (Guidepup)만 지원합니다.
   NVDA는 후속 릴리스 예정.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.

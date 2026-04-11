@@ -8,7 +8,7 @@ import {
   type UserModel
 } from "@a11y-task/core";
 import { renderReport } from "@a11y-task/reporter";
-import { runTask } from "@a11y-task/runner";
+import { runTask, validateVerifySpec } from "@a11y-task/runner";
 import { mkdir, readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -42,7 +42,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     const agent = new LLMAgent(task.mode, {
       provider: options.provider,
       model: options.model,
-      baseURL: options.baseURL
+      baseURL: options.baseURL,
+      taskInput: task.input
     });
 
     await mkdir(options.outDir, { recursive: true });
@@ -90,7 +91,9 @@ export async function loadTask(taskFile: string, overrideMode?: UserModel): Prom
     goal: parsed.goal,
     mode,
     maxSteps: parsed.maxSteps ?? DEFAULT_MAX_STEPS,
-    timeoutMs: parsed.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    timeoutMs: parsed.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    verify: validateVerifySpec(parsed.verify),
+    input: validateTaskInput(parsed.input)
   };
 }
 
@@ -197,6 +200,23 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+function validateTaskInput(raw: unknown): Task["input"] {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error('Task input must be an object with a non-empty "text" field.');
+  }
+
+  const text = (raw as { text?: unknown }).text;
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error('Task input.text must be a non-empty string.');
+  }
+
+  return { text };
 }
 
 if (require.main === module) {

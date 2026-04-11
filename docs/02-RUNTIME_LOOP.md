@@ -28,10 +28,21 @@ runTask(task) -> TraceSession:
       ctx = {
         goal: task.goal,
         allowedKeys: ALLOWED_KEYS,
-        history: trace.recentDecisions(HISTORY_WINDOW),
+        history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback),
       }
 
       decision = await agent.decide(ctx, obs)  # malformed → {verdict:"stuck", ...}
+
+      if decision.verdict == "success" and task.verify:
+        verification = verifyTask(task, browser)
+        trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verification)
+        if verification.passed:
+          endedBy = "success"; break
+        verificationFailures += 1
+        if verificationFailures >= 2:
+          endedBy = "stuck"; break
+        verifierFeedback.push({ stepIndex: step, source: "verifier", rationale: low_info_verification_feedback })
+        continue
 
       if decision.verdict == "success":
         trace.append(step, obs, decision, execution={ok:true, costDelta:0})
@@ -42,8 +53,10 @@ runTask(task) -> TraceSession:
         endedBy = "stuck"; break
 
       try:
-        actuator.press(decision.action.key)
-        trace.append(step, obs, decision, execution={ok:true, costDelta:1})
+        execution = actuator.execute(decision.action, task.input)
+        trace.append(step, obs, decision, execution)
+        if !execution.ok:
+          continue
       catch NotAllowedKeyError as e:
         trace.append(step, obs, decision, execution={ok:false, error:str(e), costDelta:0})
         endedBy = "error"; break
@@ -82,7 +95,8 @@ settle(page):
 
 | 상황 | `aggregate.endedBy` | `reachedGoal` | `failurePoint` |
 |---|---|---|---|
-| agent가 `verdict:"success"` 반환 | `"success"` | `true` | 없음 |
+| agent가 `verdict:"success"` 반환 + verifier 통과 | `"success"` | `true` | 없음 |
+| agent가 `verdict:"success"` 반환 + verifier 실패 2회 | `"stuck"` | `false` | 마지막 step |
 | agent가 `verdict:"stuck"` 반환 | `"stuck"` | `false` | 마지막 step |
 | step 루프가 `maxSteps` 에 도달 | `"maxSteps"` | `false` | 마지막 step |
 | `now() >= deadline` | `"timeout"` | `false` | 마지막 완료된 step |
@@ -116,5 +130,5 @@ agent에게 recentDecisions로 넘기는 최근 결정의 개수. 사람의 작�
 - `page.evaluate`, `page.$`, `page.$$`, `page.locator` 사용 금지
 - `page.accessibility.snapshot()` 사용 금지 (D-002, D-007)
 - `page.waitForSelector`, `page.waitForFunction` 사용 금지 (DOM 암묵적 접근)
-- 허용된 Playwright API: `goto`, `keyboard.press`, `screenshot`, `viewportSize`, `title`, `url`, `waitForLoadState("networkidle")`, `close`
+- 허용된 Playwright API: `goto`, `keyboard.press`, `keyboard.type`, `screenshot`, `viewportSize`, `title`, `url`, `waitForLoadState("networkidle")`, `close`
 - 새 Playwright API를 쓰고 싶으면 D-002 위반 여부부터 확인하고 DECISIONS.md 에 추가 결정을 남긴다

@@ -1,4 +1,4 @@
-import type { AllowedKey, StepRecord, TraceSession } from "@a11y-task/core";
+import type { Action, AllowedKey, StepRecord, TraceSession } from "@a11y-task/core";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 
@@ -158,7 +158,7 @@ function renderHtml(session: TraceSession): string {
 
 function renderStep(step: StepRecord): string {
   const decision = "action" in step.decision
-    ? `Action: <code>${escapeHtml(step.decision.action.key)}</code>`
+    ? `Action: <code>${escapeHtml(formatAction(step.decision.action))}</code>`
     : `Verdict: <code>${escapeHtml(step.decision.verdict)}</code>`;
   const screenshotHtml = step.observation.kind === "keyboard"
     ? `<img src="${escapeHtml(toReportImagePath(step.observation.screenshot.path))}" alt="Step ${step.step} screenshot" />`
@@ -173,6 +173,9 @@ function renderStep(step: StepRecord): string {
   const executionHtml = step.execution.ok
     ? `Execution ok. Cost delta: <code>${step.execution.costDelta}</code>`
     : `Execution failed. Error: <code>${escapeHtml(step.execution.error ?? "unknown")}</code>`;
+  const verificationHtml = step.verification
+    ? renderVerification(step.verification)
+    : "";
 
   return `<article class="step">
     <h2>Step ${step.step}</h2>
@@ -183,10 +186,19 @@ function renderStep(step: StepRecord): string {
         <p>${escapeHtml(step.decision.rationale)}</p>
         ${observationHtml}
         <p>${executionHtml}</p>
+        ${verificationHtml}
         <p>Recorded at <code>${escapeHtml(step.timestamp)}</code></p>
       </div>
     </div>
   </article>`;
+}
+
+function formatAction(action: Action): string {
+  if ("key" in action) {
+    return action.key;
+  }
+
+  return "typeText(task)";
 }
 
 function renderKeyCounts(keyCounts: Record<AllowedKey, number>): string {
@@ -200,6 +212,18 @@ function renderKeyCounts(keyCounts: Record<AllowedKey, number>): string {
 
 function toReportImagePath(relativeScreenshotPath: string): string {
   return posix.join("..", ...relativeScreenshotPath.split("/"));
+}
+
+function renderVerification(verification: NonNullable<StepRecord["verification"]>): string {
+  const summary = verification.passed
+    ? 'Verification: <code>passed</code>'
+    : 'Verification: <code>failed</code>';
+
+  const failures = verification.failures.length > 0
+    ? `<ul>${verification.failures.map((failure) => `<li>${escapeHtml(failure)}</li>`).join("")}</ul>`
+    : "";
+
+  return `<div><p>${summary}</p>${failures}</div>`;
 }
 
 function escapeHtml(value: string): string {

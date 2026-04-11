@@ -1,9 +1,10 @@
-import { Actuator, NotAllowedKeyError } from "@a11y-task/actuator";
+import { Actuator, NotAllowedActionError } from "@a11y-task/actuator";
 import { LLMAgent, type LLMAgentOptions } from "@a11y-task/agent";
 import { closeBrowserSession, createBrowserSession, settlePage } from "@a11y-task/browser";
 import {
   ALLOWED_KEYS,
   HISTORY_WINDOW,
+  type AgentHistoryEntry,
   type Agent,
   type EndedBy,
   type Task,
@@ -11,12 +12,19 @@ import {
 } from "@a11y-task/core";
 import { KeyboardObserver } from "@a11y-task/observer-keyboard";
 import { TraceRecorder } from "@a11y-task/trace";
+import {
+  formatVerificationFeedback,
+  MAX_VERIFICATION_RETRIES,
+  verifyTask
+} from "./verifier";
 
 export type RunTaskOptions = {
   outDir: string;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
 };
+
+export * from "./verifier";
 
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
   if (task.mode !== "keyboard") {
@@ -29,12 +37,18 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   const browser = await createBrowserSession(task.url);
   const observer = new KeyboardObserver(browser.page);
   const actuator = new Actuator(browser.page);
-  const agent = options.agent ?? new LLMAgent(task.mode, options.agentOptions);
+  const agent = options.agent ?? new LLMAgent(task.mode, {
+    ...options.agentOptions,
+    taskInput: task.input
+  });
 
   const deadline = Date.now() + task.timeoutMs;
+  const verifierFeedback: AgentHistoryEntry[] = [];
+  let verificationFailures = 0;
   let endedBy: EndedBy | undefined;
   let session: TraceSession | undefined;
   let unexpectedError: unknown;
+  let failureReasonOverride: string | undefined;
 
   try {
     for (let step = 0; step < task.maxSteps; step += 1) {
@@ -47,19 +61,49 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const context = {
         goal: task.goal,
         allowedKeys: ALLOWED_KEYS,
-        history: trace.recentDecisions(HISTORY_WINDOW)
+        history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback)
       };
       const decision = await agent.decide(context, observation);
 
       if ("verdict" in decision) {
+        if (decision.verdict === "success" && task.verify) {
+          const verification = await verifyTask(task, browser);
+          await trace.append(step, observation, decision, { ok: true, costDelta: 0 }, verification);
+
+          if (verification.passed) {
+            endedBy = "success";
+            break;
+          }
+
+          verificationFailures += 1;
+          const feedback = formatVerificationFeedback(verification);
+
+          if (verificationFailures >= MAX_VERIFICATION_RETRIES) {
+            endedBy = "stuck";
+            failureReasonOverride = `Verified success was not reached: ${feedback}`;
+            break;
+          }
+
+          verifierFeedback.push({
+            stepIndex: step,
+            source: "verifier",
+            rationale: feedback
+          });
+          continue;
+        }
+
         await trace.append(step, observation, decision, { ok: true, costDelta: 0 });
         endedBy = decision.verdict;
         break;
       }
 
       try {
-        await actuator.press(decision.action.key);
-        await trace.append(step, observation, decision, { ok: true, costDelta: 1 });
+        const execution = await actuator.execute(decision.action, task.input);
+        await trace.append(step, observation, decision, execution);
+
+        if (!execution.ok) {
+          continue;
+        }
       } catch (error) {
         const message = getErrorMessage(error);
         await trace.append(step, observation, decision, {
@@ -68,7 +112,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           costDelta: 0
         });
 
-        if (error instanceof NotAllowedKeyError) {
+        if (error instanceof NotAllowedActionError) {
           endedBy = "error";
           break;
         }
@@ -87,7 +131,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     endedBy = endedBy ?? "error";
   } finally {
     await closeBrowserSession(browser);
-    session = await trace.finalize(endedBy ?? "error", actuator.keyCounts);
+    session = await trace.finalize(endedBy ?? "error", actuator.keyCounts, failureReasonOverride);
   }
 
   if (unexpectedError) {
@@ -103,4 +147,11 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+function buildHistoryWindow(
+  agentHistory: AgentHistoryEntry[],
+  verifierFeedback: AgentHistoryEntry[]
+): AgentHistoryEntry[] {
+  return [...agentHistory, ...verifierFeedback].slice(-HISTORY_WINDOW);
 }

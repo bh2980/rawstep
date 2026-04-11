@@ -40,15 +40,22 @@ describe("TraceRecorder", () => {
       { ok: true, costDelta: 1 }
     );
 
+    await recorder.append(
+      1,
+      observation,
+      { action: { typeText: "task" }, rationale: "Type the task text." },
+      { ok: true, costDelta: 1 }
+    );
+
     const keyCounts = createEmptyKeyCounts();
     keyCounts.Tab = 1;
     const session = await recorder.finalize("stuck", keyCounts);
 
-    expect(session.aggregate.totalKeystrokes).toBe(1);
-    expect(session.aggregate.failurePoint?.stepIndex).toBe(0);
+    expect(session.aggregate.totalKeystrokes).toBe(2);
+    expect(session.aggregate.failurePoint?.stepIndex).toBe(1);
 
     const jsonl = await readFile(join(outDir, "trace.jsonl"), "utf8");
-    expect(jsonl.trim().split("\n")).toHaveLength(1);
+    expect(jsonl.trim().split("\n")).toHaveLength(2);
 
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
     const metrics = JSON.parse(await readFile(join(outDir, "metrics.json"), "utf8")) as { endedBy: string };

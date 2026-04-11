@@ -5,15 +5,15 @@ import {
   type Agent,
   type AgentContext,
   type Decision,
-  type KeyboardObservation,
   type Observation,
+  type TaskInput,
   type UserModel
 } from "@a11y-task/core";
 
 const DEFAULT_PROVIDER = "anthropic";
 const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-latest";
 const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "https://api.openai.com/v1";
-const DEFAULT_MAX_TOKENS = 400;
+const DEFAULT_MAX_TOKENS = 800;
 
 export type AgentProvider = "anthropic" | "openai-compatible" | "stub";
 export type AgentBackend = AgentProvider;
@@ -28,6 +28,7 @@ export type LLMAgentOptions = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  taskInput?: TaskInput;
   fetchImpl?: typeof fetch;
 };
 
@@ -75,11 +76,14 @@ export class LLMAgent implements Agent {
   ) {
     this.config = resolveAgentConfig(options);
     this.client = createProviderClient(this.config, options);
+    this.taskInput = options.taskInput;
   }
 
+  private readonly taskInput?: TaskInput;
+
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
-    const systemPrompt = buildSystemPrompt(this.userModel);
-    const promptParts = buildPromptParts(ctx, obs);
+    const systemPrompt = buildSystemPrompt(this.userModel, this.taskInput);
+    const promptParts = buildPromptParts(ctx, obs, this.taskInput);
 
     try {
       const rawText = await this.client.decide({
@@ -258,21 +262,42 @@ class StubProviderClient implements AgentProviderClient {
   }
 }
 
-export function buildSystemPrompt(userModel: UserModel): string {
-  return [
+export function buildSystemPrompt(userModel: UserModel, taskInput?: TaskInput): string {
+  const lines = [
     `너는 ${userModel} 사용자를 시뮬레이션한다.`,
     `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
+    "마우스 클릭과 자유 텍스트 입력은 사용할 수 없다.",
     "너는 DOM, 셀렉터, 접근성 트리에 접근할 수 없다.",
+    "focus ring 또는 focus outline은 현재 키보드 포커스가 있는 요소 주위에 보이는 테두리나 강조 표시다.",
+    "키보드 과업에서는 현재 포커스 위치를 추정할 때 이 시각적 신호를 우선 사용하라.",
+    "Tab / Shift+Tab은 포커스 가능한 요소 사이를 앞뒤로 이동할 때 사용한다.",
+    "Enter / Space는 현재 포커스된 버튼, 링크, 컨트롤을 활성화할 때 사용한다.",
+    "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
+    "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
+    "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
     '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.',
-    'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-  ].join("\n");
+  ];
+
+  if (taskInput) {
+    lines.push('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
+    lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
+    lines.push("입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라.");
+    lines.push(
+      'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+    );
+  } else {
+    lines.push('JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}');
+  }
+
+  return lines.join("\n");
 }
 
-export function buildPromptParts(ctx: AgentContext, obs: Observation): PromptPart[] {
+export function buildPromptParts(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): PromptPart[] {
   const promptParts: PromptPart[] = [
     {
       type: "text",
-      text: buildUserPromptText(ctx, obs)
+      text: buildUserPromptText(ctx, obs, taskInput)
     }
   ];
 
@@ -342,7 +367,7 @@ export function parseDecision(raw: string): Decision {
 
   try {
     const candidate = JSON.parse(extractJsonObject(raw)) as {
-      action?: { key?: string };
+      action?: { key?: string; typeText?: string };
       verdict?: string;
       rationale?: string;
     };
@@ -360,14 +385,31 @@ export function parseDecision(raw: string): Decision {
 
     if (candidate.action) {
       const key = candidate.action.key;
-      if (!key || !isAllowedKey(key)) {
+      const typeText = candidate.action.typeText;
+
+      if (Boolean(key) === Boolean(typeText)) {
         return malformedDecision(snippet);
       }
 
-      return {
-        action: { key },
-        rationale
-      };
+      if (key) {
+        if (!isAllowedKey(key)) {
+          return malformedDecision(snippet);
+        }
+
+        return {
+          action: { key },
+          rationale
+        };
+      }
+
+      if (typeText === "task") {
+        return {
+          action: { typeText: "task" },
+          rationale
+        };
+      }
+
+      return malformedDecision(snippet);
     }
 
     if (candidate.verdict === "success" || candidate.verdict === "stuck") {
@@ -399,12 +441,14 @@ function extractJsonObject(raw: string): string {
   return raw.trim();
 }
 
-function buildUserPromptText(ctx: AgentContext, obs: Observation): string {
+export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): string {
   const observationForPrompt =
     obs.kind === "keyboard"
       ? {
           kind: obs.kind,
-          browserChrome: obs.browserChrome,
+          browserChrome: {
+            urlPath: obs.browserChrome.urlPath
+          },
           scrollHint: obs.scrollHint,
           screenshot: {
             viewport: obs.screenshot.viewport
@@ -413,11 +457,25 @@ function buildUserPromptText(ctx: AgentContext, obs: Observation): string {
         }
       : obs;
 
-  return [
+  const lines = [
     `goal: ${ctx.goal}`,
     `recent history: ${JSON.stringify(ctx.history)}`,
     `observation: ${JSON.stringify(observationForPrompt)}`
-  ].join("\n");
+  ];
+
+  if (taskInput) {
+    lines.push(`task input text: ${JSON.stringify(taskInput.text)}`);
+  }
+
+  if (obs.kind === "keyboard") {
+    lines.push(
+      obs.previousScreenshot
+        ? "images: 첫 번째 이미지는 현재 스크린샷, 두 번째 이미지는 직전 스크린샷이다. 두 이미지를 비교하여 focus ring이 어디서 어디로 이동했는지 확인하라."
+        : "images: 현재 스크린샷 1장이 첨부되어 있다. 직전 스크린샷은 없다 (첫 번째 스텝)."
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function normalizeProviderError(error: unknown, obs: Observation): Error {
@@ -504,7 +562,7 @@ function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
   }
 
   const title = obs.browserChrome.title;
-  const stepCount = ctx.history.length;
+  const stepCount = ctx.history.filter((entry) => entry.source === "agent").length;
 
   if (title.includes("Completed") || title.includes("Closed")) {
     return {

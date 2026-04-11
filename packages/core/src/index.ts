@@ -16,6 +16,36 @@ export type { AllowedKey, ScrollHint } from "./constants";
 
 export type UserModel = "keyboard" | "screenreader";
 
+export type RequestVerificationRule = {
+  requestSeen: {
+    urlIncludes: string;
+    method?: string;
+  };
+};
+
+export type ResponseVerificationRule = {
+  responseSeen: {
+    urlIncludes: string;
+    method?: string;
+    status?: number;
+  };
+};
+
+export type VerifyRule =
+  | { titleIncludes: string }
+  | { urlIncludes: string }
+  | { textVisible: string }
+  | RequestVerificationRule
+  | ResponseVerificationRule;
+
+export type VerifySpec = {
+  all: VerifyRule[];
+};
+
+export type TaskInput = {
+  text: string;
+};
+
 export type Task = {
   id: string;
   url: string;
@@ -23,6 +53,8 @@ export type Task = {
   mode: UserModel;
   maxSteps: number;
   timeoutMs: number;
+  verify?: VerifySpec;
+  input?: TaskInput;
 };
 
 export type KeyboardObservation = {
@@ -47,7 +79,9 @@ export type ScreenReaderObservation = {
 
 export type Observation = KeyboardObservation | ScreenReaderObservation;
 
-export type Action = { key: AllowedKey };
+export type Action =
+  | { key: AllowedKey }
+  | { typeText: "task" };
 export type Verdict = "success" | "stuck";
 export type EndedBy = Verdict | "maxSteps" | "timeout" | "error";
 
@@ -57,6 +91,7 @@ export type Decision =
 
 export type AgentHistoryEntry = {
   stepIndex: number;
+  source: "agent" | "verifier";
   action?: Action;
   rationale: string;
 };
@@ -103,6 +138,12 @@ export type StepRecord = {
   observation: RecordedObservation;
   decision: Decision;
   execution: ExecutionRecord;
+  verification?: VerificationRecord;
+};
+
+export type VerificationRecord = {
+  passed: boolean;
+  failures: string[];
 };
 
 export type FailurePoint = {

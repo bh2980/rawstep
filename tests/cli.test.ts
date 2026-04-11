@@ -1,5 +1,5 @@
 import { loadTask, parseRunArgs, runCli } from "../apps/cli/src";
-import { access, mkdtemp } from "node:fs/promises";
+import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,6 +17,11 @@ describe("CLI", () => {
     expect(task.id).toBe("simple-cta");
     expect(task.mode).toBe("keyboard");
     expect(task.url.startsWith("file://")).toBe(true);
+    expect(task.input).toBeUndefined();
+    expect(task.verify?.all).toEqual([
+      { textVisible: "Started!" },
+      { titleIncludes: "Completed" }
+    ]);
   });
 
   it("runs the keyboard flow and writes outputs", async () => {
@@ -89,5 +94,97 @@ describe("CLI", () => {
     ]);
 
     expect(exitCode).toBe(1);
+  });
+
+  it("loads verify rules from task yaml", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-verify-task-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: verify-task",
+        "url: ../fixtures/simple-cta.html",
+        "goal: Verify success.",
+        "mode: keyboard",
+        "verify:",
+        "  all:",
+        "    - textVisible: Started!",
+        "    - responseSeen:",
+        "        urlIncludes: /api/cart",
+        "        method: POST",
+        "        status: 200"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const task = await loadTask(taskPath);
+    expect(task.verify?.all).toEqual([
+      { textVisible: "Started!" },
+      { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
+    ]);
+  });
+
+  it("loads task-scoped input text from task yaml", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-input-task-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: input-task",
+        "url: ../fixtures/search.html",
+        "goal: Search for passport.",
+        "mode: keyboard",
+        "input:",
+        "  text: passport"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const task = await loadTask(taskPath);
+    expect(task.input).toEqual({ text: "passport" });
+  });
+
+  it("rejects invalid verify rules", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: invalid-verify-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Verify success.",
+        "mode: keyboard",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Completed",
+        "      textVisible: Started!"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow("exactly one rule type");
+  });
+
+  it("rejects invalid task input rules", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-input-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: invalid-input-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Try invalid input.",
+        "mode: keyboard",
+        "input:",
+        '  text: ""'
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow('Task input.text must be a non-empty string.');
   });
 });

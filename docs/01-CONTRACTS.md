@@ -17,6 +17,9 @@ export type Task = {
   mode: UserModel;         // v1은 "keyboard" 만 허용. "screenreader" 는 runtime에서 reject.
   maxSteps: number;        // 상한 (초과 시 verdict="stuck")
   timeoutMs: number;       // 전체 실행 wallclock 상한
+  input?: {                // 선택적 task-scoped 고정 입력 문자열
+    text: string;
+  };
 };
 ```
 
@@ -30,6 +33,22 @@ export type Task = {
   "mode": "keyboard",
   "maxSteps": 20,
   "timeoutMs": 60000
+}
+```
+
+**JSON 예시 (task-scoped text input 포함)**
+
+```json
+{
+  "id": "search-task",
+  "url": "https://example.com/search",
+  "goal": "검색창에 passport를 입력하고 결과 페이지로 이동한다.",
+  "mode": "keyboard",
+  "maxSteps": 20,
+  "timeoutMs": 60000,
+  "input": {
+    "text": "passport"
+  }
 }
 ```
 
@@ -108,7 +127,9 @@ export type Observation = KeyboardObservation | ScreenReaderObservation;
 ## §4. Action / Decision / Verdict
 
 ```ts
-export type Action = { key: AllowedKey };
+export type Action =
+  | { key: AllowedKey }
+  | { typeText: "task" };
 
 export type Verdict = "success" | "stuck";
 
@@ -125,6 +146,15 @@ Agent는 한 턴에 **action XOR verdict** 중 정확히 하나만 반환한다.
 {
   "action": { "key": "Tab" },
   "rationale": "첫 포커스 가능한 요소로 이동하기 위해 Tab을 누른다."
+}
+```
+
+**Decision JSON 예시 (task text input)**
+
+```json
+{
+  "action": { "typeText": "task" },
+  "rationale": "task에 제공된 고정 문자열을 현재 입력 필드에 입력한다."
 }
 ```
 
@@ -150,7 +180,7 @@ export type StepRecord = {
   execution: {
     ok: boolean;
     error?: string;                    // whitelist 위반 등
-    costDelta: number;                 // 이 step에서 추가된 keystroke 수 (0 or 1)
+    costDelta: number;                 // 이 step에서 추가된 action cost (0 or 1)
   };
 };
 
@@ -184,6 +214,7 @@ export type AgentContext = {
   allowedKeys: readonly AllowedKey[];  // ALLOWED_KEYS
   history: Array<{
     stepIndex: number;
+    source: "agent" | "verifier";
     action?: Action;                   // verdict 이전 step은 action
     rationale: string;
   }>;

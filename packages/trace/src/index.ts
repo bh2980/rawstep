@@ -11,7 +11,8 @@ import {
   type StepRecord,
   type Task,
   type TraceAggregate,
-  type TraceSession
+  type TraceSession,
+  type VerificationRecord
 } from "@a11y-task/core";
 import { mkdir, appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -45,7 +46,8 @@ export class TraceRecorder {
     step: number,
     observation: Observation,
     decision: Decision,
-    execution: ExecutionRecord
+    execution: ExecutionRecord,
+    verification?: VerificationRecord
   ): Promise<void> {
     const recordedObservation = await this.serializeObservation(step, observation);
     const record: StepRecord = {
@@ -53,7 +55,8 @@ export class TraceRecorder {
       timestamp: new Date().toISOString(),
       observation: recordedObservation,
       decision,
-      execution
+      execution,
+      verification
     };
 
     this.steps.push(record);
@@ -63,13 +66,18 @@ export class TraceRecorder {
   recentDecisions(limit: number): AgentHistoryEntry[] {
     return this.steps.slice(-limit).map((step) => ({
       stepIndex: step.step,
+      source: "agent",
       action: "action" in step.decision ? step.decision.action : undefined,
       rationale: step.decision.rationale
     }));
   }
 
-  async finalize(endedBy: EndedBy, keyCounts = createEmptyKeyCounts()): Promise<TraceSession> {
-    const aggregate = buildAggregate(this.steps, endedBy, keyCounts);
+  async finalize(
+    endedBy: EndedBy,
+    keyCounts = createEmptyKeyCounts(),
+    failureReasonOverride?: string
+  ): Promise<TraceSession> {
+    const aggregate = buildAggregate(this.steps, endedBy, keyCounts, failureReasonOverride);
     const session: TraceSession = {
       task: this.task,
       startedAt: this.startedAt,
@@ -129,9 +137,10 @@ async function serializeKeyboardObservation(
 function buildAggregate(
   steps: StepRecord[],
   endedBy: EndedBy,
-  keyCounts: TraceAggregate["keyCounts"]
+  keyCounts: TraceAggregate["keyCounts"],
+  failureReasonOverride?: string
 ): TraceAggregate {
-  const totalKeystrokes = Object.values(keyCounts).reduce((sum, count) => sum + count, 0);
+  const totalKeystrokes = steps.reduce((sum, step) => sum + step.execution.costDelta, 0);
   const aggregate: TraceAggregate = {
     totalSteps: steps.length,
     totalKeystrokes,
@@ -143,7 +152,7 @@ function buildAggregate(
   if (endedBy !== "success" && steps.length > 0) {
     aggregate.failurePoint = {
       stepIndex: steps[steps.length - 1].step,
-      reason: failureReason(endedBy, steps[steps.length - 1])
+      reason: failureReasonOverride ?? failureReason(endedBy, steps[steps.length - 1])
     };
   }
 
