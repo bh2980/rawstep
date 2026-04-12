@@ -95,54 +95,10 @@ export type Decision =
   | { action: Action; rationale?: string }
   | { verdict: Verdict; rationale?: string };
 
-export type AgentMemoryKeyboardObservation = {
-  kind: "keyboard";
-  title: string;
-  urlPath: string;
-  scrollHint?: ScrollHint;
-  hadCurrentScreenshot: boolean;
-  hadPreviousScreenshot: boolean;
-};
-
-export type AgentMemoryScreenReaderObservation = {
-  kind: "screenreader";
-  announcement: string;
-  announcementCapture: "log" | "fallback" | "none";
-  announcementCount?: number;
-  observeReason?: "silence" | "timeout" | "fallback";
-};
-
-export type AgentMemoryObservation =
-  | AgentMemoryKeyboardObservation
-  | AgentMemoryScreenReaderObservation;
-
 export type AgentMemoryEntry = {
   step: number;
-  mode: UserModel;
-  observation: AgentMemoryObservation;
-  decision: {
-    kind: "action" | "verdict";
-    value: string;
-  };
-  execution: {
-    ok: boolean;
-    costDelta: number;
-    error?: string;
-  };
-  verification: {
-    status: "not-run" | "passed" | "failed";
-    failureCount: number;
-  };
-  result: {
-    stepOutcome: "continued" | "success" | "failure";
-    completionSource?: "agent" | "verifier-auto-complete";
-  };
-  timings: {
-    observeMs: number;
-    decideMs: number;
-    executeMs: number;
-    verifyMs: number;
-  };
+  action: string;
+  outcome: "continued" | "success" | "failure";
 };
 
 export type AgentContext = {
@@ -162,6 +118,7 @@ export interface Agent {
   decide(ctx: AgentContext, obs: Observation): Promise<Decision>;
   recordStepOutcome?(entry: AgentMemoryEntry): void;
   getMemoryExcerpt?(): AgentMemoryEntry[];
+  getPromptLog?(): unknown[];
   summarizeExperience?(input: {
     task: Task;
     aggregate: TraceAggregate;

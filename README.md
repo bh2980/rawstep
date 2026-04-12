@@ -101,8 +101,11 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 - `goal` — 수행해야 할 과업. 사용자도 자기 목적을 압니다.
 - `allowedKeys` — 허용된 키 목록. 관측이 아니라 행동 공간의 정의.
-- `history` — 최근 몇 step의 `{ 누른 키, 그 이유 }` 리스트.
-  사람의 작업 기억에 해당합니다.
+- `agent memory` — 이전 step들을 가볍게 요약한 text archive.
+  기본값은 최근 1개이며, `--agent-memory-window` 나 `--agent-memory-all`
+  로 범위를 늘릴 수 있습니다. 이 memory는 raw trace 전체가 아니라
+  "그 step에서 무엇을 봤고, 무엇을 했고, 결과가 어땠는지"만 담는 짧은 작업
+  메모입니다.
 
 **`keyboard` 모드 관측**
 
@@ -159,6 +162,7 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 
 한 번의 실행마다 다음이 생성됩니다.
 
+- `prompts.json` — step별 system prompt, user prompt, 이미지 개수. 실제로 모델에 어떤 입력이 갔는지 확인할 때 씁니다.
 - **Verdict** — 에이전트가 과업을 달성했는지, 막혔는지, 시간 초과인지.
 - **단계별 리플레이** — 각 step마다: 당시의 관측(스크린샷 썸네일 또는
   announcement transcript), 에이전트가 누른 키, 그 키를 누른 이유(근거).
@@ -171,6 +175,9 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
   observe 종료 이유(`silence`, `timeout`, `fallback`)를 같이 보여줍니다.
 - 이 값들은 사용자가 과업을 읽는 본문이라기보다, screenreader 관측 품질을
   해석하는 보조 근거입니다.
+- **Experience summary (선택)** — `--include-experience-summary` 를 켜면,
+  실행이 전반적으로 어땠는지, 가장 큰 마찰은 무엇이었는지, 다음에 뭘 점검하면
+  좋은지를 3줄 요약으로 붙입니다.
 - **성공 근거 분리** — agent가 success라고 주장한 것과 verifier가 실제로 통과시킨 것을 따로 보여줍니다.
 - **종료 출처 분리** — success가 agent 선언으로 닫혔는지, verifier auto-complete로 닫혔는지도 따로 남깁니다.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.

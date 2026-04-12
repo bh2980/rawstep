@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   ALLOWED_KEYS,
   SCREENREADER_COMMANDS,
+  type Action,
+  type AllowedKey,
   type AgentMemoryEntry,
   isAllowedKey,
   isScreenReaderCommand,
@@ -10,10 +12,12 @@ import {
   type Decision,
   type ExperienceSummary,
   type Observation,
+  type ScreenReaderCommand,
   type Task,
   type TaskInput,
   type TraceAggregate,
-  type UserModel
+  type UserModel,
+  type Verdict
 } from "@a11y-task/core";
 
 const DEFAULT_PROVIDER = "anthropic";
@@ -27,6 +31,16 @@ export type AgentBackend = AgentProvider;
 export type PromptPart =
   | { type: "text"; text: string }
   | { type: "image"; mediaType: "image/png"; base64: string };
+
+export type PromptLogEntry = {
+  kind: "decision" | "experience-summary";
+  sequence: number;
+  provider: AgentProvider;
+  model: string;
+  systemPrompt: string;
+  userPromptText: string;
+  imageCount: number;
+};
 
 export type LLMAgentOptions = {
   provider?: AgentProvider;
@@ -86,6 +100,7 @@ export class LLMAgent implements Agent {
   private readonly agentMemoryAll: boolean;
   private readonly taskInput?: TaskInput;
   private readonly memory: AgentMemoryEntry[] = [];
+  private readonly promptLog: PromptLogEntry[] = [];
 
   constructor(
     private readonly userModel: UserModel,
@@ -108,6 +123,7 @@ export class LLMAgent implements Agent {
       this.includeRationale
     );
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);
+    this.recordPromptLog("decision", systemPrompt, promptParts);
 
     try {
       const rawText = await this.client.complete({
@@ -139,6 +155,10 @@ export class LLMAgent implements Agent {
     return this.memory.slice(-this.agentMemoryWindow);
   }
 
+  getPromptLog(): PromptLogEntry[] {
+    return [...this.promptLog];
+  }
+
   async summarizeExperience(input: {
     task: Task;
     aggregate: TraceAggregate;
@@ -147,17 +167,40 @@ export class LLMAgent implements Agent {
       throw new Error("Experience summary is disabled.");
     }
 
+    const systemPrompt = buildExperienceSummarySystemPrompt();
+    const promptParts: PromptPart[] = [
+      {
+        type: "text",
+        text: buildExperienceSummaryPromptText(input.task, input.aggregate, this.memory)
+      }
+    ];
+    this.recordPromptLog("experience-summary", systemPrompt, promptParts);
+
     const rawText = await this.client.complete({
-      systemPrompt: buildExperienceSummarySystemPrompt(),
-      promptParts: [
-        {
-          type: "text",
-          text: buildExperienceSummaryPromptText(input.task, input.aggregate, this.memory)
-        }
-      ]
+      systemPrompt,
+      promptParts
     });
 
     return parseExperienceSummary(rawText);
+  }
+
+  private recordPromptLog(
+    kind: PromptLogEntry["kind"],
+    systemPrompt: string,
+    promptParts: PromptPart[]
+  ): void {
+    this.promptLog.push({
+      kind,
+      sequence: this.promptLog.length,
+      provider: this.config.provider,
+      model: this.config.provider === "stub" ? "stub" : this.config.model,
+      systemPrompt,
+      userPromptText: promptParts
+        .filter((part): part is Extract<PromptPart, { type: "text" }> => part.type === "text")
+        .map((part) => part.text)
+        .join("\n\n"),
+      imageCount: promptParts.filter((part) => part.type === "image").length
+    });
   }
 }
 
@@ -557,12 +600,12 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
       : {
           kind: obs.kind,
           announcement: obs.announcement,
-          previousAnnouncement: obs.previousAnnouncement
+          previousAnnouncement: obs.previousAnnouncement ?? ""
         };
 
   const lines = [
     `goal: ${ctx.goal}`,
-    `agent memory: ${JSON.stringify(ctx.memory)}`,
+    formatAgentMemoryBlock(ctx.memory),
     `observation: ${JSON.stringify(observationForPrompt)}`
   ];
 
@@ -601,12 +644,25 @@ function buildExperienceSummaryPromptText(
   return [
     `task: ${JSON.stringify({ id: task.id, goal: task.goal, mode: task.mode })}`,
     `aggregate: ${JSON.stringify(aggregate)}`,
-    `agent memory: ${JSON.stringify(memory)}`,
+    formatAgentMemoryBlock(memory),
     "Summarize the run in terms of experience only.",
     "overall: what the run felt like end-to-end.",
     "biggestFriction: the single biggest friction in the run.",
     "nextChecks: up to 2 concrete things a developer should inspect next.",
     "Do not infer DOM structure or accessibility violations."
+  ].join("\n");
+}
+
+function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
+  if (memory.length === 0) {
+    return "agent memory: (empty)";
+  }
+
+  return [
+    "agent memory:",
+    ...memory.map((entry) =>
+      `- step ${entry.step}: action=\"${entry.action}\", outcome=\"${entry.outcome}\"`
+    )
   ].join("\n");
 }
 
@@ -623,8 +679,8 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
     "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
     "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
-    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+    "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
+    "JSON만 반환하라."
   ];
 
   if (taskInput) {
@@ -644,7 +700,9 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     );
   }
 
-  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
+  if (includeRationale) {
+    lines.push("rationale 필드에 짧은 이유를 포함하라.");
+  }
 
   return lines.join("\n");
 }
@@ -666,8 +724,8 @@ function buildScreenReaderStrictSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
-    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+    "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
+    "JSON만 반환하라."
   ];
 
   if (taskInput) {
@@ -684,7 +742,9 @@ function buildScreenReaderStrictSystemPrompt(
         ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
         : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"verdict":"success"}'
   );
-  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
+  if (includeRationale) {
+    lines.push("rationale 필드에 짧은 이유를 포함하라.");
+  }
 
   return lines.join("\n");
 }
@@ -707,8 +767,8 @@ function buildScreenReaderHybridSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
-    '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
+    "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
+    "JSON만 반환하라."
   ];
 
   if (taskInput) {
@@ -725,7 +785,9 @@ function buildScreenReaderHybridSystemPrompt(
         ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
         : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"verdict":"success"}'
   );
-  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
+  if (includeRationale) {
+    lines.push("rationale 필드에 짧은 이유를 포함하라.");
+  }
 
   return lines.join("\n");
 }

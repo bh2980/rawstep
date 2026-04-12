@@ -24,36 +24,8 @@ function makeKeyboardContext(): AgentContext {
     allowedKeys: ["Tab", "Enter"],
     memory: [{
       step: 0,
-      mode: "keyboard",
-      observation: {
-        kind: "keyboard",
-        title: "Simple CTA Fixture",
-        urlPath: "/fixture",
-        scrollHint: "top",
-        hadCurrentScreenshot: true,
-        hadPreviousScreenshot: false
-      },
-      decision: {
-        kind: "action",
-        value: "key(Tab)"
-      },
-      execution: {
-        ok: true,
-        costDelta: 1
-      },
-      verification: {
-        status: "not-run",
-        failureCount: 0
-      },
-      result: {
-        stepOutcome: "continued"
-      },
-      timings: {
-        observeMs: 0,
-        decideMs: 10,
-        executeMs: 20,
-        verifyMs: 0
-      }
+      action: "key(Tab)",
+      outcome: "continued"
     }]
   };
 }
@@ -179,15 +151,13 @@ describe("agent helpers", () => {
     const prompt = buildSystemPrompt("keyboard");
 
     expect(prompt).toContain("keyboard");
-    expect(prompt).toContain("DOM");
     expect(prompt).toContain("Tab");
-    expect(prompt).toContain("마우스 클릭");
     expect(prompt).toContain("focus ring");
     expect(prompt).toContain("Enter / Space");
     expect(prompt).toContain("상태 변화");
-    expect(prompt).toContain("agent memory가 비어 있으면");
+    expect(prompt).toContain("JSON만 반환하라");
     expect(prompt).not.toContain('"typeText":"task"');
-    expect(prompt).toContain("rationale 필드는 포함하지 마라");
+    expect(prompt).not.toContain("rationale");
   });
 
   it("includes task-scoped text input rules only when input text is provided", () => {
@@ -195,8 +165,8 @@ describe("agent helpers", () => {
 
     expect(prompt).toContain('"typeText":"task"');
     expect(prompt).toContain("고정 문자열");
-    expect(prompt).toContain("임의 텍스트를 생성하거나 수정하지 마라");
-    expect(prompt).toContain("입력 가능 여부는 화면 신호로만 추정");
+    expect(prompt).toContain('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
+    expect(prompt).toContain("typeText는 task에 제공된 고정 문자열만 입력한다");
   });
 
   it("builds the screenreader-strict system prompt without raw key examples", () => {
@@ -204,8 +174,7 @@ describe("agent helpers", () => {
 
     expect(prompt).toContain("screenreader-strict");
     expect(prompt).toContain("announcement");
-    expect(prompt).toContain("화면을 볼 수 없다");
-    expect(prompt).toContain("일반 키보드 탐색 키는 사용할 수 없다");
+    expect(prompt).toContain("screenreader command");
     expect(prompt).toContain("nextItem");
     expect(prompt).not.toContain('"action":{"key":"Tab"}');
     expect(prompt).not.toContain("focus ring");
@@ -219,7 +188,7 @@ describe("agent helpers", () => {
     expect(prompt).toContain("함께 사용할 수 있다");
     expect(prompt).toContain('{"action":{"key":"Tab"}}');
     expect(prompt).toContain("nextHeading");
-    expect(prompt).toContain("rationale 필드는 포함하지 마라");
+    expect(prompt).toContain("JSON만 반환하라");
   });
 
   it("builds rationale-on prompts with rationale examples", () => {
@@ -359,56 +328,26 @@ describe("buildUserPromptText", () => {
     expect(text).toContain('task input text: "passport"');
   });
 
-  it("agent memory에 rationale이 없으면 prompt JSON에서 필드가 생략된다", () => {
+  it("agent memory는 step/action/outcome 텍스트 블록으로 prompt에 포함된다", () => {
     const ctx: AgentContext = {
       goal: "Finish the task.",
       allowedKeys: ["Tab", "Enter"],
       memory: [{
         step: 0,
-        mode: "keyboard",
-        observation: {
-          kind: "keyboard",
-          title: "Simple CTA Fixture",
-          urlPath: "/fixture",
-          scrollHint: "top",
-          hadCurrentScreenshot: true,
-          hadPreviousScreenshot: false
-        },
-        decision: {
-          kind: "action",
-          value: "key(Tab)"
-        },
-        execution: {
-          ok: true,
-          costDelta: 1
-        },
-        verification: {
-          status: "not-run",
-          failureCount: 0
-        },
-        result: {
-          stepOutcome: "continued"
-        },
-        timings: {
-          observeMs: 0,
-          decideMs: 10,
-          executeMs: 20,
-          verifyMs: 0
-        }
+        action: "key(Tab)",
+        outcome: "continued"
       }]
     };
     const text = buildUserPromptText(ctx, makeKeyboardObservation());
 
-    expect(text).toContain("agent memory:");
-    expect(text).toContain('"value":"key(Tab)"');
-    expect(text).not.toContain('"rationale"');
+    expect(text).toContain('agent memory:\n- step 0: action="key(Tab)", outcome="continued"');
   });
 
-  it("keyboard prompt observation에는 browser title이 포함되지 않는다", () => {
+  it("keyboard prompt에는 observation JSON이 포함된다", () => {
     const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
 
-    expect(text).toContain('observation: {"kind":"keyboard","browserChrome":{"urlPath":"/fixture"}');
-    expect(text).not.toContain('observation: {"kind":"keyboard","browserChrome":{"title":"Simple CTA Fixture"');
+    expect(text).toContain('observation: {"kind":"keyboard"');
     expect(text).toContain('"urlPath":"/fixture"');
+    expect(text).toContain("agent memory:");
   });
 });

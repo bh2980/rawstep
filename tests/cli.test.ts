@@ -1,5 +1,5 @@
 import { loadTask, parseRunArgs, runCli } from "../apps/cli/src";
-import { access, mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -41,7 +41,20 @@ describe.sequential("CLI", () => {
     expect(exitCode).toBe(0);
     await expect(access(join(outDir, "trace.jsonl"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "metrics.json"))).resolves.toBeUndefined();
+    await expect(access(join(outDir, "prompts.json"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
+
+    const prompts = JSON.parse(await readFile(join(outDir, "prompts.json"), "utf8")) as Array<{
+      kind: string;
+      systemPrompt: string;
+      userPromptText: string;
+      imageCount: number;
+    }>;
+    expect(prompts.length).toBeGreaterThan(0);
+    expect(prompts[0]?.kind).toBe("decision");
+    expect(prompts[0]?.systemPrompt).toContain("keyboard");
+    expect(prompts[0]?.userPromptText).toContain("goal:");
+    expect(prompts[0]?.imageCount).toBeGreaterThanOrEqual(1);
   });
 
   it("loads screenreader-hybrid mode tasks without rejecting them at parse time", async () => {

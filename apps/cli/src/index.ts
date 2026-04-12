@@ -70,7 +70,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     const reportStartedAt = Date.now();
     let reportPath = await renderReport(session, options.outDir);
     session.aggregate.timings.reportMs = Date.now() - reportStartedAt;
-    await persistSessionArtifacts(session, options.outDir);
+    await persistSessionArtifacts(session, options.outDir, agent.getPromptLog?.());
     reportPath = await renderReport(session, options.outDir);
 
     process.stdout.write(
@@ -80,6 +80,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
         `Outputs:`,
         `- ${resolve(options.outDir, "trace.jsonl")}`,
         `- ${resolve(options.outDir, "metrics.json")}`,
+        `- ${resolve(options.outDir, "prompts.json")}`,
         `- ${reportPath}`
       ].join("\n") + "\n"
     );
@@ -91,9 +92,14 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-async function persistSessionArtifacts(session: Awaited<ReturnType<typeof runTask>>, outDir: string): Promise<void> {
+async function persistSessionArtifacts(
+  session: Awaited<ReturnType<typeof runTask>>,
+  outDir: string,
+  promptLog?: unknown[]
+): Promise<void> {
   await writeFile(resolve(outDir, "trace.json"), JSON.stringify(session, null, 2), "utf8");
   await writeFile(resolve(outDir, "metrics.json"), JSON.stringify(session.aggregate, null, 2), "utf8");
+  await writeFile(resolve(outDir, "prompts.json"), JSON.stringify(promptLog ?? [], null, 2), "utf8");
 }
 
 export async function loadTask(taskFile: string, overrideMode?: UserModel): Promise<Task> {

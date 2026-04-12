@@ -252,14 +252,8 @@ step timing:
 memory item에는 아래 정보만 들어간다.
 
 - `step`
-- `mode`
-- `observation`
-- `decision`
-- `execution`
-- `verification`
-- `result.stepOutcome`
-- `result.completionSource?`
-- `timings`
+- `action`
+- `outcome`
 
 memory는 **텍스트만** 유지한다.
 
@@ -269,7 +263,7 @@ memory는 **텍스트만** 유지한다.
 `same agent instance` 는 provider native session/thread를 뜻하지 않는다.
 
 - 동일한 logical agent abstraction이 run 동안 memory를 축적한다.
-- 하지만 각 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성해 보낸다.
+- 하지만 각 step 요청은 항상 `goal + recent history excerpt + current observation` 으로 새로 구성해 보낸다.
 
 ---
 

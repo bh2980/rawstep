@@ -128,8 +128,8 @@ describe("runTask", () => {
     const recordedMemoryValues: string[] = [];
 
     const agent = {
-      recordStepOutcome: (entry: { decision: { value: string } }) => {
-        recordedMemoryValues.push(entry.decision.value);
+      recordStepOutcome: (entry: { action: string }) => {
+        recordedMemoryValues.push(entry.action);
       },
       summarizeExperience: async () => ({
         overall: `Recorded ${recordedMemoryValues.length} steps.`,
@@ -178,7 +178,7 @@ describe("runTask", () => {
 
   it("feeds verification failure back into the next agent turn", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verify-feedback-"));
-    const observedHistorySources: string[][] = [];
+    const observedMemoryActions: string[][] = [];
     let callCount = 0;
 
     const session = await runTask(
@@ -197,7 +197,7 @@ describe("runTask", () => {
         outDir,
         agent: {
           decide: async (ctx) => {
-            observedHistorySources.push(ctx.memory.map((entry) => entry.verification.status));
+            observedMemoryActions.push(ctx.memory.map((entry) => entry.action));
             callCount += 1;
 
             if (callCount === 1) {
@@ -227,7 +227,7 @@ describe("runTask", () => {
       finalResult: "continued",
       completionSource: "agent"
     });
-    expect(observedHistorySources[1]).toContain("failed");
+    expect(observedMemoryActions[1]).toContain("verdict(success)");
   });
 
   it("stops after two failed verified-success attempts", async () => {
@@ -314,7 +314,7 @@ describe("runTask", () => {
         agent: {
           decide: async (ctx) => {
             callCount += 1;
-            seenHistory.push(...ctx.memory.map((entry) => `${entry.decision.value}:${entry.execution.error ?? "ok"}`));
+            seenHistory.push(...ctx.memory.map((entry) => `${entry.action}:${entry.outcome}`));
 
             if (callCount === 1) {
               return {
@@ -339,7 +339,6 @@ describe("runTask", () => {
       error: "Action did not produce an observable text-entry state change."
     });
     expect(seenHistory.join(" ")).toContain("typeText(task)");
-    expect(seenHistory.join(" ")).toContain("Action did not produce an observable text-entry state change.");
   });
 
   it("completes a verified task with task-scoped text input", async () => {
@@ -1003,7 +1002,7 @@ describe("runTask", () => {
         }),
         agent: {
           decide: async (ctx) => {
-            seenHistorySources.push(ctx.memory.map((entry) => entry.verification.status));
+            seenHistorySources.push(ctx.memory.map((entry) => entry.outcome));
             callCount += 1;
 
             if (callCount === 1) {
@@ -1024,7 +1023,7 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps[0].verification?.passed).toBe(false);
-    expect(seenHistorySources[1]).toContain("failed");
+    expect(seenHistorySources[1]).toContain("continued");
   });
 
   it("stores only failed screenreader steps when screenshot policy is failure-only", async () => {

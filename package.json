@@ -5,7 +5,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "vitest run",
-    "a11y-task": "tsx apps/cli/src/index.ts"
+    "a11y-task": "tsx --tsconfig tsconfig.json apps/cli/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",

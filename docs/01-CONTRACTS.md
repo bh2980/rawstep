@@ -271,8 +271,7 @@ Agent의 LLM 프롬프트는 다음 구조를 가진다.
 ```
 [system]
 너는 {userModel} 사용자를 시뮬레이션한다.
-너에게 허용된 키는 {allowedKeys} 뿐이다.
-너는 DOM, 셀렉터, accessibility tree에 접근할 수 없다.
+사용 가능한 키 또는 screenreader command는 {allowedKeys}/{allowedScreenReaderCommands} 이다.
 screenreader-strict / screenreader-hybrid 모드에서는 allowedScreenReaderCommands 도 함께 주어진다.
 screenreader-strict 에서는 allowedKeys 가 빈 배열이고 raw key action 예시를 주지 않는다.
 screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
@@ -283,31 +282,25 @@ screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
 
 [user]
 goal: {goal}
-agent memory: {memory JSON excerpt}
+recent history: [{ stepIndex, source, action|verdict }]
 observation: {observation JSON}
 keyboard 모드일 때만 screenshot image block 추가
 ```
 
-실제 agent 프롬프트용 observation은 runtime observation보다 축소된다.
+실제 agent 프롬프트용 observation은 예전 history 시절과 비슷하게 유지한다.
 
-- keyboard: `browserChrome.title` 은 빼고 `urlPath` 만 남긴다.
+- keyboard: `browserChrome.urlPath`, `scrollHint`, `screenshot.viewport`, `hasPreviousScreenshot`
 - screenreader: `announcementCapture` 는 빼고 `announcement`, `previousAnnouncement` 만 남긴다.
 
-`agent memory` 는 raw trace 전체가 아니라 **step archive 요약본** 배열이다.
+`agent memory` 는 raw trace 전체가 아니라 **가벼운 step 메모** 배열이다.
 
 각 item에는 아래 수준의 정보만 담는다.
 
 - `step`
-- `mode`
-- `observation`
-- `decision`
-- `execution`
-- `verification`
-- `result.stepOutcome`
-- `result.completionSource?`
-- `timings`
+- `action`
+- `outcome`
 
-이때 keyboard 이미지 base64, 전체 verification failure 배열, raw network record, rationale는 memory item에 넣지 않는다.
+이때 keyboard 이미지 base64, verification 상세 배열, raw network record, rationale, timing 값은 memory item에 넣지 않는다.
 
 응답 파서는 malformed JSON 또는 허용되지 않은 key 사용 시 `{ verdict: "stuck", rationale: "agent returned malformed decision: <snippet>" }` 로 강제 변환한다. 에이전트가 치트하려고 해도 stuck 처리될 뿐이며, 예외로 루프가 깨지지 않는다.
 
