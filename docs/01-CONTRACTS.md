@@ -17,6 +17,7 @@ export type Task = {
   mode: UserModel;         // "keyboard" | "screenreader-strict" | "screenreader-hybrid"
   maxSteps: number;        // 상한 (초과 시 verdict="stuck")
   timeoutMs: number;       // 전체 실행 wallclock 상한
+  verify: VerifySpec;      // success 판정 규칙
   input?: {                // 선택적 task-scoped 고정 입력 문자열
     text: string;
   };
@@ -29,10 +30,16 @@ export type Task = {
 {
   "id": "simple-cta",
   "url": "file:///.../fixtures/simple-cta.html",
-  "goal": "페이지의 첫 CTA 버튼을 찾아서 활성화(Enter)한다.",
+  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
   "mode": "keyboard",
   "maxSteps": 20,
-  "timeoutMs": 60000
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      { "textVisible": "Started!" },
+      { "titleIncludes": "Completed" }
+    ]
+  }
 }
 ```
 
@@ -46,6 +53,11 @@ export type Task = {
   "mode": "keyboard",
   "maxSteps": 20,
   "timeoutMs": 60000,
+  "verify": {
+    "all": [
+      { "urlIncludes": "/search" }
+    ]
+  },
   "input": {
     "text": "passport"
   }
@@ -185,7 +197,7 @@ Agent는 한 턴에 **action XOR verdict** 중 정확히 하나만 반환한다.
 export type StepRecord = {
   step: number;                        // 0-indexed
   timestamp: string;                   // ISO 8601
-  observation: Observation;
+  observation: RecordedObservation;
   decision: Decision;
   execution: {
     ok: boolean;
@@ -247,6 +259,12 @@ export type TraceSession = {
 };
 ```
 
+주의:
+
+- `Observation` 은 observer가 agent에게 넘기는 **in-memory 입력 타입**이다.
+- `RecordedObservation` 은 trace/report에 저장되는 **직렬화 타입**이다.
+- screenreader trace에는 개발자용 screenshot이 선택적으로 붙을 수 있지만, agent 입력에는 들어가지 않는다.
+
 ---
 
 ## §6. Agent 입출력 포맷
@@ -266,31 +284,32 @@ export interface Agent {
 }
 ```
 
-Agent의 LLM 프롬프트는 다음 구조를 가진다.
+Agent의 LLM 프롬프트는 **모드별 system prompt + 최소 user prompt + 선택적 이미지 block** 구조를 가진다.
 
 ```
 [system]
-너는 {userModel} 사용자를 시뮬레이션한다.
-사용 가능한 키 또는 screenreader command는 {allowedKeys}/{allowedScreenReaderCommands} 이다.
-screenreader-strict / screenreader-hybrid 모드에서는 allowedScreenReaderCommands 도 함께 주어진다.
-screenreader-strict 에서는 allowedKeys 가 빈 배열이고 raw key action 예시를 주지 않는다.
-screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
-너는 한 턴에 {action} 또는 {verdict} 중 하나만 반환한다.
-기본 JSON 형식: { action?: {key|typeText|srCommand}, verdict?: "success"|"stuck" }
+모드별 행동 공간과 종료 규칙을 선언한다.
+- keyboard: 현재 screenshot + 직전 screenshot 비교, focus ring 추정, success/stuck 판단 규칙
+- screenreader-strict: current announcement + agent memory만 사용, srCommand만 허용, act 후 결과/완료 announcement가 읽히면 success 우선 검토
+- screenreader-hybrid: 관측은 strict와 같고, 행동만 srCommand + raw key 허용, 활성화 후 결과/완료 announcement가 읽히면 success 우선 검토
+한 턴에 action 또는 verdict 중 하나만 반환한다.
+JSON만 반환한다.
 
 `--include-rationale` 를 켜면 위 JSON에 `rationale: string` 을 함께 포함한다.
 
 [user]
 goal: {goal}
-recent history: [{ stepIndex, source, action|verdict }]
+agent memory:
+- step {n}: action="{...}", outcome="{continued|success|failure}"
 screenreader 모드일 때만 announcement: {announcement}
+task input이 있을 때만 task input text: "{text}"
 keyboard 모드일 때만 screenshot image block 추가
 ```
 
-실제 agent 프롬프트용 observation은 예전 history 시절과 비슷하게 유지한다.
+실제 agent 프롬프트용 observation은 아래처럼 축약된다.
 
 - keyboard: 현재 상태는 observation JSON 대신 screenshot image block으로만 전달한다.
-- screenreader: `announcementCapture` 같은 메타는 빼고 `announcement` 한 줄만 남긴다.
+- screenreader: `announcementCapture`, `announcementCount`, `observeReason`, `previousAnnouncement` 는 빼고 `announcement` 한 줄만 남긴다.
 
 `agent memory` 는 raw trace 전체가 아니라 **가벼운 step 메모** 배열이다.
 
@@ -318,11 +337,11 @@ CLI 실험 옵션으로 `--include-rationale` 를 켤 수 있다.
 
 CLI memory / summary 옵션도 있다.
 
-- `--agent-memory-window <N>`: 기본값 `1`, 최근 N개 memory archive 전달
+- `--agent-memory-window <N>`: 기본값 `5`, 최근 N개 memory archive 전달
 - `--agent-memory-window 0`: memory 미전달
 - `--agent-memory-all`: window 대신 누적 text memory 전체 전달
 - `--include-experience-summary`: run 종료 후 같은 logical agent abstraction이 aggregate + 전체 step trace를 사용해 summary 생성
 
 여기서 "same logical agent abstraction" 은 provider native session/thread를 뜻하지 않는다.
 매 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성한다.
-다만 experience summary는 decision window와 분리되어, `agent-memory-window=1` 이어도 **aggregate + 전체 step trace** 를 사용한다.
+다만 experience summary는 decision window와 분리되어, `agent-memory-window=5` 이어도 **aggregate + 전체 step trace** 를 사용한다.

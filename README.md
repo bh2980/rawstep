@@ -72,6 +72,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 행동 공간: screen reader canonical command + 일반 키
   (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + opt-in `typeText`.
 - 스크린 리더 탐색과 일반 키보드 입력을 같이 허용한다.
+- 하이브리드라는 말은 **행동 공간만 넓어진다**는 뜻이다. 시야가 생기는 것은 아니다.
 
 ## 관측 채널과 행동 공간을 어떻게 제한하는가
 
@@ -119,7 +120,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 **`screenreader-strict` / `screenreader-hybrid` 모드 관측**
 
 - 직전 액션 이후 screen reader가 실제로 말한 announcement 텍스트
-- 직전 announcement 1개 (사람의 단기 청각 기억 등가물)
+- observer는 내부적으로 `previousAnnouncement` 를 유지할 수 있지만, 현재 agent 프롬프트에는 `announcement` 1개와 `agent memory` 만 넣습니다.
 - announcement를 어떻게 잡았는지 나타내는 capture 메타
   (`log`, `fallback`, `none`)는 trace/report에만 저장하고, agent 프롬프트에는 넣지 않습니다.
 - trace/report에는 `announcementCount`, `observeReason` 도 함께 저장합니다.
@@ -132,6 +133,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - `announcementCapture` 는 "무엇으로 잡았는가", `observeReason` 는 "왜 여기서 관측을
   닫았는가"를 뜻합니다.
 - agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
+- 즉 `screenreader-hybrid` 도 일반 키를 더 쓸 수 있을 뿐, 관측 채널은 여전히 announcement-only 입니다.
 - 다만 개발자용 trace/report에는 디버깅을 위해 step 시점 screenshot을 별도로 저장할 수 있습니다. 이 이미지는 agent 입력에는 절대 들어가지 않습니다.
 
 ### 의도적으로 주지 않는 정보
