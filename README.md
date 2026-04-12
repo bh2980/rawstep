@@ -233,6 +233,8 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard \
   --out ./report \
+  --agent-memory-window 1 \
+  --include-experience-summary \
   --screenshots important \
   --include-rationale \
   --verifier-auto-complete \
@@ -261,11 +263,30 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 이 경우 report의 `completionSource` 가 `verifier-auto-complete` 로 남아, agent가 직접 닫은 성공과 구분됩니다.
 
+`--agent-memory-window` 는 agent에게 다시 보여줄 이전 step archive 개수를 정합니다.
+
+- 기본값은 `1`
+- `0` 이면 이전 step memory를 보내지 않아 사실상 stateless처럼 동작
+- `N` 이면 최근 N개 archive만 전달
+
+`--agent-memory-all` 을 켜면 최근 일부가 아니라 **누적된 text memory 전체**를 agent에게 전달합니다.
+
+이 memory는 긴 raw trace 전체가 아니라, 각 step의 관측/행동/실행 결과/verification 결과를
+짧게 요약한 text archive입니다. keyboard 이미지 자체는 memory에 저장하지 않고, 기존처럼
+현재 screenshot + 직전 screenshot까지만 판단 입력으로 사용합니다.
+
 `--include-rationale` 는 기본값이 꺼져 있습니다.
 
 - 기본 실행에서는 agent가 `rationale` 필드를 생성하지 않습니다.
 - 디버깅이나 데모가 필요할 때만 켜서 긴 자연어 설명을 저장합니다.
 - malformed decision, verifier feedback 같은 시스템 생성 메시지는 필요하면 여전히 rationale를 포함할 수 있습니다.
+
+`--include-experience-summary` 도 기본값이 꺼져 있습니다.
+
+- 켜면 run이 끝난 뒤 같은 logical agent abstraction이 **누적된 text memory 전체**를 바탕으로
+  짧은 experience summary를 생성합니다.
+- 이 summary는 `overall`, `biggestFriction`, `nextChecks`(최대 2개) 구조를 가집니다.
+- summary는 root cause를 단정하거나 pass/fail을 다시 판정하지 않고, 실행 흐름과 마찰만 요약합니다.
 
 ## 상태와 한계
 

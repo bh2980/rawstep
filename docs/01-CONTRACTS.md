@@ -215,6 +215,11 @@ export type TraceSession = {
   startedAt: string;
   endedAt: string;
   steps: StepRecord[];
+  experienceSummary?: {
+    overall: string;
+    biggestFriction: string;
+    nextChecks: string[];              // 최대 2개
+  };
   aggregate: {
     result: "success" | "failure";
     totalSteps: number;
@@ -253,12 +258,7 @@ export type AgentContext = {
   goal: string;                        // task.goal
   allowedKeys: readonly AllowedKey[];  // ALLOWED_KEYS
   allowedScreenReaderCommands?: readonly ScreenReaderCommand[];
-  history: Array<{
-    stepIndex: number;
-    source: "agent" | "verifier";
-    action?: Action;                   // verdict 이전 step은 action
-    rationale?: string;
-  }>;
+  memory: AgentMemoryEntry[];
 };
 
 export interface Agent {
@@ -283,7 +283,7 @@ screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
 
 [user]
 goal: {goal}
-recent history: {history JSON}
+agent memory: {memory JSON excerpt}
 observation: {observation JSON}
 keyboard 모드일 때만 screenshot image block 추가
 ```
@@ -292,6 +292,22 @@ keyboard 모드일 때만 screenshot image block 추가
 
 - keyboard: `browserChrome.title` 은 빼고 `urlPath` 만 남긴다.
 - screenreader: `announcementCapture` 는 빼고 `announcement`, `previousAnnouncement` 만 남긴다.
+
+`agent memory` 는 raw trace 전체가 아니라 **step archive 요약본** 배열이다.
+
+각 item에는 아래 수준의 정보만 담는다.
+
+- `step`
+- `mode`
+- `observation`
+- `decision`
+- `execution`
+- `verification`
+- `result.stepOutcome`
+- `result.completionSource?`
+- `timings`
+
+이때 keyboard 이미지 base64, 전체 verification failure 배열, raw network record, rationale는 memory item에 넣지 않는다.
 
 응답 파서는 malformed JSON 또는 허용되지 않은 key 사용 시 `{ verdict: "stuck", rationale: "agent returned malformed decision: <snippet>" }` 로 강제 변환한다. 에이전트가 치트하려고 해도 stuck 처리될 뿐이며, 예외로 루프가 깨지지 않는다.
 
@@ -306,3 +322,14 @@ CLI 실험 옵션으로 `--include-rationale` 를 켤 수 있다.
 - 기본값은 `false`
 - 기본 실행에서는 agent decision JSON에서 `rationale` 필드를 생략한다.
 - verifier feedback, malformed decision 같은 시스템 생성 기록은 필요하면 rationale를 포함할 수 있다.
+
+CLI memory / summary 옵션도 있다.
+
+- `--agent-memory-window <N>`: 기본값 `1`, 최근 N개 memory archive 전달
+- `--agent-memory-window 0`: memory 미전달
+- `--agent-memory-all`: window 대신 누적 text memory 전체 전달
+- `--include-experience-summary`: run 종료 후 같은 logical agent abstraction이 누적 text memory 전체를 사용해 summary 생성
+
+여기서 "same logical agent abstraction" 은 provider native session/thread를 뜻하지 않는다.
+매 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성한다.
+다만 experience summary는 decision window와 분리되어, `agent-memory-window=1` 이어도 **run 동안 누적된 text memory 전체**를 사용한다.

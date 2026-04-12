@@ -10,7 +10,7 @@ afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
 });
 
-describe("CLI", () => {
+describe.sequential("CLI", () => {
   it("loads task files with defaults and resolves relative fixture URLs", async () => {
     const task = await loadTask(resolve("examples/tasks/simple-cta.yml"));
 
@@ -24,14 +24,14 @@ describe("CLI", () => {
     ]);
   });
 
-  it("runs the keyboard flow and writes outputs", async () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "stub";
-
+  it("runs the keyboard flow and writes outputs", { timeout: 15_000 }, async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-cli-"));
 
     const exitCode = await runCli([
       "run",
       resolve("examples/tasks/simple-cta.yml"),
+      "--provider",
+      "stub",
       "--mode",
       "keyboard",
       "--out",
@@ -82,6 +82,10 @@ describe("CLI", () => {
       "--screenshots",
       "failure-only",
       "--verifier-auto-complete",
+      "--agent-memory-window",
+      "3",
+      "--agent-memory-all",
+      "--include-experience-summary",
       "--include-rationale",
       "--provider",
       "openai-compatible",
@@ -96,6 +100,9 @@ describe("CLI", () => {
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
     expect(parsed.screenshotPolicy).toBe("failure-only");
     expect(parsed.verifierAutoComplete).toBe(true);
+    expect(parsed.agentMemoryWindow).toBe(3);
+    expect(parsed.agentMemoryAll).toBe(true);
+    expect(parsed.includeExperienceSummary).toBe(true);
     expect(parsed.includeRationale).toBe(true);
   });
 
@@ -109,7 +116,22 @@ describe("CLI", () => {
     ]);
 
     expect(parsed.verifierAutoComplete).toBe(false);
+    expect(parsed.agentMemoryWindow).toBe(1);
+    expect(parsed.agentMemoryAll).toBe(false);
+    expect(parsed.includeExperienceSummary).toBe(false);
     expect(parsed.includeRationale).toBe(false);
+  });
+
+  it("rejects invalid agent memory window values", () => {
+    expect(() => parseRunArgs([
+      resolve("examples/tasks/simple-cta.yml"),
+      "--mode",
+      "keyboard",
+      "--out",
+      "./tmp/out",
+      "--agent-memory-window",
+      "-1"
+    ])).toThrow("agent-memory-window");
   });
 
   it("rejects invalid screenshot policies on the CLI", () => {

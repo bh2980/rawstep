@@ -1,5 +1,6 @@
 import {
   buildPromptParts,
+  parseExperienceSummary,
   buildSystemPrompt,
   buildUserPromptText,
   parseDecision,
@@ -21,7 +22,39 @@ function makeKeyboardContext(): AgentContext {
   return {
     goal: "Finish the task.",
     allowedKeys: ["Tab", "Enter"],
-    history: [{ stepIndex: 0, source: "agent", action: { key: "Tab" }, rationale: "Move forward." }]
+    memory: [{
+      step: 0,
+      mode: "keyboard",
+      observation: {
+        kind: "keyboard",
+        title: "Simple CTA Fixture",
+        urlPath: "/fixture",
+        scrollHint: "top",
+        hadCurrentScreenshot: true,
+        hadPreviousScreenshot: false
+      },
+      decision: {
+        kind: "action",
+        value: "key(Tab)"
+      },
+      execution: {
+        ok: true,
+        costDelta: 1
+      },
+      verification: {
+        status: "not-run",
+        failureCount: 0
+      },
+      result: {
+        stepOutcome: "continued"
+      },
+      timings: {
+        observeMs: 0,
+        decideMs: 10,
+        executeMs: 20,
+        verifyMs: 0
+      }
+    }]
   };
 }
 
@@ -110,6 +143,18 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses a valid experience summary JSON payload", () => {
+    const summary = parseExperienceSummary(
+      '{"overall":"The run completed.","biggestFriction":"The initial guidance was weak.","nextChecks":["Check the initial guidance.","Check the post-action feedback.","Extra"]}'
+    );
+
+    expect(summary).toEqual({
+      overall: "The run completed.",
+      biggestFriction: "The initial guidance was weak.",
+      nextChecks: ["Check the initial guidance.", "Check the post-action feedback."]
+    });
+  });
+
   it("treats mixed key and typeText actions as malformed", () => {
     const decision = parseDecision('{"action":{"key":"Tab","typeText":"task"},"rationale":"Invalid."}');
 
@@ -140,7 +185,7 @@ describe("agent helpers", () => {
     expect(prompt).toContain("focus ring");
     expect(prompt).toContain("Enter / Space");
     expect(prompt).toContain("상태 변화");
-    expect(prompt).toContain("step 0");
+    expect(prompt).toContain("agent memory가 비어 있으면");
     expect(prompt).not.toContain('"typeText":"task"');
     expect(prompt).toContain("rationale 필드는 포함하지 마라");
   });
@@ -304,7 +349,8 @@ describe("buildUserPromptText", () => {
 
     expect(text).not.toContain("images:");
     expect(text).toContain('"announcement":"Submit button"');
-    expect(text).not.toContain("urlPath");
+    expect(text).toContain("agent memory:");
+    expect(text).toContain('observation: {"kind":"screenreader"');
   });
 
   it("task input text가 있으면 user prompt에 포함된다", () => {
@@ -313,22 +359,56 @@ describe("buildUserPromptText", () => {
     expect(text).toContain('task input text: "passport"');
   });
 
-  it("history에 rationale이 없으면 prompt JSON에서 필드가 생략된다", () => {
+  it("agent memory에 rationale이 없으면 prompt JSON에서 필드가 생략된다", () => {
     const ctx: AgentContext = {
       goal: "Finish the task.",
       allowedKeys: ["Tab", "Enter"],
-      history: [{ stepIndex: 0, source: "agent", action: { key: "Tab" } }]
+      memory: [{
+        step: 0,
+        mode: "keyboard",
+        observation: {
+          kind: "keyboard",
+          title: "Simple CTA Fixture",
+          urlPath: "/fixture",
+          scrollHint: "top",
+          hadCurrentScreenshot: true,
+          hadPreviousScreenshot: false
+        },
+        decision: {
+          kind: "action",
+          value: "key(Tab)"
+        },
+        execution: {
+          ok: true,
+          costDelta: 1
+        },
+        verification: {
+          status: "not-run",
+          failureCount: 0
+        },
+        result: {
+          stepOutcome: "continued"
+        },
+        timings: {
+          observeMs: 0,
+          decideMs: 10,
+          executeMs: 20,
+          verifyMs: 0
+        }
+      }]
     };
     const text = buildUserPromptText(ctx, makeKeyboardObservation());
 
-    expect(text).toContain('"action":{"key":"Tab"}');
+    expect(text).toContain("agent memory:");
+    expect(text).toContain('"value":"key(Tab)"');
     expect(text).not.toContain('"rationale"');
   });
 
   it("keyboard prompt observation에는 browser title이 포함되지 않는다", () => {
     const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
 
-    expect(text).not.toContain("Simple CTA Fixture");
+    expect(text).toContain('observation: {"kind":"keyboard","browserChrome":{"urlPath":"/fixture"}');
+    expect(text).not.toContain('observation: {"kind":"keyboard","browserChrome":{"title":"Simple CTA Fixture"');
     expect(text).toContain('"urlPath":"/fixture"');
   });
 });

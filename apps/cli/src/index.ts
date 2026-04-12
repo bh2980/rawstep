@@ -21,6 +21,9 @@ type CliRunOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
+  agentMemoryWindow?: number;
+  agentMemoryAll?: boolean;
+  includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   provider?: AgentProvider;
   model?: string;
@@ -47,6 +50,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       provider: options.provider,
       model: options.model,
       baseURL: options.baseURL,
+      agentMemoryWindow: options.agentMemoryWindow,
+      agentMemoryAll: options.agentMemoryAll,
+      includeExperienceSummary: options.includeExperienceSummary,
       includeRationale: options.includeRationale,
       taskInput: task.input
     });
@@ -56,7 +62,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       outDir: options.outDir,
       agent,
       screenshotPolicy: options.screenshotPolicy,
-      verifierAutoComplete: options.verifierAutoComplete
+      verifierAutoComplete: options.verifierAutoComplete,
+      agentMemoryWindow: options.agentMemoryWindow,
+      agentMemoryAll: options.agentMemoryAll,
+      includeExperienceSummary: options.includeExperienceSummary
     });
     const reportStartedAt = Date.now();
     let reportPath = await renderReport(session, options.outDir);
@@ -120,6 +129,9 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let outDir: string | undefined;
   let screenshotPolicy: ScreenshotPolicy | undefined;
   let verifierAutoComplete = false;
+  let agentMemoryWindow = 1;
+  let agentMemoryAll = false;
+  let includeExperienceSummary = false;
   let includeRationale = false;
   let provider: AgentProvider | undefined;
   let model: string | undefined;
@@ -170,6 +182,29 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--agent-memory-window") {
+      if (!next) {
+        throw new Error("Missing value for --agent-memory-window.");
+      }
+      const parsed = Number.parseInt(next, 10);
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        throw new Error("--agent-memory-window must be a non-negative integer.");
+      }
+      agentMemoryWindow = parsed;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--agent-memory-all") {
+      agentMemoryAll = true;
+      continue;
+    }
+
+    if (token === "--include-experience-summary") {
+      includeExperienceSummary = true;
+      continue;
+    }
+
     if (token === "--include-rationale") {
       includeRationale = true;
       continue;
@@ -206,6 +241,9 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     outDir: resolve(outDir),
     screenshotPolicy,
     verifierAutoComplete,
+    agentMemoryWindow,
+    agentMemoryAll,
+    includeExperienceSummary,
     includeRationale,
     provider,
     model,
@@ -228,7 +266,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 

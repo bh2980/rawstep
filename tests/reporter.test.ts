@@ -343,4 +343,54 @@ describe("reporter", () => {
     expect(html).toContain("verifier-auto-complete");
     expect(html).not.toContain("<p>undefined</p>");
   });
+
+  it("renders experience summary when present", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-summary-"));
+    const reportPath = await renderReport(
+      {
+        task: {
+          id: "summary-task",
+          url: "file:///summary-task.html",
+          goal: "Finish and summarize.",
+          mode: "keyboard",
+          maxSteps: 1,
+          timeoutMs: 1000
+        },
+        startedAt: "2026-04-12T00:00:00.000Z",
+        endedAt: "2026-04-12T00:00:01.000Z",
+        steps: [],
+        aggregate: {
+          result: "success",
+          totalSteps: 0,
+          durationMs: 1000,
+          timings: {
+            setupMs: 10,
+            browserLaunchMs: 1,
+            pageLoadMs: 2,
+            voiceOverInitMs: 0,
+            firstAnnouncementWaitMs: 0,
+            reportMs: 0
+          },
+          actionCounts: {
+            srCommandCount: 0,
+            rawKeyCount: 0,
+            typeTextCount: 0
+          },
+          terminatedAtStep: null,
+          endedBy: "success"
+        },
+        experienceSummary: {
+          overall: "The run finished directly.",
+          biggestFriction: "The initial direction was slightly unclear.",
+          nextChecks: ["Check the initial guidance.", "Check the feedback after interaction."]
+        }
+      } satisfies TraceSession,
+      outDir
+    );
+
+    const html = await readFile(reportPath, "utf8");
+    expect(html).toContain("Experience summary");
+    expect(html).toContain("The run finished directly.");
+    expect(html).toContain("Check the initial guidance.");
+  });
 });

@@ -1,8 +1,8 @@
 import {
   type ActionCounts,
-  type AgentHistoryEntry,
   type Decision,
   type EndedBy,
+  type ExperienceSummary,
   type ExecutionRecord,
   type KeyboardObservation,
   type Observation,
@@ -80,15 +80,6 @@ export class TraceRecorder {
     await appendFile(this.traceJsonlPath, `${JSON.stringify(record)}\n`, "utf8");
   }
 
-  recentDecisions(limit: number): AgentHistoryEntry[] {
-    return this.steps.slice(-limit).map((step) => ({
-      stepIndex: step.step,
-      source: "agent",
-      action: "action" in step.decision ? step.decision.action : undefined,
-      rationale: step.decision.rationale
-    }));
-  }
-
   async finalize(
     endedBy: EndedBy,
     failureReasonOverride?: string
@@ -139,6 +130,12 @@ export class TraceRecorder {
 
     if (this.session) {
       this.session.aggregate.timings.reportMs = this.reportMs;
+    }
+  }
+
+  setExperienceSummary(experienceSummary: ExperienceSummary): void {
+    if (this.session) {
+      this.session.experienceSummary = experienceSummary;
     }
   }
 

@@ -13,6 +13,10 @@ runTask(task) -> TraceSession:
   browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
   screenshotPolicy = options.screenshotPolicy ?? "all"
   verifierAutoComplete = options.verifierAutoComplete ?? false
+  agentMemoryWindow = options.agentMemoryWindow ?? 1
+  agentMemoryAll = options.agentMemoryAll ?? false
+  includeExperienceSummary = options.includeExperienceSummary ?? false
+  agentMemory = []
   if task.mode == "keyboard":
     observer = KeyboardObserver(browser.page)
     screenReaderRuntime = null
@@ -35,7 +39,7 @@ runTask(task) -> TraceSession:
         goal: task.goal,
         allowedKeys: ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
         allowedScreenReaderCommands: SCREENREADER_COMMANDS if task.mode != "keyboard" else undefined,
-        history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback),
+        memory: selectAgentMemoryExcerpt(agentMemory, agentMemoryAll, agentMemoryWindow),
       }
 
       decision = await agent.decide(ctx, obs)  # malformed → {verdict:"stuck", ...}
@@ -50,12 +54,12 @@ runTask(task) -> TraceSession:
           completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verification, verdictAnalysis)
+        agentMemory.push(createAgentMemoryEntry(...))
         if verification.passed:
           endedBy = "success"; break
         verificationFailures += 1
         if verificationFailures >= 2:
           endedBy = "stuck"; break
-        verifierFeedback.push({ stepIndex: step, source: "verifier", rationale: low_info_verification_feedback })
         continue
 
       if decision.verdict == "success":
@@ -66,6 +70,7 @@ runTask(task) -> TraceSession:
           completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
+        agentMemory.push(createAgentMemoryEntry(...))
         endedBy = "success"; break
 
       if decision.verdict == "stuck":
@@ -76,6 +81,7 @@ runTask(task) -> TraceSession:
           completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
+        agentMemory.push(createAgentMemoryEntry(...))
         endedBy = "stuck"; break
 
       try:
@@ -91,12 +97,15 @@ runTask(task) -> TraceSession:
               completionSource: "verifier-auto-complete"
             }
             trace.append(step, obs, decision, execution, verification, verdictAnalysis)
+            agentMemory.push(createAgentMemoryEntry(...))
             endedBy = "success"; break
         trace.append(step, obs, decision, execution)
+        agentMemory.push(createAgentMemoryEntry(...))
         if !execution.ok:
           continue
       catch NotAllowedKeyError as e:
         trace.append(step, obs, decision, execution={ok:false, error:str(e), costDelta:0})
+        agentMemory.push(createAgentMemoryEntry(...))
         endedBy = "error"; break
 
       settle(browser.page)                    # §settle 규칙
@@ -109,6 +118,10 @@ runTask(task) -> TraceSession:
       screenReaderRuntime.close()
     browser.close()
     trace.finalize(endedBy)
+
+  if includeExperienceSummary:
+    summary = agent.summarizeExperience(task, trace.aggregate, fullTextMemory=agentMemory)
+    trace.session.experienceSummary = summary
 
   return trace.session
 ```
@@ -225,13 +238,60 @@ step timing:
 
 ---
 
-## §HISTORY_WINDOW
+## §agent memory 규칙
 
-```ts
-export const HISTORY_WINDOW = 8;
-```
+`history` 대신 `agent memory` 를 사용한다.
 
-agent에게 recentDecisions로 넘기는 최근 결정의 개수. 사람의 작업 기억 근사. 8보다 크면 사람보다 유리, 4보다 작으면 사람보다 불리한 것으로 간주한다. 이 값은 `packages/core/src/constants.ts` 에서 export한다.
+- 각 step이 끝날 때 **가벼운 step archive JSON 1개**를 만든다.
+- 다음 step decision에서는 이 archive를 최근 일부만 또는 전체를 agent에 전달한다.
+- memory policy:
+  - `window = 0` → memory 미전달
+  - `window = N` → 최근 N개만 전달
+  - `all` → 누적 text memory 전체 전달
+
+memory item에는 아래 정보만 들어간다.
+
+- `step`
+- `mode`
+- `observation`
+- `decision`
+- `execution`
+- `verification`
+- `result.stepOutcome`
+- `result.completionSource?`
+- `timings`
+
+memory는 **텍스트만** 유지한다.
+
+- keyboard 이미지 base64는 memory에 넣지 않는다.
+- keyboard decision 시에는 기존처럼 **현재 screenshot + 직전 screenshot까지만** 별도 입력으로 사용한다.
+
+`same agent instance` 는 provider native session/thread를 뜻하지 않는다.
+
+- 동일한 logical agent abstraction이 run 동안 memory를 축적한다.
+- 하지만 각 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성해 보낸다.
+
+---
+
+## §experience summary 규칙
+
+`--include-experience-summary` 를 켜면 run 종료 후 experience summary를 생성한다.
+
+- 기본값은 `false`
+- summary는 별도 모델/별도 후처리 agent가 아니라 **같은 logical agent abstraction** 이 작성한다
+- 다만 summary는 decision window와 분리된다
+  - 예: `agent-memory-window = 1` 이어도 summary는 **run 동안 누적된 text memory 전체**를 사용한다
+
+출력 형식은 아래로 고정한다.
+
+- `overall`
+- `biggestFriction`
+- `nextChecks` 최대 2개
+
+summary는 행동/관측 수준만 말해야 한다.
+
+- 허용: 초기 방향 잡기 어려움, 반복 탐색, 빈 관측, 상호작용 후 피드백 약함, 종료 방식, 다음 확인 포인트
+- 금지: DOM 구조 추정, ARIA/WCAG 단정, 시각 정보 본 척, pass/fail 재판정, 감정적 일반화
 
 ---
 

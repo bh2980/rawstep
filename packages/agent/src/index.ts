@@ -2,13 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   ALLOWED_KEYS,
   SCREENREADER_COMMANDS,
+  type AgentMemoryEntry,
   isAllowedKey,
   isScreenReaderCommand,
   type Agent,
   type AgentContext,
   type Decision,
+  type ExperienceSummary,
   type Observation,
+  type Task,
   type TaskInput,
+  type TraceAggregate,
   type UserModel
 } from "@a11y-task/core";
 
@@ -30,6 +34,9 @@ export type LLMAgentOptions = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  agentMemoryWindow?: number;
+  agentMemoryAll?: boolean;
+  includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   taskInput?: TaskInput;
   fetchImpl?: typeof fetch;
@@ -60,18 +67,25 @@ export type ResolvedAgentConfig =
 type ProviderDecisionInput = {
   systemPrompt: string;
   promptParts: PromptPart[];
-  ctx: AgentContext;
-  obs: Observation;
+  ctx?: AgentContext;
+  obs?: Observation;
+  fullMemory?: AgentMemoryEntry[];
 };
 
 interface AgentProviderClient {
-  decide(input: ProviderDecisionInput): Promise<string>;
+  complete(input: ProviderDecisionInput): Promise<string>;
 }
 
 export class LLMAgent implements Agent {
   readonly config: ResolvedAgentConfig;
 
   private readonly client: AgentProviderClient;
+  private readonly includeRationale: boolean;
+  private readonly includeExperienceSummary: boolean;
+  private readonly agentMemoryWindow: number;
+  private readonly agentMemoryAll: boolean;
+  private readonly taskInput?: TaskInput;
+  private readonly memory: AgentMemoryEntry[] = [];
 
   constructor(
     private readonly userModel: UserModel,
@@ -80,11 +94,11 @@ export class LLMAgent implements Agent {
     this.config = resolveAgentConfig(options);
     this.client = createProviderClient(this.config, options);
     this.includeRationale = options.includeRationale ?? false;
+    this.includeExperienceSummary = options.includeExperienceSummary ?? false;
+    this.agentMemoryWindow = Math.max(0, options.agentMemoryWindow ?? 1);
+    this.agentMemoryAll = options.agentMemoryAll ?? false;
     this.taskInput = options.taskInput;
   }
-
-  private readonly includeRationale: boolean;
-  private readonly taskInput?: TaskInput;
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
     const systemPrompt = buildSystemPrompt(
@@ -96,16 +110,54 @@ export class LLMAgent implements Agent {
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);
 
     try {
-      const rawText = await this.client.decide({
+      const rawText = await this.client.complete({
         systemPrompt,
         promptParts,
         ctx,
-        obs
+        obs,
+        fullMemory: this.memory
       });
       return parseDecision(rawText);
     } catch (error) {
       throw normalizeProviderError(error, obs);
     }
+  }
+
+  recordStepOutcome(entry: AgentMemoryEntry): void {
+    this.memory.push(entry);
+  }
+
+  getMemoryExcerpt(): AgentMemoryEntry[] {
+    if (this.agentMemoryAll) {
+      return [...this.memory];
+    }
+
+    if (this.agentMemoryWindow === 0) {
+      return [];
+    }
+
+    return this.memory.slice(-this.agentMemoryWindow);
+  }
+
+  async summarizeExperience(input: {
+    task: Task;
+    aggregate: TraceAggregate;
+  }): Promise<ExperienceSummary> {
+    if (!this.includeExperienceSummary) {
+      throw new Error("Experience summary is disabled.");
+    }
+
+    const rawText = await this.client.complete({
+      systemPrompt: buildExperienceSummarySystemPrompt(),
+      promptParts: [
+        {
+          type: "text",
+          text: buildExperienceSummaryPromptText(input.task, input.aggregate, this.memory)
+        }
+      ]
+    });
+
+    return parseExperienceSummary(rawText);
   }
 }
 
@@ -203,7 +255,7 @@ class AnthropicProviderClient implements AgentProviderClient {
     this.client = new Anthropic({ apiKey: config.apiKey });
   }
 
-  async decide(input: ProviderDecisionInput): Promise<string> {
+  async complete(input: ProviderDecisionInput): Promise<string> {
     const response = await this.client.messages.create({
       model: this.config.model,
       max_tokens: DEFAULT_MAX_TOKENS,
@@ -230,7 +282,7 @@ class OpenAICompatibleProviderClient implements AgentProviderClient {
     private readonly fetchImpl: typeof fetch
   ) {}
 
-  async decide(input: ProviderDecisionInput): Promise<string> {
+  async complete(input: ProviderDecisionInput): Promise<string> {
     const response = await this.fetchImpl(
       joinUrl(this.config.baseURL, "/chat/completions"),
       {
@@ -269,8 +321,18 @@ class OpenAICompatibleProviderClient implements AgentProviderClient {
 class StubProviderClient implements AgentProviderClient {
   constructor(private readonly includeRationale = false) {}
 
-  async decide(input: ProviderDecisionInput): Promise<string> {
-    return JSON.stringify(decideWithStub(input.ctx, input.obs, this.includeRationale));
+  async complete(input: ProviderDecisionInput): Promise<string> {
+    if (input.systemPrompt.includes("experience summary")) {
+      return JSON.stringify({
+        overall: "The run reached an outcome after a short sequence of steps.",
+        biggestFriction: "The main friction was the amount of navigation before the goal state was confirmed.",
+        nextChecks: ["Check the initial guidance.", "Check the feedback after interaction."]
+      });
+    }
+
+    return JSON.stringify(
+      decideWithStub(input.ctx, input.obs, input.fullMemory, this.includeRationale)
+    );
   }
 }
 
@@ -431,6 +493,33 @@ export function parseDecision(raw: string): Decision {
   }
 }
 
+export function parseExperienceSummary(raw: string): ExperienceSummary {
+  const candidate = JSON.parse(extractJsonObject(raw)) as {
+    overall?: unknown;
+    biggestFriction?: unknown;
+    nextChecks?: unknown;
+  };
+
+  if (
+    typeof candidate.overall !== "string"
+    || typeof candidate.biggestFriction !== "string"
+    || !Array.isArray(candidate.nextChecks)
+  ) {
+    throw new Error("agent returned malformed experience summary");
+  }
+
+  const nextChecks = candidate.nextChecks
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, 2);
+
+  return {
+    overall: candidate.overall.trim(),
+    biggestFriction: candidate.biggestFriction.trim(),
+    nextChecks
+  };
+}
+
 function malformedDecision(snippet: string): Decision {
   return {
     verdict: "stuck",
@@ -473,7 +562,7 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
 
   const lines = [
     `goal: ${ctx.goal}`,
-    `recent history: ${JSON.stringify(ctx.history)}`,
+    `agent memory: ${JSON.stringify(ctx.memory)}`,
     `observation: ${JSON.stringify(observationForPrompt)}`
   ];
 
@@ -492,6 +581,35 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
   return lines.join("\n");
 }
 
+function buildExperienceSummarySystemPrompt(): string {
+  return [
+    "You are writing an experience summary for a single a11y-task run.",
+    "Use only the provided task, aggregate facts, and agent memory.",
+    "Do not restate pass/fail as a new judgment.",
+    "Do not guess DOM structure, ARIA, WCAG violations, or root causes.",
+    "Do not claim to have seen screenshots or visual details beyond the provided facts.",
+    "Write a short JSON object with keys overall, biggestFriction, nextChecks.",
+    "nextChecks must contain at most 2 short strings."
+  ].join("\n");
+}
+
+function buildExperienceSummaryPromptText(
+  task: Task,
+  aggregate: TraceAggregate,
+  memory: AgentMemoryEntry[]
+): string {
+  return [
+    `task: ${JSON.stringify({ id: task.id, goal: task.goal, mode: task.mode })}`,
+    `aggregate: ${JSON.stringify(aggregate)}`,
+    `agent memory: ${JSON.stringify(memory)}`,
+    "Summarize the run in terms of experience only.",
+    "overall: what the run felt like end-to-end.",
+    "biggestFriction: the single biggest friction in the run.",
+    "nextChecks: up to 2 concrete things a developer should inspect next.",
+    "Do not infer DOM structure or accessibility violations."
+  ].join("\n");
+}
+
 function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = false): string {
   const lines = [
     "너는 keyboard 사용자를 시뮬레이션한다.",
@@ -505,7 +623,7 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
     "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
     "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
     '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
   ];
 
@@ -539,7 +657,7 @@ function buildScreenReaderStrictSystemPrompt(
   const lines = [
     "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-strict 이다.",
     "너는 화면을 볼 수 없다. 스크린샷이나 시각적 단서를 상상하지 마라.",
-    "너는 announcement와 recent history만 믿고 추론해야 한다.",
+    "너는 announcement와 agent memory만 믿고 추론해야 한다.",
     "너는 DOM, 셀렉터, 접근성 트리, 브라우저 제목, URL 경로에 접근할 수 없다.",
     "일반 키보드 탐색 키는 사용할 수 없다.",
     `너에게 허용된 screenreader command는 ${allowedScreenReaderCommands.join(", ")} 이다.`,
@@ -548,7 +666,7 @@ function buildScreenReaderStrictSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
     '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
   ];
 
@@ -579,7 +697,7 @@ function buildScreenReaderHybridSystemPrompt(
   const lines = [
     "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-hybrid 이다.",
     "너는 화면을 볼 수 없다. 스크린샷이나 시각적 단서를 상상하지 마라.",
-    "너는 announcement와 recent history만 믿고 추론해야 한다.",
+    "너는 announcement와 agent memory만 믿고 추론해야 한다.",
     "너는 DOM, 셀렉터, 접근성 트리, 브라우저 제목, URL 경로에 접근할 수 없다.",
     `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 이다.`,
     `너에게 허용된 screenreader command는 ${allowedScreenReaderCommands.join(", ")} 이다.`,
@@ -589,7 +707,7 @@ function buildScreenReaderHybridSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
-    "history가 비어 있거나 step 0이라면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
+    "agent memory가 비어 있으면 아직 아무것도 시도하지 않은 것이다. success를 선언하지 마라.",
     '너는 한 턴에 action 또는 verdict 중 하나만 반환한다.'
   ];
 
@@ -687,8 +805,15 @@ function extractOpenAICompatibleText(payload: OpenAICompatibleResponse | OpenAIC
   return "";
 }
 
-function decideWithStub(ctx: AgentContext, obs: Observation, includeRationale = false): Decision {
-  if (obs.kind !== "keyboard") {
+function decideWithStub(
+  ctx: AgentContext | undefined,
+  obs: Observation | undefined,
+  fullMemory: AgentMemoryEntry[] | undefined,
+  includeRationale = false
+): Decision {
+  const memory = fullMemory ?? ctx?.memory ?? [];
+
+  if (!obs || obs.kind !== "keyboard") {
     return includeRationale
       ? {
           verdict: "stuck",
@@ -698,7 +823,7 @@ function decideWithStub(ctx: AgentContext, obs: Observation, includeRationale = 
   }
 
   const title = obs.browserChrome.title;
-  const stepCount = ctx.history.filter((entry) => entry.source === "agent").length;
+  const stepCount = memory.length;
 
   if (title.includes("Completed") || title.includes("Closed")) {
     return {

@@ -122,6 +122,60 @@ describe("runTask", () => {
     expect(session.aggregate.totalSteps).toBe(0);
   });
 
+  it("uses the configured agent memory window and can attach an experience summary", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-memory-summary-"));
+    const seenMemoryLengths: number[] = [];
+    const recordedMemoryValues: string[] = [];
+
+    const agent = {
+      recordStepOutcome: (entry: { decision: { value: string } }) => {
+        recordedMemoryValues.push(entry.decision.value);
+      },
+      summarizeExperience: async () => ({
+        overall: `Recorded ${recordedMemoryValues.length} steps.`,
+        biggestFriction: "Navigation took more than one step.",
+        nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
+      }),
+      decide: async (ctx: { memory: unknown[] }) => {
+        seenMemoryLengths.push(ctx.memory.length);
+
+        if (seenMemoryLengths.length < 3) {
+          return {
+            action: { key: "Tab" as const }
+          };
+        }
+
+        return {
+          verdict: "stuck" as const
+        };
+      }
+    };
+
+    const session = await runTask(
+      {
+        id: "memory-summary",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Inspect memory behavior.",
+        mode: "keyboard",
+        maxSteps: 3,
+        timeoutMs: 60_000
+      },
+      {
+        outDir,
+        agentMemoryWindow: 1,
+        includeExperienceSummary: true,
+        agent
+      }
+    );
+
+    expect(seenMemoryLengths).toEqual([0, 1, 1]);
+    expect(session.experienceSummary).toEqual({
+      overall: "Recorded 3 steps.",
+      biggestFriction: "Navigation took more than one step.",
+      nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
+    });
+  });
+
   it("feeds verification failure back into the next agent turn", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verify-feedback-"));
     const observedHistorySources: string[][] = [];
@@ -143,7 +197,7 @@ describe("runTask", () => {
         outDir,
         agent: {
           decide: async (ctx) => {
-            observedHistorySources.push(ctx.history.map((entry) => entry.source));
+            observedHistorySources.push(ctx.memory.map((entry) => entry.verification.status));
             callCount += 1;
 
             if (callCount === 1) {
@@ -173,7 +227,7 @@ describe("runTask", () => {
       finalResult: "continued",
       completionSource: "agent"
     });
-    expect(observedHistorySources[1]).toContain("verifier");
+    expect(observedHistorySources[1]).toContain("failed");
   });
 
   it("stops after two failed verified-success attempts", async () => {
@@ -260,7 +314,7 @@ describe("runTask", () => {
         agent: {
           decide: async (ctx) => {
             callCount += 1;
-            seenHistory.push(...ctx.history.map((entry) => `${entry.source}:${entry.rationale}`));
+            seenHistory.push(...ctx.memory.map((entry) => `${entry.decision.value}:${entry.execution.error ?? "ok"}`));
 
             if (callCount === 1) {
               return {
@@ -284,10 +338,8 @@ describe("runTask", () => {
       costDelta: 0,
       error: "Action did not produce an observable text-entry state change."
     });
-    expect(seenHistory.join(" ")).not.toContain("Action did not produce an observable text-entry state change.");
-    expect(seenHistory.join(" ")).not.toContain("contenteditable");
-    expect(seenHistory.join(" ")).not.toContain("textarea");
-    expect(seenHistory.join(" ")).not.toContain("HTMLInputElement");
+    expect(seenHistory.join(" ")).toContain("typeText(task)");
+    expect(seenHistory.join(" ")).toContain("Action did not produce an observable text-entry state change.");
   });
 
   it("completes a verified task with task-scoped text input", async () => {
@@ -951,7 +1003,7 @@ describe("runTask", () => {
         }),
         agent: {
           decide: async (ctx) => {
-            seenHistorySources.push(ctx.history.map((entry) => entry.source));
+            seenHistorySources.push(ctx.memory.map((entry) => entry.verification.status));
             callCount += 1;
 
             if (callCount === 1) {
@@ -972,7 +1024,7 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps[0].verification?.passed).toBe(false);
-    expect(seenHistorySources[1]).toContain("verifier");
+    expect(seenHistorySources[1]).toContain("failed");
   });
 
   it("stores only failed screenreader steps when screenshot policy is failure-only", async () => {

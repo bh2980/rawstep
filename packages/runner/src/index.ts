@@ -9,9 +9,9 @@ import {
 } from "@a11y-task/browser";
 import {
   ALLOWED_KEYS,
-  HISTORY_WINDOW,
   SCREENREADER_COMMANDS,
-  type AgentHistoryEntry,
+  type Action,
+  type AgentMemoryEntry,
   type Agent,
   type Decision,
   type EndedBy,
@@ -39,6 +39,9 @@ export type RunTaskOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
+  agentMemoryWindow?: number;
+  agentMemoryAll?: boolean;
+  includeExperienceSummary?: boolean;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
   browserSessionFactory?: (
@@ -61,9 +64,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   const setupStartedAt = Date.now();
 
   const deadline = Date.now() + task.timeoutMs;
-  const verifierFeedback: AgentHistoryEntry[] = [];
   let verificationFailures = 0;
   let successfulActionCount = 0;
+  const agentMemory: AgentMemoryEntry[] = [];
   let endedBy: EndedBy | undefined;
   let session: TraceSession | undefined;
   let unexpectedError: unknown;
@@ -71,6 +74,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   let browser: BrowserSession | undefined;
   let screenReaderRuntime: ScreenReaderRuntime | undefined;
   let actuator: Actuator | undefined;
+  let agent: Agent | undefined;
 
   const screenshotPolicy = options.screenshotPolicy ?? "all";
   try {
@@ -88,8 +92,11 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     actuator = new Actuator(browser.page, {
       screenReaderController: screenReaderRuntime?.controller
     });
-    const agent = options.agent ?? new LLMAgent(task.mode, {
+    agent = options.agent ?? new LLMAgent(task.mode, {
       ...options.agentOptions,
+      agentMemoryWindow: options.agentMemoryWindow,
+      agentMemoryAll: options.agentMemoryAll,
+      includeExperienceSummary: options.includeExperienceSummary,
       taskInput: task.input
     });
     trace.setSetupTimings({
@@ -115,7 +122,11 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         allowedScreenReaderCommands: isScreenReaderMode(task.mode)
           ? SCREENREADER_COMMANDS
           : undefined,
-        history: buildHistoryWindow(trace.recentDecisions(HISTORY_WINDOW), verifierFeedback)
+        memory: selectAgentMemoryExcerpt(
+          agentMemory,
+          options.agentMemoryAll ?? false,
+          options.agentMemoryWindow ?? 1
+        )
       };
       const decideStartedAt = Date.now();
       const decision = await agent.decide(context, observation);
@@ -154,6 +165,27 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
                 : "continued", "agent"),
             developerScreenshot
           );
+          const memoryEntry = createAgentMemoryEntry(
+            step,
+            task.mode,
+            observation,
+            decision,
+            { ok: true, costDelta: 0 },
+            {
+              observeMs,
+              decideMs,
+              executeMs: 0,
+              verifyMs
+            },
+            verification,
+            verification.passed
+              ? { stepOutcome: "success", completionSource: "agent" }
+              : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
+                ? { stepOutcome: "failure" }
+                : { stepOutcome: "continued" }
+          );
+          agentMemory.push(memoryEntry);
+          agent.recordStepOutcome?.(memoryEntry);
 
           if (verification.passed) {
             endedBy = "success";
@@ -169,11 +201,6 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             break;
           }
 
-          verifierFeedback.push({
-            stepIndex: step,
-            source: "verifier",
-            rationale: feedback
-          });
           continue;
         }
 
@@ -199,6 +226,26 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             ? await captureDeveloperScreenshot(browser.page)
             : undefined
         );
+        const memoryEntry = createAgentMemoryEntry(
+          step,
+          task.mode,
+          observation,
+          decision,
+          { ok: true, costDelta: 0 },
+          {
+            observeMs,
+            decideMs,
+            executeMs: 0,
+            verifyMs: 0
+          },
+          undefined,
+          {
+            stepOutcome: decision.verdict === "success" ? "success" : "failure",
+            completionSource: decision.verdict === "success" ? "agent" : undefined
+          }
+        );
+        agentMemory.push(memoryEntry);
+        agent.recordStepOutcome?.(memoryEntry);
         endedBy = decision.verdict;
         break;
       }
@@ -257,6 +304,25 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             : undefined,
           developerScreenshot
         );
+        const memoryEntry = createAgentMemoryEntry(
+          step,
+          task.mode,
+          observation,
+          decision,
+          execution,
+          {
+            observeMs,
+            decideMs,
+            executeMs,
+            verifyMs
+          },
+          autoCompleted ? verification : undefined,
+          autoCompleted
+            ? { stepOutcome: "success", completionSource: "verifier-auto-complete" }
+            : { stepOutcome: "continued" }
+        );
+        agentMemory.push(memoryEntry);
+        agent.recordStepOutcome?.(memoryEntry);
 
         if (autoCompleted) {
           endedBy = "success";
@@ -293,6 +359,23 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         )
           ? await captureDeveloperScreenshot(browser.page)
           : undefined);
+        const memoryEntry = createAgentMemoryEntry(
+          step,
+          task.mode,
+          observation,
+          decision,
+          failedExecution,
+          {
+            observeMs,
+            decideMs,
+            executeMs,
+            verifyMs: 0
+          },
+          undefined,
+          { stepOutcome: "continued" }
+        );
+        agentMemory.push(memoryEntry);
+        agent.recordStepOutcome?.(memoryEntry);
 
         if (error instanceof NotAllowedActionError) {
           endedBy = "error";
@@ -321,6 +404,19 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     session = await trace.finalize(endedBy ?? "error", failureReasonOverride);
   }
 
+  if (session && options.includeExperienceSummary && agent?.summarizeExperience) {
+    try {
+      const experienceSummary = await agent.summarizeExperience({
+        task,
+        aggregate: session.aggregate
+      });
+      session.experienceSummary = experienceSummary;
+      trace.setExperienceSummary(experienceSummary);
+    } catch {
+      // Summary generation is optional and should not fail the run.
+    }
+  }
+
   if (unexpectedError) {
     throw unexpectedError;
   }
@@ -334,13 +430,6 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
-}
-
-function buildHistoryWindow(
-  agentHistory: AgentHistoryEntry[],
-  verifierFeedback: AgentHistoryEntry[]
-): AgentHistoryEntry[] {
-  return [...agentHistory, ...verifierFeedback].slice(-HISTORY_WINDOW);
 }
 
 function createObserver(
@@ -357,6 +446,108 @@ function createObserver(
   }
 
   return new KeyboardObserver(browser.page);
+}
+
+function selectAgentMemoryExcerpt(
+  memory: AgentMemoryEntry[],
+  useAll: boolean,
+  windowSize: number
+): AgentMemoryEntry[] {
+  if (useAll) {
+    return [...memory];
+  }
+
+  if (windowSize <= 0) {
+    return [];
+  }
+
+  return memory.slice(-windowSize);
+}
+
+function createAgentMemoryEntry(
+  step: number,
+  mode: Task["mode"],
+  observation: Observation,
+  decision: Decision,
+  execution: {
+    ok: boolean;
+    costDelta: number;
+    error?: string;
+  },
+  timings: {
+    observeMs: number;
+    decideMs: number;
+    executeMs: number;
+    verifyMs: number;
+  },
+  verification:
+    | {
+        passed: boolean;
+        failures: string[];
+      }
+    | undefined,
+  result: {
+    stepOutcome: AgentMemoryEntry["result"]["stepOutcome"];
+    completionSource?: AgentMemoryEntry["result"]["completionSource"];
+  }
+): AgentMemoryEntry {
+  return {
+    step,
+    mode,
+    observation: observation.kind === "keyboard"
+      ? {
+          kind: "keyboard",
+          title: observation.browserChrome.title,
+          urlPath: observation.browserChrome.urlPath,
+          scrollHint: observation.scrollHint,
+          hadCurrentScreenshot: true,
+          hadPreviousScreenshot: Boolean(observation.previousScreenshot)
+        }
+      : {
+          kind: "screenreader",
+          announcement: observation.announcement,
+          announcementCapture: observation.announcementCapture,
+          announcementCount: observation.announcementCount,
+          observeReason: observation.observeReason
+        },
+    decision: "action" in decision
+      ? {
+          kind: "action",
+          value: formatDecisionAction(decision.action)
+        }
+      : {
+          kind: "verdict",
+          value: decision.verdict
+        },
+    execution: {
+      ok: execution.ok,
+      costDelta: execution.costDelta,
+      ...(execution.error ? { error: execution.error } : {})
+    },
+    verification: verification
+      ? {
+          status: verification.passed ? "passed" : "failed",
+          failureCount: verification.failures.length
+        }
+      : {
+          status: "not-run",
+          failureCount: 0
+        },
+    result,
+    timings
+  };
+}
+
+function formatDecisionAction(action: Action): string {
+  if ("key" in action) {
+    return `key(${action.key})`;
+  }
+
+  if ("srCommand" in action) {
+    return `srCommand(${action.srCommand})`;
+  }
+
+  return "typeText(task)";
 }
 
 function shouldUseInteractiveObservation(decision: Extract<Decision, { action: unknown }>): boolean {

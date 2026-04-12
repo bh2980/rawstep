@@ -15,6 +15,9 @@ export async function renderReport(session: TraceSession, outDir: string): Promi
 function renderHtml(session: TraceSession): string {
   const stepCards = session.steps.map((step) => renderStep(step)).join("\n");
   const actionCounts = renderActionCounts(session.aggregate.actionCounts);
+  const experienceSummaryHtml = session.experienceSummary
+    ? renderExperienceSummary(session.experienceSummary)
+    : "";
   const failureHtml = session.aggregate.failurePoint
     ? `<p class="failure">Failure point: step ${session.aggregate.failurePoint.stepIndex} - ${escapeHtml(session.aggregate.failurePoint.reason)}</p>`
     : "";
@@ -127,6 +130,7 @@ function renderHtml(session: TraceSession): string {
         <p><strong>${escapeHtml(session.task.id)}</strong> - ${escapeHtml(session.task.goal)}</p>
         <p>Result: <code>${escapeHtml(session.aggregate.result)}</code>. Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>.</p>
         ${failureHtml}
+        ${experienceSummaryHtml}
         <div class="summary">
           <div class="summary-card">
             <span class="label">Result</span>
@@ -258,6 +262,19 @@ function renderActionCounts(actionCounts: TraceSession["aggregate"]["actionCount
     <li><code>rawKeyCount</code>: ${actionCounts.rawKeyCount}</li>
     <li><code>typeTextCount</code>: ${actionCounts.typeTextCount}</li>
   </ul>`;
+}
+
+function renderExperienceSummary(experienceSummary: NonNullable<TraceSession["experienceSummary"]>): string {
+  const nextChecks = experienceSummary.nextChecks.length > 0
+    ? `<ul>${experienceSummary.nextChecks.map((check) => `<li>${escapeHtml(check)}</li>`).join("")}</ul>`
+    : "<p>No follow-up checks suggested.</p>";
+
+  return `<section>
+    <h2>Experience summary</h2>
+    <p>${escapeHtml(experienceSummary.overall)}</p>
+    <p><strong>Biggest friction:</strong> ${escapeHtml(experienceSummary.biggestFriction)}</p>
+    <div><strong>Next checks</strong>${nextChecks}</div>
+  </section>`;
 }
 
 function toReportImagePath(relativeScreenshotPath: string): string {
