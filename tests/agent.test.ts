@@ -1,4 +1,5 @@
 import {
+  LLMAgent,
   buildPromptParts,
   parseExperienceSummary,
   parseDecision,
@@ -101,6 +102,70 @@ describe("agent helpers", () => {
       expect(decision.verdict).toBe("success");
       expect(decision.rationale).toBeUndefined();
     }
+  });
+
+  it("parses valid stuck verdict JSON with rationale", () => {
+    const decision = parseDecision('{"verdict":"stuck","rationale":"No productive next action is visible."}');
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toBe("No productive next action is visible.");
+    }
+  });
+
+  it("treats stuck verdicts without rationale as malformed", () => {
+    const decision = parseDecision('{"verdict":"stuck"}');
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain("malformed decision");
+    }
+  });
+
+  it("re-requests a rationale when the model returns stuck without one", async () => {
+    const requestBodies: string[] = [];
+    const responses = [
+      '{"verdict":"stuck"}',
+      '{"verdict":"stuck","rationale":"No productive next action is visible."}'
+    ];
+
+    const fetchImpl: typeof fetch = (async (_input, init) => {
+      requestBodies.push(String(init?.body ?? ""));
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: responses.shift() ?? ""
+              }
+            }
+          ]
+        })
+      } as Response;
+    }) as typeof fetch;
+
+    const agent = new LLMAgent("keyboard", {
+      provider: "openai-compatible",
+      apiKey: "test-key",
+      model: "test-model",
+      baseURL: "https://example.test/v1",
+      fetchImpl
+    });
+
+    const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[1]).toContain('verdict=\\"stuck\\"');
+    expect(requestBodies[1]).toContain("rationale");
+    expect(decision).toEqual({
+      verdict: "stuck",
+      rationale: "No productive next action is visible."
+    });
   });
 
   it("turns malformed output into stuck verdict", () => {

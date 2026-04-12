@@ -134,7 +134,26 @@ export class LLMAgent implements Agent {
         obs,
         fullMemory: this.memory
       });
-      return parseDecision(rawText);
+      const firstPass = parseDecisionResult(rawText);
+      if (firstPass.status === "ok") {
+        return firstPass.decision;
+      }
+
+      if (firstPass.status === "missing-stuck-rationale") {
+        const retryPromptParts = buildStuckRationaleRetryPromptParts(promptParts, rawText);
+        this.recordPromptLog("decision", systemPrompt, retryPromptParts);
+        const retriedRawText = await this.client.complete({
+          systemPrompt,
+          promptParts: retryPromptParts,
+          ctx,
+          obs,
+          fullMemory: this.memory
+        });
+
+        return parseDecision(retriedRawText);
+      }
+
+      return malformedDecision(firstPass.snippet);
     } catch (error) {
       throw normalizeProviderError(error, obs);
     }
@@ -468,6 +487,21 @@ export function toOpenAICompatibleMessageContent(promptParts: PromptPart[]): Ope
 }
 
 export function parseDecision(raw: string): Decision {
+  const result = parseDecisionResult(raw);
+
+  if (result.status === "ok") {
+    return result.decision;
+  }
+
+  return malformedDecision(result.snippet);
+}
+
+type ParseDecisionResult =
+  | { status: "ok"; decision: Decision }
+  | { status: "missing-stuck-rationale"; snippet: string }
+  | { status: "malformed"; snippet: string };
+
+function parseDecisionResult(raw: string): ParseDecisionResult {
   const snippet = raw.trim().slice(0, 240);
 
   try {
@@ -485,7 +519,7 @@ export function parseDecision(raw: string): Decision {
     const hasVerdict = candidate.verdict !== undefined;
 
     if (hasAction === hasVerdict) {
-      return malformedDecision(snippet);
+      return { status: "malformed", snippet };
     }
 
     if (candidate.action) {
@@ -494,47 +528,63 @@ export function parseDecision(raw: string): Decision {
       const srCommand = candidate.action.srCommand;
 
       if ([key, typeText, srCommand].filter(Boolean).length !== 1) {
-        return malformedDecision(snippet);
+        return { status: "malformed", snippet };
       }
 
       if (key) {
         if (!isAllowedKey(key)) {
-          return malformedDecision(snippet);
+          return { status: "malformed", snippet };
         }
 
         return {
-          action: { key },
-          ...withOptionalRationale(rationale)
+          status: "ok",
+          decision: {
+            action: { key },
+            ...withOptionalRationale(rationale)
+          }
         };
       }
 
       if (typeText === "task") {
         return {
-          action: { typeText: "task" },
-          ...withOptionalRationale(rationale)
+          status: "ok",
+          decision: {
+            action: { typeText: "task" },
+            ...withOptionalRationale(rationale)
+          }
         };
       }
 
       if (srCommand && isScreenReaderCommand(srCommand)) {
         return {
-          action: { srCommand },
-          ...withOptionalRationale(rationale)
+          status: "ok",
+          decision: {
+            action: { srCommand },
+            ...withOptionalRationale(rationale)
+          }
         };
       }
 
-      return malformedDecision(snippet);
+      return { status: "malformed", snippet };
     }
 
     if (candidate.verdict === "success" || candidate.verdict === "stuck") {
+      if (candidate.verdict === "stuck" && !rationale) {
+        return { status: "missing-stuck-rationale", snippet };
+      }
+
       return {
-        verdict: candidate.verdict,
-        ...withOptionalRationale(rationale)
+        status: "ok",
+        decision: {
+          verdict: candidate.verdict,
+          ...withOptionalRationale(rationale)
+        }
       };
     }
 
-    return malformedDecision(snippet);
+    return { status: "malformed", snippet };
   } catch {
-    return malformedDecision(snippet);
+    return { status: "malformed", snippet };
   }
 }
 
@@ -583,6 +633,25 @@ function extractJsonObject(raw: string): string {
   }
 
   return raw.trim();
+}
+
+function buildStuckRationaleRetryPromptParts(
+  promptParts: PromptPart[],
+  previousRawText: string
+): PromptPart[] {
+  return [
+    ...promptParts,
+    {
+      type: "text",
+      text: [
+        "이전 응답은 verdict=\"stuck\" 이었지만 rationale이 없었다.",
+        "같은 판단을 유지해도 좋다.",
+        "다시 JSON만 반환하라.",
+        "stuck을 유지한다면 rationale에 종료가 타당한 이유를 한 문장으로 반드시 포함하라.",
+        `previous response: ${JSON.stringify(previousRawText.trim())}`
+      ].join("\n")
+    }
+  ];
 }
 
 export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): string {
@@ -761,6 +830,7 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     "stuck은 현재 관측과 최근 행동 흐름을 기준으로 종료가 가장 타당한 상태라는 신호다.",
     "비슷한 행동이 이어지고, 시각적 진전이 약하며, 다음에 시도할 합리적인 키 전략도 희미하면 stuck을 선택하라.",
     "다음 행동 후보가 보이면 그 action을 선택하라.",
+    "stuck을 반환할 때는 rationale에 종료가 타당한 이유를 한 문장으로 반드시 적어라.",
     "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
     "JSON만 반환하라."
   ];
@@ -772,13 +842,13 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     lines.push(
       includeRationale
         ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
-        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck"}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
     );
   } else {
     lines.push(
       includeRationale
         ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
-        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck"}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
     );
   }
 
@@ -806,6 +876,7 @@ function buildScreenReaderStrictSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "stuck을 반환할 때는 rationale에 종료가 타당한 이유를 한 문장으로 반드시 적어라.",
     "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
     "JSON만 반환하라."
   ];
@@ -818,11 +889,11 @@ function buildScreenReaderStrictSystemPrompt(
   lines.push(
     taskInput
       ? includeRationale
-        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
       : includeRationale
-        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
   );
   if (includeRationale) {
     lines.push("rationale 필드에 짧은 이유를 포함하라.");
@@ -849,6 +920,7 @@ function buildScreenReaderHybridSystemPrompt(
     "nextFormControl / previousFormControl은 입력 필드나 폼 컨트롤을 찾을 때 사용한다.",
     "act는 현재 스크린 리더 커서 항목의 기본 동작을 실행할 때 사용한다.",
     "성공은 읽힌 announcement나 네 입력 이후의 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "stuck을 반환할 때는 rationale에 종료가 타당한 이유를 한 문장으로 반드시 적어라.",
     "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
     "JSON만 반환하라."
   ];
@@ -861,11 +933,11 @@ function buildScreenReaderHybridSystemPrompt(
   lines.push(
     taskInput
       ? includeRationale
-        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
       : includeRationale
-        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}'
   );
   if (includeRationale) {
     lines.push("rationale 필드에 짧은 이유를 포함하라.");
