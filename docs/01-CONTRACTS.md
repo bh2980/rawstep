@@ -147,8 +147,8 @@ export type Action =
 export type Verdict = "success" | "stuck";
 
 export type Decision =
-  | { action: Action; rationale: string }      // 한 번 더 키를 누른다
-  | { verdict: Verdict; rationale: string };   // 루프 종료
+  | { action: Action; rationale?: string }      // 한 번 더 키를 누른다
+  | { verdict: Verdict; rationale?: string };   // 루프 종료
 ```
 
 Agent는 한 턴에 **action XOR verdict** 중 정확히 하나만 반환한다. 둘 다 또는 둘 다 없음은 parser가 stuck으로 강제 변환한다.
@@ -156,37 +156,25 @@ Agent는 한 턴에 **action XOR verdict** 중 정확히 하나만 반환한다.
 **Decision JSON 예시 (action)**
 
 ```json
-{
-  "action": { "key": "Tab" },
-  "rationale": "첫 포커스 가능한 요소로 이동하기 위해 Tab을 누른다."
-}
+{ "action": { "key": "Tab" } }
 ```
 
 **Decision JSON 예시 (task text input)**
 
 ```json
-{
-  "action": { "typeText": "task" },
-  "rationale": "task에 제공된 고정 문자열을 현재 입력 필드에 입력한다."
-}
+{ "action": { "typeText": "task" } }
 ```
 
 **Decision JSON 예시 (screenreader canonical command)**
 
 ```json
-{
-  "action": { "srCommand": "nextHeading" },
-  "rationale": "다음 제목으로 이동해 구조를 파악한다."
-}
+{ "action": { "srCommand": "nextHeading" } }
 ```
 
 **Decision JSON 예시 (verdict)**
 
 ```json
-{
-  "verdict": "success",
-  "rationale": "CTA가 활성화되어 페이지가 /thanks로 이동했다."
-}
+{ "verdict": "success" }
 ```
 
 ---
@@ -269,7 +257,7 @@ export type AgentContext = {
     stepIndex: number;
     source: "agent" | "verifier";
     action?: Action;                   // verdict 이전 step은 action
-    rationale: string;
+    rationale?: string;
   }>;
 };
 
@@ -289,7 +277,9 @@ screenreader-strict / screenreader-hybrid 모드에서는 allowedScreenReaderCom
 screenreader-strict 에서는 allowedKeys 가 빈 배열이고 raw key action 예시를 주지 않는다.
 screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
 너는 한 턴에 {action} 또는 {verdict} 중 하나만 반환한다.
-JSON 형식: { action?: {key|typeText|srCommand}, verdict?: "success"|"stuck", rationale: string }
+기본 JSON 형식: { action?: {key|typeText|srCommand}, verdict?: "success"|"stuck" }
+
+`--include-rationale` 를 켜면 위 JSON에 `rationale: string` 을 함께 포함한다.
 
 [user]
 goal: {goal}
@@ -310,3 +300,9 @@ CLI 실험 옵션으로 verifier auto-complete를 켤 수 있다.
 - 기본값은 `false`
 - 켜면 **최소 한 번 이상 성공 action을 수행한 뒤부터** 매 action step 이후 verifier를 돌려 조건 만족 시 자동 종료할 수 있다.
 - 이때 `verdictAnalysis.completionSource = "verifier-auto-complete"` 로 남겨, agent가 직접 닫은 성공과 구분한다.
+
+CLI 실험 옵션으로 `--include-rationale` 를 켤 수 있다.
+
+- 기본값은 `false`
+- 기본 실행에서는 agent decision JSON에서 `rationale` 필드를 생략한다.
+- verifier feedback, malformed decision 같은 시스템 생성 기록은 필요하면 rationale를 포함할 수 있다.

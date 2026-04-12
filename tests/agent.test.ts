@@ -80,6 +80,26 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses valid action JSON without rationale", () => {
+    const decision = parseDecision('{"action":{"key":"Tab"}}');
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect(decision.rationale).toBeUndefined();
+      expect("key" in decision.action).toBe(true);
+    }
+  });
+
+  it("parses valid verdict JSON without rationale", () => {
+    const decision = parseDecision('{"verdict":"success"}');
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("success");
+      expect(decision.rationale).toBeUndefined();
+    }
+  });
+
   it("turns malformed output into stuck verdict", () => {
     const decision = parseDecision("not valid json");
 
@@ -122,6 +142,7 @@ describe("agent helpers", () => {
     expect(prompt).toContain("상태 변화");
     expect(prompt).toContain("step 0");
     expect(prompt).not.toContain('"typeText":"task"');
+    expect(prompt).toContain("rationale 필드는 포함하지 마라");
   });
 
   it("includes task-scoped text input rules only when input text is provided", () => {
@@ -151,8 +172,16 @@ describe("agent helpers", () => {
     expect(prompt).toContain("screenreader-hybrid");
     expect(prompt).toContain("announcement");
     expect(prompt).toContain("함께 사용할 수 있다");
-    expect(prompt).toContain('"action":{"key":"Tab"}');
+    expect(prompt).toContain('{"action":{"key":"Tab"}}');
     expect(prompt).toContain("nextHeading");
+    expect(prompt).toContain("rationale 필드는 포함하지 마라");
+  });
+
+  it("builds rationale-on prompts with rationale examples", () => {
+    const prompt = buildSystemPrompt("keyboard", undefined, undefined, true);
+
+    expect(prompt).toContain('"rationale":"..."');
+    expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라");
   });
 
   it("resolves anthropic config from the shared env vars", () => {
@@ -282,6 +311,18 @@ describe("buildUserPromptText", () => {
     const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation(), { text: "passport" });
 
     expect(text).toContain('task input text: "passport"');
+  });
+
+  it("history에 rationale이 없으면 prompt JSON에서 필드가 생략된다", () => {
+    const ctx: AgentContext = {
+      goal: "Finish the task.",
+      allowedKeys: ["Tab", "Enter"],
+      history: [{ stepIndex: 0, source: "agent", action: { key: "Tab" } }]
+    };
+    const text = buildUserPromptText(ctx, makeKeyboardObservation());
+
+    expect(text).toContain('"action":{"key":"Tab"}');
+    expect(text).not.toContain('"rationale"');
   });
 
   it("keyboard prompt observation에는 browser title이 포함되지 않는다", () => {

@@ -30,6 +30,7 @@ export type LLMAgentOptions = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  includeRationale?: boolean;
   taskInput?: TaskInput;
   fetchImpl?: typeof fetch;
 };
@@ -78,16 +79,19 @@ export class LLMAgent implements Agent {
   ) {
     this.config = resolveAgentConfig(options);
     this.client = createProviderClient(this.config, options);
+    this.includeRationale = options.includeRationale ?? false;
     this.taskInput = options.taskInput;
   }
 
+  private readonly includeRationale: boolean;
   private readonly taskInput?: TaskInput;
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
-      ctx.allowedScreenReaderCommands
+      ctx.allowedScreenReaderCommands,
+      this.includeRationale
     );
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);
 
@@ -182,7 +186,7 @@ function createProviderClient(
   options: LLMAgentOptions
 ): AgentProviderClient {
   if (config.provider === "stub") {
-    return new StubProviderClient();
+    return new StubProviderClient(options.includeRationale ?? false);
   }
 
   if (config.provider === "anthropic") {
@@ -263,25 +267,28 @@ class OpenAICompatibleProviderClient implements AgentProviderClient {
 }
 
 class StubProviderClient implements AgentProviderClient {
+  constructor(private readonly includeRationale = false) {}
+
   async decide(input: ProviderDecisionInput): Promise<string> {
-    return JSON.stringify(decideWithStub(input.ctx, input.obs));
+    return JSON.stringify(decideWithStub(input.ctx, input.obs, this.includeRationale));
   }
 }
 
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
-  allowedScreenReaderCommands: readonly string[] = SCREENREADER_COMMANDS
+  allowedScreenReaderCommands: readonly string[] = SCREENREADER_COMMANDS,
+  includeRationale = false
 ): string {
   if (userModel === "screenreader-strict") {
-    return buildScreenReaderStrictSystemPrompt(taskInput, allowedScreenReaderCommands);
+    return buildScreenReaderStrictSystemPrompt(taskInput, allowedScreenReaderCommands, includeRationale);
   }
 
   if (userModel === "screenreader-hybrid") {
-    return buildScreenReaderHybridSystemPrompt(taskInput, allowedScreenReaderCommands);
+    return buildScreenReaderHybridSystemPrompt(taskInput, allowedScreenReaderCommands, includeRationale);
   }
 
-  return buildKeyboardSystemPrompt(taskInput);
+  return buildKeyboardSystemPrompt(taskInput, includeRationale);
 }
 
 export function buildPromptParts(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): PromptPart[] {
@@ -365,7 +372,7 @@ export function parseDecision(raw: string): Decision {
 
     const rationale = typeof candidate.rationale === "string" && candidate.rationale.trim()
       ? candidate.rationale.trim()
-      : "Agent returned an empty rationale.";
+      : undefined;
 
     const hasAction = candidate.action !== undefined;
     const hasVerdict = candidate.verdict !== undefined;
@@ -390,21 +397,21 @@ export function parseDecision(raw: string): Decision {
 
         return {
           action: { key },
-          rationale
+          ...withOptionalRationale(rationale)
         };
       }
 
       if (typeText === "task") {
         return {
           action: { typeText: "task" },
-          rationale
+          ...withOptionalRationale(rationale)
         };
       }
 
       if (srCommand && isScreenReaderCommand(srCommand)) {
         return {
           action: { srCommand },
-          rationale
+          ...withOptionalRationale(rationale)
         };
       }
 
@@ -414,7 +421,7 @@ export function parseDecision(raw: string): Decision {
     if (candidate.verdict === "success" || candidate.verdict === "stuck") {
       return {
         verdict: candidate.verdict,
-        rationale
+        ...withOptionalRationale(rationale)
       };
     }
 
@@ -429,6 +436,10 @@ function malformedDecision(snippet: string): Decision {
     verdict: "stuck",
     rationale: `agent returned malformed decision: ${snippet || "<empty response>"}`
   };
+}
+
+function withOptionalRationale(rationale: string | undefined): { rationale?: string } {
+  return rationale ? { rationale } : {};
 }
 
 function extractJsonObject(raw: string): string {
@@ -481,7 +492,7 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
   return lines.join("\n");
 }
 
-function buildKeyboardSystemPrompt(taskInput?: TaskInput): string {
+function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = false): string {
   const lines = [
     "너는 keyboard 사용자를 시뮬레이션한다.",
     `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
@@ -503,18 +514,27 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput): string {
     lines.push("typeText는 task에 제공된 고정 문자열만 입력한다. 임의 텍스트를 생성하거나 수정하지 마라.");
     lines.push("입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라.");
     lines.push(
-      'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+      includeRationale
+        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
     );
   } else {
-    lines.push('JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}');
+    lines.push(
+      includeRationale
+        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"}'
+    );
   }
+
+  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
 
   return lines.join("\n");
 }
 
 function buildScreenReaderStrictSystemPrompt(
   taskInput: TaskInput | undefined,
-  allowedScreenReaderCommands: readonly string[]
+  allowedScreenReaderCommands: readonly string[],
+  includeRationale = false
 ): string {
   const lines = [
     "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-strict 이다.",
@@ -539,16 +559,22 @@ function buildScreenReaderStrictSystemPrompt(
 
   lines.push(
     taskInput
-      ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-      : 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+      ? includeRationale
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
+      : includeRationale
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"verdict":"success"}'
   );
+  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
 
   return lines.join("\n");
 }
 
 function buildScreenReaderHybridSystemPrompt(
   taskInput: TaskInput | undefined,
-  allowedScreenReaderCommands: readonly string[]
+  allowedScreenReaderCommands: readonly string[],
+  includeRationale = false
 ): string {
   const lines = [
     "너는 전맹 screenreader 사용자를 시뮬레이션한다. 이 모드는 screenreader-hybrid 이다.",
@@ -574,9 +600,14 @@ function buildScreenReaderHybridSystemPrompt(
 
   lines.push(
     taskInput
-      ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-      : 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+      ? includeRationale
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
+      : includeRationale
+        ? 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
+        : 'JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"verdict":"success"}'
   );
+  lines.push(includeRationale ? "rationale 필드에 짧은 이유를 포함하라." : "rationale 필드는 포함하지 마라.");
 
   return lines.join("\n");
 }
@@ -656,12 +687,14 @@ function extractOpenAICompatibleText(payload: OpenAICompatibleResponse | OpenAIC
   return "";
 }
 
-function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
+function decideWithStub(ctx: AgentContext, obs: Observation, includeRationale = false): Decision {
   if (obs.kind !== "keyboard") {
-    return {
-      verdict: "stuck",
-      rationale: "Stub agent only supports keyboard observations."
-    };
+    return includeRationale
+      ? {
+          verdict: "stuck",
+          rationale: "Stub agent only supports keyboard observations."
+        }
+      : { verdict: "stuck" };
   }
 
   const title = obs.browserChrome.title;
@@ -670,14 +703,14 @@ function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
   if (title.includes("Completed") || title.includes("Closed")) {
     return {
       verdict: "success",
-      rationale: "관찰 가능한 브라우저 제목이 목표 달성 상태로 바뀌었다."
+      ...withOptionalRationale(includeRationale ? "관찰 가능한 브라우저 제목이 목표 달성 상태로 바뀌었다." : undefined)
     };
   }
 
   if (title.includes("Dialog Open")) {
     return {
       action: { key: "Escape" },
-      rationale: "Dialog가 열린 상태로 보이므로 Escape로 닫기를 시도한다."
+      ...withOptionalRationale(includeRationale ? "Dialog가 열린 상태로 보이므로 Escape로 닫기를 시도한다." : undefined)
     };
   }
 
@@ -685,14 +718,14 @@ function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
     if (stepCount < 2) {
       return {
         action: { key: "Tab" },
-        rationale: "CTA 버튼 전까지 포커스를 이동하기 위해 Tab을 누른다."
+        ...withOptionalRationale(includeRationale ? "CTA 버튼 전까지 포커스를 이동하기 위해 Tab을 누른다." : undefined)
       };
     }
 
     if (stepCount === 2) {
       return {
         action: { key: "Enter" },
-        rationale: "목표 CTA에 도달했다고 가정하고 활성화한다."
+        ...withOptionalRationale(includeRationale ? "목표 CTA에 도달했다고 가정하고 활성화한다." : undefined)
       };
     }
   }
@@ -701,14 +734,14 @@ function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
     if (stepCount === 0) {
       return {
         action: { key: "Tab" },
-        rationale: "Dialog를 여는 첫 버튼으로 이동하기 위해 Tab을 누른다."
+        ...withOptionalRationale(includeRationale ? "Dialog를 여는 첫 버튼으로 이동하기 위해 Tab을 누른다." : undefined)
       };
     }
 
     if (stepCount === 1) {
       return {
         action: { key: "Enter" },
-        rationale: "열기 버튼을 활성화한다."
+        ...withOptionalRationale(includeRationale ? "열기 버튼을 활성화한다." : undefined)
       };
     }
   }
@@ -717,18 +750,18 @@ function decideWithStub(ctx: AgentContext, obs: Observation): Decision {
     if (stepCount < 4) {
       return {
         action: { key: "Tab" },
-        rationale: "포커스를 찾기 위해 계속 Tab으로 탐색한다."
+        ...withOptionalRationale(includeRationale ? "포커스를 찾기 위해 계속 Tab으로 탐색한다." : undefined)
       };
     }
 
     return {
       verdict: "stuck",
-      rationale: "포커스 단서를 찾지 못해 더 진행할 수 없다."
+      ...withOptionalRationale(includeRationale ? "포커스 단서를 찾지 못해 더 진행할 수 없다." : undefined)
     };
   }
 
   return {
     verdict: "stuck",
-    rationale: "Stub agent does not know how to solve this task."
+    ...withOptionalRationale(includeRationale ? "Stub agent does not know how to solve this task." : undefined)
   };
 }

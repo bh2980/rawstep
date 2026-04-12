@@ -92,14 +92,14 @@ export type Verdict = "success" | "stuck";
 export type EndedBy = Verdict | "maxSteps" | "timeout" | "error";
 
 export type Decision =
-  | { action: Action; rationale: string }
-  | { verdict: Verdict; rationale: string };
+  | { action: Action; rationale?: string }
+  | { verdict: Verdict; rationale?: string };
 
 export type AgentHistoryEntry = {
   stepIndex: number;
   source: "agent" | "verifier";
   action?: Action;
-  rationale: string;
+  rationale?: string;
 };
 
 export type AgentContext = {

@@ -21,6 +21,7 @@ type CliRunOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
+  includeRationale?: boolean;
   provider?: AgentProvider;
   model?: string;
   baseURL?: string;
@@ -46,6 +47,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       provider: options.provider,
       model: options.model,
       baseURL: options.baseURL,
+      includeRationale: options.includeRationale,
       taskInput: task.input
     });
 
@@ -118,6 +120,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let outDir: string | undefined;
   let screenshotPolicy: ScreenshotPolicy | undefined;
   let verifierAutoComplete = false;
+  let includeRationale = false;
   let provider: AgentProvider | undefined;
   let model: string | undefined;
   let baseURL: string | undefined;
@@ -167,6 +170,11 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--include-rationale") {
+      includeRationale = true;
+      continue;
+    }
+
     if (token === "--model") {
       if (!next) {
         throw new Error("Missing value for --model.");
@@ -198,6 +206,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     outDir: resolve(outDir),
     screenshotPolicy,
     verifierAutoComplete,
+    includeRationale,
     provider,
     model,
     baseURL
@@ -219,7 +228,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 

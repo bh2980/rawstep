@@ -291,8 +291,7 @@ describe("reporter", () => {
               observeReason: "silence"
             },
             decision: {
-              action: { srCommand: "act" },
-              rationale: "Activate the CTA."
+              action: { srCommand: "act" }
             },
             execution: {
               ok: true,
@@ -342,5 +341,6 @@ describe("reporter", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("not-declared");
     expect(html).toContain("verifier-auto-complete");
+    expect(html).not.toContain("<p>undefined</p>");
   });
 });

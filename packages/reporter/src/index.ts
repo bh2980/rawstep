@@ -206,6 +206,9 @@ function renderStep(step: StepRecord): string {
   const executionHtml = step.execution.ok
     ? `Execution ok. Cost delta: <code>${step.execution.costDelta}</code>`
     : `Execution failed. Error: <code>${escapeHtml(step.execution.error ?? "unknown")}</code>`;
+  const rationaleHtml = step.decision.rationale
+    ? `<p>${escapeHtml(step.decision.rationale)}</p>`
+    : "";
   const verificationHtml = step.verification
     ? renderVerification(step.verification)
     : "";
@@ -225,7 +228,7 @@ function renderStep(step: StepRecord): string {
       <div>${screenshotHtml}</div>
       <div>
         <p>${decision}</p>
-        <p>${escapeHtml(step.decision.rationale)}</p>
+        ${rationaleHtml}
         ${observationHtml}
         <p>${executionHtml}</p>
         ${verdictAnalysisHtml}

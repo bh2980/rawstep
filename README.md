@@ -234,6 +234,7 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard \
   --out ./report \
   --screenshots important \
+  --include-rationale \
   --verifier-auto-complete \
   --provider openai-compatible \
   --model openrouter/auto \
@@ -259,6 +260,12 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 - verifier가 조건 만족을 확인하면 자동 종료할 수 있습니다.
 
 이 경우 report의 `completionSource` 가 `verifier-auto-complete` 로 남아, agent가 직접 닫은 성공과 구분됩니다.
+
+`--include-rationale` 는 기본값이 꺼져 있습니다.
+
+- 기본 실행에서는 agent가 `rationale` 필드를 생성하지 않습니다.
+- 디버깅이나 데모가 필요할 때만 켜서 긴 자연어 설명을 저장합니다.
+- malformed decision, verifier feedback 같은 시스템 생성 메시지는 필요하면 여전히 rationale를 포함할 수 있습니다.
 
 ## 상태와 한계
 
