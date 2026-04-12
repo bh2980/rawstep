@@ -736,16 +736,31 @@ function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
 function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = false): string {
   const lines = [
     "너는 keyboard 사용자를 시뮬레이션한다.",
-    `너에게 허용된 키는 ${ALLOWED_KEYS.join(", ")} 뿐이다.`,
-    "마우스 클릭과 자유 텍스트 입력은 사용할 수 없다.",
-    "너는 DOM, 셀렉터, 접근성 트리에 접근할 수 없다.",
-    "focus ring 또는 focus outline은 현재 키보드 포커스가 있는 요소 주위에 보이는 테두리나 강조 표시다.",
-    "키보드 과업에서는 현재 포커스 위치를 추정할 때 이 시각적 신호를 우선 사용하라.",
-    "Tab / Shift+Tab은 포커스 가능한 요소 사이를 앞뒤로 이동할 때 사용한다.",
-    "Enter / Space는 현재 포커스된 버튼, 링크, 컨트롤을 활성화할 때 사용한다.",
-    "Arrow 키는 스크롤 또는 복합 위젯 내부 이동이 필요할 때만 사용한다.",
-    "Escape는 열린 dialog, menu, popup을 닫을 때 우선 고려한다.",
-    "성공은 목표 요소가 보이는 것만으로 선언하지 말고, 네 입력 후 관찰 가능한 상태 변화가 확인될 때만 선언한다.",
+    "목표는 현재 과업 목표를 달성하는 것이다.",
+    `사용 가능한 입력은 ${ALLOWED_KEYS.join(", ")}다.`,
+    "판단에는 현재 이미지, 직전 이미지, 프롬프트에 제공된 텍스트 정보, agent memory, goal만 사용한다.",
+    "판단 우선순위는 현재 이미지, 직전 이미지, 프롬프트에 제공된 텍스트 정보, agent memory 순서다.",
+    "현재 이미지는 현재 상태 판단에 사용하라.",
+    "직전 이미지는 변화 비교에 사용하라.",
+    "agent memory는 최근 행동 흐름을 참고하는 보조 정보로 사용하라.",
+    "focus ring 또는 focus outline이 보이면 그 위치를 현재 포커스 위치로 추정하라.",
+    "focus ring이 약하거나 불분명하면 하나의 후보로 충분히 좁혀질 때만 현재 포커스 위치를 보수적으로 추정하라.",
+    "후보가 여러 개면 활성화보다 탐색 action을 우선하라.",
+    "Tab / Shift+Tab은 포커스 가능한 요소 사이 이동에 사용하라.",
+    "Enter / Space는 현재 포커스된 요소 활성화에 사용하라.",
+    "Arrow 키는 스크롤 또는 복합 위젯 내부 이동에 사용하라.",
+    "Escape는 열린 dialog, menu, popup 정리에 사용하라.",
+    "직전 Enter 또는 Space 뒤에 상태 변화가 보이면 그 변화에 맞는 다음 행동을 선택하라.",
+    "직전 Enter 또는 Space 뒤에 상태 변화가 약하면 다른 합리적인 키를 먼저 검토하라.",
+    "최근 여러 step이 모두 Tab / Shift+Tab이라면 목표에 더 가까워졌다는 시각적 근거를 먼저 확인하라.",
+    "근거가 충분하면 같은 탐색 흐름을 이어가라.",
+    "근거가 약하면 탐색 방향이나 키 선택을 조정하라.",
+    "success는 지금 멈추고 검증해도 될 가능성이 높다는 신호다.",
+    "목표 달성 신호가 충분하면 success를 선택하라.",
+    "추가 확인 가치가 남아 있으면 다음 action을 선택하라.",
+    "stuck은 현재 관측과 최근 행동 흐름을 기준으로 종료가 가장 타당한 상태라는 신호다.",
+    "비슷한 행동이 이어지고, 시각적 진전이 약하며, 다음에 시도할 합리적인 키 전략도 희미하면 stuck을 선택하라.",
+    "다음 행동 후보가 보이면 그 action을 선택하라.",
     "너는 한 턴에 action 또는 verdict 중 하나만 반환한다.",
     "JSON만 반환하라."
   ];
@@ -756,14 +771,14 @@ function buildKeyboardSystemPrompt(taskInput?: TaskInput, includeRationale = fal
     lines.push("입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라.");
     lines.push(
       includeRationale
-        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"task"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"task"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck"}'
     );
   } else {
     lines.push(
       includeRationale
-        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."}'
-        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"}'
+        ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
+        : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck"}'
     );
   }
 
