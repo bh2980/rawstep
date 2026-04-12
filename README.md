@@ -120,8 +120,14 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - announcement를 어떻게 잡았는지 나타내는 capture 메타
   (`log`, `fallback`, `none`)는 trace/report에만 저장하고, agent 프롬프트에는 넣지 않습니다.
 - trace/report에는 `announcementCount`, `observeReason` 도 함께 저장합니다.
-  즉 이번 step에서 몇 개의 spoken phrase를 붙잡았는지, silence로 관측을 닫았는지
+  즉 이번 step에서 몇 개의 spoken phrase line을 붙잡았는지, silence로 관측을 닫았는지
   timeout/fallback으로 닫았는지를 사람이 나중에 읽을 수 있습니다.
+- 여기서 `announcementCount` 는 "고유 발화 수"가 아니라 이번 step에서 캡처된
+  phrase line 수입니다.
+- step 경계는 DOM 상태나 문자열 비교가 아니라 **read-and-clear spoken log** 기준으로
+  나뉩니다. 즉 한 poll에서 읽고 비운 로그는 다음 step에서 다시 읽지 않습니다.
+- `announcementCapture` 는 "무엇으로 잡았는가", `observeReason` 는 "왜 여기서 관측을
+  닫았는가"를 뜻합니다.
 - agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
 - 다만 개발자용 trace/report에는 디버깅을 위해 step 시점 screenshot을 별도로 저장할 수 있습니다. 이 이미지는 agent 입력에는 절대 들어가지 않습니다.
 
@@ -163,7 +169,10 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 - **세부 setup 타이밍** — browser launch / page load / VoiceOver init / first announcement wait.
 - **관측 근거** — screenreader step마다 announcement capture 경로, phrase 수,
   observe 종료 이유(`silence`, `timeout`, `fallback`)를 같이 보여줍니다.
+- 이 값들은 사용자가 과업을 읽는 본문이라기보다, screenreader 관측 품질을
+  해석하는 보조 근거입니다.
 - **성공 근거 분리** — agent가 success라고 주장한 것과 verifier가 실제로 통과시킨 것을 따로 보여줍니다.
+- **종료 출처 분리** — success가 agent 선언으로 닫혔는지, verifier auto-complete로 닫혔는지도 따로 남깁니다.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.
 - **Oracle check (선택)** — 에이전트가 자칭한 성공을 외부에서 독립적으로
   검증한 결과.
@@ -225,6 +234,7 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard \
   --out ./report \
   --screenshots important \
+  --verifier-auto-complete \
   --provider openai-compatible \
   --model openrouter/auto \
   --base-url https://openrouter.ai/api/v1
@@ -241,6 +251,14 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 - `none` — screenreader 리포트용 개발자 스크린샷을 저장하지 않음
 
 keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영향을 받지 않습니다.
+
+`--verifier-auto-complete` 는 기본값이 꺼진 실험 옵션입니다.
+
+- agent가 success를 선언하지 않아도,
+- **최소 한 번 이상 성공 action을 한 뒤**
+- verifier가 조건 만족을 확인하면 자동 종료할 수 있습니다.
+
+이 경우 report의 `completionSource` 가 `verifier-auto-complete` 로 남아, agent가 직접 닫은 성공과 구분됩니다.
 
 ## 상태와 한계
 

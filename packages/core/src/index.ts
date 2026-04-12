@@ -76,9 +76,9 @@ export type KeyboardObservation = {
 export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
-  announcementCapture: "log" | "fallback" | "none";
-  announcementCount?: number;
-  observeReason?: "silence" | "timeout" | "fallback";
+  announcementCapture: "log" | "fallback" | "none"; // 발화를 무엇으로 잡았는지
+  announcementCount?: number; // 고유 발화 수가 아니라 이번 step에서 캡처된 phrase line 수
+  observeReason?: "silence" | "timeout" | "fallback"; // 관측을 왜 여기서 닫았는지
   previousAnnouncement?: string;
 };
 
@@ -168,9 +168,10 @@ export type VerificationRecord = {
 };
 
 export type VerdictAnalysis = {
-  agentVerdict: Verdict;
+  agentVerdict?: Verdict;
   verificationResult: "passed" | "failed" | "not-run";
   finalResult: "success" | "failure" | "continued";
+  completionSource: "agent" | "verifier-auto-complete";
 };
 
 export type FailurePoint = {

@@ -98,9 +98,9 @@ export type KeyboardObservation = {
 export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;              // 직전 action 이후 SR이 말한 텍스트 전부
-  announcementCapture: "log" | "fallback" | "none";
-  announcementCount?: number;
-  observeReason?: "silence" | "timeout" | "fallback";
+  announcementCapture: "log" | "fallback" | "none"; // 무엇으로 획득했는가
+  announcementCount?: number;      // 고유 발화 수가 아니라 캡처된 phrase line 수
+  observeReason?: "silence" | "timeout" | "fallback"; // 왜 관측을 종료했는가
   previousAnnouncement?: string;     // 직전 1개
 };
 
@@ -110,6 +110,12 @@ export type Observation = KeyboardObservation | ScreenReaderObservation;
 screenreader 모드의 **agent observation** 은 announcement-only다. `announcementCapture`,
 `announcementCount`, `observeReason` 와 개발자 디버깅용 screenshot은 trace/report에만
 저장되고 agent 프롬프트에는 전달되지 않는다.
+
+해석 규칙은 다음처럼 고정한다.
+
+- `announcementCount` 는 "고유 발화 수"가 아니라 이번 step에서 캡처된 phrase line 수다.
+- step 경계는 DOM 상태나 문자열 diff가 아니라 **read-and-clear spoken log** 기준이다.
+- `announcementCapture` 는 획득 경로, `observeReason` 는 종료 이유다.
 
 **KeyboardObservation JSON 예시**
 
@@ -209,9 +215,10 @@ export type StepRecord = {
     failures: string[];
   };
   verdictAnalysis?: {
-    agentVerdict: "success" | "stuck";
+    agentVerdict?: "success" | "stuck";
     verificationResult: "passed" | "failed" | "not-run";
     finalResult: "success" | "failure" | "continued";
+    completionSource: "agent" | "verifier-auto-complete";
   };
 };
 
@@ -297,3 +304,9 @@ keyboard 모드일 때만 screenshot image block 추가
 - screenreader: `announcementCapture` 는 빼고 `announcement`, `previousAnnouncement` 만 남긴다.
 
 응답 파서는 malformed JSON 또는 허용되지 않은 key 사용 시 `{ verdict: "stuck", rationale: "agent returned malformed decision: <snippet>" }` 로 강제 변환한다. 에이전트가 치트하려고 해도 stuck 처리될 뿐이며, 예외로 루프가 깨지지 않는다.
+
+CLI 실험 옵션으로 verifier auto-complete를 켤 수 있다.
+
+- 기본값은 `false`
+- 켜면 **최소 한 번 이상 성공 action을 수행한 뒤부터** 매 action step 이후 verifier를 돌려 조건 만족 시 자동 종료할 수 있다.
+- 이때 `verdictAnalysis.completionSource = "verifier-auto-complete"` 로 남겨, agent가 직접 닫은 성공과 구분한다.

@@ -220,7 +220,8 @@ describe("reporter", () => {
             verdictAnalysis: {
               agentVerdict: "success",
               verificationResult: "failed",
-              finalResult: "continued"
+              finalResult: "continued",
+              completionSource: "agent"
             }
           }
         ],
@@ -256,7 +257,90 @@ describe("reporter", () => {
     expect(html).toContain("Verification: <code>failed</code>");
     expect(html).toContain("Agent verdict");
     expect(html).toContain("Final result at this step");
+    expect(html).toContain("Completion source");
     expect(html).toContain("expected visible text");
     expect(html).toContain("Verified success was not reached");
+  });
+
+  it("renders verifier auto-complete steps without an agent verdict", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-auto-complete-"));
+    const reportPath = await renderReport(
+      {
+        task: {
+          id: "auto-complete-task",
+          url: "file:///auto-complete-task.html",
+          goal: "Finish via verifier auto-complete.",
+          mode: "screenreader-hybrid",
+          maxSteps: 2,
+          timeoutMs: 1000,
+          verify: {
+            all: [{ textVisible: "Started!" }]
+          }
+        },
+        startedAt: "2026-04-12T00:00:00.000Z",
+        endedAt: "2026-04-12T00:00:02.000Z",
+        steps: [
+          {
+            step: 0,
+            timestamp: "2026-04-12T00:00:01.000Z",
+            observation: {
+              kind: "screenreader",
+              announcement: "Started!",
+              announcementCapture: "log",
+              announcementCount: 1,
+              observeReason: "silence"
+            },
+            decision: {
+              action: { srCommand: "act" },
+              rationale: "Activate the CTA."
+            },
+            execution: {
+              ok: true,
+              costDelta: 1
+            },
+            timings: {
+              observeMs: 10,
+              decideMs: 20,
+              executeMs: 30,
+              verifyMs: 15
+            },
+            verification: {
+              passed: true,
+              failures: []
+            },
+            verdictAnalysis: {
+              verificationResult: "passed",
+              finalResult: "success",
+              completionSource: "verifier-auto-complete"
+            }
+          }
+        ],
+        aggregate: {
+          result: "success",
+          totalSteps: 1,
+          durationMs: 2000,
+          timings: {
+            setupMs: 100,
+            browserLaunchMs: 10,
+            pageLoadMs: 20,
+            voiceOverInitMs: 30,
+            firstAnnouncementWaitMs: 40,
+            reportMs: 20
+          },
+          actionCounts: {
+            srCommandCount: 1,
+            rawKeyCount: 0,
+            typeTextCount: 0
+          },
+          terminatedAtStep: 0,
+          endedBy: "success"
+        }
+      } satisfies TraceSession,
+      outDir
+    );
+
+    const html = await readFile(reportPath, "utf8");
+    expect(html).toContain("not-declared");
+    expect(html).toContain("verifier-auto-complete");
   });
 });

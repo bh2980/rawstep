@@ -274,10 +274,12 @@ function renderVerification(verification: NonNullable<StepRecord["verification"]
 }
 
 function renderVerdictAnalysis(verdictAnalysis: NonNullable<StepRecord["verdictAnalysis"]>): string {
+  const agentVerdict = verdictAnalysis.agentVerdict ?? "not-declared";
   return `<ul>
-    <li>Agent verdict: <code>${escapeHtml(verdictAnalysis.agentVerdict)}</code></li>
+    <li>Agent verdict: <code>${escapeHtml(agentVerdict)}</code></li>
     <li>Verification result: <code>${escapeHtml(verdictAnalysis.verificationResult)}</code></li>
     <li>Final result at this step: <code>${escapeHtml(verdictAnalysis.finalResult)}</code></li>
+    <li>Completion source: <code>${escapeHtml(verdictAnalysis.completionSource)}</code></li>
   </ul>`;
 }
 

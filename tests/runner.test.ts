@@ -48,7 +48,8 @@ describe("runTask", () => {
     expect(session.steps.at(-1)?.verdictAnalysis).toEqual({
       agentVerdict: "success",
       verificationResult: "passed",
-      finalResult: "success"
+      finalResult: "success",
+      completionSource: "agent"
     });
     expect(session.steps.at(-1)?.timings.verifyMs).toBeGreaterThanOrEqual(0);
   });
@@ -169,7 +170,8 @@ describe("runTask", () => {
     expect(session.steps[0].verdictAnalysis).toEqual({
       agentVerdict: "success",
       verificationResult: "failed",
-      finalResult: "continued"
+      finalResult: "continued",
+      completionSource: "agent"
     });
     expect(observedHistorySources[1]).toContain("verifier");
   });
@@ -651,7 +653,191 @@ describe("runTask", () => {
     expect(session.steps[1].verdictAnalysis).toEqual({
       agentVerdict: "success",
       verificationResult: "not-run",
-      finalResult: "success"
+      finalResult: "success",
+      completionSource: "agent"
+    });
+  });
+
+  it("can auto-complete verified success after a successful action when the option is enabled", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-complete-"));
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-complete",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Activate the CTA.",
+        mode: "keyboard",
+        maxSteps: 6,
+        timeoutMs: 60_000,
+        verify: {
+          all: [
+            { textVisible: "Started!" },
+            { titleIncludes: "Completed" }
+          ]
+        }
+      },
+      {
+        outDir,
+        verifierAutoComplete: true,
+        agent: {
+          decide: async () => {
+            callCount += 1;
+
+            if (callCount === 1 || callCount === 2) {
+              return {
+                action: { key: "Tab" as const },
+                rationale: "Move focus forward."
+              };
+            }
+
+            return {
+              action: { key: "Enter" as const },
+              rationale: "Activate the focused CTA."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps).toHaveLength(3);
+    expect(session.steps[2].verification).toEqual({
+      passed: true,
+      failures: []
+    });
+    expect(session.steps[2].verdictAnalysis).toEqual({
+      verificationResult: "passed",
+      finalResult: "success",
+      completionSource: "verifier-auto-complete"
+    });
+  });
+
+  it("does not auto-complete on step 0 before any successful action", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-complete-step0-"));
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-complete-step0",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Do not auto-complete before the agent acts.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        verifierAutoComplete: true,
+        agent: {
+          decide: async () => ({
+            verdict: "stuck" as const,
+            rationale: "I am not attempting the task."
+          })
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(session.steps[0].verification).toBeUndefined();
+    expect(session.steps[0].verdictAnalysis).toEqual({
+      agentVerdict: "stuck",
+      verificationResult: "not-run",
+      finalResult: "failure",
+      completionSource: "agent"
+    });
+  });
+
+  it("keeps running when verifier auto-complete is enabled but verification still fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-complete-fail-"));
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-complete-fail",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Try the CTA even though verify will fail.",
+        mode: "keyboard",
+        maxSteps: 4,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ textVisible: "Never appears" }]
+        }
+      },
+      {
+        outDir,
+        verifierAutoComplete: true,
+        agent: {
+          decide: async () => {
+            callCount += 1;
+            if (callCount < 4) {
+              return {
+                action: { key: "Tab" as const },
+                rationale: "Keep moving."
+              };
+            }
+
+            return {
+              verdict: "stuck" as const,
+              rationale: "This still is not verified."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(session.steps.every((step) => step.verification === undefined)).toBe(true);
+  });
+
+  it("can auto-complete using network-only verification rules", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-network-"));
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-network",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Trigger the checkout network call.",
+        mode: "keyboard",
+        maxSteps: 6,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }]
+        }
+      },
+      {
+        outDir,
+        verifierAutoComplete: true,
+        browserSessionFactory: async (url) => {
+          const session = await createBrowserSession(url, { headless: true });
+          session.network.responses.push({
+            url: "http://fixture.local/api/cart",
+            method: "POST",
+            status: 200,
+            ok: true,
+            timestamp: Date.now()
+          });
+          return session;
+        },
+        agent: {
+          decide: async () => {
+            return {
+              action: { key: "Tab" as const },
+              rationale: "Perform one successful action before verification."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps.at(-1)?.verification?.passed).toBe(true);
+    expect(session.steps.at(-1)?.verdictAnalysis).toEqual({
+      verificationResult: "passed",
+      finalResult: "success",
+      completionSource: "verifier-auto-complete"
     });
   });
 
@@ -855,5 +1041,83 @@ describe("runTask", () => {
     if (session.steps[1].observation.kind === "screenreader") {
       expect(session.steps[1].observation.screenshot?.path).toBe("screenshots/step-001.png");
     }
+  });
+
+  it("stores verifier auto-complete success steps even when screenshot policy is failure-only", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-shots-"));
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-shots",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Reach auto-completed verified success.",
+        mode: "screenreader-hybrid",
+        maxSteps: 4,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ textVisible: "Started!" }]
+        }
+      },
+      {
+        outDir,
+        screenshotPolicy: "failure-only",
+        verifierAutoComplete: true,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderRuntimeFactory: async (page) => {
+          await page.evaluate(() => {
+            const button = document.querySelector("button");
+            if (button instanceof HTMLElement) {
+              button.focus();
+            }
+          });
+
+          return {
+            observer: {
+              observe: async () => ({
+                kind: "screenreader",
+                announcement: "Get started button",
+                announcementCapture: "log"
+              })
+            },
+            controller: {
+              execute: async () => {
+                await page.evaluate(() => {
+                  document.title = "Completed";
+                  const result = document.getElementById("result");
+                  if (result instanceof HTMLElement) {
+                    result.hidden = false;
+                    result.textContent = "Started!";
+                  }
+                });
+              }
+            },
+            setupTimings: {
+              voiceOverInitMs: 12,
+              firstAnnouncementWaitMs: 34
+            },
+            close: async () => undefined
+          };
+        },
+        agent: {
+          decide: async () => {
+            return {
+              action: { srCommand: "act" as const },
+              rationale: "Activate the CTA."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
+    }
+    expect(session.steps[0].verdictAnalysis).toEqual({
+      verificationResult: "passed",
+      finalResult: "success",
+      completionSource: "verifier-auto-complete"
+    });
   });
 });

@@ -12,6 +12,7 @@ runTask(task) -> TraceSession:
   trace = TraceRecorder(task)
   browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
   screenshotPolicy = options.screenshotPolicy ?? "all"
+  verifierAutoComplete = options.verifierAutoComplete ?? false
   if task.mode == "keyboard":
     observer = KeyboardObserver(browser.page)
     screenReaderRuntime = null
@@ -45,7 +46,8 @@ runTask(task) -> TraceSession:
         verdictAnalysis = {
           agentVerdict: "success",
           verificationResult: verification.passed ? "passed" : "failed",
-          finalResult: verification.passed ? "success" : "continued"
+          finalResult: verification.passed ? "success" : "continued",
+          completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verification, verdictAnalysis)
         if verification.passed:
@@ -60,7 +62,8 @@ runTask(task) -> TraceSession:
         verdictAnalysis = {
           agentVerdict: "success",
           verificationResult: "not-run",
-          finalResult: "success"
+          finalResult: "success",
+          completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
         endedBy = "success"; break
@@ -69,7 +72,8 @@ runTask(task) -> TraceSession:
         verdictAnalysis = {
           agentVerdict: "stuck",
           verificationResult: "not-run",
-          finalResult: "failure"
+          finalResult: "failure",
+          completionSource: "agent"
         }
         trace.append(step, obs, decision, execution={ok:true, costDelta:0}, verdictAnalysis)
         endedBy = "stuck"; break
@@ -78,6 +82,16 @@ runTask(task) -> TraceSession:
         if decision.action.key and task.mode == "screenreader-strict":
           throw NotAllowedKeyError("Raw key actions are not allowed in screenreader-strict mode.")
         execution = actuator.execute(decision.action, task.input)
+        if verifierAutoComplete and task.verify and execution.ok and execution.costDelta > 0:
+          verification = verifyTask(task, browser)
+          if verification.passed:
+            verdictAnalysis = {
+              verificationResult: "passed",
+              finalResult: "success",
+              completionSource: "verifier-auto-complete"
+            }
+            trace.append(step, obs, decision, execution, verification, verdictAnalysis)
+            endedBy = "success"; break
         trace.append(step, obs, decision, execution)
         if !execution.ok:
           continue
@@ -126,6 +140,9 @@ screenreader observe는 단발 읽기가 아니라 **폴링 기반 수집기**�
 - 마지막 새 phrase 이후 `silenceWindowMs` 동안 변화가 없으면 관측을 종료한다.
 - 그래도 너무 오래 걸리면 `maxObserveMs` 에서 종료한다.
 
+여기서 "새 phrase" 의 의미는 문자열 diff가 아니라, **이번 poll에서 read-and-clear로
+읽힌 log line** 이다. 같은 문장이 나중 poll에 다시 들어오면 다시 센다.
+
 프로파일은 세 가지다.
 
 - `initial` — step 0 첫 발화 확보용. 가장 관대하게 기다린다.
@@ -141,8 +158,16 @@ step 0은 `initial` 프로파일을 먼저 쓰고, 첫 결과가 `announcementCa
 screenreader observation trace에는 아래 메타가 함께 저장된다.
 
 - `announcementCapture` — `log` | `fallback` | `none`
-- `announcementCount` — 이번 step에서 잡은 phrase 개수
+- `announcementCount` — 이번 step에서 잡은 phrase line 개수
 - `observeReason` — `silence` | `timeout` | `fallback`
+
+의미는 다음처럼 고정한다.
+
+- `announcementCapture` — 무엇으로 발화를 얻었는가
+- `observeReason` — 왜 관측을 여기서 닫았는가
+
+즉 fallback 케이스에서는 현재 구현상 둘 다 `fallback` 이 될 수 있지만, 역할은
+획득 경로와 종료 이유로 구분해서 읽어야 한다.
 
 ---
 
@@ -151,6 +176,7 @@ screenreader observation trace에는 아래 메타가 함께 저장된다.
 | 상황 | `aggregate.endedBy` | `aggregate.result` | `failurePoint` |
 |---|---|---|---|
 | agent가 `verdict:"success"` 반환 + verifier 통과 | `"success"` | `"success"` | 없음 |
+| verifier auto-complete 옵션 켜짐 + 성공 action 이후 verifier 통과 | `"success"` | `"success"` | 없음 |
 | agent가 `verdict:"success"` 반환 + verifier 실패 2회 | `"stuck"` | `"failure"` | 마지막 step |
 | agent가 `verdict:"stuck"` 반환 | `"stuck"` | `"failure"` | 마지막 step |
 | step 루프가 `maxSteps` 에 도달 | `"maxSteps"` | `"failure"` | 마지막 step |

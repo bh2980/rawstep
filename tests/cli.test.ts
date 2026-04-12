@@ -81,6 +81,7 @@ describe("CLI", () => {
       "./tmp/out",
       "--screenshots",
       "failure-only",
+      "--verifier-auto-complete",
       "--provider",
       "openai-compatible",
       "--model",
@@ -93,6 +94,19 @@ describe("CLI", () => {
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
     expect(parsed.screenshotPolicy).toBe("failure-only");
+    expect(parsed.verifierAutoComplete).toBe(true);
+  });
+
+  it("defaults verifier auto-complete to false when omitted", () => {
+    const parsed = parseRunArgs([
+      resolve("examples/tasks/simple-cta.yml"),
+      "--mode",
+      "keyboard",
+      "--out",
+      "./tmp/out"
+    ]);
+
+    expect(parsed.verifierAutoComplete).toBe(false);
   });
 
   it("rejects invalid screenshot policies on the CLI", () => {

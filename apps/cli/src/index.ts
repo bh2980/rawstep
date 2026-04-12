@@ -20,6 +20,7 @@ type CliRunOptions = {
   mode?: UserModel;
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
+  verifierAutoComplete?: boolean;
   provider?: AgentProvider;
   model?: string;
   baseURL?: string;
@@ -52,7 +53,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     const session = await runTask(task, {
       outDir: options.outDir,
       agent,
-      screenshotPolicy: options.screenshotPolicy
+      screenshotPolicy: options.screenshotPolicy,
+      verifierAutoComplete: options.verifierAutoComplete
     });
     const reportStartedAt = Date.now();
     let reportPath = await renderReport(session, options.outDir);
@@ -115,6 +117,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let mode: UserModel | undefined;
   let outDir: string | undefined;
   let screenshotPolicy: ScreenshotPolicy | undefined;
+  let verifierAutoComplete = false;
   let provider: AgentProvider | undefined;
   let model: string | undefined;
   let baseURL: string | undefined;
@@ -159,6 +162,11 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--verifier-auto-complete") {
+      verifierAutoComplete = true;
+      continue;
+    }
+
     if (token === "--model") {
       if (!next) {
         throw new Error("Missing value for --model.");
@@ -189,6 +197,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     mode,
     outDir: resolve(outDir),
     screenshotPolicy,
+    verifierAutoComplete,
     provider,
     model,
     baseURL
@@ -210,7 +219,7 @@ function stripFileExtension(filename: string): string {
 
 function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }
 

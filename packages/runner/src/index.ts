@@ -38,6 +38,7 @@ import {
 export type RunTaskOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
+  verifierAutoComplete?: boolean;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
   browserSessionFactory?: (
@@ -62,6 +63,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   const deadline = Date.now() + task.timeoutMs;
   const verifierFeedback: AgentHistoryEntry[] = [];
   let verificationFailures = 0;
+  let successfulActionCount = 0;
   let endedBy: EndedBy | undefined;
   let session: TraceSession | undefined;
   let unexpectedError: unknown;
@@ -149,7 +151,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
               ? "success"
               : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
                 ? "failure"
-                : "continued"),
+                : "continued", "agent"),
             developerScreenshot
           );
 
@@ -187,7 +189,12 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             verifyMs: 0
           },
           undefined,
-          createVerdictAnalysis(decision.verdict, undefined, decision.verdict === "success" ? "success" : "failure"),
+          createVerdictAnalysis(
+            decision.verdict,
+            undefined,
+            decision.verdict === "success" ? "success" : "failure",
+            "agent"
+          ),
           shouldCaptureDeveloperScreenshot(screenshotPolicy, observation, decision)
             ? await captureDeveloperScreenshot(browser.page)
             : undefined
@@ -204,11 +211,32 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 
         const execution = await actuator.execute(decision.action, task.input);
         const executeMs = Date.now() - executeStartedAt;
+        if (execution.ok && execution.costDelta > 0) {
+          successfulActionCount += 1;
+        }
+
+        const shouldCheckVerifierAutoComplete = Boolean(
+          options.verifierAutoComplete
+          && task.verify
+          && execution.ok
+          && execution.costDelta > 0
+          && successfulActionCount > 0
+        );
+        const verifyStartedAt = shouldCheckVerifierAutoComplete ? Date.now() : 0;
+        const verification = shouldCheckVerifierAutoComplete
+          ? await verifyTask(task, browser)
+          : undefined;
+        const verifyMs = shouldCheckVerifierAutoComplete
+          ? Date.now() - verifyStartedAt
+          : 0;
+        const autoCompleted = Boolean(verification?.passed);
         const developerScreenshot = shouldCaptureDeveloperScreenshot(
           screenshotPolicy,
           observation,
           decision,
-          execution
+          execution,
+          autoCompleted ? verification : undefined,
+          autoCompleted
         )
           ? await captureDeveloperScreenshot(browser.page)
           : undefined;
@@ -221,12 +249,19 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             observeMs,
             decideMs,
             executeMs,
-            verifyMs: 0
+            verifyMs
           },
-          undefined,
-          undefined,
+          autoCompleted ? verification : undefined,
+          autoCompleted
+            ? createVerdictAnalysis(undefined, verification, "success", "verifier-auto-complete")
+            : undefined,
           developerScreenshot
         );
+
+        if (autoCompleted) {
+          endedBy = "success";
+          break;
+        }
 
         if (!execution.ok) {
           continue;
@@ -339,7 +374,8 @@ function allowsRawKeyActions(mode: UserModel): boolean {
 function createVerdictAnalysis(
   agentVerdict: VerdictAnalysis["agentVerdict"],
   verification: { passed: boolean } | undefined,
-  finalResult: VerdictAnalysis["finalResult"]
+  finalResult: VerdictAnalysis["finalResult"],
+  completionSource: VerdictAnalysis["completionSource"]
 ): VerdictAnalysis {
   return {
     agentVerdict,
@@ -348,7 +384,8 @@ function createVerdictAnalysis(
         ? "passed"
         : "failed"
       : "not-run",
-    finalResult
+    finalResult,
+    completionSource
   };
 }
 
@@ -357,7 +394,8 @@ function shouldCaptureDeveloperScreenshot(
   observation: Observation,
   decision: Decision,
   execution?: { ok: boolean },
-  verification?: { passed: boolean }
+  verification?: { passed: boolean },
+  forceCapture = false
 ): boolean {
   if (observation.kind !== "screenreader") {
     return false;
@@ -369,6 +407,10 @@ function shouldCaptureDeveloperScreenshot(
     case "none":
       return false;
     case "failure-only":
+      if (forceCapture) {
+        return true;
+      }
+
       if (verification) {
         return !verification.passed;
       }
