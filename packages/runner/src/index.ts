@@ -9,6 +9,7 @@ import {
 } from "@a11y-task/browser";
 import {
   ALLOWED_KEYS,
+  HISTORY_WINDOW,
   SCREENREADER_COMMANDS,
   type Action,
   type AgentMemoryEntry,
@@ -125,7 +126,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         memory: selectAgentMemoryExcerpt(
           agentMemory,
           options.agentMemoryAll ?? false,
-          options.agentMemoryWindow ?? 1
+          options.agentMemoryWindow ?? HISTORY_WINDOW
         )
       };
       const decideStartedAt = Date.now();

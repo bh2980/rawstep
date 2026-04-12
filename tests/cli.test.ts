@@ -129,7 +129,7 @@ describe.sequential("CLI", () => {
     ]);
 
     expect(parsed.verifierAutoComplete).toBe(false);
-    expect(parsed.agentMemoryWindow).toBe(1);
+    expect(parsed.agentMemoryWindow).toBe(5);
     expect(parsed.agentMemoryAll).toBe(false);
     expect(parsed.includeExperienceSummary).toBe(false);
     expect(parsed.includeRationale).toBe(false);

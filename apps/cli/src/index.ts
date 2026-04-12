@@ -4,6 +4,7 @@ import { LLMAgent, type AgentProvider } from "@a11y-task/agent";
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TIMEOUT_MS,
+  HISTORY_WINDOW,
   type ScreenshotPolicy,
   type Task,
   type UserModel
@@ -135,7 +136,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let outDir: string | undefined;
   let screenshotPolicy: ScreenshotPolicy | undefined;
   let verifierAutoComplete = false;
-  let agentMemoryWindow = 1;
+  let agentMemoryWindow = HISTORY_WINDOW;
   let agentMemoryAll = false;
   let includeExperienceSummary = false;
   let includeRationale = false;

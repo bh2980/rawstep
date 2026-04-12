@@ -102,7 +102,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - `goal` — 수행해야 할 과업. 사용자도 자기 목적을 압니다.
 - `allowedKeys` — 허용된 키 목록. 관측이 아니라 행동 공간의 정의.
 - `agent memory` — 이전 step들을 가볍게 요약한 text archive.
-  기본값은 최근 1개이며, `--agent-memory-window` 나 `--agent-memory-all`
+  기본값은 최근 5개이며, `--agent-memory-window` 나 `--agent-memory-all`
   로 범위를 늘릴 수 있습니다. 이 memory는 raw trace 전체가 아니라
   "그 step에서 무엇을 봤고, 무엇을 했고, 결과가 어땠는지"만 담는 짧은 작업
   메모입니다.
@@ -240,7 +240,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 pnpm a11y-task run examples/tasks/simple-cta.yml \
   --mode keyboard \
   --out ./report \
-  --agent-memory-window 1 \
+  --agent-memory-window 5 \
   --include-experience-summary \
   --screenshots important \
   --include-rationale \
@@ -272,7 +272,7 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 `--agent-memory-window` 는 agent에게 다시 보여줄 이전 step archive 개수를 정합니다.
 
-- 기본값은 `1`
+- 기본값은 `5`
 - `0` 이면 이전 step memory를 보내지 않아 사실상 stateless처럼 동작
 - `N` 이면 최근 N개 archive만 전달
 
