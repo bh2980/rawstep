@@ -18,7 +18,7 @@ describe.sequential("CLI", () => {
     expect(task.mode).toBe("keyboard");
     expect(task.url.startsWith("file://")).toBe(true);
     expect(task.input).toBeUndefined();
-    expect(task.verify?.all).toEqual([
+    expect(task.verify.all).toEqual([
       { textVisible: "Started!" },
       { titleIncludes: "Completed" }
     ]);
@@ -200,7 +200,7 @@ describe.sequential("CLI", () => {
     );
 
     const task = await loadTask(taskPath);
-    expect(task.verify?.all).toEqual([
+    expect(task.verify.all).toEqual([
       { textVisible: "Started!" },
       { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
     ]);
@@ -217,6 +217,9 @@ describe.sequential("CLI", () => {
         "url: ../fixtures/search.html",
         "goal: Search for passport.",
         "mode: keyboard",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Search",
         "input:",
         "  text: passport"
       ].join("\n"),
@@ -260,6 +263,9 @@ describe.sequential("CLI", () => {
         "url: ../../fixtures/simple-cta.html",
         "goal: Try invalid input.",
         "mode: keyboard",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Simple CTA Fixture",
         "input:",
         '  text: ""'
       ].join("\n"),
@@ -267,5 +273,23 @@ describe.sequential("CLI", () => {
     );
 
     await expect(loadTask(taskPath)).rejects.toThrow('Task input.text must be a non-empty string.');
+  });
+
+  it("rejects task files without verify", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-missing-verify-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: missing-verify-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Missing verify.",
+        "mode: keyboard"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow('Task file must include verify with a non-empty "all" array.');
   });
 });

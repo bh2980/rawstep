@@ -55,7 +55,7 @@ export type Task = {
   mode: UserModel;
   maxSteps: number;
   timeoutMs: number;
-  verify?: VerifySpec;
+  verify: VerifySpec;
   input?: TaskInput;
 };
 

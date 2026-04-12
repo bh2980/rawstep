@@ -4,3 +4,7 @@ goal: Dialog를 열었다가 Confirm 없이 닫아라. 페이지가 처음 상�
 mode: keyboard
 maxSteps: 20
 timeoutMs: 180000
+verify:
+  all:
+    - textVisible: Dialog closed and focus returned.
+    - titleIncludes: Dialog Closed

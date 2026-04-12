@@ -133,7 +133,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const decideMs = Date.now() - decideStartedAt;
 
       if ("verdict" in decision) {
-        if (decision.verdict === "success" && task.verify) {
+        if (decision.verdict === "success") {
           const verifyStartedAt = Date.now();
           const verification = await verifyTask(task, browser);
           const verifyMs = Date.now() - verifyStartedAt;
@@ -241,7 +241,6 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 
         const shouldCheckVerifierAutoComplete = Boolean(
           options.verifierAutoComplete
-          && task.verify
           && execution.ok
           && execution.costDelta > 0
           && successfulActionCount > 0

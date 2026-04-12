@@ -444,7 +444,10 @@ describe("runTask", () => {
         goal: "Find and activate the main call to action.",
         mode: "screenreader-hybrid",
         maxSteps: 3,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -529,7 +532,10 @@ describe("runTask", () => {
         goal: "Finish without saving developer screenshots.",
         mode: "screenreader-strict",
         maxSteps: 2,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -634,7 +640,10 @@ describe("runTask", () => {
         goal: "Find and activate the main call to action.",
         mode: "screenreader-strict",
         maxSteps: 3,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -703,7 +712,7 @@ describe("runTask", () => {
     expect(session.aggregate.timings.firstAnnouncementWaitMs).toBe(34);
     expect(session.steps[1].verdictAnalysis).toEqual({
       agentVerdict: "success",
-      verificationResult: "not-run",
+      verificationResult: "passed",
       finalResult: "success",
       completionSource: "agent"
     });
@@ -904,7 +913,10 @@ describe("runTask", () => {
         goal: "Activate the main button.",
         mode: "screenreader-strict",
         maxSteps: 3,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,

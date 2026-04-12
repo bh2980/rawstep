@@ -14,10 +14,6 @@ export async function verifyTask(
   task: Task,
   browser: BrowserSession
 ): Promise<VerificationRecord> {
-  if (!task.verify) {
-    return { passed: true, failures: [] };
-  }
-
   const failures: string[] = [];
   for (const rule of task.verify.all) {
     const failure = await evaluateVerifyRule(rule, browser);
@@ -79,9 +75,9 @@ export function formatVerificationFeedback(result: VerificationRecord): string {
   return result.failures[0];
 }
 
-export function validateVerifySpec(raw: unknown): VerifySpec | undefined {
+export function validateVerifySpec(raw: unknown): VerifySpec {
   if (raw === undefined || raw === null) {
-    return undefined;
+    throw new Error('Task file must include verify with a non-empty "all" array.');
   }
 
   if (typeof raw !== "object" || !("all" in raw)) {
