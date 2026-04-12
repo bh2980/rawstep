@@ -126,16 +126,20 @@ describe("runTask", () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-memory-summary-"));
     const seenMemoryLengths: number[] = [];
     const recordedMemoryValues: string[] = [];
+    const seenSummaryStepCounts: number[] = [];
 
     const agent = {
       recordStepOutcome: (entry: { action: string }) => {
         recordedMemoryValues.push(entry.action);
       },
-      summarizeExperience: async () => ({
-        overall: `Recorded ${recordedMemoryValues.length} steps.`,
-        biggestFriction: "Navigation took more than one step.",
-        nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
-      }),
+      summarizeExperience: async (input: { steps: Array<unknown> }) => {
+        seenSummaryStepCounts.push(input.steps.length);
+        return {
+          overall: `Recorded ${recordedMemoryValues.length} steps.`,
+          biggestFriction: "Navigation took more than one step.",
+          nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
+        };
+      },
       decide: async (ctx: { memory: unknown[] }) => {
         seenMemoryLengths.push(ctx.memory.length);
 
@@ -169,6 +173,7 @@ describe("runTask", () => {
     );
 
     expect(seenMemoryLengths).toEqual([0, 1, 1]);
+    expect(seenSummaryStepCounts).toEqual([3]);
     expect(session.experienceSummary).toEqual({
       overall: "Recorded 3 steps.",
       biggestFriction: "Navigation took more than one step.",

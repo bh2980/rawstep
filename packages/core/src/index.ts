@@ -122,6 +122,7 @@ export interface Agent {
   summarizeExperience?(input: {
     task: Task;
     aggregate: TraceAggregate;
+    steps: StepRecord[];
   }): Promise<ExperienceSummary>;
 }
 

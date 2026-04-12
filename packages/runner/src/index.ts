@@ -362,7 +362,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     try {
       const experienceSummary = await agent.summarizeExperience({
         task,
-        aggregate: session.aggregate
+        aggregate: session.aggregate,
+        steps: session.steps
       });
       session.experienceSummary = experienceSummary;
       trace.setExperienceSummary(experienceSummary);

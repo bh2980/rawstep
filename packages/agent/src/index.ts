@@ -12,6 +12,7 @@ import {
   type Decision,
   type ExperienceSummary,
   type Observation,
+  type StepRecord,
   type ScreenReaderCommand,
   type Task,
   type TaskInput,
@@ -162,6 +163,7 @@ export class LLMAgent implements Agent {
   async summarizeExperience(input: {
     task: Task;
     aggregate: TraceAggregate;
+    steps: StepRecord[];
   }): Promise<ExperienceSummary> {
     if (!this.includeExperienceSummary) {
       throw new Error("Experience summary is disabled.");
@@ -171,7 +173,7 @@ export class LLMAgent implements Agent {
     const promptParts: PromptPart[] = [
       {
         type: "text",
-        text: buildExperienceSummaryPromptText(input.task, input.aggregate, this.memory)
+        text: buildExperienceSummaryPromptText(input.task, input.aggregate, input.steps)
       }
     ];
     this.recordPromptLog("experience-summary", systemPrompt, promptParts);
@@ -584,30 +586,14 @@ function extractJsonObject(raw: string): string {
 }
 
 export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): string {
-  const observationForPrompt =
-    obs.kind === "keyboard"
-      ? {
-          kind: obs.kind,
-          browserChrome: {
-            urlPath: obs.browserChrome.urlPath
-          },
-          scrollHint: obs.scrollHint,
-          screenshot: {
-            viewport: obs.screenshot.viewport
-          },
-          hasPreviousScreenshot: Boolean(obs.previousScreenshot)
-        }
-      : {
-          kind: obs.kind,
-          announcement: obs.announcement,
-          previousAnnouncement: obs.previousAnnouncement ?? ""
-        };
-
   const lines = [
     `goal: ${ctx.goal}`,
-    formatAgentMemoryBlock(ctx.memory),
-    `observation: ${JSON.stringify(observationForPrompt)}`
+    formatAgentMemoryBlock(ctx.memory)
   ];
+
+  if (obs.kind === "screenreader") {
+    lines.push(`announcement: ${obs.announcement}`);
+  }
 
   if (taskInput) {
     lines.push(`task input text: ${JSON.stringify(taskInput.text)}`);
@@ -627,7 +613,7 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
 function buildExperienceSummarySystemPrompt(): string {
   return [
     "You are writing an experience summary for a single a11y-task run.",
-    "Use only the provided task, aggregate facts, and agent memory.",
+    "Use only the provided task, aggregate facts, and full step trace.",
     "Do not restate pass/fail as a new judgment.",
     "Do not guess DOM structure, ARIA, WCAG violations, or root causes.",
     "Do not claim to have seen screenshots or visual details beyond the provided facts.",
@@ -639,18 +625,99 @@ function buildExperienceSummarySystemPrompt(): string {
 function buildExperienceSummaryPromptText(
   task: Task,
   aggregate: TraceAggregate,
-  memory: AgentMemoryEntry[]
+  steps: StepRecord[]
 ): string {
   return [
     `task: ${JSON.stringify({ id: task.id, goal: task.goal, mode: task.mode })}`,
     `aggregate: ${JSON.stringify(aggregate)}`,
-    formatAgentMemoryBlock(memory),
+    `steps: ${JSON.stringify(buildSummaryStepsForPrompt(steps))}`,
     "Summarize the run in terms of experience only.",
     "overall: what the run felt like end-to-end.",
     "biggestFriction: the single biggest friction in the run.",
     "nextChecks: up to 2 concrete things a developer should inspect next.",
     "Do not infer DOM structure or accessibility violations."
   ].join("\n");
+}
+
+function buildSummaryStepsForPrompt(steps: StepRecord[]): Array<{
+  step: number;
+  observation: object;
+  decision: string;
+  execution: {
+    ok: boolean;
+    costDelta: number;
+    error?: string;
+  };
+  verification?: {
+    passed: boolean;
+    failures: string[];
+  };
+  result?: {
+    finalResult: "success" | "failure" | "continued";
+    completionSource: "agent" | "verifier-auto-complete";
+  };
+  timings: StepRecord["timings"];
+}> {
+  return steps.map((step) => ({
+    step: step.step,
+    observation: summarizeObservationForPrompt(step),
+    decision: summarizeDecisionForPrompt(step.decision),
+    execution: {
+      ok: step.execution.ok,
+      costDelta: step.execution.costDelta,
+      ...(step.execution.error ? { error: step.execution.error } : {})
+    },
+    verification: step.verification
+      ? {
+          passed: step.verification.passed,
+          failures: step.verification.failures
+        }
+      : undefined,
+    result: step.verdictAnalysis
+      ? {
+          finalResult: step.verdictAnalysis.finalResult,
+          completionSource: step.verdictAnalysis.completionSource
+        }
+      : undefined,
+    timings: step.timings
+  }));
+}
+
+function formatDecisionAction(action: Action): string {
+  if ("key" in action) {
+    return `key(${action.key})`;
+  }
+
+  if ("srCommand" in action) {
+    return `srCommand(${action.srCommand})`;
+  }
+
+  return "typeText(task)";
+}
+
+function summarizeObservationForPrompt(step: StepRecord): object {
+  if (step.observation.kind === "keyboard") {
+    return {
+      kind: "keyboard",
+      title: step.observation.browserChrome.title,
+      urlPath: step.observation.browserChrome.urlPath,
+      scrollHint: step.observation.scrollHint
+    };
+  }
+
+  return {
+    kind: "screenreader",
+    announcement: step.observation.announcement,
+    announcementCapture: step.observation.announcementCapture,
+    announcementCount: step.observation.announcementCount,
+    observeReason: step.observation.observeReason
+  };
+}
+
+function summarizeDecisionForPrompt(decision: Decision): string {
+  return "action" in decision
+    ? formatDecisionAction(decision.action)
+    : `verdict(${decision.verdict})`;
 }
 
 function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {

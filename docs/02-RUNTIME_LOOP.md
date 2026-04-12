@@ -263,7 +263,7 @@ memory는 **텍스트만** 유지한다.
 `same agent instance` 는 provider native session/thread를 뜻하지 않는다.
 
 - 동일한 logical agent abstraction이 run 동안 memory를 축적한다.
-- 하지만 각 step 요청은 항상 `goal + recent history excerpt + current observation` 으로 새로 구성해 보낸다.
+- 하지만 각 step 요청은 항상 `goal + recent history excerpt + 현재 상태의 최소 신호` 로 새로 구성해 보낸다.
 
 ---
 
@@ -274,7 +274,7 @@ memory는 **텍스트만** 유지한다.
 - 기본값은 `false`
 - summary는 별도 모델/별도 후처리 agent가 아니라 **같은 logical agent abstraction** 이 작성한다
 - 다만 summary는 decision window와 분리된다
-  - 예: `agent-memory-window = 1` 이어도 summary는 **run 동안 누적된 text memory 전체**를 사용한다
+  - 예: `agent-memory-window = 1` 이어도 summary는 **aggregate + 전체 step trace** 를 사용한다
 
 출력 형식은 아래로 고정한다.
 

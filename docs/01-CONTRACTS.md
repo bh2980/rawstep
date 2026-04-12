@@ -283,14 +283,14 @@ screenreader-hybrid 에서는 raw key 와 srCommand 를 함께 허용한다.
 [user]
 goal: {goal}
 recent history: [{ stepIndex, source, action|verdict }]
-observation: {observation JSON}
+screenreader 모드일 때만 announcement: {announcement}
 keyboard 모드일 때만 screenshot image block 추가
 ```
 
 실제 agent 프롬프트용 observation은 예전 history 시절과 비슷하게 유지한다.
 
-- keyboard: `browserChrome.urlPath`, `scrollHint`, `screenshot.viewport`, `hasPreviousScreenshot`
-- screenreader: `announcementCapture` 는 빼고 `announcement`, `previousAnnouncement` 만 남긴다.
+- keyboard: 현재 상태는 observation JSON 대신 screenshot image block으로만 전달한다.
+- screenreader: `announcementCapture` 같은 메타는 빼고 `announcement` 한 줄만 남긴다.
 
 `agent memory` 는 raw trace 전체가 아니라 **가벼운 step 메모** 배열이다.
 
@@ -321,8 +321,8 @@ CLI memory / summary 옵션도 있다.
 - `--agent-memory-window <N>`: 기본값 `1`, 최근 N개 memory archive 전달
 - `--agent-memory-window 0`: memory 미전달
 - `--agent-memory-all`: window 대신 누적 text memory 전체 전달
-- `--include-experience-summary`: run 종료 후 같은 logical agent abstraction이 누적 text memory 전체를 사용해 summary 생성
+- `--include-experience-summary`: run 종료 후 같은 logical agent abstraction이 aggregate + 전체 step trace를 사용해 summary 생성
 
 여기서 "same logical agent abstraction" 은 provider native session/thread를 뜻하지 않는다.
 매 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성한다.
-다만 experience summary는 decision window와 분리되어, `agent-memory-window=1` 이어도 **run 동안 누적된 text memory 전체**를 사용한다.
+다만 experience summary는 decision window와 분리되어, `agent-memory-window=1` 이어도 **aggregate + 전체 step trace** 를 사용한다.

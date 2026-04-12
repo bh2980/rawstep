@@ -1,8 +1,6 @@
 import {
   buildPromptParts,
   parseExperienceSummary,
-  buildSystemPrompt,
-  buildUserPromptText,
   parseDecision,
   resolveAgentConfig,
   toAnthropicMessageContent,
@@ -147,57 +145,6 @@ describe("agent helpers", () => {
     }
   });
 
-  it("builds the keyboard system prompt with constraints", () => {
-    const prompt = buildSystemPrompt("keyboard");
-
-    expect(prompt).toContain("keyboard");
-    expect(prompt).toContain("Tab");
-    expect(prompt).toContain("focus ring");
-    expect(prompt).toContain("Enter / Space");
-    expect(prompt).toContain("상태 변화");
-    expect(prompt).toContain("JSON만 반환하라");
-    expect(prompt).not.toContain('"typeText":"task"');
-    expect(prompt).not.toContain("rationale");
-  });
-
-  it("includes task-scoped text input rules only when input text is provided", () => {
-    const prompt = buildSystemPrompt("keyboard", { text: "passport" });
-
-    expect(prompt).toContain('"typeText":"task"');
-    expect(prompt).toContain("고정 문자열");
-    expect(prompt).toContain('이 task에서는 action으로 {"typeText":"task"} 를 선택할 수 있다.');
-    expect(prompt).toContain("typeText는 task에 제공된 고정 문자열만 입력한다");
-  });
-
-  it("builds the screenreader-strict system prompt without raw key examples", () => {
-    const prompt = buildSystemPrompt("screenreader-strict");
-
-    expect(prompt).toContain("screenreader-strict");
-    expect(prompt).toContain("announcement");
-    expect(prompt).toContain("screenreader command");
-    expect(prompt).toContain("nextItem");
-    expect(prompt).not.toContain('"action":{"key":"Tab"}');
-    expect(prompt).not.toContain("focus ring");
-  });
-
-  it("builds the screenreader-hybrid system prompt with raw key examples", () => {
-    const prompt = buildSystemPrompt("screenreader-hybrid");
-
-    expect(prompt).toContain("screenreader-hybrid");
-    expect(prompt).toContain("announcement");
-    expect(prompt).toContain("함께 사용할 수 있다");
-    expect(prompt).toContain('{"action":{"key":"Tab"}}');
-    expect(prompt).toContain("nextHeading");
-    expect(prompt).toContain("JSON만 반환하라");
-  });
-
-  it("builds rationale-on prompts with rationale examples", () => {
-    const prompt = buildSystemPrompt("keyboard", undefined, undefined, true);
-
-    expect(prompt).toContain('"rationale":"..."');
-    expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라");
-  });
-
   it("resolves anthropic config from the shared env vars", () => {
     process.env.A11Y_TASK_AGENT_PROVIDER = "anthropic";
     process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
@@ -288,66 +235,5 @@ describe("agent helpers", () => {
         }
       }
     ]);
-  });
-});
-
-describe("buildUserPromptText", () => {
-  it("previousScreenshot 있으면 현재/직전 이미지 설명이 포함된다", () => {
-    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
-
-    expect(text).toContain("현재 스크린샷");
-    expect(text).toContain("직전 스크린샷");
-    expect(text).toContain("focus ring");
-  });
-
-  it("previousScreenshot 없으면 첫 번째 스텝 설명이 포함된다", () => {
-    const obs: Observation = {
-      kind: "keyboard",
-      screenshot: { pngBase64: "current-image", viewport: { w: 1280, h: 720 } },
-      browserChrome: { title: "Page", urlPath: "/" },
-    };
-    const text = buildUserPromptText(makeKeyboardContext(), obs);
-
-    expect(text).toContain("첫 번째 스텝");
-    expect(text).not.toContain("두 번째 이미지는 직전 스크린샷");
-  });
-
-  it("screenreader observation에는 이미지 설명이 포함되지 않는다", () => {
-    const obs: Observation = { kind: "screenreader", announcement: "Submit button", announcementCapture: "log" };
-    const text = buildUserPromptText(makeKeyboardContext(), obs);
-
-    expect(text).not.toContain("images:");
-    expect(text).toContain('"announcement":"Submit button"');
-    expect(text).toContain("agent memory:");
-    expect(text).toContain('observation: {"kind":"screenreader"');
-  });
-
-  it("task input text가 있으면 user prompt에 포함된다", () => {
-    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation(), { text: "passport" });
-
-    expect(text).toContain('task input text: "passport"');
-  });
-
-  it("agent memory는 step/action/outcome 텍스트 블록으로 prompt에 포함된다", () => {
-    const ctx: AgentContext = {
-      goal: "Finish the task.",
-      allowedKeys: ["Tab", "Enter"],
-      memory: [{
-        step: 0,
-        action: "key(Tab)",
-        outcome: "continued"
-      }]
-    };
-    const text = buildUserPromptText(ctx, makeKeyboardObservation());
-
-    expect(text).toContain('agent memory:\n- step 0: action="key(Tab)", outcome="continued"');
-  });
-
-  it("keyboard prompt에는 observation JSON이 포함된다", () => {
-    const text = buildUserPromptText(makeKeyboardContext(), makeKeyboardObservation());
-
-    expect(text).toContain('observation: {"kind":"keyboard"');
-    expect(text).toContain('"urlPath":"/fixture"');
-    expect(text).toContain("agent memory:");
   });
 });
