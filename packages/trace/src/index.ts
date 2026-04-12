@@ -21,8 +21,6 @@ import { join } from "node:path";
 export class TraceRecorder {
   private readonly startedAt = new Date().toISOString();
   private readonly traceJsonlPath: string;
-  private readonly traceJsonPath: string;
-  private readonly metricsPath: string;
   private readonly screenshotsDir: string;
   private readonly steps: StepRecord[] = [];
   private session?: TraceSession;
@@ -40,8 +38,6 @@ export class TraceRecorder {
     private readonly outDir: string
   ) {
     this.traceJsonlPath = join(outDir, "trace.jsonl");
-    this.traceJsonPath = join(outDir, "trace.json");
-    this.metricsPath = join(outDir, "metrics.json");
     this.screenshotsDir = join(outDir, "screenshots");
   }
 
