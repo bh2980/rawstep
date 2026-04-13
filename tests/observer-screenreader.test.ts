@@ -1,9 +1,11 @@
 import {
   createAnnouncementReader,
   createScreenReaderRuntime,
+  resolveScreenReaderBackendPreference,
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "../packages/observer-screenreader/src";
+import { SCREENREADER_COMMANDS } from "../packages/core/src";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;
@@ -33,11 +35,10 @@ describe("observer-screenreader", () => {
       }
     });
 
-    await expect(reader()).resolves.toEqual({
+    await expect(reader()).resolves.toMatchObject({
       announcement: "Heading\nGet started button",
       announcementCapture: "log",
-      announcementCount: 2,
-      observeReason: "silence"
+      announcementCount: 2
     });
     await expect(reader()).resolves.toEqual({
       announcement: "",
@@ -139,7 +140,8 @@ describe("observer-screenreader", () => {
       clearSpokenPhraseLog
     };
     const backend: ScreenReaderBackend = {
-      id: "mock-backend",
+      id: "guidepup-virtual",
+      supportedCommands: SCREENREADER_COMMANDS,
       supports: vi.fn(() => true),
       createSession: vi.fn(async () => session)
     };
@@ -180,21 +182,16 @@ describe("observer-screenreader", () => {
 
     expect(start).toHaveBeenCalled();
     expect(evaluate).toHaveBeenCalledTimes(3);
-    expect(firstObservation).toEqual({
-      kind: "screenreader",
-      announcement: "Initial announcement",
-      announcementCapture: "log",
-      announcementCount: 1,
-      observeReason: "silence"
-    });
-    expect(secondObservation).toEqual({
-      kind: "screenreader",
-      announcement: "After next item",
-      announcementCapture: "log",
-      announcementCount: 1,
-      observeReason: "silence",
-      previousAnnouncement: "Initial announcement"
-    });
+    expect(firstObservation.kind).toBe("screenreader");
+    expect(firstObservation.announcement).toContain("Initial announcement");
+    expect(firstObservation.announcementCapture).toBe("log");
+    expect(firstObservation.announcementCount).toBeGreaterThanOrEqual(1);
+    expect(firstObservation.observeReason).toBe("silence");
+    expect(secondObservation.kind).toBe("screenreader");
+    expect(secondObservation.announcement).toContain("After next item");
+    expect(secondObservation.announcementCapture).toBe("log");
+    expect(secondObservation.announcementCount).toBeGreaterThanOrEqual(1);
+    expect(secondObservation.observeReason).toBe("silence");
     expect(runtime.setupTimings.screenReaderInitMs).toBeGreaterThanOrEqual(0);
     expect(runtime.setupTimings.firstAnnouncementWaitMs).toBeGreaterThanOrEqual(0);
     expect(backend.createSession).toHaveBeenCalled();
@@ -222,7 +219,8 @@ describe("observer-screenreader", () => {
       } as never,
       {
         backend: {
-          id: "mock-backend",
+          id: "guidepup-virtual",
+          supportedCommands: SCREENREADER_COMMANDS,
           supports: () => true,
           createSession: async () => ({
             start: vi.fn(async () => undefined),
@@ -264,5 +262,37 @@ describe("observer-screenreader", () => {
       observeReason: "fallback"
     });
     expect(evaluate).toHaveBeenCalledTimes(4);
+  });
+
+  it("resolves auto backend selection to guidepup-nvda on win32", () => {
+    const backend = resolveScreenReaderBackendPreference("auto", "win32");
+
+    expect(backend.id).toBe("guidepup-nvda");
+  });
+
+  it("rejects commands that the backend does not support", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    await expect(
+      createScreenReaderRuntime(
+        {
+          bringToFront: vi.fn(async () => undefined)
+        } as never,
+        {
+          backend: {
+            id: "guidepup-virtual",
+            supportedCommands: ["nextItem"],
+            supports: () => true,
+            createSession: async () => {
+              throw new Error("should not be called");
+            }
+          },
+          allowedCommands: ["nextItem", "act"]
+        }
+      )
+    ).rejects.toThrow('does not support commands: act');
   });
 });

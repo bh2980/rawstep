@@ -3,6 +3,15 @@ import type { ScreenReaderCommand, ScreenReaderObservation } from "@a11y-task/co
 import type { Page } from "playwright";
 import type { ScreenReaderObserver } from "./observer";
 
+export const SCREEN_READER_BACKEND_IDS = [
+  "guidepup-voiceover",
+  "guidepup-nvda",
+  "guidepup-virtual"
+] as const;
+
+export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
+export type ScreenReaderBackendPreference = "auto" | ScreenReaderBackendId;
+
 export type ScreenReaderSession = {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -13,7 +22,8 @@ export type ScreenReaderSession = {
 };
 
 export type ScreenReaderBackend = {
-  id: string;
+  id: ScreenReaderBackendId;
+  supportedCommands: readonly ScreenReaderCommand[];
   supports(platform: NodeJS.Platform): boolean;
   createSession(page: Page): Promise<ScreenReaderSession>;
 };
@@ -31,7 +41,10 @@ export type ScreenReaderRuntime = {
 export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRuntime>;
 
 export type ScreenReaderRuntimeOptions = {
+  backendId?: ScreenReaderBackendPreference;
   backend?: ScreenReaderBackend;
+  allowedCommands?: readonly ScreenReaderCommand[];
+  platform?: NodeJS.Platform;
   observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
 };
 
@@ -73,3 +86,7 @@ export type AnnouncementState = Pick<
 export type AnnouncementReader = (
   profile?: ScreenReaderObserveProfileName
 ) => Promise<AnnouncementState>;
+
+export function isScreenReaderBackendId(value: string): value is ScreenReaderBackendId {
+  return (SCREEN_READER_BACKEND_IDS as readonly string[]).includes(value);
+}

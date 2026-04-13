@@ -9,7 +9,6 @@ import {
 } from "@a11y-task/browser";
 import {
   ALLOWED_KEYS,
-  HISTORY_WINDOW,
   SCREENREADER_COMMANDS,
   type AgentMemoryEntry,
   type Agent,
@@ -20,6 +19,7 @@ import {
 } from "@a11y-task/core";
 import {
   createScreenReaderRuntime,
+  type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
 } from "@a11y-task/observer-screenreader";
@@ -51,6 +51,9 @@ export type RunTaskOptions = {
   agentMemoryWindow?: number;
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
+  allowedKeys?: readonly (typeof ALLOWED_KEYS)[number][];
+  allowedScreenReaderCommands?: readonly (typeof SCREENREADER_COMMANDS)[number][];
+  screenReaderBackendId?: ScreenReaderBackendId;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
   browserSessionFactory?: (
@@ -89,7 +92,11 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
     const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;
     screenReaderRuntime = isScreenReaderMode(task.mode)
-      ? await (options.screenReaderRuntimeFactory ?? createScreenReaderRuntime)(browser.page)
+      ? await (options.screenReaderRuntimeFactory
+        ?? ((page) => createScreenReaderRuntime(page, {
+          backendId: options.screenReaderBackendId,
+          allowedCommands: options.allowedScreenReaderCommands
+        })))(browser.page)
       : undefined;
 
     const observer = createObserver(task.mode, browser, screenReaderRuntime);
@@ -122,14 +129,16 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const observeMs = Date.now() - observeStartedAt;
       const context = {
         goal: task.goal,
-        allowedKeys: allowsRawKeyActions(task.mode) ? ALLOWED_KEYS : [],
+        allowedKeys: allowsRawKeyActions(task.mode)
+          ? options.allowedKeys ?? ALLOWED_KEYS
+          : [],
         allowedScreenReaderCommands: isScreenReaderMode(task.mode)
-          ? SCREENREADER_COMMANDS
+          ? options.allowedScreenReaderCommands ?? SCREENREADER_COMMANDS
           : undefined,
         memory: selectAgentMemoryExcerpt(
           agentMemory,
           options.agentMemoryAll ?? false,
-          options.agentMemoryWindow ?? HISTORY_WINDOW
+          options.agentMemoryWindow ?? 0
         )
       };
       const decideStartedAt = Date.now();

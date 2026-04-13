@@ -1,20 +1,35 @@
 import type { Page } from "playwright";
+import type { ScreenReaderCommand } from "@a11y-task/core";
 import { createAnnouncementReader } from "./announcement";
-import { guidepupVoiceOverBackend } from "./backends/guidepup-voiceover";
+import {
+  guidepupNvdaBackend,
+  guidepupVirtualBackend,
+  guidepupVoiceOverBackend
+} from "./backends/guidepup-voiceover";
 import { ScreenReaderObserver } from "./observer";
 import type {
   AnnouncementReader,
   AnnouncementState,
+  ScreenReaderBackendId,
+  ScreenReaderBackendPreference,
   ScreenReaderBackend,
   ScreenReaderRuntime,
   ScreenReaderRuntimeOptions
 } from "./types";
 
+export const BUILTIN_SCREEN_READER_BACKENDS: readonly ScreenReaderBackend[] = [
+  guidepupVoiceOverBackend,
+  guidepupNvdaBackend,
+  guidepupVirtualBackend
+];
+
 export async function createScreenReaderRuntime(
   page: Page,
   options: ScreenReaderRuntimeOptions = {}
 ): Promise<ScreenReaderRuntime> {
-  const backend = options.backend ?? selectDefaultScreenReaderBackend();
+  const platform = options.platform ?? process.platform;
+  const backend = resolveScreenReaderBackend(options, platform);
+  validateAllowedCommands(options.allowedCommands, backend);
   const session = await backend.createSession(page);
 
   let screenReaderInitMs = 0;
@@ -60,10 +75,35 @@ export async function createScreenReaderRuntime(
 export function selectDefaultScreenReaderBackend(
   platform: NodeJS.Platform = process.platform
 ): ScreenReaderBackend {
-  const candidates = [guidepupVoiceOverBackend];
+  const candidates = [guidepupVoiceOverBackend, guidepupNvdaBackend];
   const backend = candidates.find((candidate) => candidate.supports(platform));
   if (!backend) {
     throw new Error(`screenreader mode currently has no supported screen reader backend for platform "${platform}".`);
+  }
+
+  return backend;
+}
+
+export function findScreenReaderBackendById(id: ScreenReaderBackendId): ScreenReaderBackend {
+  const backend = BUILTIN_SCREEN_READER_BACKENDS.find((candidate) => candidate.id === id);
+  if (!backend) {
+    throw new Error(`Unknown screen reader backend "${id}".`);
+  }
+
+  return backend;
+}
+
+export function resolveScreenReaderBackendPreference(
+  preference: ScreenReaderBackendPreference,
+  platform: NodeJS.Platform = process.platform
+): ScreenReaderBackend {
+  if (preference === "auto") {
+    return selectDefaultScreenReaderBackend(platform);
+  }
+
+  const backend = findScreenReaderBackendById(preference);
+  if (!backend.supports(platform)) {
+    throw new Error(`Screen reader backend "${preference}" is not supported on platform "${platform}".`);
   }
 
   return backend;
@@ -83,6 +123,37 @@ async function captureInitialAnnouncement(
   return secondAttempt.announcementCapture === "none"
     ? firstAttempt
     : secondAttempt;
+}
+
+function resolveScreenReaderBackend(
+  options: ScreenReaderRuntimeOptions,
+  platform: NodeJS.Platform
+): ScreenReaderBackend {
+  if (options.backend) {
+    return options.backend;
+  }
+
+  if (options.backendId) {
+    return resolveScreenReaderBackendPreference(options.backendId, platform);
+  }
+
+  return selectDefaultScreenReaderBackend(platform);
+}
+
+function validateAllowedCommands(
+  allowedCommands: readonly ScreenReaderCommand[] | undefined,
+  backend: ScreenReaderBackend
+): void {
+  if (!allowedCommands) {
+    return;
+  }
+
+  const unsupported = allowedCommands.filter((command) => !backend.supportedCommands.includes(command));
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Screen reader backend "${backend.id}" does not support commands: ${unsupported.join(", ")}.`
+    );
+  }
 }
 
 function getErrorMessage(error: unknown): string {
