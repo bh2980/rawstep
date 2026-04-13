@@ -133,6 +133,35 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses JSON when the model adds prose before the object", () => {
+    const decision = parseDecision(
+      'The current image shows focus on the "About" link.\n\n{"action":{"key":"Tab"}}'
+    );
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect("key" in decision.action).toBe(true);
+      if ("key" in decision.action) {
+        expect(decision.action.key).toBe("Tab");
+      }
+    }
+  });
+
+  it("parses JSON from fenced code blocks", () => {
+    const decision = parseDecision(
+      '```json\n{"action":{"key":"Tab"},"rationale":"Move forward."}\n```'
+    );
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect("key" in decision.action).toBe(true);
+      if ("key" in decision.action) {
+        expect(decision.action.key).toBe("Tab");
+      }
+      expect(decision.rationale).toBe("Move forward.");
+    }
+  });
+
   it("parses valid verdict JSON without rationale", () => {
     const decision = parseDecision('{"verdict":"success"}');
 

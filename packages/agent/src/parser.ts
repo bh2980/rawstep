@@ -171,5 +171,64 @@ function extractJsonObject(raw: string): string {
     return fencedMatch[1].trim();
   }
 
+  const balancedObject = findFirstBalancedJsonObject(raw);
+  if (balancedObject) {
+    return balancedObject;
+  }
+
   return raw.trim();
+}
+
+function findFirstBalancedJsonObject(raw: string): string | undefined {
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+
+      if (character === "\\") {
+        escaping = true;
+        continue;
+      }
+
+      if (character === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (character === "{") {
+      if (depth === 0) {
+        start = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (character === "}") {
+      if (depth === 0) {
+        continue;
+      }
+
+      depth -= 1;
+      if (depth === 0 && start !== -1) {
+        return raw.slice(start, index + 1).trim();
+      }
+    }
+  }
+
+  return undefined;
 }
