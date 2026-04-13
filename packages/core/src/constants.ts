@@ -1,6 +1,8 @@
 export const ALLOWED_KEYS = [
   "Tab",
   "Shift+Tab",
+  "Home",
+  "End",
   "ArrowUp",
   "ArrowDown",
   "ArrowLeft",
