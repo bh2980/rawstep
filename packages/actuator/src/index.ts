@@ -5,7 +5,7 @@ import {
   type AllowedKey,
   type ScreenReaderCommand,
   type TaskInput
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import type { Page } from "playwright";
 
 export class NotAllowedActionError extends Error {
@@ -67,7 +67,16 @@ export class Actuator {
     }
 
     if (!taskInput) {
-      throw new NotAllowedActionError("Task-scoped text input is not enabled for this task.");
+      throw new NotAllowedActionError("Named task inputs are not enabled for this task.");
+    }
+
+    const inputValue = taskInput[action.typeText];
+    if (typeof inputValue !== "string") {
+      return {
+        ok: false,
+        costDelta: 0,
+        error: `Task input key "${action.typeText}" is not available for this task.`
+      };
     }
 
     const isTextInputTarget = await this.page.evaluate(() => {
@@ -110,7 +119,7 @@ export class Actuator {
       };
     }
 
-    await this.page.keyboard.type(taskInput.text);
+    await this.page.keyboard.type(inputValue);
     this.cost += 1;
     return { ok: true, costDelta: 1 };
   }

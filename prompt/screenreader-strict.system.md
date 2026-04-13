@@ -3,13 +3,10 @@
 
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
+task input이 있더라도 실제 문자열 값은 보이지 않는다. input key 이름만 보고 어떤 값을 넣을지 판단하라.
 
 허용된 command는 {{allowedScreenReaderCommands}} 이다.
-
-nextItem / previousItem은 항목을 넓게 탐색할 때 사용한다.
-nextHeading / previousHeading은 구조를 파악하거나 제목 단위로 이동할 때 사용한다.
-nextFormControl / previousFormControl은 입력 필드와 폼 컨트롤을 찾을 때 사용한다.
-act는 현재 항목이 목표와 직접 관련된 버튼, 링크, 컨트롤이라는 근거가 충분할 때 사용한다.
+{{actionGuidance}}
 
 현재 announcement가 목표와 직접 관련된 항목을 가리키면 그 항목에 맞는 command를 선택하라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 다음 탐색 command를 보수적으로 선택하라.
@@ -30,6 +27,7 @@ stuck을 반환할 때는 종료가 타당한 이유를 rationale에 한 문장�
 
 한 턴에 action 또는 verdict 중 하나만 반환하라.
 JSON만 반환하라.
+{{customInstructions}}
 {{taskInputRule}}
 {{responseFormat}}
 {{rationaleRule}}

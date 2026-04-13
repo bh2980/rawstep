@@ -47,7 +47,7 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   await writeFile(
     configPath,
     [
-      'import { defineConfig } from "@a11y-task/cli/config";',
+      'import { defineConfig } from "@rawstep/cli/config";',
       "",
       "export default defineConfig(",
       body,
@@ -149,6 +149,18 @@ describe.sequential("CLI", () => {
     const task = await loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader-strict");
 
     expect(task.mode).toBe("screenreader-strict");
+  });
+
+  it("loads the email login example with named inputs", async () => {
+    const task = await loadTask(resolve("examples/tasks/email-login.json"));
+
+    expect(task.id).toBe("email-login");
+    expect(task.input).toEqual({ email: "traveler@example.com" });
+    expect(task.verify.all).toEqual([
+      { textVisible: "Magic link sent." },
+      { textVisible: "traveler@example.com" },
+      { titleIncludes: "Completed" }
+    ]);
   });
 
   it("rejects the removed legacy screenreader mode", async () => {
@@ -377,7 +389,7 @@ describe.sequential("CLI", () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-discovery-"));
     const taskDir = join(tempDir, "tasks");
     const taskPath = join(taskDir, "task.yml");
-    const outDir = join(tempDir, ".a11y-task", "out");
+    const outDir = join(tempDir, ".rawstep", "out");
 
     await mkdir(taskDir, { recursive: true });
     await writeConfigModule(
@@ -390,7 +402,7 @@ describe.sequential("CLI", () => {
   },
   modes: {
     keyboard: {
-      outDir: "./.a11y-task/out",
+      outDir: "./.rawstep/out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5
@@ -914,7 +926,7 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("loads task-scoped input text from task yaml", async () => {
+  it("loads named inputs from task yaml", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-input-task-"));
     const taskPath = join(tempDir, "task.yml");
 
@@ -931,13 +943,17 @@ describe.sequential("CLI", () => {
         "  all:",
         "    - titleIncludes: Search",
         "input:",
-        "  text: passport"
+        "  email: traveler@example.com",
+        "  password: super-secret"
       ].join("\n"),
       "utf8"
     );
 
     const task = await loadTask(taskPath);
-    expect(task.input).toEqual({ text: "passport" });
+    expect(task.input).toEqual({
+      email: "traveler@example.com",
+      password: "super-secret"
+    });
   });
 
   it("rejects invalid verify rules", async () => {
@@ -981,12 +997,86 @@ describe.sequential("CLI", () => {
         "  all:",
         "    - titleIncludes: Simple CTA Fixture",
         "input:",
-        '  text: ""'
+        '  email: ""'
       ].join("\n"),
       "utf8"
     );
 
-    await expect(loadTask(taskPath)).rejects.toThrow('Task input.text must be a non-empty string.');
+    await expect(loadTask(taskPath)).rejects.toThrow('Task input.email must be a non-empty string.');
+  });
+
+  it("rejects the removed legacy input.text field", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-legacy-input-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: legacy-input-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Try legacy input.",
+        "mode: keyboard",
+        "maxSteps: 20",
+        "timeoutMs: 180000",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Simple CTA Fixture",
+        "input:",
+        "  text: passport"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow("Task input.text is removed.");
+  });
+
+  it("rejects reserved task input keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-reserved-input-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: reserved-input-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Try reserved input key.",
+        "mode: keyboard",
+        "maxSteps: 20",
+        "timeoutMs: 180000",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Simple CTA Fixture",
+        "input:",
+        "  task: passport"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow('Task input key "task" is reserved.');
+  });
+
+  it("rejects empty named input maps", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-empty-input-"));
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeFile(
+      taskPath,
+      [
+        "id: empty-input-task",
+        "url: ../../fixtures/simple-cta.html",
+        "goal: Try empty input.",
+        "mode: keyboard",
+        "maxSteps: 20",
+        "timeoutMs: 180000",
+        "verify:",
+        "  all:",
+        "    - titleIncludes: Simple CTA Fixture",
+        "input: {}"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadTask(taskPath)).rejects.toThrow("Task input must include at least one named value");
   });
 
   it("rejects task files without verify", async () => {
@@ -1196,6 +1286,175 @@ describe.sequential("CLI", () => {
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.allowedKeys).toEqual(["Tab"]);
     expect(options.allowedScreenReaderCommands).toEqual(["nextItem", "act"]);
+  });
+
+  it("merges prompt settings from defaults, mode, and task config", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-merge-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config",
+    prompt: {
+      dir: "./custom-prompt",
+      extraInstructions: "default-extra",
+      keyHints: {
+        Tab: "default-tab"
+      },
+      screenReaderCommandHints: {
+        nextItem: "default-next-item"
+      }
+    }
+  },
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./sr-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedKeys: ["Tab", "Enter"],
+      allowedScreenReaderCommands: ["nextItem", "act"],
+      prompt: {
+        extraInstructions: "mode-extra",
+        keyHints: {
+          Tab: "mode-tab",
+          Enter: "mode-enter"
+        },
+        screenReaderCommandHints: {
+          act: "mode-act"
+        }
+      }
+    }
+  }
+}`
+    );
+    await writeFile(
+      taskPath,
+      [
+        "id: prompt-merge-task",
+        `url: ${resolve("fixtures/simple-cta.html")}`,
+        "goal: Complete the CTA task.",
+        "mode: screenreader-hybrid",
+        "verify:",
+        "  all:",
+        "    - textVisible: Started!",
+        "    - titleIncludes: Completed",
+        "config:",
+        "  prompt:",
+        "    extraInstructions: task-extra",
+        "    keyHints:",
+        "      Enter: task-enter",
+        "    screenReaderCommandHints:",
+        "      act: task-act"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+
+    expect(options.prompt.promptDir).toBe(join(tempDir, "custom-prompt"));
+    expect(options.prompt.extraInstructions).toBe("default-extra\n\nmode-extra\n\ntask-extra");
+    expect(options.prompt.keyHints).toEqual({
+      Tab: "mode-tab",
+      Enter: "task-enter"
+    });
+    expect(options.prompt.screenReaderCommandHints).toEqual({
+      nextItem: "default-next-item",
+      act: "task-act"
+    });
+  });
+
+  it("rejects prompt.dir inside task config", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-task-prompt-dir-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+    await writeFile(
+      taskPath,
+      [
+        "id: prompt-dir-task",
+        `url: ${resolve("fixtures/simple-cta.html")}`,
+        "goal: Complete the CTA task.",
+        "mode: keyboard",
+        "verify:",
+        "  all:",
+        "    - textVisible: Started!",
+        "    - titleIncludes: Completed",
+        "config:",
+        "  prompt:",
+        "    dir: ./another-prompt"
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]))).rejects.toThrow("config.prompt.dir is not allowed");
+  });
+
+  it("rejects invalid prompt hint keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-hints-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config",
+    prompt: {
+      keyHints: {
+        BadKey: "bad"
+      }
+    }
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]))).rejects.toThrow("defaults.prompt.keyHints.BadKey must be one of");
   });
 
   it("rejects screen reader command config in keyboard mode", async () => {

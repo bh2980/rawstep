@@ -1,4 +1,4 @@
-import type { BrowserSession } from "@a11y-task/browser";
+import type { BrowserSession } from "@rawstep/browser";
 import type {
   Action,
   AgentMemoryEntry,
@@ -7,9 +7,9 @@ import type {
   ScreenshotPolicy,
   UserModel,
   VerdictAnalysis
-} from "@a11y-task/core";
-import { KeyboardObserver } from "@a11y-task/observer-keyboard";
-import type { ScreenReaderBackendId, ScreenReaderRuntime } from "@a11y-task/observer-screenreader";
+} from "@rawstep/core";
+import { KeyboardObserver } from "@rawstep/observer-keyboard";
+import type { ScreenReaderBackendId, ScreenReaderRuntime } from "@rawstep/observer-screenreader";
 
 export type RunnerObserver = {
   observe(): Promise<Observation>;
@@ -59,12 +59,14 @@ export function selectAgentMemoryExcerpt(
 export function createAgentMemoryEntry(
   step: number,
   decision: Decision,
-  outcome: AgentMemoryEntry["outcome"]
+  outcome: AgentMemoryEntry["outcome"],
+  note?: string
 ): AgentMemoryEntry {
   return {
     step,
     action: formatMemoryAction(decision),
-    outcome
+    outcome,
+    ...(note ? { note } : {})
   };
 }
 
@@ -134,7 +136,7 @@ function formatDecisionAction(action: Action): string {
     return `srCommand(${action.srCommand})`;
   }
 
-  return "typeText(task)";
+  return `typeText(${action.typeText})`;
 }
 
 function formatMemoryAction(decision: Decision): string {

@@ -3,14 +3,18 @@ import {
   isScreenReaderCommand,
   type Decision,
   type ExperienceSummary
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import type { PromptPart } from "./shared";
 
-export function parseDecision(raw: string): Decision {
-  const result = parseDecisionResult(raw);
+export function parseDecision(raw: string, taskInputKeys?: string[]): Decision {
+  const result = parseDecisionResult(raw, taskInputKeys);
 
   if (result.status === "ok") {
     return result.decision;
+  }
+
+  if (result.status === "invalid-typeText-key") {
+    return invalidTypeTextKeyDecision(result.snippet, result.key, result.allowedKeys);
   }
 
   return malformedDecision(result.snippet);
@@ -19,9 +23,10 @@ export function parseDecision(raw: string): Decision {
 export type ParseDecisionResult =
   | { status: "ok"; decision: Decision }
   | { status: "missing-stuck-rationale"; snippet: string }
+  | { status: "invalid-typeText-key"; snippet: string; key: string; allowedKeys: string[] }
   | { status: "malformed"; snippet: string };
 
-export function parseDecisionResult(raw: string): ParseDecisionResult {
+export function parseDecisionResult(raw: string, taskInputKeys?: string[]): ParseDecisionResult {
   const snippet = raw.trim().slice(0, 240);
 
   try {
@@ -65,11 +70,24 @@ export function parseDecisionResult(raw: string): ParseDecisionResult {
         };
       }
 
-      if (typeText === "task") {
+      if (typeText) {
+        if (!taskInputKeys || taskInputKeys.length === 0) {
+          return { status: "invalid-typeText-key", snippet, key: typeText, allowedKeys: [] };
+        }
+
+        if (!taskInputKeys.includes(typeText)) {
+          return {
+            status: "invalid-typeText-key",
+            snippet,
+            key: typeText,
+            allowedKeys: [...taskInputKeys]
+          };
+        }
+
         return {
           status: "ok",
           decision: {
-            action: { typeText: "task" },
+            action: { typeText },
             ...withOptionalRationale(rationale)
           }
         };
@@ -162,6 +180,18 @@ function malformedDecision(snippet: string): Decision {
   return {
     verdict: "stuck",
     rationale: `agent returned malformed decision: ${snippet || "<empty response>"}`
+  };
+}
+
+function invalidTypeTextKeyDecision(
+  snippet: string,
+  key: string,
+  allowedKeys: string[]
+): Decision {
+  const allowed = allowedKeys.length > 0 ? allowedKeys.join(", ") : "(none)";
+  return {
+    verdict: "stuck",
+    rationale: `agent returned invalid typeText key "${key}". Allowed input keys: ${allowed}. Raw response: ${snippet || "<empty response>"}`
   };
 }
 

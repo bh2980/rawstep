@@ -1,12 +1,12 @@
-import { Actuator, NotAllowedActionError } from "@a11y-task/actuator";
-import { LLMAgent, type LLMAgentOptions } from "@a11y-task/agent";
+import { Actuator, NotAllowedActionError } from "@rawstep/actuator";
+import { LLMAgent, type LLMAgentOptions } from "@rawstep/agent";
 import {
   closeBrowserSession,
   createBrowserSession,
   settlePage,
   type BrowserSession,
   type CreateBrowserSessionOptions
-} from "@a11y-task/browser";
+} from "@rawstep/browser";
 import {
   ALLOWED_KEYS,
   SCREENREADER_COMMANDS,
@@ -16,14 +16,14 @@ import {
   type ScreenshotPolicy,
   type Task,
   type TraceSession
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import {
   createScreenReaderRuntime,
   type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
-} from "@a11y-task/observer-screenreader";
-import { TraceRecorder } from "@a11y-task/trace";
+} from "@rawstep/observer-screenreader";
+import { TraceRecorder } from "@rawstep/trace";
 import {
   allowsRawKeyActions,
   createAgentMemoryEntry,
@@ -91,6 +91,9 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     browser = await browserFactory(task.url, {
       headless: resolveBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
     });
+    if (!isScreenReaderMode(task.mode)) {
+      await bootstrapKeyboardFocus(browser.page);
+    }
     const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
     const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;
     screenReaderRuntime = isScreenReaderMode(task.mode)
@@ -187,7 +190,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
               ? "success"
               : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
                 ? "failure"
-                : "continued"
+                : "continued",
+            verification.passed ? undefined : formatVerificationFeedback(verification)
           );
           agentMemory.push(memoryEntry);
           agent.recordStepOutcome?.(memoryEntry);
@@ -298,7 +302,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         const memoryEntry = createAgentMemoryEntry(
           step,
           decision,
-          autoCompleted ? "success" : "continued"
+          autoCompleted ? "success" : "continued",
+          execution.error
         );
         agentMemory.push(memoryEntry);
         agent.recordStepOutcome?.(memoryEntry);
@@ -341,7 +346,8 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         const memoryEntry = createAgentMemoryEntry(
           step,
           decision,
-          "continued"
+          "continued",
+          message
         );
         agentMemory.push(memoryEntry);
         agent.recordStepOutcome?.(memoryEntry);
@@ -392,4 +398,22 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   }
 
   return session!;
+}
+
+async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {
+  await page.bringToFront();
+  await page.evaluate(() => {
+    const target = document.body ?? document.documentElement;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const hadTabIndex = target.hasAttribute("tabindex");
+    if (!hadTabIndex) {
+      target.setAttribute("tabindex", "-1");
+      target.setAttribute("data-rawstep-keyboard-bootstrap", "true");
+    }
+
+    target.focus();
+  });
 }

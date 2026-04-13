@@ -3,7 +3,7 @@ import {
   isScrollHint,
   type KeyboardObservation,
   type ScrollHint
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import type { Page } from "playwright";
 
 export class KeyboardObserver {
@@ -12,6 +12,8 @@ export class KeyboardObserver {
   constructor(private readonly page: Page) {}
 
   async observe(): Promise<KeyboardObservation> {
+    const focusHint = await getFocusHint(this.page);
+    const scrollHint = await getScrollHint(this.page);
     const screenshot = await this.page.screenshot({ type: "png" });
     const currentBase64 = screenshot.toString("base64");
     const viewport = this.page.viewportSize();
@@ -28,7 +30,8 @@ export class KeyboardObserver {
         title: await this.page.title(),
         urlPath: getUrlPath(await this.page.url())
       },
-      scrollHint: await getScrollHint(this.page)
+      focusHint,
+      scrollHint
     };
 
     if (this.previousScreenshotBase64) {
@@ -68,6 +71,56 @@ async function getScrollHint(page: Page): Promise<ScrollHint> {
   }
 
   return "top";
+}
+
+async function getFocusHint(page: Page): Promise<string> {
+  try {
+    const focused = page.locator(":focus").first();
+    if (await focused.count() === 0) {
+      return "none";
+    }
+
+    const hint = await focused.evaluate((active) => {
+      if (!(active instanceof HTMLElement)) {
+        return "focused";
+      }
+
+      if (active === document.body || active === document.documentElement) {
+        return "none";
+      }
+
+      const text = (active.textContent || "").trim().replace(/\s+/g, " ");
+
+      if (active instanceof HTMLInputElement) {
+        return `input[type=${(active.type || "text").toLowerCase()}]${active.disabled ? " (disabled)" : ""}`;
+      }
+
+      if (active instanceof HTMLTextAreaElement) {
+        return `textarea${active.disabled ? " (disabled)" : ""}`;
+      }
+
+      if (active instanceof HTMLButtonElement) {
+        return `button${text ? ` "${text}"` : ""}${active.disabled ? " (disabled)" : ""}`;
+      }
+
+      if (active instanceof HTMLSelectElement) {
+        return `select${active.disabled ? " (disabled)" : ""}`;
+      }
+
+      if (active instanceof HTMLAnchorElement) {
+        return `link${text ? ` "${text}"` : ""}`;
+      }
+
+      const role = active.getAttribute("role");
+      return role
+        ? `${active.tagName.toLowerCase()}[role=${role}]${text ? ` "${text}"` : ""}`
+        : `${active.tagName.toLowerCase()}${text ? ` "${text}"` : ""}`;
+    });
+
+    return typeof hint === "string" && hint.trim() ? hint.trim() : "none";
+  } catch {
+    return "none";
+  }
 }
 
 function getUrlPath(rawUrl: string): string {

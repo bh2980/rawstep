@@ -219,7 +219,7 @@ screenreader observation trace에는 아래 메타가 함께 저장된다.
 screenreader 모드의 개발자용 screenshot은 정책으로 줄일 수 있다.
 
 - `all` — 모든 step 저장
-- `important` — verdict step, verification step, 실행 실패 step, `typeText(task)`, `srCommand(act)` 저장
+- `important` — verdict step, verification step, 실행 실패 step, `typeText(<input-key>)`, `srCommand(act)` 저장
 - `failure-only` — 실행 실패, verifier 실패, non-success verdict step 저장
 - `none` — screenreader 리포트용 screenshot 저장 안 함
 

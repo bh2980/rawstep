@@ -1,23 +1,23 @@
-import { renderReport } from "@a11y-task/reporter";
-import type { TraceSession } from "@a11y-task/core";
+import { renderReport } from "@rawstep/reporter";
+import type { TraceSession } from "@rawstep/core";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("reporter", () => {
-  it("renders task text input actions in the HTML report", async () => {
+  it("renders named input actions in the HTML report", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-type-text-"));
     const reportPath = await renderReport(
       {
         task: {
           id: "type-text-task",
           url: "file:///type-text-task.html",
-          goal: "Type the fixed task text.",
+          goal: "Type the fixed email input.",
           mode: "keyboard",
           maxSteps: 2,
           timeoutMs: 1000,
-          input: { text: "passport" },
+          input: { email: "passport" },
           verify: {
             all: [{ titleIncludes: "Search Fixture" }]
           }
@@ -41,8 +41,8 @@ describe("reporter", () => {
               scrollHint: "top"
             },
             decision: {
-              action: { typeText: "task" },
-              rationale: "Type the provided task text."
+              action: { typeText: "email" },
+              rationale: "Type the provided email input."
             },
             execution: {
               ok: true,
@@ -81,7 +81,7 @@ describe("reporter", () => {
     );
 
     const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("typeText(task)");
+    expect(html).toContain("typeText(email)");
     expect(html).toContain("typeTextCount");
     expect(html).toContain("Observe: 11 ms");
     expect(html).toContain("Setup");

@@ -1,5 +1,5 @@
-import type { KeyboardObservation, Task } from "@a11y-task/core";
-import { TraceRecorder } from "@a11y-task/trace";
+import type { KeyboardObservation, Task } from "@rawstep/core";
+import { TraceRecorder } from "@rawstep/trace";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,6 +33,7 @@ describe("TraceRecorder", () => {
         title: "Trace fixture",
         urlPath: "/trace"
       },
+      focusHint: 'button "Continue"',
       scrollHint: "top"
     };
 
@@ -47,7 +48,7 @@ describe("TraceRecorder", () => {
     await recorder.append(
       1,
       observation,
-      { action: { typeText: "task" }, rationale: "Type the task text." },
+      { action: { typeText: "email" }, rationale: "Type the email input." },
       { ok: true, costDelta: 1 },
       { observeMs: 11, decideMs: 21, executeMs: 31, verifyMs: 0 }
     );

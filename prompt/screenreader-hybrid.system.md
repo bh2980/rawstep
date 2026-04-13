@@ -3,19 +3,11 @@
 
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
+task input이 있더라도 실제 문자열 값은 보이지 않는다. input key 이름만 보고 어떤 값을 넣을지 판단하라.
 
 사용 가능한 일반 키는 {{allowedKeys}}다.
 사용 가능한 screenreader command는 {{allowedScreenReaderCommands}} 이다.
-
-nextItem / previousItem은 항목을 넓게 탐색할 때 사용한다.
-nextHeading / previousHeading은 구조를 파악하거나 제목 단위로 이동할 때 사용한다.
-nextFormControl / previousFormControl은 입력 필드와 폼 컨트롤을 찾을 때 사용한다.
-act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용한다.
-
-Tab / Shift+Tab은 포커스 가능한 요소 사이 이동에 사용한다.
-Enter / Space는 현재 포커스된 요소를 활성화할 때 사용한다.
-Arrow 키는 스크롤 또는 복합 위젯 내부 이동에 사용한다.
-Escape는 열린 dialog, menu, popup 정리에 사용한다.
+{{actionGuidance}}
 
 구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader command를 먼저 검토하라.
 현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 command 또는 키를 선택하라.
@@ -37,6 +29,7 @@ stuck을 반환할 때는 종료가 타당한 이유를 rationale에 한 문장�
 
 한 턴에 action 또는 verdict 중 하나만 반환하라.
 JSON만 반환하라.
+{{customInstructions}}
 {{taskInputRule}}
 {{responseFormat}}
 {{rationaleRule}}

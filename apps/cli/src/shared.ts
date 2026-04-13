@@ -1,4 +1,4 @@
-import type { AgentProvider } from "@a11y-task/agent";
+import type { AgentProvider } from "@rawstep/agent";
 import { z } from "zod";
 import {
   isAllowedKey,
@@ -8,11 +8,11 @@ import {
   type ScreenshotPolicy,
   type Task,
   type UserModel
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import {
   isScreenReaderBackendId,
   type ScreenReaderBackendId
-} from "@a11y-task/observer-screenreader";
+} from "@rawstep/observer-screenreader";
 
 export type CliRunOptions = {
   taskFile: string;
@@ -58,6 +58,7 @@ export type ModeConfigShape = {
   allowedKeys?: AllowedKey[];
   allowedScreenReaderCommands?: ScreenReaderCommand[];
   screenReaderBackend?: ScreenReaderBackendId;
+  prompt?: PromptOverrideShape;
 };
 
 export type ProjectDefaultsShape = {
@@ -65,6 +66,7 @@ export type ProjectDefaultsShape = {
   model?: string;
   baseURL?: string;
   apiKey?: string;
+  prompt?: ProjectPromptShape;
 };
 
 export type TaskConfigOverride = {
@@ -81,6 +83,7 @@ export type TaskConfigOverride = {
   allowedKeys?: AllowedKey[];
   allowedScreenReaderCommands?: ScreenReaderCommand[];
   screenReaderBackend?: ScreenReaderBackendId;
+  prompt?: PromptOverrideShape;
 };
 
 export type ProjectConfig = {
@@ -116,12 +119,30 @@ export type ResolvedRunOptions = {
   allowedKeys: readonly AllowedKey[];
   allowedScreenReaderCommands?: readonly ScreenReaderCommand[];
   screenReaderBackendId?: ScreenReaderBackendId;
+  prompt: ResolvedPromptOptions;
 };
 
 export type TaskExecutionDefaults = {
   mode?: UserModel;
   maxSteps?: number;
   timeoutMs?: number;
+};
+
+export type PromptOverrideShape = {
+  extraInstructions?: string;
+  keyHints?: Partial<Record<AllowedKey, string>>;
+  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
+};
+
+export type ProjectPromptShape = PromptOverrideShape & {
+  dir?: string;
+};
+
+export type ResolvedPromptOptions = {
+  promptDir: string;
+  extraInstructions?: string;
+  keyHints: Partial<Record<AllowedKey, string>>;
+  screenReaderCommandHints: Partial<Record<ScreenReaderCommand, string>>;
 };
 
 export const userModelSchema = z.enum(["keyboard", "screenreader-strict", "screenreader-hybrid"]);
@@ -147,15 +168,40 @@ export function validateTaskInput(raw: unknown): Task["input"] {
   }
 
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error('Task input must be an object with a non-empty "text" field.');
+    throw new Error(
+      'Task input must be an object like { email: "user@example.com", password: "secret123" }.'
+    );
   }
 
-  const text = (raw as { text?: unknown }).text;
-  if (typeof text !== "string" || !text.trim()) {
-    throw new Error('Task input.text must be a non-empty string.');
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length === 0) {
+    throw new Error(
+      'Task input must include at least one named value, for example { email: "user@example.com" }.'
+    );
   }
 
-  return { text };
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of entries) {
+    const normalizedKey = key.trim();
+    if (!normalizedKey) {
+      throw new Error("Task input keys must be non-empty strings.");
+    }
+    if (normalizedKey === "task") {
+      throw new Error('Task input key "task" is reserved. Use a descriptive key like "email" or "password".');
+    }
+    if (typeof value !== "string" || !value.trim()) {
+      throw new Error(`Task input.${normalizedKey} must be a non-empty string.`);
+    }
+    normalized[normalizedKey] = value;
+  }
+
+  if ("text" in normalized) {
+    throw new Error(
+      'Task input.text is removed. Use named inputs like { email: "user@example.com" }.'
+    );
+  }
+
+  return normalized;
 }
 
 export function parseUserModel(value: unknown): UserModel {
@@ -264,6 +310,64 @@ export function parseAllowedScreenReaderCommands(value: unknown, label: string):
   });
 }
 
+export function parsePromptOverride(
+  value: unknown,
+  label: string,
+  options: { allowDir: boolean }
+): ProjectPromptShape | PromptOverrideShape {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "extraInstructions",
+    "keyHints",
+    "screenReaderCommandHints",
+    ...(options.allowDir ? ["dir"] : [])
+  ]);
+
+  for (const key of Object.keys(candidate)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`${label}.${key} is not allowed.`);
+    }
+  }
+
+  const extraInstructions = candidate.extraInstructions === undefined
+    ? undefined
+    : parseOptionalString(candidate.extraInstructions, `${label}.extraInstructions`);
+  const keyHints = candidate.keyHints === undefined
+    ? undefined
+    : parsePromptKeyHints(candidate.keyHints, `${label}.keyHints`);
+  const screenReaderCommandHints = candidate.screenReaderCommandHints === undefined
+    ? undefined
+    : parsePromptScreenReaderCommandHints(
+      candidate.screenReaderCommandHints,
+      `${label}.screenReaderCommandHints`
+    );
+
+  if (!options.allowDir) {
+    if (candidate.dir !== undefined) {
+      throw new Error(`${label}.dir is not allowed.`);
+    }
+
+    return {
+      extraInstructions,
+      keyHints,
+      screenReaderCommandHints
+    };
+  }
+
+  return {
+    dir: candidate.dir === undefined
+      ? undefined
+      : parseOptionalString(candidate.dir, `${label}.dir`),
+    extraInstructions,
+    keyHints,
+    screenReaderCommandHints
+  };
+}
+
 export function parseScreenReaderBackendId(value: unknown, label: string): ScreenReaderBackendId {
   const result = screenReaderBackendIdSchema.safeParse(value);
   if (result.success) {
@@ -297,5 +401,45 @@ function parseCommaSeparatedValues(value: unknown, label: string): string[] {
   return entries;
 }
 
-const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";
+function parsePromptKeyHints(
+  value: unknown,
+  label: string
+): Partial<Record<AllowedKey, string>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object keyed by allowed key names.`);
+  }
+
+  const result: Partial<Record<AllowedKey, string>> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!isAllowedKey(key)) {
+      throw new Error(`${label}.${key} must be one of ${ALLOWED_KEY_LABELS}.`);
+    }
+
+    result[key] = parseOptionalString(entry, `${label}.${key}`);
+  }
+
+  return result;
+}
+
+function parsePromptScreenReaderCommandHints(
+  value: unknown,
+  label: string
+): Partial<Record<ScreenReaderCommand, string>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object keyed by screen reader commands.`);
+  }
+
+  const result: Partial<Record<ScreenReaderCommand, string>> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!isScreenReaderCommand(key)) {
+      throw new Error(`${label}.${key} must be one of ${SCREEN_READER_COMMAND_LABELS}.`);
+    }
+
+    result[key] = parseOptionalString(entry, `${label}.${key}`);
+  }
+
+  return result;
+}
+
+const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";
 const SCREEN_READER_COMMAND_LABELS = "nextItem, previousItem, nextHeading, previousHeading, nextFormControl, previousFormControl, act";

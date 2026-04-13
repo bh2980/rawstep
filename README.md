@@ -1,8 +1,10 @@
-# a11y-task
+# rawstep
 
-> 과업 기반 웹 접근성 테스트 라이브러리.
+> 과업 기반 웹 접근성 실행 환경.
 > AI 에이전트를 keyboard-only 사용자 또는 screen reader 사용자와 동일한
 > 제약 아래 놓고 페이지를 실제로 "써보게" 한 뒤, 어디서 막히는지 기록합니다.
+
+프로젝트 이름과 현재 코드상 패키지 이름, CLI 바이너리 이름은 모두 `rawstep` 기준으로 맞춥니다.
 
 ## 왜 이 프로젝트가 필요한가
 
@@ -17,7 +19,7 @@
 - 구체적으로 **어디서** 사용자가 막히는가?
 
 자동 규칙을 모두 통과해도 쓸 수 없는 페이지가 있고, 규칙을 어기고도
-과업은 멀쩡히 완수되는 페이지가 있습니다. `a11y-task`는 규칙이 아니라
+과업은 멀쩡히 완수되는 페이지가 있습니다. `rawstep`은 규칙이 아니라
 **과업**을 측정합니다.
 
 ## 무엇을 하는 도구인가
@@ -36,7 +38,7 @@
 
 ## 기존 a11y 도구와 무엇이 다른가
 
-|                  | axe / Lighthouse / Pa11y | a11y-task                 |
+|                  | axe / Lighthouse / Pa11y | rawstep                   |
 |------------------|--------------------------|---------------------------|
 | 평가 단위        | 규칙 위반                | 과업 완수                 |
 | 입력 (AI 관점)   | DOM / ARIA               | 픽셀 또는 음성 텍스트     |
@@ -45,7 +47,7 @@
 | UX 막다른 길 탐지| ✗                        | ✓                         |
 
 규칙 기반 스캐너를 **대체하지 않습니다**. 상호보완적입니다. 알려진 위반은
-axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하는 식으로
+axe로 잡고, 실제 과업이 수행 가능한지는 `rawstep`으로 확인하는 식으로
 함께 쓰세요.
 
 ## 사용자 모델
@@ -55,6 +57,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - 관측 채널: 현재 뷰포트의 screenshot.
 - 행동 공간: `Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`.
 - 마우스 없음. 자유 타이핑 없음.
+- 단, task에 `input` 이 있으면 그 안의 named input key를 가리키는 `typeText("email")` 같은 액션은 허용됩니다.
 
 ### `screenreader-strict` — 순수 SR 탐색 실험 모드
 
@@ -62,7 +65,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
   계열 backend를 통해 수집되는 spoken announcement text.
 - 행동 공간: screen reader canonical command
   (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
-  `nextFormControl`, `previousFormControl`, `act`) + opt-in `typeText`.
+  `nextFormControl`, `previousFormControl`, `act`) + task input이 있을 때만 `typeText("<input-key>")`.
 - screenshot 없음. DOM 없음. accessibility tree 없음. 브라우저 title/URL path
   힌트도 없음. 에이전트는 말 그대로 "보지 못합니다".
 
@@ -70,7 +73,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 - 관측 채널: `screenreader-strict`와 동일.
 - 행동 공간: screen reader canonical command + 일반 키
-  (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + opt-in `typeText`.
+  (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + task input이 있을 때만 `typeText("<input-key>")`.
 - 스크린 리더 탐색과 일반 키보드 입력을 같이 허용한다.
 - 하이브리드라는 말은 **행동 공간만 넓어진다**는 뜻이다. 시야가 생기는 것은 아니다.
 
@@ -102,6 +105,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 - `goal` — 수행해야 할 과업. 사용자도 자기 목적을 압니다.
 - `allowedKeys` — 허용된 키 목록. 관측이 아니라 행동 공간의 정의.
+- `named task inputs` — task에 `input` 이 있을 때만 주어지는 이름 붙은 문자열 묶음입니다. 예를 들어 `input.email`, `input.password`, `input.otp` 처럼 여러 값을 둘 수 있고, agent는 임의 텍스트를 만들지 않고 이 키들만 선택할 수 있습니다.
 - `agent memory` — 이전 step들을 가볍게 요약한 text archive.
   최근 몇 개를 다시 보여줄지는 `rawstep.config.ts` 의 `memory` 나
   `--agent-memory-window`, `--agent-memory-all` 로 정합니다. 이 memory는 raw trace 전체가 아니라
@@ -200,7 +204,7 @@ a11y/
 │   ├── runner/                 # observe → decide → act 루프
 │   ├── trace/                  # append-only step 로그
 │   └── reporter/               # trace → HTML/JSON 리포트
-├── apps/cli/                   # a11y-task CLI
+├── apps/cli/                   # 현재 CLI 바이너리(rawstep)
 └── examples/tasks/             # 예시 task 정의
 ```
 
@@ -210,7 +214,7 @@ a11y/
 pnpm install
 pnpm build
 cat > rawstep.config.ts <<'TS'
-import { defineConfig } from "@a11y-task/cli/config";
+import { defineConfig } from "@rawstep/cli/config";
 
 export default defineConfig({
   version: 1,
@@ -231,11 +235,12 @@ export default defineConfig({
 TS
 
 export A11Y_TASK_AGENT_API_KEY=your-key
-pnpm a11y-task run examples/tasks/simple-cta.json
+pnpm rawstep run examples/tasks/simple-cta.json
 open ./.rawstep/out/keyboard/report/index.html
 ```
 
 macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
+`guidepup-virtual` backend는 기본적으로 headless로 실행되고, `guidepup-voiceover` / `guidepup-nvda` 는 headed가 필요합니다.
 
 ### `rawstep.config.ts`
 
@@ -243,7 +248,7 @@ macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접�
 이 파일은 선택 사항이 아니라 **실행 계약 파일**입니다. 없으면 CLI가 바로 실패합니다.
 
 ```ts
-import { defineConfig } from "@a11y-task/cli/config";
+import { defineConfig } from "@rawstep/cli/config";
 
 export default defineConfig({
   version: 1,
@@ -286,17 +291,76 @@ export default defineConfig({
 });
 ```
 
-- `defaults` 는 모든 모드 공통값입니다.
-- `defaults.apiKey` 도 받을 수 있습니다. 보통 `process.env.OPENROUTER_API_KEY` 같은 식으로 연결해 두면 됩니다.
-- CLI는 `rawstep.config.ts` 옆의 `.env` 파일도 자동으로 읽습니다.
-- `modes.<mode>` 는 그 모드의 실행 preset 입니다.
-- `headless` 는 브라우저 창 표시 여부입니다. 기본은 `keyboard` 와 `guidepup-virtual` 이면 headless, `guidepup-voiceover`/`guidepup-nvda` 면 headed 입니다.
-- `screenReaderBackend` 는 screenreader mode preset이나 task override에서 명시해야 합니다.
+- `defaults` 는 provider 관련 공통값만 받습니다.
+  `provider`, `apiKey`, `model`, `baseURL` 만 허용됩니다.
+- `defaults.apiKey` 도 받을 수 있지만, 보통은 `process.env.A11Y_TASK_AGENT_API_KEY` 나 provider별 env를 쓰는 편이 안전합니다.
+- CLI는 `rawstep.config.ts` 옆의 `.env` 파일을 자동으로 읽고, 이미 셸에 있는 환경 변수는 덮어쓰지 않습니다.
+- `modes.<mode>` 는 그 모드의 실행 preset 입니다. 선택한 mode에 해당 preset이 없으면 실행하지 않습니다.
+- `headless` 는 브라우저 창 표시 여부입니다. 기본은 `keyboard` 와 `guidepup-virtual` 이면 headless, `guidepup-voiceover` / `guidepup-nvda` 면 headed 입니다.
+- `screenReaderBackend` 는 screenreader mode preset이나 task `config` override에 반드시 있어야 합니다.
 - `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
-- task 파일(`.json`, `.yml`)은 과업 자체를 정의합니다.
-- CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
+- `allowedKeys` 는 키만 제어합니다. `typeText("email")` 같은 named input 액션은 여기에 포함되지 않고, task에 `input` 이 있을 때만 자동으로 허용됩니다.
+- task 파일(`.json`, `.yml`)은 과업 본문이고, `config` 블록은 task 단위 실행 override 입니다.
+- CLI 플래그는 이번 한 번만 덮어쓸 값입니다.
 - `rawstep.config.ts` 가 없거나, 선택한 mode preset에 `outDir`, `maxSteps`, `timeoutMs`, `memory` 가 비어 있으면 실행하지 않습니다.
-- task override에는 `apiKey` 를 넣을 수 없습니다. 공통 provider 설정은 `rawstep.config.ts defaults` 에 둡니다.
+- task `config` 에는 `provider`, `apiKey`, `model`, `baseURL` 를 넣을 수 없습니다. provider 설정은 `rawstep.config.ts defaults`, env, CLI override만 사용합니다.
+
+실행 옵션 우선순위는 대체로 다음 순서입니다.
+
+1. CLI 플래그
+2. task 파일의 `config`
+3. task 파일 top-level 필드 (`mode`, `maxSteps`, `timeoutMs`)
+4. `rawstep.config.ts` 의 `modes.<mode>`
+5. provider 관련 값이 아직 비어 있으면 환경 변수
+
+### 설정 필드 레퍼런스
+
+실제 코드가 받는 설정 필드는 아래 범위로 고정되어 있습니다.
+
+**`rawstep.config.ts > defaults`**
+
+- `provider`: `anthropic` 또는 `openai-compatible`
+- `apiKey`: provider API 키
+- `model`: 모델 ID
+- `baseURL`: OpenAI-compatible provider일 때만 쓰는 base URL
+
+`defaults` 는 **AI provider 관련 값만** 받습니다. `outDir`, `timeoutMs`, `memory` 같은 실행 옵션을 넣으면 에러가 납니다.
+
+**`rawstep.config.ts > modes.<mode>`**
+
+- `outDir`: 결과 출력 디렉터리
+- `headless`: 브라우저 창 표시 여부
+- `maxSteps`: 최대 step 수
+- `timeoutMs`: 전체 실행 제한 시간
+- `screenshots`: `all | important | failure-only | none`
+- `verifierAutoComplete`: verifier 자동 종료 실험 옵션
+- `includeExperienceSummary`: run 종료 후 3줄 summary 생성 여부
+- `includeRationale`: agent `rationale` 저장 여부
+- `memory`: 숫자 또는 `all`
+- `allowedKeys`: keyboard / hybrid 모드 키 subset
+- `allowedScreenReaderCommands`: screenreader 명령 subset
+- `screenReaderBackend`: `guidepup-voiceover | guidepup-nvda | guidepup-virtual`
+
+**task 파일 top-level**
+
+- `id`, `url`, `goal`, `mode`, `maxSteps`, `timeoutMs`, `verify`, `input`
+- 여기 들어가는 값은 과업 본문입니다. 예를 들어 `input.email`, `input.password` 는 이 task에서만 쓰는 고정 입력값입니다.
+
+**task 파일 `config`**
+
+- `mode`, `outDir`, `headless`, `maxSteps`, `timeoutMs`
+- `screenshots`, `verifierAutoComplete`
+- `includeExperienceSummary`, `includeRationale`
+- `memory`
+- `allowedKeys`, `allowedScreenReaderCommands`
+- `screenReaderBackend`
+
+쉽게 말하면:
+
+- `defaults` 는 모델 연결 설정
+- `modes.<mode>` 는 실행 preset
+- task top-level 은 과업 본문
+- task `config` 는 그 task에서만 쓰는 실행 override
 
 task 파일에도 필요한 경우 override를 둘 수 있습니다.
 
@@ -319,9 +383,82 @@ config:
     - act
 ```
 
+반대로 top-level task 본문에는 과업 자체만 둡니다.
+
+```yaml
+id: email-login
+url: ../../fixtures/email-login.html
+goal: 이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.
+mode: keyboard
+maxSteps: 24
+timeoutMs: 180000
+input:
+  email: traveler@example.com
+verify:
+  all:
+    - textVisible: Magic link sent.
+    - textVisible: traveler@example.com
+    - titleIncludes: Completed
+```
+
+`input` 은 task가 제공하는 named string map 입니다. 예를 들어 `email`, `password`, `otp` 같은 키를 둘 수 있습니다. agent는 임의 텍스트를 만들지 않고, 필요할 때만 `{"action":{"typeText":"email"}}` 같이 키를 골라 그 값을 입력합니다.
+
+실제로 많이 쓰는 예시는 아래 둘입니다.
+
+**예시 1: keyboard 기본 preset**
+
+```ts
+import { defineConfig } from "@rawstep/cli/config";
+
+export default defineConfig({
+  version: 1,
+  defaults: {
+    provider: "openai-compatible",
+    model: "openrouter/auto",
+    baseURL: "https://openrouter.ai/api/v1"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./.rawstep/out/keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      screenshots: "important",
+      verifierAutoComplete: false
+    }
+  }
+});
+```
+
+**예시 2: screenreader-hybrid preset**
+
+```ts
+import { defineConfig } from "@rawstep/cli/config";
+
+export default defineConfig({
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-3-5-sonnet-latest"
+  },
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./.rawstep/out/sr-hybrid",
+      maxSteps: 80,
+      timeoutMs: 300000,
+      memory: "all",
+      headless: true,
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: ["Tab", "Shift+Tab", "Enter", "Escape"],
+      allowedScreenReaderCommands: ["nextItem", "previousItem", "nextHeading", "act"]
+    }
+  }
+});
+```
+
 ### LLM provider 설정
 
-내장 provider는 `anthropic` 또는 `openai-compatible` 입니다.
+내장 provider는 `anthropic` 또는 `openai-compatible` 입니다. 값은 `rawstep.config.ts defaults`, 환경 변수, CLI override로 줄 수 있습니다.
 
 ```bash
 export A11Y_TASK_AGENT_PROVIDER=anthropic
@@ -339,10 +476,17 @@ export A11Y_TASK_AGENT_MODEL=openrouter/auto
 export A11Y_TASK_AGENT_BASE_URL=https://openrouter.ai/api/v1
 ```
 
+provider별 fallback은 다음과 같습니다.
+
+- `provider`: CLI `--provider` -> `defaults.provider` -> `A11Y_TASK_AGENT_PROVIDER`
+- `apiKey`: `defaults.apiKey` -> `A11Y_TASK_AGENT_API_KEY` -> (`anthropic`일 때만 `ANTHROPIC_API_KEY`)
+- `model`: CLI `--model` -> `defaults.model` -> `A11Y_TASK_AGENT_MODEL` -> (`anthropic`일 때만 `A11Y_TASK_ANTHROPIC_MODEL`)
+- `baseURL`: CLI `--base-url` -> `defaults.baseURL` -> `A11Y_TASK_AGENT_BASE_URL`
+
 CLI에서 실행별로 덮어쓸 수도 있습니다.
 
 ```bash
-pnpm a11y-task run examples/tasks/simple-cta.json \
+pnpm rawstep run examples/tasks/simple-cta.json \
   --config ./rawstep.config.ts \
   --mode screenreader-hybrid \
   --headless \
@@ -361,6 +505,29 @@ pnpm a11y-task run examples/tasks/simple-cta.json \
   --model openrouter/auto \
   --base-url https://openrouter.ai/api/v1
 ```
+
+## CLI 옵션
+
+`rawstep run` 이 지원하는 대표 플래그는 아래와 같습니다.
+
+- `--config <rawstep.config.ts>`: 명시적 config 파일 경로
+- `--mode <keyboard|screenreader-strict|screenreader-hybrid>`: 사용자 모델 선택
+- `--out <dir>`: 결과 출력 디렉터리
+- `--headless` / `--headed`: 브라우저 표시 여부 강제
+- `--screenshots <all|important|failure-only|none>`: screenreader 리포트용 개발자 스크린샷 저장 정책
+- `--max-steps <n>`: 최대 step 수
+- `--timeout-ms <n>`: 전체 실행 제한 시간
+- `--screen-reader-backend <guidepup-voiceover|guidepup-nvda|guidepup-virtual>`: screenreader backend 선택
+- `--allowed-keys Tab,Shift+Tab,Enter`: keyboard / hybrid 모드 키 subset 제한
+- `--allowed-screen-reader-commands nextItem,act`: screenreader command subset 제한
+- `--verifier-auto-complete` / `--no-verifier-auto-complete`: verifier 자동 종료 실험 옵션
+- `--agent-memory-window <n>`: 최근 N개 step archive만 agent에게 재주입
+- `--agent-memory-all` / `--no-agent-memory-all`: 누적 text memory 전체 재주입 여부
+- `--include-experience-summary` / `--no-include-experience-summary`: 실행 후 3줄 summary 생성 여부
+- `--include-rationale` / `--no-include-rationale`: agent가 `rationale` 필드를 생성할지 여부
+- `--provider <anthropic|openai-compatible>`: provider 선택
+- `--model <id>`: 모델 ID
+- `--base-url <url>`: OpenAI-compatible base URL
 
 config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있습니다.
 
@@ -384,6 +551,127 @@ config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있�
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
 
+모드별 제약은 다음처럼 걸립니다.
+
+- `keyboard` 모드에서는 `screenReaderBackend`, `allowedScreenReaderCommands` 를 쓸 수 없습니다.
+- `screenreader-strict` 모드에서는 `allowedKeys` 를 쓸 수 없습니다.
+- `guidepup-virtual` backend는 `nextFormControl`, `previousFormControl` 을 지원하지 않습니다.
+
+## `verify` 레퍼런스
+
+`verify` 는 task 성공 판정 규칙입니다. 형식은 항상 아래와 같습니다.
+
+```yaml
+verify:
+  all:
+    - textVisible: Started!
+    - titleIncludes: Completed
+```
+
+중요한 규칙은 4가지입니다.
+
+1. `verify` 는 반드시 `all` 배열이어야 합니다.
+2. `all` 안의 rule은 **전부 통과**해야 최종 성공입니다.
+3. 각 rule object는 키를 **정확히 하나만** 가져야 합니다.
+4. verifier는 기본적으로 agent가 `success` 를 선언했을 때 실행됩니다.
+   `--verifier-auto-complete` 를 켜면, 성공 가능성이 있는 action 뒤에도 추가로 확인할 수 있습니다.
+
+지원하는 rule 종류는 현재 5개입니다.
+
+**`titleIncludes`**
+
+```yaml
+verify:
+  all:
+    - titleIncludes: Completed
+```
+
+- 현재 `document.title` 에 지정한 문자열이 포함되면 통과합니다.
+- 부분 포함 검사입니다.
+
+**`urlIncludes`**
+
+```yaml
+verify:
+  all:
+    - urlIncludes: /checkout
+```
+
+- 현재 페이지 URL 문자열에 지정한 값이 포함되면 통과합니다.
+- `pathname` 만이 아니라 전체 URL 문자열 기준이라 query string도 같이 매칭될 수 있습니다.
+
+**`textVisible`**
+
+```yaml
+verify:
+  all:
+    - textVisible: Magic link sent.
+```
+
+- 페이지에서 해당 텍스트를 찾고, 그 첫 번째 매치가 실제로 보여야 통과합니다.
+- 내부적으로는 Playwright `getByText(..., { exact: false }).first()` 를 씁니다.
+- 즉 완전 일치가 아니라 부분 포함에 가깝습니다.
+
+**`requestSeen`**
+
+```yaml
+verify:
+  all:
+    - requestSeen:
+        urlIncludes: /api/cart
+        method: POST
+```
+
+- 실행 중 관측된 네트워크 요청 목록에서 조건에 맞는 요청이 하나라도 있으면 통과합니다.
+- `method` 는 선택 사항입니다.
+
+**`responseSeen`**
+
+```yaml
+verify:
+  all:
+    - responseSeen:
+        urlIncludes: /api/cart
+        method: POST
+        status: 200
+```
+
+- 실행 중 관측된 네트워크 응답 목록에서 조건에 맞는 응답이 하나라도 있으면 통과합니다.
+- `method`, `status` 는 선택 사항입니다.
+
+실무에서 많이 쓰는 패턴은 아래 정도입니다.
+
+- 화면 상태가 바뀌는 fixture: `textVisible` + `titleIncludes`
+- 라우팅 이동 확인: `urlIncludes`
+- API 호출이 중요한 플로우: `requestSeen` 또는 `responseSeen`
+- 폼 제출 확인: `textVisible` + `responseSeen`
+
+예를 들어 폼 성공 예제는 이렇게 쓸 수 있습니다.
+
+```yaml
+verify:
+  all:
+    - textVisible: Magic link sent.
+    - textVisible: traveler@example.com
+    - titleIncludes: Completed
+```
+
+그리고 API 기반 예제는 이렇게 쓸 수 있습니다.
+
+```yaml
+verify:
+  all:
+    - requestSeen:
+        urlIncludes: /api/login
+        method: POST
+    - responseSeen:
+        urlIncludes: /api/login
+        method: POST
+        status: 200
+```
+
+쉽게 말하면 `verify` 는 "agent가 성공했다고 우겨도, 바깥에서 진짜 성공인지 다시 확인하는 체크리스트" 입니다.
+
 ### 프롬프트 편집
 
 system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터리에서 직접 편집합니다.
@@ -399,7 +687,7 @@ system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터
 `--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
 
 - `all` — 모든 step 저장
-- `important` — verdict step, verification step, 실행 실패 step, `typeText(task)`, `srCommand(act)` 만 저장
+- `important` — verdict step, verification step, 실행 실패 step, `typeText(<input-key>)`, `srCommand(act)` 만 저장
 - `failure-only` — 실패와 verifier 실패 위주로만 저장
 - `none` — screenreader 리포트용 개발자 스크린샷을 저장하지 않음
 

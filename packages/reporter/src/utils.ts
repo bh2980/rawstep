@@ -1,4 +1,4 @@
-import type { Action } from "@a11y-task/core";
+import type { Action } from "@rawstep/core";
 import { posix } from "node:path";
 
 export function formatAction(action: Action): string {
@@ -10,7 +10,7 @@ export function formatAction(action: Action): string {
     return `srCommand(${action.srCommand})`;
   }
 
-  return "typeText(task)";
+  return `typeText(${action.typeText})`;
 }
 
 export function toReportImagePath(relativeScreenshotPath: string): string {

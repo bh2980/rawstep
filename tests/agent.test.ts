@@ -9,8 +9,8 @@ import {
   toLanguageModelContent,
   type AgentCompletionClient,
   type PromptPart
-} from "@a11y-task/agent";
-import type { AgentContext, Observation } from "@a11y-task/core";
+} from "@rawstep/agent";
+import type { AgentContext, Observation } from "@rawstep/core";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,6 +52,7 @@ function makeKeyboardObservation(): Observation {
       title: "Simple CTA Fixture",
       urlPath: "/fixture"
     },
+    focusHint: 'input[type=email] "Work email"',
     scrollHint: "middle"
   };
 }
@@ -73,9 +74,9 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   await mkdir(promptDir, { recursive: true });
 
   const files = {
-    "keyboard.system.md": "keys={{allowedKeys}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-strict.system.md": "sr={{allowedScreenReaderCommands}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderCommands}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "keyboard.system.md": "keys={{allowedKeys}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-strict.system.md": "sr={{allowedScreenReaderCommands}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderCommands}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
     "experience-summary.system.md": "summary-template"
   } satisfies Record<string, string>;
 
@@ -99,15 +100,32 @@ describe("agent helpers", () => {
     }
   });
 
-  it("parses valid task text input JSON", () => {
-    const decision = parseDecision('{"action":{"typeText":"task"},"rationale":"Type the task text."}');
+  it("parses valid named input JSON", () => {
+    const decision = parseDecision(
+      '{"action":{"typeText":"email"},"rationale":"Type the email input."}',
+      ["email", "password"]
+    );
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
       expect("typeText" in decision.action).toBe(true);
       if ("typeText" in decision.action) {
-        expect(decision.action.typeText).toBe("task");
+        expect(decision.action.typeText).toBe("email");
       }
+    }
+  });
+
+  it("rejects literal input values in typeText", () => {
+    const decision = parseDecision(
+      '{"action":{"typeText":"traveler@example.com"},"rationale":"Type the provided email."}',
+      ["email"]
+    );
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain('invalid typeText key "traveler@example.com"');
+      expect(decision.rationale).toContain("Allowed input keys: email");
     }
   });
 
@@ -254,7 +272,7 @@ describe("agent helpers", () => {
   });
 
   it("treats mixed key and typeText actions as malformed", () => {
-    const decision = parseDecision('{"action":{"key":"Tab","typeText":"task"},"rationale":"Invalid."}');
+    const decision = parseDecision('{"action":{"key":"Tab","typeText":"email"},"rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -318,10 +336,23 @@ describe("agent helpers", () => {
   });
 
   it("builds provider-neutral prompt parts for keyboard observations", () => {
-    const promptParts = buildPromptParts(makeKeyboardContext(), makeKeyboardObservation());
+    const promptParts = buildPromptParts(
+      makeKeyboardContext(),
+      makeKeyboardObservation(),
+      {
+        email: "traveler@example.com",
+        password: "super-secret"
+      }
+    );
 
     expect(promptParts).toHaveLength(3);
     expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("available input keys: email, password");
+      expect(promptParts[0].text).toContain('focus hint: input[type=email] "Work email"');
+      expect(promptParts[0].text).not.toContain("traveler@example.com");
+      expect(promptParts[0].text).not.toContain("super-secret");
+    }
     expect(promptParts[1]).toEqual({
       type: "image",
       mediaType: "image/png",
@@ -381,6 +412,25 @@ describe("agent helpers", () => {
     });
   });
 
+  it("rejects literal task values returned by the model", async () => {
+    const agent = new LLMAgent("keyboard", {
+      provider: "anthropic",
+      apiKey: "shared-key",
+      model: "claude-custom",
+      taskInput: { email: "traveler@example.com" },
+      completionClient: createCompletionClient([
+        '{"action":{"typeText":"traveler@example.com"},"rationale":"Type the provided email."}'
+      ])
+    });
+
+    const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(decision).toEqual({
+      verdict: "stuck",
+      rationale: expect.stringContaining('invalid typeText key "traveler@example.com"')
+    });
+  });
+
   it("loads prompt templates from the root prompt directory", async () => {
     const rootDir = await createPromptFixtureRoot();
 
@@ -412,17 +462,34 @@ describe("agent helpers", () => {
       "keyboard.system.md": "keys={{allowedKeys}}"
     });
 
-    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{taskInputRule}}");
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{actionGuidance}}");
   });
 
   it("renders keyboard system prompts from prompt files with code-generated JSON format", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
 
-    const prompt = buildSystemPrompt("keyboard", { text: "passport" }, undefined, undefined, true);
+    const prompt = buildSystemPrompt(
+      "keyboard",
+      {
+        email: "traveler@example.com",
+        password: "super-secret"
+      },
+      undefined,
+      undefined,
+      true
+    );
 
-    expect(prompt).toContain("keys=Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape");
-    expect(prompt).toContain('{"action":{"typeText":"task"},"rationale":"..."}');
+    expect(prompt).toContain("keys=Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape");
+    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
+    expect(prompt).toContain('{"action":{"typeText":"email"},"rationale":"..."}');
+    expect(prompt).toContain("사용 가능한 input keys: email, password.");
+    expect(prompt).toContain("focus hint는 현재 active element의 요약이다. focus hint가 none, link, button, select라면 typeText보다 탐색 action을 우선 검토하라.");
+    expect(prompt).toContain("typeText는 현재 focus가 텍스트 입력창(input, textarea, contenteditable)에 있다고 보일 때 우선 고려하라.");
+    expect(prompt).toContain("focus가 입력창에 있다고 확신하기 어렵다면, 먼저 Tab 또는 Shift+Tab 같은 탐색 action을 검토하라.");
+    expect(prompt).not.toContain("traveler@example.com");
+    expect(prompt).not.toContain("super-secret");
     expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라.");
   });
 
@@ -433,7 +500,49 @@ describe("agent helpers", () => {
     const prompt = buildSystemPrompt("screenreader-strict", undefined, undefined, ["nextItem", "act"], false);
 
     expect(prompt).toContain("sr=nextItem, act");
+    expect(prompt).toContain("nextItem은 항목을 넓게 탐색할 때 사용하라.");
+    expect(prompt).toContain("act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용하라.");
     expect(prompt).toContain('{"action":{"srCommand":"nextItem"}}');
+  });
+
+  it("includes only hints for allowed keys and commands", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const prompt = buildSystemPrompt(
+      "screenreader-hybrid",
+      undefined,
+      ["Tab", "Escape"],
+      ["act"],
+      false
+    );
+
+    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).toContain("Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.");
+    expect(prompt).toContain("act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용하라.");
+    expect(prompt).not.toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
+    expect(prompt).not.toContain("nextItem은 항목을 넓게 탐색할 때 사용하라.");
+  });
+
+  it("loads prompt templates from an explicit prompt directory", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.system.md": "explicit={{customInstructions}}\n{{allowedKeys}}\n{{actionGuidance}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}"
+    });
+
+    const prompt = buildSystemPrompt(
+      "keyboard",
+      undefined,
+      ["Tab"],
+      undefined,
+      false,
+      {
+        promptDir: join(rootDir, "prompt"),
+        extraInstructions: "custom"
+      }
+    );
+
+    expect(prompt).toContain("explicit=custom");
+    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
   });
 
   it("renders experience summary prompts from prompt files", async () => {

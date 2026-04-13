@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Email Login Fixture</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg-1: #f4efe7;
+        --bg-2: #dbe7e3;
+        --ink: #1f2421;
+        --muted: #50605a;
+        --panel: rgba(255, 255, 255, 0.9);
+        --line: rgba(31, 36, 33, 0.12);
+        --accent: #1f6f5f;
+        --accent-strong: #154d42;
+        --accent-soft: rgba(31, 111, 95, 0.12);
+        --focus: #d86c28;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(216, 108, 40, 0.18), transparent 30%),
+          radial-gradient(circle at right center, rgba(31, 111, 95, 0.18), transparent 34%),
+          linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      }
+
+      main {
+        width: min(860px, calc(100vw - 40px));
+        margin: 48px auto;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 64px rgba(31, 36, 33, 0.14);
+      }
+
+      .topbar {
+        display: flex;
+        gap: 18px;
+        margin-bottom: 28px;
+      }
+
+      .topbar a,
+      .support a {
+        color: var(--accent-strong);
+        text-underline-offset: 0.18em;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 28px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 0.95rem;
+      }
+
+      .card,
+      .notes {
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.74);
+      }
+
+      form {
+        display: grid;
+        gap: 14px;
+      }
+
+      label {
+        font-weight: 600;
+      }
+
+      input[type="email"] {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(31, 36, 33, 0.18);
+        border-radius: 16px;
+        font: inherit;
+        background: white;
+      }
+
+      .hint,
+      .support,
+      #status {
+        color: var(--muted);
+      }
+
+      .remember {
+        display: flex;
+        align-items: start;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(31, 111, 95, 0.06);
+      }
+
+      .remember input {
+        margin-top: 4px;
+      }
+
+      button {
+        width: fit-content;
+        padding: 13px 18px;
+        border: none;
+        border-radius: 999px;
+        font: inherit;
+        color: white;
+        background: var(--accent);
+      }
+
+      button[disabled] {
+        cursor: not-allowed;
+        opacity: 0.52;
+      }
+
+      #success[hidden] {
+        display: none;
+      }
+
+      #success {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 18px;
+        background: rgba(31, 111, 95, 0.1);
+      }
+
+      #success-title {
+        margin-bottom: 8px;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      :focus-visible {
+        outline: 4px solid var(--focus);
+        outline-offset: 4px;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          margin: 24px auto;
+          padding: 20px;
+        }
+
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="topbar" aria-label="Secondary">
+        <a href="#plans">Plans</a>
+        <a href="#security">Security notes</a>
+      </nav>
+
+      <div class="layout">
+        <section class="card" aria-labelledby="login-title">
+          <p class="eyebrow">Passwordless sign-in</p>
+          <h1 id="login-title">Sign in with an email link</h1>
+          <p>
+            Enter your work email and request a one-time sign-in link.
+          </p>
+
+          <form id="login-form" novalidate>
+            <div>
+              <label for="email">Work email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                inputmode="email"
+                autocomplete="email"
+                aria-describedby="email-hint"
+              />
+            </div>
+
+            <p id="email-hint" class="hint">
+              Use the named email input exactly. The button unlocks when the email looks valid.
+            </p>
+
+            <label class="remember" for="remember">
+              <input id="remember" name="remember" type="checkbox" />
+              <span>Remember this device for 14 days.</span>
+            </label>
+
+            <button id="send-link" type="submit" disabled>Send magic link</button>
+          </form>
+
+          <p id="status" role="status" aria-live="polite">
+            Enter your email address to unlock the sign-in button.
+          </p>
+
+          <section id="success" aria-live="polite" hidden>
+            <h2 id="success-title" tabindex="-1">Magic link sent</h2>
+            <p>Magic link sent.</p>
+            <p>
+              We sent the sign-in link to <strong id="sent-email"></strong>.
+            </p>
+          </section>
+        </section>
+
+        <aside class="notes">
+          <h2 id="plans">What happens next</h2>
+          <ul>
+            <li>We validate the email format before enabling the button.</li>
+            <li>The sign-in button updates the page state without a full reload.</li>
+            <li>A live status message confirms that the request succeeded.</li>
+          </ul>
+
+          <div class="support">
+            <p id="security">Only company addresses can request a link in this demo.</p>
+            <a href="#support">Need help signing in?</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const form = document.getElementById("login-form");
+      const emailInput = document.getElementById("email");
+      const sendButton = document.getElementById("send-link");
+      const status = document.getElementById("status");
+      const success = document.getElementById("success");
+      const successTitle = document.getElementById("success-title");
+      const sentEmail = document.getElementById("sent-email");
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      function updateButtonState() {
+        const email = emailInput.value.trim();
+        const valid = emailPattern.test(email);
+
+        sendButton.disabled = !valid;
+        status.textContent = valid
+          ? "Ready to send the sign-in link."
+          : "Enter your email address to unlock the sign-in button.";
+      }
+
+      emailInput.addEventListener("input", updateButtonState);
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const email = emailInput.value.trim();
+        if (!emailPattern.test(email)) {
+          status.textContent = "Enter a valid email address before sending the link.";
+          return;
+        }
+
+        sentEmail.textContent = email;
+        success.hidden = false;
+        status.textContent = "Magic link sent.";
+        sendButton.disabled = true;
+        sendButton.textContent = "Link sent";
+        document.title = "Email Login Completed";
+        successTitle.focus();
+      });
+
+      updateButtonState();
+    </script>
+  </body>
+</html>

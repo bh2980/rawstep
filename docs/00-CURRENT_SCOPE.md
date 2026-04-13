@@ -24,12 +24,13 @@
 - `runner` — 관측–판단–행동 루프
 - `trace` — append-only TraceRecorder
 - `reporter` — 최소 HTML 리포트
-- `apps/cli` — `a11y-task` 바이너리
+- `apps/cli` — 현재 CLI 바이너리 `rawstep` (프로젝트 이름은 rawstep)
 
 **Fixtures**
 - `simple-cta.html` — 10 step 이내 성공 가능
 - `modal.html` — 모달 open/close/focus return
 - `bad-focus.html` — focus indicator 결함, stuck 예상
+- `email-login.html` — named input + submit 성공 경로
 
 **산출물**
 - `trace.jsonl` (step별 append)
@@ -45,7 +46,7 @@
 
 ## 제외 (현재 단계에 포함하지 않음)
 
-- **임의 자유 텍스트 입력** → 금지. 다만 task가 고정 문자열을 제공한 경우에만 제한된 text input action 허용
+- **임의 자유 텍스트 입력** → 금지. 다만 task가 named input 값을 제공한 경우에만 제한된 text input action 허용
 - **추가 backend 패키지 분리** (`@rawstep/screenreader-guidepup` 같은 형태) → 후속 단계
 - **다중 세션 병렬 실행** → v3+
 - **CI 통합** → v3+
@@ -56,13 +57,13 @@
 스스로 판정 가능한 사실 목록:
 
 1. `pnpm install && pnpm -r build` 가 에러 없이 끝난다.
-2. `pnpm a11y-task run examples/tasks/simple-cta.json --mode keyboard --out ./out/simple-cta` 가 에러 없이 끝난다.
+2. `pnpm rawstep run examples/tasks/simple-cta.json --mode keyboard --out ./out/simple-cta` 가 에러 없이 끝난다.
 3. `out/simple-cta/trace.jsonl` 에 최소 1개 이상의 `StepRecord` 가 있다.
 4. `out/simple-cta/metrics.json` 에 `result: "success"` 가 기록된다.
 5. `out/simple-cta/report/index.html` 이 생성되고, 브라우저로 열었을 때 step replay가 렌더된다.
-6. `pnpm a11y-task run examples/tasks/bad-focus.json --mode keyboard --out ./out/bad-focus` 를 실행하면 `metrics.json` 의 `result: "failure"` 이고 `failurePoint` 가 기록된다.
-7. 지원되는 backend가 있는 환경에서 `pnpm a11y-task run <any> --mode screenreader-strict` 실행 시 trace와 report가 생성된다.
-8. 지원되는 backend가 있는 환경에서 `pnpm a11y-task run <any> --mode screenreader-hybrid` 실행 시 trace와 report가 생성된다.
+6. `pnpm rawstep run examples/tasks/bad-focus.json --mode keyboard --out ./out/bad-focus` 를 실행하면 `metrics.json` 의 `result: "failure"` 이고 `failurePoint` 가 기록된다.
+7. 지원되는 backend가 있는 환경에서 `pnpm rawstep run <any> --mode screenreader-strict` 실행 시 trace와 report가 생성된다.
+8. 지원되는 backend가 있는 환경에서 `pnpm rawstep run <any> --mode screenreader-hybrid` 실행 시 trace와 report가 생성된다.
 9. 선택된 `screenReaderBackend` 가 현재 플랫폼에서 지원되지 않으면 명확한 환경 에러로 종료된다.
 10. `packages/agent/` 에서 `page.evaluate`, `querySelector`, `activeElement`, `accessibility` 문자열이 grep 되지 않는다.
 

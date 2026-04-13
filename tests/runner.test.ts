@@ -1,5 +1,5 @@
-import { createBrowserSession } from "@a11y-task/browser";
-import { runTask } from "@a11y-task/runner";
+import { createBrowserSession } from "@rawstep/browser";
+import { runTask } from "@rawstep/runner";
 import { resolveBrowserHeadless } from "../packages/runner/src/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -389,7 +389,7 @@ describe("runTask", () => {
     expect(session.steps[1].verification?.passed).toBe(false);
   });
 
-  it("ends with an error when task text input is used without opt-in input text", async () => {
+  it("ends with an error when named input is used without opt-in input data", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-disabled-"));
 
     const session = await runTask(
@@ -408,18 +408,18 @@ describe("runTask", () => {
         outDir,
         agent: {
           decide: async () => ({
-            action: { typeText: "task" },
-            rationale: "Attempt task text input."
+            action: { typeText: "email" },
+            rationale: "Attempt named input."
           })
         }
       }
     );
 
     expect(session.aggregate.endedBy).toBe("error");
-    expect(session.steps[0].execution.error).toContain("Task-scoped text input is not enabled");
+    expect(session.steps[0].execution.error).toContain("Named task inputs are not enabled");
   });
 
-  it("does not feed gated text input failures back into agent history", async () => {
+  it("does not feed gated named input failures back into agent history", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-gate-fail-"));
     const seenHistory: string[] = [];
     let callCount = 0;
@@ -432,7 +432,7 @@ describe("runTask", () => {
         mode: "keyboard",
         maxSteps: 3,
         timeoutMs: 60_000,
-        input: { text: "passport" },
+        input: { email: "passport" },
         verify: {
           all: [{ titleIncludes: "Simple CTA Fixture" }]
         }
@@ -447,8 +447,8 @@ describe("runTask", () => {
 
             if (callCount === 1) {
               return {
-                action: { typeText: "task" },
-                rationale: "Try the task text."
+                action: { typeText: "email" },
+                rationale: "Try the email input."
               };
             }
 
@@ -467,58 +467,26 @@ describe("runTask", () => {
       costDelta: 0,
       error: "Action did not produce an observable text-entry state change."
     });
-    expect(seenHistory.join(" ")).toContain("typeText(task)");
+    expect(seenHistory.join(" ")).toContain("typeText(email)");
   });
 
-  it("completes a verified task with task-scoped text input", async () => {
+  it("completes the email login fixture with a named email input", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-success-"));
-    const fixtureDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-fixture-"));
-    const fixturePath = join(fixtureDir, "search-fixture.html");
-
-    await writeFile(
-      fixturePath,
-      [
-        "<!doctype html>",
-        '<html lang="en">',
-        "  <head>",
-        "    <meta charset=\"utf-8\" />",
-        "    <title>Search Fixture</title>",
-        "  </head>",
-        "  <body>",
-        "    <label for=\"search\">Search</label>",
-        "    <input id=\"search\" autofocus />",
-        "    <p id=\"status\">Idle</p>",
-        "    <script>",
-        "      const input = document.getElementById('search');",
-        "      const status = document.getElementById('status');",
-        "      window.addEventListener('load', () => input.focus());",
-        "      input.addEventListener('keydown', (event) => {",
-        "        if (event.key === 'Enter' && input.value === 'passport') {",
-        "          document.title = 'Search Results';",
-        "          status.textContent = 'Results for passport';",
-        "        }",
-        "      });",
-        "    </script>",
-        "  </body>",
-        "</html>"
-      ].join("\n"),
-      "utf8"
-    );
-
     let callCount = 0;
     const session = await runTask(
       {
-        id: "type-text-success",
-        url: pathToFileURL(fixturePath).toString(),
-        goal: "Search for passport and show results.",
+        id: "email-login",
+        url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+        goal: "Enter the task email and send the magic link.",
         mode: "keyboard",
-        maxSteps: 4,
+        maxSteps: 8,
         timeoutMs: 60_000,
-        input: { text: "passport" },
+        input: { email: "traveler@example.com" },
         verify: {
           all: [
-            { titleIncludes: "Results" },
-            { textVisible: "Results for passport" }
+            { titleIncludes: "Completed" },
+            { textVisible: "Magic link sent." },
+            { textVisible: "traveler@example.com" }
           ]
         }
       },
@@ -529,21 +497,56 @@ describe("runTask", () => {
             callCount += 1;
             if (callCount === 1) {
               return {
-                action: { typeText: "task" },
-                rationale: "Type the provided task text."
+                action: { key: "Tab" },
+                rationale: "Move from the first utility link."
               };
             }
 
             if (callCount === 2) {
               return {
+                action: { key: "Tab" },
+                rationale: "Move from the second utility link to the email field."
+              };
+            }
+
+            if (callCount === 3) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move from the second utility link to the email field."
+              };
+            }
+
+            if (callCount === 4) {
+              return {
+                action: { typeText: "email" },
+                rationale: "Type the provided email address."
+              };
+            }
+
+            if (callCount === 5) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move past the remember-device checkbox."
+              };
+            }
+
+            if (callCount === 6) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move focus to the send-link button."
+              };
+            }
+
+            if (callCount === 7) {
+              return {
                 action: { key: "Enter" },
-                rationale: "Submit the search."
+                rationale: "Submit the sign-in request."
               };
             }
 
             return {
               verdict: "success",
-              rationale: "The results are visible."
+              rationale: "The success state is visible."
             };
           }
         }
@@ -553,12 +556,101 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
       srCommandCount: 0,
-      rawKeyCount: 1,
+      rawKeyCount: 6,
       typeTextCount: 1
     });
-    expect(session.steps[0].execution).toEqual({ ok: true, costDelta: 1 });
-    expect(session.steps[1].execution).toEqual({ ok: true, costDelta: 1 });
-    expect(session.steps[2].verification?.passed).toBe(true);
+    expect(session.steps[3].execution).toEqual({ ok: true, costDelta: 1 });
+    expect(session.steps[6].execution).toEqual({ ok: true, costDelta: 1 });
+    expect(session.steps[7].verification?.passed).toBe(true);
+  });
+
+  it("completes the credential login fixture with multiple named inputs", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-credential-login-"));
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "credential-login",
+        url: pathToFileURL(resolve("fixtures/credential-login.html")).toString(),
+        goal: "이메일과 비밀번호 입력칸에 각각 named input 값을 넣고 Sign in 버튼을 눌러라.",
+        mode: "keyboard",
+        maxSteps: 8,
+        timeoutMs: 60_000,
+        input: {
+          email: "traveler@example.com",
+          password: "super-secret"
+        },
+        verify: {
+          all: [
+            { titleIncludes: "Credential Login Completed" },
+            { textVisible: "Signed in." }
+          ]
+        }
+      },
+      {
+        outDir,
+        agent: {
+          decide: async () => {
+            callCount += 1;
+
+            if (callCount === 1) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move focus from the page body to the email field."
+              };
+            }
+
+            if (callCount === 2) {
+              return {
+                action: { typeText: "email" },
+                rationale: "Fill the email field."
+              };
+            }
+
+            if (callCount === 3) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move focus to the password field."
+              };
+            }
+
+            if (callCount === 4) {
+              return {
+                action: { typeText: "password" },
+                rationale: "Fill the password field."
+              };
+            }
+
+            if (callCount === 5) {
+              return {
+                action: { key: "Tab" },
+                rationale: "Move focus to the sign-in button."
+              };
+            }
+
+            if (callCount === 6) {
+              return {
+                action: { key: "Enter" },
+                rationale: "Submit the form."
+              };
+            }
+
+            return {
+              verdict: "success",
+              rationale: "The signed-in state is visible."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.aggregate.actionCounts).toEqual({
+      srCommandCount: 0,
+      rawKeyCount: 4,
+      typeTextCount: 2
+    });
+    expect(session.steps.at(-1)?.verification?.passed).toBe(true);
   });
 
   it("runs the screenreader-hybrid path with mocked announcements and canonical commands", async () => {

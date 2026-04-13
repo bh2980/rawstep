@@ -42,9 +42,7 @@ export type VerifySpec = {
   all: VerifyRule[];
 };
 
-export type TaskInput = {
-  text: string;
-};
+export type TaskInput = Record<string, string>;
 
 export type Task = {
   id: string;
@@ -68,6 +66,7 @@ export type KeyboardObservation = {
     title: string;
     urlPath: string;
   };
+  focusHint?: string;
   scrollHint?: ScrollHint;
 };
 
@@ -84,7 +83,7 @@ export type Observation = KeyboardObservation | ScreenReaderObservation;
 
 export type Action =
   | { key: AllowedKey }
-  | { typeText: "task" }
+  | { typeText: string }
   | { srCommand: ScreenReaderCommand };
 export type Verdict = "success" | "stuck";
 export type EndedBy = Verdict | "maxSteps" | "timeout" | "error";
@@ -97,6 +96,7 @@ export type AgentMemoryEntry = {
   step: number;
   action: string;
   outcome: "continued" | "success" | "failure";
+  note?: string;
 };
 
 export type AgentContext = {
@@ -140,6 +140,7 @@ export type RecordedKeyboardObservation = {
     title: string;
     urlPath: string;
   };
+  focusHint?: string;
   scrollHint?: ScrollHint;
 };
 

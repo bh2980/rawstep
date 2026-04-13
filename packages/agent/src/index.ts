@@ -1,4 +1,4 @@
-import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@a11y-task/core";
+import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
@@ -47,6 +47,10 @@ export class LLMAgent implements Agent {
   private readonly agentMemoryWindow: number;
   private readonly agentMemoryAll: boolean;
   private readonly taskInput?: Task["input"];
+  private readonly promptDir?: string;
+  private readonly extraInstructions?: string;
+  private readonly keyHints: LLMAgentOptions["keyHints"];
+  private readonly screenReaderCommandHints: LLMAgentOptions["screenReaderCommandHints"];
   private readonly memory: AgentMemoryEntry[] = [];
   private readonly promptLog: PromptLogEntry[] = [];
 
@@ -61,15 +65,26 @@ export class LLMAgent implements Agent {
     this.agentMemoryWindow = Math.max(0, options.agentMemoryWindow ?? 0);
     this.agentMemoryAll = options.agentMemoryAll ?? false;
     this.taskInput = options.taskInput;
+    this.promptDir = options.promptDir;
+    this.extraInstructions = options.extraInstructions;
+    this.keyHints = options.keyHints;
+    this.screenReaderCommandHints = options.screenReaderCommandHints;
   }
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
+    const taskInputKeys = this.taskInput ? Object.keys(this.taskInput) : undefined;
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
       ctx.allowedKeys,
       ctx.allowedScreenReaderCommands,
-      this.includeRationale
+      this.includeRationale,
+      {
+        promptDir: this.promptDir,
+        extraInstructions: this.extraInstructions,
+        keyHints: this.keyHints,
+        screenReaderCommandHints: this.screenReaderCommandHints
+      }
     );
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);
     this.recordPromptLog("decision", systemPrompt, promptParts);
@@ -82,7 +97,7 @@ export class LLMAgent implements Agent {
         obs,
         fullMemory: this.memory
       });
-      const firstPass = parseDecisionResult(rawText);
+      const firstPass = parseDecisionResult(rawText, taskInputKeys);
       if (firstPass.status === "ok") {
         return firstPass.decision;
       }
@@ -98,10 +113,10 @@ export class LLMAgent implements Agent {
           fullMemory: this.memory
         });
 
-        return parseDecision(retriedRawText);
+        return parseDecision(retriedRawText, taskInputKeys);
       }
 
-      return parseDecision(rawText);
+      return parseDecision(rawText, taskInputKeys);
     } catch (error) {
       throw normalizeProviderError(error, obs);
     }
@@ -136,7 +151,7 @@ export class LLMAgent implements Agent {
       throw new Error("Experience summary is disabled.");
     }
 
-    const systemPrompt = buildExperienceSummarySystemPrompt();
+    const systemPrompt = buildExperienceSummarySystemPrompt(this.promptDir);
     const promptParts: PromptPart[] = [
       {
         type: "text",

@@ -1,6 +1,6 @@
 # FIXTURES
 
-> v1의 통과 판정은 **외부 사이트가 아니라 이 3개의 로컬 HTML**로 한다.
+> v1의 통과 판정은 **외부 사이트가 아니라 이 4개의 로컬 HTML**로 한다.
 > fixture가 의도한 대로 반응하지 않으면 그것이 버그이고, 리포트 내용 자체는 그다음 문제다.
 
 위치: `fixtures/*.html`, `examples/tasks/*.json`
@@ -74,6 +74,30 @@
 2. focus indicator 부재가 우연히 문제가 안 됐다 (drop-through 성공) → goal 난이도를 올려서 재현 가능하게 만든다
 
 이 fixture의 통과/실패 자체가 프로젝트 존재 의의를 증명한다.
+
+---
+
+## F-04 — `email-login.html`
+
+**목적**: named input이 실제 fixture에서 end-to-end로 동작하는지 확인.
+
+**페이지 내용**
+- 상단 보조 링크 2개
+- `<input type="email">` 1개
+- 선택형 checkbox 1개
+- `Send magic link` 버튼 1개
+- 유효한 이메일이 입력되면 버튼 활성화
+- 제출 성공 시 live status와 성공 섹션 노출, title 변경
+
+**Task goal**
+> "이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라."
+
+**기대 결과**
+- `result: "success"`
+- `actionCounts.typeTextCount` ≥ 1
+- `endedBy: "success"`
+
+**왜 이 fixture가 있는가**: 지금까지 fixture 예제는 주로 이동과 활성화만 다뤘다. 이 fixture는 고정 문자열 입력, 버튼 활성화, 제출 후 성공 상태 전환을 한 번에 검증한다.
 
 ---
 

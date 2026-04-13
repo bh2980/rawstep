@@ -1,5 +1,5 @@
-import { Actuator, NotAllowedActionError } from "@a11y-task/actuator";
-import { closeBrowserSession, createBrowserSession } from "@a11y-task/browser";
+import { Actuator, NotAllowedActionError } from "@rawstep/actuator";
+import { closeBrowserSession, createBrowserSession } from "@rawstep/browser";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -57,7 +57,7 @@ describe("Actuator", () => {
     );
   });
 
-  it("types task text into a focused input", async () => {
+  it("types named task input into a focused input", async () => {
     const type = vi.fn(async () => undefined);
     const evaluate = vi.fn(async () => true);
     const actuator = new Actuator({
@@ -65,7 +65,7 @@ describe("Actuator", () => {
       evaluate
     } as never);
 
-    const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
 
     expect(evaluate).toHaveBeenCalled();
     expect(type).toHaveBeenCalledWith("passport");
@@ -81,7 +81,7 @@ describe("Actuator", () => {
       evaluate
     } as never);
 
-    const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
 
     expect(type).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
@@ -94,7 +94,22 @@ describe("Actuator", () => {
       evaluate: vi.fn(async () => true)
     } as never);
 
-    await expect(actuator.execute({ typeText: "task" })).rejects.toBeInstanceOf(NotAllowedActionError);
+    await expect(actuator.execute({ typeText: "email" })).rejects.toBeInstanceOf(NotAllowedActionError);
+  });
+
+  it("returns a distinct failure when the named input key is missing", async () => {
+    const actuator = new Actuator({
+      keyboard: { press: vi.fn(async () => undefined), type: vi.fn(async () => undefined) },
+      evaluate: vi.fn(async () => true)
+    } as never);
+
+    const result = await actuator.execute({ typeText: "password" }, { email: "passport" });
+
+    expect(result).toEqual({
+      ok: false,
+      costDelta: 0,
+      error: 'Task input key "password" is not available for this task.'
+    });
   });
 
   it("types task text into a focused textarea", async () => {
@@ -108,7 +123,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLTextAreaElement).value);
 
       expect(result).toEqual({ ok: true, costDelta: 1 });
@@ -129,7 +144,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
       const value = await session.page.evaluate(() => document.getElementById("box")?.textContent);
 
       expect(result).toEqual({ ok: true, costDelta: 1 });
@@ -150,7 +165,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLInputElement).value);
 
       expect(result).toEqual({
@@ -175,7 +190,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLTextAreaElement).value);
 
       expect(result).toEqual({
@@ -200,7 +215,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "task" }, { text: "passport" });
+      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
       const buttonText = await session.page.evaluate(() => document.getElementById("box")?.textContent);
 
       expect(result).toEqual({

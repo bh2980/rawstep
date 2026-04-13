@@ -18,9 +18,7 @@ export type Task = {
   maxSteps: number;        // 상한 (초과 시 verdict="stuck")
   timeoutMs: number;       // 전체 실행 wallclock 상한
   verify: VerifySpec;      // success 판정 규칙
-  input?: {                // 선택적 task-scoped 고정 입력 문자열
-    text: string;
-  };
+  input?: Record<string, string>; // 선택적 named input map
 };
 ```
 
@@ -51,7 +49,7 @@ export type Task = {
 }
 ```
 
-**JSON 예시 (task-scoped text input 포함)**
+**JSON 예시 (named input 포함)**
 
 ```json
 {
@@ -67,9 +65,131 @@ export type Task = {
     ]
   },
   "input": {
-    "text": "passport"
+    "query": "passport"
   }
 }
+```
+
+### Task `config` override
+
+task 파일 안의 `config` 는 실행 옵션 override만 담는다.
+
+```ts
+type TaskConfigOverride = {
+  mode?: UserModel;
+  outDir?: string;
+  headless?: boolean;
+  maxSteps?: number;
+  timeoutMs?: number;
+  screenshots?: "all" | "important" | "failure-only" | "none";
+  verifierAutoComplete?: boolean;
+  includeExperienceSummary?: boolean;
+  includeRationale?: boolean;
+  memory?: number | "all";
+  allowedKeys?: AllowedKey[];
+  allowedScreenReaderCommands?: ScreenReaderCommand[];
+  screenReaderBackend?: "guidepup-voiceover" | "guidepup-nvda" | "guidepup-virtual";
+};
+```
+
+주의:
+
+- `config` 는 실행 preset override이고 과업 본문이 아니다.
+- `provider`, `apiKey`, `model`, `baseURL` 는 task `config` 에 넣을 수 없다.
+- `keyboard` 모드에서는 `allowedScreenReaderCommands`, `screenReaderBackend` 를 넣을 수 없다.
+- `screenreader-strict` 모드에서는 `allowedKeys` 를 넣을 수 없다.
+
+**YAML 예시**
+
+```yaml
+id: modal
+url: ../../fixtures/modal.html
+goal: Dialog를 열었다가 Confirm 없이 닫아라.
+verify:
+  all:
+    - titleIncludes: Modal
+config:
+  mode: screenreader-hybrid
+  timeoutMs: 300000
+  memory: all
+  headless: true
+  screenReaderBackend: guidepup-virtual
+  allowedKeys:
+    - Tab
+    - Shift+Tab
+    - Enter
+    - Escape
+  allowedScreenReaderCommands:
+    - nextItem
+    - previousItem
+    - act
+```
+
+### VerifySpec
+
+```ts
+export type RequestVerificationRule = {
+  requestSeen: {
+    urlIncludes: string;
+    method?: string;
+  };
+};
+
+export type ResponseVerificationRule = {
+  responseSeen: {
+    urlIncludes: string;
+    method?: string;
+    status?: number;
+  };
+};
+
+export type VerifyRule =
+  | { titleIncludes: string }
+  | { urlIncludes: string }
+  | { textVisible: string }
+  | RequestVerificationRule
+  | ResponseVerificationRule;
+
+export type VerifySpec = {
+  all: VerifyRule[];
+};
+```
+
+해석 규칙:
+
+- `verify` 는 반드시 `all` 배열이어야 한다.
+- `all` 안의 rule은 **전부 통과**해야 한다.
+- 각 rule object는 키를 **정확히 하나만** 가져야 한다.
+- 문자열 rule (`titleIncludes`, `urlIncludes`, `textVisible`) 은 빈 문자열을 허용하지 않는다.
+- `requestSeen` / `responseSeen` 은 object여야 한다.
+
+지원 rule의 실제 의미는 아래와 같다.
+
+- `titleIncludes`: 현재 `document.title` 에 부분 문자열이 포함되면 통과
+- `urlIncludes`: 현재 페이지 URL 문자열에 부분 문자열이 포함되면 통과
+- `textVisible`: 페이지에서 해당 텍스트를 찾고, 첫 번째 매치가 visible이면 통과
+- `requestSeen`: 실행 중 관측된 네트워크 요청 목록 중 조건과 맞는 항목이 있으면 통과
+- `responseSeen`: 실행 중 관측된 네트워크 응답 목록 중 조건과 맞는 항목이 있으면 통과
+
+**YAML 예시**
+
+```yaml
+verify:
+  all:
+    - textVisible: Magic link sent.
+    - titleIncludes: Completed
+```
+
+```yaml
+verify:
+  all:
+    - requestSeen:
+        urlIncludes: /api/login
+        method: POST
+    - responseSeen:
+        urlIncludes: /api/login
+        method: POST
+        status: 200
 ```
 
 ---
@@ -161,7 +281,7 @@ screenreader 모드의 **agent observation** 은 announcement-only다. `announce
 ```ts
 export type Action =
   | { key: AllowedKey }
-  | { typeText: "task" }
+  | { typeText: string }
   | { srCommand: ScreenReaderCommand };
 
 export type Verdict = "success" | "stuck";
@@ -179,10 +299,10 @@ Agent는 한 턴에 **action XOR verdict** 중 정확히 하나만 반환한다.
 { "action": { "key": "Tab" } }
 ```
 
-**Decision JSON 예시 (task text input)**
+**Decision JSON 예시 (named input)**
 
 ```json
-{ "action": { "typeText": "task" } }
+{ "action": { "typeText": "email" } }
 ```
 
 **Decision JSON 예시 (screenreader canonical command)**
@@ -310,7 +430,7 @@ goal: {goal}
 agent memory:
 - step {n}: action="{...}", outcome="{continued|success|failure}"
 screenreader 모드일 때만 announcement: {announcement}
-task input이 있을 때만 task input text: "{text}"
+task input이 있을 때만 available input keys: "email, password, otp"
 keyboard 모드일 때만 screenshot image block 추가
 ```
 
