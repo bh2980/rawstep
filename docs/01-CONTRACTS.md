@@ -240,7 +240,7 @@ export type TraceSession = {
       setupMs: number;                 // 브라우저/VO/runtime 초기화 시간
       browserLaunchMs: number;         // browser launch 시간
       pageLoadMs: number;              // goto + 초기 load 시간
-      voiceOverInitMs: number;         // Guidepup VoiceOver 시작 시간
+      screenReaderInitMs: number;      // 선택된 screen reader backend 시작 시간
       firstAnnouncementWaitMs: number; // 첫 announcement 확보 시간
       reportMs: number;                // 최종 HTML report 생성 시간
     };

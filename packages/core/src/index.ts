@@ -210,7 +210,7 @@ export type TraceAggregate = {
     setupMs: number;
     browserLaunchMs: number;
     pageLoadMs: number;
-    voiceOverInitMs: number;
+    screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
     reportMs: number;
   };

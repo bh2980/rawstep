@@ -147,8 +147,8 @@ export function renderHtml(session: TraceSession): string {
             <span class="value">${session.aggregate.timings.pageLoadMs} ms</span>
           </div>
           <div class="summary-card">
-            <span class="label">VoiceOver init</span>
-            <span class="value">${session.aggregate.timings.voiceOverInitMs} ms</span>
+            <span class="label">Screen reader init</span>
+            <span class="value">${session.aggregate.timings.screenReaderInitMs} ms</span>
           </div>
           <div class="summary-card">
             <span class="label">First announcement wait</span>

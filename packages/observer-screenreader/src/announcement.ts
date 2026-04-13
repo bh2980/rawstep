@@ -1,15 +1,13 @@
-import type { VoiceOverApi } from "./types";
 import {
   DEFAULT_OBSERVE_PROFILES,
   type AnnouncementReader,
+  type ScreenReaderSession,
   type ScreenReaderObserveProfile,
   type ScreenReaderObserveProfileName
 } from "./types";
 
-export function createAnnouncementReader(voiceOver: Pick<
-  VoiceOverApi,
-  "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog"
->,
+export function createAnnouncementReader(
+  session: Pick<ScreenReaderSession, "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog">,
 profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {}
 ): AnnouncementReader {
   const resolvedProfiles = resolveObserveProfiles(profiles);
@@ -21,7 +19,7 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
     let lastNewPhraseAt: number | undefined;
 
     while (Date.now() - startedAt < profile.maxObserveMs) {
-      const phrases = await readAndClearSpokenPhrases(voiceOver);
+      const phrases = await readAndClearSpokenPhrases(session);
       if (phrases.length > 0) {
         collected.push(...phrases);
         lastNewPhraseAt = Date.now();
@@ -51,7 +49,7 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
     }
 
     if (profile.allowFallback) {
-      const fallback = (await voiceOver.lastSpokenPhrase()).trim();
+      const fallback = (await session.lastSpokenPhrase()).trim();
       return fallback
         ? {
             announcement: fallback,
@@ -76,16 +74,15 @@ profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObs
   };
 }
 
-async function readAndClearSpokenPhrases(voiceOver: Pick<
-  VoiceOverApi,
-  "spokenPhraseLog" | "clearSpokenPhraseLog"
->): Promise<string[]> {
-  const log = (await voiceOver.spokenPhraseLog()) ?? [];
+async function readAndClearSpokenPhrases(
+  session: Pick<ScreenReaderSession, "spokenPhraseLog" | "clearSpokenPhraseLog">
+): Promise<string[]> {
+  const log = (await session.spokenPhraseLog()) ?? [];
   const phrases = log
     .map((phrase) => phrase.trim())
     .filter((phrase) => phrase.length > 0);
 
-  await voiceOver.clearSpokenPhraseLog();
+  await session.clearSpokenPhraseLog();
   return phrases;
 }
 

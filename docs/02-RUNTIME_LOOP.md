@@ -21,7 +21,7 @@ runTask(task) -> TraceSession:
     observer = KeyboardObserver(browser.page)
     screenReaderRuntime = null
   else:
-    screenReaderRuntime = createVoiceOverRuntime(browser.page)
+    screenReaderRuntime = createScreenReaderRuntime(browser.page)
     observer = screenReaderRuntime.observer
   actuator = Actuator(browser.page, { screenReaderController: screenReaderRuntime?.controller })
   agent = LLMAgent(userModel=task.mode, options.agentOptions)
@@ -229,7 +229,7 @@ aggregate timing:
 - `setupMs` — browser/session/runtime 초기화 전체 시간
 - `browserLaunchMs` — Playwright browser launch 시간
 - `pageLoadMs` — `goto` + 초기 page load 시간
-- `voiceOverInitMs` — Guidepup VoiceOver 세션 start 시간
+- `screenReaderInitMs` — 선택된 screen reader backend 세션 start 시간
 - `firstAnnouncementWaitMs` — 첫 spoken announcement를 확보하는 데 걸린 시간
 - `reportMs` — HTML report 생성 시간
 

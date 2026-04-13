@@ -1,58 +1,53 @@
-import type { ScreenReaderController } from "@a11y-task/actuator";
-import type { ScreenReaderCommand } from "@a11y-task/core";
 import type { Page } from "playwright";
 import { createAnnouncementReader } from "./announcement";
+import { guidepupVoiceOverBackend } from "./backends/guidepup-voiceover";
 import { ScreenReaderObserver } from "./observer";
 import type {
   AnnouncementReader,
   AnnouncementState,
+  ScreenReaderBackend,
   ScreenReaderRuntime,
-  VoiceOverApi,
-  VoiceOverRuntimeDependencies
+  ScreenReaderRuntimeOptions
 } from "./types";
 
-export async function createVoiceOverRuntime(
+export async function createScreenReaderRuntime(
   page: Page,
-  dependencies: VoiceOverRuntimeDependencies = {}
+  options: ScreenReaderRuntimeOptions = {}
 ): Promise<ScreenReaderRuntime> {
-  if (process.platform !== "darwin") {
-    throw new Error("screenreader mode currently supports only macOS VoiceOver.");
-  }
+  const backend = options.backend ?? selectDefaultScreenReaderBackend();
+  const session = await backend.createSession(page);
 
-  const importGuidepup = dependencies.importGuidepup
-    ?? (async () => import("@guidepup/guidepup") as unknown as Promise<{ voiceOver: VoiceOverApi }>);
-
-  const { voiceOver } = await importGuidepup();
-
-  let voiceOverInitMs = 0;
+  let screenReaderInitMs = 0;
   try {
-    const voiceOverInitStartedAt = Date.now();
+    const screenReaderInitStartedAt = Date.now();
     await page.bringToFront();
     await focusPageRoot(page);
-    await voiceOver.start();
+    await session.start();
     await focusPageRoot(page);
-    voiceOverInitMs = Date.now() - voiceOverInitStartedAt;
+    screenReaderInitMs = Date.now() - screenReaderInitStartedAt;
   } catch (error) {
     throw new Error(
-      `Failed to start VoiceOver for screenreader mode. Ensure VoiceOver is available and accessibility permissions are granted. ${getErrorMessage(error)}`
+      `Failed to start screen reader backend "${backend.id}" for screenreader mode. Ensure the screen reader is available and accessibility permissions are granted. ${getErrorMessage(error)}`
     );
   }
 
-  const readAnnouncement = createAnnouncementReader(voiceOver, dependencies.observeProfiles);
+  const readAnnouncement = createAnnouncementReader(session, options.observeProfiles);
   const firstAnnouncementWaitStartedAt = Date.now();
   const firstAnnouncement = await captureInitialAnnouncement(page, readAnnouncement);
   const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
 
   return {
     observer: new ScreenReaderObserver(readAnnouncement, firstAnnouncement),
-    controller: new VoiceOverCommandController(voiceOver),
+    controller: {
+      execute: (command) => session.execute(command)
+    },
     setupTimings: {
-      voiceOverInitMs,
+      screenReaderInitMs,
       firstAnnouncementWaitMs
     },
     close: async () => {
       try {
-        await voiceOver.stop();
+        await session.stop();
       } catch {
         // Best effort cleanup only.
       }
@@ -60,6 +55,18 @@ export async function createVoiceOverRuntime(
       await cleanupBootstrapFocus(page);
     }
   };
+}
+
+export function selectDefaultScreenReaderBackend(
+  platform: NodeJS.Platform = process.platform
+): ScreenReaderBackend {
+  const candidates = [guidepupVoiceOverBackend];
+  const backend = candidates.find((candidate) => candidate.supports(platform));
+  if (!backend) {
+    throw new Error(`screenreader mode currently has no supported screen reader backend for platform "${platform}".`);
+  }
+
+  return backend;
 }
 
 async function captureInitialAnnouncement(
@@ -76,42 +83,6 @@ async function captureInitialAnnouncement(
   return secondAttempt.announcementCapture === "none"
     ? firstAttempt
     : secondAttempt;
-}
-
-class VoiceOverCommandController implements ScreenReaderController {
-  constructor(private readonly voiceOver: VoiceOverApi) {}
-
-  async execute(command: ScreenReaderCommand): Promise<void> {
-    switch (command) {
-      case "nextItem":
-        await this.voiceOver.next();
-        return;
-      case "previousItem":
-        await this.voiceOver.previous();
-        return;
-      case "nextHeading":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findNextHeading);
-        return;
-      case "previousHeading":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findPreviousHeading);
-        return;
-      case "nextFormControl":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findNextControl);
-        return;
-      case "previousFormControl":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findPreviousControl);
-        return;
-      case "act":
-        await this.voiceOver.act();
-        return;
-      default:
-        assertUnreachable(command);
-    }
-  }
-}
-
-function assertUnreachable(value: never): never {
-  throw new Error(`Unhandled screen reader command: ${String(value)}`);
 }
 
 function getErrorMessage(error: unknown): string {

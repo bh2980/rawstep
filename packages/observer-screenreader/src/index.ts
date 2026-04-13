@@ -1,9 +1,12 @@
 export { createAnnouncementReader } from "./announcement";
+export { guidepupVoiceOverBackend } from "./backends/guidepup-voiceover";
 export { ScreenReaderObserver } from "./observer";
-export { createVoiceOverRuntime } from "./runtime";
+export { createScreenReaderRuntime, selectDefaultScreenReaderBackend } from "./runtime";
 export type {
+  ScreenReaderBackend,
   ScreenReaderObserveProfileName,
+  ScreenReaderRuntimeOptions,
   ScreenReaderRuntime,
   ScreenReaderRuntimeFactory,
-  VoiceOverRuntimeDependencies
+  ScreenReaderSession
 } from "./types";

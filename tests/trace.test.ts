@@ -53,7 +53,7 @@ describe("TraceRecorder", () => {
       setupMs: 123,
       browserLaunchMs: 23,
       pageLoadMs: 34,
-      voiceOverInitMs: 0,
+      screenReaderInitMs: 0,
       firstAnnouncementWaitMs: 0
     });
     const session = await recorder.finalize("stuck");
@@ -74,7 +74,7 @@ describe("TraceRecorder", () => {
       setupMs: 123,
       browserLaunchMs: 23,
       pageLoadMs: 34,
-      voiceOverInitMs: 0,
+      screenReaderInitMs: 0,
       firstAnnouncementWaitMs: 0,
       reportMs: 0
     });

@@ -28,7 +28,7 @@ export class TraceRecorder {
     setupMs: 0,
     browserLaunchMs: 0,
     pageLoadMs: 0,
-    voiceOverInitMs: 0,
+    screenReaderInitMs: 0,
     firstAnnouncementWaitMs: 0
   };
   private reportMs = 0;
@@ -116,7 +116,7 @@ export class TraceRecorder {
       setupMs: Math.max(0, timings.setupMs),
       browserLaunchMs: Math.max(0, timings.browserLaunchMs),
       pageLoadMs: Math.max(0, timings.pageLoadMs),
-      voiceOverInitMs: Math.max(0, timings.voiceOverInitMs),
+      screenReaderInitMs: Math.max(0, timings.screenReaderInitMs),
       firstAnnouncementWaitMs: Math.max(0, timings.firstAnnouncementWaitMs)
     };
   }
@@ -219,7 +219,7 @@ function buildAggregate(
       setupMs: Math.max(0, setupTimings.setupMs),
       browserLaunchMs: Math.max(0, setupTimings.browserLaunchMs),
       pageLoadMs: Math.max(0, setupTimings.pageLoadMs),
-      voiceOverInitMs: Math.max(0, setupTimings.voiceOverInitMs),
+      screenReaderInitMs: Math.max(0, setupTimings.screenReaderInitMs),
       firstAnnouncementWaitMs: Math.max(0, setupTimings.firstAnnouncementWaitMs),
       reportMs: Math.max(0, reportMs)
     },

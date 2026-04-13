@@ -1,6 +1,8 @@
 import {
   createAnnouncementReader,
-  createVoiceOverRuntime
+  createScreenReaderRuntime,
+  type ScreenReaderBackend,
+  type ScreenReaderSession
 } from "../packages/observer-screenreader/src";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -103,26 +105,23 @@ describe("observer-screenreader", () => {
     });
 
     await expect(
-      createVoiceOverRuntime(
+      createScreenReaderRuntime(
         {
           bringToFront: vi.fn(async () => undefined)
         } as never
       )
-    ).rejects.toThrow("supports only macOS VoiceOver");
+    ).rejects.toThrow('no supported screen reader backend for platform "linux"');
   });
 
-  it("creates a runtime that maps canonical commands to Guidepup keyboard commands", async () => {
+  it("creates a runtime that delegates canonical commands to the configured backend session", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
     });
 
-    const next = vi.fn(async () => undefined);
-    const previous = vi.fn(async () => undefined);
-    const act = vi.fn(async () => undefined);
-    const perform = vi.fn(async () => undefined);
     const stop = vi.fn(async () => undefined);
     const start = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => undefined);
     const clearSpokenPhraseLog = vi.fn(async () => undefined);
     const spokenPhraseLog = vi
       .fn<() => Promise<string[]>>()
@@ -131,13 +130,28 @@ describe("observer-screenreader", () => {
       .mockResolvedValueOnce(["After next item"])
       .mockResolvedValueOnce([]);
 
+    const session: ScreenReaderSession = {
+      start,
+      stop,
+      execute,
+      lastSpokenPhrase: vi.fn(async () => "Fallback phrase"),
+      spokenPhraseLog,
+      clearSpokenPhraseLog
+    };
+    const backend: ScreenReaderBackend = {
+      id: "mock-backend",
+      supports: vi.fn(() => true),
+      createSession: vi.fn(async () => session)
+    };
+
     const evaluate = vi.fn(async () => undefined);
-    const runtime = await createVoiceOverRuntime(
+    const runtime = await createScreenReaderRuntime(
       {
         bringToFront: vi.fn(async () => undefined),
         evaluate
       } as never,
       {
+        backend,
         observeProfiles: {
           initial: {
             pollIntervalMs: 1,
@@ -149,26 +163,7 @@ describe("observer-screenreader", () => {
             silenceWindowMs: 1,
             maxObserveMs: 6
           }
-        },
-        importGuidepup: async () => ({
-          voiceOver: {
-            start,
-            stop,
-            next,
-            previous,
-            act,
-            perform,
-            lastSpokenPhrase: vi.fn(async () => "Fallback phrase"),
-            spokenPhraseLog,
-            clearSpokenPhraseLog,
-            keyboardCommands: {
-              findNextHeading: "findNextHeading",
-              findPreviousHeading: "findPreviousHeading",
-              findNextControl: "findNextControl",
-              findPreviousControl: "findPreviousControl"
-            }
-          }
-        })
+        }
       }
     );
 
@@ -200,15 +195,16 @@ describe("observer-screenreader", () => {
       observeReason: "silence",
       previousAnnouncement: "Initial announcement"
     });
-    expect(runtime.setupTimings.voiceOverInitMs).toBeGreaterThanOrEqual(0);
+    expect(runtime.setupTimings.screenReaderInitMs).toBeGreaterThanOrEqual(0);
     expect(runtime.setupTimings.firstAnnouncementWaitMs).toBeGreaterThanOrEqual(0);
-    expect(next).toHaveBeenCalled();
-    expect(previous).toHaveBeenCalled();
-    expect(perform).toHaveBeenCalledWith("findNextHeading");
-    expect(perform).toHaveBeenCalledWith("findPreviousHeading");
-    expect(perform).toHaveBeenCalledWith("findNextControl");
-    expect(perform).toHaveBeenCalledWith("findPreviousControl");
-    expect(act).toHaveBeenCalled();
+    expect(backend.createSession).toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledWith("nextItem");
+    expect(execute).toHaveBeenCalledWith("previousItem");
+    expect(execute).toHaveBeenCalledWith("nextHeading");
+    expect(execute).toHaveBeenCalledWith("previousHeading");
+    expect(execute).toHaveBeenCalledWith("nextFormControl");
+    expect(execute).toHaveBeenCalledWith("previousFormControl");
+    expect(execute).toHaveBeenCalledWith("act");
     expect(stop).toHaveBeenCalled();
   });
 
@@ -219,27 +215,19 @@ describe("observer-screenreader", () => {
     });
 
     const evaluate = vi.fn(async () => undefined);
-    const runtime = await createVoiceOverRuntime(
+    const runtime = await createScreenReaderRuntime(
       {
         bringToFront: vi.fn(async () => undefined),
         evaluate
       } as never,
       {
-        observeProfiles: {
-          initial: {
-            pollIntervalMs: 1,
-            silenceWindowMs: 1,
-            maxObserveMs: 3
-          }
-        },
-        importGuidepup: async () => ({
-          voiceOver: {
+        backend: {
+          id: "mock-backend",
+          supports: () => true,
+          createSession: async () => ({
             start: vi.fn(async () => undefined),
             stop: vi.fn(async () => undefined),
-            next: vi.fn(async () => undefined),
-            previous: vi.fn(async () => undefined),
-            act: vi.fn(async () => undefined),
-            perform: vi.fn(async () => undefined),
+            execute: vi.fn(async () => undefined),
             lastSpokenPhrase: vi
               .fn<() => Promise<string>>()
               .mockResolvedValueOnce("")
@@ -252,15 +240,16 @@ describe("observer-screenreader", () => {
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([]),
-            clearSpokenPhraseLog: vi.fn(async () => undefined),
-            keyboardCommands: {
-              findNextHeading: "findNextHeading",
-              findPreviousHeading: "findPreviousHeading",
-              findNextControl: "findNextControl",
-              findPreviousControl: "findPreviousControl"
-            }
+            clearSpokenPhraseLog: vi.fn(async () => undefined)
+          })
+        },
+        observeProfiles: {
+          initial: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 3
           }
-        })
+        }
       }
     );
 

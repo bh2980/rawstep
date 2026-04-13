@@ -483,7 +483,7 @@ describe("runTask", () => {
             }
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -558,7 +558,7 @@ describe("runTask", () => {
             execute: async () => undefined
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -606,7 +606,7 @@ describe("runTask", () => {
             execute: async () => undefined
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -679,7 +679,7 @@ describe("runTask", () => {
             }
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -713,7 +713,7 @@ describe("runTask", () => {
       rawKeyCount: 0,
       typeTextCount: 0
     });
-    expect(session.aggregate.timings.voiceOverInitMs).toBe(12);
+    expect(session.aggregate.timings.screenReaderInitMs).toBe(12);
     expect(session.aggregate.timings.firstAnnouncementWaitMs).toBe(34);
     expect(session.steps[1].verdictAnalysis).toEqual({
       agentVerdict: "success",
@@ -953,7 +953,7 @@ describe("runTask", () => {
             execute: async () => undefined
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -1012,7 +1012,7 @@ describe("runTask", () => {
             execute: async () => undefined
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -1075,7 +1075,7 @@ describe("runTask", () => {
             execute: async () => undefined
           },
           setupTimings: {
-            voiceOverInitMs: 12,
+            screenReaderInitMs: 12,
             firstAnnouncementWaitMs: 34
           },
           close: async () => undefined
@@ -1160,7 +1160,7 @@ describe("runTask", () => {
               }
             },
             setupTimings: {
-              voiceOverInitMs: 12,
+              screenReaderInitMs: 12,
               firstAnnouncementWaitMs: 34
             },
             close: async () => undefined

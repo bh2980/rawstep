@@ -1,35 +1,28 @@
 import type { ScreenReaderController } from "@a11y-task/actuator";
-import type { ScreenReaderObservation } from "@a11y-task/core";
+import type { ScreenReaderCommand, ScreenReaderObservation } from "@a11y-task/core";
 import type { Page } from "playwright";
 import type { ScreenReaderObserver } from "./observer";
 
-export type VoiceOverApi = {
+export type ScreenReaderSession = {
   start(): Promise<void>;
   stop(): Promise<void>;
-  next(): Promise<void>;
-  previous(): Promise<void>;
-  act(): Promise<void>;
-  perform(command: unknown): Promise<void>;
+  execute(command: ScreenReaderCommand): Promise<void>;
   lastSpokenPhrase(): Promise<string>;
   spokenPhraseLog(): Promise<string[]>;
   clearSpokenPhraseLog(): Promise<void>;
-  keyboardCommands: {
-    findNextHeading: unknown;
-    findPreviousHeading: unknown;
-    findNextControl: unknown;
-    findPreviousControl: unknown;
-  };
 };
 
-export type GuidepupModule = {
-  voiceOver: VoiceOverApi;
+export type ScreenReaderBackend = {
+  id: string;
+  supports(platform: NodeJS.Platform): boolean;
+  createSession(page: Page): Promise<ScreenReaderSession>;
 };
 
 export type ScreenReaderRuntime = {
   observer: ScreenReaderObserver;
   controller: ScreenReaderController;
   setupTimings: {
-    voiceOverInitMs: number;
+    screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
   };
   close(): Promise<void>;
@@ -37,8 +30,8 @@ export type ScreenReaderRuntime = {
 
 export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRuntime>;
 
-export type VoiceOverRuntimeDependencies = {
-  importGuidepup?: () => Promise<GuidepupModule>;
+export type ScreenReaderRuntimeOptions = {
+  backend?: ScreenReaderBackend;
   observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
 };
 

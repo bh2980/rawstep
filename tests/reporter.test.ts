@@ -61,7 +61,7 @@ describe("reporter", () => {
             setupMs: 120,
             browserLaunchMs: 20,
             pageLoadMs: 30,
-            voiceOverInitMs: 0,
+            screenReaderInitMs: 0,
             firstAnnouncementWaitMs: 0,
             reportMs: 45
           },
@@ -138,7 +138,7 @@ describe("reporter", () => {
             setupMs: 100,
             browserLaunchMs: 10,
             pageLoadMs: 20,
-            voiceOverInitMs: 30,
+            screenReaderInitMs: 30,
             firstAnnouncementWaitMs: 40,
             reportMs: 40
           },
@@ -233,7 +233,7 @@ describe("reporter", () => {
             setupMs: 130,
             browserLaunchMs: 13,
             pageLoadMs: 26,
-            voiceOverInitMs: 0,
+            screenReaderInitMs: 0,
             firstAnnouncementWaitMs: 0,
             reportMs: 55
           },
@@ -322,7 +322,7 @@ describe("reporter", () => {
             setupMs: 100,
             browserLaunchMs: 10,
             pageLoadMs: 20,
-            voiceOverInitMs: 30,
+            screenReaderInitMs: 30,
             firstAnnouncementWaitMs: 40,
             reportMs: 20
           },
@@ -367,7 +367,7 @@ describe("reporter", () => {
             setupMs: 10,
             browserLaunchMs: 1,
             pageLoadMs: 2,
-            voiceOverInitMs: 0,
+            screenReaderInitMs: 0,
             firstAnnouncementWaitMs: 0,
             reportMs: 0
           },

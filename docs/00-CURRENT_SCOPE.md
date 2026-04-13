@@ -11,15 +11,15 @@
 
 **모드**
 - `keyboard`
-- `screenreader-strict` (macOS VoiceOver + Guidepup)
-- `screenreader-hybrid` (macOS VoiceOver + Guidepup)
+- `screenreader-strict` (기본 backend: macOS VoiceOver + Guidepup)
+- `screenreader-hybrid` (기본 backend: macOS VoiceOver + Guidepup)
 
 **패키지**
 - `core` — 모든 타입 정의 (`ScreenReaderObservation`, `ScreenReaderCommand` 포함)
 - `browser` — Playwright 세션 래퍼
 - `actuator` — 화이트리스트 키 입력기
 - `observer-keyboard` — screenshot 관측자
-- `observer-screenreader` — Guidepup VoiceOver announcement 관측자
+- `observer-screenreader` — screen reader backend announcement 관측자
 - `agent` — provider 어댑터 (`anthropic` + `openai-compatible` + `stub`)
 - `runner` — 관측–판단–행동 루프
 - `trace` — append-only TraceRecorder

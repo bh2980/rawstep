@@ -58,8 +58,8 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 
 ### `screenreader-strict` — 순수 SR 탐색 실험 모드
 
-- 관측 채널: [Guidepup](https://guidepup.dev/)을 통해 수집되는 macOS
-  VoiceOver의 spoken announcement text.
+- 관측 채널: 기본 screen reader backend인 [Guidepup](https://guidepup.dev/)
+  기반 macOS VoiceOver를 통해 수집되는 spoken announcement text.
 - 행동 공간: screen reader canonical command
   (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
   `nextFormControl`, `previousFormControl`, `act`) + opt-in `typeText`.
@@ -172,7 +172,7 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
   agent 자체는 그 이미지를 보지 못합니다.
 - **입력 비용** — 전체 키 입력 수, 키 종류별 분포.
 - **타이밍 분해** — setup / report 와 각 step의 observe / decide / execute / verify 시간.
-- **세부 setup 타이밍** — browser launch / page load / VoiceOver init / first announcement wait.
+- **세부 setup 타이밍** — browser launch / page load / screen reader init / first announcement wait.
 - **관측 근거** — screenreader step마다 announcement capture 경로, phrase 수,
   observe 종료 이유(`silence`, `timeout`, `fallback`)를 같이 보여줍니다.
 - 이 값들은 사용자가 과업을 읽는 본문이라기보다, screenreader 관측 품질을
@@ -195,7 +195,7 @@ a11y/
 │   ├── browser/                # Playwright 라이프사이클
 │   ├── actuator/               # 화이트리스트 키 입력기
 │   ├── observer-keyboard/      # screenshot 관측자
-│   ├── observer-screenreader/  # Guidepup announcement 관측자
+│   ├── observer-screenreader/  # screen reader backend announcement 관측자
 │   ├── agent/                  # LLM 판단 레이어
 │   ├── runner/                 # observe → decide → act 루프
 │   ├── trace/                  # append-only step 로그
@@ -301,7 +301,7 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
-- Screen reader strict/hybrid 모드는 현재 macOS VoiceOver (Guidepup)만 지원합니다.
+- Screen reader strict/hybrid 모드의 기본 backend는 현재 macOS VoiceOver (Guidepup)입니다.
   NVDA는 후속 릴리스 예정입니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.

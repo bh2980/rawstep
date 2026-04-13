@@ -19,7 +19,7 @@ import {
   type TraceSession
 } from "@a11y-task/core";
 import {
-  createVoiceOverRuntime,
+  createScreenReaderRuntime,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
 } from "@a11y-task/observer-screenreader";
@@ -89,7 +89,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
     const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;
     screenReaderRuntime = isScreenReaderMode(task.mode)
-      ? await (options.screenReaderRuntimeFactory ?? createVoiceOverRuntime)(browser.page)
+      ? await (options.screenReaderRuntimeFactory ?? createScreenReaderRuntime)(browser.page)
       : undefined;
 
     const observer = createObserver(task.mode, browser, screenReaderRuntime);
@@ -107,7 +107,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       setupMs: Date.now() - setupStartedAt,
       browserLaunchMs,
       pageLoadMs,
-      voiceOverInitMs: screenReaderRuntime?.setupTimings.voiceOverInitMs ?? 0,
+      screenReaderInitMs: screenReaderRuntime?.setupTimings.screenReaderInitMs ?? 0,
       firstAnnouncementWaitMs: screenReaderRuntime?.setupTimings.firstAnnouncementWaitMs ?? 0
     });
 
@@ -213,7 +213,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           createVerdictAnalysis(
             decision.verdict,
             undefined,
-            decision.verdict === "success" ? "success" : "failure",
+            "failure",
             "agent"
           ),
           shouldCaptureDeveloperScreenshot(screenshotPolicy, observation, decision)
@@ -223,7 +223,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         const memoryEntry = createAgentMemoryEntry(
           step,
           decision,
-          decision.verdict === "success" ? "success" : "failure"
+          "failure"
         );
         agentMemory.push(memoryEntry);
         agent.recordStepOutcome?.(memoryEntry);
