@@ -5,7 +5,7 @@ export default defineConfig({
   defaults: {
     provider: "openai-compatible",
     model: "openrouter/auto",
-    baseURL: "https://openrouter.ai/api/v1"
+    baseURL: "https://openrouter.ai/api/v1",
   },
   modes: {
     keyboard: {
@@ -13,7 +13,7 @@ export default defineConfig({
       maxSteps: 20,
       timeoutMs: 180000,
       verifierAutoComplete: true,
-      memory: 5
+      memory: 5,
     },
     "screenreader-strict": {
       outDir: "./.rawstep/out/sr-strict",
@@ -32,8 +32,8 @@ export default defineConfig({
         "previousHeading",
         "nextFormControl",
         "previousFormControl",
-        "act"
-      ]
+        "act",
+      ],
     },
     "screenreader-hybrid": {
       outDir: "./.rawstep/out/sr-hybrid",
@@ -50,8 +50,8 @@ export default defineConfig({
         "previousItem",
         "nextHeading",
         "previousHeading",
-        "act"
-      ]
-    }
-  }
+        "act",
+      ],
+    },
+  },
 });
