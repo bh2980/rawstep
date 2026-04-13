@@ -3,7 +3,7 @@
 > v1의 통과 판정은 **외부 사이트가 아니라 이 3개의 로컬 HTML**로 한다.
 > fixture가 의도한 대로 반응하지 않으면 그것이 버그이고, 리포트 내용 자체는 그다음 문제다.
 
-위치: `fixtures/*.html`, `examples/tasks/*.yml`
+위치: `fixtures/*.html`, `examples/tasks/*.json`
 
 ---
 
@@ -81,5 +81,5 @@
 
 - 모든 fixture는 **외부 네트워크 호출 없음**. 이미지, 폰트, 스크립트 전부 인라인 또는 동일 디렉터리.
 - 모든 fixture는 **1280x800 viewport**에서 한 화면에 들어가야 한다 (스크롤 힌트 로직 테스트는 F-02 확장 케이스로 v3+).
-- 각 fixture에는 대응되는 `examples/tasks/{id}.yml` 가 존재해야 한다.
+- 각 fixture에는 대응되는 `examples/tasks/{id}.json` 가 존재해야 한다.
 - fixture 편집 시 이 문서의 "기대 결과"를 함께 갱신한다. 기대 결과가 문서 없이 바뀌면 회귀를 놓친다.

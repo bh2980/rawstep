@@ -44,7 +44,7 @@ export async function loadConfig(configFile?: string): Promise<LoadedProjectConf
 
   if (parsed?.tasks !== undefined) {
     throw new Error(
-      `Config file ${resolvedPath} uses removed tasks overrides. Use task.yml config with flat keys instead.`
+      `Config file ${resolvedPath} uses removed tasks overrides. Use task config with flat keys instead.`
     );
   }
 
@@ -71,7 +71,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     ?? taskSource.parsed.mode;
   if (!selectedMode) {
     throw new Error(
-      `Task file ${taskSource.absoluteTaskFile} is missing mode. Set mode in task.yml, task.yml config.mode, or pass --mode.`
+      `Task file ${taskSource.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
     );
   }
 
@@ -103,7 +103,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
 
   if (agentMemoryWindow === undefined && agentMemoryAll !== true) {
     throw new Error(
-      `Missing memory setting. Pass --agent-memory-window/--agent-memory-all or set task.yml config.memory or modes.${selectedMode}.memory in rawstep.config.ts.`
+      `Missing memory setting. Pass --agent-memory-window/--agent-memory-all or set task config.memory or modes.${selectedMode}.memory in rawstep.config.ts.`
     );
   }
 
@@ -398,7 +398,7 @@ function resolveScreenReaderBackendId(
 
   if (!configuredScreenReaderBackend) {
     throw new Error(
-      `Missing screenReaderBackend. Set defaults.screenReaderBackend, modes.${selectedMode}.screenReaderBackend, or task.yml config.screenReaderBackend in rawstep.config.ts.`
+      `Missing screenReaderBackend. Set defaults.screenReaderBackend, modes.${selectedMode}.screenReaderBackend, or task config.screenReaderBackend in rawstep.config.ts.`
     );
   }
 

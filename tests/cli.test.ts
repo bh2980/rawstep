@@ -59,7 +59,7 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
 
 describe.sequential("CLI", () => {
   it("loads task files with explicit task settings and resolves relative fixture URLs", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"));
+    const task = await loadTask(resolve("examples/tasks/simple-cta.json"));
 
     expect(task.id).toBe("simple-cta");
     expect(task.mode).toBe("keyboard");
@@ -97,7 +97,7 @@ describe.sequential("CLI", () => {
 
     const exitCode = await runCli([
       "run",
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
       "--provider",
@@ -131,7 +131,7 @@ describe.sequential("CLI", () => {
 
   it("fails when rawstep.config.ts is missing", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-no-config-"));
-    const taskPath = resolve("examples/tasks/simple-cta.yml");
+    const taskPath = resolve("examples/tasks/simple-cta.json");
     process.chdir(tempDir);
 
     await expect(resolveRunOptions(parseRunArgs([
@@ -140,26 +140,26 @@ describe.sequential("CLI", () => {
   });
 
   it("loads screenreader-hybrid mode tasks without rejecting them at parse time", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader-hybrid");
+    const task = await loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader-hybrid");
 
     expect(task.mode).toBe("screenreader-hybrid");
   });
 
   it("loads screenreader-strict mode tasks without rejecting them at parse time", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader-strict");
+    const task = await loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader-strict");
 
     expect(task.mode).toBe("screenreader-strict");
   });
 
   it("rejects the removed legacy screenreader mode", async () => {
-    await expect(loadTask(resolve("examples/tasks/simple-cta.yml"), "screenreader" as never)).rejects.toThrow(
+    await expect(loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader" as never)).rejects.toThrow(
       "Unsupported mode"
     );
   });
 
   it("rejects legacy screenreader mode on the CLI", () => {
     expect(() => parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--mode",
       "screenreader",
       "--out",
@@ -169,7 +169,7 @@ describe.sequential("CLI", () => {
 
   it("parses provider CLI flags", () => {
     const parsed = parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       "./rawstep.config.ts",
       "--mode",
@@ -206,7 +206,7 @@ describe.sequential("CLI", () => {
 
   it("leaves optional CLI overrides undefined when omitted", () => {
     const parsed = parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--mode",
       "keyboard"
     ]);
@@ -221,7 +221,7 @@ describe.sequential("CLI", () => {
 
   it("rejects invalid agent memory window values", () => {
     expect(() => parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--mode",
       "keyboard",
       "--out",
@@ -233,7 +233,7 @@ describe.sequential("CLI", () => {
 
   it("rejects invalid screenshot policies on the CLI", () => {
     expect(() => parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--mode",
       "screenreader-strict",
       "--out",
@@ -245,7 +245,7 @@ describe.sequential("CLI", () => {
 
   it("rejects the removed stub provider on the CLI", () => {
     expect(() => parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--provider",
       "stub"
     ])).toThrow("Unsupported agent provider");
@@ -322,7 +322,7 @@ describe.sequential("CLI", () => {
 
     const exitCode = await runCli([
       "run",
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
       "--mode",
@@ -646,7 +646,7 @@ describe.sequential("CLI", () => {
     );
 
     await expect(resolveRunOptions(parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
     ]))).rejects.toThrow("removed defaults.run/defaults.agent format");
@@ -725,7 +725,7 @@ describe.sequential("CLI", () => {
     );
 
     await expect(resolveRunOptions(parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
     ]))).rejects.toThrow("config.provider is not allowed");
@@ -1033,7 +1033,7 @@ describe.sequential("CLI", () => {
     );
 
     await expect(resolveRunOptions(parseRunArgs([
-      resolve("examples/tasks/simple-cta.yml"),
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
     ]))).rejects.toThrow("allowedScreenReaderCommands is not allowed in keyboard mode");

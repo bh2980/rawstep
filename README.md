@@ -232,7 +232,7 @@ export default defineConfig({
 TS
 
 export A11Y_TASK_AGENT_API_KEY=your-key
-pnpm a11y-task run examples/tasks/simple-cta.yml
+pnpm a11y-task run examples/tasks/simple-cta.json
 open ./.rawstep/out/keyboard/report/index.html
 ```
 
@@ -289,7 +289,7 @@ export default defineConfig({
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다.
 - `screenReaderBackend` 는 어떤 screen reader backend를 붙일지 고르는 값입니다.
 - `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
-- `task.yml` 은 과업 자체를 정의합니다.
+- task 파일(`.json`, `.yml`)은 과업 자체를 정의합니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
 - `rawstep.config.ts` 가 없거나, 선택한 mode preset에 `outDir`, `maxSteps`, `timeoutMs`, `memory` 가 비어 있으면 실행하지 않습니다.
 - API key 같은 비밀값은 `rawstep.config.ts` 에 넣지 않고 환경변수로만 받습니다.
@@ -337,7 +337,7 @@ export A11Y_TASK_AGENT_BASE_URL=https://openrouter.ai/api/v1
 CLI에서 실행별로 덮어쓸 수도 있습니다.
 
 ```bash
-pnpm a11y-task run examples/tasks/simple-cta.yml \
+pnpm a11y-task run examples/tasks/simple-cta.json \
   --config ./rawstep.config.ts \
   --agent-memory-window 5 \
   --include-experience-summary \

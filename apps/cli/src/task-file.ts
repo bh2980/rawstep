@@ -61,7 +61,7 @@ export function resolveTask(
     ?? defaults.mode;
   if (!rawMode) {
     throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing mode. Set mode in task.yml, task.yml config.mode, or pass --mode.`
+      `Task file ${source.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
     );
   }
 
@@ -71,7 +71,7 @@ export function resolveTask(
     ?? defaults.maxSteps;
   if (maxSteps === undefined) {
     throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing maxSteps. Set maxSteps in task.yml, task.yml config.maxSteps, or modes.${rawMode}.maxSteps in rawstep.config.ts.`
+      `Task file ${source.absoluteTaskFile} is missing maxSteps. Set maxSteps in the task file, task config.maxSteps, or modes.${rawMode}.maxSteps in rawstep.config.ts.`
     );
   }
 
@@ -81,7 +81,7 @@ export function resolveTask(
     ?? defaults.timeoutMs;
   if (timeoutMs === undefined) {
     throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in task.yml, task.yml config.timeoutMs, or modes.${rawMode}.timeoutMs in rawstep.config.ts.`
+      `Task file ${source.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in the task file, task config.timeoutMs, or modes.${rawMode}.timeoutMs in rawstep.config.ts.`
     );
   }
 
