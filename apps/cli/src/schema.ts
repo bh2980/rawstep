@@ -51,6 +51,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
 
 const projectDefaultsObjectSchema = z.object({
   provider: z.enum(["anthropic", "openai-compatible"]).optional(),
+  apiKey: nonEmptyStringSchema.optional(),
   model: nonEmptyStringSchema.optional(),
   baseURL: nonEmptyStringSchema.optional()
 }).passthrough();
@@ -69,10 +70,6 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
     throw new Error(
       `Config file ${configPath} uses removed defaults.run/defaults.agent format. Use:\ndefaults:\n  provider: openai-compatible\n  model: openrouter/auto\nmodes:\n  keyboard:\n    outDir: ./.rawstep/out/keyboard`
     );
-  }
-
-  if (candidate.apiKey !== undefined) {
-    throw new Error(`Config file ${configPath} defaults.apiKey is not allowed. Use environment variables for secrets.`);
   }
 
   for (const key of [

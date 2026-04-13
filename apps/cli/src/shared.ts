@@ -19,12 +19,17 @@ export type CliRunOptions = {
   configFile?: string;
   mode?: UserModel;
   outDir?: string;
+  maxSteps?: number;
+  timeoutMs?: number;
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
   agentMemoryWindow?: number;
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
+  allowedKeys?: AllowedKey[];
+  allowedScreenReaderCommands?: ScreenReaderCommand[];
+  screenReaderBackendId?: ScreenReaderBackendId;
   provider?: AgentProvider;
   model?: string;
   baseURL?: string;
@@ -101,6 +106,7 @@ export type ResolvedRunOptions = {
   includeExperienceSummary: boolean;
   includeRationale: boolean;
   provider?: AgentProvider;
+  apiKey?: string;
   model?: string;
   baseURL?: string;
   allowedKeys: readonly AllowedKey[];
@@ -219,12 +225,15 @@ export function parseMemorySetting(value: unknown, label: string): MemorySetting
 }
 
 export function parseAllowedKeys(value: unknown, label: string): AllowedKey[] {
-  const result = allowedKeysSchema.safeParse(value);
-  if (!result.success) {
+  if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of allowed key names.`);
   }
 
-  return result.data.map((entry, index) => {
+  return value.map((entry, index) => {
+    if (typeof entry !== "string") {
+      throw new Error(`${label}[${index}] must be one of ${ALLOWED_KEY_LABELS}.`);
+    }
+
     if (!isAllowedKey(entry)) {
       throw new Error(`${label}[${index}] must be one of ${ALLOWED_KEY_LABELS}.`);
     }
@@ -234,12 +243,15 @@ export function parseAllowedKeys(value: unknown, label: string): AllowedKey[] {
 }
 
 export function parseAllowedScreenReaderCommands(value: unknown, label: string): ScreenReaderCommand[] {
-  const result = allowedScreenReaderCommandsSchema.safeParse(value);
-  if (!result.success) {
+  if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of screen reader commands.`);
   }
 
-  return result.data.map((entry, index) => {
+  return value.map((entry, index) => {
+    if (typeof entry !== "string") {
+      throw new Error(`${label}[${index}] must be one of ${SCREEN_READER_COMMAND_LABELS}.`);
+    }
+
     if (!isScreenReaderCommand(entry)) {
       throw new Error(`${label}[${index}] must be one of ${SCREEN_READER_COMMAND_LABELS}.`);
     }
@@ -255,6 +267,30 @@ export function parseScreenReaderBackendId(value: unknown, label: string): Scree
   }
 
   throw new Error(`${label} must be one of guidepup-voiceover, guidepup-nvda, guidepup-virtual.`);
+}
+
+export function parseCommaSeparatedAllowedKeys(value: unknown, label: string): AllowedKey[] {
+  return parseAllowedKeys(parseCommaSeparatedValues(value, label), label);
+}
+
+export function parseCommaSeparatedScreenReaderCommands(value: unknown, label: string): ScreenReaderCommand[] {
+  return parseAllowedScreenReaderCommands(parseCommaSeparatedValues(value, label), label);
+}
+
+function parseCommaSeparatedValues(value: unknown, label: string): string[] {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a comma-separated string.`);
+  }
+
+  const entries = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (entries.length === 0) {
+    throw new Error(`${label} must include at least one value.`);
+  }
+
+  return entries;
 }
 
 const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";

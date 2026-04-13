@@ -83,6 +83,11 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     maxSteps: modePreset?.maxSteps,
     timeoutMs: modePreset?.timeoutMs
   });
+  const resolvedTask = {
+    ...task,
+    maxSteps: cliOptions.maxSteps ?? task.maxSteps,
+    timeoutMs: cliOptions.timeoutMs ?? task.timeoutMs
+  };
 
   const outDir = cliOptions.outDir
     ?? resolveOutputDir(taskSource.taskConfig?.outDir, dirname(taskSource.absoluteTaskFile))
@@ -105,11 +110,18 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     );
   }
 
-  const configuredAllowedKeys = taskSource.taskConfig?.allowedKeys ?? modePreset?.allowedKeys;
+  const configuredAllowedKeys =
+    cliOptions.allowedKeys
+    ?? taskSource.taskConfig?.allowedKeys
+    ?? modePreset?.allowedKeys;
   const configuredAllowedScreenReaderCommands =
+    cliOptions.allowedScreenReaderCommands
+    ??
     taskSource.taskConfig?.allowedScreenReaderCommands
     ?? modePreset?.allowedScreenReaderCommands;
   const configuredModeScreenReaderBackend =
+    cliOptions.screenReaderBackendId
+    ??
     taskSource.taskConfig?.screenReaderBackend
     ?? modePreset?.screenReaderBackend;
 
@@ -134,13 +146,13 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   const allowedKeys = resolveAllowedKeys(selectedMode, configuredAllowedKeys);
 
   return {
-    task,
+    task: resolvedTask,
     taskFile: taskSource.absoluteTaskFile,
     configFile: configPath,
     outDir,
-    mode: task.mode,
-    maxSteps: task.maxSteps,
-    timeoutMs: task.timeoutMs,
+    mode: resolvedTask.mode,
+    maxSteps: resolvedTask.maxSteps,
+    timeoutMs: resolvedTask.timeoutMs,
     screenshotPolicy: cliOptions.screenshotPolicy
       ?? taskSource.taskConfig?.screenshots
       ?? modePreset?.screenshots,
@@ -160,6 +172,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
       ?? false,
     provider: cliOptions.provider
       ?? projectDefaults?.provider,
+    apiKey: projectDefaults?.apiKey,
     model: cliOptions.model
       ?? projectDefaults?.model,
     baseURL: cliOptions.baseURL
@@ -286,6 +299,7 @@ function validateProjectDefaults(
 
   return {
     provider: candidate.provider,
+    apiKey: candidate.apiKey,
     model: candidate.model,
     baseURL: candidate.baseURL
   };

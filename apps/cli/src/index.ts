@@ -86,6 +86,7 @@ function createAgent(
 ): LLMAgent {
   return new LLMAgent(mode, {
     provider: options.provider,
+    apiKey: options.apiKey,
     model: options.model,
     baseURL: options.baseURL,
     agentMemoryWindow: options.agentMemoryWindow,

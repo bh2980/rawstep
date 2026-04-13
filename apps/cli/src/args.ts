@@ -2,7 +2,10 @@ import { resolve } from "node:path";
 import {
   type CliRunOptions,
   parseAgentProvider,
+  parseCommaSeparatedAllowedKeys,
+  parseCommaSeparatedScreenReaderCommands,
   parseOptionalNonNegativeInteger,
+  parseScreenReaderBackendId,
   parseScreenshotPolicy,
   parseUserModel
 } from "./shared";
@@ -17,11 +20,16 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let configFile = undefined;
   let outDir = undefined;
   let screenshotPolicy = undefined;
+  let maxSteps = undefined;
+  let timeoutMs = undefined;
   let verifierAutoComplete = undefined;
   let agentMemoryWindow = undefined;
   let agentMemoryAll = undefined;
   let includeExperienceSummary = undefined;
   let includeRationale = undefined;
+  let allowedKeys = undefined;
+  let allowedScreenReaderCommands = undefined;
+  let screenReaderBackendId = undefined;
   let provider = undefined;
   let model: string | undefined;
   let baseURL: string | undefined;
@@ -78,8 +86,58 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--max-steps") {
+      if (!next) {
+        throw new Error("Missing value for --max-steps.");
+      }
+      maxSteps = parseOptionalNonNegativeInteger(next, "--max-steps");
+      index += 1;
+      continue;
+    }
+
+    if (token === "--timeout-ms") {
+      if (!next) {
+        throw new Error("Missing value for --timeout-ms.");
+      }
+      timeoutMs = parseOptionalNonNegativeInteger(next, "--timeout-ms");
+      index += 1;
+      continue;
+    }
+
+    if (token === "--screen-reader-backend") {
+      if (!next) {
+        throw new Error("Missing value for --screen-reader-backend.");
+      }
+      screenReaderBackendId = parseScreenReaderBackendId(next, "--screen-reader-backend");
+      index += 1;
+      continue;
+    }
+
+    if (token === "--allowed-keys") {
+      if (!next) {
+        throw new Error("Missing value for --allowed-keys.");
+      }
+      allowedKeys = parseCommaSeparatedAllowedKeys(next, "--allowed-keys");
+      index += 1;
+      continue;
+    }
+
+    if (token === "--allowed-screen-reader-commands") {
+      if (!next) {
+        throw new Error("Missing value for --allowed-screen-reader-commands.");
+      }
+      allowedScreenReaderCommands = parseCommaSeparatedScreenReaderCommands(next, "--allowed-screen-reader-commands");
+      index += 1;
+      continue;
+    }
+
     if (token === "--verifier-auto-complete") {
       verifierAutoComplete = true;
+      continue;
+    }
+
+    if (token === "--no-verifier-auto-complete") {
+      verifierAutoComplete = false;
       continue;
     }
 
@@ -97,13 +155,28 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--no-agent-memory-all") {
+      agentMemoryAll = false;
+      continue;
+    }
+
     if (token === "--include-experience-summary") {
       includeExperienceSummary = true;
       continue;
     }
 
+    if (token === "--no-include-experience-summary") {
+      includeExperienceSummary = false;
+      continue;
+    }
+
     if (token === "--include-rationale") {
       includeRationale = true;
+      continue;
+    }
+
+    if (token === "--no-include-rationale") {
+      includeRationale = false;
       continue;
     }
 
@@ -134,11 +207,16 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     mode,
     outDir: outDir ? resolve(outDir) : undefined,
     screenshotPolicy,
+    maxSteps,
+    timeoutMs,
     verifierAutoComplete,
     agentMemoryWindow,
     agentMemoryAll,
     includeExperienceSummary,
     includeRationale,
+    allowedKeys,
+    allowedScreenReaderCommands,
+    screenReaderBackendId,
     provider,
     model,
     baseURL
@@ -147,6 +225,6 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
 
 export function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual] [--allowed-keys Tab,Shift+Tab,Enter] [--allowed-screen-reader-commands nextItem,act] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
   );
 }

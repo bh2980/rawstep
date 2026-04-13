@@ -167,7 +167,7 @@ describe.sequential("CLI", () => {
     ])).toThrow("Unsupported mode");
   });
 
-  it("parses provider CLI flags", () => {
+  it("parses provider and run override CLI flags", () => {
     const parsed = parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
@@ -178,12 +178,22 @@ describe.sequential("CLI", () => {
       "./tmp/out",
       "--screenshots",
       "failure-only",
-      "--verifier-auto-complete",
+      "--max-steps",
+      "12",
+      "--timeout-ms",
+      "240000",
+      "--allowed-keys",
+      "Tab,Enter,Space",
+      "--screen-reader-backend",
+      "guidepup-virtual",
+      "--allowed-screen-reader-commands",
+      "nextItem,act",
+      "--no-verifier-auto-complete",
       "--agent-memory-window",
       "3",
-      "--agent-memory-all",
-      "--include-experience-summary",
-      "--include-rationale",
+      "--no-agent-memory-all",
+      "--no-include-experience-summary",
+      "--no-include-rationale",
       "--provider",
       "openai-compatible",
       "--model",
@@ -197,11 +207,16 @@ describe.sequential("CLI", () => {
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
     expect(parsed.screenshotPolicy).toBe("failure-only");
-    expect(parsed.verifierAutoComplete).toBe(true);
+    expect(parsed.maxSteps).toBe(12);
+    expect(parsed.timeoutMs).toBe(240000);
+    expect(parsed.allowedKeys).toEqual(["Tab", "Enter", "Space"]);
+    expect(parsed.screenReaderBackendId).toBe("guidepup-virtual");
+    expect(parsed.allowedScreenReaderCommands).toEqual(["nextItem", "act"]);
+    expect(parsed.verifierAutoComplete).toBe(false);
     expect(parsed.agentMemoryWindow).toBe(3);
-    expect(parsed.agentMemoryAll).toBe(true);
-    expect(parsed.includeExperienceSummary).toBe(true);
-    expect(parsed.includeRationale).toBe(true);
+    expect(parsed.agentMemoryAll).toBe(false);
+    expect(parsed.includeExperienceSummary).toBe(false);
+    expect(parsed.includeRationale).toBe(false);
   });
 
   it("leaves optional CLI overrides undefined when omitted", () => {
@@ -212,11 +227,30 @@ describe.sequential("CLI", () => {
     ]);
 
     expect(parsed.outDir).toBeUndefined();
+    expect(parsed.maxSteps).toBeUndefined();
+    expect(parsed.timeoutMs).toBeUndefined();
     expect(parsed.verifierAutoComplete).toBeUndefined();
     expect(parsed.agentMemoryWindow).toBeUndefined();
     expect(parsed.agentMemoryAll).toBeUndefined();
     expect(parsed.includeExperienceSummary).toBeUndefined();
     expect(parsed.includeRationale).toBeUndefined();
+    expect(parsed.allowedKeys).toBeUndefined();
+    expect(parsed.allowedScreenReaderCommands).toBeUndefined();
+    expect(parsed.screenReaderBackendId).toBeUndefined();
+  });
+
+  it("rejects invalid comma-separated allowed keys and screen reader commands", () => {
+    expect(() => parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--allowed-keys",
+      "Tab,BadKey"
+    ])).toThrow("--allowed-keys[1] must be one of");
+
+    expect(() => parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--allowed-screen-reader-commands",
+      "nextItem,badCommand"
+    ])).toThrow("--allowed-screen-reader-commands[1] must be one of");
   });
 
   it("rejects invalid agent memory window values", () => {
@@ -560,7 +594,7 @@ describe.sequential("CLI", () => {
     expect(options.includeRationale).toBe(true);
   });
 
-  it("rejects apiKey in rawstep.config.ts and task.yml", async () => {
+  it("accepts apiKey in rawstep.config.ts and still rejects it in task.yml", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-secrets-"));
     const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.yml");
@@ -590,6 +624,7 @@ describe.sequential("CLI", () => {
         "id: invalid-secret-task",
         `url: ${resolve("fixtures/simple-cta.html")}`,
         "goal: Complete the CTA task.",
+        "mode: keyboard",
         "verify:",
         "  all:",
         "    - textVisible: Started!",
@@ -602,7 +637,11 @@ describe.sequential("CLI", () => {
       taskPath,
       "--config",
       configPath
-    ]))).rejects.toThrow("apiKey is not allowed");
+    ]))).resolves.toMatchObject({
+      provider: "anthropic",
+      apiKey: "secret",
+      model: "claude-config"
+    });
 
     await writeFile(
       taskPath,
@@ -610,6 +649,7 @@ describe.sequential("CLI", () => {
         "id: invalid-secret-task",
         `url: ${resolve("fixtures/simple-cta.html")}`,
         "goal: Complete the CTA task.",
+        "mode: keyboard",
         "verify:",
         "  all:",
         "    - textVisible: Started!",
@@ -623,6 +663,40 @@ describe.sequential("CLI", () => {
     await expect(resolveRunOptions(parseRunArgs([
       taskPath
     ]))).rejects.toThrow("apiKey is not allowed");
+  });
+
+  it("prefers apiKey from rawstep.config.ts defaults over the shared environment variable", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-api-key-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    process.env.A11Y_TASK_AGENT_API_KEY = "env-key";
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    apiKey: "config-key",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]));
+
+    expect(options.apiKey).toBe("config-key");
   });
 
   it("rejects removed defaults.run/defaults.agent format with a migration hint", async () => {
@@ -1006,6 +1080,78 @@ describe.sequential("CLI", () => {
     expect(options.allowedScreenReaderCommands).toEqual(["nextItem"]);
   });
 
+  it("lets CLI override screen reader backend, allowed command subsets, and task timing", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-cli-override-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "task.yml");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./sr-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedKeys: ["Tab", "Enter"],
+      allowedScreenReaderCommands: ["nextItem", "act"]
+    }
+  }
+}`
+    );
+    await writeFile(
+      taskPath,
+      [
+        "id: sr-cli-override-task",
+        `url: ${resolve("fixtures/simple-cta.html")}`,
+        "goal: Complete the CTA task.",
+        "mode: screenreader-hybrid",
+        "maxSteps: 40",
+        "timeoutMs: 200000",
+        "verify:",
+        "  all:",
+        "    - textVisible: Started!",
+        "    - titleIncludes: Completed",
+        "config:",
+        "  allowedKeys:",
+        "    - Tab",
+        "  allowedScreenReaderCommands:",
+        "    - nextItem",
+        "  screenReaderBackend: guidepup-voiceover"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--max-steps",
+      "55",
+      "--timeout-ms",
+      "210000",
+      "--screen-reader-backend",
+      "guidepup-virtual",
+      "--allowed-keys",
+      "Tab",
+      "--allowed-screen-reader-commands",
+      "nextItem,act"
+    ]));
+
+    expect(options.task.maxSteps).toBe(55);
+    expect(options.task.timeoutMs).toBe(210000);
+    expect(options.screenReaderBackendId).toBe("guidepup-virtual");
+    expect(options.allowedKeys).toEqual(["Tab"]);
+    expect(options.allowedScreenReaderCommands).toEqual(["nextItem", "act"]);
+  });
+
   it("rejects screen reader command config in keyboard mode", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-keyboard-sr-command-"));
     const configPath = join(tempDir, "rawstep.config.ts");
@@ -1101,6 +1247,79 @@ describe.sequential("CLI", () => {
       configPath,
       "--mode",
       "screenreader-hybrid"
+    ]))).rejects.toThrow('does not support commands: nextFormControl');
+  });
+
+  it("rejects invalid screen reader CLI overrides for the selected mode and backend", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-cli-invalid-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./keyboard-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    },
+    "screenreader-strict": {
+      outDir: "./strict-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedScreenReaderCommands: ["nextItem", "act"]
+    },
+    "screenreader-hybrid": {
+      outDir: "./hybrid-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedKeys: ["Tab"],
+      allowedScreenReaderCommands: ["nextItem", "act"]
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard",
+      "--screen-reader-backend",
+      "guidepup-virtual"
+    ]))).rejects.toThrow("screenReaderBackend is not allowed in keyboard mode");
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-strict",
+      "--allowed-keys",
+      "Tab,Enter"
+    ]))).rejects.toThrow("allowedKeys is not allowed in screenreader-strict mode");
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-hybrid",
+      "--screen-reader-backend",
+      "guidepup-virtual",
+      "--allowed-screen-reader-commands",
+      "nextItem,nextFormControl"
     ]))).rejects.toThrow('does not support commands: nextFormControl');
   });
 

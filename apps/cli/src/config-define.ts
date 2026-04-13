@@ -48,6 +48,7 @@ type ScreenReaderHybridModeConfig = {
 
 type ProjectDefaultsConfig = {
   provider?: AgentProvider;
+  apiKey?: string;
   model?: string;
   baseURL?: string;
 };

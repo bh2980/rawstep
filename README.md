@@ -249,6 +249,7 @@ export default defineConfig({
   version: 1,
   defaults: {
     provider: "anthropic",
+    apiKey: process.env.ANTHROPIC_API_KEY,
     model: "claude-3-5-sonnet-latest"
   },
   modes: {
@@ -284,13 +285,14 @@ export default defineConfig({
 ```
 
 - `defaults` 는 모든 모드 공통값입니다.
+- `defaults.apiKey` 도 받을 수 있습니다. 보통 `process.env.OPENROUTER_API_KEY` 같은 식으로 연결해 두면 됩니다.
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다.
 - `screenReaderBackend` 는 screenreader mode preset이나 task override에서 명시해야 합니다.
 - `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - task 파일(`.json`, `.yml`)은 과업 자체를 정의합니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
 - `rawstep.config.ts` 가 없거나, 선택한 mode preset에 `outDir`, `maxSteps`, `timeoutMs`, `memory` 가 비어 있으면 실행하지 않습니다.
-- API key 같은 비밀값은 `rawstep.config.ts` 에 넣지 않고 환경변수로만 받습니다.
+- task override에는 `apiKey` 를 넣을 수 없습니다. 공통 provider 설정은 `rawstep.config.ts defaults` 에 둡니다.
 
 task 파일에도 필요한 경우 override를 둘 수 있습니다.
 
@@ -337,7 +339,14 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 ```bash
 pnpm a11y-task run examples/tasks/simple-cta.json \
   --config ./rawstep.config.ts \
+  --mode screenreader-hybrid \
+  --max-steps 40 \
+  --timeout-ms 240000 \
+  --screen-reader-backend guidepup-virtual \
+  --allowed-keys Tab,Enter \
+  --allowed-screen-reader-commands nextItem,act \
   --agent-memory-window 5 \
+  --no-agent-memory-all \
   --include-experience-summary \
   --screenshots important \
   --include-rationale \
@@ -346,6 +355,24 @@ pnpm a11y-task run examples/tasks/simple-cta.json \
   --model openrouter/auto \
   --base-url https://openrouter.ai/api/v1
 ```
+
+config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있습니다.
+
+- `screenReaderBackend` -> `--screen-reader-backend`
+- `allowedKeys` -> `--allowed-keys`
+- `allowedScreenReaderCommands` -> `--allowed-screen-reader-commands`
+- `maxSteps` -> `--max-steps`
+- `timeoutMs` -> `--timeout-ms`
+- `verifierAutoComplete` -> `--verifier-auto-complete` / `--no-verifier-auto-complete`
+- `includeExperienceSummary` -> `--include-experience-summary` / `--no-include-experience-summary`
+- `includeRationale` -> `--include-rationale` / `--no-include-rationale`
+- `memory: "all"` -> `--agent-memory-all` / `--no-agent-memory-all`
+- `memory: 5` -> `--agent-memory-window 5`
+
+배열형 override는 쉼표 구분 한 개 플래그로 받습니다.
+
+- `--allowed-keys Tab,Shift+Tab,Enter,Space`
+- `--allowed-screen-reader-commands nextItem,previousItem,act`
 
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
