@@ -1,8 +1,6 @@
 import type { ScreenReaderController } from "@a11y-task/actuator";
 import type { ScreenReaderCommand, ScreenReaderObservation } from "@a11y-task/core";
 import type { Page } from "playwright";
-import type { ScreenReaderObserver } from "./observer";
-
 export const SCREEN_READER_BACKEND_IDS = [
   "guidepup-voiceover",
   "guidepup-nvda",
@@ -28,8 +26,13 @@ export type ScreenReaderBackend = {
   createSession(page: Page): Promise<ScreenReaderSession>;
 };
 
+export type ScreenReaderRuntimeObserver = {
+  observe(): Promise<ScreenReaderObservation>;
+  prepareNextObservation?(profile: ScreenReaderObserveProfileName): void;
+};
+
 export type ScreenReaderRuntime = {
-  observer: ScreenReaderObserver;
+  observer: ScreenReaderRuntimeObserver;
   controller: ScreenReaderController;
   setupTimings: {
     screenReaderInitMs: number;

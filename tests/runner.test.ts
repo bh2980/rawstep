@@ -98,7 +98,10 @@ describe("runTask", () => {
         goal: "Buy now 버튼을 찾아서 활성화하라.",
         mode: "keyboard",
         maxSteps: 8,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Bad Focus Fixture" }]
+        }
       },
       {
         outDir,
@@ -120,7 +123,10 @@ describe("runTask", () => {
         goal: "Never finish.",
         mode: "keyboard",
         maxSteps: 2,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -146,7 +152,10 @@ describe("runTask", () => {
         goal: "Time out immediately.",
         mode: "keyboard",
         maxSteps: 20,
-        timeoutMs: 0
+        timeoutMs: 0,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -198,7 +207,10 @@ describe("runTask", () => {
         goal: "Inspect memory behavior.",
         mode: "keyboard",
         maxSteps: 3,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -319,7 +331,10 @@ describe("runTask", () => {
         goal: "Try text input without opt-in.",
         mode: "keyboard",
         maxSteps: 2,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -349,7 +364,10 @@ describe("runTask", () => {
         mode: "keyboard",
         maxSteps: 3,
         timeoutMs: 60_000,
-        input: { text: "passport" }
+        input: { text: "passport" },
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -628,7 +646,10 @@ describe("runTask", () => {
         goal: "Do not allow raw keys.",
         mode: "screenreader-strict",
         maxSteps: 2,
-        timeoutMs: 60_000
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
       },
       {
         outDir,
@@ -923,7 +944,7 @@ describe("runTask", () => {
             method: "POST",
             status: 200,
             ok: true,
-            timestamp: Date.now()
+            timestamp: new Date().toISOString()
           });
           return session;
         },

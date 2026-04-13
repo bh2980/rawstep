@@ -14,7 +14,10 @@ describe("TraceRecorder", () => {
       goal: "Trace one step.",
       mode: "keyboard",
       maxSteps: 2,
-      timeoutMs: 1000
+      timeoutMs: 1000,
+      verify: {
+        all: [{ titleIncludes: "Trace fixture" }]
+      }
     };
 
     const recorder = new TraceRecorder(task, outDir);
@@ -98,7 +101,10 @@ describe("TraceRecorder", () => {
       goal: "Trace one screenreader step.",
       mode: "screenreader-strict",
       maxSteps: 1,
-      timeoutMs: 1000
+      timeoutMs: 1000,
+      verify: {
+        all: [{ textVisible: "Get started button" }]
+      }
     };
 
     const recorder = new TraceRecorder(task, outDir);

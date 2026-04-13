@@ -17,7 +17,10 @@ describe("reporter", () => {
           mode: "keyboard",
           maxSteps: 2,
           timeoutMs: 1000,
-          input: { text: "passport" }
+          input: { text: "passport" },
+          verify: {
+            all: [{ titleIncludes: "Search Fixture" }]
+          }
         },
         startedAt: "2026-04-12T00:00:00.000Z",
         endedAt: "2026-04-12T00:00:05.000Z",
@@ -95,7 +98,10 @@ describe("reporter", () => {
           goal: "Move to the next announced item.",
           mode: "screenreader-hybrid",
           maxSteps: 2,
-          timeoutMs: 1000
+          timeoutMs: 1000,
+          verify: {
+            all: [{ textVisible: "Get started button" }]
+          }
         },
         startedAt: "2026-04-12T00:00:00.000Z",
         endedAt: "2026-04-12T00:00:03.000Z",
@@ -354,7 +360,10 @@ describe("reporter", () => {
           goal: "Finish and summarize.",
           mode: "keyboard",
           maxSteps: 1,
-          timeoutMs: 1000
+          timeoutMs: 1000,
+          verify: {
+            all: [{ titleIncludes: "summary-task" }]
+          }
         },
         startedAt: "2026-04-12T00:00:00.000Z",
         endedAt: "2026-04-12T00:00:01.000Z",

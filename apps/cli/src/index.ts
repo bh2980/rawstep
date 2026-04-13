@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { LLMAgent } from "@a11y-task/agent";
-import type { Task, UserModel } from "@a11y-task/core";
+import type { Agent, Task, UserModel } from "@a11y-task/core";
 import { renderReport } from "@a11y-task/reporter";
 import { runTask } from "@a11y-task/runner";
 import { mkdir } from "node:fs/promises";
@@ -12,7 +12,11 @@ import { loadConfig, resolveRunOptions } from "./config";
 import { type ResolvedRunOptions } from "./shared";
 
 type RunCliDependencies = {
-  createAgent?: typeof createAgent;
+  createAgent?: (
+    mode: UserModel,
+    taskInput: Task["input"],
+    options: ResolvedRunOptions
+  ) => Agent & { getPromptLog?(): unknown[] };
 };
 
 export async function runCli(
