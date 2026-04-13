@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Script } from "node:vm";
+import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
   ALLOWED_KEYS,
@@ -24,6 +25,8 @@ import {
 import { configRootSchema, parseProjectDefaultsObject } from "./schema";
 import { loadTaskSource, resolveTask, validateTaskConfigOverride } from "./task-file";
 
+const loadedEnvDirs = new Set<string>();
+
 export async function loadConfig(configFile?: string): Promise<LoadedProjectConfig> {
   const resolvedPath = configFile
     ? validateExplicitConfigPath(configFile)
@@ -33,6 +36,8 @@ export async function loadConfig(configFile?: string): Promise<LoadedProjectConf
       "Missing rawstep.config.ts. Put rawstep.config.ts at the project root or pass --config <path>."
     );
   }
+
+  loadEnvFileForConfig(resolvedPath);
 
   const parsedResult = configRootSchema.safeParse(await loadTsConfigModule(resolvedPath));
   if (!parsedResult.success || parsedResult.data.version !== 1) {
@@ -92,6 +97,10 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   const outDir = cliOptions.outDir
     ?? resolveOutputDir(taskSource.taskConfig?.outDir, dirname(taskSource.absoluteTaskFile))
     ?? resolveOutputDir(modePreset?.outDir, configDir);
+  const headless =
+    cliOptions.headless
+    ?? taskSource.taskConfig?.headless
+    ?? modePreset?.headless;
 
   if (!outDir) {
     throw new Error(`Missing output directory. Pass --out <dir> or set modes.${selectedMode}.outDir in rawstep.config.ts.`);
@@ -151,6 +160,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     configFile: configPath,
     outDir,
     mode: resolvedTask.mode,
+    headless,
     maxSteps: resolvedTask.maxSteps,
     timeoutMs: resolvedTask.timeoutMs,
     screenshotPolicy: cliOptions.screenshotPolicy
@@ -238,6 +248,19 @@ function validateExplicitConfigPath(configFile: string): string {
   }
 
   return resolvedPath;
+}
+
+function loadEnvFileForConfig(configPath: string): void {
+  const configDir = dirname(configPath);
+  if (loadedEnvDirs.has(configDir)) {
+    return;
+  }
+
+  loadDotenv({
+    path: join(configDir, ".env"),
+    override: false
+  });
+  loadedEnvDirs.add(configDir);
 }
 
 async function loadTsConfigModule(configPath: string): Promise<unknown> {
@@ -344,6 +367,7 @@ function validateModePreset(
   }
   return {
     outDir: preset?.outDir,
+    headless: preset?.headless,
     maxSteps: preset?.maxSteps,
     timeoutMs: preset?.timeoutMs,
     screenshots: preset?.screenshots,

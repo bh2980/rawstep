@@ -255,6 +255,7 @@ export default defineConfig({
   modes: {
     keyboard: {
       outDir: "./.rawstep/out/keyboard",
+      headless: true,
       maxSteps: 20,
       timeoutMs: 180000,
       verifierAutoComplete: true,
@@ -262,6 +263,7 @@ export default defineConfig({
     },
     "screenreader-strict": {
       outDir: "./.rawstep/out/sr-strict",
+      headless: false,
       maxSteps: 200,
       timeoutMs: 300000,
       screenshots: "all",
@@ -286,7 +288,9 @@ export default defineConfig({
 
 - `defaults` 는 모든 모드 공통값입니다.
 - `defaults.apiKey` 도 받을 수 있습니다. 보통 `process.env.OPENROUTER_API_KEY` 같은 식으로 연결해 두면 됩니다.
+- CLI는 `rawstep.config.ts` 옆의 `.env` 파일도 자동으로 읽습니다.
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다.
+- `headless` 는 브라우저 창 표시 여부입니다. 기본은 `keyboard` 와 `guidepup-virtual` 이면 headless, `guidepup-voiceover`/`guidepup-nvda` 면 headed 입니다.
 - `screenReaderBackend` 는 screenreader mode preset이나 task override에서 명시해야 합니다.
 - `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - task 파일(`.json`, `.yml`)은 과업 자체를 정의합니다.
@@ -308,6 +312,7 @@ config:
   mode: screenreader-strict
   timeoutMs: 600000
   memory: all
+  headless: true
   screenReaderBackend: guidepup-virtual
   allowedScreenReaderCommands:
     - nextItem
@@ -340,6 +345,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 pnpm a11y-task run examples/tasks/simple-cta.json \
   --config ./rawstep.config.ts \
   --mode screenreader-hybrid \
+  --headless \
   --max-steps 40 \
   --timeout-ms 240000 \
   --screen-reader-backend guidepup-virtual \
@@ -359,6 +365,7 @@ pnpm a11y-task run examples/tasks/simple-cta.json \
 config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있습니다.
 
 - `screenReaderBackend` -> `--screen-reader-backend`
+- `headless` -> `--headless` / `--headed`
 - `allowedKeys` -> `--allowed-keys`
 - `allowedScreenReaderCommands` -> `--allowed-screen-reader-commands`
 - `maxSteps` -> `--max-steps`

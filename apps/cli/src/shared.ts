@@ -19,6 +19,7 @@ export type CliRunOptions = {
   configFile?: string;
   mode?: UserModel;
   outDir?: string;
+  headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
   screenshotPolicy?: ScreenshotPolicy;
@@ -46,6 +47,7 @@ export type TaskFileShape = Partial<Task> & {
 
 export type ModeConfigShape = {
   outDir?: string;
+  headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
   screenshots?: ScreenshotPolicy;
@@ -68,6 +70,7 @@ export type ProjectDefaultsShape = {
 export type TaskConfigOverride = {
   mode?: UserModel;
   outDir?: string;
+  headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
   screenshots?: ScreenshotPolicy;
@@ -97,6 +100,7 @@ export type ResolvedRunOptions = {
   configFile?: string;
   outDir: string;
   mode?: UserModel;
+  headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
   screenshotPolicy?: ScreenshotPolicy;

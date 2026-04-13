@@ -39,6 +39,7 @@ export async function runCli(
     await mkdir(options.outDir, { recursive: true });
     const session = await runTask(task, {
       outDir: options.outDir,
+      headless: options.headless,
       agent,
       screenshotPolicy: options.screenshotPolicy,
       verifierAutoComplete: options.verifierAutoComplete,

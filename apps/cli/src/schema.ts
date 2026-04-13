@@ -13,6 +13,7 @@ import {
 const taskConfigObjectSchema = z.object({
   mode: userModelSchema.optional(),
   outDir: nonEmptyStringSchema.optional(),
+  headless: booleanSchema.optional(),
   maxSteps: nonNegativeIntegerSchema.optional(),
   timeoutMs: nonNegativeIntegerSchema.optional(),
   screenshots: screenshotPolicySchema.optional(),
@@ -74,6 +75,7 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
 
   for (const key of [
     "outDir",
+    "headless",
     "maxSteps",
     "timeoutMs",
     "screenshots",

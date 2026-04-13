@@ -176,6 +176,7 @@ describe.sequential("CLI", () => {
       "keyboard",
       "--out",
       "./tmp/out",
+      "--headed",
       "--screenshots",
       "failure-only",
       "--max-steps",
@@ -206,6 +207,7 @@ describe.sequential("CLI", () => {
     expect(parsed.provider).toBe("openai-compatible");
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
+    expect(parsed.headless).toBe(false);
     expect(parsed.screenshotPolicy).toBe("failure-only");
     expect(parsed.maxSteps).toBe(12);
     expect(parsed.timeoutMs).toBe(240000);
@@ -234,6 +236,7 @@ describe.sequential("CLI", () => {
     expect(parsed.agentMemoryAll).toBeUndefined();
     expect(parsed.includeExperienceSummary).toBeUndefined();
     expect(parsed.includeRationale).toBeUndefined();
+    expect(parsed.headless).toBeUndefined();
     expect(parsed.allowedKeys).toBeUndefined();
     expect(parsed.allowedScreenReaderCommands).toBeUndefined();
     expect(parsed.screenReaderBackendId).toBeUndefined();
@@ -699,6 +702,42 @@ describe.sequential("CLI", () => {
     expect(options.apiKey).toBe("config-key");
   });
 
+  it("loads .env next to rawstep.config.ts before evaluating config values", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-dotenv-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    delete process.env.OPENROUTER_API_KEY;
+
+    await writeFile(join(tempDir, ".env"), "OPENROUTER_API_KEY=dotenv-key\n", "utf8");
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "openai-compatible",
+    apiKey: process.env.OPENROUTER_API_KEY,
+    model: "openrouter/auto",
+    baseURL: "https://openrouter.ai/api/v1"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]));
+
+    expect(options.apiKey).toBe("dotenv-key");
+  });
+
   it("rejects removed defaults.run/defaults.agent format with a migration hint", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-old-defaults-"));
     const configPath = join(tempDir, "rawstep.config.ts");
@@ -1041,6 +1080,7 @@ describe.sequential("CLI", () => {
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
+      headless: false,
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab", "Enter"],
       allowedScreenReaderCommands: ["nextItem", "act"]
@@ -1060,6 +1100,7 @@ describe.sequential("CLI", () => {
         "    - textVisible: Started!",
         "    - titleIncludes: Completed",
         "config:",
+        "  headless: true",
         "  allowedKeys:",
         "    - Tab",
         "  allowedScreenReaderCommands:",
@@ -1076,6 +1117,7 @@ describe.sequential("CLI", () => {
     ]));
 
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
+    expect(options.headless).toBe(true);
     expect(options.allowedKeys).toEqual(["Tab"]);
     expect(options.allowedScreenReaderCommands).toEqual(["nextItem"]);
   });
@@ -1099,6 +1141,7 @@ describe.sequential("CLI", () => {
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
+      headless: false,
       screenReaderBackend: "guidepup-voiceover",
       allowedKeys: ["Tab", "Enter"],
       allowedScreenReaderCommands: ["nextItem", "act"]
@@ -1120,6 +1163,7 @@ describe.sequential("CLI", () => {
         "    - textVisible: Started!",
         "    - titleIncludes: Completed",
         "config:",
+        "  headless: false",
         "  allowedKeys:",
         "    - Tab",
         "  allowedScreenReaderCommands:",
@@ -1137,6 +1181,7 @@ describe.sequential("CLI", () => {
       "55",
       "--timeout-ms",
       "210000",
+      "--headless",
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-keys",
@@ -1147,6 +1192,7 @@ describe.sequential("CLI", () => {
 
     expect(options.task.maxSteps).toBe(55);
     expect(options.task.timeoutMs).toBe(210000);
+    expect(options.headless).toBe(true);
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.allowedKeys).toEqual(["Tab"]);
     expect(options.allowedScreenReaderCommands).toEqual(["nextItem", "act"]);

@@ -10,7 +10,12 @@
 ```
 runTask(task) -> TraceSession:
   trace = TraceRecorder(task)
-  browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
+  headless =
+    options.headless
+    ?? (task.mode == "keyboard"
+      ? true
+      : options.screenReaderBackendId == "guidepup-virtual")
+  browser = createBrowserSession(task.url, headless = headless)
   screenshotPolicy = options.screenshotPolicy ?? "all"
   verifierAutoComplete = options.verifierAutoComplete ?? false
   agentMemoryWindow = options.agentMemoryWindow

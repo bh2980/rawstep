@@ -9,7 +9,7 @@ import type {
   VerdictAnalysis
 } from "@a11y-task/core";
 import { KeyboardObserver } from "@a11y-task/observer-keyboard";
-import type { ScreenReaderRuntime } from "@a11y-task/observer-screenreader";
+import type { ScreenReaderBackendId, ScreenReaderRuntime } from "@a11y-task/observer-screenreader";
 
 export type RunnerObserver = {
   observe(): Promise<Observation>;
@@ -74,6 +74,33 @@ export function shouldUseInteractiveObservation(decision: Extract<Decision, { ac
 
 export function isScreenReaderMode(mode: UserModel): boolean {
   return mode === "screenreader-strict" || mode === "screenreader-hybrid";
+}
+
+export function resolveBrowserHeadless(
+  mode: UserModel,
+  configuredHeadless?: boolean,
+  screenReaderBackendId?: ScreenReaderBackendId
+): boolean {
+  if (configuredHeadless !== undefined) {
+    if (
+      isScreenReaderMode(mode)
+      &&
+      configuredHeadless
+      && (screenReaderBackendId === "guidepup-voiceover" || screenReaderBackendId === "guidepup-nvda")
+    ) {
+      throw new Error(
+        `Screen reader backend "${screenReaderBackendId}" requires a headed browser. Use --headed or set headless: false.`
+      );
+    }
+
+    return configuredHeadless;
+  }
+
+  if (!isScreenReaderMode(mode)) {
+    return true;
+  }
+
+  return screenReaderBackendId === "guidepup-virtual";
 }
 
 export function allowsRawKeyActions(mode: UserModel): boolean {

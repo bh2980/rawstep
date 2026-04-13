@@ -6,3 +6,4 @@ out
 playwright-report
 test-results
 in
+.env

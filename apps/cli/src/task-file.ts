@@ -127,6 +127,7 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
   return {
     mode: candidate.mode === undefined ? undefined : parseUserModel(candidate.mode),
     outDir: candidate.outDir,
+    headless: candidate.headless,
     maxSteps: candidate.maxSteps,
     timeoutMs: candidate.timeoutMs,
     screenshots: candidate.screenshots,

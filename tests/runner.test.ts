@@ -1,10 +1,11 @@
 import { createBrowserSession } from "@a11y-task/browser";
 import { runTask } from "@a11y-task/runner";
+import { resolveBrowserHeadless } from "../packages/runner/src/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 function createFixtureAgent(fixture: "simple-cta" | "bad-focus") {
   return {
@@ -42,6 +43,73 @@ function createFixtureAgent(fixture: "simple-cta" | "bad-focus") {
 }
 
 describe("runTask", () => {
+  it("defaults browser headless based on mode and screen reader backend", () => {
+    expect(resolveBrowserHeadless("keyboard")).toBe(true);
+    expect(resolveBrowserHeadless("screenreader-strict", undefined, "guidepup-virtual")).toBe(true);
+    expect(resolveBrowserHeadless("screenreader-hybrid", undefined, "guidepup-voiceover")).toBe(false);
+    expect(resolveBrowserHeadless("screenreader-hybrid", false, "guidepup-virtual")).toBe(false);
+  });
+
+  it("passes the resolved headless setting into the browser factory", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-headless-option-"));
+    const browserSessionFactory = vi.fn(async (_url: string, options) => {
+      throw new Error(`headless:${String(options?.headless)}`);
+    });
+
+    await expect(runTask(
+      {
+        id: "headless-option",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Check browser launch options.",
+        mode: "screenreader-hybrid",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        screenReaderBackendId: "guidepup-virtual",
+        browserSessionFactory
+      }
+    )).rejects.toThrow("headless:true");
+
+    expect(browserSessionFactory).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ headless: true })
+    );
+  });
+
+  it("rejects headless overrides for native screen readers before browser launch", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-native-screenreader-headless-"));
+    const browserSessionFactory = vi.fn(async () => {
+      throw new Error("browser should not launch");
+    });
+
+    await expect(runTask(
+      {
+        id: "native-sr-headless",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Check invalid headless override.",
+        mode: "screenreader-strict",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        headless: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        browserSessionFactory
+      }
+    )).rejects.toThrow('Screen reader backend "guidepup-voiceover" requires a headed browser');
+
+    expect(browserSessionFactory).not.toHaveBeenCalled();
+  });
+
   it("completes the simple CTA fixture with a fake deterministic agent", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-success-"));
     const session = await runTask(

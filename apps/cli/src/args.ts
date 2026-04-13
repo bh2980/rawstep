@@ -12,13 +12,14 @@ import {
 
 export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
-    throw new Error("Missing task file. Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>]");
+    throw new Error("Missing task file. Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed]");
   }
 
   const taskFile = argv[0];
   let mode = undefined;
   let configFile = undefined;
   let outDir = undefined;
+  let headless = undefined;
   let screenshotPolicy = undefined;
   let maxSteps = undefined;
   let timeoutMs = undefined;
@@ -53,6 +54,16 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       }
       outDir = next;
       index += 1;
+      continue;
+    }
+
+    if (token === "--headless") {
+      headless = true;
+      continue;
+    }
+
+    if (token === "--headed") {
+      headless = false;
       continue;
     }
 
@@ -206,6 +217,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     configFile,
     mode,
     outDir: outDir ? resolve(outDir) : undefined,
+    headless,
     screenshotPolicy,
     maxSteps,
     timeoutMs,
@@ -225,6 +237,6 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
 
 export function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual] [--allowed-keys Tab,Shift+Tab,Enter] [--allowed-screen-reader-commands nextItem,act] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual] [--allowed-keys Tab,Shift+Tab,Enter] [--allowed-screen-reader-commands nextItem,act] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
   );
 }

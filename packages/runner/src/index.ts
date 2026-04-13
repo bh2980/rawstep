@@ -31,6 +31,7 @@ import {
   createVerdictAnalysis,
   getErrorMessage,
   isScreenReaderMode,
+  resolveBrowserHeadless,
   shouldUseInteractiveObservation,
   selectAgentMemoryExcerpt
 } from "./helpers";
@@ -51,6 +52,7 @@ export type RunTaskOptions = {
   agentMemoryWindow?: number;
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
+  headless?: boolean;
   allowedKeys?: readonly (typeof ALLOWED_KEYS)[number][];
   allowedScreenReaderCommands?: readonly (typeof SCREENREADER_COMMANDS)[number][];
   screenReaderBackendId?: ScreenReaderBackendId;
@@ -87,7 +89,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   try {
     const browserFactory = options.browserSessionFactory ?? createBrowserSession;
     browser = await browserFactory(task.url, {
-      headless: !isScreenReaderMode(task.mode)
+      headless: resolveBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
     });
     const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
     const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;

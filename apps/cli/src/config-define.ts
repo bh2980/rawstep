@@ -15,6 +15,7 @@ type ScreenReaderCommandForBackend<TBackend extends ScreenReaderBackendId> =
 
 type SharedModeConfig = {
   outDir: string;
+  headless?: boolean;
   maxSteps: number;
   timeoutMs: number;
   screenshots?: ScreenshotPolicy;
