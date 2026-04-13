@@ -9,7 +9,7 @@ import {
 
 export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
-    throw new Error("Missing task file. Usage: a11y-task run <task.yml> [--config <rawstep.config.yml>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>]");
+    throw new Error("Missing task file. Usage: a11y-task run <task.yml> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>]");
   }
 
   const taskFile = argv[0];
@@ -53,6 +53,9 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
         throw new Error("Missing value for --config.");
       }
       configFile = resolve(next);
+      if (!configFile.endsWith(".ts")) {
+        throw new Error("--config only accepts rawstep.config.ts files.");
+      }
       index += 1;
       continue;
     }
@@ -144,6 +147,6 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
 
 export function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> [--config <rawstep.config.yml>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
   );
 }

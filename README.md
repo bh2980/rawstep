@@ -59,7 +59,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 ### `screenreader-strict` — 순수 SR 탐색 실험 모드
 
 - 관측 채널: 기본 screen reader backend인 [Guidepup](https://guidepup.dev/)
-  기반 macOS VoiceOver를 통해 수집되는 spoken announcement text.
+  계열 backend를 통해 수집되는 spoken announcement text.
 - 행동 공간: screen reader canonical command
   (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
   `nextFormControl`, `previousFormControl`, `act`) + opt-in `typeText`.
@@ -103,8 +103,8 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `a11y-task`로 확인하�
 - `goal` — 수행해야 할 과업. 사용자도 자기 목적을 압니다.
 - `allowedKeys` — 허용된 키 목록. 관측이 아니라 행동 공간의 정의.
 - `agent memory` — 이전 step들을 가볍게 요약한 text archive.
-  기본값은 최근 5개이며, `--agent-memory-window` 나 `--agent-memory-all`
-  로 범위를 늘릴 수 있습니다. 이 memory는 raw trace 전체가 아니라
+  최근 몇 개를 다시 보여줄지는 `rawstep.config.ts` 의 `memory` 나
+  `--agent-memory-window`, `--agent-memory-all` 로 정합니다. 이 memory는 raw trace 전체가 아니라
   "그 step에서 무엇을 봤고, 무엇을 했고, 결과가 어땠는지"만 담는 짧은 작업
   메모입니다.
 
@@ -209,51 +209,90 @@ a11y/
 ```bash
 pnpm install
 pnpm build
-cat > rawstep.config.yml <<'YAML'
-version: 1
-defaults:
-  run:
-    outDir: ./.rawstep/out
-  agent:
-    provider: stub
-YAML
+cat > rawstep.config.ts <<'TS'
+import { defineConfig } from "@a11y-task/cli/config";
 
+export default defineConfig({
+  version: 1,
+  defaults: {
+    provider: "openai-compatible",
+    model: "openrouter/auto",
+    baseURL: "https://openrouter.ai/api/v1",
+    screenReaderBackend: "auto"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./.rawstep/out/keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+});
+TS
+
+export A11Y_TASK_AGENT_API_KEY=your-key
 pnpm a11y-task run examples/tasks/simple-cta.yml
-open ./.rawstep/out/report/index.html
+open ./.rawstep/out/keyboard/report/index.html
 ```
 
 macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
 
-### `rawstep.config.yml`
+### `rawstep.config.ts`
 
-반복 실행에서 매번 긴 CLI 플래그를 쓰지 않으려면 루트에 `rawstep.config.yml` 을 둡니다.
+반복 실행에서 매번 긴 CLI 플래그를 쓰지 않으려면 루트에 `rawstep.config.ts` 를 둡니다.
+이 파일은 선택 사항이 아니라 **실행 계약 파일**입니다. 없으면 CLI가 바로 실패합니다.
 
-```yaml
-version: 1
+```ts
+import { defineConfig } from "@a11y-task/cli/config";
 
-defaults:
-  run:
-    mode: keyboard
-    outDir: ./.rawstep/out
-    maxSteps: 20
-    timeoutMs: 180000
-    screenshots: important
-    verifierAutoComplete: false
-
-  agent:
-    provider: anthropic
-    model: claude-3-5-sonnet-latest
-    memory:
-      window: 5
-      all: false
-    includeExperienceSummary: false
-    includeRationale: false
+export default defineConfig({
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-3-5-sonnet-latest",
+    screenReaderBackend: "auto"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./.rawstep/out/keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verifierAutoComplete: true,
+      memory: 5
+    },
+    "screenreader-strict": {
+      outDir: "./.rawstep/out/sr-strict",
+      maxSteps: 200,
+      timeoutMs: 300000,
+      screenshots: "all",
+      verifierAutoComplete: true,
+      includeRationale: true,
+      includeExperienceSummary: true,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedScreenReaderCommands: [
+        "nextItem",
+        "previousItem",
+        "nextHeading",
+        "previousHeading",
+        "nextFormControl",
+        "previousFormControl",
+        "act"
+      ]
+    }
+  }
+});
 ```
 
-- `rawstep.config.yml` 은 프로젝트 공통 기본값입니다.
+- `defaults` 는 모든 모드 공통값입니다.
+- `modes.<mode>` 는 그 모드의 실행 preset 입니다.
+- `screenReaderBackend` 는 어떤 screen reader backend를 붙일지 고르는 값입니다.
+- `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - `task.yml` 은 과업 자체를 정의합니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
-- API key 같은 비밀값은 `rawstep.config.yml` 에 넣지 않고 환경변수로만 받습니다.
+- `rawstep.config.ts` 가 없거나, 선택한 mode preset에 `outDir`, `maxSteps`, `timeoutMs`, `memory` 가 비어 있으면 실행하지 않습니다.
+- API key 같은 비밀값은 `rawstep.config.ts` 에 넣지 않고 환경변수로만 받습니다.
 
 task 파일에도 필요한 경우 override를 둘 수 있습니다.
 
@@ -266,16 +305,18 @@ verify:
     - textVisible: Started!
     - titleIncludes: Completed
 config:
-  run:
-    mode: keyboard
-    screenshots: none
-  agent:
-    provider: stub
+  mode: screenreader-strict
+  timeoutMs: 600000
+  memory: all
+  screenReaderBackend: guidepup-virtual
+  allowedScreenReaderCommands:
+    - nextItem
+    - act
 ```
 
 ### LLM provider 설정
 
-기본 provider는 `anthropic` 입니다.
+내장 provider는 `anthropic` 또는 `openai-compatible` 입니다.
 
 ```bash
 export A11Y_TASK_AGENT_PROVIDER=anthropic
@@ -297,7 +338,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 
 ```bash
 pnpm a11y-task run examples/tasks/simple-cta.yml \
-  --config ./rawstep.config.yml \
+  --config ./rawstep.config.ts \
   --agent-memory-window 5 \
   --include-experience-summary \
   --screenshots important \
@@ -310,6 +351,18 @@ pnpm a11y-task run examples/tasks/simple-cta.yml \
 
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
+
+### 프롬프트 편집
+
+system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터리에서 직접 편집합니다.
+
+- [keyboard.system.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.system.md)
+- [screenreader-strict.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader-strict.system.md)
+- [screenreader-hybrid.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader-hybrid.system.md)
+- [experience-summary.system.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.system.md)
+
+이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.  
+`{{allowedKeys}}`, `{{allowedScreenReaderCommands}}`, `{{responseFormat}}`, `{{rationaleRule}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
 
 `--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
 
@@ -330,7 +383,7 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 `--agent-memory-window` 는 agent에게 다시 보여줄 이전 step archive 개수를 정합니다.
 
-- 기본값은 `5`
+- 코드에 숨은 기본값은 없습니다. `rawstep.config.ts` 의 `memory` 나 CLI override로 정해야 합니다.
 - `0` 이면 이전 step memory를 보내지 않아 사실상 stateless처럼 동작
 - `N` 이면 최근 N개 archive만 전달
 
@@ -357,7 +410,8 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
-- Screen reader strict/hybrid 모드의 기본 backend는 현재 macOS VoiceOver (Guidepup)입니다.
-  NVDA는 후속 릴리스 예정입니다.
+- Screen reader strict/hybrid 모드는 RawStep canonical command를 쓰고, 실제 구현은 backend가 맡습니다.
+- 현재 backend id 계약은 `guidepup-voiceover`, `guidepup-nvda`, `guidepup-virtual`, `auto` 입니다.
+- `auto` 는 현재 `darwin -> guidepup-voiceover`, `win32 -> guidepup-nvda` 로 고릅니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.

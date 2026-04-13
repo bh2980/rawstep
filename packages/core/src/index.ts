@@ -2,10 +2,7 @@ import type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
 
 export {
   ALLOWED_KEYS,
-  DEFAULT_MAX_STEPS,
-  DEFAULT_TIMEOUT_MS,
   DEFAULT_VIEWPORT,
-  HISTORY_WINDOW,
   SCREENREADER_COMMANDS,
   SETTLE_MS,
   SCROLL_HINTS,

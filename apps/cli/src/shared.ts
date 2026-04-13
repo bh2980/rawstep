@@ -1,5 +1,19 @@
 import type { AgentProvider } from "@a11y-task/agent";
-import type { ScreenshotPolicy, Task, UserModel } from "@a11y-task/core";
+import { z } from "zod";
+import {
+  isAllowedKey,
+  isScreenReaderCommand,
+  type AllowedKey,
+  type ScreenReaderCommand,
+  type ScreenshotPolicy,
+  type Task,
+  type UserModel
+} from "@a11y-task/core";
+import {
+  isScreenReaderBackendId,
+  type ScreenReaderBackendId,
+  type ScreenReaderBackendPreference
+} from "@a11y-task/observer-screenreader";
 
 export type CliRunOptions = {
   taskFile: string;
@@ -17,6 +31,8 @@ export type CliRunOptions = {
   baseURL?: string;
 };
 
+export type MemorySetting = number | "all";
+
 export type TaskFileShape = Partial<Task> & {
   url?: string;
   goal?: string;
@@ -24,39 +40,47 @@ export type TaskFileShape = Partial<Task> & {
   config?: TaskConfigOverride;
 };
 
-export type RunConfigShape = {
+export type ModeConfigShape = {
+  outDir?: string;
+  maxSteps?: number;
+  timeoutMs?: number;
+  screenshots?: ScreenshotPolicy;
+  verifierAutoComplete?: boolean;
+  includeExperienceSummary?: boolean;
+  includeRationale?: boolean;
+  memory?: MemorySetting;
+  allowedKeys?: AllowedKey[];
+  allowedScreenReaderCommands?: ScreenReaderCommand[];
+  screenReaderBackend?: ScreenReaderBackendPreference;
+};
+
+export type ProjectDefaultsShape = {
+  provider?: AgentProvider;
+  model?: string;
+  baseURL?: string;
+  apiKey?: string;
+  screenReaderBackend?: ScreenReaderBackendPreference;
+};
+
+export type TaskConfigOverride = {
   mode?: UserModel;
   outDir?: string;
   maxSteps?: number;
   timeoutMs?: number;
   screenshots?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
-};
-
-export type AgentMemoryConfigShape = {
-  window?: number;
-  all?: boolean;
-};
-
-export type AgentConfigShape = {
-  provider?: AgentProvider;
-  model?: string;
-  baseURL?: string;
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
-  memory?: AgentMemoryConfigShape;
-  apiKey?: string;
-};
-
-export type TaskConfigOverride = {
-  run?: RunConfigShape;
-  agent?: AgentConfigShape;
+  memory?: MemorySetting;
+  allowedKeys?: AllowedKey[];
+  allowedScreenReaderCommands?: ScreenReaderCommand[];
+  screenReaderBackend?: ScreenReaderBackendPreference;
 };
 
 export type ProjectConfig = {
   version: 1;
-  defaults?: TaskConfigOverride;
-  tasks?: Record<string, TaskConfigOverride>;
+  defaults?: ProjectDefaultsShape;
+  modes?: Partial<Record<UserModel, ModeConfigShape>>;
 };
 
 export type LoadedProjectConfig = {
@@ -81,6 +105,9 @@ export type ResolvedRunOptions = {
   provider?: AgentProvider;
   model?: string;
   baseURL?: string;
+  allowedKeys: readonly AllowedKey[];
+  allowedScreenReaderCommands?: readonly ScreenReaderCommand[];
+  screenReaderBackendId?: ScreenReaderBackendId;
 };
 
 export type TaskExecutionDefaults = {
@@ -88,6 +115,23 @@ export type TaskExecutionDefaults = {
   maxSteps?: number;
   timeoutMs?: number;
 };
+
+export const userModelSchema = z.enum(["keyboard", "screenreader-strict", "screenreader-hybrid"]);
+export const agentProviderSchema = z.enum(["anthropic", "openai-compatible"]);
+export const screenshotPolicySchema = z.enum(["all", "important", "failure-only", "none"]);
+export const nonNegativeIntegerSchema = z.number().int().min(0);
+export const booleanSchema = z.boolean();
+export const nonEmptyStringSchema = z.string().trim().min(1);
+export const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
+export const allowedKeySchema = z.custom<AllowedKey>((value) => typeof value === "string" && isAllowedKey(value));
+export const allowedKeysSchema = z.array(allowedKeySchema);
+export const screenReaderCommandSchema = z.custom<ScreenReaderCommand>(
+  (value) => typeof value === "string" && isScreenReaderCommand(value)
+);
+export const allowedScreenReaderCommandsSchema = z.array(screenReaderCommandSchema);
+export const screenReaderBackendPreferenceSchema = z.custom<ScreenReaderBackendPreference>(
+  (value) => value === "auto" || (typeof value === "string" && isScreenReaderBackendId(value))
+);
 
 export function validateTaskInput(raw: unknown): Task["input"] {
   if (raw === undefined || raw === null) {
@@ -107,12 +151,9 @@ export function validateTaskInput(raw: unknown): Task["input"] {
 }
 
 export function parseUserModel(value: unknown): UserModel {
-  if (
-    value === "keyboard"
-    || value === "screenreader-strict"
-    || value === "screenreader-hybrid"
-  ) {
-    return value;
+  const result = userModelSchema.safeParse(value);
+  if (result.success) {
+    return result.data;
   }
 
   throw new Error(
@@ -121,27 +162,20 @@ export function parseUserModel(value: unknown): UserModel {
 }
 
 export function parseAgentProvider(value: unknown): AgentProvider {
-  if (
-    value === "anthropic"
-    || value === "openai-compatible"
-    || value === "stub"
-  ) {
-    return value;
+  const result = agentProviderSchema.safeParse(value);
+  if (result.success) {
+    return result.data;
   }
 
   throw new Error(
-    `Unsupported agent provider: ${String(value)}. Expected one of anthropic, openai-compatible, stub.`
+    `Unsupported agent provider: ${String(value)}. Expected one of anthropic, openai-compatible.`
   );
 }
 
 export function parseScreenshotPolicy(value: unknown): ScreenshotPolicy {
-  if (
-    value === "all"
-    || value === "important"
-    || value === "failure-only"
-    || value === "none"
-  ) {
-    return value;
+  const result = screenshotPolicySchema.safeParse(value);
+  if (result.success) {
+    return result.data;
   }
 
   throw new Error(
@@ -150,26 +184,80 @@ export function parseScreenshotPolicy(value: unknown): ScreenshotPolicy {
 }
 
 export function parseOptionalNonNegativeInteger(value: unknown, label: string): number {
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
+  const parsed = Number(value);
+  const result = nonNegativeIntegerSchema.safeParse(parsed);
+  if (!result.success) {
     throw new Error(`${label} must be a non-negative integer.`);
   }
 
-  return parsed;
+  return result.data;
 }
 
 export function parseOptionalBoolean(value: unknown, label: string): boolean {
-  if (typeof value !== "boolean") {
+  const result = booleanSchema.safeParse(value);
+  if (!result.success) {
     throw new Error(`${label} must be a boolean.`);
   }
 
-  return value;
+  return result.data;
 }
 
 export function parseOptionalString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  const result = nonEmptyStringSchema.safeParse(value);
+  if (!result.success) {
     throw new Error(`${label} must be a non-empty string.`);
   }
 
-  return value;
+  return result.data;
 }
+
+export function parseMemorySetting(value: unknown, label: string): MemorySetting {
+  const result = memorySettingSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be a non-negative integer or "all".`);
+  }
+
+  return result.data;
+}
+
+export function parseAllowedKeys(value: unknown, label: string): AllowedKey[] {
+  const result = allowedKeysSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be an array of allowed key names.`);
+  }
+
+  return result.data.map((entry, index) => {
+    if (!isAllowedKey(entry)) {
+      throw new Error(`${label}[${index}] must be one of ${ALLOWED_KEY_LABELS}.`);
+    }
+
+    return entry;
+  });
+}
+
+export function parseAllowedScreenReaderCommands(value: unknown, label: string): ScreenReaderCommand[] {
+  const result = allowedScreenReaderCommandsSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be an array of screen reader commands.`);
+  }
+
+  return result.data.map((entry, index) => {
+    if (!isScreenReaderCommand(entry)) {
+      throw new Error(`${label}[${index}] must be one of ${SCREEN_READER_COMMAND_LABELS}.`);
+    }
+
+    return entry;
+  });
+}
+
+export function parseScreenReaderBackendPreference(value: unknown, label: string): ScreenReaderBackendPreference {
+  const result = screenReaderBackendPreferenceSchema.safeParse(value);
+  if (result.success) {
+    return result.data;
+  }
+
+  throw new Error(`${label} must be one of auto, guidepup-voiceover, guidepup-nvda, guidepup-virtual.`);
+}
+
+const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";
+const SCREEN_READER_COMMAND_LABELS = "nextItem, previousItem, nextHeading, previousHeading, nextFormControl, previousFormControl, act";

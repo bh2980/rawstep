@@ -11,7 +11,14 @@ import { persistSessionArtifacts } from "./artifacts";
 import { loadConfig, resolveRunOptions } from "./config";
 import { type ResolvedRunOptions } from "./shared";
 
-export async function runCli(argv = process.argv.slice(2)): Promise<number> {
+type RunCliDependencies = {
+  createAgent?: typeof createAgent;
+};
+
+export async function runCli(
+  argv = process.argv.slice(2),
+  dependencies: RunCliDependencies = {}
+): Promise<number> {
   try {
     const command = argv[0];
     if (command !== "run") {
@@ -22,7 +29,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     const cliOptions = parseRunArgs(argv.slice(1));
     const options = await resolveRunOptions(cliOptions);
     const task = options.task;
-    const agent = createAgent(task.mode, task.input, options);
+    const agentFactory = dependencies.createAgent ?? createAgent;
+    const agent = agentFactory(task.mode, task.input, options);
 
     await mkdir(options.outDir, { recursive: true });
     const session = await runTask(task, {
@@ -32,7 +40,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       verifierAutoComplete: options.verifierAutoComplete,
       agentMemoryWindow: options.agentMemoryWindow,
       agentMemoryAll: options.agentMemoryAll,
-      includeExperienceSummary: options.includeExperienceSummary
+      includeExperienceSummary: options.includeExperienceSummary,
+      allowedKeys: options.allowedKeys,
+      allowedScreenReaderCommands: options.allowedScreenReaderCommands,
+      screenReaderBackendId: options.screenReaderBackendId
     });
     const reportStartedAt = Date.now();
     let reportPath = await renderReport(session, options.outDir);
@@ -62,6 +73,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 export { loadTask } from "./task-file";
 export { parseRunArgs } from "./args";
 export { loadConfig, resolveRunOptions } from "./config";
+export { defineConfig, type RawstepConfig } from "./config-define";
 
 function createAgent(
   mode: UserModel,

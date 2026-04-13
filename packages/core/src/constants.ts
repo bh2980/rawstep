@@ -27,9 +27,6 @@ export const DEFAULT_VIEWPORT = {
   h: 800
 } as const;
 
-export const DEFAULT_MAX_STEPS = 50;
-export const DEFAULT_TIMEOUT_MS = 120_000;
-export const HISTORY_WINDOW = 5;
 export const SETTLE_MS = 120;
 
 export type AllowedKey = (typeof ALLOWED_KEYS)[number];

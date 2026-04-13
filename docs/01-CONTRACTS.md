@@ -27,8 +27,10 @@ export type Task = {
 주의:
 
 - 위 `Task` 는 런타임에 실제로 쓰는 정규화된 타입이다.
-- `task.yml` 원본 파일에는 선택적으로 `config.run`, `config.agent` 블록이 더 들어갈 수 있다.
-- 이 `config` 블록은 프로젝트 기본 설정(`rawstep.config.yml`)을 해당 task에서만 덮어쓸 때만 쓰고, `url`, `goal`, `verify`, `input` 같은 과업 본문은 계속 top-level에 둔다.
+- `task.yml` 원본 파일에는 선택적으로 평평한 `config` 블록이 더 들어갈 수 있다.
+- 허용 키는 `mode`, `outDir`, `maxSteps`, `timeoutMs`, `screenshots`, `verifierAutoComplete`, `includeRationale`, `includeExperienceSummary`, `memory`, `allowedKeys`, `allowedScreenReaderCommands`, `screenReaderBackend` 다.
+- `memory` 는 `5` 같은 숫자 또는 `all` 문자열만 허용한다.
+- 이 `config` 블록은 프로젝트 기본 설정(`rawstep.config.ts`)을 해당 task에서만 덮어쓸 때만 쓰고, `url`, `goal`, `verify`, `input` 같은 과업 본문은 계속 top-level에 둔다.
 
 **JSON 예시 (examples/tasks/simple-cta.yml 파싱 후)**
 
@@ -280,8 +282,8 @@ Agent는 **관측(Observation)** 과 **컨텍스트(AgentContext)** 를 구분�
 ```ts
 export type AgentContext = {
   goal: string;                        // task.goal
-  allowedKeys: readonly AllowedKey[];  // ALLOWED_KEYS
-  allowedScreenReaderCommands?: readonly ScreenReaderCommand[];
+  allowedKeys: readonly AllowedKey[];  // 현재 mode/config에서 허용된 raw key subset
+  allowedScreenReaderCommands?: readonly ScreenReaderCommand[]; // 현재 backend/config에서 허용된 canonical command subset
   memory: AgentMemoryEntry[];
 };
 
@@ -343,10 +345,13 @@ CLI 실험 옵션으로 `--include-rationale` 를 켤 수 있다.
 
 CLI memory / summary 옵션도 있다.
 
-- `--agent-memory-window <N>`: 기본값 `5`, 최근 N개 memory archive 전달
+- `--agent-memory-window <N>`: 최근 N개 memory archive 전달
 - `--agent-memory-window 0`: memory 미전달
 - `--agent-memory-all`: window 대신 누적 text memory 전체 전달
 - `--include-experience-summary`: run 종료 후 같은 logical agent abstraction이 aggregate + 전체 step trace를 사용해 summary 생성
+
+project 실행에서는 memory 기본값을 코드가 몰래 채우지 않는다.
+`rawstep.config.ts` 의 `modes.<mode>.memory` 나 CLI override가 있어야 한다.
 
 여기서 "same logical agent abstraction" 은 provider native session/thread를 뜻하지 않는다.
 매 step 요청은 항상 `goal + current observation + selected memory excerpt` 로 새로 구성한다.

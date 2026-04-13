@@ -13,7 +13,7 @@ runTask(task) -> TraceSession:
   browser = createBrowserSession(task.url, headless = (task.mode == "keyboard"))
   screenshotPolicy = options.screenshotPolicy ?? "all"
   verifierAutoComplete = options.verifierAutoComplete ?? false
-  agentMemoryWindow = options.agentMemoryWindow ?? 5
+  agentMemoryWindow = options.agentMemoryWindow
   agentMemoryAll = options.agentMemoryAll ?? false
   includeExperienceSummary = options.includeExperienceSummary ?? false
   agentMemory = []
@@ -37,8 +37,8 @@ runTask(task) -> TraceSession:
       obs = observer.observe()                # §settle 이 먼저 수행됨
       ctx = {
         goal: task.goal,
-        allowedKeys: ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
-        allowedScreenReaderCommands: SCREENREADER_COMMANDS if task.mode != "keyboard" else undefined,
+        allowedKeys: options.allowedKeys ?? ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
+        allowedScreenReaderCommands: options.allowedScreenReaderCommands ?? SCREENREADER_COMMANDS if task.mode != "keyboard" else undefined,
         memory: selectAgentMemoryExcerpt(agentMemory, agentMemoryAll, agentMemoryWindow),
       }
 

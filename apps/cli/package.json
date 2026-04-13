@@ -4,6 +4,10 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./config": "./dist/config-define.js"
+  },
   "bin": {
     "a11y-task": "dist/index.js"
   },
@@ -13,8 +17,11 @@
   "dependencies": {
     "@a11y-task/agent": "workspace:*",
     "@a11y-task/core": "workspace:*",
+    "@a11y-task/observer-screenreader": "workspace:*",
     "@a11y-task/reporter": "workspace:*",
     "@a11y-task/runner": "workspace:*",
-    "yaml": "^2.8.1"
+    "typescript": "^5.9.3",
+    "yaml": "^2.8.1",
+    "zod": "^4.3.6"
   }
 }

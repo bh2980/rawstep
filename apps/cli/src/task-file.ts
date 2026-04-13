@@ -1,9 +1,4 @@
-import {
-  DEFAULT_MAX_STEPS,
-  DEFAULT_TIMEOUT_MS,
-  type Task,
-  type UserModel
-} from "@a11y-task/core";
+import { type Task, type UserModel } from "@a11y-task/core";
 import { validateVerifySpec } from "@a11y-task/runner";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
@@ -13,14 +8,10 @@ import {
   type TaskExecutionDefaults,
   type TaskFileShape,
   type TaskConfigOverride,
-  parseOptionalNonNegativeInteger,
-  parseOptionalString,
-  parseOptionalBoolean,
-  parseScreenshotPolicy,
   parseUserModel,
   validateTaskInput,
-  parseAgentProvider
 } from "./shared";
+import { parseTaskConfigObject } from "./schema";
 
 export type LoadedTaskFile = {
   absoluteTaskFile: string;
@@ -63,27 +54,44 @@ export function resolveTask(
   overrideMode?: UserModel,
   defaults: TaskExecutionDefaults = {}
 ): Task {
-  const mode = parseUserModel(
+  const rawMode =
     overrideMode
-      ?? source.taskConfig?.run?.mode
-      ?? source.parsed.mode
-      ?? defaults.mode
-      ?? "keyboard"
-  );
+    ?? source.taskConfig?.mode
+    ?? source.parsed.mode
+    ?? defaults.mode;
+  if (!rawMode) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing mode. Set mode in task.yml, task.yml config.mode, or pass --mode.`
+    );
+  }
+
+  const maxSteps =
+    source.taskConfig?.maxSteps
+    ?? source.parsed.maxSteps
+    ?? defaults.maxSteps;
+  if (maxSteps === undefined) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing maxSteps. Set maxSteps in task.yml, task.yml config.maxSteps, or modes.${rawMode}.maxSteps in rawstep.config.ts.`
+    );
+  }
+
+  const timeoutMs =
+    source.taskConfig?.timeoutMs
+    ?? source.parsed.timeoutMs
+    ?? defaults.timeoutMs;
+  if (timeoutMs === undefined) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in task.yml, task.yml config.timeoutMs, or modes.${rawMode}.timeoutMs in rawstep.config.ts.`
+    );
+  }
 
   return {
     id: source.taskId,
     url: resolveTaskUrl(source.parsed.url!, source.absoluteTaskFile),
     goal: source.parsed.goal!,
-    mode,
-    maxSteps: source.taskConfig?.run?.maxSteps
-      ?? source.parsed.maxSteps
-      ?? defaults.maxSteps
-      ?? DEFAULT_MAX_STEPS,
-    timeoutMs: source.taskConfig?.run?.timeoutMs
-      ?? source.parsed.timeoutMs
-      ?? defaults.timeoutMs
-      ?? DEFAULT_TIMEOUT_MS,
+    mode: parseUserModel(rawMode),
+    maxSteps,
+    timeoutMs,
     verify: validateVerifySpec(source.parsed.verify),
     input: validateTaskInput(source.parsed.input)
   };
@@ -111,67 +119,20 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
     throw new Error(`${label} config must be an object.`);
   }
 
-  const candidate = raw as {
-    run?: Record<string, unknown>;
-    agent?: Record<string, unknown>;
+  const candidate = parseTaskConfigObject(raw, label);
+
+  return {
+    mode: candidate.mode === undefined ? undefined : parseUserModel(candidate.mode),
+    outDir: candidate.outDir,
+    maxSteps: candidate.maxSteps,
+    timeoutMs: candidate.timeoutMs,
+    screenshots: candidate.screenshots,
+    verifierAutoComplete: candidate.verifierAutoComplete,
+    includeExperienceSummary: candidate.includeExperienceSummary,
+    includeRationale: candidate.includeRationale,
+    memory: candidate.memory,
+    allowedKeys: candidate.allowedKeys,
+    allowedScreenReaderCommands: candidate.allowedScreenReaderCommands,
+    screenReaderBackend: candidate.screenReaderBackend
   };
-  const result: TaskConfigOverride = {};
-
-  if (candidate.run !== undefined) {
-    if (typeof candidate.run !== "object" || candidate.run === null || Array.isArray(candidate.run)) {
-      throw new Error(`${label} config.run must be an object.`);
-    }
-
-    const run = candidate.run;
-    result.run = {
-      mode: run.mode === undefined ? undefined : parseUserModel(run.mode),
-      outDir: run.outDir === undefined ? undefined : parseOptionalString(run.outDir, `${label} config.run.outDir`),
-      maxSteps: run.maxSteps === undefined ? undefined : parseOptionalNonNegativeInteger(run.maxSteps, `${label} config.run.maxSteps`),
-      timeoutMs: run.timeoutMs === undefined ? undefined : parseOptionalNonNegativeInteger(run.timeoutMs, `${label} config.run.timeoutMs`),
-      screenshots: run.screenshots === undefined ? undefined : parseScreenshotPolicy(run.screenshots),
-      verifierAutoComplete: run.verifierAutoComplete === undefined
-        ? undefined
-        : parseOptionalBoolean(run.verifierAutoComplete, `${label} config.run.verifierAutoComplete`)
-    };
-  }
-
-  if (candidate.agent !== undefined) {
-    if (typeof candidate.agent !== "object" || candidate.agent === null || Array.isArray(candidate.agent)) {
-      throw new Error(`${label} config.agent must be an object.`);
-    }
-
-    const agent = candidate.agent;
-    if (agent.apiKey !== undefined) {
-      throw new Error(`${label} config.agent.apiKey is not allowed. Use environment variables for secrets.`);
-    }
-
-    const memory = agent.memory as { window?: unknown; all?: unknown } | undefined;
-    if (memory !== undefined && (typeof memory !== "object" || memory === null || Array.isArray(memory))) {
-      throw new Error(`${label} config.agent.memory must be an object.`);
-    }
-
-    result.agent = {
-      provider: agent.provider === undefined ? undefined : parseAgentProvider(agent.provider),
-      model: agent.model === undefined ? undefined : parseOptionalString(agent.model, `${label} config.agent.model`),
-      baseURL: agent.baseURL === undefined ? undefined : parseOptionalString(agent.baseURL, `${label} config.agent.baseURL`),
-      includeExperienceSummary: agent.includeExperienceSummary === undefined
-        ? undefined
-        : parseOptionalBoolean(agent.includeExperienceSummary, `${label} config.agent.includeExperienceSummary`),
-      includeRationale: agent.includeRationale === undefined
-        ? undefined
-        : parseOptionalBoolean(agent.includeRationale, `${label} config.agent.includeRationale`),
-      memory: memory === undefined
-        ? undefined
-        : {
-            window: memory.window === undefined
-              ? undefined
-              : parseOptionalNonNegativeInteger(memory.window, `${label} config.agent.memory.window`),
-            all: memory.all === undefined
-              ? undefined
-              : parseOptionalBoolean(memory.all, `${label} config.agent.memory.all`)
-          }
-    };
-  }
-
-  return result;
 }
