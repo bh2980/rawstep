@@ -1,5 +1,5 @@
-import { type Task, type UserModel } from "@a11y-task/core";
-import { validateVerifySpec } from "@a11y-task/runner";
+import { type Task, type UserModel } from "@rawstep/core";
+import { validateVerifySpec } from "@rawstep/runner";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";

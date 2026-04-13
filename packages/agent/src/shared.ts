@@ -5,7 +5,7 @@ import type {
   Observation,
   ScreenReaderCommand,
   TaskInput
-} from "@a11y-task/core";
+} from "@rawstep/core";
 
 export const DEFAULT_MAX_TOKENS = 800;
 

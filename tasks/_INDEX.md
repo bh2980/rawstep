@@ -22,10 +22,10 @@
 ## 전체 완료 기준
 
 - `pnpm install && pnpm -r build` 가 성공한다.
-- `pnpm a11y-task run examples/tasks/simple-cta.yml --mode keyboard --out ./out/simple-cta` 가 성공한다.
+- `pnpm rawstep run examples/tasks/simple-cta.yml --mode keyboard --out ./out/simple-cta` 가 성공한다.
 - `out/simple-cta/metrics.json` 에 `reachedGoal: true` 가 기록된다.
-- `pnpm a11y-task run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus` 가 성공하고 `reachedGoal: false` 가 기록된다.
-- `pnpm a11y-task run <any> --mode screenreader` 는 명시적 에러로 끝난다.
+- `pnpm rawstep run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus` 가 성공하고 `reachedGoal: false` 가 기록된다.
+- `pnpm rawstep run <any> --mode screenreader` 는 명시적 에러로 끝난다.
 - HTML report에서 step replay와 비용 요약을 볼 수 있다.
 
 ## 작업 순서
@@ -41,7 +41,7 @@
 | T-007 | trace recorder와 파일 출력 | T-002, T-003 | `trace.jsonl`, `metrics.json`, screenshot flush |
 | T-008 | agent 어댑터와 응답 파서 | T-002 | system prompt, decision parser |
 | T-009 | runner 루프와 종료 처리 | T-004, T-005, T-006, T-007, T-008 | end-to-end 실행 루프 |
-| T-010 | CLI run 명령과 task 로딩 | T-002, T-003, T-009 | `a11y-task run ...` |
+| T-010 | CLI run 명령과 task 로딩 | T-002, T-003, T-009 | `rawstep run ...` |
 | T-011 | 최소 HTML reporter | T-007 | `report/index.html` |
 | T-012 | 통합 검증과 guardrail 점검 | T-003, T-009, T-010, T-011 | 최종 검증, 회귀 체크 |
 

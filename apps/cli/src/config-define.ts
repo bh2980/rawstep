@@ -1,6 +1,6 @@
-import type { AgentProvider } from "@a11y-task/agent";
-import type { AllowedKey, ScreenshotPolicy, ScreenReaderCommand } from "@a11y-task/core";
-import type { ScreenReaderBackendId } from "@a11y-task/observer-screenreader";
+import type { AgentProvider } from "@rawstep/agent";
+import type { AllowedKey, ScreenshotPolicy, ScreenReaderCommand } from "@rawstep/core";
+import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
 import type { MemorySetting } from "./shared";
 
 type VirtualScreenReaderCommand = Exclude<

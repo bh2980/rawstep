@@ -1,9 +1,9 @@
-import type { BrowserSession } from "@a11y-task/browser";
+import type { BrowserSession } from "@rawstep/browser";
 import type {
   Decision,
   Observation,
   ScreenshotPolicy
-} from "@a11y-task/core";
+} from "@rawstep/core";
 
 export function shouldCaptureDeveloperScreenshot(
   policy: ScreenshotPolicy,

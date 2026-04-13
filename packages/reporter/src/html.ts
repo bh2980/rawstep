@@ -1,4 +1,4 @@
-import type { TraceSession } from "@a11y-task/core";
+import type { TraceSession } from "@rawstep/core";
 import { renderActionCounts, renderExperienceSummary, renderStep } from "./step";
 import { escapeHtml } from "./utils";
 
@@ -17,7 +17,7 @@ export function renderHtml(session: TraceSession): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>a11y-task report - ${escapeHtml(session.task.id)}</title>
+    <title>rawstep report - ${escapeHtml(session.task.id)}</title>
     <style>
       :root {
         color-scheme: light;
@@ -116,7 +116,7 @@ export function renderHtml(session: TraceSession): string {
   <body>
     <main>
       <section class="hero">
-        <h1>a11y-task report</h1>
+        <h1>rawstep report</h1>
         <p><strong>${escapeHtml(session.task.id)}</strong> - ${escapeHtml(session.task.goal)}</p>
         <p>Result: <code>${escapeHtml(session.aggregate.result)}</code>. Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>.</p>
         ${failureHtml}

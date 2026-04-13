@@ -1,5 +1,5 @@
 {
-  "name": "@a11y-task/browser",
+  "name": "@rawstep/browser",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@a11y-task/core": "workspace:*",
+    "@rawstep/core": "workspace:*",
     "playwright": "^1.59.1"
   }
 }

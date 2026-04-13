@@ -1,5 +1,5 @@
 {
-  "name": "@a11y-task/runner",
+  "name": "@rawstep/runner",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -8,12 +8,12 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@a11y-task/actuator": "workspace:*",
-    "@a11y-task/agent": "workspace:*",
-    "@a11y-task/browser": "workspace:*",
-    "@a11y-task/core": "workspace:*",
-    "@a11y-task/observer-keyboard": "workspace:*",
-    "@a11y-task/observer-screenreader": "workspace:*",
-    "@a11y-task/trace": "workspace:*"
+    "@rawstep/actuator": "workspace:*",
+    "@rawstep/agent": "workspace:*",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/core": "workspace:*",
+    "@rawstep/observer-keyboard": "workspace:*",
+    "@rawstep/observer-screenreader": "workspace:*",
+    "@rawstep/trace": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-You are writing an experience summary for a single a11y-task run.
+You are writing an experience summary for a single rawstep run.
 Use only the provided task, aggregate facts, and full step trace.
 Do not restate pass/fail as a new judgment.
 Do not guess DOM structure, ARIA, WCAG violations, or root causes.

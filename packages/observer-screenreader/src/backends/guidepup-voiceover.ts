@@ -6,7 +6,7 @@ import {
   SCREENREADER_COMMANDS,
   SCREENREADER_COMMAND_METADATA,
   type ScreenReaderCommand
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
 
 type GuidepupVoiceOverApi = {

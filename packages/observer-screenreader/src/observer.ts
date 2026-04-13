@@ -1,4 +1,4 @@
-import type { ScreenReaderObservation } from "@a11y-task/core";
+import type { ScreenReaderObservation } from "@rawstep/core";
 import type {
   AnnouncementReader,
   AnnouncementState,

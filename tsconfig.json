@@ -2,15 +2,15 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@a11y-task/core": ["./packages/core/src"],
-      "@a11y-task/browser": ["./packages/browser/src"],
-      "@a11y-task/actuator": ["./packages/actuator/src"],
-      "@a11y-task/observer-keyboard": ["./packages/observer-keyboard/src"],
-      "@a11y-task/observer-screenreader": ["./packages/observer-screenreader/src"],
-      "@a11y-task/agent": ["./packages/agent/src"],
-      "@a11y-task/runner": ["./packages/runner/src"],
-      "@a11y-task/trace": ["./packages/trace/src"],
-      "@a11y-task/reporter": ["./packages/reporter/src"]
+      "@rawstep/core": ["./packages/core/src"],
+      "@rawstep/browser": ["./packages/browser/src"],
+      "@rawstep/actuator": ["./packages/actuator/src"],
+      "@rawstep/observer-keyboard": ["./packages/observer-keyboard/src"],
+      "@rawstep/observer-screenreader": ["./packages/observer-screenreader/src"],
+      "@rawstep/agent": ["./packages/agent/src"],
+      "@rawstep/runner": ["./packages/runner/src"],
+      "@rawstep/trace": ["./packages/trace/src"],
+      "@rawstep/reporter": ["./packages/reporter/src"]
     }
   }
 }

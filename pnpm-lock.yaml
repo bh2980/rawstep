@@ -23,19 +23,19 @@ importers:
 
   apps/cli:
     dependencies:
-      '@a11y-task/agent':
+      '@rawstep/agent':
         specifier: workspace:*
         version: link:../../packages/agent
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@a11y-task/observer-screenreader':
+      '@rawstep/observer-screenreader':
         specifier: workspace:*
         version: link:../../packages/observer-screenreader
-      '@a11y-task/reporter':
+      '@rawstep/reporter':
         specifier: workspace:*
         version: link:../../packages/reporter
-      '@a11y-task/runner':
+      '@rawstep/runner':
         specifier: workspace:*
         version: link:../../packages/runner
       dotenv:
@@ -53,7 +53,7 @@ importers:
 
   packages/actuator:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
       playwright:
@@ -62,7 +62,7 @@ importers:
 
   packages/agent:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
       '@ai-sdk/anthropic':
@@ -77,7 +77,7 @@ importers:
 
   packages/browser:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
       playwright:
@@ -88,7 +88,7 @@ importers:
 
   packages/observer-keyboard:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
       playwright:
@@ -97,10 +97,10 @@ importers:
 
   packages/observer-screenreader:
     dependencies:
-      '@a11y-task/actuator':
+      '@rawstep/actuator':
         specifier: workspace:*
         version: link:../actuator
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
       '@guidepup/guidepup':
@@ -115,37 +115,37 @@ importers:
 
   packages/reporter:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
 
   packages/runner:
     dependencies:
-      '@a11y-task/actuator':
+      '@rawstep/actuator':
         specifier: workspace:*
         version: link:../actuator
-      '@a11y-task/agent':
+      '@rawstep/agent':
         specifier: workspace:*
         version: link:../agent
-      '@a11y-task/browser':
+      '@rawstep/browser':
         specifier: workspace:*
         version: link:../browser
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
-      '@a11y-task/observer-keyboard':
+      '@rawstep/observer-keyboard':
         specifier: workspace:*
         version: link:../observer-keyboard
-      '@a11y-task/observer-screenreader':
+      '@rawstep/observer-screenreader':
         specifier: workspace:*
         version: link:../observer-screenreader
-      '@a11y-task/trace':
+      '@rawstep/trace':
         specifier: workspace:*
         version: link:../trace
 
   packages/trace:
     dependencies:
-      '@a11y-task/core':
+      '@rawstep/core':
         specifier: workspace:*
         version: link:../core
 

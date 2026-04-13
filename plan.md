@@ -128,7 +128,7 @@ a11y/
 │   ├── trace/                   # append-only step log + 직렬화
 │   └── reporter/                # trace → HTML/JSON 리포트
 ├── apps/
-│   └── cli/                     # `a11y-task run <task.yml>`
+│   └── cli/                     # `rawstep run <task.yml>`
 └── examples/
     └── tasks/                   # 예시 task 정의 (yml)
 ```
@@ -148,7 +148,7 @@ a11y/
 | **runner** | 루프 제어, timeout / max step, step 조립, trace 기록 | `runTask(task, {observer, actuator, agent, trace})` | core, trace |
 | **trace** | append-only `StepRecord[]`, aggregate (`result`, `totalSteps`, `durationMs`, `actionCounts`, `terminatedAtStep`, `failurePoint`), JSON 직렬화 | `TraceRecorder` | core |
 | **reporter** | trace JSON → 정적 HTML 리포트(step 썸네일/트랜스크립트, 비용 차트, 실패 하이라이트) | `renderReport(trace, outDir)` | core |
-| **cli** | task yml 로드, 모드 선택, runner 구동, reporter 호출 | `a11y-task` 바이너리 | 모두 |
+| **cli** | task yml 로드, 모드 선택, runner 구동, reporter 호출 | `rawstep` 바이너리 | 모두 |
 
 ### 의존 방향
 
@@ -163,7 +163,7 @@ agent는 observer를 직접 import하지 않는다 (관측은 runner가 중계).
 
 ## 5. 실행 흐름 (End-to-End)
 
-1. `a11y-task run examples/tasks/add-to-cart.yml --mode keyboard --out ./report`
+1. `rawstep run examples/tasks/add-to-cart.yml --mode keyboard --out ./report`
 2. CLI가 task 스펙 파싱: `{ url, goal, userModel?, maxSteps, timeoutMs, oracle? }`
 3. `browser.createBrowserSession(task.url)` → Playwright page 생성, goto.
 4. 모드에 따라 observer 선택:
@@ -220,7 +220,7 @@ greenfield이므로 아래를 전부 신규 생성:
 1. `pnpm install && pnpm build` — 모노레포 전체 빌드 성공.
 2. `pnpm -r test` — 각 패키지 단위 테스트 (actuator whitelist 거부, trace 직렬화, reporter 렌더링).
 3. 통합: 로컬 정적 HTML(간단한 성공 케이스 1개 + 실패 케이스 1개)에 대해
-   `a11y-task run ... --mode keyboard` 실행 → `report/index.html` 생성 및 trace 내용 확인.
+   `rawstep run ... --mode keyboard` 실행 → `report/index.html` 생성 및 trace 내용 확인.
 4. 무결성 검사: agent 패키지에서 `Page` 타입/`querySelector` 문자열을 import/사용하지 않는지 grep.
 5. screenreader 모드 스모크: Guidepup VoiceOver 초기화가 macOS 로컬에서 성공하고, 최소 1개의 announcement를 캡처하는지 확인.
 

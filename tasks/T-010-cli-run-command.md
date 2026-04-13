@@ -8,7 +8,7 @@
 
 ## 목적
 
-사용자가 `a11y-task run <task.yml> --mode keyboard --out <dir>` 한 줄로 전체 흐름을 실행할 수 있게 만든다.
+사용자가 `rawstep run <task.yml> --mode keyboard --out <dir>` 한 줄로 전체 흐름을 실행할 수 있게 만든다.
 
 ## 입력/의존
 

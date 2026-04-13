@@ -1,4 +1,4 @@
-import { DEFAULT_VIEWPORT, SETTLE_MS } from "@a11y-task/core";
+import { DEFAULT_VIEWPORT, SETTLE_MS } from "@rawstep/core";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 
 export type NetworkRequestRecord = {

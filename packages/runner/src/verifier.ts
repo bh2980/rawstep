@@ -1,4 +1,4 @@
-import type { BrowserSession } from "@a11y-task/browser";
+import type { BrowserSession } from "@rawstep/browser";
 import type {
   RequestVerificationRule,
   ResponseVerificationRule,
@@ -6,7 +6,7 @@ import type {
   VerificationRecord,
   VerifyRule,
   VerifySpec
-} from "@a11y-task/core";
+} from "@rawstep/core";
 
 export const MAX_VERIFICATION_RETRIES = 2;
 

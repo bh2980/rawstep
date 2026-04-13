@@ -1,5 +1,5 @@
 {
-  "name": "@a11y-task/cli",
+  "name": "@rawstep/cli",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -9,17 +9,17 @@
     "./config": "./dist/config-define.js"
   },
   "bin": {
-    "a11y-task": "dist/index.js"
+    "rawstep": "dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@a11y-task/agent": "workspace:*",
-    "@a11y-task/core": "workspace:*",
-    "@a11y-task/observer-screenreader": "workspace:*",
-    "@a11y-task/reporter": "workspace:*",
-    "@a11y-task/runner": "workspace:*",
+    "@rawstep/agent": "workspace:*",
+    "@rawstep/core": "workspace:*",
+    "@rawstep/observer-screenreader": "workspace:*",
+    "@rawstep/reporter": "workspace:*",
+    "@rawstep/runner": "workspace:*",
     "dotenv": "^17.4.2",
     "typescript": "^5.9.3",
     "yaml": "^2.8.1",

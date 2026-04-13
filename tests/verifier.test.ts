@@ -1,10 +1,10 @@
-import { closeBrowserSession, createBrowserSession } from "@a11y-task/browser";
+import { closeBrowserSession, createBrowserSession } from "@rawstep/browser";
 import {
   evaluateVerifyRule,
   formatVerificationFeedback,
   verifyTask
-} from "@a11y-task/runner";
-import type { Task } from "@a11y-task/core";
+} from "@rawstep/runner";
+import type { Task } from "@rawstep/core";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";

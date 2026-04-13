@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import type { ScreenReaderCommand } from "@a11y-task/core";
+import type { ScreenReaderCommand } from "@rawstep/core";
 import { createAnnouncementReader } from "./announcement";
 import {
   guidepupNvdaBackend,

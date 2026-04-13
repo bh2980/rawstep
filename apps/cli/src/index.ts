@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { LLMAgent } from "@a11y-task/agent";
-import type { Agent, Task, UserModel } from "@a11y-task/core";
-import { renderReport } from "@a11y-task/reporter";
-import { runTask } from "@a11y-task/runner";
+import { LLMAgent } from "@rawstep/agent";
+import type { Agent, Task, UserModel } from "@rawstep/core";
+import { renderReport } from "@rawstep/reporter";
+import { runTask } from "@rawstep/runner";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseRunArgs, printUsage } from "./args";

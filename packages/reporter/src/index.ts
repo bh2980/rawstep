@@ -1,4 +1,4 @@
-import type { TraceSession } from "@a11y-task/core";
+import type { TraceSession } from "@rawstep/core";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { renderHtml } from "./html";

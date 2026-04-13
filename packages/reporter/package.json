@@ -1,5 +1,5 @@
 {
-  "name": "@a11y-task/reporter",
+  "name": "@rawstep/reporter",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -8,6 +8,6 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@a11y-task/core": "workspace:*"
+    "@rawstep/core": "workspace:*"
   }
 }

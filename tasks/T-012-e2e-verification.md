@@ -40,10 +40,10 @@ Keyboard MVP가 문서에 적힌 범위를 진짜로 만족하는지 끝까지 �
 ## 테스트 방법
 
 - `pnpm install && pnpm -r build`
-- `pnpm a11y-task run examples/tasks/simple-cta.yml --mode keyboard --out ./out/simple-cta`
-- `pnpm a11y-task run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus`
-- `pnpm a11y-task run examples/tasks/modal.yml --mode keyboard --out ./out/modal`
-- `pnpm a11y-task run examples/tasks/simple-cta.yml --mode screenreader --out ./out/sr`
+- `pnpm rawstep run examples/tasks/simple-cta.yml --mode keyboard --out ./out/simple-cta`
+- `pnpm rawstep run examples/tasks/bad-focus.yml --mode keyboard --out ./out/bad-focus`
+- `pnpm rawstep run examples/tasks/modal.yml --mode keyboard --out ./out/modal`
+- `pnpm rawstep run examples/tasks/simple-cta.yml --mode screenreader --out ./out/sr`
 - `rg "page\\.evaluate|querySelector|activeElement|accessibility" packages/agent`
 
 ## 다음 작업

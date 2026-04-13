@@ -1,11 +1,11 @@
 {
-  "name": "a11y-task-workspace",
+  "name": "rawstep-workspace",
   "private": true,
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "build": "pnpm -r build",
     "test": "vitest run",
-    "a11y-task": "tsx --tsconfig tsconfig.json apps/cli/src/index.ts"
+    "rawstep": "tsx --tsconfig tsconfig.json apps/cli/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",

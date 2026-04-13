@@ -1,4 +1,4 @@
-import type { StepRecord, TraceSession } from "@a11y-task/core";
+import type { StepRecord, TraceSession } from "@rawstep/core";
 import { escapeHtml, formatAction, toReportImagePath } from "./utils";
 
 export function renderStep(step: StepRecord): string {

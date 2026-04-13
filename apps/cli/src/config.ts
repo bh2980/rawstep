@@ -10,10 +10,10 @@ import {
   SCREENREADER_COMMANDS,
   type AllowedKey,
   type ScreenReaderCommand
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import {
   findScreenReaderBackendById
-} from "@a11y-task/observer-screenreader";
+} from "@rawstep/observer-screenreader";
 import {
   type CliRunOptions,
   type LoadedProjectConfig,
@@ -286,7 +286,7 @@ async function loadTsConfigModule(configPath: string): Promise<unknown> {
   const module = { exports: {} as Record<string, unknown> };
   const projectRequire = createRequire(pathToFileURL(configPath));
   const localRequire: NodeJS.Require = ((specifier: string) => {
-    if (specifier === "@a11y-task/cli/config") {
+    if (specifier === "@rawstep/cli/config") {
       return {
         defineConfig<T>(config: T): T {
           return config;

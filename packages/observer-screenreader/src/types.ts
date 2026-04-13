@@ -1,5 +1,5 @@
-import type { ScreenReaderController } from "@a11y-task/actuator";
-import type { ScreenReaderCommand, ScreenReaderObservation } from "@a11y-task/core";
+import type { ScreenReaderController } from "@rawstep/actuator";
+import type { ScreenReaderCommand, ScreenReaderObservation } from "@rawstep/core";
 import type { Page } from "playwright";
 export const SCREEN_READER_BACKEND_IDS = [
   "guidepup-voiceover",

@@ -1,5 +1,5 @@
 {
-  "name": "@a11y-task/agent",
+  "name": "@rawstep/agent",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0",
     "@ai-sdk/openai-compatible": "^1.0.0",
-    "@a11y-task/core": "workspace:*",
+    "@rawstep/core": "workspace:*",
     "ai": "^5.0.0"
   }
 }
