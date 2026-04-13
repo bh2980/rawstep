@@ -1,4 +1,3 @@
-import { LLMAgent } from "@a11y-task/agent";
 import { createBrowserSession } from "@a11y-task/browser";
 import { runTask } from "@a11y-task/runner";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -7,8 +6,43 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
+function createFixtureAgent(fixture: "simple-cta" | "bad-focus") {
+  return {
+    async decide(ctx: { memory: Array<{ step: number }> }, obs: { kind: string; browserChrome?: { title: string } }) {
+      if (obs.kind !== "keyboard" || !obs.browserChrome) {
+        return { verdict: "stuck" as const, rationale: "Only keyboard observations are supported." };
+      }
+
+      const stepCount = ctx.memory.length;
+      const title = obs.browserChrome.title;
+
+      if (title.includes("Completed")) {
+        return { verdict: "success" as const, rationale: "The completion state is visible." };
+      }
+
+      if (fixture === "simple-cta" && title.includes("Simple CTA Fixture")) {
+        if (stepCount < 2) {
+          return { action: { key: "Tab" as const }, rationale: "Move focus to the CTA." };
+        }
+
+        return { action: { key: "Enter" as const }, rationale: "Activate the CTA." };
+      }
+
+      if (fixture === "bad-focus" && title.includes("Bad Focus Fixture")) {
+        if (stepCount < 4) {
+          return { action: { key: "Tab" as const }, rationale: "Keep searching for focus." };
+        }
+
+        return { verdict: "stuck" as const, rationale: "No useful focus target appeared." };
+      }
+
+      return { verdict: "stuck" as const, rationale: "No known action." };
+    }
+  };
+}
+
 describe("runTask", () => {
-  it("completes the simple CTA fixture with the stub agent", async () => {
+  it("completes the simple CTA fixture with a fake deterministic agent", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-success-"));
     const session = await runTask(
       {
@@ -27,7 +61,8 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { provider: "stub" })
+        agentMemoryWindow: 5,
+        agent: createFixtureAgent("simple-cta")
       }
     );
 
@@ -54,7 +89,7 @@ describe("runTask", () => {
     expect(session.steps.at(-1)?.timings.verifyMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("records a stuck result for the bad focus fixture with the stub agent", async () => {
+  it("records a stuck result for the bad focus fixture with a fake deterministic agent", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-stuck-"));
     const session = await runTask(
       {
@@ -67,7 +102,8 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { provider: "stub" })
+        agentMemoryWindow: 5,
+        agent: createFixtureAgent("bad-focus")
       }
     );
 
@@ -114,7 +150,7 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agent: new LLMAgent("keyboard", { provider: "stub" })
+        agent: createFixtureAgent("simple-cta")
       }
     );
 
@@ -200,6 +236,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         agent: {
           decide: async (ctx) => {
             observedMemoryActions.push(ctx.memory.map((entry) => entry.action));
@@ -316,6 +353,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         agent: {
           decide: async (ctx) => {
             callCount += 1;
@@ -456,6 +494,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderRuntimeFactory: async () => ({
           observer: {
@@ -593,6 +632,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderRuntimeFactory: async () => ({
           observer: {
@@ -652,6 +692,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderRuntimeFactory: async () => ({
           observer: {
@@ -925,6 +966,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderRuntimeFactory: async () => ({
           observer: {
@@ -999,6 +1041,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderRuntimeFactory: async () => ({
           observer: {

@@ -1,20 +1,29 @@
 import {
   LLMAgent,
+  buildExperienceSummarySystemPrompt,
   buildPromptParts,
+  buildSystemPrompt,
   parseExperienceSummary,
   parseDecision,
   resolveAgentConfig,
-  toAnthropicMessageContent,
-  toOpenAICompatibleMessageContent,
+  toLanguageModelContent,
+  type AgentCompletionClient,
   type PromptPart
 } from "@a11y-task/agent";
 import type { AgentContext, Observation } from "@a11y-task/core";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { clearPromptTemplateCache, loadPromptTemplates } from "../packages/agent/src/prompt-loader";
 
 const ORIGINAL_ENV = { ...process.env };
+const ORIGINAL_CWD = process.cwd();
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  process.chdir(ORIGINAL_CWD);
+  clearPromptTemplateCache();
 });
 
 function makeKeyboardContext(): AgentContext {
@@ -45,6 +54,36 @@ function makeKeyboardObservation(): Observation {
     },
     scrollHint: "middle"
   };
+}
+
+function createCompletionClient(responses: string[]): AgentCompletionClient {
+  return {
+    async complete() {
+      return responses.shift() ?? "";
+    }
+  };
+}
+
+async function createPromptFixtureRoot(contents?: Partial<Record<
+  "keyboard.system.md" | "screenreader-strict.system.md" | "screenreader-hybrid.system.md" | "experience-summary.system.md",
+  string
+>>): Promise<string> {
+  const rootDir = await mkdtemp(join(tmpdir(), "a11y-prompt-fixture-"));
+  const promptDir = join(rootDir, "prompt");
+  await mkdir(promptDir, { recursive: true });
+
+  const files = {
+    "keyboard.system.md": "keys={{allowedKeys}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-strict.system.md": "sr={{allowedScreenReaderCommands}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderCommands}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "experience-summary.system.md": "summary-template"
+  } satisfies Record<string, string>;
+
+  for (const [filename, content] of Object.entries({ ...files, ...contents })) {
+    await writeFile(join(promptDir, filename), content, "utf8");
+  }
+
+  return rootDir;
 }
 
 describe("agent helpers", () => {
@@ -125,43 +164,38 @@ describe("agent helpers", () => {
   });
 
   it("re-requests a rationale when the model returns stuck without one", async () => {
-    const requestBodies: string[] = [];
     const responses = [
       '{"verdict":"stuck"}',
       '{"verdict":"stuck","rationale":"No productive next action is visible."}'
     ];
-
-    const fetchImpl: typeof fetch = (async (_input, init) => {
-      requestBodies.push(String(init?.body ?? ""));
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: responses.shift() ?? ""
-              }
-            }
-          ]
-        })
-      } as Response;
-    }) as typeof fetch;
+    let callCount = 0;
 
     const agent = new LLMAgent("keyboard", {
       provider: "openai-compatible",
       apiKey: "test-key",
       model: "test-model",
       baseURL: "https://example.test/v1",
-      fetchImpl
+      completionClient: {
+        async complete(input) {
+          callCount += 1;
+
+          if (callCount === 2) {
+            const retryPromptPart = input.promptParts.at(-1);
+            expect(retryPromptPart?.type).toBe("text");
+            if (retryPromptPart?.type === "text") {
+              expect(retryPromptPart.text).toContain('verdict="stuck"');
+              expect(retryPromptPart.text).toContain("rationale");
+            }
+          }
+
+          return responses.shift() ?? "";
+        }
+      }
     });
 
     const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
 
-    expect(requestBodies).toHaveLength(2);
-    expect(requestBodies[1]).toContain('verdict=\\"stuck\\"');
-    expect(requestBodies[1]).toContain("rationale");
+    expect(callCount).toBe(2);
     expect(decision).toEqual({
       verdict: "stuck",
       rationale: "No productive next action is visible."
@@ -222,10 +256,21 @@ describe("agent helpers", () => {
     });
   });
 
-  it("falls back from the legacy stub env flag", () => {
-    process.env.A11Y_TASK_AGENT_MODE = "stub";
+  it("requires an explicit provider", () => {
+    expect(() => resolveAgentConfig()).toThrow("Missing agent provider");
+  });
 
-    expect(resolveAgentConfig()).toEqual({ provider: "stub" });
+  it("requires a model for the anthropic provider", () => {
+    process.env.A11Y_TASK_AGENT_PROVIDER = "anthropic";
+    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
+
+    expect(() => resolveAgentConfig()).toThrow("Anthropic provider requires a model");
+  });
+
+  it("rejects the removed stub provider from env", () => {
+    process.env.A11Y_TASK_AGENT_PROVIDER = "stub";
+
+    expect(() => resolveAgentConfig()).toThrow("Unsupported agent provider");
   });
 
   it("requires a model for the openai-compatible provider", () => {
@@ -233,6 +278,14 @@ describe("agent helpers", () => {
     process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
 
     expect(() => resolveAgentConfig()).toThrow("requires a model");
+  });
+
+  it("requires a base URL for the openai-compatible provider", () => {
+    process.env.A11Y_TASK_AGENT_PROVIDER = "openai-compatible";
+    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
+    process.env.A11Y_TASK_AGENT_MODEL = "openrouter/auto";
+
+    expect(() => resolveAgentConfig()).toThrow("requires a base URL");
   });
 
   it("builds provider-neutral prompt parts for keyboard observations", () => {
@@ -266,39 +319,100 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
   });
 
-  it("converts prompt parts into Anthropic content blocks", () => {
-    const content = toAnthropicMessageContent([
+  it("converts prompt parts into AI SDK content blocks", () => {
+    const content = toLanguageModelContent([
       { type: "text", text: "hello" },
       { type: "image", mediaType: "image/png", base64: "abc123" }
     ]);
 
-    expect(content).toEqual([
-      { type: "text", text: "hello" },
-      {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/png",
-          data: "abc123"
-        }
-      }
-    ]);
+    expect(content[0]).toEqual({ type: "text", text: "hello" });
+    expect(content[1]).toMatchObject({
+      type: "image",
+      mediaType: "image/png"
+    });
+    if (content[1]?.type === "image") {
+      expect(Array.from(content[1].image)).toEqual(
+        Array.from(Buffer.from("abc123", "base64"))
+      );
+    }
   });
 
-  it("converts prompt parts into OpenAI-compatible content blocks", () => {
-    const content = toOpenAICompatibleMessageContent([
-      { type: "text", text: "hello" },
-      { type: "image", mediaType: "image/png", base64: "abc123" }
-    ] satisfies PromptPart[]);
+  it("uses an injected completion client without provider-specific transport code", async () => {
+    const agent = new LLMAgent("keyboard", {
+      provider: "anthropic",
+      apiKey: "shared-key",
+      model: "claude-custom",
+      completionClient: createCompletionClient(['{"action":{"key":"Tab"}}'])
+    });
 
-    expect(content).toEqual([
-      { type: "text", text: "hello" },
-      {
-        type: "image_url",
-        image_url: {
-          url: "data:image/png;base64,abc123"
-        }
-      }
-    ]);
+    const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(decision).toEqual({
+      action: { key: "Tab" }
+    });
+  });
+
+  it("loads prompt templates from the root prompt directory", async () => {
+    const rootDir = await createPromptFixtureRoot();
+
+    const templates = loadPromptTemplates(rootDir);
+
+    expect(templates.promptDir).toBe(join(rootDir, "prompt"));
+    expect(templates.keyboardSystem).toContain("keys={{allowedKeys}}");
+    expect(templates.experienceSummarySystem).toBe("summary-template");
+  });
+
+  it("fails when a required prompt file is missing", async () => {
+    const rootDir = await createPromptFixtureRoot();
+
+    await rm(join(rootDir, "prompt", "screenreader-hybrid.system.md"));
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("Missing prompt file");
+  });
+
+  it("fails when a required prompt file is empty", async () => {
+    const rootDir = await createPromptFixtureRoot();
+
+    await writeFile(join(rootDir, "prompt", "screenreader-hybrid.system.md"), "", "utf8");
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("Prompt file is empty");
+  });
+
+  it("fails when a system prompt template is missing a required placeholder", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.system.md": "keys={{allowedKeys}}"
+    });
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{taskInputRule}}");
+  });
+
+  it("renders keyboard system prompts from prompt files with code-generated JSON format", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const prompt = buildSystemPrompt("keyboard", { text: "passport" }, undefined, undefined, true);
+
+    expect(prompt).toContain("keys=Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape");
+    expect(prompt).toContain('{"action":{"typeText":"task"},"rationale":"..."}');
+    expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라.");
+  });
+
+  it("renders screenreader prompts from prompt files with command placeholders", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const prompt = buildSystemPrompt("screenreader-strict", undefined, undefined, ["nextItem", "act"], false);
+
+    expect(prompt).toContain("sr=nextItem, act");
+    expect(prompt).toContain('{"action":{"srCommand":"nextItem"}}');
+  });
+
+  it("renders experience summary prompts from prompt files", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "experience-summary.system.md": "custom-summary-template"
+    });
+    process.chdir(rootDir);
+
+    expect(buildExperienceSummarySystemPrompt()).toBe("custom-summary-template");
   });
 });

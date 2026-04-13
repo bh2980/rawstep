@@ -1,4 +1,4 @@
-import { HISTORY_WINDOW, type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@a11y-task/core";
+import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@a11y-task/core";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
@@ -13,16 +13,14 @@ import {
   buildSystemPrompt,
   buildUserPromptText
 } from "./prompt";
+import { toLanguageModelContent } from "./provider-content";
 import {
-  toAnthropicMessageContent,
-  toOpenAICompatibleMessageContent
-} from "./provider-content";
-import {
-  createProviderClient,
+  createCompletionClient,
   normalizeProviderError
 } from "./providers";
 import {
   type AgentBackend,
+  type AgentCompletionClient,
   type AgentProvider,
   type LLMAgentOptions,
   type PromptLogEntry,
@@ -32,6 +30,7 @@ import {
 
 export type {
   AgentBackend,
+  AgentCompletionClient,
   AgentProvider,
   LLMAgentOptions,
   PromptLogEntry,
@@ -42,7 +41,7 @@ export type {
 export class LLMAgent implements Agent {
   readonly config: ResolvedAgentConfig;
 
-  private readonly client;
+  private readonly client: AgentCompletionClient;
   private readonly includeRationale: boolean;
   private readonly includeExperienceSummary: boolean;
   private readonly agentMemoryWindow: number;
@@ -56,10 +55,10 @@ export class LLMAgent implements Agent {
     options: LLMAgentOptions = {}
   ) {
     this.config = resolveAgentConfig(options);
-    this.client = createProviderClient(this.config, options);
+    this.client = options.completionClient ?? createCompletionClient(this.config);
     this.includeRationale = options.includeRationale ?? false;
     this.includeExperienceSummary = options.includeExperienceSummary ?? false;
-    this.agentMemoryWindow = Math.max(0, options.agentMemoryWindow ?? HISTORY_WINDOW);
+    this.agentMemoryWindow = Math.max(0, options.agentMemoryWindow ?? 0);
     this.agentMemoryAll = options.agentMemoryAll ?? false;
     this.taskInput = options.taskInput;
   }
@@ -68,6 +67,7 @@ export class LLMAgent implements Agent {
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
+      ctx.allowedKeys,
       ctx.allowedScreenReaderCommands,
       this.includeRationale
     );
@@ -162,7 +162,7 @@ export class LLMAgent implements Agent {
       kind,
       sequence: this.promptLog.length,
       provider: this.config.provider,
-      model: this.config.provider === "stub" ? "stub" : this.config.model,
+      model: this.config.model,
       systemPrompt,
       userPromptText: promptParts
         .filter((part): part is Extract<PromptPart, { type: "text" }> => part.type === "text")
@@ -174,12 +174,12 @@ export class LLMAgent implements Agent {
 }
 
 export {
+  buildExperienceSummarySystemPrompt,
   buildPromptParts,
   buildSystemPrompt,
   buildUserPromptText,
   parseDecision,
   parseExperienceSummary,
   resolveAgentConfig,
-  toAnthropicMessageContent,
-  toOpenAICompatibleMessageContent
+  toLanguageModelContent
 };

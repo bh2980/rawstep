@@ -1,7 +1,4 @@
 import {
-  DEFAULT_ANTHROPIC_MODEL,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  DEFAULT_PROVIDER,
   type AgentProvider,
   type LLMAgentOptions,
   type ResolvedAgentConfig
@@ -10,10 +7,6 @@ import {
 export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgentConfig {
   const provider = resolveProvider(options);
 
-  if (provider === "stub") {
-    return { provider };
-  }
-
   const apiKey = options.apiKey
     ?? process.env.A11Y_TASK_AGENT_API_KEY
     ?? (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : undefined);
@@ -21,7 +14,7 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
   if (!apiKey) {
     if (provider === "anthropic") {
       throw new Error(
-        "Anthropic provider requires an API key. Set A11Y_TASK_AGENT_API_KEY or ANTHROPIC_API_KEY. Set A11Y_TASK_AGENT_PROVIDER=stub for local fixture smoke tests."
+        "Anthropic provider requires an API key. Set A11Y_TASK_AGENT_API_KEY or ANTHROPIC_API_KEY."
       );
     }
 
@@ -31,13 +24,20 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
   }
 
   if (provider === "anthropic") {
+    const model =
+      options.model
+      ?? process.env.A11Y_TASK_AGENT_MODEL
+      ?? process.env.A11Y_TASK_ANTHROPIC_MODEL;
+    if (!model) {
+      throw new Error(
+        "Anthropic provider requires a model. Set A11Y_TASK_AGENT_MODEL, A11Y_TASK_ANTHROPIC_MODEL, or rawstep.config.ts defaults.model."
+      );
+    }
+
     return {
       provider,
       apiKey,
-      model: options.model
-        ?? process.env.A11Y_TASK_AGENT_MODEL
-        ?? process.env.A11Y_TASK_ANTHROPIC_MODEL
-        ?? DEFAULT_ANTHROPIC_MODEL
+      model
     };
   }
 
@@ -52,9 +52,7 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
     provider,
     apiKey,
     model,
-    baseURL: options.baseURL
-      ?? process.env.A11Y_TASK_AGENT_BASE_URL
-      ?? DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    baseURL: resolveOpenAICompatibleBaseURL(options)
   };
 }
 
@@ -62,19 +60,33 @@ function resolveProvider(options: LLMAgentOptions): AgentProvider {
   const rawProvider =
     options.provider
     ?? options.backend
-    ?? process.env.A11Y_TASK_AGENT_PROVIDER
-    ?? process.env.A11Y_TASK_AGENT_MODE
-    ?? DEFAULT_PROVIDER;
+    ?? process.env.A11Y_TASK_AGENT_PROVIDER;
+
+  if (!rawProvider) {
+    throw new Error(
+      "Missing agent provider. Set rawstep.config.ts defaults.provider, A11Y_TASK_AGENT_PROVIDER, or pass --provider."
+    );
+  }
 
   if (
     rawProvider === "anthropic"
     || rawProvider === "openai-compatible"
-    || rawProvider === "stub"
   ) {
     return rawProvider;
   }
 
   throw new Error(
-    `Unsupported agent provider: ${rawProvider}. Expected one of anthropic, openai-compatible, stub.`
+    `Unsupported agent provider: ${rawProvider}. Expected one of anthropic, openai-compatible.`
   );
+}
+
+function resolveOpenAICompatibleBaseURL(options: LLMAgentOptions): string {
+  const baseURL = options.baseURL ?? process.env.A11Y_TASK_AGENT_BASE_URL;
+  if (!baseURL) {
+    throw new Error(
+      "OpenAI-compatible provider requires a base URL. Set A11Y_TASK_AGENT_BASE_URL or rawstep.config.ts defaults.baseURL."
+    );
+  }
+
+  return baseURL;
 }

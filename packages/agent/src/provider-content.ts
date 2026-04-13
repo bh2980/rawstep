@@ -1,31 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { PromptPart } from "./shared";
 
-type OpenAICompatibleContentPart =
+export type LanguageModelContentPart =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image"; image: Uint8Array; mediaType: "image/png" };
 
-export function toAnthropicMessageContent(promptParts: PromptPart[]): Anthropic.MessageParam["content"] {
-  return promptParts.map((part) => {
-    if (part.type === "text") {
-      return {
-        type: "text" as const,
-        text: part.text
-      };
-    }
-
-    return {
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: part.mediaType,
-        data: part.base64
-      }
-    };
-  });
-}
-
-export function toOpenAICompatibleMessageContent(promptParts: PromptPart[]): OpenAICompatibleContentPart[] {
+export function toLanguageModelContent(promptParts: PromptPart[]): LanguageModelContentPart[] {
   return promptParts.map((part) => {
     if (part.type === "text") {
       return {
@@ -35,10 +14,9 @@ export function toOpenAICompatibleMessageContent(promptParts: PromptPart[]): Ope
     }
 
     return {
-      type: "image_url",
-      image_url: {
-        url: `data:${part.mediaType};base64,${part.base64}`
-      }
+      type: "image",
+      image: Uint8Array.from(Buffer.from(part.base64, "base64")),
+      mediaType: part.mediaType
     };
   });
 }

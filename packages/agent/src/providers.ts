@@ -1,33 +1,25 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { Observation } from "@a11y-task/core";
-import { decideWithStub } from "./stub";
+import { generateText } from "ai";
+import { toLanguageModelContent } from "./provider-content";
 import {
   DEFAULT_MAX_TOKENS,
-  type AgentProviderClient,
+  type AgentCompletionClient,
   type AnthropicAgentConfig,
-  type LLMAgentOptions,
   type OpenAICompatibleAgentConfig,
   type ProviderDecisionInput,
   type ResolvedAgentConfig
 } from "./shared";
-import {
-  toAnthropicMessageContent,
-  toOpenAICompatibleMessageContent
-} from "./provider-content";
 
-export function createProviderClient(
-  config: ResolvedAgentConfig,
-  options: LLMAgentOptions
-): AgentProviderClient {
-  if (config.provider === "stub") {
-    return new StubProviderClient(options.includeRationale ?? false);
-  }
-
+export function createCompletionClient(
+  config: ResolvedAgentConfig
+): AgentCompletionClient {
   if (config.provider === "anthropic") {
-    return new AnthropicProviderClient(config);
+    return new AISDKCompletionClient(createAnthropicModel(config), config.model);
   }
 
-  return new OpenAICompatibleProviderClient(config, options.fetchImpl ?? fetch);
+  return new AISDKCompletionClient(createOpenAICompatibleModel(config), config.model);
 }
 
 export function normalizeProviderError(error: unknown, obs: Observation): Error {
@@ -42,92 +34,43 @@ export function normalizeProviderError(error: unknown, obs: Observation): Error 
   return error instanceof Error ? error : new Error(message);
 }
 
-class AnthropicProviderClient implements AgentProviderClient {
-  private readonly client: Anthropic;
-
-  constructor(private readonly config: AnthropicAgentConfig) {
-    this.client = new Anthropic({ apiKey: config.apiKey });
-  }
+class AISDKCompletionClient implements AgentCompletionClient {
+  constructor(
+    private readonly model: unknown,
+    readonly modelId: string
+  ) {}
 
   async complete(input: ProviderDecisionInput): Promise<string> {
-    const response = await this.client.messages.create({
-      model: this.config.model,
-      max_tokens: DEFAULT_MAX_TOKENS,
+    const result = await generateText({
+      model: this.model as never,
       system: input.systemPrompt,
+      maxOutputTokens: DEFAULT_MAX_TOKENS,
       messages: [
         {
           role: "user",
-          content: toAnthropicMessageContent(input.promptParts)
+          content: toLanguageModelContent(input.promptParts) as never
         }
       ]
     });
 
-    return response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("\n")
-      .trim();
+    return result.text.trim();
   }
 }
 
-class OpenAICompatibleProviderClient implements AgentProviderClient {
-  constructor(
-    private readonly config: OpenAICompatibleAgentConfig,
-    private readonly fetchImpl: typeof fetch
-  ) {}
-
-  async complete(input: ProviderDecisionInput): Promise<string> {
-    const response = await this.fetchImpl(
-      joinUrl(this.config.baseURL, "/chat/completions"),
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: this.config.model,
-          max_tokens: DEFAULT_MAX_TOKENS,
-          messages: [
-            {
-              role: "system",
-              content: input.systemPrompt
-            },
-            {
-              role: "user",
-              content: toOpenAICompatibleMessageContent(input.promptParts)
-            }
-          ]
-        })
-      }
-    );
-
-    const payload = await response.json() as OpenAICompatibleResponse | OpenAICompatibleErrorResponse;
-
-    if (!response.ok) {
-      throw new Error(readOpenAICompatibleError(payload, response.status));
-    }
-
-    return extractOpenAICompatibleText(payload);
-  }
+function createAnthropicModel(config: AnthropicAgentConfig): unknown {
+  return createAnthropic({
+    apiKey: config.apiKey
+  })(config.model);
 }
 
-class StubProviderClient implements AgentProviderClient {
-  constructor(private readonly includeRationale = false) {}
+function createOpenAICompatibleModel(config: OpenAICompatibleAgentConfig): unknown {
+  const provider = createOpenAICompatible({
+    name: "openai-compatible",
+    apiKey: config.apiKey,
+    baseURL: config.baseURL
+  });
 
-  async complete(input: ProviderDecisionInput): Promise<string> {
-    if (input.systemPrompt.includes("experience summary")) {
-      return JSON.stringify({
-        overall: "The run reached an outcome after a short sequence of steps.",
-        biggestFriction: "The main friction was the amount of navigation before the goal state was confirmed.",
-        nextChecks: ["Check the initial guidance.", "Check the feedback after interaction."]
-      });
-    }
-
-    return JSON.stringify(
-      decideWithStub(input.ctx, input.obs, input.fullMemory, this.includeRationale)
-    );
-  }
+  return provider(config.model);
 }
 
 function looksLikeImageCapabilityError(message: string): boolean {
@@ -139,56 +82,4 @@ function looksLikeImageCapabilityError(message: string): boolean {
     /input_image/i,
     /image_url/i
   ].some((pattern) => pattern.test(message));
-}
-
-function joinUrl(baseURL: string, path: string): string {
-  return `${baseURL.replace(/\/+$/, "")}${path}`;
-}
-
-type OpenAICompatibleResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string | Array<{ type?: string; text?: string }>;
-    };
-  }>;
-};
-
-type OpenAICompatibleErrorResponse = {
-  error?: {
-    message?: string;
-    type?: string;
-  };
-};
-
-function readOpenAICompatibleError(
-  payload: OpenAICompatibleResponse | OpenAICompatibleErrorResponse,
-  status: number
-): string {
-  if ("error" in payload) {
-    const message = payload.error?.message?.trim();
-    return message ? `OpenAI-compatible provider error (${status}): ${message}` : `OpenAI-compatible provider error (${status}).`;
-  }
-
-  return `OpenAI-compatible provider error (${status}).`;
-}
-
-function extractOpenAICompatibleText(payload: OpenAICompatibleResponse | OpenAICompatibleErrorResponse): string {
-  if (!("choices" in payload)) {
-    return "";
-  }
-
-  const content = payload.choices?.[0]?.message?.content;
-
-  if (typeof content === "string") {
-    return content.trim();
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => (typeof part.text === "string" ? part.text : ""))
-      .join("\n")
-      .trim();
-  }
-
-  return "";
 }

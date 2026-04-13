@@ -5,12 +5,9 @@ import type {
   TaskInput
 } from "@a11y-task/core";
 
-export const DEFAULT_PROVIDER = "anthropic";
-export const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-latest";
-export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "https://api.openai.com/v1";
 export const DEFAULT_MAX_TOKENS = 800;
 
-export type AgentProvider = "anthropic" | "openai-compatible" | "stub";
+export type AgentProvider = "anthropic" | "openai-compatible";
 export type AgentBackend = AgentProvider;
 
 export type PromptPart =
@@ -38,7 +35,7 @@ export type LLMAgentOptions = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   taskInput?: TaskInput;
-  fetchImpl?: typeof fetch;
+  completionClient?: AgentCompletionClient;
 };
 
 export type AnthropicAgentConfig = {
@@ -54,14 +51,9 @@ export type OpenAICompatibleAgentConfig = {
   baseURL: string;
 };
 
-export type StubAgentConfig = {
-  provider: "stub";
-};
-
 export type ResolvedAgentConfig =
   | AnthropicAgentConfig
-  | OpenAICompatibleAgentConfig
-  | StubAgentConfig;
+  | OpenAICompatibleAgentConfig;
 
 export type ProviderDecisionInput = {
   systemPrompt: string;
@@ -72,5 +64,9 @@ export type ProviderDecisionInput = {
 };
 
 export interface AgentProviderClient {
+  complete(input: ProviderDecisionInput): Promise<string>;
+}
+
+export interface AgentCompletionClient {
   complete(input: ProviderDecisionInput): Promise<string>;
 }
