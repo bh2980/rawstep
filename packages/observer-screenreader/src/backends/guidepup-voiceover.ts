@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Page } from "playwright";
 import {
   SCREENREADER_COMMANDS,
@@ -67,6 +68,8 @@ const GUIDEPUP_VIRTUAL_BROWSER_BUNDLE_PATH = requireFromHere.resolve("@guidepup/
 const GUIDEPUP_VIRTUAL_SUPPORTED_COMMANDS = SCREENREADER_COMMANDS.filter(
   (command) => SCREENREADER_COMMAND_METADATA[command].category !== "form"
 ) as readonly ScreenReaderCommand[];
+const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_TIMEOUT_MS = 1_000;
+const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS = 10;
 
 let guidepupVirtualAdapterScriptPromise: Promise<string> | undefined;
 
@@ -270,9 +273,7 @@ async function callGuidepupVirtualAdapter<TResult>(
 }
 
 async function ensureGuidepupVirtualAdapter(page: Page): Promise<void> {
-  const alreadyInstalled = await page
-    .evaluate((globalKey) => Boolean((globalThis as Record<string, unknown>)[globalKey]), GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL)
-    .catch(() => false);
+  const alreadyInstalled = await isGuidepupVirtualAdapterInstalled(page);
   if (alreadyInstalled) {
     return;
   }
@@ -282,19 +283,46 @@ async function ensureGuidepupVirtualAdapter(page: Page): Promise<void> {
     content: await loadGuidepupVirtualAdapterScript()
   });
 
-  const installed = await page.evaluate(
-    (globalKey) => Boolean((globalThis as Record<string, unknown>)[globalKey]),
-    GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL
-  );
+  // Module scripts that do dynamic imports can finish a tick after addScriptTag resolves.
+  const installed = await waitForGuidepupVirtualAdapter(page);
   if (!installed) {
     throw new Error("Failed to load Guidepup virtual screen reader into the page.");
   }
 }
 
+async function isGuidepupVirtualAdapterInstalled(page: Page): Promise<boolean> {
+  return page
+    .evaluate((globalKey) => Boolean((globalThis as Record<string, unknown>)[globalKey]), GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL)
+    .catch(() => false);
+}
+
+async function waitForGuidepupVirtualAdapter(page: Page): Promise<boolean> {
+  const deadline = Date.now() + GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    if (await isGuidepupVirtualAdapterInstalled(page)) {
+      return true;
+    }
+
+    await delay(GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS);
+  }
+
+  return isGuidepupVirtualAdapterInstalled(page);
+}
+
 async function loadGuidepupVirtualAdapterScript(): Promise<string> {
   if (!guidepupVirtualAdapterScriptPromise) {
     guidepupVirtualAdapterScriptPromise = readFile(GUIDEPUP_VIRTUAL_BROWSER_BUNDLE_PATH, "utf8")
-      .then((bundle) => `${bundle}
+      .then((bundle) => {
+        const encodedBundle = Buffer.from(bundle, "utf8").toString("base64");
+
+        return `
+const rawstepGuidepupVirtualBundleSource = atob(${JSON.stringify(encodedBundle)});
+const rawstepGuidepupVirtualBundleUrl = URL.createObjectURL(
+  new Blob([rawstepGuidepupVirtualBundleSource], { type: "text/javascript" })
+);
+const { virtual } = await import(rawstepGuidepupVirtualBundleUrl);
+URL.revokeObjectURL(rawstepGuidepupVirtualBundleUrl);
 
 const rawstepGuidepupVirtualAdapterKey = ${JSON.stringify(GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL)};
 
@@ -380,7 +408,8 @@ if (!globalThis[rawstepGuidepupVirtualAdapterKey]) {
     }
   };
 }
-`);
+`;
+      });
   }
 
   return guidepupVirtualAdapterScriptPromise;

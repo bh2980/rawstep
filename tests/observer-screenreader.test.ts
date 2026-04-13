@@ -288,7 +288,9 @@ describe("observer-screenreader", () => {
   });
 
   it("implements the guidepup-virtual session through a page adapter", async () => {
-    const { page, adapterState, addScriptTag } = createGuidepupVirtualTestPage();
+    const { page, adapterState, addScriptTag } = createGuidepupVirtualTestPage({
+      injectAfterEvaluateCalls: 1
+    });
     const session = await findScreenReaderBackendById("guidepup-virtual").createSession(page as never);
 
     await session.start();
@@ -345,7 +347,9 @@ describe("observer-screenreader", () => {
   });
 });
 
-function createGuidepupVirtualTestPage(): {
+function createGuidepupVirtualTestPage(options?: {
+  injectAfterEvaluateCalls?: number;
+}): {
   page: {
     addScriptTag: ReturnType<typeof vi.fn>;
     bringToFront: ReturnType<typeof vi.fn>;
@@ -384,6 +388,7 @@ function createGuidepupVirtualTestPage(): {
     started: false,
     injected: false
   };
+  let remainingEvaluateCallsUntilInjection = options?.injectAfterEvaluateCalls ?? 0;
   const adapter = {
     async start(): Promise<void> {
       adapterState.operations.push("start");
@@ -434,7 +439,10 @@ function createGuidepupVirtualTestPage(): {
 
     globals.document = documentMock;
     globals.HTMLElement = HTMLElementMock;
-    if (adapterState.injected) {
+    if (adapterState.injected && remainingEvaluateCallsUntilInjection > 0) {
+      remainingEvaluateCallsUntilInjection -= 1;
+      delete globals.__rawstepGuidepupVirtualAdapter;
+    } else if (adapterState.injected) {
       globals.__rawstepGuidepupVirtualAdapter = adapter;
     } else {
       delete globals.__rawstepGuidepupVirtualAdapter;
