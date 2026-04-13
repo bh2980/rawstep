@@ -1,23 +1,28 @@
-import type { AgentProvider } from "@a11y-task/agent";
-import { HISTORY_WINDOW } from "@a11y-task/core";
 import { resolve } from "node:path";
-import { type CliRunOptions, parseScreenshotPolicy, parseUserModel } from "./shared";
+import {
+  type CliRunOptions,
+  parseAgentProvider,
+  parseOptionalNonNegativeInteger,
+  parseScreenshotPolicy,
+  parseUserModel
+} from "./shared";
 
 export function parseRunArgs(argv: string[]): CliRunOptions {
   if (argv.length === 0) {
-    throw new Error("Missing task file. Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir>");
+    throw new Error("Missing task file. Usage: a11y-task run <task.yml> [--config <rawstep.config.yml>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>]");
   }
 
   const taskFile = argv[0];
   let mode = undefined;
+  let configFile = undefined;
   let outDir = undefined;
   let screenshotPolicy = undefined;
-  let verifierAutoComplete = false;
-  let agentMemoryWindow = HISTORY_WINDOW;
-  let agentMemoryAll = false;
-  let includeExperienceSummary = false;
-  let includeRationale = false;
-  let provider: AgentProvider | undefined;
+  let verifierAutoComplete = undefined;
+  let agentMemoryWindow = undefined;
+  let agentMemoryAll = undefined;
+  let includeExperienceSummary = undefined;
+  let includeRationale = undefined;
+  let provider = undefined;
   let model: string | undefined;
   let baseURL: string | undefined;
 
@@ -43,11 +48,20 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
+    if (token === "--config") {
+      if (!next) {
+        throw new Error("Missing value for --config.");
+      }
+      configFile = resolve(next);
+      index += 1;
+      continue;
+    }
+
     if (token === "--provider") {
       if (!next) {
         throw new Error("Missing value for --provider.");
       }
-      provider = next as AgentProvider;
+      provider = parseAgentProvider(next);
       index += 1;
       continue;
     }
@@ -70,11 +84,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       if (!next) {
         throw new Error("Missing value for --agent-memory-window.");
       }
-      const parsed = Number.parseInt(next, 10);
-      if (!Number.isInteger(parsed) || parsed < 0) {
-        throw new Error("--agent-memory-window must be a non-negative integer.");
-      }
-      agentMemoryWindow = parsed;
+      agentMemoryWindow = parseOptionalNonNegativeInteger(next, "--agent-memory-window");
       index += 1;
       continue;
     }
@@ -115,14 +125,11 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     throw new Error(`Unknown argument: ${token}`);
   }
 
-  if (!outDir) {
-    throw new Error("Missing --out <dir>.");
-  }
-
   return {
     taskFile,
+    configFile,
     mode,
-    outDir: resolve(outDir),
+    outDir: outDir ? resolve(outDir) : undefined,
     screenshotPolicy,
     verifierAutoComplete,
     agentMemoryWindow,
@@ -137,6 +144,6 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
 
 export function printUsage(): void {
   process.stderr.write(
-    "Usage: a11y-task run <task.yml> --mode keyboard|screenreader-strict|screenreader-hybrid --out <dir> [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
+    "Usage: a11y-task run <task.yml> [--config <rawstep.config.yml>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--screenshots all|important|failure-only|none] [--verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all] [--include-experience-summary] [--include-rationale] [--provider anthropic|openai-compatible|stub] [--model <id>] [--base-url <url>]\n"
   );
 }

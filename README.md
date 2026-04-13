@@ -209,12 +209,69 @@ a11y/
 ```bash
 pnpm install
 pnpm build
-pnpm a11y-task run examples/tasks/simple-cta.yml \
-  --mode keyboard --out ./report
-open ./report/report/index.html
+cat > rawstep.config.yml <<'YAML'
+version: 1
+defaults:
+  run:
+    outDir: ./.rawstep/out
+  agent:
+    provider: stub
+YAML
+
+pnpm a11y-task run examples/tasks/simple-cta.yml
+open ./.rawstep/out/report/index.html
 ```
 
 macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
+
+### `rawstep.config.yml`
+
+반복 실행에서 매번 긴 CLI 플래그를 쓰지 않으려면 루트에 `rawstep.config.yml` 을 둡니다.
+
+```yaml
+version: 1
+
+defaults:
+  run:
+    mode: keyboard
+    outDir: ./.rawstep/out
+    maxSteps: 20
+    timeoutMs: 180000
+    screenshots: important
+    verifierAutoComplete: false
+
+  agent:
+    provider: anthropic
+    model: claude-3-5-sonnet-latest
+    memory:
+      window: 5
+      all: false
+    includeExperienceSummary: false
+    includeRationale: false
+```
+
+- `rawstep.config.yml` 은 프로젝트 공통 기본값입니다.
+- `task.yml` 은 과업 자체를 정의합니다.
+- CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
+- API key 같은 비밀값은 `rawstep.config.yml` 에 넣지 않고 환경변수로만 받습니다.
+
+task 파일에도 필요한 경우 override를 둘 수 있습니다.
+
+```yaml
+id: simple-cta
+url: ../../fixtures/simple-cta.html
+goal: Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.
+verify:
+  all:
+    - textVisible: Started!
+    - titleIncludes: Completed
+config:
+  run:
+    mode: keyboard
+    screenshots: none
+  agent:
+    provider: stub
+```
 
 ### LLM provider 설정
 
@@ -240,8 +297,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 
 ```bash
 pnpm a11y-task run examples/tasks/simple-cta.yml \
-  --mode keyboard \
-  --out ./report \
+  --config ./rawstep.config.yml \
   --agent-memory-window 5 \
   --include-experience-summary \
   --screenshots important \

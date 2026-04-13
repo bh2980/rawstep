@@ -8,8 +8,8 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseRunArgs, printUsage } from "./args";
 import { persistSessionArtifacts } from "./artifacts";
-import { type CliRunOptions } from "./shared";
-import { loadTask } from "./task-file";
+import { loadConfig, resolveRunOptions } from "./config";
+import { type ResolvedRunOptions } from "./shared";
 
 export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   try {
@@ -19,8 +19,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       return 1;
     }
 
-    const options = parseRunArgs(argv.slice(1));
-    const task = await loadTask(options.taskFile, options.mode);
+    const cliOptions = parseRunArgs(argv.slice(1));
+    const options = await resolveRunOptions(cliOptions);
+    const task = options.task;
     const agent = createAgent(task.mode, task.input, options);
 
     await mkdir(options.outDir, { recursive: true });
@@ -60,11 +61,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 
 export { loadTask } from "./task-file";
 export { parseRunArgs } from "./args";
+export { loadConfig, resolveRunOptions } from "./config";
 
 function createAgent(
   mode: UserModel,
   taskInput: Task["input"],
-  options: CliRunOptions
+  options: ResolvedRunOptions
 ): LLMAgent {
   return new LLMAgent(mode, {
     provider: options.provider,

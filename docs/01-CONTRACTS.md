@@ -24,6 +24,12 @@ export type Task = {
 };
 ```
 
+주의:
+
+- 위 `Task` 는 런타임에 실제로 쓰는 정규화된 타입이다.
+- `task.yml` 원본 파일에는 선택적으로 `config.run`, `config.agent` 블록이 더 들어갈 수 있다.
+- 이 `config` 블록은 프로젝트 기본 설정(`rawstep.config.yml`)을 해당 task에서만 덮어쓸 때만 쓰고, `url`, `goal`, `verify`, `input` 같은 과업 본문은 계속 top-level에 둔다.
+
 **JSON 예시 (examples/tasks/simple-cta.yml 파싱 후)**
 
 ```json
