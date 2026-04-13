@@ -11,8 +11,7 @@ import {
 } from "@a11y-task/core";
 import {
   isScreenReaderBackendId,
-  type ScreenReaderBackendId,
-  type ScreenReaderBackendPreference
+  type ScreenReaderBackendId
 } from "@a11y-task/observer-screenreader";
 
 export type CliRunOptions = {
@@ -51,7 +50,7 @@ export type ModeConfigShape = {
   memory?: MemorySetting;
   allowedKeys?: AllowedKey[];
   allowedScreenReaderCommands?: ScreenReaderCommand[];
-  screenReaderBackend?: ScreenReaderBackendPreference;
+  screenReaderBackend?: ScreenReaderBackendId;
 };
 
 export type ProjectDefaultsShape = {
@@ -59,7 +58,6 @@ export type ProjectDefaultsShape = {
   model?: string;
   baseURL?: string;
   apiKey?: string;
-  screenReaderBackend?: ScreenReaderBackendPreference;
 };
 
 export type TaskConfigOverride = {
@@ -74,7 +72,7 @@ export type TaskConfigOverride = {
   memory?: MemorySetting;
   allowedKeys?: AllowedKey[];
   allowedScreenReaderCommands?: ScreenReaderCommand[];
-  screenReaderBackend?: ScreenReaderBackendPreference;
+  screenReaderBackend?: ScreenReaderBackendId;
 };
 
 export type ProjectConfig = {
@@ -129,8 +127,8 @@ export const screenReaderCommandSchema = z.custom<ScreenReaderCommand>(
   (value) => typeof value === "string" && isScreenReaderCommand(value)
 );
 export const allowedScreenReaderCommandsSchema = z.array(screenReaderCommandSchema);
-export const screenReaderBackendPreferenceSchema = z.custom<ScreenReaderBackendPreference>(
-  (value) => value === "auto" || (typeof value === "string" && isScreenReaderBackendId(value))
+export const screenReaderBackendIdSchema = z.custom<ScreenReaderBackendId>(
+  (value) => typeof value === "string" && isScreenReaderBackendId(value)
 );
 
 export function validateTaskInput(raw: unknown): Task["input"] {
@@ -250,13 +248,13 @@ export function parseAllowedScreenReaderCommands(value: unknown, label: string):
   });
 }
 
-export function parseScreenReaderBackendPreference(value: unknown, label: string): ScreenReaderBackendPreference {
-  const result = screenReaderBackendPreferenceSchema.safeParse(value);
+export function parseScreenReaderBackendId(value: unknown, label: string): ScreenReaderBackendId {
+  const result = screenReaderBackendIdSchema.safeParse(value);
   if (result.success) {
     return result.data;
   }
 
-  throw new Error(`${label} must be one of auto, guidepup-voiceover, guidepup-nvda, guidepup-virtual.`);
+  throw new Error(`${label} must be one of guidepup-voiceover, guidepup-nvda, guidepup-virtual.`);
 }
 
 const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";

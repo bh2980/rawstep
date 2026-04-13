@@ -20,6 +20,16 @@ export const SCREENREADER_COMMANDS = [
   "act"
 ] as const;
 
+export const SCREENREADER_COMMAND_METADATA = {
+  nextItem: { category: "navigation" },
+  previousItem: { category: "navigation" },
+  nextHeading: { category: "heading" },
+  previousHeading: { category: "heading" },
+  nextFormControl: { category: "form" },
+  previousFormControl: { category: "form" },
+  act: { category: "action" }
+} as const;
+
 export const SCROLL_HINTS = ["top", "middle", "bottom"] as const;
 
 export const DEFAULT_VIEWPORT = {
@@ -31,6 +41,8 @@ export const SETTLE_MS = 120;
 
 export type AllowedKey = (typeof ALLOWED_KEYS)[number];
 export type ScreenReaderCommand = (typeof SCREENREADER_COMMANDS)[number];
+export type ScreenReaderCommandCategory =
+  (typeof SCREENREADER_COMMAND_METADATA)[ScreenReaderCommand]["category"];
 export type ScrollHint = (typeof SCROLL_HINTS)[number];
 
 export function isAllowedKey(value: string): value is AllowedKey {

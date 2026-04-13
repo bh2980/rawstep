@@ -6,7 +6,6 @@ import {
   memorySettingSchema,
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
-  screenReaderBackendPreferenceSchema,
   screenshotPolicySchema,
   userModelSchema
 } from "./shared";
@@ -23,7 +22,7 @@ const taskConfigObjectSchema = z.object({
   memory: memorySettingSchema.optional(),
   allowedKeys: allowedKeysSchema.optional(),
   allowedScreenReaderCommands: allowedScreenReaderCommandsSchema.optional(),
-  screenReaderBackend: screenReaderBackendPreferenceSchema.optional()
+  screenReaderBackend: z.unknown().optional()
 }).passthrough();
 
 export function parseTaskConfigObject(raw: unknown, label: string) {
@@ -53,8 +52,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
 const projectDefaultsObjectSchema = z.object({
   provider: z.enum(["anthropic", "openai-compatible"]).optional(),
   model: nonEmptyStringSchema.optional(),
-  baseURL: nonEmptyStringSchema.optional(),
-  screenReaderBackend: screenReaderBackendPreferenceSchema.optional()
+  baseURL: nonEmptyStringSchema.optional()
 }).passthrough();
 
 export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
@@ -88,7 +86,8 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
     "memory",
     "mode",
     "allowedKeys",
-    "allowedScreenReaderCommands"
+    "allowedScreenReaderCommands",
+    "screenReaderBackend"
   ]) {
     if (candidate[key] !== undefined) {
       throw new Error(

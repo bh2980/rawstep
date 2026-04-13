@@ -1,8 +1,9 @@
-import type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
+import type { AllowedKey, ScreenReaderCommand, ScreenReaderCommandCategory, ScrollHint } from "./constants";
 
 export {
   ALLOWED_KEYS,
   DEFAULT_VIEWPORT,
+  SCREENREADER_COMMAND_METADATA,
   SCREENREADER_COMMANDS,
   SETTLE_MS,
   SCROLL_HINTS,
@@ -11,7 +12,7 @@ export {
   isScreenReaderCommand,
   isScrollHint
 } from "./constants";
-export type { AllowedKey, ScreenReaderCommand, ScrollHint } from "./constants";
+export type { AllowedKey, ScreenReaderCommand, ScreenReaderCommandCategory, ScrollHint } from "./constants";
 
 export type UserModel = "keyboard" | "screenreader-strict" | "screenreader-hybrid";
 

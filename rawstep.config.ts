@@ -5,8 +5,7 @@ export default defineConfig({
   defaults: {
     provider: "openai-compatible",
     model: "openrouter/auto",
-    baseURL: "https://openrouter.ai/api/v1",
-    screenReaderBackend: "auto"
+    baseURL: "https://openrouter.ai/api/v1"
   },
   modes: {
     keyboard: {
@@ -51,8 +50,6 @@ export default defineConfig({
         "previousItem",
         "nextHeading",
         "previousHeading",
-        "nextFormControl",
-        "previousFormControl",
         "act"
       ]
     }

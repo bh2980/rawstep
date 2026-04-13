@@ -8,14 +8,11 @@ export { ScreenReaderObserver } from "./observer";
 export {
   BUILTIN_SCREEN_READER_BACKENDS,
   createScreenReaderRuntime,
-  findScreenReaderBackendById,
-  resolveScreenReaderBackendPreference,
-  selectDefaultScreenReaderBackend
+  findScreenReaderBackendById
 } from "./runtime";
 export type {
   ScreenReaderBackend,
   ScreenReaderBackendId,
-  ScreenReaderBackendPreference,
   ScreenReaderObserveProfileName,
   ScreenReaderRuntimeOptions,
   ScreenReaderRuntime,

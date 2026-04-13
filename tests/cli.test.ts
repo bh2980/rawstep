@@ -473,8 +473,7 @@ describe.sequential("CLI", () => {
   defaults: {
     provider: "anthropic",
     model: "config-model",
-    baseURL: "https://config.example/v1",
-    screenReaderBackend: "guidepup-virtual"
+    baseURL: "https://config.example/v1"
   },
   modes: {
     keyboard: {
@@ -960,8 +959,7 @@ describe.sequential("CLI", () => {
   version: 1,
   defaults: {
     provider: "anthropic",
-    model: "claude-config",
-    screenReaderBackend: "auto"
+    model: "claude-config"
   },
   modes: {
     "screenreader-hybrid": {
@@ -1037,6 +1035,73 @@ describe.sequential("CLI", () => {
       "--config",
       configPath
     ]))).rejects.toThrow("allowedScreenReaderCommands is not allowed in keyboard mode");
+  });
+
+  it("rejects auto as a screen reader backend id", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-auto-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "auto"
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-hybrid"
+    ]))).rejects.toThrow("must be one of guidepup-voiceover, guidepup-nvda, guidepup-virtual");
+  });
+
+  it("rejects virtual screen reader commands that the backend does not support", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-virtual-command-subset-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedScreenReaderCommands: ["nextItem", "nextFormControl"]
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-hybrid"
+    ]))).rejects.toThrow('does not support commands: nextFormControl');
   });
 
   it("rejects missing memory when neither config nor CLI provides it", async () => {

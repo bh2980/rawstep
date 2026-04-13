@@ -8,7 +8,6 @@ export const SCREEN_READER_BACKEND_IDS = [
 ] as const;
 
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
-export type ScreenReaderBackendPreference = "auto" | ScreenReaderBackendId;
 
 export type ScreenReaderSession = {
   start(): Promise<void>;
@@ -44,7 +43,7 @@ export type ScreenReaderRuntime = {
 export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRuntime>;
 
 export type ScreenReaderRuntimeOptions = {
-  backendId?: ScreenReaderBackendPreference;
+  backendId?: ScreenReaderBackendId;
   backend?: ScreenReaderBackend;
   allowedCommands?: readonly ScreenReaderCommand[];
   platform?: NodeJS.Platform;

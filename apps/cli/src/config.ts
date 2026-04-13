@@ -11,9 +11,7 @@ import {
   type ScreenReaderCommand
 } from "@a11y-task/core";
 import {
-  findScreenReaderBackendById,
-  resolveScreenReaderBackendPreference,
-  type ScreenReaderBackendPreference
+  findScreenReaderBackendById
 } from "@a11y-task/observer-screenreader";
 import {
   type CliRunOptions,
@@ -114,9 +112,6 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   const configuredModeScreenReaderBackend =
     taskSource.taskConfig?.screenReaderBackend
     ?? modePreset?.screenReaderBackend;
-  const configuredScreenReaderBackend =
-    configuredModeScreenReaderBackend
-    ?? projectDefaults?.screenReaderBackend;
 
   if (selectedMode === "keyboard" && configuredAllowedScreenReaderCommands) {
     throw new Error("allowedScreenReaderCommands is not allowed in keyboard mode.");
@@ -130,7 +125,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     throw new Error("allowedKeys is not allowed in screenreader-strict mode.");
   }
 
-  const screenReaderBackendId = resolveScreenReaderBackendId(selectedMode, configuredScreenReaderBackend);
+  const screenReaderBackendId = resolveScreenReaderBackendId(selectedMode, configuredModeScreenReaderBackend);
   const allowedScreenReaderCommands = resolveAllowedScreenReaderCommands(
     selectedMode,
     configuredAllowedScreenReaderCommands,
@@ -292,8 +287,7 @@ function validateProjectDefaults(
   return {
     provider: candidate.provider,
     model: candidate.model,
-    baseURL: candidate.baseURL,
-    screenReaderBackend: candidate.screenReaderBackend
+    baseURL: candidate.baseURL
   };
 }
 
@@ -377,20 +371,25 @@ function resolveAllowedScreenReaderCommands(
     return undefined;
   }
 
-  if (configuredAllowedScreenReaderCommands) {
-    return configuredAllowedScreenReaderCommands;
-  }
-
   if (!screenReaderBackendId) {
     throw new Error("Screen reader backend must be resolved before choosing allowed screen reader commands.");
   }
 
-  return findScreenReaderBackendById(screenReaderBackendId).supportedCommands;
+  const backend = findScreenReaderBackendById(screenReaderBackendId);
+  const allowedCommands = configuredAllowedScreenReaderCommands ?? backend.supportedCommands;
+  const unsupportedCommands = allowedCommands.filter((command) => !backend.supportedCommands.includes(command));
+  if (unsupportedCommands.length > 0) {
+    throw new Error(
+      `Screen reader backend "${screenReaderBackendId}" does not support commands: ${unsupportedCommands.join(", ")}.`
+    );
+  }
+
+  return allowedCommands;
 }
 
 function resolveScreenReaderBackendId(
   selectedMode: ResolvedRunOptions["task"]["mode"],
-  configuredScreenReaderBackend: ScreenReaderBackendPreference | undefined
+  configuredScreenReaderBackend: ResolvedRunOptions["screenReaderBackendId"]
 ): ResolvedRunOptions["screenReaderBackendId"] {
   if (selectedMode === "keyboard") {
     return undefined;
@@ -398,11 +397,11 @@ function resolveScreenReaderBackendId(
 
   if (!configuredScreenReaderBackend) {
     throw new Error(
-      `Missing screenReaderBackend. Set defaults.screenReaderBackend, modes.${selectedMode}.screenReaderBackend, or task config.screenReaderBackend in rawstep.config.ts.`
+      `Missing screenReaderBackend. Set modes.${selectedMode}.screenReaderBackend in rawstep.config.ts or task config.screenReaderBackend in the task file.`
     );
   }
 
-  return resolveScreenReaderBackendPreference(configuredScreenReaderBackend).id;
+  return findScreenReaderBackendById(configuredScreenReaderBackend).id;
 }
 
 function validateProjectMode(

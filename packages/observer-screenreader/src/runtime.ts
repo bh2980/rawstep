@@ -11,7 +11,6 @@ import type {
   AnnouncementReader,
   AnnouncementState,
   ScreenReaderBackendId,
-  ScreenReaderBackendPreference,
   ScreenReaderBackend,
   ScreenReaderRuntime,
   ScreenReaderRuntimeOptions
@@ -72,38 +71,10 @@ export async function createScreenReaderRuntime(
   };
 }
 
-export function selectDefaultScreenReaderBackend(
-  platform: NodeJS.Platform = process.platform
-): ScreenReaderBackend {
-  const candidates = [guidepupVoiceOverBackend, guidepupNvdaBackend];
-  const backend = candidates.find((candidate) => candidate.supports(platform));
-  if (!backend) {
-    throw new Error(`screenreader mode currently has no supported screen reader backend for platform "${platform}".`);
-  }
-
-  return backend;
-}
-
 export function findScreenReaderBackendById(id: ScreenReaderBackendId): ScreenReaderBackend {
   const backend = BUILTIN_SCREEN_READER_BACKENDS.find((candidate) => candidate.id === id);
   if (!backend) {
     throw new Error(`Unknown screen reader backend "${id}".`);
-  }
-
-  return backend;
-}
-
-export function resolveScreenReaderBackendPreference(
-  preference: ScreenReaderBackendPreference,
-  platform: NodeJS.Platform = process.platform
-): ScreenReaderBackend {
-  if (preference === "auto") {
-    return selectDefaultScreenReaderBackend(platform);
-  }
-
-  const backend = findScreenReaderBackendById(preference);
-  if (!backend.supports(platform)) {
-    throw new Error(`Screen reader backend "${preference}" is not supported on platform "${platform}".`);
   }
 
   return backend;
@@ -130,14 +101,25 @@ function resolveScreenReaderBackend(
   platform: NodeJS.Platform
 ): ScreenReaderBackend {
   if (options.backend) {
+    if (!options.backend.supports(platform)) {
+      throw new Error(`Screen reader backend "${options.backend.id}" is not supported on platform "${platform}".`);
+    }
+
     return options.backend;
   }
 
-  if (options.backendId) {
-    return resolveScreenReaderBackendPreference(options.backendId, platform);
+  if (!options.backendId) {
+    throw new Error(
+      'screenreader mode requires an explicit screenReaderBackend. Set screenReaderBackend to "guidepup-voiceover", "guidepup-nvda", or "guidepup-virtual".'
+    );
   }
 
-  return selectDefaultScreenReaderBackend(platform);
+  const backend = findScreenReaderBackendById(options.backendId);
+  if (!backend.supports(platform)) {
+    throw new Error(`Screen reader backend "${options.backendId}" is not supported on platform "${platform}".`);
+  }
+
+  return backend;
 }
 
 function validateAllowedCommands(

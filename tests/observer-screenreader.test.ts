@@ -1,7 +1,7 @@
 import {
   createAnnouncementReader,
   createScreenReaderRuntime,
-  resolveScreenReaderBackendPreference,
+  findScreenReaderBackendById,
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "../packages/observer-screenreader/src";
@@ -9,12 +9,26 @@ import { SCREENREADER_COMMANDS } from "../packages/core/src";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;
+const ORIGINAL_DOCUMENT = (globalThis as { document?: unknown }).document;
+const ORIGINAL_HTML_ELEMENT = (globalThis as { HTMLElement?: unknown }).HTMLElement;
 
 afterEach(() => {
   Object.defineProperty(process, "platform", {
     value: ORIGINAL_PLATFORM,
     configurable: true
   });
+
+  if (ORIGINAL_DOCUMENT === undefined) {
+    delete (globalThis as { document?: unknown }).document;
+  } else {
+    (globalThis as { document?: unknown }).document = ORIGINAL_DOCUMENT;
+  }
+
+  if (ORIGINAL_HTML_ELEMENT === undefined) {
+    delete (globalThis as { HTMLElement?: unknown }).HTMLElement;
+  } else {
+    (globalThis as { HTMLElement?: unknown }).HTMLElement = ORIGINAL_HTML_ELEMENT;
+  }
 });
 
 describe("observer-screenreader", () => {
@@ -99,19 +113,14 @@ describe("observer-screenreader", () => {
     });
   });
 
-  it("rejects screenreader runtime creation on non-macOS platforms", async () => {
-    Object.defineProperty(process, "platform", {
-      value: "linux",
-      configurable: true
-    });
-
+  it("rejects screenreader runtime creation when screenReaderBackend is missing", async () => {
     await expect(
       createScreenReaderRuntime(
         {
           bringToFront: vi.fn(async () => undefined)
         } as never
       )
-    ).rejects.toThrow('no supported screen reader backend for platform "linux"');
+    ).rejects.toThrow("screenreader mode requires an explicit screenReaderBackend");
   });
 
   it("creates a runtime that delegates canonical commands to the configured backend session", async () => {
@@ -264,10 +273,49 @@ describe("observer-screenreader", () => {
     expect(evaluate).toHaveBeenCalledTimes(4);
   });
 
-  it("resolves auto backend selection to guidepup-nvda on win32", () => {
-    const backend = resolveScreenReaderBackendPreference("auto", "win32");
+  it("rejects explicitly configured backends that do not support the current platform", async () => {
+    await expect(
+      createScreenReaderRuntime(
+        {
+          bringToFront: vi.fn(async () => undefined)
+        } as never,
+        {
+          backendId: "guidepup-nvda",
+          platform: "darwin"
+        }
+      )
+    ).rejects.toThrow('Screen reader backend "guidepup-nvda" is not supported on platform "darwin"');
+  });
 
-    expect(backend.id).toBe("guidepup-nvda");
+  it("implements the guidepup-virtual session through a page adapter", async () => {
+    const { page, adapterState, addScriptTag } = createGuidepupVirtualTestPage();
+    const session = await findScreenReaderBackendById("guidepup-virtual").createSession(page as never);
+
+    await session.start();
+    await session.execute("nextItem");
+    await session.execute("nextHeading");
+    expect(await session.lastSpokenPhrase()).toBe("command:nextHeading");
+    expect(await session.spokenPhraseLog()).toEqual([
+      "virtual-started",
+      "command:nextItem",
+      "command:nextHeading"
+    ]);
+
+    await session.clearSpokenPhraseLog();
+    expect(await session.spokenPhraseLog()).toEqual([]);
+    await session.stop();
+
+    expect(addScriptTag).toHaveBeenCalledTimes(1);
+    expect(adapterState.operations).toEqual([
+      "start",
+      "execute:nextItem",
+      "execute:nextHeading",
+      "lastSpokenPhrase",
+      "spokenPhraseLog",
+      "clearSpokenPhraseLog",
+      "spokenPhraseLog",
+      "stop"
+    ]);
   });
 
   it("rejects commands that the backend does not support", async () => {
@@ -296,3 +344,132 @@ describe("observer-screenreader", () => {
     ).rejects.toThrow('does not support commands: act');
   });
 });
+
+function createGuidepupVirtualTestPage(): {
+  page: {
+    addScriptTag: ReturnType<typeof vi.fn>;
+    bringToFront: ReturnType<typeof vi.fn>;
+    evaluate: ReturnType<typeof vi.fn>;
+  };
+  addScriptTag: ReturnType<typeof vi.fn>;
+  adapterState: {
+    operations: string[];
+    phrases: string[];
+    started: boolean;
+    injected: boolean;
+  };
+} {
+  class HTMLElementMock {
+    private readonly attributes = new Map<string, string>();
+
+    focus(): void {}
+
+    hasAttribute(name: string): boolean {
+      return this.attributes.has(name);
+    }
+
+    setAttribute(name: string, value: string): void {
+      this.attributes.set(name, value);
+    }
+
+    removeAttribute(name: string): void {
+      this.attributes.delete(name);
+    }
+  }
+
+  const body = new HTMLElementMock();
+  const adapterState = {
+    operations: [] as string[],
+    phrases: [] as string[],
+    started: false,
+    injected: false
+  };
+  const adapter = {
+    async start(): Promise<void> {
+      adapterState.operations.push("start");
+      adapterState.started = true;
+      adapterState.phrases.push("virtual-started");
+    },
+    async stop(): Promise<void> {
+      adapterState.operations.push("stop");
+      adapterState.started = false;
+    },
+    async execute(command: string): Promise<void> {
+      adapterState.operations.push(`execute:${command}`);
+      if (!adapterState.started) {
+        adapterState.started = true;
+      }
+      adapterState.phrases.push(`command:${command}`);
+    },
+    async lastSpokenPhrase(): Promise<string> {
+      adapterState.operations.push("lastSpokenPhrase");
+      return adapterState.phrases.at(-1) ?? "";
+    },
+    async spokenPhraseLog(): Promise<string[]> {
+      adapterState.operations.push("spokenPhraseLog");
+      return [...adapterState.phrases];
+    },
+    async clearSpokenPhraseLog(): Promise<void> {
+      adapterState.operations.push("clearSpokenPhraseLog");
+      adapterState.phrases = [];
+    }
+  };
+  const documentMock = {
+    body,
+    documentElement: body,
+    querySelector(selector: string): HTMLElementMock | null {
+      return selector === "[data-a11y-bootstrap-tabindex='true']" && body.hasAttribute("data-a11y-bootstrap-tabindex")
+        ? body
+        : null;
+    }
+  };
+  const addScriptTag = vi.fn(async () => {
+    adapterState.injected = true;
+  });
+  const evaluate = vi.fn(async (fn: (arg: unknown) => unknown, arg?: unknown) => {
+    const globals = globalThis as Record<string, unknown>;
+    const previousDocument = globals.document;
+    const previousHTMLElement = globals.HTMLElement;
+    const previousAdapter = globals.__rawstepGuidepupVirtualAdapter;
+
+    globals.document = documentMock;
+    globals.HTMLElement = HTMLElementMock;
+    if (adapterState.injected) {
+      globals.__rawstepGuidepupVirtualAdapter = adapter;
+    } else {
+      delete globals.__rawstepGuidepupVirtualAdapter;
+    }
+
+    try {
+      return await fn(arg);
+    } finally {
+      if (previousDocument === undefined) {
+        delete globals.document;
+      } else {
+        globals.document = previousDocument;
+      }
+
+      if (previousHTMLElement === undefined) {
+        delete globals.HTMLElement;
+      } else {
+        globals.HTMLElement = previousHTMLElement;
+      }
+
+      if (previousAdapter === undefined) {
+        delete globals.__rawstepGuidepupVirtualAdapter;
+      } else {
+        globals.__rawstepGuidepupVirtualAdapter = previousAdapter;
+      }
+    }
+  });
+
+  return {
+    page: {
+      addScriptTag,
+      bringToFront: vi.fn(async () => undefined),
+      evaluate
+    },
+    addScriptTag,
+    adapterState
+  };
+}

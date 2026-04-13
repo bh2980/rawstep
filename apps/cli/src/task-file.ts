@@ -5,6 +5,9 @@ import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import YAML from "yaml";
 import {
+  parseAllowedKeys,
+  parseAllowedScreenReaderCommands,
+  parseScreenReaderBackendId,
   type TaskExecutionDefaults,
   type TaskFileShape,
   type TaskConfigOverride,
@@ -131,8 +134,17 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
     includeExperienceSummary: candidate.includeExperienceSummary,
     includeRationale: candidate.includeRationale,
     memory: candidate.memory,
-    allowedKeys: candidate.allowedKeys,
-    allowedScreenReaderCommands: candidate.allowedScreenReaderCommands,
-    screenReaderBackend: candidate.screenReaderBackend
+    allowedKeys: candidate.allowedKeys === undefined
+      ? undefined
+      : parseAllowedKeys(candidate.allowedKeys, `${label} config.allowedKeys`),
+    allowedScreenReaderCommands: candidate.allowedScreenReaderCommands === undefined
+      ? undefined
+      : parseAllowedScreenReaderCommands(
+        candidate.allowedScreenReaderCommands,
+        `${label} config.allowedScreenReaderCommands`
+      ),
+    screenReaderBackend: candidate.screenReaderBackend === undefined
+      ? undefined
+      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`)
   };
 }

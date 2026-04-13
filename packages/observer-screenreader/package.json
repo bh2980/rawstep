@@ -11,6 +11,7 @@
     "@a11y-task/actuator": "workspace:*",
     "@a11y-task/core": "workspace:*",
     "@guidepup/guidepup": "^0.24.1",
+    "@guidepup/virtual-screen-reader": "^0.32.1",
     "playwright": "^1.59.1"
   }
 }

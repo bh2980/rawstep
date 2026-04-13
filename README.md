@@ -217,8 +217,7 @@ export default defineConfig({
   defaults: {
     provider: "openai-compatible",
     model: "openrouter/auto",
-    baseURL: "https://openrouter.ai/api/v1",
-    screenReaderBackend: "auto"
+    baseURL: "https://openrouter.ai/api/v1"
   },
   modes: {
     keyboard: {
@@ -250,8 +249,7 @@ export default defineConfig({
   version: 1,
   defaults: {
     provider: "anthropic",
-    model: "claude-3-5-sonnet-latest",
-    screenReaderBackend: "auto"
+    model: "claude-3-5-sonnet-latest"
   },
   modes: {
     keyboard: {
@@ -287,7 +285,7 @@ export default defineConfig({
 
 - `defaults` 는 모든 모드 공통값입니다.
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다.
-- `screenReaderBackend` 는 어떤 screen reader backend를 붙일지 고르는 값입니다.
+- `screenReaderBackend` 는 screenreader mode preset이나 task override에서 명시해야 합니다.
 - `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - task 파일(`.json`, `.yml`)은 과업 자체를 정의합니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값으로 남깁니다.
@@ -411,7 +409,7 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
 - Screen reader strict/hybrid 모드는 RawStep canonical command를 쓰고, 실제 구현은 backend가 맡습니다.
-- 현재 backend id 계약은 `guidepup-voiceover`, `guidepup-nvda`, `guidepup-virtual`, `auto` 입니다.
-- `auto` 는 현재 `darwin -> guidepup-voiceover`, `win32 -> guidepup-nvda` 로 고릅니다.
+- 현재 backend id 계약은 `guidepup-voiceover`, `guidepup-nvda`, `guidepup-virtual` 입니다.
+- `guidepup-virtual` v1은 `nextItem`, `previousItem`, `nextHeading`, `previousHeading`, `act` 만 지원합니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.
