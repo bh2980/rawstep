@@ -1,4 +1,4 @@
-import { defineConfig } from "@a11y-task/cli/config";
+import { defineConfig } from "./apps/cli/src/config-define";
 
 export default defineConfig({
   version: 1,
