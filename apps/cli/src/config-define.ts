@@ -23,6 +23,7 @@ type SharedModeConfig = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   memory: MemorySetting;
+  prompt?: PromptOverrideConfig;
 };
 
 type KeyboardModeConfig = SharedModeConfig & {
@@ -52,6 +53,17 @@ type ProjectDefaultsConfig = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  prompt?: ProjectPromptConfig;
+};
+
+type PromptOverrideConfig = {
+  extraInstructions?: string;
+  keyHints?: Partial<Record<AllowedKey, string>>;
+  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
+};
+
+type ProjectPromptConfig = PromptOverrideConfig & {
+  dir?: string;
 };
 
 export type RawstepConfig = {

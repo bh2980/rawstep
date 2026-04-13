@@ -23,7 +23,8 @@ const taskConfigObjectSchema = z.object({
   memory: memorySettingSchema.optional(),
   allowedKeys: allowedKeysSchema.optional(),
   allowedScreenReaderCommands: allowedScreenReaderCommandsSchema.optional(),
-  screenReaderBackend: z.unknown().optional()
+  screenReaderBackend: z.unknown().optional(),
+  prompt: z.unknown().optional()
 }).passthrough();
 
 export function parseTaskConfigObject(raw: unknown, label: string) {
@@ -54,7 +55,8 @@ const projectDefaultsObjectSchema = z.object({
   provider: z.enum(["anthropic", "openai-compatible"]).optional(),
   apiKey: nonEmptyStringSchema.optional(),
   model: nonEmptyStringSchema.optional(),
-  baseURL: nonEmptyStringSchema.optional()
+  baseURL: nonEmptyStringSchema.optional(),
+  prompt: z.unknown().optional()
 }).passthrough();
 
 export function parseProjectDefaultsObject(raw: unknown, configPath: string) {

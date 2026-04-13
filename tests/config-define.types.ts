@@ -2,13 +2,28 @@ import { defineConfig } from "../apps/cli/src/config-define";
 
 defineConfig({
   version: 1,
+  defaults: {
+    prompt: {
+      dir: "./prompt",
+      extraInstructions: "Stay conservative.",
+      keyHints: {
+        Tab: "Move to the next focusable element."
+      }
+    }
+  },
   modes: {
     keyboard: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      allowedKeys: ["Tab", "Enter"]
+      allowedKeys: ["Tab", "Enter"],
+      prompt: {
+        extraInstructions: "Prefer exploration over activation.",
+        keyHints: {
+          Enter: "Activate the focused element."
+        }
+      }
     },
     "screenreader-strict": {
       outDir: "./sr-out",
@@ -25,7 +40,12 @@ defineConfig({
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab"],
-      allowedScreenReaderCommands: ["nextItem", "nextHeading", "act"]
+      allowedScreenReaderCommands: ["nextItem", "nextHeading", "act"],
+      prompt: {
+        screenReaderCommandHints: {
+          nextHeading: "Move to the next heading."
+        }
+      }
     }
   }
 });
@@ -70,6 +90,22 @@ defineConfig({
       screenReaderBackend: "guidepup-nvda",
       // @ts-expect-error screenreader-strict must not accept allowedKeys
       allowedKeys: ["Tab"]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      prompt: {
+        // @ts-expect-error mode prompt must not accept dir
+        dir: "./custom-prompt"
+      }
     }
   }
 });

@@ -1,7 +1,9 @@
 import type {
   AgentContext,
   AgentMemoryEntry,
+  AllowedKey,
   Observation,
+  ScreenReaderCommand,
   TaskInput
 } from "@a11y-task/core";
 
@@ -35,6 +37,10 @@ export type LLMAgentOptions = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   taskInput?: TaskInput;
+  promptDir?: string;
+  extraInstructions?: string;
+  keyHints?: Partial<Record<AllowedKey, string>>;
+  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
   completionClient?: AgentCompletionClient;
 };
 

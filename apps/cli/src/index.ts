@@ -94,7 +94,11 @@ function createAgent(
     agentMemoryAll: options.agentMemoryAll,
     includeExperienceSummary: options.includeExperienceSummary,
     includeRationale: options.includeRationale,
-    taskInput
+    taskInput,
+    promptDir: options.prompt.promptDir,
+    extraInstructions: options.prompt.extraInstructions,
+    keyHints: options.prompt.keyHints,
+    screenReaderCommandHints: options.prompt.screenReaderCommandHints
   });
 }
 

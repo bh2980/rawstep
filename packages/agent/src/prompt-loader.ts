@@ -17,15 +17,39 @@ const TEMPLATE_FILES = {
 } as const satisfies Record<Exclude<keyof PromptTemplates, "promptDir">, string>;
 
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
-  keyboardSystem: ["{{allowedKeys}}", "{{taskInputRule}}", "{{responseFormat}}", "{{rationaleRule}}"],
-  screenreaderStrictSystem: ["{{allowedScreenReaderCommands}}", "{{taskInputRule}}", "{{responseFormat}}", "{{rationaleRule}}"],
-  screenreaderHybridSystem: ["{{allowedKeys}}", "{{allowedScreenReaderCommands}}", "{{taskInputRule}}", "{{responseFormat}}", "{{rationaleRule}}"]
+  keyboardSystem: [
+    "{{allowedKeys}}",
+    "{{actionGuidance}}",
+    "{{customInstructions}}",
+    "{{taskInputRule}}",
+    "{{responseFormat}}",
+    "{{rationaleRule}}"
+  ],
+  screenreaderStrictSystem: [
+    "{{allowedScreenReaderCommands}}",
+    "{{actionGuidance}}",
+    "{{customInstructions}}",
+    "{{taskInputRule}}",
+    "{{responseFormat}}",
+    "{{rationaleRule}}"
+  ],
+  screenreaderHybridSystem: [
+    "{{allowedKeys}}",
+    "{{allowedScreenReaderCommands}}",
+    "{{actionGuidance}}",
+    "{{customInstructions}}",
+    "{{taskInputRule}}",
+    "{{responseFormat}}",
+    "{{rationaleRule}}"
+  ]
 };
 
 const promptTemplateCache = new Map<string, PromptTemplates>();
 
-export function loadPromptTemplates(startDir = process.cwd()): PromptTemplates {
-  const promptDir = findPromptDir(startDir);
+export function loadPromptTemplates(
+  startDirOrOptions: string | { startDir?: string; promptDir?: string } = process.cwd()
+): PromptTemplates {
+  const promptDir = resolvePromptDir(startDirOrOptions);
   const cached = promptTemplateCache.get(promptDir);
   if (cached) {
     return cached;
@@ -53,6 +77,18 @@ export function renderPromptTemplate(
   replacements: Record<string, string>
 ): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => replacements[key] ?? "");
+}
+
+function resolvePromptDir(startDirOrOptions: string | { startDir?: string; promptDir?: string }): string {
+  if (typeof startDirOrOptions === "string") {
+    return findPromptDir(startDirOrOptions);
+  }
+
+  if (startDirOrOptions.promptDir) {
+    return resolve(startDirOrOptions.promptDir);
+  }
+
+  return findPromptDir(startDirOrOptions.startDir ?? process.cwd());
 }
 
 function findPromptDir(startDir: string): string {

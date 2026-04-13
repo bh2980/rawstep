@@ -20,6 +20,8 @@ import {
   type ModeConfigShape,
   type ProjectDefaultsShape,
   type ProjectConfig,
+  type PromptOverrideShape,
+  parsePromptOverride,
   type ResolvedRunOptions
 } from "./shared";
 import { configRootSchema, parseProjectDefaultsObject } from "./schema";
@@ -153,6 +155,12 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     screenReaderBackendId
   );
   const allowedKeys = resolveAllowedKeys(selectedMode, configuredAllowedKeys);
+  const prompt = resolvePromptOptions(
+    configDir,
+    projectDefaults?.prompt,
+    modePreset?.prompt,
+    taskSource.taskConfig?.prompt
+  );
 
   return {
     task: resolvedTask,
@@ -189,7 +197,8 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
       ?? projectDefaults?.baseURL,
     allowedKeys,
     allowedScreenReaderCommands,
-    screenReaderBackendId
+    screenReaderBackendId,
+    prompt
   };
 }
 
@@ -324,7 +333,10 @@ function validateProjectDefaults(
     provider: candidate.provider,
     apiKey: candidate.apiKey,
     model: candidate.model,
-    baseURL: candidate.baseURL
+    baseURL: candidate.baseURL,
+    prompt: candidate.prompt === undefined
+      ? undefined
+      : validateProjectPrompt(candidate.prompt, configPath)
   };
 }
 
@@ -377,8 +389,32 @@ function validateModePreset(
     memory: preset?.memory,
     allowedKeys: preset?.allowedKeys,
     allowedScreenReaderCommands: preset?.allowedScreenReaderCommands,
-    screenReaderBackend: preset?.screenReaderBackend
+    screenReaderBackend: preset?.screenReaderBackend,
+    prompt: preset?.prompt
   };
+}
+
+function validateProjectPrompt(
+  rawPrompt: unknown,
+  configPath: string
+): ProjectDefaultsShape["prompt"] {
+  return parseProjectPrompt(rawPrompt, `Config file ${configPath} defaults.prompt`);
+}
+
+function parseProjectPrompt(
+  rawPrompt: unknown,
+  label: string
+): ProjectDefaultsShape["prompt"] {
+  const parsed = validateTaskConfigPrompt(rawPrompt, label, true);
+  return parsed;
+}
+
+function validateTaskConfigPrompt(
+  rawPrompt: unknown,
+  label: string,
+  allowDir: boolean
+): PromptOverrideShape | ProjectDefaultsShape["prompt"] {
+  return parsePromptOverride(rawPrompt, label, { allowDir });
 }
 
 function normalizeMemoryWindow(memory: number | "all" | undefined): number | undefined {
@@ -423,6 +459,32 @@ function resolveAllowedScreenReaderCommands(
   }
 
   return allowedCommands;
+}
+
+function resolvePromptOptions(
+  configDir: string,
+  projectPrompt: ProjectDefaultsShape["prompt"] | undefined,
+  modePrompt: PromptOverrideShape | undefined,
+  taskPrompt: PromptOverrideShape | undefined
+): ResolvedRunOptions["prompt"] {
+  return {
+    promptDir: resolve(configDir, projectPrompt?.dir ?? "prompt"),
+    extraInstructions: [
+      projectPrompt?.extraInstructions,
+      modePrompt?.extraInstructions,
+      taskPrompt?.extraInstructions
+    ].filter((value): value is string => Boolean(value)).join("\n\n") || undefined,
+    keyHints: {
+      ...(projectPrompt?.keyHints ?? {}),
+      ...(modePrompt?.keyHints ?? {}),
+      ...(taskPrompt?.keyHints ?? {})
+    },
+    screenReaderCommandHints: {
+      ...(projectPrompt?.screenReaderCommandHints ?? {}),
+      ...(modePrompt?.screenReaderCommandHints ?? {}),
+      ...(taskPrompt?.screenReaderCommandHints ?? {})
+    }
+  };
 }
 
 function resolveScreenReaderBackendId(
