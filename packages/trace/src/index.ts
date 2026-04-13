@@ -14,7 +14,7 @@ import {
   type TraceSession,
   type VerdictAnalysis,
   type VerificationRecord
-} from "@a11y-task/core";
+} from "@rawstep/core";
 import { mkdir, appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -177,6 +177,7 @@ async function serializeKeyboardObservation(
     kind: "keyboard",
     screenshot: await serializeScreenshot(step, observation.screenshot, screenshotsDir),
     browserChrome: observation.browserChrome,
+    focusHint: observation.focusHint,
     scrollHint: observation.scrollHint
   };
 }

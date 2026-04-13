@@ -1,5 +1,5 @@
-import { createBrowserSession, closeBrowserSession } from "@a11y-task/browser";
-import { KeyboardObserver } from "@a11y-task/observer-keyboard";
+import { createBrowserSession, closeBrowserSession } from "@rawstep/browser";
+import { KeyboardObserver } from "@rawstep/observer-keyboard";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,7 @@ describe("KeyboardObserver", () => {
 
       expect(first.kind).toBe("keyboard");
       expect(first.screenshot.pngBase64.length).toBeGreaterThan(0);
+      expect(typeof first.focusHint).toBe("string");
       expect(second.previousScreenshot?.pngBase64).toBe(first.screenshot.pngBase64);
       expect(["top", "middle", "bottom"]).toContain(second.scrollHint);
     } finally {
