@@ -36,34 +36,37 @@ export async function runCli(
     const agentFactory = dependencies.createAgent ?? createAgent;
     const agent = agentFactory(task.mode, task.input, options);
 
-    await mkdir(options.outDir, { recursive: true });
+    await mkdir(options.execution.outDir, { recursive: true });
     const session = await runTask(task, {
-      outDir: options.outDir,
-      headless: options.headless,
+      outDir: options.execution.outDir,
+      headless: options.execution.headless,
       agent,
-      screenshotPolicy: options.screenshotPolicy,
-      verifierAutoComplete: options.verifierAutoComplete,
-      agentMemoryWindow: options.agentMemoryWindow,
-      agentMemoryAll: options.agentMemoryAll,
-      includeExperienceSummary: options.includeExperienceSummary,
+      screenshotPolicy: options.execution.screenshotPolicy,
+      verifierAutoComplete: options.execution.verifierAutoComplete,
+      maxVerificationRetries: options.execution.maxVerificationRetries,
+      agentMemoryWindow: options.execution.memory.mode === "window"
+        ? options.execution.memory.window
+        : undefined,
+      agentMemoryAll: options.execution.memory.mode === "all",
+      includeExperienceSummary: options.execution.includeExperienceSummary,
       allowedKeys: options.allowedKeys,
       allowedScreenReaderActions: options.allowedScreenReaderActions,
       screenReaderBackendId: options.screenReaderBackendId
     });
     const reportStartedAt = Date.now();
-    let reportPath = await renderReport(session, options.outDir);
+    let reportPath = await renderReport(session, options.execution.outDir);
     session.aggregate.timings.reportMs = Date.now() - reportStartedAt;
-    await persistSessionArtifacts(session, options.outDir, agent.getPromptLog?.());
-    reportPath = await renderReport(session, options.outDir);
+    await persistSessionArtifacts(session, options.execution.outDir, agent.getPromptLog?.());
+    reportPath = await renderReport(session, options.execution.outDir);
 
     process.stdout.write(
       [
         `Task ${session.task.id} finished with ${session.aggregate.endedBy}.`,
         `Result: ${session.aggregate.result}.`,
         `Outputs:`,
-        `- ${resolve(options.outDir, "trace.jsonl")}`,
-        `- ${resolve(options.outDir, "metrics.json")}`,
-        `- ${resolve(options.outDir, "prompts.json")}`,
+        `- ${resolve(options.execution.outDir, "trace.jsonl")}`,
+        `- ${resolve(options.execution.outDir, "metrics.json")}`,
+        `- ${resolve(options.execution.outDir, "prompts.json")}`,
         `- ${reportPath}`
       ].join("\n") + "\n"
     );
@@ -90,10 +93,12 @@ function createAgent(
     apiKey: options.apiKey,
     model: options.model,
     baseURL: options.baseURL,
-    agentMemoryWindow: options.agentMemoryWindow,
-    agentMemoryAll: options.agentMemoryAll,
-    includeExperienceSummary: options.includeExperienceSummary,
-    includeRationale: options.includeRationale,
+    agentMemoryWindow: options.execution.memory.mode === "window"
+      ? options.execution.memory.window
+      : undefined,
+    agentMemoryAll: options.execution.memory.mode === "all",
+    includeExperienceSummary: options.execution.includeExperienceSummary,
+    includeRationale: options.execution.includeRationale,
     taskInput,
     promptDir: options.prompt.promptDir,
     keyboardActions: options.prompt.keyboardActions,

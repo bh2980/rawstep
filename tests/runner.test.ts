@@ -454,6 +454,50 @@ describe("runTask", () => {
     expect(session.steps[1].verification?.passed).toBe(false);
   });
 
+  it("applies a custom verification retry budget consistently across trace and memory", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verify-retries-custom-"));
+    const seenHistorySources: string[][] = [];
+    let callCount = 0;
+
+    const session = await runTask(
+      {
+        id: "verify-retries-custom",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Need verified success.",
+        mode: "keyboard",
+        maxSteps: 8,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ textVisible: "Never appears" }]
+        }
+      },
+      {
+        outDir,
+        maxVerificationRetries: 3,
+        agentMemoryWindow: 5,
+        agent: {
+          decide: async (ctx) => {
+            callCount += 1;
+            seenHistorySources.push(ctx.memory.map((entry) => entry.outcome));
+            return {
+              verdict: "success",
+              rationale: `Attempt ${callCount}`
+            };
+          }
+        }
+      }
+    );
+
+    expect(callCount).toBe(3);
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(session.steps).toHaveLength(3);
+    expect(session.steps[0].verdictAnalysis?.finalResult).toBe("continued");
+    expect(session.steps[1].verdictAnalysis?.finalResult).toBe("continued");
+    expect(session.steps[2].verdictAnalysis?.finalResult).toBe("failure");
+    expect(seenHistorySources[1]).toContain("continued");
+    expect(seenHistorySources[2]).toContain("continued");
+  });
+
   it("ends with an error when named input is used without opt-in input data", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-disabled-"));
 

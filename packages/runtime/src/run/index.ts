@@ -55,6 +55,7 @@ export type RunTaskOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
+  maxVerificationRetries?: number;
   agentMemoryWindow?: number;
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
@@ -195,6 +196,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   let agent: Agent | undefined;
 
   const screenshotPolicy = options.screenshotPolicy ?? "all";
+  const maxVerificationRetries = options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES;
   try {
     const browserFactory = options.browserSessionFactory ?? createBrowserSession;
     browser = await browserFactory(task.url, {
@@ -295,7 +297,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             verification,
             createVerdictAnalysis(decision.verdict, verification, verification.passed
               ? "success"
-              : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
+              : verificationFailures + 1 >= maxVerificationRetries
                 ? "failure"
                 : "continued", "agent"),
             developerScreenshot
@@ -305,7 +307,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             decision,
             verification.passed
               ? "success"
-              : verificationFailures + 1 >= MAX_VERIFICATION_RETRIES
+              : verificationFailures + 1 >= maxVerificationRetries
                 ? "failure"
                 : "continued",
             verification.passed ? undefined : formatVerificationFeedback(verification)
@@ -321,7 +323,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           verificationFailures += 1;
           const feedback = formatVerificationFeedback(verification);
 
-          if (verificationFailures >= MAX_VERIFICATION_RETRIES) {
+          if (verificationFailures >= maxVerificationRetries) {
             endedBy = "stuck";
             failureReasonOverride = `Verified success was not reached: ${feedback}`;
             break;

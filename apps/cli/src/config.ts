@@ -8,7 +8,8 @@ import ts from "typescript";
 import {
   DEFAULT_ALLOWED_KEYS,
   type AllowedKey,
-  type ConfiguredKeyboardAction
+  type ConfiguredKeyboardAction,
+  type UserModel
 } from "@rawstep/core";
 import {
   findScreenReaderBackendById
@@ -24,6 +25,7 @@ import {
   parseScreenReaderBackendId,
   type ResolvedRunOptions
 } from "./shared";
+import { resolveExecutionPolicy } from "./execution-policy";
 import {
   buildPromptKeyboardActions,
   kb,
@@ -96,41 +98,18 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     throw new Error(`Missing modes.${selectedMode} in ${configPath}. Add a preset for this mode to rawstep.config.ts.`);
   }
 
-  const task = resolveTask(taskSource, selectedMode, {
-    mode: selectedMode,
-    maxSteps: modePreset?.maxSteps,
-    timeoutMs: modePreset?.timeoutMs
+  const execution = resolveExecutionPolicy({
+    cliOptions,
+    taskSource,
+    selectedMode,
+    modePreset,
+    configDir
   });
-  const resolvedTask = {
-    ...task,
-    maxSteps: cliOptions.maxSteps ?? task.maxSteps,
-    timeoutMs: cliOptions.timeoutMs ?? task.timeoutMs
-  };
-
-  const outDir = cliOptions.outDir
-    ?? resolveOutputDir(taskSource.taskConfig?.outDir, dirname(taskSource.absoluteTaskFile))
-    ?? resolveOutputDir(modePreset?.outDir, configDir);
-  const headless =
-    cliOptions.headless
-    ?? taskSource.taskConfig?.headless
-    ?? modePreset?.headless;
-
-  if (!outDir) {
-    throw new Error(`Missing output directory. Pass --out <dir> or set modes.${selectedMode}.outDir in rawstep.config.ts.`);
-  }
-
-  const agentMemoryWindow = cliOptions.agentMemoryWindow
-    ?? normalizeMemoryWindow(taskSource.taskConfig?.memory)
-    ?? normalizeMemoryWindow(modePreset?.memory);
-  const agentMemoryAll = cliOptions.agentMemoryAll
-    ?? normalizeMemoryAll(taskSource.taskConfig?.memory)
-    ?? normalizeMemoryAll(modePreset?.memory);
-
-  if (agentMemoryWindow === undefined && agentMemoryAll !== true) {
-    throw new Error(
-      `Missing memory setting. Pass --agent-memory-window/--agent-memory-all or set task config.memory or modes.${selectedMode}.memory in rawstep.config.ts.`
-    );
-  }
+  const task = resolveTask(taskSource, {
+    mode: selectedMode,
+    maxSteps: execution.maxSteps,
+    timeoutMs: execution.timeoutMs
+  });
 
   const overrideAllowedKeys =
     cliOptions.allowedKeys
@@ -181,31 +160,11 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   );
 
   return {
-    task: resolvedTask,
+    task,
     taskFile: taskSource.absoluteTaskFile,
     configFile: configPath,
-    outDir,
-    mode: resolvedTask.mode,
-    headless,
-    maxSteps: resolvedTask.maxSteps,
-    timeoutMs: resolvedTask.timeoutMs,
-    screenshotPolicy: cliOptions.screenshotPolicy
-      ?? taskSource.taskConfig?.screenshots
-      ?? modePreset?.screenshots,
-    verifierAutoComplete: cliOptions.verifierAutoComplete
-      ?? taskSource.taskConfig?.verifierAutoComplete
-      ?? modePreset?.verifierAutoComplete
-      ?? false,
-    agentMemoryWindow,
-    agentMemoryAll: agentMemoryAll ?? false,
-    includeExperienceSummary: cliOptions.includeExperienceSummary
-      ?? taskSource.taskConfig?.includeExperienceSummary
-      ?? modePreset?.includeExperienceSummary
-      ?? false,
-    includeRationale: cliOptions.includeRationale
-      ?? taskSource.taskConfig?.includeRationale
-      ?? modePreset?.includeRationale
-      ?? false,
+    mode: task.mode,
+    execution,
     provider: cliOptions.provider
       ?? projectDefaults?.provider,
     apiKey: projectDefaults?.apiKey,
@@ -239,23 +198,6 @@ async function findConfigFile(startDir = process.cwd()): Promise<string | undefi
     }
 
     currentDir = parentDir;
-  }
-}
-
-function resolveOutputDir(rawOutDir: string | undefined, baseDir: string | undefined): string | undefined {
-  if (!rawOutDir || !baseDir) {
-    return undefined;
-  }
-
-  return resolve(baseDir, rawOutDir);
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -355,7 +297,7 @@ function validateProjectDefaults(
 function validateModePresets(
   rawModes: unknown,
   configPath: string
-): Partial<Record<ResolvedRunOptions["task"]["mode"], ModeConfigShape>> | undefined {
+): Partial<Record<UserModel, ModeConfigShape>> | undefined {
   if (rawModes === undefined || rawModes === null) {
     return undefined;
   }
@@ -364,7 +306,7 @@ function validateModePresets(
     throw new Error(`Config file ${configPath} modes must be an object.`);
   }
 
-  const result: Partial<Record<ResolvedRunOptions["task"]["mode"], ModeConfigShape>> = {};
+  const result: Partial<Record<UserModel, ModeConfigShape>> = {};
 
   for (const [modeKey, rawPreset] of Object.entries(rawModes as Record<string, unknown>)) {
     const mode = validateProjectMode(modeKey, configPath);
@@ -377,7 +319,7 @@ function validateModePresets(
 function validateModePreset(
   rawPreset: unknown,
   configPath: string,
-  mode: ResolvedRunOptions["task"]["mode"]
+  mode: UserModel
 ): ModeConfigShape {
   const preset = validateModePresetOverride(rawPreset, `Config file ${configPath} modes.${mode}`);
   if (mode === "keyboard" && preset?.allowedScreenReaderActions) {
@@ -394,6 +336,7 @@ function validateModePreset(
     headless: preset?.headless,
     maxSteps: preset?.maxSteps,
     timeoutMs: preset?.timeoutMs,
+    maxVerificationRetries: preset?.maxVerificationRetries,
     screenshots: preset?.screenshots,
     verifierAutoComplete: preset?.verifierAutoComplete,
     includeExperienceSummary: preset?.includeExperienceSummary,
@@ -421,6 +364,7 @@ function validateModePresetOverride(raw: unknown, label: string): ModeConfigShap
     headless: candidate.headless,
     maxSteps: candidate.maxSteps,
     timeoutMs: candidate.timeoutMs,
+    maxVerificationRetries: candidate.maxVerificationRetries,
     screenshots: candidate.screenshots,
     verifierAutoComplete: candidate.verifierAutoComplete,
     includeExperienceSummary: candidate.includeExperienceSummary,
@@ -455,16 +399,8 @@ function parseProjectPrompt(
   return parsePromptOverride(rawPrompt, label, { allowDir: true });
 }
 
-function normalizeMemoryWindow(memory: number | "all" | undefined): number | undefined {
-  return typeof memory === "number" ? memory : undefined;
-}
-
-function normalizeMemoryAll(memory: number | "all" | undefined): boolean | undefined {
-  return memory === "all" ? true : undefined;
-}
-
 function resolveAllowedKeys(
-  selectedMode: ResolvedRunOptions["task"]["mode"],
+  selectedMode: UserModel,
   overrideAllowedKeys: readonly AllowedKey[] | undefined,
   configuredAllowedKeys: readonly ConfiguredKeyboardAction[] | undefined
 ): {
@@ -496,7 +432,7 @@ function resolveAllowedKeys(
 }
 
 function resolveAllowedScreenReaderActions(
-  selectedMode: ResolvedRunOptions["task"]["mode"],
+  selectedMode: UserModel,
   configuredAllowedScreenReaderActions: readonly import("@rawstep/core").ConfiguredScreenReaderAction[] | undefined,
   screenReaderBackendId: ResolvedRunOptions["screenReaderBackendId"]
 ): {
@@ -536,7 +472,7 @@ function resolvePromptOptions(
 }
 
 function resolveScreenReaderBackendId(
-  selectedMode: ResolvedRunOptions["task"]["mode"],
+  selectedMode: UserModel,
   configuredScreenReaderBackend: ResolvedRunOptions["screenReaderBackendId"]
 ): ResolvedRunOptions["screenReaderBackendId"] {
   if (selectedMode === "keyboard") {
@@ -555,7 +491,7 @@ function resolveScreenReaderBackendId(
 function validateProjectMode(
   value: string,
   configPath: string
-): ResolvedRunOptions["task"]["mode"] {
+): UserModel {
   if (
     value === "keyboard"
     || value === "screenreader-strict"

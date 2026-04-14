@@ -22,13 +22,19 @@ export type LoadedTaskFile = {
   parsed: TaskFileShape;
 };
 
+type ResolvedTaskExecution = {
+  mode: UserModel;
+  maxSteps: number;
+  timeoutMs: number;
+};
+
 export async function loadTask(
   taskFile: string,
   overrideMode?: UserModel,
   defaults: TaskExecutionDefaults = {}
 ): Promise<Task> {
   const source = await loadTaskSource(taskFile);
-  return resolveTask(source, overrideMode, defaults);
+  return resolveTask(source, resolveTaskExecution(source, overrideMode, defaults));
 }
 
 export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> {
@@ -60,47 +66,15 @@ export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> 
 
 export function resolveTask(
   source: LoadedTaskFile,
-  overrideMode?: UserModel,
-  defaults: TaskExecutionDefaults = {}
+  execution: ResolvedTaskExecution
 ): Task {
-  const rawMode =
-    overrideMode
-    ?? source.taskConfig?.mode
-    ?? source.parsed.mode
-    ?? defaults.mode;
-  if (!rawMode) {
-    throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
-    );
-  }
-
-  const maxSteps =
-    source.taskConfig?.maxSteps
-    ?? source.parsed.maxSteps
-    ?? defaults.maxSteps;
-  if (maxSteps === undefined) {
-    throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing maxSteps. Set maxSteps in the task file, task config.maxSteps, or modes.${rawMode}.maxSteps in rawstep.config.ts.`
-    );
-  }
-
-  const timeoutMs =
-    source.taskConfig?.timeoutMs
-    ?? source.parsed.timeoutMs
-    ?? defaults.timeoutMs;
-  if (timeoutMs === undefined) {
-    throw new Error(
-      `Task file ${source.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in the task file, task config.timeoutMs, or modes.${rawMode}.timeoutMs in rawstep.config.ts.`
-    );
-  }
-
   return {
     id: source.taskId,
     url: resolveTaskUrl(source.parsed.url!, source.absoluteTaskFile),
     goal: source.parsed.goal!,
-    mode: parseUserModel(rawMode),
-    maxSteps,
-    timeoutMs,
+    mode: execution.mode,
+    maxSteps: execution.maxSteps,
+    timeoutMs: execution.timeoutMs,
     verify: validateVerifySpec(source.parsed.verify),
     input: validateTaskInput(source.parsed.input)
   };
@@ -117,6 +91,49 @@ function resolveTaskUrl(rawUrl: string, taskFile: string): string {
 
 function stripFileExtension(filename: string): string {
   return filename.replace(/\.[^.]+$/, "");
+}
+
+function resolveTaskExecution(
+  source: LoadedTaskFile,
+  overrideMode?: UserModel,
+  defaults: TaskExecutionDefaults = {}
+): ResolvedTaskExecution {
+  const rawMode =
+    overrideMode
+    ?? source.taskConfig?.mode
+    ?? source.parsed.mode
+    ?? defaults.mode;
+  if (!rawMode) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
+    );
+  }
+
+  const maxSteps =
+    defaults.maxSteps
+    ?? source.taskConfig?.maxSteps
+    ?? source.parsed.maxSteps;
+  if (maxSteps === undefined) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing maxSteps. Set maxSteps in the task file, task config.maxSteps, or modes.${rawMode}.maxSteps in rawstep.config.ts.`
+    );
+  }
+
+  const timeoutMs =
+    defaults.timeoutMs
+    ?? source.taskConfig?.timeoutMs
+    ?? source.parsed.timeoutMs;
+  if (timeoutMs === undefined) {
+    throw new Error(
+      `Task file ${source.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in the task file, task config.timeoutMs, or modes.${rawMode}.timeoutMs in rawstep.config.ts.`
+    );
+  }
+
+  return {
+    mode: parseUserModel(rawMode),
+    maxSteps,
+    timeoutMs
+  };
 }
 
 export function validateTaskConfigOverride(raw: unknown, label: string): TaskConfigOverride | undefined {
@@ -136,6 +153,7 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
     headless: candidate.headless,
     maxSteps: candidate.maxSteps,
     timeoutMs: candidate.timeoutMs,
+    maxVerificationRetries: candidate.maxVerificationRetries,
     screenshots: candidate.screenshots,
     verifierAutoComplete: candidate.verifierAutoComplete,
     includeExperienceSummary: candidate.includeExperienceSummary,

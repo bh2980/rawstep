@@ -57,6 +57,7 @@ export type ModeConfigShape = {
   headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
+  maxVerificationRetries?: number;
   screenshots?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
   includeExperienceSummary?: boolean;
@@ -81,6 +82,7 @@ export type TaskConfigOverride = {
   headless?: boolean;
   maxSteps?: number;
   timeoutMs?: number;
+  maxVerificationRetries?: number;
   screenshots?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
   includeExperienceSummary?: boolean;
@@ -102,21 +104,28 @@ export type LoadedProjectConfig = {
   config: ProjectConfig;
 };
 
+export type ResolvedExecutionPolicy = {
+  outDir: string;
+  headless?: boolean;
+  maxSteps: number;
+  timeoutMs: number;
+  maxVerificationRetries: number;
+  screenshotPolicy?: ScreenshotPolicy;
+  verifierAutoComplete: boolean;
+  memory: {
+    mode: "window" | "all";
+    window?: number;
+  };
+  includeExperienceSummary: boolean;
+  includeRationale: boolean;
+};
+
 export type ResolvedRunOptions = {
   task: Task;
   taskFile: string;
   configFile?: string;
-  outDir: string;
   mode?: UserModel;
-  headless?: boolean;
-  maxSteps?: number;
-  timeoutMs?: number;
-  screenshotPolicy?: ScreenshotPolicy;
-  verifierAutoComplete: boolean;
-  agentMemoryWindow?: number;
-  agentMemoryAll: boolean;
-  includeExperienceSummary: boolean;
-  includeRationale: boolean;
+  execution: ResolvedExecutionPolicy;
   provider?: AgentProvider;
   apiKey?: string;
   model?: string;

@@ -1,4 +1,6 @@
 import { loadTask, parseRunArgs, resolveRunOptions, runCli } from "../apps/cli/src";
+import { resolveExecutionPolicy } from "../apps/cli/src/execution-policy";
+import { loadTaskSource } from "../apps/cli/src/task-file";
 import { DEFAULT_ALLOWED_KEYS } from "@rawstep/core";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -601,6 +603,7 @@ describe.sequential("CLI", () => {
       outDir: "./config-out",
       maxSteps: 30,
       timeoutMs: 2000,
+      maxVerificationRetries: 4,
       screenshots: "important",
       verifierAutoComplete: false,
       memory: 5
@@ -641,6 +644,7 @@ describe.sequential("CLI", () => {
         outDir: "./task-out",
         maxSteps: 60,
         timeoutMs: 4000,
+        maxVerificationRetries: 3,
         screenshots: "none",
         verifierAutoComplete: true,
         includeExperienceSummary: true,
@@ -671,16 +675,16 @@ describe.sequential("CLI", () => {
     expect(options.task.mode).toBe("keyboard");
     expect(options.task.maxSteps).toBe(60);
     expect(options.task.timeoutMs).toBe(4000);
-    expect(options.outDir).toBe(resolve("cli-out"));
-    expect(options.screenshotPolicy).toBe("none");
-    expect(options.verifierAutoComplete).toBe(true);
+    expect(options.execution.outDir).toBe(resolve("cli-out"));
+    expect(options.execution.screenshotPolicy).toBe("none");
+    expect(options.execution.verifierAutoComplete).toBe(true);
+    expect(options.execution.maxVerificationRetries).toBe(3);
     expect(options.provider).toBe("anthropic");
     expect(options.model).toBe("cli-model");
     expect(options.baseURL).toBe("https://cli.example/v1");
-    expect(options.agentMemoryWindow).toBe(3);
-    expect(options.agentMemoryAll).toBe(true);
-    expect(options.includeExperienceSummary).toBe(true);
-    expect(options.includeRationale).toBe(true);
+    expect(options.execution.memory).toEqual({ mode: "window", window: 3 });
+    expect(options.execution.includeExperienceSummary).toBe(true);
+    expect(options.execution.includeRationale).toBe(true);
   });
 
   it("accepts apiKey in rawstep.config.ts and still rejects it in task.json", async () => {
@@ -749,6 +753,74 @@ describe.sequential("CLI", () => {
     await expect(resolveRunOptions(parseRunArgs([
       taskPath
     ]))).rejects.toThrow("apiKey is not allowed");
+  });
+
+  it("resolves execution policy in one place with the documented precedence", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-execution-policy-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "execution-policy-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      maxSteps: 25,
+      timeoutMs: 1500,
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        outDir: "./task-out",
+        maxSteps: 35,
+        timeoutMs: 2500,
+        maxVerificationRetries: 7,
+        screenshots: "important",
+        verifierAutoComplete: true,
+        includeExperienceSummary: true,
+        includeRationale: true,
+        memory: "all"
+      }
+    });
+
+    const taskSource = await loadTaskSource(taskPath);
+    const execution = resolveExecutionPolicy({
+      cliOptions: parseRunArgs([
+        taskPath,
+        "--out",
+        "./cli-out",
+        "--max-steps",
+        "45",
+        "--timeout-ms",
+        "3500",
+        "--agent-memory-window",
+        "2"
+      ]),
+      taskSource,
+      selectedMode: "keyboard",
+      modePreset: {
+        outDir: "./mode-out",
+        maxSteps: 15,
+        timeoutMs: 1200,
+        maxVerificationRetries: 5,
+        screenshots: "all",
+        verifierAutoComplete: false,
+        memory: 9
+      },
+      configDir: tempDir
+    });
+
+    expect(execution.outDir).toBe(resolve("cli-out"));
+    expect(execution.maxSteps).toBe(45);
+    expect(execution.timeoutMs).toBe(3500);
+    expect(execution.maxVerificationRetries).toBe(7);
+    expect(execution.screenshotPolicy).toBe("important");
+    expect(execution.verifierAutoComplete).toBe(true);
+    expect(execution.memory).toEqual({ mode: "window", window: 2 });
+    expect(execution.includeExperienceSummary).toBe(true);
+    expect(execution.includeRationale).toBe(true);
   });
 
   it("prefers apiKey from rawstep.config.ts defaults over the shared environment variable", async () => {
@@ -1273,7 +1345,7 @@ describe.sequential("CLI", () => {
     ]));
 
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
-    expect(options.headless).toBe(true);
+    expect(options.execution.headless).toBe(true);
     expect(options.allowedKeys).toEqual(["Tab"]);
     expect(options.allowedScreenReaderActions).toEqual([
       { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
@@ -1350,7 +1422,7 @@ describe.sequential("CLI", () => {
 
     expect(options.task.maxSteps).toBe(55);
     expect(options.task.timeoutMs).toBe(210000);
-    expect(options.headless).toBe(true);
+    expect(options.execution.headless).toBe(true);
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.allowedKeys).toEqual(["Tab"]);
     expect(options.allowedScreenReaderActions).toEqual([
