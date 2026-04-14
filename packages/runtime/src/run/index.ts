@@ -37,6 +37,7 @@ import {
   createVerdictAnalysis,
   getErrorMessage,
   isScreenReaderMode,
+  resolveVerificationOutcome,
   resolveBrowserHeadless,
   shouldUseInteractiveObservation,
   selectAgentMemoryExcerpt
@@ -274,6 +275,16 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
           const verifyStartedAt = Date.now();
           const verification = await verifyTask(task, browser);
           const verifyMs = Date.now() - verifyStartedAt;
+          const verificationFeedback = verification.passed
+            ? undefined
+            : formatVerificationFeedback(verification);
+          const verificationOutcome = resolveVerificationOutcome({
+            kind: "verified-success",
+            passed: verification.passed,
+            verificationFailures,
+            maxVerificationRetries,
+            failureMessage: verificationFeedback
+          });
           const developerScreenshot = shouldCaptureDeveloperScreenshot(
             screenshotPolicy,
             observation,
@@ -295,37 +306,27 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
               verifyMs
             },
             verification,
-            createVerdictAnalysis(decision.verdict, verification, verification.passed
-              ? "success"
-              : verificationFailures + 1 >= maxVerificationRetries
-                ? "failure"
-                : "continued", "agent"),
+            createVerdictAnalysis(
+              decision.verdict,
+              verification,
+              verificationOutcome.finalResult,
+              verificationOutcome.completionSource
+            ),
             developerScreenshot
           );
           const memoryEntry = createAgentMemoryEntry(
             step,
             decision,
-            verification.passed
-              ? "success"
-              : verificationFailures + 1 >= maxVerificationRetries
-                ? "failure"
-                : "continued",
-            verification.passed ? undefined : formatVerificationFeedback(verification)
+            verificationOutcome.finalResult,
+            verificationFeedback
           );
           agentMemory.push(memoryEntry);
           agent.recordStepOutcome?.(memoryEntry);
+          verificationFailures = verificationOutcome.nextVerificationFailures;
 
-          if (verification.passed) {
-            endedBy = "success";
-            break;
-          }
-
-          verificationFailures += 1;
-          const feedback = formatVerificationFeedback(verification);
-
-          if (verificationFailures >= maxVerificationRetries) {
-            endedBy = "stuck";
-            failureReasonOverride = `Verified success was not reached: ${feedback}`;
+          if (verificationOutcome.endedBy) {
+            endedBy = verificationOutcome.endedBy;
+            failureReasonOverride = verificationOutcome.failureReasonOverride;
             break;
           }
 
@@ -397,7 +398,16 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
         const verifyMs = shouldCheckVerifierAutoComplete
           ? Date.now() - verifyStartedAt
           : 0;
-        const autoCompleted = Boolean(verification?.passed);
+        const verificationOutcome = verification
+          ? resolveVerificationOutcome({
+            kind: "verifier-auto-complete",
+            passed: verification.passed,
+            verificationFailures,
+            maxVerificationRetries,
+            failureMessage: verification.passed ? undefined : formatVerificationFeedback(verification)
+          })
+          : undefined;
+        const autoCompleted = verificationOutcome?.finalResult === "success";
         const developerScreenshot = shouldCaptureDeveloperScreenshot(
           screenshotPolicy,
           observation,
@@ -420,22 +430,32 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
             verifyMs
           },
           autoCompleted ? verification : undefined,
-          autoCompleted
-            ? createVerdictAnalysis(undefined, verification, "success", "verifier-auto-complete")
+          verificationOutcome?.shouldRecordVerdictAnalysis
+            ? createVerdictAnalysis(
+              undefined,
+              verification,
+              verificationOutcome.finalResult,
+              verificationOutcome.completionSource
+            )
             : undefined,
           developerScreenshot
         );
         const memoryEntry = createAgentMemoryEntry(
           step,
           decision,
-          autoCompleted ? "success" : "continued",
+          verificationOutcome?.finalResult ?? "continued",
           execution.error
         );
         agentMemory.push(memoryEntry);
         agent.recordStepOutcome?.(memoryEntry);
 
-        if (autoCompleted) {
-          endedBy = "success";
+        if (verificationOutcome) {
+          verificationFailures = verificationOutcome.nextVerificationFailures;
+        }
+
+        if (verificationOutcome?.endedBy) {
+          endedBy = verificationOutcome.endedBy;
+          failureReasonOverride = verificationOutcome.failureReasonOverride;
           break;
         }
 

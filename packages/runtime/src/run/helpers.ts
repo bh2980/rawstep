@@ -3,6 +3,7 @@ import type {
   Action,
   AgentMemoryEntry,
   Decision,
+  EndedBy,
   Observation,
   ScreenshotPolicy,
   UserModel,
@@ -124,6 +125,66 @@ export function createVerdictAnalysis(
       : "not-run",
     finalResult,
     completionSource
+  };
+}
+
+export type VerificationAttemptKind = "verified-success" | "verifier-auto-complete";
+
+export type ResolvedVerificationOutcome = {
+  finalResult: VerdictAnalysis["finalResult"];
+  verificationResult: Exclude<VerdictAnalysis["verificationResult"], "not-run">;
+  nextVerificationFailures: number;
+  endedBy?: Extract<EndedBy, "success" | "stuck">;
+  failureReasonOverride?: string;
+  completionSource: VerdictAnalysis["completionSource"];
+  shouldRecordVerdictAnalysis: boolean;
+};
+
+export function resolveVerificationOutcome(args: {
+  kind: VerificationAttemptKind;
+  passed: boolean;
+  verificationFailures: number;
+  maxVerificationRetries: number;
+  failureMessage?: string;
+}): ResolvedVerificationOutcome {
+  const completionSource = args.kind === "verified-success"
+    ? "agent"
+    : "verifier-auto-complete";
+
+  if (args.passed) {
+    return {
+      finalResult: "success",
+      verificationResult: "passed",
+      nextVerificationFailures: args.verificationFailures,
+      endedBy: "success",
+      completionSource,
+      shouldRecordVerdictAnalysis: true
+    };
+  }
+
+  if (args.kind === "verifier-auto-complete") {
+    return {
+      finalResult: "continued",
+      verificationResult: "failed",
+      nextVerificationFailures: args.verificationFailures,
+      completionSource,
+      shouldRecordVerdictAnalysis: false
+    };
+  }
+
+  const nextVerificationFailures = args.verificationFailures + 1;
+  const exhaustedRetries = nextVerificationFailures >= args.maxVerificationRetries;
+
+  return {
+    finalResult: exhaustedRetries ? "failure" : "continued",
+    verificationResult: "failed",
+    nextVerificationFailures,
+    endedBy: exhaustedRetries ? "stuck" : undefined,
+    failureReasonOverride: exhaustedRetries && args.failureMessage
+      ? `Verified success was not reached: ${args.failureMessage}`
+      : undefined,
+    completionSource,
+    shouldRecordVerdictAnalysis: true
   };
 }
 

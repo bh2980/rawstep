@@ -1,5 +1,6 @@
 import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
 import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
+import { resolveVerificationOutcome } from "../packages/runtime/src/run/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -106,6 +107,82 @@ function createMockScreenReaderRuntime(overrides: {
 }
 
 describe("runTask", () => {
+  it("resolves verified-success outcomes in one helper", () => {
+    expect(resolveVerificationOutcome({
+      kind: "verified-success",
+      passed: true,
+      verificationFailures: 1,
+      maxVerificationRetries: 3
+    })).toEqual({
+      finalResult: "success",
+      verificationResult: "passed",
+      nextVerificationFailures: 1,
+      endedBy: "success",
+      completionSource: "agent",
+      shouldRecordVerdictAnalysis: true
+    });
+
+    expect(resolveVerificationOutcome({
+      kind: "verified-success",
+      passed: false,
+      verificationFailures: 1,
+      maxVerificationRetries: 3,
+      failureMessage: "no match"
+    })).toEqual({
+      finalResult: "continued",
+      verificationResult: "failed",
+      nextVerificationFailures: 2,
+      completionSource: "agent",
+      shouldRecordVerdictAnalysis: true
+    });
+
+    expect(resolveVerificationOutcome({
+      kind: "verified-success",
+      passed: false,
+      verificationFailures: 2,
+      maxVerificationRetries: 3,
+      failureMessage: "no match"
+    })).toEqual({
+      finalResult: "failure",
+      verificationResult: "failed",
+      nextVerificationFailures: 3,
+      endedBy: "stuck",
+      failureReasonOverride: "Verified success was not reached: no match",
+      completionSource: "agent",
+      shouldRecordVerdictAnalysis: true
+    });
+  });
+
+  it("preserves verifier auto-complete success/fail semantics in one helper", () => {
+    expect(resolveVerificationOutcome({
+      kind: "verifier-auto-complete",
+      passed: true,
+      verificationFailures: 2,
+      maxVerificationRetries: 3
+    })).toEqual({
+      finalResult: "success",
+      verificationResult: "passed",
+      nextVerificationFailures: 2,
+      endedBy: "success",
+      completionSource: "verifier-auto-complete",
+      shouldRecordVerdictAnalysis: true
+    });
+
+    expect(resolveVerificationOutcome({
+      kind: "verifier-auto-complete",
+      passed: false,
+      verificationFailures: 2,
+      maxVerificationRetries: 3,
+      failureMessage: "still missing"
+    })).toEqual({
+      finalResult: "continued",
+      verificationResult: "failed",
+      nextVerificationFailures: 2,
+      completionSource: "verifier-auto-complete",
+      shouldRecordVerdictAnalysis: false
+    });
+  });
+
   it("defaults browser headless based on mode and screen reader backend", () => {
     expect(resolveBrowserHeadless("keyboard")).toBe(true);
     expect(resolveBrowserHeadless("screenreader-strict", undefined, "guidepup-virtual")).toBe(true);
@@ -1213,6 +1290,7 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps.every((step) => step.verification === undefined)).toBe(true);
+    expect(session.steps.slice(0, -1).every((step) => step.verdictAnalysis === undefined)).toBe(true);
   });
 
   it("can auto-complete using network-only verification rules", async () => {
