@@ -50,7 +50,8 @@ export class LLMAgent implements Agent {
   private readonly promptDir?: string;
   private readonly extraInstructions?: string;
   private readonly keyHints: LLMAgentOptions["keyHints"];
-  private readonly screenReaderCommandHints: LLMAgentOptions["screenReaderCommandHints"];
+  private readonly screenReaderActionHints: LLMAgentOptions["screenReaderActionHints"];
+  private readonly screenReaderCapabilities: LLMAgentOptions["screenReaderCapabilities"];
   private readonly memory: AgentMemoryEntry[] = [];
   private readonly promptLog: PromptLogEntry[] = [];
 
@@ -68,7 +69,8 @@ export class LLMAgent implements Agent {
     this.promptDir = options.promptDir;
     this.extraInstructions = options.extraInstructions;
     this.keyHints = options.keyHints;
-    this.screenReaderCommandHints = options.screenReaderCommandHints;
+    this.screenReaderActionHints = options.screenReaderActionHints;
+    this.screenReaderCapabilities = options.screenReaderCapabilities;
   }
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
@@ -77,13 +79,14 @@ export class LLMAgent implements Agent {
       this.userModel,
       this.taskInput,
       ctx.allowedKeys,
-      ctx.allowedScreenReaderCommands,
+      ctx.allowedScreenReaderActions,
       this.includeRationale,
       {
         promptDir: this.promptDir,
         extraInstructions: this.extraInstructions,
         keyHints: this.keyHints,
-        screenReaderCommandHints: this.screenReaderCommandHints
+        screenReaderActionHints: this.screenReaderActionHints,
+        screenReaderCapabilities: this.screenReaderCapabilities
       }
     );
     const promptParts = buildPromptParts(ctx, obs, this.taskInput);

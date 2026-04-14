@@ -7,6 +7,7 @@
       "@rawstep/actuator": ["./packages/actuator/src"],
       "@rawstep/observer-keyboard": ["./packages/observer-keyboard/src"],
       "@rawstep/observer-screenreader": ["./packages/observer-screenreader/src"],
+      "@rawstep/guidepup-capabilities": ["./packages/guidepup-capabilities/src"],
       "@rawstep/agent": ["./packages/agent/src"],
       "@rawstep/runner": ["./packages/runner/src"],
       "@rawstep/trace": ["./packages/trace/src"],

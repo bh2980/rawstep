@@ -54,8 +54,28 @@ export function shouldCaptureDeveloperScreenshot(
           return true;
         }
 
-        if ("srCommand" in decision.action) {
-          return decision.action.srCommand === "act";
+        if ("srAction" in decision.action) {
+          if (decision.action.srAction.kind === "invoke") {
+            switch (decision.action.srAction.method) {
+              case "type":
+              case "press":
+              case "interact":
+              case "stopInteracting":
+              case "click":
+                return true;
+              case "next":
+              case "previous":
+              case "act":
+              case "perform":
+                return false;
+            }
+          }
+
+          switch (decision.action.srAction.kind) {
+            case "read":
+            case "maintenance":
+              return true;
+          }
         }
       }
 

@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import YAML from "yaml";
 import {
   parseAllowedKeys,
-  parseAllowedScreenReaderCommands,
+  parseAllowedScreenReaderActions,
   parsePromptOverride,
   parseScreenReaderBackendId,
   type TaskExecutionDefaults,
@@ -139,11 +139,11 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
     allowedKeys: candidate.allowedKeys === undefined
       ? undefined
       : parseAllowedKeys(candidate.allowedKeys, `${label} config.allowedKeys`),
-    allowedScreenReaderCommands: candidate.allowedScreenReaderCommands === undefined
+    allowedScreenReaderActions: candidate.allowedScreenReaderActions === undefined
       ? undefined
-      : parseAllowedScreenReaderCommands(
-        candidate.allowedScreenReaderCommands,
-        `${label} config.allowedScreenReaderCommands`
+      : parseAllowedScreenReaderActions(
+        candidate.allowedScreenReaderActions,
+        `${label} config.allowedScreenReaderActions`
       ),
     screenReaderBackend: candidate.screenReaderBackend === undefined
       ? undefined

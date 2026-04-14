@@ -3,7 +3,7 @@ import {
   type CliRunOptions,
   parseAgentProvider,
   parseCommaSeparatedAllowedKeys,
-  parseCommaSeparatedScreenReaderCommands,
+  parseCommaSeparatedScreenReaderActions,
   parseOptionalNonNegativeInteger,
   parseScreenReaderBackendId,
   parseScreenshotPolicy,
@@ -29,7 +29,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
   let includeExperienceSummary = undefined;
   let includeRationale = undefined;
   let allowedKeys = undefined;
-  let allowedScreenReaderCommands = undefined;
+  let allowedScreenReaderActions = undefined;
   let screenReaderBackendId = undefined;
   let provider = undefined;
   let model: string | undefined;
@@ -133,11 +133,11 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       continue;
     }
 
-    if (token === "--allowed-screen-reader-commands") {
+    if (token === "--allowed-screen-reader-actions") {
       if (!next) {
-        throw new Error("Missing value for --allowed-screen-reader-commands.");
+        throw new Error("Missing value for --allowed-screen-reader-actions.");
       }
-      allowedScreenReaderCommands = parseCommaSeparatedScreenReaderCommands(next, "--allowed-screen-reader-commands");
+      allowedScreenReaderActions = parseCommaSeparatedScreenReaderActions(next, "--allowed-screen-reader-actions");
       index += 1;
       continue;
     }
@@ -227,7 +227,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
     includeExperienceSummary,
     includeRationale,
     allowedKeys,
-    allowedScreenReaderCommands,
+    allowedScreenReaderActions,
     screenReaderBackendId,
     provider,
     model,
@@ -237,6 +237,6 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
 
 export function printUsage(): void {
   process.stderr.write(
-    "Usage: rawstep run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual] [--allowed-keys Tab,Shift+Tab,Enter] [--allowed-screen-reader-commands nextItem,act] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
+    "Usage: rawstep run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual] [--allowed-keys Tab,Shift+Tab,Enter] [--allowed-screen-reader-actions perform:keyboard.findNextHeading,press] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n"
   );
 }

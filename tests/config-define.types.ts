@@ -31,7 +31,10 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderCommands: ["nextItem", "nextFormControl", "act"]
+      allowedScreenReaderActions: [
+        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
+        { kind: "invoke", method: "click" }
+      ]
     },
     "screenreader-hybrid": {
       outDir: "./hybrid-out",
@@ -40,10 +43,19 @@ defineConfig({
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab"],
-      allowedScreenReaderCommands: ["nextItem", "nextHeading", "act"],
+      allowedScreenReaderActions: [
+        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
+        { kind: "invoke", method: "click" }
+      ],
       prompt: {
-        screenReaderCommandHints: {
-          nextHeading: "Move to the next heading."
+        screenReaderActionHints: {
+          invoke: {
+            perform: {
+              catalog: {
+                "commands.moveToNextHeading": "Move to the next heading."
+              }
+            }
+          }
         }
       }
     }
@@ -73,8 +85,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      // @ts-expect-error guidepup-virtual does not support nextFormControl
-      allowedScreenReaderCommands: ["nextItem", "nextFormControl"]
+      // @ts-expect-error perform actions require an id
+      allowedScreenReaderActions: [{ kind: "invoke", method: "perform", source: "catalog" }]
     }
   }
 });

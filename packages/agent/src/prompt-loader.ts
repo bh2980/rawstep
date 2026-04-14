@@ -26,7 +26,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
     "{{rationaleRule}}"
   ],
   screenreaderStrictSystem: [
-    "{{allowedScreenReaderCommands}}",
+    "{{allowedScreenReaderActions}}",
     "{{actionGuidance}}",
     "{{customInstructions}}",
     "{{taskInputRule}}",
@@ -35,7 +35,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
   ],
   screenreaderHybridSystem: [
     "{{allowedKeys}}",
-    "{{allowedScreenReaderCommands}}",
+    "{{allowedScreenReaderActions}}",
     "{{actionGuidance}}",
     "{{customInstructions}}",
     "{{taskInputRule}}",

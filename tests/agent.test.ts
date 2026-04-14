@@ -75,8 +75,8 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
 
   const files = {
     "keyboard.system.md": "keys={{allowedKeys}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-strict.system.md": "sr={{allowedScreenReaderCommands}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderCommands}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-strict.system.md": "sr={{allowedScreenReaderActions}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderActions}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
     "experience-summary.system.md": "summary-template"
   } satisfies Record<string, string>;
 
@@ -129,14 +129,21 @@ describe("agent helpers", () => {
     }
   });
 
-  it("parses valid screen reader command JSON", () => {
-    const decision = parseDecision('{"action":{"srCommand":"nextItem"},"rationale":"Move to the next announced item."}');
+  it("parses valid screen reader action JSON", () => {
+    const decision = parseDecision('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}},"rationale":"Move to the next announced item."}');
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
-      expect("srCommand" in decision.action).toBe(true);
-      if ("srCommand" in decision.action) {
-        expect(decision.action.srCommand).toBe("nextItem");
+      expect("srAction" in decision.action).toBe(true);
+      if ("srAction" in decision.action) {
+        expect(decision.action.srAction).toEqual({
+          kind: "invoke",
+          method: "perform",
+          command: {
+            source: "catalog",
+            id: "commands.moveToNextHeading"
+          }
+        });
       }
     }
   });
@@ -281,8 +288,8 @@ describe("agent helpers", () => {
     }
   });
 
-  it("treats mixed key and srCommand actions as malformed", () => {
-    const decision = parseDecision('{"action":{"key":"Tab","srCommand":"nextItem"},"rationale":"Invalid."}');
+  it("treats mixed key and srAction actions as malformed", () => {
+    const decision = parseDecision('{"action":{"key":"Tab","srAction":{"kind":"perform","id":"commands.moveToNextHeading"}},"rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -493,19 +500,30 @@ describe("agent helpers", () => {
     expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라.");
   });
 
-  it("renders screenreader prompts from prompt files with command placeholders", async () => {
+  it("renders screenreader prompts from prompt files with action placeholders", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
 
-    const prompt = buildSystemPrompt("screenreader-strict", undefined, undefined, ["nextItem", "act"], false);
+    const prompt = buildSystemPrompt(
+      "screenreader-strict",
+      undefined,
+      undefined,
+      [
+        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
+        { kind: "invoke", method: "click" }
+      ],
+      false
+    );
 
-    expect(prompt).toContain("sr=nextItem, act");
-    expect(prompt).toContain("nextItem은 항목을 넓게 탐색할 때 사용하라.");
-    expect(prompt).toContain("act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용하라.");
-    expect(prompt).toContain('{"action":{"srCommand":"nextItem"}}');
+    expect(prompt).toContain("perform ids: commands.moveToNextHeading");
+    expect(prompt).toContain("invoke methods: click");
+    expect(prompt).toContain("perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라.");
+    expect(prompt).toContain("- commands.moveToNextHeading: commands.moveToNextHeading");
+    expect(prompt).toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
+    expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}}}');
   });
 
-  it("includes only hints for allowed keys and commands", async () => {
+  it("includes only hints for allowed keys and actions", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
 
@@ -513,15 +531,15 @@ describe("agent helpers", () => {
       "screenreader-hybrid",
       undefined,
       ["Tab", "Escape"],
-      ["act"],
+      [{ kind: "invoke", method: "click" }],
       false
     );
 
     expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
     expect(prompt).toContain("Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.");
-    expect(prompt).toContain("act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용하라.");
+    expect(prompt).toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
     expect(prompt).not.toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
-    expect(prompt).not.toContain("nextItem은 항목을 넓게 탐색할 때 사용하라.");
+    expect(prompt).not.toContain("perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라.");
   });
 
   it("loads prompt templates from an explicit prompt directory", async () => {

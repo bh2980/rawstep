@@ -1,73 +1,83 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
-import type { Page } from "playwright";
 import {
-  SCREENREADER_COMMANDS,
-  SCREENREADER_COMMAND_METADATA,
-  type ScreenReaderCommand
+  getGuidepupNvdaCapabilities,
+  getGuidepupVirtualCapabilities,
+  getGuidepupVoiceOverCapabilities,
+  resolveGuidepupNvdaPerformCommand,
+  resolveGuidepupVoiceOverPerformCommand
+} from "@rawstep/guidepup-capabilities";
+import type {
+  ClickOptions,
+  CommandOptions,
+  KeyboardOptions,
+  ScreenReaderAction
 } from "@rawstep/core";
+import type { Page } from "playwright";
 import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
 
-type GuidepupVoiceOverApi = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  next(): Promise<void>;
-  previous(): Promise<void>;
-  act(): Promise<void>;
-  perform(command: unknown): Promise<void>;
+type GuidepupClickOptions = {
+  button?: "left" | "right";
+  clickCount?: 1 | 2 | 3;
+};
+
+type GuidepupScreenReaderApi = {
+  start(options?: CommandOptions): Promise<void>;
+  stop(options?: CommandOptions): Promise<void>;
+  next(options?: CommandOptions): Promise<void>;
+  previous(options?: CommandOptions): Promise<void>;
+  act(options?: CommandOptions): Promise<void>;
+  interact(options?: CommandOptions): Promise<void>;
+  stopInteracting(options?: CommandOptions): Promise<void>;
+  perform(command: unknown, options?: CommandOptions): Promise<void>;
+  press(key: string, options?: KeyboardOptions): Promise<void>;
+  type(text: string, options?: KeyboardOptions): Promise<void>;
+  click(options?: GuidepupClickOptions & CommandOptions): Promise<void>;
+  itemText(): Promise<string>;
   lastSpokenPhrase(): Promise<string>;
+  itemTextLog(): Promise<string[]>;
   spokenPhraseLog(): Promise<string[]>;
+  clearItemTextLog(): Promise<void>;
   clearSpokenPhraseLog(): Promise<void>;
-  keyboardCommands: {
-    findNextHeading: unknown;
-    findPreviousHeading: unknown;
-    findNextControl: unknown;
-    findPreviousControl: unknown;
-  };
+};
+
+type GuidepupVoiceOverApi = GuidepupScreenReaderApi & {
+  keyboardCommands: Record<string, unknown>;
+};
+
+type GuidepupNVDAApi = GuidepupScreenReaderApi & {
+  keyboardCommands: Record<string, unknown>;
 };
 
 type GuidepupModule = {
   voiceOver: GuidepupVoiceOverApi;
-};
-
-type GuidepupNVDAApi = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  next(): Promise<void>;
-  previous(): Promise<void>;
-  act(): Promise<void>;
-  perform(command: unknown): Promise<void>;
-  lastSpokenPhrase(): Promise<string>;
-  spokenPhraseLog(): Promise<string[]>;
-  clearSpokenPhraseLog(): Promise<void>;
-  keyboardCommands: {
-    moveToNextHeading: unknown;
-    moveToPreviousHeading: unknown;
-    moveToNextFormField: unknown;
-    moveToPreviousFormField: unknown;
-  };
-};
-
-type GuidepupNVDACompatibleModule = {
   nvda: GuidepupNVDAApi;
 };
 
 type GuidepupVirtualAdapter = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  execute(command: ScreenReaderCommand): Promise<void>;
+  start(options?: CommandOptions): Promise<void>;
+  stop(options?: CommandOptions): Promise<void>;
+  next(options?: CommandOptions): Promise<void>;
+  previous(options?: CommandOptions): Promise<void>;
+  act(options?: CommandOptions): Promise<void>;
+  interact(options?: CommandOptions): Promise<void>;
+  stopInteracting(options?: CommandOptions): Promise<void>;
+  perform(action: Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void>;
+  press(input: { key: string; options?: KeyboardOptions }): Promise<void>;
+  type(input: { text: string; options?: KeyboardOptions }): Promise<void>;
+  click(options?: ClickOptions): Promise<void>;
+  itemText(): Promise<string>;
   lastSpokenPhrase(): Promise<string>;
+  itemTextLog(): Promise<string[]>;
   spokenPhraseLog(): Promise<string[]>;
+  clearItemTextLog(): Promise<void>;
   clearSpokenPhraseLog(): Promise<void>;
 };
 
 const GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL = "__rawstepGuidepupVirtualAdapter";
 const requireFromHere = createRequire(__filename);
 const GUIDEPUP_VIRTUAL_BROWSER_BUNDLE_PATH = requireFromHere.resolve("@guidepup/virtual-screen-reader/browser.js");
-const GUIDEPUP_VIRTUAL_SUPPORTED_COMMANDS = SCREENREADER_COMMANDS.filter(
-  (command) => SCREENREADER_COMMAND_METADATA[command].category !== "form"
-) as readonly ScreenReaderCommand[];
 const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_TIMEOUT_MS = 1_000;
 const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS = 10;
 
@@ -75,7 +85,7 @@ let guidepupVirtualAdapterScriptPromise: Promise<string> | undefined;
 
 export const guidepupVoiceOverBackend: ScreenReaderBackend = {
   id: "guidepup-voiceover",
-  supportedCommands: SCREENREADER_COMMANDS,
+  capabilities: getGuidepupVoiceOverCapabilities(),
   supports(platform) {
     return platform === "darwin";
   },
@@ -87,19 +97,19 @@ export const guidepupVoiceOverBackend: ScreenReaderBackend = {
 
 export const guidepupNvdaBackend: ScreenReaderBackend = {
   id: "guidepup-nvda",
-  supportedCommands: SCREENREADER_COMMANDS,
+  capabilities: getGuidepupNvdaCapabilities(),
   supports(platform) {
     return platform === "win32";
   },
   async createSession(_page: Page): Promise<ScreenReaderSession> {
-    const { nvda } = await import("@guidepup/guidepup") as unknown as GuidepupNVDACompatibleModule;
+    const { nvda } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
     return new GuidepupNVDASession(nvda);
   }
 };
 
 export const guidepupVirtualBackend: ScreenReaderBackend = {
   id: "guidepup-virtual",
-  supportedCommands: GUIDEPUP_VIRTUAL_SUPPORTED_COMMANDS,
+  capabilities: getGuidepupVirtualCapabilities(),
   supports() {
     return true;
   },
@@ -111,48 +121,75 @@ export const guidepupVirtualBackend: ScreenReaderBackend = {
 class GuidepupVoiceOverSession implements ScreenReaderSession {
   constructor(private readonly voiceOver: GuidepupVoiceOverApi) {}
 
-  async start(): Promise<void> {
-    await this.voiceOver.start();
+  async start(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.start(options);
   }
 
-  async stop(): Promise<void> {
-    await this.voiceOver.stop();
+  async stop(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.stop(options);
   }
 
-  async execute(command: ScreenReaderCommand): Promise<void> {
-    switch (command) {
-      case "nextItem":
-        await this.voiceOver.next();
-        return;
-      case "previousItem":
-        await this.voiceOver.previous();
-        return;
-      case "nextHeading":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findNextHeading);
-        return;
-      case "previousHeading":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findPreviousHeading);
-        return;
-      case "nextFormControl":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findNextControl);
-        return;
-      case "previousFormControl":
-        await this.voiceOver.perform(this.voiceOver.keyboardCommands.findPreviousControl);
-        return;
-      case "act":
-        await this.voiceOver.act();
-        return;
-      default:
-        assertUnreachable(command);
-    }
+  async next(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.next(options);
+  }
+
+  async previous(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.previous(options);
+  }
+
+  async act(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.act(options);
+  }
+
+  async interact(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.interact(options);
+  }
+
+  async stopInteracting(options?: CommandOptions): Promise<void> {
+    await this.voiceOver.stopInteracting(options);
+  }
+
+  async perform(command: unknown, options?: CommandOptions): Promise<void> {
+    await this.voiceOver.perform(
+      resolveGuidepupPerformPayload(command, {
+        resolveCatalog: (id) => resolveGuidepupVoiceOverPerformCommand(id, this.voiceOver.keyboardCommands),
+        backendLabel: "Guidepup VoiceOver",
+        supportsRawPerform: true
+      }),
+      options
+    );
+  }
+
+  async press(key: string, options?: KeyboardOptions): Promise<void> {
+    await this.voiceOver.press(key, options);
+  }
+
+  async type(text: string, options?: KeyboardOptions): Promise<void> {
+    await this.voiceOver.type(text, options);
+  }
+
+  async click(options?: ClickOptions): Promise<void> {
+    await this.voiceOver.click(normalizeGuidepupClickOptions(options, "Guidepup VoiceOver"));
+  }
+
+  async itemText(): Promise<string> {
+    return this.voiceOver.itemText();
   }
 
   async lastSpokenPhrase(): Promise<string> {
     return this.voiceOver.lastSpokenPhrase();
   }
 
+  async itemTextLog(): Promise<string[]> {
+    return this.voiceOver.itemTextLog();
+  }
+
   async spokenPhraseLog(): Promise<string[]> {
     return this.voiceOver.spokenPhraseLog();
+  }
+
+  async clearItemTextLog(): Promise<void> {
+    await this.voiceOver.clearItemTextLog();
   }
 
   async clearSpokenPhraseLog(): Promise<void> {
@@ -163,48 +200,75 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
 class GuidepupNVDASession implements ScreenReaderSession {
   constructor(private readonly nvda: GuidepupNVDAApi) {}
 
-  async start(): Promise<void> {
-    await this.nvda.start();
+  async start(options?: CommandOptions): Promise<void> {
+    await this.nvda.start(options);
   }
 
-  async stop(): Promise<void> {
-    await this.nvda.stop();
+  async stop(options?: CommandOptions): Promise<void> {
+    await this.nvda.stop(options);
   }
 
-  async execute(command: ScreenReaderCommand): Promise<void> {
-    switch (command) {
-      case "nextItem":
-        await this.nvda.next();
-        return;
-      case "previousItem":
-        await this.nvda.previous();
-        return;
-      case "nextHeading":
-        await this.nvda.perform(this.nvda.keyboardCommands.moveToNextHeading);
-        return;
-      case "previousHeading":
-        await this.nvda.perform(this.nvda.keyboardCommands.moveToPreviousHeading);
-        return;
-      case "nextFormControl":
-        await this.nvda.perform(this.nvda.keyboardCommands.moveToNextFormField);
-        return;
-      case "previousFormControl":
-        await this.nvda.perform(this.nvda.keyboardCommands.moveToPreviousFormField);
-        return;
-      case "act":
-        await this.nvda.act();
-        return;
-      default:
-        assertUnreachable(command);
-    }
+  async next(options?: CommandOptions): Promise<void> {
+    await this.nvda.next(options);
+  }
+
+  async previous(options?: CommandOptions): Promise<void> {
+    await this.nvda.previous(options);
+  }
+
+  async act(options?: CommandOptions): Promise<void> {
+    await this.nvda.act(options);
+  }
+
+  async interact(options?: CommandOptions): Promise<void> {
+    await this.nvda.interact(options);
+  }
+
+  async stopInteracting(options?: CommandOptions): Promise<void> {
+    await this.nvda.stopInteracting(options);
+  }
+
+  async perform(command: unknown, options?: CommandOptions): Promise<void> {
+    await this.nvda.perform(
+      resolveGuidepupPerformPayload(command, {
+        resolveCatalog: (id) => resolveGuidepupNvdaPerformCommand(id, this.nvda.keyboardCommands),
+        backendLabel: "Guidepup NVDA",
+        supportsRawPerform: true
+      }),
+      options
+    );
+  }
+
+  async press(key: string, options?: KeyboardOptions): Promise<void> {
+    await this.nvda.press(key, options);
+  }
+
+  async type(text: string, options?: KeyboardOptions): Promise<void> {
+    await this.nvda.type(text, options);
+  }
+
+  async click(options?: ClickOptions): Promise<void> {
+    await this.nvda.click(normalizeGuidepupClickOptions(options, "Guidepup NVDA"));
+  }
+
+  async itemText(): Promise<string> {
+    return this.nvda.itemText();
   }
 
   async lastSpokenPhrase(): Promise<string> {
     return this.nvda.lastSpokenPhrase();
   }
 
+  async itemTextLog(): Promise<string[]> {
+    return this.nvda.itemTextLog();
+  }
+
   async spokenPhraseLog(): Promise<string[]> {
     return this.nvda.spokenPhraseLog();
+  }
+
+  async clearItemTextLog(): Promise<void> {
+    await this.nvda.clearItemTextLog();
   }
 
   async clearSpokenPhraseLog(): Promise<void> {
@@ -215,24 +279,69 @@ class GuidepupNVDASession implements ScreenReaderSession {
 class GuidepupVirtualSession implements ScreenReaderSession {
   constructor(private readonly page: Page) {}
 
-  async start(): Promise<void> {
-    await callGuidepupVirtualAdapter(this.page, "start");
+  async start(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "start", options);
   }
 
-  async stop(): Promise<void> {
-    await callGuidepupVirtualAdapter(this.page, "stop");
+  async stop(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "stop", options);
   }
 
-  async execute(command: ScreenReaderCommand): Promise<void> {
-    await callGuidepupVirtualAdapter(this.page, "execute", command);
+  async next(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "next", options);
+  }
+
+  async previous(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "previous", options);
+  }
+
+  async act(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "act", options);
+  }
+
+  async interact(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "interact", options);
+  }
+
+  async stopInteracting(options?: CommandOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "stopInteracting", options);
+  }
+
+  async perform(command: unknown): Promise<void> {
+    const action = normalizePerformAction(command, "Guidepup virtual screen reader");
+    await callGuidepupVirtualAdapter(this.page, "perform", action);
+  }
+
+  async press(key: string, options?: KeyboardOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "press", { key, options });
+  }
+
+  async type(text: string, options?: KeyboardOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "type", { text, options });
+  }
+
+  async click(options?: ClickOptions): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "click", options);
+  }
+
+  async itemText(): Promise<string> {
+    return callGuidepupVirtualAdapter<string>(this.page, "itemText");
   }
 
   async lastSpokenPhrase(): Promise<string> {
     return callGuidepupVirtualAdapter<string>(this.page, "lastSpokenPhrase");
   }
 
+  async itemTextLog(): Promise<string[]> {
+    return callGuidepupVirtualAdapter<string[]>(this.page, "itemTextLog");
+  }
+
   async spokenPhraseLog(): Promise<string[]> {
     return callGuidepupVirtualAdapter<string[]>(this.page, "spokenPhraseLog");
+  }
+
+  async clearItemTextLog(): Promise<void> {
+    await callGuidepupVirtualAdapter(this.page, "clearItemTextLog");
   }
 
   async clearSpokenPhraseLog(): Promise<void> {
@@ -243,15 +352,15 @@ class GuidepupVirtualSession implements ScreenReaderSession {
 async function callGuidepupVirtualAdapter<TResult>(
   page: Page,
   method: keyof GuidepupVirtualAdapter,
-  command?: ScreenReaderCommand
+  argument?: unknown
 ): Promise<TResult> {
   await ensureGuidepupVirtualAdapter(page);
 
   return page.evaluate(
-    async ({ globalKey, methodName, commandName }) => {
+    async ({ globalKey, methodName, argumentValue }) => {
       const adapter = (globalThis as Record<string, unknown>)[globalKey];
       if (!adapter || typeof adapter !== "object") {
-        throw new Error('Guidepup virtual screen reader adapter is not available in the page context.');
+        throw new Error("Guidepup virtual screen reader adapter is not available in the page context.");
       }
 
       const candidate = (adapter as Record<string, unknown>)[methodName];
@@ -259,15 +368,15 @@ async function callGuidepupVirtualAdapter<TResult>(
         throw new Error(`Guidepup virtual screen reader adapter is missing method "${methodName}".`);
       }
 
-      const handler = candidate as (argument?: string) => Promise<TResult>;
-      return commandName === undefined
+      const handler = candidate as (argument?: unknown) => Promise<TResult>;
+      return argumentValue === undefined
         ? handler.call(adapter)
-        : handler.call(adapter, commandName);
+        : handler.call(adapter, argumentValue);
     },
     {
       globalKey: GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL,
       methodName: method,
-      commandName: command
+      argumentValue: argument
     }
   );
 }
@@ -283,7 +392,6 @@ async function ensureGuidepupVirtualAdapter(page: Page): Promise<void> {
     content: await loadGuidepupVirtualAdapterScript()
   });
 
-  // Module scripts that do dynamic imports can finish a tick after addScriptTag resolves.
   const installed = await waitForGuidepupVirtualAdapter(page);
   if (!installed) {
     throw new Error("Failed to load Guidepup virtual screen reader into the page.");
@@ -352,14 +460,15 @@ if (!globalThis[rawstepGuidepupVirtualAdapterKey]) {
   };
 
   globalThis[rawstepGuidepupVirtualAdapterKey] = {
-    async start() {
+    async start(options) {
       if (state.started) {
         await virtual.stop();
       }
 
       await virtual.start({
         container: ensureContainer(),
-        window
+        window,
+        ...(options ?? {})
       });
       state.started = true;
     },
@@ -371,36 +480,77 @@ if (!globalThis[rawstepGuidepupVirtualAdapterKey]) {
       await virtual.stop();
       state.started = false;
     },
-    async execute(command) {
+    async next(options) {
       await ensureStarted(state);
-
-      switch (command) {
-        case "nextItem":
-          await virtual.next();
-          return;
-        case "previousItem":
-          await virtual.previous();
-          return;
-        case "nextHeading":
-          await virtual.perform(virtual.commands.moveToNextHeading);
-          return;
-        case "previousHeading":
-          await virtual.perform(virtual.commands.moveToPreviousHeading);
-          return;
-        case "act":
-          await virtual.act();
-          return;
-        default:
-          throw new Error(\`Guidepup virtual screen reader does not support command "\${command}".\`);
+      await virtual.next(options);
+    },
+    async previous(options) {
+      await ensureStarted(state);
+      await virtual.previous(options);
+    },
+    async act(options) {
+      await ensureStarted(state);
+      await virtual.act(options);
+    },
+    async interact(options) {
+      await ensureStarted(state);
+      await virtual.interact(options);
+    },
+    async stopInteracting(options) {
+      await ensureStarted(state);
+      await virtual.stopInteracting(options);
+    },
+    async perform(action) {
+      await ensureStarted(state);
+      if (!action || action.kind !== "invoke" || action.method !== "perform") {
+        throw new Error("Guidepup virtual perform requires an invoke.perform action.");
       }
+
+      if (action.command.source !== "catalog") {
+        throw new Error("Guidepup virtual screen reader only supports catalog perform commands.");
+      }
+
+      const propertyName = action.command.id.startsWith("commands.")
+        ? action.command.id.slice("commands.".length)
+        : "";
+      const command = virtual.commands[propertyName];
+      if (command === undefined) {
+        throw new Error(\`Guidepup virtual screen reader does not support perform id "\${action.command.id}".\`);
+      }
+
+      await virtual.perform(command, action.command.args ?? action.options);
+    },
+    async press(input) {
+      await ensureStarted(state);
+      await virtual.press(input.key, input.options);
+    },
+    async type(input) {
+      await ensureStarted(state);
+      await virtual.type(input.text, input.options);
+    },
+    async click(options) {
+      await ensureStarted(state);
+      await virtual.click(options);
+    },
+    async itemText() {
+      await ensureStarted(state);
+      return virtual.itemText();
     },
     async lastSpokenPhrase() {
       await ensureStarted(state);
       return virtual.lastSpokenPhrase();
     },
+    async itemTextLog() {
+      await ensureStarted(state);
+      return virtual.itemTextLog();
+    },
     async spokenPhraseLog() {
       await ensureStarted(state);
       return virtual.spokenPhraseLog();
+    },
+    async clearItemTextLog() {
+      await ensureStarted(state);
+      await virtual.clearItemTextLog();
     },
     async clearSpokenPhraseLog() {
       await ensureStarted(state);
@@ -415,6 +565,100 @@ if (!globalThis[rawstepGuidepupVirtualAdapterKey]) {
   return guidepupVirtualAdapterScriptPromise;
 }
 
-function assertUnreachable(value: never): never {
-  throw new Error(`Unhandled screen reader command: ${String(value)}`);
+function normalizeGuidepupClickOptions(
+  options: ClickOptions | undefined,
+  backendLabel: string
+): GuidepupClickOptions | undefined {
+  if (options?.clickCount !== undefined && (options.clickCount < 1 || options.clickCount > 3)) {
+    throw new Error(`${backendLabel} clickCount must be between 1 and 3.`);
+  }
+
+  if (options?.button === undefined && options?.clickCount === undefined) {
+    return undefined;
+  }
+
+  return {
+    button: options?.button,
+    clickCount: options?.clickCount as 1 | 2 | 3 | undefined
+  };
+}
+
+function resolveGuidepupPerformPayload(
+  command: unknown,
+  options: {
+    resolveCatalog: (id: string) => unknown;
+    backendLabel: string;
+    supportsRawPerform: boolean;
+  }
+): unknown {
+  const normalized = normalizePerformAction(command, options.backendLabel);
+
+  if (normalized.command.source === "raw") {
+    if (!options.supportsRawPerform) {
+      throw new Error(`${options.backendLabel} does not support raw perform payloads.`);
+    }
+
+    return normalized.command.payload;
+  }
+
+  const resolved = options.resolveCatalog(normalized.command.id);
+  if (resolved === undefined) {
+    throw new Error(`${options.backendLabel} does not support perform id "${normalized.command.id}".`);
+  }
+
+  return resolved;
+}
+
+function normalizePerformAction(
+  command: unknown,
+  backendLabel: string
+): Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }> {
+  if (
+    typeof command === "object"
+    && command !== null
+    && "source" in command
+    && (command as { source?: unknown }).source === "catalog"
+    && typeof (command as { id?: unknown }).id === "string"
+  ) {
+    const candidate = command as {
+      source: "catalog";
+      id: string;
+      args?: unknown;
+    };
+    return {
+      kind: "invoke",
+      method: "perform",
+      command: {
+        source: "catalog",
+        id: candidate.id,
+        ...(typeof candidate.args === "object" && candidate.args !== null
+          ? { args: candidate.args as Record<string, unknown> }
+          : {})
+      }
+    };
+  }
+
+  if (
+    typeof command === "object"
+    && command !== null
+    && "source" in command
+    && (command as { source?: unknown }).source === "raw"
+    && typeof (command as { payload?: unknown }).payload === "object"
+    && (command as { payload?: unknown }).payload !== null
+  ) {
+    const candidate = command as {
+      source: "raw";
+      payload: Record<string, unknown>;
+    };
+    return {
+      kind: "invoke",
+      method: "perform",
+      command: {
+        source: "raw",
+        payload: candidate.payload
+      }
+    };
+  }
+
+  throw new Error(`${backendLabel} received an invalid perform command payload.`);
 }

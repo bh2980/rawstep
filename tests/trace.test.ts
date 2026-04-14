@@ -70,7 +70,9 @@ describe("TraceRecorder", () => {
       verifyMs: 0
     });
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 1,
       typeTextCount: 1
     });
@@ -120,7 +122,16 @@ describe("TraceRecorder", () => {
         announcementCount: 1,
         observeReason: "silence"
       },
-      { action: { srCommand: "nextItem" }, rationale: "Move to the next item." },
+      {
+        action: {
+          srAction: {
+            kind: "invoke",
+            method: "perform",
+            command: { source: "catalog", id: "commands.moveToNextHeading" }
+          }
+        },
+        rationale: "Move to the next item."
+      },
       { ok: true, costDelta: 1 },
       { observeMs: 9, decideMs: 19, executeMs: 29, verifyMs: 0 },
       undefined,

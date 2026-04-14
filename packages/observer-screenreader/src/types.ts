@@ -1,5 +1,12 @@
 import type { ScreenReaderController } from "@rawstep/actuator";
-import type { ScreenReaderCommand, ScreenReaderObservation } from "@rawstep/core";
+import type {
+  AllowedScreenReaderAction,
+  ClickOptions,
+  CommandOptions,
+  KeyboardOptions,
+  ScreenReaderCapabilities,
+  ScreenReaderObservation
+} from "@rawstep/core";
 import type { Page } from "playwright";
 export const SCREEN_READER_BACKEND_IDS = [
   "guidepup-voiceover",
@@ -10,17 +17,28 @@ export const SCREEN_READER_BACKEND_IDS = [
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
 
 export type ScreenReaderSession = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  execute(command: ScreenReaderCommand): Promise<void>;
+  start(options?: CommandOptions): Promise<void>;
+  stop(options?: CommandOptions): Promise<void>;
+  next(options?: CommandOptions): Promise<void>;
+  previous(options?: CommandOptions): Promise<void>;
+  act(options?: CommandOptions): Promise<void>;
+  interact(options?: CommandOptions): Promise<void>;
+  stopInteracting(options?: CommandOptions): Promise<void>;
+  perform(command: unknown, options?: CommandOptions): Promise<void>;
+  press(key: string, options?: KeyboardOptions): Promise<void>;
+  type(text: string, options?: KeyboardOptions): Promise<void>;
+  click(options?: ClickOptions): Promise<void>;
   lastSpokenPhrase(): Promise<string>;
+  itemText(): Promise<string>;
   spokenPhraseLog(): Promise<string[]>;
+  itemTextLog(): Promise<string[]>;
   clearSpokenPhraseLog(): Promise<void>;
+  clearItemTextLog(): Promise<void>;
 };
 
 export type ScreenReaderBackend = {
   id: ScreenReaderBackendId;
-  supportedCommands: readonly ScreenReaderCommand[];
+  capabilities: ScreenReaderCapabilities;
   supports(platform: NodeJS.Platform): boolean;
   createSession(page: Page): Promise<ScreenReaderSession>;
 };
@@ -33,6 +51,7 @@ export type ScreenReaderRuntimeObserver = {
 export type ScreenReaderRuntime = {
   observer: ScreenReaderRuntimeObserver;
   controller: ScreenReaderController;
+  capabilities: ScreenReaderCapabilities;
   setupTimings: {
     screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
@@ -45,7 +64,7 @@ export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRun
 export type ScreenReaderRuntimeOptions = {
   backendId?: ScreenReaderBackendId;
   backend?: ScreenReaderBackend;
-  allowedCommands?: readonly ScreenReaderCommand[];
+  allowedActions?: readonly AllowedScreenReaderAction[];
   platform?: NodeJS.Platform;
   observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
 };

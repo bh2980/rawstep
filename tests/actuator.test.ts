@@ -29,8 +29,8 @@ describe("Actuator", () => {
     await expect(actuator.press("KeyA")).rejects.toBeInstanceOf(NotAllowedActionError);
   });
 
-  it("delegates screen reader commands to the configured controller", async () => {
-    const execute = vi.fn(async () => undefined);
+  it("delegates screen reader actions to the configured controller", async () => {
+    const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
     const actuator = new Actuator(
       {
         keyboard: { press: vi.fn(async () => undefined) }
@@ -40,20 +40,33 @@ describe("Actuator", () => {
       }
     );
 
-    const result = await actuator.execute({ srCommand: "nextItem" });
+    const action = {
+      kind: "invoke",
+      method: "perform",
+      command: { source: "catalog", id: "commands.moveToNextHeading" }
+    } as const;
+    const result = await actuator.execute({ srAction: action });
 
-    expect(execute).toHaveBeenCalledWith("nextItem");
+    expect(execute).toHaveBeenCalledWith(action);
     expect(result).toEqual({ ok: true, costDelta: 1 });
     expect(actuator.cost).toBe(1);
   });
 
-  it("rejects screen reader commands when no controller is configured", async () => {
+  it("rejects screen reader actions when no controller is configured", async () => {
     const actuator = new Actuator({
       keyboard: { press: vi.fn(async () => undefined) }
     } as never);
 
-    await expect(actuator.execute({ srCommand: "nextItem" })).rejects.toThrow(
-      "Screen reader commands are not available"
+    await expect(
+      actuator.execute({
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "catalog", id: "commands.moveToNextHeading" }
+        }
+      })
+    ).rejects.toThrow(
+      "Screen reader actions are not available"
     );
   });
 

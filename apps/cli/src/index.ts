@@ -2,6 +2,7 @@
 
 import { LLMAgent } from "@rawstep/agent";
 import type { Agent, Task, UserModel } from "@rawstep/core";
+import { findScreenReaderBackendById } from "@rawstep/observer-screenreader";
 import { renderReport } from "@rawstep/reporter";
 import { runTask } from "@rawstep/runner";
 import { mkdir } from "node:fs/promises";
@@ -47,7 +48,7 @@ export async function runCli(
       agentMemoryAll: options.agentMemoryAll,
       includeExperienceSummary: options.includeExperienceSummary,
       allowedKeys: options.allowedKeys,
-      allowedScreenReaderCommands: options.allowedScreenReaderCommands,
+      allowedScreenReaderActions: options.allowedScreenReaderActions,
       screenReaderBackendId: options.screenReaderBackendId
     });
     const reportStartedAt = Date.now();
@@ -98,7 +99,10 @@ function createAgent(
     promptDir: options.prompt.promptDir,
     extraInstructions: options.prompt.extraInstructions,
     keyHints: options.prompt.keyHints,
-    screenReaderCommandHints: options.prompt.screenReaderCommandHints
+    screenReaderActionHints: options.prompt.screenReaderActionHints,
+    screenReaderCapabilities: options.screenReaderBackendId
+      ? findScreenReaderBackendById(options.screenReaderBackendId).capabilities
+      : undefined
   });
 }
 

@@ -1,4 +1,5 @@
 import { createBrowserSession } from "@rawstep/browser";
+import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
 import { runTask } from "@rawstep/runner";
 import { resolveBrowserHeadless } from "../packages/runner/src/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -39,6 +40,70 @@ function createFixtureAgent(fixture: "simple-cta" | "bad-focus") {
 
       return { verdict: "stuck" as const, rationale: "No known action." };
     }
+  };
+}
+
+const MOCK_SCREEN_READER_CAPABILITIES: ScreenReaderCapabilities = {
+  invoke: {
+    next: true,
+    previous: true,
+    act: true,
+    interact: true,
+    stopInteracting: true,
+    press: true,
+    type: true,
+    click: true,
+    perform: true,
+    supportsRawPerform: false
+  },
+  read: {
+    itemText: true,
+    itemTextLog: true,
+    lastSpokenPhrase: true,
+    spokenPhraseLog: true
+  },
+  maintenance: {
+    clearItemTextLog: true,
+    clearSpokenPhraseLog: true
+  },
+  performCatalog: [
+    {
+      id: "commands.moveToNextHeading",
+      label: "moveToNextHeading",
+      description: "Move to the next heading."
+    }
+  ],
+};
+
+function createMockScreenReaderRuntime(overrides: {
+  observer: {
+    observe: () => Promise<{
+      kind: "screenreader";
+      announcement: string;
+      announcementCapture: "log";
+    }>;
+    prepareNextObservation?: (profile: "initial" | "default" | "interactive") => void;
+  };
+  controller?: {
+    execute: (action: ScreenReaderAction) => Promise<{ ok: boolean; costDelta: number }>;
+  };
+  setupTimings?: {
+    screenReaderInitMs: number;
+    firstAnnouncementWaitMs: number;
+  };
+  close?: () => Promise<void>;
+}) {
+  return {
+    observer: overrides.observer,
+    controller: overrides.controller ?? {
+      execute: async (_action: ScreenReaderAction) => ({ ok: true, costDelta: 1 })
+    },
+    capabilities: MOCK_SCREEN_READER_CAPABILITIES,
+    setupTimings: overrides.setupTimings ?? {
+      screenReaderInitMs: 12,
+      firstAnnouncementWaitMs: 34
+    },
+    close: overrides.close ?? (async () => undefined)
   };
 }
 
@@ -137,7 +202,9 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.result).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 3,
       typeTextCount: 0
     });
@@ -555,7 +622,9 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 6,
       typeTextCount: 1
     });
@@ -646,16 +715,18 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 4,
       typeTextCount: 2
     });
     expect(session.steps.at(-1)?.verification?.passed).toBe(true);
   });
 
-  it("runs the screenreader-hybrid path with mocked announcements and canonical commands", async () => {
+  it("runs the screenreader-hybrid path with mocked announcements and screen reader actions", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-"));
-    const observedCommands: string[] = [];
+    const observedActions: ScreenReaderAction[] = [];
     let observeCalls = 0;
 
     const session = await runTask(
@@ -674,7 +745,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
               observeCalls += 1;
@@ -695,25 +766,32 @@ describe("runTask", () => {
             }
           },
           controller: {
-            execute: async (command) => {
-              observedCommands.push(command);
+            execute: async (action) => {
+              observedActions.push(action);
+              return { ok: true, costDelta: 1 };
             }
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async (ctx, obs) => {
-            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            expect(ctx.allowedScreenReaderActions).toContainEqual({
+              kind: "invoke",
+              method: "perform",
+              source: "catalog",
+              id: "commands.moveToNextHeading"
+            });
             expect(obs.kind).toBe("screenreader");
 
             if (observeCalls === 1) {
               return {
-                action: { srCommand: "nextItem" },
-                rationale: "Move to the next announced item."
+                action: {
+                  srAction: {
+                    kind: "invoke",
+                    method: "perform",
+                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                  }
+                },
+                rationale: "Move to the next heading."
               };
             }
 
@@ -726,19 +804,31 @@ describe("runTask", () => {
       }
     );
 
-    expect(observedCommands).toEqual(["nextItem"]);
+    expect(observedActions).toEqual([{
+      kind: "invoke",
+      method: "perform",
+      command: { source: "catalog", id: "commands.moveToNextHeading" }
+    }]);
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.steps[0].observation.kind).toBe("screenreader");
     expect(session.steps[0].decision).toEqual({
-      action: { srCommand: "nextItem" },
-      rationale: "Move to the next announced item."
+      action: {
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "catalog", id: "commands.moveToNextHeading" }
+        }
+      },
+      rationale: "Move to the next heading."
     });
     if (session.steps[0].observation.kind === "screenreader") {
       expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
       expect(session.steps[0].observation.announcementCapture).toBe("log");
     }
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 1,
+      srInvokeCount: 1,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 0,
       typeTextCount: 0
     });
@@ -763,22 +853,14 @@ describe("runTask", () => {
         outDir,
         screenshotPolicy: "none",
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
               kind: "screenreader",
               announcement: "Get started button",
               announcementCapture: "log"
             })
-          },
-          controller: {
-            execute: async () => undefined
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async () => ({
@@ -815,27 +897,24 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
               kind: "screenreader",
               announcement: "Simple CTA heading",
               announcementCapture: "log"
             })
-          },
-          controller: {
-            execute: async () => undefined
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async (ctx) => {
             expect(ctx.allowedKeys).toEqual([]);
-            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            expect(ctx.allowedScreenReaderActions).toContainEqual({
+              kind: "invoke",
+              method: "perform",
+              source: "catalog",
+              id: "commands.moveToNextHeading"
+            });
             return {
               action: { key: "Tab" },
               rationale: "This should be rejected in strict mode."
@@ -848,15 +927,17 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("error");
     expect(session.steps[0].execution.error).toBe("Raw key actions are not allowed in screenreader-strict mode.");
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 1,
       typeTextCount: 0
     });
   });
 
-  it("runs the screenreader-strict path with screen reader commands only", async () => {
+  it("runs the screenreader-strict path with screen reader actions only", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-"));
-    const observedCommands: string[] = [];
+    const observedActions: ScreenReaderAction[] = [];
     let observeCalls = 0;
 
     const session = await runTask(
@@ -875,7 +956,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
               observeCalls += 1;
@@ -896,26 +977,33 @@ describe("runTask", () => {
             }
           },
           controller: {
-            execute: async (command) => {
-              observedCommands.push(command);
+            execute: async (action) => {
+              observedActions.push(action);
+              return { ok: true, costDelta: 1 };
             }
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async (ctx, obs) => {
             expect(ctx.allowedKeys).toEqual([]);
-            expect(ctx.allowedScreenReaderCommands).toContain("nextItem");
+            expect(ctx.allowedScreenReaderActions).toContainEqual({
+              kind: "invoke",
+              method: "perform",
+              source: "catalog",
+              id: "commands.moveToNextHeading"
+            });
             expect(obs.kind).toBe("screenreader");
 
             if (observeCalls === 1) {
               return {
-                action: { srCommand: "nextItem" },
-                rationale: "Move to the next announced item."
+                action: {
+                  srAction: {
+                    kind: "invoke",
+                    method: "perform",
+                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                  }
+                },
+                rationale: "Move to the next heading."
               };
             }
 
@@ -928,10 +1016,16 @@ describe("runTask", () => {
       }
     );
 
-    expect(observedCommands).toEqual(["nextItem"]);
+    expect(observedActions).toEqual([{
+      kind: "invoke",
+      method: "perform",
+      command: { source: "catalog", id: "commands.moveToNextHeading" }
+    }]);
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
-      srCommandCount: 1,
+      srInvokeCount: 1,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 0,
       typeTextCount: 0
     });
@@ -1128,7 +1222,7 @@ describe("runTask", () => {
     });
   });
 
-  it("switches the next screenreader observation to interactive after a successful act command", async () => {
+  it("switches the next screenreader observation to interactive after a successful srAction", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-interactive-"));
     const observedProfiles: string[] = [];
     let observeCalls = 0;
@@ -1149,7 +1243,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
               observeCalls += 1;
@@ -1171,21 +1265,13 @@ describe("runTask", () => {
             prepareNextObservation: (profile) => {
               observedProfiles.push(profile);
             }
-          },
-          controller: {
-            execute: async () => undefined
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async () => {
             if (observeCalls === 1) {
               return {
-                action: { srCommand: "act" as const },
+                action: { srAction: { kind: "invoke", method: "click" as const } },
                 rationale: "Activate the button."
               };
             }
@@ -1224,22 +1310,14 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
               kind: "screenreader",
               announcement: "Get started button",
               announcementCapture: "log"
             })
-          },
-          controller: {
-            execute: async () => undefined
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async (ctx) => {
@@ -1287,22 +1365,14 @@ describe("runTask", () => {
         outDir,
         screenshotPolicy: "failure-only",
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
-        screenReaderRuntimeFactory: async () => ({
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
               kind: "screenreader",
               announcement: "Get started button",
               announcementCapture: "log"
             })
-          },
-          controller: {
-            execute: async () => undefined
-          },
-          setupTimings: {
-            screenReaderInitMs: 12,
-            firstAnnouncementWaitMs: 34
-          },
-          close: async () => undefined
+          }
         }),
         agent: {
           decide: async () => {
@@ -1310,7 +1380,13 @@ describe("runTask", () => {
 
             if (callCount === 1) {
               return {
-                action: { srCommand: "nextItem" },
+                action: {
+                  srAction: {
+                    kind: "invoke",
+                    method: "perform",
+                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                  }
+                },
                 rationale: "Move once before deciding."
               };
             }
@@ -1363,7 +1439,7 @@ describe("runTask", () => {
             }
           });
 
-          return {
+          return createMockScreenReaderRuntime({
             observer: {
               observe: async () => ({
                 kind: "screenreader",
@@ -1381,19 +1457,15 @@ describe("runTask", () => {
                     result.textContent = "Started!";
                   }
                 });
+                return { ok: true, costDelta: 1 };
               }
-            },
-            setupTimings: {
-              screenReaderInitMs: 12,
-              firstAnnouncementWaitMs: 34
-            },
-            close: async () => undefined
-          };
+            }
+          });
         },
         agent: {
           decide: async () => {
             return {
-              action: { srCommand: "act" as const },
+              action: { srAction: { kind: "invoke", method: "click" as const } },
               rationale: "Activate the CTA."
             };
           }

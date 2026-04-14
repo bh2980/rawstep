@@ -1,7 +1,10 @@
 import {
   isAllowedKey,
-  isScreenReaderCommand,
+  type ClickOptions,
+  type CommandOptions,
   type Decision,
+  type KeyboardOptions,
+  type ScreenReaderAction,
   type ExperienceSummary
 } from "@rawstep/core";
 import type { PromptPart } from "./shared";
@@ -31,7 +34,7 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
 
   try {
     const candidate = JSON.parse(extractJsonObject(raw)) as {
-      action?: { key?: string; typeText?: string; srCommand?: string };
+      action?: { key?: string; typeText?: string; srAction?: unknown; srCommand?: unknown };
       verdict?: string;
       rationale?: string;
     };
@@ -50,9 +53,9 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
     if (candidate.action) {
       const key = candidate.action.key;
       const typeText = candidate.action.typeText;
-      const srCommand = candidate.action.srCommand;
+      const srAction = candidate.action.srAction;
 
-      if ([key, typeText, srCommand].filter(Boolean).length !== 1) {
+      if ([key, typeText, srAction].filter((value) => value !== undefined).length !== 1) {
         return { status: "malformed", snippet };
       }
 
@@ -93,11 +96,12 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
         };
       }
 
-      if (srCommand && isScreenReaderCommand(srCommand)) {
+      const parsedScreenReaderAction = parseScreenReaderAction(srAction);
+      if (parsedScreenReaderAction) {
         return {
           status: "ok",
           decision: {
-            action: { srCommand },
+            action: { srAction: parsedScreenReaderAction },
             ...withOptionalRationale(rationale)
           }
         };
@@ -124,6 +128,264 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
   } catch {
     return { status: "malformed", snippet };
   }
+}
+
+function parseScreenReaderAction(value: unknown): ScreenReaderAction | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.kind === "read") {
+    return parseReadAction(candidate);
+  }
+
+  if (candidate.kind === "maintenance") {
+    return parseMaintenanceAction(candidate);
+  }
+
+  if (candidate.kind !== "invoke" || typeof candidate.method !== "string") {
+    return undefined;
+  }
+
+  switch (candidate.method) {
+    case "next":
+    case "previous":
+    case "act":
+    case "interact":
+    case "stopInteracting":
+      return {
+        kind: "invoke",
+        method: candidate.method,
+        ...(parseCommandOptions(candidate.options) ? { options: parseCommandOptions(candidate.options)! } : {})
+      };
+    case "press": {
+      if (typeof candidate.key !== "string" || !candidate.key.trim()) {
+        return undefined;
+      }
+
+      const options = parseKeyboardOptions(candidate.options);
+      if (candidate.options !== undefined && !options) {
+        return undefined;
+      }
+
+      return {
+        kind: "invoke",
+        method: "press",
+        key: candidate.key,
+        ...(options ? { options } : {})
+      };
+    }
+    case "type": {
+      if (typeof candidate.text !== "string") {
+        return undefined;
+      }
+
+      const options = parseKeyboardOptions(candidate.options);
+      if (candidate.options !== undefined && !options) {
+        return undefined;
+      }
+
+      return {
+        kind: "invoke",
+        method: "type",
+        text: candidate.text,
+        ...(options ? { options } : {})
+      };
+    }
+    case "click": {
+      const options = parseClickOptions(candidate.options);
+      if (candidate.options !== undefined && !options) {
+        return undefined;
+      }
+
+      return {
+        kind: "invoke",
+        method: "click",
+        ...(options ? { options } : {})
+      };
+    }
+    case "perform": {
+      const command = parsePerformCommand(candidate.command);
+      if (!command) {
+        return undefined;
+      }
+
+      const options = parseCommandOptions(candidate.options);
+      if (candidate.options !== undefined && !options) {
+        return undefined;
+      }
+
+      return {
+        kind: "invoke",
+        method: "perform",
+        command,
+        ...(options ? { options } : {})
+      };
+    }
+    default:
+      return undefined;
+  }
+}
+
+function parseReadAction(candidate: Record<string, unknown>): ScreenReaderAction | undefined {
+  switch (candidate.method) {
+    case "itemText":
+    case "itemTextLog":
+    case "lastSpokenPhrase":
+    case "spokenPhraseLog":
+      return {
+        kind: "read",
+        method: candidate.method
+      };
+    default:
+      return undefined;
+  }
+}
+
+function parseMaintenanceAction(candidate: Record<string, unknown>): ScreenReaderAction | undefined {
+  switch (candidate.method) {
+    case "clearItemTextLog":
+    case "clearSpokenPhraseLog":
+      return {
+        kind: "maintenance",
+        method: candidate.method
+      };
+    default:
+      return undefined;
+  }
+}
+
+function parsePerformCommand(
+  value: unknown
+): Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>["command"] | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.source === "catalog") {
+    if (typeof candidate.id !== "string" || !candidate.id.trim()) {
+      return undefined;
+    }
+
+    if (
+      candidate.args !== undefined
+      && (typeof candidate.args !== "object" || candidate.args === null || Array.isArray(candidate.args))
+    ) {
+      return undefined;
+    }
+
+    return {
+      source: "catalog",
+      id: candidate.id.trim(),
+      ...(candidate.args ? { args: candidate.args as Record<string, unknown> } : {})
+    };
+  }
+
+  if (
+    candidate.source === "raw"
+    && typeof candidate.payload === "object"
+    && candidate.payload !== null
+    && !Array.isArray(candidate.payload)
+  ) {
+    return {
+      source: "raw",
+      payload: candidate.payload as Record<string, unknown>
+    };
+  }
+
+  return undefined;
+}
+
+function parseCommandOptions(value: unknown): CommandOptions | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    candidate.capture !== undefined
+    && candidate.capture !== true
+    && candidate.capture !== false
+    && candidate.capture !== "initial"
+  ) {
+    return undefined as never;
+  }
+
+  if (
+    candidate.retries !== undefined
+    && (typeof candidate.retries !== "number" || !Number.isInteger(candidate.retries))
+  ) {
+    return undefined as never;
+  }
+
+  if (
+    candidate.timeout !== undefined
+    && (typeof candidate.timeout !== "number" || !Number.isInteger(candidate.timeout))
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(candidate.capture !== undefined ? { capture: candidate.capture } : {}),
+    ...(candidate.retries !== undefined ? { retries: candidate.retries } : {}),
+    ...(candidate.timeout !== undefined ? { timeout: candidate.timeout } : {})
+  };
+}
+
+function parseKeyboardOptions(value: unknown): KeyboardOptions | undefined {
+  const commandOptions = parseCommandOptions(value);
+  if (value !== undefined && !commandOptions) {
+    return undefined;
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.application !== undefined && typeof candidate.application !== "string") {
+    return undefined;
+  }
+
+  return {
+    ...(commandOptions ?? {}),
+    ...(candidate.application !== undefined ? { application: candidate.application } : {})
+  };
+}
+
+function parseClickOptions(value: unknown): ClickOptions | undefined {
+  const commandOptions = parseCommandOptions(value);
+  if (value !== undefined && !commandOptions) {
+    return undefined;
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.button !== undefined && candidate.button !== "left" && candidate.button !== "right") {
+    return undefined;
+  }
+
+  if (
+    candidate.clickCount !== undefined
+    && (typeof candidate.clickCount !== "number" || !Number.isInteger(candidate.clickCount))
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(commandOptions ?? {}),
+    ...(candidate.button !== undefined ? { button: candidate.button } : {}),
+    ...(candidate.clickCount !== undefined ? { clickCount: candidate.clickCount as 1 | 2 | 3 } : {})
+  };
 }
 
 export function parseExperienceSummary(raw: string): ExperienceSummary {

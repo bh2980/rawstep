@@ -1,17 +1,7 @@
 import type { AgentProvider } from "@rawstep/agent";
-import type { AllowedKey, ScreenshotPolicy, ScreenReaderCommand } from "@rawstep/core";
+import type { AllowedKey, AllowedScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
 import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
 import type { MemorySetting } from "./shared";
-
-type VirtualScreenReaderCommand = Exclude<
-  ScreenReaderCommand,
-  "nextFormControl" | "previousFormControl"
->;
-
-type ScreenReaderCommandForBackend<TBackend extends ScreenReaderBackendId> =
-  TBackend extends "guidepup-virtual"
-    ? VirtualScreenReaderCommand
-    : ScreenReaderCommand;
 
 type SharedModeConfig = {
   outDir: string;
@@ -28,7 +18,7 @@ type SharedModeConfig = {
 
 type KeyboardModeConfig = SharedModeConfig & {
   allowedKeys?: readonly AllowedKey[];
-  allowedScreenReaderCommands?: never;
+  allowedScreenReaderActions?: never;
   screenReaderBackend?: never;
 };
 
@@ -36,7 +26,7 @@ type ScreenReaderStrictModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
     allowedKeys?: never;
-    allowedScreenReaderCommands?: readonly ScreenReaderCommandForBackend<TBackend>[];
+    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
   };
 }[ScreenReaderBackendId];
 
@@ -44,7 +34,7 @@ type ScreenReaderHybridModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
     allowedKeys?: readonly AllowedKey[];
-    allowedScreenReaderCommands?: readonly ScreenReaderCommandForBackend<TBackend>[];
+    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
   };
 }[ScreenReaderBackendId];
 
@@ -59,7 +49,33 @@ type ProjectDefaultsConfig = {
 type PromptOverrideConfig = {
   extraInstructions?: string;
   keyHints?: Partial<Record<AllowedKey, string>>;
-  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
+  screenReaderActionHints?: {
+    invoke?: {
+      next?: string;
+      previous?: string;
+      act?: string;
+      interact?: string;
+      stopInteracting?: string;
+      press?: string;
+      type?: string;
+      click?: string;
+      perform?: {
+        generic?: string;
+        raw?: string;
+        catalog?: Record<string, string>;
+      };
+    };
+    read?: {
+      itemText?: string;
+      itemTextLog?: string;
+      lastSpokenPhrase?: string;
+      spokenPhraseLog?: string;
+    };
+    maintenance?: {
+      clearItemTextLog?: string;
+      clearSpokenPhraseLog?: string;
+    };
+  };
 };
 
 type ProjectPromptConfig = PromptOverrideConfig & {

@@ -9,16 +9,21 @@ import {
 } from "@rawstep/browser";
 import {
   ALLOWED_KEYS,
-  SCREENREADER_COMMANDS,
+  buildAllowedScreenReaderActions,
   type AgentMemoryEntry,
   type Agent,
+  type Action,
+  type AllowedScreenReaderAction,
   type EndedBy,
+  type ScreenReaderReadback,
+  type ScreenReaderCapabilities,
   type ScreenshotPolicy,
   type Task,
   type TraceSession
 } from "@rawstep/core";
 import {
   createScreenReaderRuntime,
+  findScreenReaderBackendById,
   type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
@@ -54,7 +59,7 @@ export type RunTaskOptions = {
   includeExperienceSummary?: boolean;
   headless?: boolean;
   allowedKeys?: readonly (typeof ALLOWED_KEYS)[number][];
-  allowedScreenReaderCommands?: readonly (typeof SCREENREADER_COMMANDS)[number][];
+  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
   screenReaderBackendId?: ScreenReaderBackendId;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
@@ -67,6 +72,108 @@ export type RunTaskOptions = {
 
 export * from "./verifier";
 
+function resolveScreenReaderCapabilities(
+  screenReaderRuntime: ScreenReaderRuntime | undefined,
+  options: RunTaskOptions
+): ScreenReaderCapabilities {
+  if (screenReaderRuntime?.capabilities) {
+    return screenReaderRuntime.capabilities;
+  }
+
+  if (options.allowedScreenReaderActions && options.allowedScreenReaderActions.length > 0) {
+    const invokeMethods = {
+      next: false,
+      previous: false,
+      act: false,
+      interact: false,
+      stopInteracting: false,
+      press: false,
+      type: false,
+      click: false,
+      perform: false,
+      supportsRawPerform: false
+    };
+    const readMethods = {
+      itemText: false,
+      itemTextLog: false,
+      lastSpokenPhrase: false,
+      spokenPhraseLog: false
+    };
+    const maintenanceMethods = {
+      clearItemTextLog: false,
+      clearSpokenPhraseLog: false
+    };
+
+    const performCatalog = options.allowedScreenReaderActions
+      .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
+        action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
+      )
+      .map((action) => ({
+        id: action.id,
+        label: action.id,
+        description: action.id
+      }));
+
+    for (const action of options.allowedScreenReaderActions) {
+      if (action.kind === "invoke") {
+        if (action.method === "perform") {
+          invokeMethods.perform = true;
+          if (action.source === "raw") {
+            invokeMethods.supportsRawPerform = true;
+          }
+        } else {
+          invokeMethods[action.method] = true;
+        }
+        continue;
+      }
+
+      if (action.kind === "read") {
+        readMethods[action.method] = true;
+        continue;
+      }
+
+      maintenanceMethods[action.method] = true;
+    }
+
+    return {
+      invoke: invokeMethods,
+      read: readMethods,
+      maintenance: maintenanceMethods,
+      performCatalog
+    };
+  }
+
+  if (options.screenReaderBackendId) {
+    return findScreenReaderBackendById(options.screenReaderBackendId).capabilities;
+  }
+
+  return {
+    invoke: {
+      next: false,
+      previous: false,
+      act: false,
+      interact: false,
+      stopInteracting: false,
+      press: false,
+      type: false,
+      click: false,
+      perform: false,
+      supportsRawPerform: false
+    },
+    read: {
+      itemText: false,
+      itemTextLog: false,
+      lastSpokenPhrase: false,
+      spokenPhraseLog: false
+    },
+    maintenance: {
+      clearItemTextLog: false,
+      clearSpokenPhraseLog: false
+    },
+    performCatalog: []
+  };
+}
+
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
@@ -76,6 +183,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   let verificationFailures = 0;
   let successfulActionCount = 0;
   const agentMemory: AgentMemoryEntry[] = [];
+  let pendingScreenReaderReadbacks: ScreenReaderReadback[] = [];
   let endedBy: EndedBy | undefined;
   let session: TraceSession | undefined;
   let unexpectedError: unknown;
@@ -100,7 +208,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       ? await (options.screenReaderRuntimeFactory
         ?? ((page) => createScreenReaderRuntime(page, {
           backendId: options.screenReaderBackendId,
-          allowedCommands: options.allowedScreenReaderCommands
+          allowedActions: options.allowedScreenReaderActions
         })))(browser.page)
       : undefined;
 
@@ -108,11 +216,15 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     actuator = new Actuator(browser.page, {
       screenReaderController: screenReaderRuntime?.controller
     });
+    const screenReaderCapabilities = isScreenReaderMode(task.mode)
+      ? resolveScreenReaderCapabilities(screenReaderRuntime, options)
+      : undefined;
     agent = options.agent ?? new LLMAgent(task.mode, {
       ...options.agentOptions,
       agentMemoryWindow: options.agentMemoryWindow,
       agentMemoryAll: options.agentMemoryAll,
       includeExperienceSummary: options.includeExperienceSummary,
+      screenReaderCapabilities,
       taskInput: task.input
     });
     trace.setSetupTimings({
@@ -130,15 +242,19 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       }
 
       const observeStartedAt = Date.now();
-      const observation = await observer.observe();
+      const baseObservation = await observer.observe();
+      const observation = applyPendingScreenReaderReadbacks(baseObservation, pendingScreenReaderReadbacks);
+      if (observation.kind === "screenreader" && pendingScreenReaderReadbacks.length > 0) {
+        pendingScreenReaderReadbacks = [];
+      }
       const observeMs = Date.now() - observeStartedAt;
       const context = {
         goal: task.goal,
         allowedKeys: allowsRawKeyActions(task.mode)
           ? options.allowedKeys ?? ALLOWED_KEYS
           : [],
-        allowedScreenReaderCommands: isScreenReaderMode(task.mode)
-          ? options.allowedScreenReaderCommands ?? SCREENREADER_COMMANDS
+        allowedScreenReaderActions: isScreenReaderMode(task.mode)
+          ? options.allowedScreenReaderActions ?? buildAllowedScreenReaderActions(screenReaderCapabilities!)
           : undefined,
         memory: selectAgentMemoryExcerpt(
           agentMemory,
@@ -254,14 +370,21 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 
         const execution = await actuator.execute(decision.action, task.input);
         const executeMs = Date.now() - executeStartedAt;
-        if (execution.ok && execution.costDelta > 0) {
+        if (execution.ok && execution.costDelta > 0 && actionCanChangeTaskState(decision.action)) {
           successfulActionCount += 1;
+        }
+        if (execution.ok) {
+          pendingScreenReaderReadbacks = [
+            ...pendingScreenReaderReadbacks,
+            ...createScreenReaderReadbacks(execution)
+          ];
         }
 
         const shouldCheckVerifierAutoComplete = Boolean(
           options.verifierAutoComplete
           && execution.ok
           && execution.costDelta > 0
+          && actionCanChangeTaskState(decision.action)
           && successfulActionCount > 0
         );
         const verifyStartedAt = shouldCheckVerifierAutoComplete ? Date.now() : 0;
@@ -398,6 +521,50 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
   }
 
   return session!;
+}
+
+function applyPendingScreenReaderReadbacks(
+  observation: Awaited<ReturnType<ReturnType<typeof createObserver>["observe"]>>,
+  pendingScreenReaderReadbacks: ScreenReaderReadback[]
+) {
+  if (observation.kind !== "screenreader" || pendingScreenReaderReadbacks.length === 0) {
+    return observation;
+  }
+
+  return {
+    ...observation,
+    readbacks: [
+      ...(observation.readbacks ?? []),
+      ...pendingScreenReaderReadbacks
+    ]
+  };
+}
+
+function createScreenReaderReadbacks(
+  execution: import("@rawstep/core").ExecutionRecord
+): ScreenReaderReadback[] {
+  const readbacks: ScreenReaderReadback[] = [];
+  if (execution.readResult) {
+    readbacks.push({
+      method: execution.readResult.method,
+      value: execution.readResult.value
+    });
+  }
+
+  if (execution.maintenanceResult) {
+    readbacks.push({
+      method: execution.maintenanceResult.method,
+      status: execution.maintenanceResult.status
+    });
+  }
+
+  return readbacks;
+}
+
+function actionCanChangeTaskState(action: Action): boolean {
+  return "srAction" in action
+    ? action.srAction.kind === "invoke"
+    : true;
 }
 
 async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {

@@ -149,7 +149,8 @@ export class TraceRecorder {
         announcement: observation.announcement,
         announcementCapture: observation.announcementCapture,
         announcementCount: observation.announcementCount,
-        observeReason: observation.observeReason
+        observeReason: observation.observeReason,
+        readbacks: observation.readbacks
       };
 
       if (developerScreenshot) {
@@ -246,8 +247,18 @@ function countActions(steps: StepRecord[]): ActionCounts {
         return counts;
       }
 
-      if ("srCommand" in step.decision.action) {
-        counts.srCommandCount += 1;
+      if ("srAction" in step.decision.action) {
+        switch (step.decision.action.srAction.kind) {
+          case "invoke":
+            counts.srInvokeCount += 1;
+            break;
+          case "read":
+            counts.srReadCount += 1;
+            break;
+          case "maintenance":
+            counts.srMaintenanceCount += 1;
+            break;
+        }
         return counts;
       }
 
@@ -260,7 +271,9 @@ function countActions(steps: StepRecord[]): ActionCounts {
       return counts;
     },
     {
-      srCommandCount: 0,
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
       rawKeyCount: 0,
       typeTextCount: 0
     }

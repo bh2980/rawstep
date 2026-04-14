@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   allowedKeysSchema,
-  allowedScreenReaderCommandsSchema,
+  allowedScreenReaderActionsSchema,
   booleanSchema,
   memorySettingSchema,
   nonEmptyStringSchema,
@@ -22,7 +22,7 @@ const taskConfigObjectSchema = z.object({
   includeRationale: booleanSchema.optional(),
   memory: memorySettingSchema.optional(),
   allowedKeys: allowedKeysSchema.optional(),
-  allowedScreenReaderCommands: allowedScreenReaderCommandsSchema.optional(),
+  allowedScreenReaderActions: allowedScreenReaderActionsSchema.optional(),
   screenReaderBackend: z.unknown().optional(),
   prompt: z.unknown().optional()
 }).passthrough();
@@ -34,6 +34,11 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   }
 
   const candidate = raw as Record<string, unknown>;
+  if (candidate.allowedScreenReaderCommands !== undefined) {
+    throw new Error(
+      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions with entries like { kind: "perform", id: "keyboard.readCurrentLine" } or { kind: "press" }.`
+    );
+  }
   if (candidate.run !== undefined || candidate.agent !== undefined) {
     throw new Error(
       `${label} uses removed config.run/config.agent format. Use flat keys instead, for example:\nconfig:\n  mode: screenreader-strict\n  timeoutMs: 600000\n  memory: all`
@@ -87,7 +92,7 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
     "memory",
     "mode",
     "allowedKeys",
-    "allowedScreenReaderCommands",
+    "allowedScreenReaderActions",
     "screenReaderBackend"
   ]) {
     if (candidate[key] !== undefined) {
@@ -95,6 +100,12 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
         `Config file ${configPath} defaults.${key} is not allowed. Put execution presets under modes.<mode>.`
       );
     }
+  }
+
+  if (candidate.allowedScreenReaderCommands !== undefined) {
+    throw new Error(
+      `Config file ${configPath} defaults.allowedScreenReaderCommands is removed. Use modes.<mode>.allowedScreenReaderActions instead.`
+    );
   }
 
   const result = projectDefaultsObjectSchema.safeParse(raw);

@@ -1,13 +1,15 @@
 import {
   ALLOWED_KEYS,
-  SCREENREADER_COMMANDS,
+  buildAllowedScreenReaderActions,
   type Action,
   type AllowedKey,
+  type AllowedScreenReaderAction,
   type AgentContext,
   type AgentMemoryEntry,
   type Decision,
   type Observation,
-  type ScreenReaderCommand,
+  type ScreenReaderAction,
+  type ScreenReaderCapabilities,
   type StepRecord,
   type Task,
   type TaskInput,
@@ -17,35 +19,67 @@ import {
 import { loadPromptTemplates, renderPromptTemplate } from "./prompt-loader";
 import type { PromptPart } from "./shared";
 
+type ScreenReaderActionHints = {
+  invoke?: {
+    next?: string;
+    previous?: string;
+    act?: string;
+    interact?: string;
+    stopInteracting?: string;
+    press?: string;
+    type?: string;
+    click?: string;
+    perform?: {
+      generic?: string;
+      raw?: string;
+      catalog?: Record<string, string>;
+    };
+  };
+  read?: {
+    itemText?: string;
+    itemTextLog?: string;
+    lastSpokenPhrase?: string;
+    spokenPhraseLog?: string;
+  };
+  maintenance?: {
+    clearItemTextLog?: string;
+    clearSpokenPhraseLog?: string;
+  };
+};
+
 type SystemPromptOptions = {
   promptDir?: string;
   extraInstructions?: string;
   keyHints?: Partial<Record<AllowedKey, string>>;
-  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
+  screenReaderActionHints?: ScreenReaderActionHints;
+  screenReaderCapabilities?: ScreenReaderCapabilities;
 };
 
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
   allowedKeys: readonly AllowedKey[] = ALLOWED_KEYS,
-  allowedScreenReaderCommands: readonly ScreenReaderCommand[] = SCREENREADER_COMMANDS,
+  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[],
   includeRationale = false,
   options: SystemPromptOptions = {}
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
+  const resolvedScreenReaderActions = allowedScreenReaderActions
+    ?? (options.screenReaderCapabilities ? buildAllowedScreenReaderActions(options.screenReaderCapabilities) : []);
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      allowedScreenReaderCommands: allowedScreenReaderCommands.join(", "),
+      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedScreenReaderActions),
       actionGuidance: buildActionGuidance(
         undefined,
-        allowedScreenReaderCommands,
-        undefined,
-        options.screenReaderCommandHints
+        resolvedScreenReaderActions,
+        options.keyHints,
+        options.screenReaderActionHints,
+        options.screenReaderCapabilities
       ),
       customInstructions: options.extraInstructions ?? "",
       taskInputRule: buildScreenReaderTaskInputRule(taskInput),
-      responseFormat: buildScreenReaderStrictJsonFormat(taskInput, includeRationale),
+      responseFormat: buildScreenReaderStrictJsonFormat(taskInput, includeRationale, resolvedScreenReaderActions),
       rationaleRule: buildRationaleRule(includeRationale)
     });
   }
@@ -53,16 +87,21 @@ export function buildSystemPrompt(
   if (userModel === "screenreader-hybrid") {
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
       allowedKeys: allowedKeys.join(", "),
-      allowedScreenReaderCommands: allowedScreenReaderCommands.join(", "),
+      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedScreenReaderActions),
       actionGuidance: buildActionGuidance(
         allowedKeys,
-        allowedScreenReaderCommands,
+        resolvedScreenReaderActions,
         options.keyHints,
-        options.screenReaderCommandHints
+        options.screenReaderActionHints,
+        options.screenReaderCapabilities
       ),
       customInstructions: options.extraInstructions ?? "",
       taskInputRule: buildScreenReaderTaskInputRule(taskInput),
-      responseFormat: buildScreenReaderHybridJsonFormat(taskInput, includeRationale),
+      responseFormat: buildScreenReaderHybridJsonFormat(
+        taskInput,
+        includeRationale,
+        resolvedScreenReaderActions
+      ),
       rationaleRule: buildRationaleRule(includeRationale)
     });
   }
@@ -73,6 +112,7 @@ export function buildSystemPrompt(
       allowedKeys,
       undefined,
       options.keyHints,
+      undefined,
       undefined
     ),
     customInstructions: options.extraInstructions ?? "",
@@ -117,6 +157,18 @@ export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInp
 
   if (obs.kind === "screenreader") {
     lines.push(`announcement: ${obs.announcement}`);
+    if (obs.readbacks && obs.readbacks.length > 0) {
+      lines.push(
+        [
+          "screen reader readbacks:",
+          ...obs.readbacks.map((readback) =>
+            readback.status === "cleared"
+              ? `- ${readback.method}: cleared`
+              : `- ${readback.method}: ${Array.isArray(readback.value) ? readback.value.join(" | ") : readback.value ?? ""}`
+          )
+        ].join("\n")
+      );
+    }
   }
 
   if (taskInput) {
@@ -212,8 +264,8 @@ function formatDecisionAction(action: Action): string {
     return `key(${action.key})`;
   }
 
-  if ("srCommand" in action) {
-    return `srCommand(${action.srCommand})`;
+  if ("srAction" in action) {
+    return formatScreenReaderAction(action.srAction);
   }
 
   return `typeText(${action.typeText})`;
@@ -254,8 +306,8 @@ function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
     "agent memory:",
     ...memory.map((entry) =>
       [
-        `- step ${entry.step}: action=\"${entry.action}\", outcome=\"${entry.outcome}\"`,
-        entry.note ? `, note=\"${entry.note}\"` : ""
+        `- step ${entry.step}: action="${entry.action}", outcome="${entry.outcome}"`,
+        entry.note ? `, note="${entry.note}"` : ""
       ].join("")
     )
   ].join("\n");
@@ -290,67 +342,139 @@ function buildScreenReaderTaskInputRule(taskInput?: TaskInput): string {
   return [
     `이 task에서는 action으로 {"typeText":"${exampleKey}"} 같은 named input key를 선택할 수 있다.`,
     `사용 가능한 input keys: ${keys.join(", ")}.`,
-    "typeText는 task에 정의된 입력 키만 선택한다. 임의 문자열이나 실제 비밀번호 값을 만들지 마라."
+    "typeText는 task에 정의된 입력 키만 선택한다. 임의 문자열이나 실제 비밀번호 값을 만들지 마라.",
+    "srAction.kind=\"type\" 는 literal text를 직접 알고 있을 때만 사용하라. 숨겨진 task input 값은 typeText로만 선택하라."
   ].join("\n");
 }
 
 function buildKeyboardJsonFormat(taskInput?: TaskInput, includeRationale = false): string {
+  const snippets = [
+    includeRationale
+      ? JSON.stringify({ action: { key: "Tab" }, rationale: "..." })
+      : JSON.stringify({ action: { key: "Tab" } })
+  ];
+
   if (taskInput) {
     const exampleKey = Object.keys(taskInput)[0];
-    return includeRationale
-      ? `JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"${exampleKey}"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}`
-      : `JSON 형식: {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"${exampleKey}"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}`;
+    snippets.push(includeRationale
+      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
+      : JSON.stringify({ action: { typeText: exampleKey } }));
   }
 
+  snippets.push(...buildVerdictSnippets(includeRationale));
+  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+}
+
+function buildScreenReaderStrictJsonFormat(
+  taskInput: TaskInput | undefined,
+  includeRationale: boolean,
+  allowedActions: readonly AllowedScreenReaderAction[]
+): string {
+  const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
+
+  if (taskInput) {
+    const exampleKey = Object.keys(taskInput)[0];
+    snippets.push(includeRationale
+      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
+      : JSON.stringify({ action: { typeText: exampleKey } }));
+  }
+
+  snippets.push(...buildVerdictSnippets(includeRationale));
+  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+}
+
+function buildScreenReaderHybridJsonFormat(
+  taskInput: TaskInput | undefined,
+  includeRationale: boolean,
+  allowedActions: readonly AllowedScreenReaderAction[]
+): string {
+  const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
+  snippets.push(includeRationale
+    ? JSON.stringify({ action: { key: "Tab" }, rationale: "..." })
+    : JSON.stringify({ action: { key: "Tab" } }));
+
+  if (taskInput) {
+    const exampleKey = Object.keys(taskInput)[0];
+    snippets.push(includeRationale
+      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
+      : JSON.stringify({ action: { typeText: exampleKey } }));
+  }
+
+  snippets.push(...buildVerdictSnippets(includeRationale));
+  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+}
+
+function buildVerdictSnippets(includeRationale: boolean): string[] {
   return includeRationale
-    ? 'JSON 형식: {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}'
-    : 'JSON 형식: {"action":{"key":"Tab"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}';
+    ? [
+        JSON.stringify({ verdict: "success", rationale: "..." }),
+        JSON.stringify({ verdict: "stuck", rationale: "..." })
+      ]
+    : [
+        JSON.stringify({ verdict: "success" }),
+        JSON.stringify({ verdict: "stuck", rationale: "..." })
+      ];
 }
 
-function buildScreenReaderStrictJsonFormat(taskInput?: TaskInput, includeRationale = false): string {
-  if (!taskInput && !includeRationale) {
-    return [
-      "형식:",
-      '{"action":{"srCommand":"nextItem"}}',
-      "또는",
-      '{"verdict":"success"}',
-      "또는",
-      '{"verdict":"stuck","rationale":"..."}'
-    ].join("\n");
+function buildScreenReaderActionExampleSnippets(
+  allowedActions: readonly AllowedScreenReaderAction[],
+  includeRationale: boolean
+): string[] {
+  const snippets: string[] = [];
+  const catalogPerformExample = allowedActions.find((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
+    action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
+  );
+  const rawPerformAllowed = allowedActions.some((action) =>
+    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
+  );
+
+  if (catalogPerformExample) {
+    snippets.push(
+      stringifyActionExample({
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "catalog", id: catalogPerformExample.id }
+        }
+      }, includeRationale)
+    );
   }
 
-  if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0];
-    return includeRationale
-      ? `JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"typeText":"${exampleKey}"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}`
-      : `JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"typeText":"${exampleKey}"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}`;
+  if (rawPerformAllowed) {
+    snippets.push(
+      stringifyActionExample({
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "raw", payload: { characters: "hello" } }
+        }
+      }, includeRationale)
+    );
   }
 
-  return 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}';
+  for (const action of allowedActions) {
+    if (action.kind === "invoke") {
+      if (action.method === "perform") {
+        continue;
+      }
+
+      snippets.push(stringifyActionExample({ srAction: exampleInvokeAction(action.method) }, includeRationale));
+      continue;
+    }
+
+    if (action.kind === "read") {
+      snippets.push(stringifyActionExample({ srAction: { kind: "read", method: action.method } }, includeRationale));
+      continue;
+    }
+
+    snippets.push(stringifyActionExample({ srAction: { kind: "maintenance", method: action.method } }, includeRationale));
+  }
+
+  return dedupe(snippets);
 }
 
-function buildScreenReaderHybridJsonFormat(taskInput?: TaskInput, includeRationale = false): string {
-  if (!taskInput && !includeRationale) {
-    return [
-      "형식:",
-      '{"action":{"srCommand":"nextItem"}}',
-      "또는",
-      '{"action":{"key":"Tab"}}',
-      "또는",
-      '{"verdict":"success"}',
-      "또는",
-      '{"verdict":"stuck","rationale":"..."}'
-    ].join("\n");
-  }
-
-  if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0];
-    return includeRationale
-      ? `JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"action":{"typeText":"${exampleKey}"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}`
-      : `JSON 형식: {"action":{"srCommand":"nextItem"}} 또는 {"action":{"key":"Tab"}} 또는 {"action":{"typeText":"${exampleKey}"}} 또는 {"verdict":"success"} 또는 {"verdict":"stuck","rationale":"..."}`;
-  }
-
-  return 'JSON 형식: {"action":{"srCommand":"nextItem"},"rationale":"..."} 또는 {"action":{"key":"Tab"},"rationale":"..."} 또는 {"verdict":"success","rationale":"..."} 또는 {"verdict":"stuck","rationale":"..."}';
+function stringifyActionExample(action: Extract<Decision, { action: unknown }>["action"], includeRationale: boolean): string {
+  return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
 }
 
 function buildRationaleRule(includeRationale: boolean): string {
@@ -361,15 +485,17 @@ function buildRationaleRule(includeRationale: boolean): string {
 
 function buildActionGuidance(
   allowedKeys: readonly AllowedKey[] | undefined,
-  allowedScreenReaderCommands: readonly ScreenReaderCommand[] | undefined,
+  allowedScreenReaderActions: readonly AllowedScreenReaderAction[] | undefined,
   keyHints: Partial<Record<AllowedKey, string>> | undefined,
-  screenReaderCommandHints: Partial<Record<ScreenReaderCommand, string>> | undefined
+  screenReaderActionHints: ScreenReaderActionHints | undefined,
+  screenReaderCapabilities: ScreenReaderCapabilities | undefined
 ): string {
   return [
     ...buildAllowedKeyGuidance(allowedKeys, keyHints),
-    ...buildAllowedScreenReaderCommandGuidance(
-      allowedScreenReaderCommands,
-      screenReaderCommandHints
+    ...buildAllowedScreenReaderActionGuidance(
+      allowedScreenReaderActions,
+      screenReaderActionHints,
+      screenReaderCapabilities
     )
   ].join("\n");
 }
@@ -385,15 +511,129 @@ function buildAllowedKeyGuidance(
   return allowedKeys.map((key) => keyHints?.[key] ?? DEFAULT_KEY_HINTS[key]);
 }
 
-function buildAllowedScreenReaderCommandGuidance(
-  allowedCommands: readonly ScreenReaderCommand[] | undefined,
-  commandHints: Partial<Record<ScreenReaderCommand, string>> | undefined
+function buildAllowedScreenReaderActionGuidance(
+  allowedActions: readonly AllowedScreenReaderAction[] | undefined,
+  actionHints: ScreenReaderActionHints | undefined,
+  capabilities: ScreenReaderCapabilities | undefined
 ): string[] {
-  if (!allowedCommands || allowedCommands.length === 0) {
+  if (!allowedActions || allowedActions.length === 0) {
     return [];
   }
 
-  return allowedCommands.map((command) => commandHints?.[command] ?? DEFAULT_SCREEN_READER_COMMAND_HINTS[command]);
+  const lines: string[] = [];
+  const capabilityDescriptions = new Map(
+    (capabilities?.performCatalog ?? []).map((command) => [
+      command.id,
+      command.argsHint ? `${command.description} (${command.argsHint})` : command.description
+    ])
+  );
+  const catalogPerformActions = allowedActions.filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
+    action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
+  );
+  const rawPerformAllowed = allowedActions.some((action) =>
+    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
+  );
+
+  for (const method of ["next", "previous", "act", "interact", "stopInteracting", "press", "type", "click"] as const) {
+    if (allowedActions.some((action) => action.kind === "invoke" && action.method === method)) {
+      lines.push(actionHints?.invoke?.[method] ?? DEFAULT_INVOKE_HINTS[method]);
+    }
+  }
+
+  if (catalogPerformActions.length > 0 || rawPerformAllowed) {
+    lines.push(actionHints?.invoke?.perform?.generic ?? DEFAULT_INVOKE_HINTS.perform);
+    if (rawPerformAllowed) {
+      lines.push(actionHints?.invoke?.perform?.raw ?? DEFAULT_PERFORM_RAW_HINT);
+    }
+    if (catalogPerformActions.length <= 20) {
+      for (const action of catalogPerformActions) {
+        lines.push(`- ${action.id}: ${actionHints?.invoke?.perform?.catalog?.[action.id] ?? capabilityDescriptions.get(action.id) ?? action.id}`);
+      }
+    }
+  }
+
+  for (const method of ["itemText", "itemTextLog", "lastSpokenPhrase", "spokenPhraseLog"] as const) {
+    if (allowedActions.some((action) => action.kind === "read" && action.method === method)) {
+      lines.push(actionHints?.read?.[method] ?? DEFAULT_READ_HINTS[method]);
+    }
+  }
+
+  for (const method of ["clearItemTextLog", "clearSpokenPhraseLog"] as const) {
+    if (allowedActions.some((action) => action.kind === "maintenance" && action.method === method)) {
+      lines.push(actionHints?.maintenance?.[method] ?? DEFAULT_MAINTENANCE_HINTS[method]);
+    }
+  }
+
+  return lines;
+}
+
+function formatAllowedScreenReaderActionsForPrompt(
+  allowedActions: readonly AllowedScreenReaderAction[]
+): string {
+  if (allowedActions.length === 0) {
+    return "(none)";
+  }
+
+  const invokeMethods = dedupe(
+    allowedActions
+      .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke" }> => action.kind === "invoke" && action.method !== "perform")
+      .map((action) => action.method)
+  );
+  const performIds = allowedActions
+    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
+      action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
+    )
+    .map((action) => action.id);
+  const rawPerformAllowed = allowedActions.some((action) =>
+    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
+  );
+  const readMethods = allowedActions
+    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "read" }> => action.kind === "read")
+    .map((action) => action.method);
+  const maintenanceMethods = allowedActions
+    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "maintenance" }> => action.kind === "maintenance")
+    .map((action) => action.method);
+
+  return [
+    invokeMethods.length > 0 ? `invoke methods: ${invokeMethods.join(", ")}` : undefined,
+    performIds.length > 0 ? `perform ids: ${performIds.join(", ")}` : undefined,
+    rawPerformAllowed ? "perform raw payloads: allowed" : undefined,
+    readMethods.length > 0 ? `read methods: ${readMethods.join(", ")}` : undefined,
+    maintenanceMethods.length > 0 ? `maintenance methods: ${maintenanceMethods.join(", ")}` : undefined
+  ].filter((value): value is string => Boolean(value)).join("\n");
+}
+
+function formatScreenReaderAction(action: ScreenReaderAction): string {
+  if (action.kind === "read") {
+    return `srAction.read(${action.method})`;
+  }
+
+  if (action.kind === "maintenance") {
+    return `srAction.maintenance(${action.method})`;
+  }
+
+  switch (action.method) {
+    case "next":
+    case "previous":
+    case "act":
+    case "interact":
+    case "stopInteracting":
+      return `srAction.invoke(${action.method})`;
+    case "perform":
+      return action.command.source === "catalog"
+        ? `srAction.perform(${action.command.id})`
+        : "srAction.perform(raw)";
+    case "press":
+      return `srAction.press(${action.key})`;
+    case "type":
+      return `srAction.type(${action.text})`;
+    case "click":
+      return `srAction.click(${action.options?.button ?? "left"},${action.options?.clickCount ?? 1})`;
+  }
+}
+
+function dedupe<T>(items: T[]): T[] {
+  return [...new Set(items)];
 }
 
 const DEFAULT_KEY_HINTS: Record<AllowedKey, string> = {
@@ -410,12 +650,47 @@ const DEFAULT_KEY_HINTS: Record<AllowedKey, string> = {
   Escape: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라."
 };
 
-const DEFAULT_SCREEN_READER_COMMAND_HINTS: Record<ScreenReaderCommand, string> = {
-  nextItem: "nextItem은 항목을 넓게 탐색할 때 사용하라.",
-  previousItem: "previousItem은 이전 항목으로 돌아가며 탐색할 때 사용하라.",
-  nextHeading: "nextHeading은 구조를 파악하거나 다음 제목으로 이동할 때 사용하라.",
-  previousHeading: "previousHeading은 이전 제목으로 이동하며 구조를 다시 확인할 때 사용하라.",
-  nextFormControl: "nextFormControl은 다음 입력 필드나 폼 컨트롤을 찾을 때 사용하라.",
-  previousFormControl: "previousFormControl은 이전 입력 필드나 폼 컨트롤로 돌아갈 때 사용하라.",
-  act: "act는 현재 screenreader cursor 항목의 기본 동작을 실행할 때 사용하라."
-};
+const DEFAULT_INVOKE_HINTS = {
+  next: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
+  previous: "previous는 screen reader cursor를 이전 위치로 이동할 때 사용하라.",
+  act: "act는 현재 항목의 기본 동작을 실행할 때 사용하라.",
+  interact: "interact는 현재 항목과 상호작용을 시작할 때 사용하라.",
+  stopInteracting: "stopInteracting은 현재 상호작용을 끝낼 때 사용하라.",
+  press: "press는 현재 screenreader 세션을 통해 특정 키를 누를 때 사용하라.",
+  type: "type는 현재 screenreader 세션을 통해 literal text를 입력할 때 사용하라.",
+  click: "click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.",
+  perform: "perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라."
+} as const;
+
+const DEFAULT_PERFORM_RAW_HINT = "raw perform은 backend가 raw payload를 지원할 때만 사용하라. payload는 실제 Guidepup command object와 맞아야 한다." as const;
+
+const DEFAULT_READ_HINTS = {
+  itemText: "itemText는 현재 cursor가 가리키는 항목의 텍스트를 직접 읽고 싶을 때 사용하라.",
+  itemTextLog: "itemTextLog는 방문한 항목 텍스트 로그 전체를 확인하고 싶을 때 사용하라.",
+  lastSpokenPhrase: "lastSpokenPhrase는 가장 최근에 읽힌 발화 한 줄을 확인할 때 사용하라.",
+  spokenPhraseLog: "spokenPhraseLog는 현재까지의 발화 로그 전체를 확인할 때 사용하라."
+} as const;
+
+const DEFAULT_MAINTENANCE_HINTS = {
+  clearItemTextLog: "clearItemTextLog는 item text 로그를 비우고 이후 새 로그만 보려 할 때 사용하라.",
+  clearSpokenPhraseLog: "clearSpokenPhraseLog는 spoken phrase 로그를 비우고 이후 새 발화만 보려 할 때 사용하라."
+} as const;
+
+function exampleInvokeAction(
+  method: Exclude<Extract<AllowedScreenReaderAction, { kind: "invoke" }>["method"], "perform">
+): Exclude<ScreenReaderAction, { kind: "read" } | { kind: "maintenance" } | { kind: "invoke"; method: "perform" }> {
+  switch (method) {
+    case "next":
+    case "previous":
+    case "act":
+    case "interact":
+    case "stopInteracting":
+      return { kind: "invoke", method };
+    case "press":
+      return { kind: "invoke", method: "press", key: "Enter" };
+    case "type":
+      return { kind: "invoke", method: "type", text: "hello" };
+    case "click":
+      return { kind: "invoke", method: "click", options: { button: "left", clickCount: 1 } };
+  }
+}

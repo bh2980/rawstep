@@ -59,7 +59,9 @@ export function renderStep(step: StepRecord): string {
 
 export function renderActionCounts(actionCounts: TraceSession["aggregate"]["actionCounts"]): string {
   return `<ul>
-    <li><code>srCommandCount</code>: ${actionCounts.srCommandCount}</li>
+    <li><code>srInvokeCount</code>: ${actionCounts.srInvokeCount}</li>
+    <li><code>srReadCount</code>: ${actionCounts.srReadCount}</li>
+    <li><code>srMaintenanceCount</code>: ${actionCounts.srMaintenanceCount}</li>
     <li><code>rawKeyCount</code>: ${actionCounts.rawKeyCount}</li>
     <li><code>typeTextCount</code>: ${actionCounts.typeTextCount}</li>
   </ul>`;

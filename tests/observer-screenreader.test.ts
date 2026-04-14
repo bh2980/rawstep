@@ -5,12 +5,43 @@ import {
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "../packages/observer-screenreader/src";
-import { SCREENREADER_COMMANDS } from "../packages/core/src";
+import type { ScreenReaderAction, ScreenReaderCapabilities } from "../packages/core/src";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;
 const ORIGINAL_DOCUMENT = (globalThis as { document?: unknown }).document;
 const ORIGINAL_HTML_ELEMENT = (globalThis as { HTMLElement?: unknown }).HTMLElement;
+const TEST_CAPABILITIES: ScreenReaderCapabilities = {
+  invoke: {
+    next: true,
+    previous: true,
+    act: true,
+    interact: true,
+    stopInteracting: true,
+    press: true,
+    type: true,
+    click: true,
+    perform: true,
+    supportsRawPerform: false
+  },
+  read: {
+    itemText: true,
+    itemTextLog: true,
+    lastSpokenPhrase: true,
+    spokenPhraseLog: true
+  },
+  maintenance: {
+    clearItemTextLog: true,
+    clearSpokenPhraseLog: true
+  },
+  performCatalog: [
+    {
+      id: "commands.moveToNextHeading",
+      label: "moveToNextHeading",
+      description: "Move to the next heading."
+    }
+  ]
+};
 
 afterEach(() => {
   Object.defineProperty(process, "platform", {
@@ -30,6 +61,29 @@ afterEach(() => {
     (globalThis as { HTMLElement?: unknown }).HTMLElement = ORIGINAL_HTML_ELEMENT;
   }
 });
+
+function createMockScreenReaderSession(overrides: Partial<ScreenReaderSession> = {}): ScreenReaderSession {
+  return {
+    start: vi.fn(async () => undefined),
+    stop: vi.fn(async () => undefined),
+    next: vi.fn(async () => undefined),
+    previous: vi.fn(async () => undefined),
+    act: vi.fn(async () => undefined),
+    interact: vi.fn(async () => undefined),
+    stopInteracting: vi.fn(async () => undefined),
+    perform: vi.fn(async () => undefined),
+    press: vi.fn(async () => undefined),
+    type: vi.fn(async () => undefined),
+    click: vi.fn(async () => undefined),
+    itemText: vi.fn(async () => ""),
+    lastSpokenPhrase: vi.fn(async () => ""),
+    itemTextLog: vi.fn(async () => []),
+    spokenPhraseLog: vi.fn(async () => []),
+    clearItemTextLog: vi.fn(async () => undefined),
+    clearSpokenPhraseLog: vi.fn(async () => undefined),
+    ...overrides
+  };
+}
 
 describe("observer-screenreader", () => {
   it("reads the spoken phrase log first and then reports none when no text was captured", async () => {
@@ -123,7 +177,7 @@ describe("observer-screenreader", () => {
     ).rejects.toThrow("screenreader mode requires an explicit screenReaderBackend");
   });
 
-  it("creates a runtime that delegates canonical commands to the configured backend session", async () => {
+  it("creates a runtime that delegates configured screen reader actions to the backend session", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -131,7 +185,12 @@ describe("observer-screenreader", () => {
 
     const stop = vi.fn(async () => undefined);
     const start = vi.fn(async () => undefined);
-    const execute = vi.fn(async () => undefined);
+    const perform = vi.fn(async () => undefined);
+    const press = vi.fn(async () => undefined);
+    const type = vi.fn(async () => undefined);
+    const interact = vi.fn(async () => undefined);
+    const stopInteracting = vi.fn(async () => undefined);
+    const click = vi.fn(async () => undefined);
     const clearSpokenPhraseLog = vi.fn(async () => undefined);
     const spokenPhraseLog = vi
       .fn<() => Promise<string[]>>()
@@ -140,17 +199,22 @@ describe("observer-screenreader", () => {
       .mockResolvedValueOnce(["After next item"])
       .mockResolvedValueOnce([]);
 
-    const session: ScreenReaderSession = {
+    const session: ScreenReaderSession = createMockScreenReaderSession({
       start,
       stop,
-      execute,
+      perform,
+      press,
+      type,
+      interact,
+      stopInteracting,
+      click,
       lastSpokenPhrase: vi.fn(async () => "Fallback phrase"),
       spokenPhraseLog,
       clearSpokenPhraseLog
-    };
+    });
     const backend: ScreenReaderBackend = {
       id: "guidepup-virtual",
-      supportedCommands: SCREENREADER_COMMANDS,
+      capabilities: TEST_CAPABILITIES,
       supports: vi.fn(() => true),
       createSession: vi.fn(async () => session)
     };
@@ -179,14 +243,17 @@ describe("observer-screenreader", () => {
     );
 
     const firstObservation = await runtime.observer.observe();
-    await runtime.controller.execute("nextItem");
+    await runtime.controller.execute({
+      kind: "invoke",
+      method: "perform",
+      command: { source: "catalog", id: "commands.moveToNextHeading" }
+    });
     const secondObservation = await runtime.observer.observe();
-    await runtime.controller.execute("previousItem");
-    await runtime.controller.execute("nextHeading");
-    await runtime.controller.execute("previousHeading");
-    await runtime.controller.execute("nextFormControl");
-    await runtime.controller.execute("previousFormControl");
-    await runtime.controller.execute("act");
+    await runtime.controller.execute({ kind: "invoke", method: "press", key: "ArrowDown" });
+    await runtime.controller.execute({ kind: "invoke", method: "type", text: "hello" });
+    await runtime.controller.execute({ kind: "invoke", method: "interact" });
+    await runtime.controller.execute({ kind: "invoke", method: "stopInteracting" });
+    await runtime.controller.execute({ kind: "invoke", method: "click", options: { button: "right", clickCount: 2 } });
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
@@ -204,13 +271,12 @@ describe("observer-screenreader", () => {
     expect(runtime.setupTimings.screenReaderInitMs).toBeGreaterThanOrEqual(0);
     expect(runtime.setupTimings.firstAnnouncementWaitMs).toBeGreaterThanOrEqual(0);
     expect(backend.createSession).toHaveBeenCalled();
-    expect(execute).toHaveBeenCalledWith("nextItem");
-    expect(execute).toHaveBeenCalledWith("previousItem");
-    expect(execute).toHaveBeenCalledWith("nextHeading");
-    expect(execute).toHaveBeenCalledWith("previousHeading");
-    expect(execute).toHaveBeenCalledWith("nextFormControl");
-    expect(execute).toHaveBeenCalledWith("previousFormControl");
-    expect(execute).toHaveBeenCalledWith("act");
+    expect(perform).toHaveBeenCalledWith({ source: "catalog", id: "commands.moveToNextHeading" }, undefined);
+    expect(press).toHaveBeenCalledWith("ArrowDown", undefined);
+    expect(type).toHaveBeenCalledWith("hello", undefined);
+    expect(interact).toHaveBeenCalledWith(undefined);
+    expect(stopInteracting).toHaveBeenCalledWith(undefined);
+    expect(click).toHaveBeenCalledWith({ button: "right", clickCount: 2 });
     expect(stop).toHaveBeenCalled();
   });
 
@@ -229,12 +295,9 @@ describe("observer-screenreader", () => {
       {
         backend: {
           id: "guidepup-virtual",
-          supportedCommands: SCREENREADER_COMMANDS,
+          capabilities: TEST_CAPABILITIES,
           supports: () => true,
-          createSession: async () => ({
-            start: vi.fn(async () => undefined),
-            stop: vi.fn(async () => undefined),
-            execute: vi.fn(async () => undefined),
+          createSession: async () => createMockScreenReaderSession({
             lastSpokenPhrase: vi
               .fn<() => Promise<string>>()
               .mockResolvedValueOnce("")
@@ -294,13 +357,13 @@ describe("observer-screenreader", () => {
     const session = await findScreenReaderBackendById("guidepup-virtual").createSession(page as never);
 
     await session.start();
-    await session.execute("nextItem");
-    await session.execute("nextHeading");
-    expect(await session.lastSpokenPhrase()).toBe("command:nextHeading");
+    await session.perform({ source: "catalog", id: "commands.moveToNextHeading" });
+    await session.click({ button: "right", clickCount: 2 });
+    expect(await session.lastSpokenPhrase()).toBe("click:right:2");
     expect(await session.spokenPhraseLog()).toEqual([
       "virtual-started",
-      "command:nextItem",
-      "command:nextHeading"
+      "perform:commands.moveToNextHeading",
+      "click:right:2"
     ]);
 
     await session.clearSpokenPhraseLog();
@@ -310,8 +373,8 @@ describe("observer-screenreader", () => {
     expect(addScriptTag).toHaveBeenCalledTimes(1);
     expect(adapterState.operations).toEqual([
       "start",
-      "execute:nextItem",
-      "execute:nextHeading",
+      "perform:commands.moveToNextHeading",
+      "click:right:2",
       "lastSpokenPhrase",
       "spokenPhraseLog",
       "clearSpokenPhraseLog",
@@ -320,7 +383,7 @@ describe("observer-screenreader", () => {
     ]);
   });
 
-  it("rejects commands that the backend does not support", async () => {
+  it("rejects actions that the backend does not support", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -334,16 +397,25 @@ describe("observer-screenreader", () => {
         {
           backend: {
             id: "guidepup-virtual",
-            supportedCommands: ["nextItem"],
+            capabilities: {
+              ...TEST_CAPABILITIES,
+              invoke: {
+                ...TEST_CAPABILITIES.invoke,
+                click: false
+              }
+            },
             supports: () => true,
             createSession: async () => {
               throw new Error("should not be called");
             }
           },
-          allowedCommands: ["nextItem", "act"]
+          allowedActions: [
+            { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
+            { kind: "invoke", method: "click" }
+          ]
         }
       )
-    ).rejects.toThrow('does not support commands: act');
+    ).rejects.toThrow('does not support actions: invoke:click');
   });
 });
 
@@ -399,20 +471,67 @@ function createGuidepupVirtualTestPage(options?: {
       adapterState.operations.push("stop");
       adapterState.started = false;
     },
-    async execute(command: string): Promise<void> {
-      adapterState.operations.push(`execute:${command}`);
-      if (!adapterState.started) {
-        adapterState.started = true;
+    async next(): Promise<void> {
+      adapterState.operations.push("next");
+      adapterState.phrases.push("next");
+    },
+    async previous(): Promise<void> {
+      adapterState.operations.push("previous");
+      adapterState.phrases.push("previous");
+    },
+    async act(): Promise<void> {
+      adapterState.operations.push("act");
+      adapterState.phrases.push("act");
+    },
+    async interact(): Promise<void> {
+      adapterState.operations.push("interact");
+      adapterState.phrases.push("interact");
+    },
+    async stopInteracting(): Promise<void> {
+      adapterState.operations.push("stopInteracting");
+      adapterState.phrases.push("stopInteracting");
+    },
+    async perform(action: Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void> {
+      if (action.command.source !== "catalog") {
+        throw new Error("test virtual adapter only supports catalog perform commands");
       }
-      adapterState.phrases.push(`command:${command}`);
+
+      adapterState.operations.push(`perform:${action.command.id}`);
+      adapterState.phrases.push(`perform:${action.command.id}`);
+    },
+    async press(input: { key: string }): Promise<void> {
+      adapterState.operations.push(`press:${input.key}`);
+      adapterState.phrases.push(`press:${input.key}`);
+    },
+    async type(input: { text: string }): Promise<void> {
+      adapterState.operations.push(`type:${input.text}`);
+      adapterState.phrases.push(`type:${input.text}`);
+    },
+    async click(options?: { button?: "left" | "right"; clickCount?: 1 | 2 | 3 }): Promise<void> {
+      const button = options?.button ?? "left";
+      const clickCount = options?.clickCount ?? 1;
+      adapterState.operations.push(`click:${button}:${clickCount}`);
+      adapterState.phrases.push(`click:${button}:${clickCount}`);
+    },
+    async itemText(): Promise<string> {
+      adapterState.operations.push("itemText");
+      return adapterState.phrases.at(-1) ?? "";
     },
     async lastSpokenPhrase(): Promise<string> {
       adapterState.operations.push("lastSpokenPhrase");
       return adapterState.phrases.at(-1) ?? "";
     },
+    async itemTextLog(): Promise<string[]> {
+      adapterState.operations.push("itemTextLog");
+      return [...adapterState.phrases];
+    },
     async spokenPhraseLog(): Promise<string[]> {
       adapterState.operations.push("spokenPhraseLog");
       return [...adapterState.phrases];
+    },
+    async clearItemTextLog(): Promise<void> {
+      adapterState.operations.push("clearItemTextLog");
+      adapterState.phrases = [];
     },
     async clearSpokenPhraseLog(): Promise<void> {
       adapterState.operations.push("clearSpokenPhraseLog");

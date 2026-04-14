@@ -3,7 +3,7 @@ import type {
   AgentMemoryEntry,
   AllowedKey,
   Observation,
-  ScreenReaderCommand,
+  ScreenReaderCapabilities,
   TaskInput
 } from "@rawstep/core";
 
@@ -40,7 +40,34 @@ export type LLMAgentOptions = {
   promptDir?: string;
   extraInstructions?: string;
   keyHints?: Partial<Record<AllowedKey, string>>;
-  screenReaderCommandHints?: Partial<Record<ScreenReaderCommand, string>>;
+  screenReaderActionHints?: {
+    invoke?: {
+      next?: string;
+      previous?: string;
+      act?: string;
+      interact?: string;
+      stopInteracting?: string;
+      press?: string;
+      type?: string;
+      click?: string;
+      perform?: {
+        generic?: string;
+        raw?: string;
+        catalog?: Record<string, string>;
+      };
+    };
+    read?: {
+      itemText?: string;
+      itemTextLog?: string;
+      lastSpokenPhrase?: string;
+      spokenPhraseLog?: string;
+    };
+    maintenance?: {
+      clearItemTextLog?: string;
+      clearSpokenPhraseLog?: string;
+    };
+  };
+  screenReaderCapabilities?: ScreenReaderCapabilities;
   completionClient?: AgentCompletionClient;
 };
 

@@ -3,7 +3,8 @@ import {
   isAllowedKey,
   type Action,
   type AllowedKey,
-  type ScreenReaderCommand,
+  type ExecutionRecord,
+  type ScreenReaderAction,
   type TaskInput
 } from "@rawstep/core";
 import type { Page } from "playwright";
@@ -15,14 +16,10 @@ export class NotAllowedActionError extends Error {
   }
 }
 
-export type ActionExecutionResult = {
-  ok: boolean;
-  costDelta: number;
-  error?: string;
-};
+export type ActionExecutionResult = ExecutionRecord;
 
 export interface ScreenReaderController {
-  execute(command: ScreenReaderCommand): Promise<void>;
+  execute(action: ScreenReaderAction): Promise<ActionExecutionResult>;
 }
 
 export class Actuator {
@@ -54,16 +51,16 @@ export class Actuator {
       return { ok: true, costDelta: 1 };
     }
 
-    if ("srCommand" in action) {
+    if ("srAction" in action) {
       if (!this.options.screenReaderController) {
         throw new NotAllowedActionError(
-          "Screen reader commands are not available without a screen reader controller."
+          "Screen reader actions are not available without a screen reader controller."
         );
       }
 
-      await this.options.screenReaderController.execute(action.srCommand);
-      this.cost += 1;
-      return { ok: true, costDelta: 1 };
+      const execution = await this.options.screenReaderController.execute(action.srAction);
+      this.cost += execution.costDelta;
+      return execution;
     }
 
     if (!taskInput) {

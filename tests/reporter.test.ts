@@ -69,7 +69,9 @@ describe("reporter", () => {
             reportMs: 45
           },
           actionCounts: {
-            srCommandCount: 0,
+            srInvokeCount: 0,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
             rawKeyCount: 0,
             typeTextCount: 1
           },
@@ -121,7 +123,13 @@ describe("reporter", () => {
               }
             },
             decision: {
-              action: { srCommand: "nextItem" },
+              action: {
+                srAction: {
+                  kind: "invoke",
+                  method: "perform",
+                  command: { source: "catalog", id: "commands.moveToNextHeading" }
+                }
+              },
               rationale: "Move the VoiceOver cursor forward."
             },
             execution: {
@@ -149,7 +157,9 @@ describe("reporter", () => {
             reportMs: 40
           },
           actionCounts: {
-            srCommandCount: 1,
+            srInvokeCount: 1,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
             rawKeyCount: 0,
             typeTextCount: 0
           },
@@ -161,7 +171,7 @@ describe("reporter", () => {
     );
 
     const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("srCommand(nextItem)");
+    expect(html).toContain("srAction.perform(commands.moveToNextHeading)");
     expect(html).toContain("Get started button");
     expect(html).toContain("Announcement capture");
     expect(html).toContain("log");
@@ -244,7 +254,9 @@ describe("reporter", () => {
             reportMs: 55
           },
           actionCounts: {
-            srCommandCount: 0,
+            srInvokeCount: 0,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
             rawKeyCount: 0,
             typeTextCount: 0
           },
@@ -297,7 +309,7 @@ describe("reporter", () => {
               observeReason: "silence"
             },
             decision: {
-              action: { srCommand: "act" }
+              action: { srAction: { kind: "invoke", method: "click" } }
             },
             execution: {
               ok: true,
@@ -333,7 +345,9 @@ describe("reporter", () => {
             reportMs: 20
           },
           actionCounts: {
-            srCommandCount: 1,
+            srInvokeCount: 1,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
             rawKeyCount: 0,
             typeTextCount: 0
           },
@@ -381,7 +395,9 @@ describe("reporter", () => {
             reportMs: 0
           },
           actionCounts: {
-            srCommandCount: 0,
+            srInvokeCount: 0,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
             rawKeyCount: 0,
             typeTextCount: 0
           },

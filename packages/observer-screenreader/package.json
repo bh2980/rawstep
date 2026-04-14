@@ -10,6 +10,7 @@
   "dependencies": {
     "@rawstep/actuator": "workspace:*",
     "@rawstep/core": "workspace:*",
+    "@rawstep/guidepup-capabilities": "workspace:*",
     "@guidepup/guidepup": "^0.24.1",
     "@guidepup/virtual-screen-reader": "^0.32.1",
     "playwright": "^1.59.1"

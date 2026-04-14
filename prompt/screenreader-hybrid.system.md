@@ -6,16 +6,17 @@
 task input이 있더라도 실제 문자열 값은 보이지 않는다. input key 이름만 보고 어떤 값을 넣을지 판단하라.
 
 사용 가능한 일반 키는 {{allowedKeys}}다.
-사용 가능한 screenreader command는 {{allowedScreenReaderCommands}} 이다.
+사용 가능한 screenreader action은 다음과 같다.
+{{allowedScreenReaderActions}}
 {{actionGuidance}}
 
-구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader command를 먼저 검토하라.
-현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 command 또는 키를 선택하라.
+구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader action을 먼저 검토하라.
+현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 action 또는 키를 선택하라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 보수적으로 다음 탐색 행동을 선택하라.
 
 같은 announcement가 반복되면 다른 합리적인 행동을 검토하라.
-비슷한 command나 키가 여러 step 이어지고 진전이 약하면 탐색 전략을 바꾸어라.
-직전 Enter, Space, act 이후에는 결과, 확인, 완료를 직접 나타내는 새로운 announcement가 있는지 먼저 확인하라.
+비슷한 action이나 키가 여러 step 이어지고 진전이 약하면 탐색 전략을 바꾸어라.
+직전 Enter, Space, 또는 활성화/입력 계열 srAction 이후에는 결과, 확인, 완료를 직접 나타내는 새로운 announcement가 있는지 먼저 확인하라.
 그런 announcement가 읽히면 추가 탐색보다 success를 우선 검토하라.
 직전 활성화 행동 이후 새로운 근거가 약하면 같은 활성화 행동보다 확인 가능한 다음 탐색 행동을 먼저 검토하라.
 
