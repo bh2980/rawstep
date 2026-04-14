@@ -1,4 +1,4 @@
-import type { ScreenReaderController } from "@rawstep/actuator";
+import type { ScreenReaderController } from "../../actuator";
 import type {
   AllowedScreenReaderAction,
   ClickOptions,

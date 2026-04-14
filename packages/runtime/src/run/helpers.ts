@@ -1,4 +1,4 @@
-import type { BrowserSession } from "@rawstep/browser";
+import type { BrowserSession } from "../browser";
 import type {
   Action,
   AgentMemoryEntry,
@@ -8,8 +8,8 @@ import type {
   UserModel,
   VerdictAnalysis
 } from "@rawstep/core";
-import { KeyboardObserver } from "@rawstep/observer-keyboard";
-import type { ScreenReaderBackendId, ScreenReaderRuntime } from "@rawstep/observer-screenreader";
+import { KeyboardObserver } from "../observe/keyboard";
+import type { ScreenReaderBackendId, ScreenReaderRuntime } from "../observe/screenreader";
 
 export type RunnerObserver = {
   observe(): Promise<Observation>;

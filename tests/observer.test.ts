@@ -1,5 +1,4 @@
-import { createBrowserSession, closeBrowserSession } from "@rawstep/browser";
-import { KeyboardObserver } from "@rawstep/observer-keyboard";
+import { createBrowserSession, closeBrowserSession, KeyboardObserver } from "@rawstep/runtime";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";

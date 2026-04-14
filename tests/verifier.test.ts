@@ -1,9 +1,9 @@
-import { closeBrowserSession, createBrowserSession } from "@rawstep/browser";
+import { closeBrowserSession, createBrowserSession } from "@rawstep/runtime";
 import {
   evaluateVerifyRule,
   formatVerificationFeedback,
   verifyTask
-} from "@rawstep/runner";
+} from "@rawstep/runtime";
 import type { Task } from "@rawstep/core";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

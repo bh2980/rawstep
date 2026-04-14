@@ -12,7 +12,7 @@ import {
 } from "@rawstep/core";
 import {
   findScreenReaderBackendById
-} from "@rawstep/observer-screenreader";
+} from "@rawstep/runtime";
 import {
   type CliRunOptions,
   type LoadedProjectConfig,

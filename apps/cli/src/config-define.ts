@@ -1,6 +1,6 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type { ConfiguredKeyboardAction, ConfiguredScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
-import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
+import type { ScreenReaderBackendId } from "@rawstep/runtime";
 import type { MemorySetting } from "./shared";
 import { kb } from "./keyboard-actions";
 import { sr, srUnstable } from "./screenreader-actions";

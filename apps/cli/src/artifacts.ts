@@ -1,4 +1,4 @@
-import type { runTask } from "@rawstep/runner";
+import type { runTask } from "@rawstep/runtime";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 

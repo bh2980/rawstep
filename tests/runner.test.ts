@@ -1,7 +1,5 @@
-import { createBrowserSession } from "@rawstep/browser";
 import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
-import { runTask } from "@rawstep/runner";
-import { resolveBrowserHeadless } from "../packages/runner/src/helpers";
+import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";

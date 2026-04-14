@@ -1,4 +1,4 @@
-import type { BrowserSession } from "@rawstep/browser";
+import type { BrowserSession } from "../browser";
 import type {
   RequestVerificationRule,
   ResponseVerificationRule,

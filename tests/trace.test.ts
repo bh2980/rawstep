@@ -1,5 +1,5 @@
 import type { KeyboardObservation, Task } from "@rawstep/core";
-import { TraceRecorder } from "@rawstep/trace";
+import { TraceRecorder } from "@rawstep/runtime";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

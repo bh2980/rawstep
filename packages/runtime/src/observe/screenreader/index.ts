@@ -3,7 +3,7 @@ export {
   guidepupNvdaBackend,
   guidepupVirtualBackend,
   guidepupVoiceOverBackend
-} from "./backends/guidepup-voiceover";
+} from "./backends/guidepup";
 export { ScreenReaderObserver } from "./observer";
 export {
   BUILTIN_SCREEN_READER_BACKENDS,
@@ -13,6 +13,7 @@ export {
 export type {
   ScreenReaderBackend,
   ScreenReaderBackendId,
+  ScreenReaderObserveProfile,
   ScreenReaderObserveProfileName,
   ScreenReaderRuntimeOptions,
   ScreenReaderRuntime,

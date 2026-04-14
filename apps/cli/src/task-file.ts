@@ -1,5 +1,5 @@
 import { type Task, type UserModel } from "@rawstep/core";
-import { validateVerifySpec } from "@rawstep/runner";
+import { validateVerifySpec } from "@rawstep/runtime";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";

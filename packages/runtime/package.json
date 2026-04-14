@@ -1,5 +1,5 @@
 {
-  "name": "@rawstep/observer-keyboard",
+  "name": "@rawstep/runtime",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -8,7 +8,10 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@rawstep/agent": "workspace:*",
     "@rawstep/core": "workspace:*",
+    "@guidepup/guidepup": "^0.24.1",
+    "@guidepup/virtual-screen-reader": "^0.32.1",
     "playwright": "^1.59.1"
   }
 }

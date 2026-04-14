@@ -5,7 +5,7 @@ import {
   guidepupNvdaBackend,
   guidepupVirtualBackend,
   guidepupVoiceOverBackend
-} from "./backends/guidepup-voiceover";
+} from "./backends/guidepup";
 import { ScreenReaderObserver } from "./observer";
 import type {
   AnnouncementReader,

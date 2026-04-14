@@ -14,7 +14,7 @@ import {
 import {
   isScreenReaderBackendId,
   type ScreenReaderBackendId
-} from "@rawstep/observer-screenreader";
+} from "@rawstep/runtime";
 import {
   parseCommaSeparatedConfiguredScreenReaderActions,
   parseConfiguredScreenReaderActions

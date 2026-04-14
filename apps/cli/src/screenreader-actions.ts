@@ -9,7 +9,7 @@ import {
   type ScreenReaderCapabilities,
   type ScreenReaderSemanticAction
 } from "@rawstep/core";
-import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
+import type { ScreenReaderBackendId } from "@rawstep/runtime";
 import { z } from "zod";
 
 type ScreenReaderActionOptions = {

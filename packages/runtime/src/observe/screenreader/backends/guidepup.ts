@@ -7,7 +7,7 @@ import {
   getGuidepupVoiceOverCapabilities,
   resolveGuidepupNvdaPerformCommand,
   resolveGuidepupVoiceOverPerformCommand
-} from "@rawstep/guidepup-capabilities";
+} from "./guidepup-capabilities";
 import type {
   ClickOptions,
   CommandOptions,

@@ -1,5 +1,4 @@
-import { Actuator, NotAllowedActionError } from "@rawstep/actuator";
-import { closeBrowserSession, createBrowserSession } from "@rawstep/browser";
+import { Actuator, NotAllowedActionError, closeBrowserSession, createBrowserSession } from "@rawstep/runtime";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

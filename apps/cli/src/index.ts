@@ -2,9 +2,8 @@
 
 import { LLMAgent } from "@rawstep/agent";
 import type { Agent, Task, UserModel } from "@rawstep/core";
-import { findScreenReaderBackendById } from "@rawstep/observer-screenreader";
 import { renderReport } from "@rawstep/reporter";
-import { runTask } from "@rawstep/runner";
+import { findScreenReaderBackendById, runTask } from "@rawstep/runtime";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseRunArgs, printUsage } from "./args";

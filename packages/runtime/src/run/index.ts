@@ -1,4 +1,4 @@
-import { Actuator, NotAllowedActionError } from "@rawstep/actuator";
+import { Actuator, NotAllowedActionError } from "../actuator";
 import { LLMAgent, type LLMAgentOptions } from "@rawstep/agent";
 import {
   closeBrowserSession,
@@ -6,7 +6,7 @@ import {
   settlePage,
   type BrowserSession,
   type CreateBrowserSessionOptions
-} from "@rawstep/browser";
+} from "../browser";
 import {
   ALLOWED_KEYS,
   buildAllowedScreenReaderActions,
@@ -27,8 +27,8 @@ import {
   type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
-} from "@rawstep/observer-screenreader";
-import { TraceRecorder } from "@rawstep/trace";
+} from "../observe/screenreader";
+import { TraceRecorder } from "../trace";
 import {
   allowsRawKeyActions,
   createAgentMemoryEntry,
@@ -48,7 +48,7 @@ import {
   formatVerificationFeedback,
   MAX_VERIFICATION_RETRIES,
   verifyTask
-} from "./verifier";
+} from "../verify";
 
 export type RunTaskOptions = {
   outDir: string;
@@ -70,7 +70,7 @@ export type RunTaskOptions = {
   screenReaderRuntimeFactory?: ScreenReaderRuntimeFactory;
 };
 
-export * from "./verifier";
+export * from "../verify";
 
 function resolveScreenReaderCapabilities(
   screenReaderRuntime: ScreenReaderRuntime | undefined,

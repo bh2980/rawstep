@@ -4,8 +4,8 @@ import {
   findScreenReaderBackendById,
   type ScreenReaderBackend,
   type ScreenReaderSession
-} from "../packages/observer-screenreader/src";
-import type { ScreenReaderAction, ScreenReaderCapabilities } from "../packages/core/src";
+} from "@rawstep/runtime";
+import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;

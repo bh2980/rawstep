@@ -196,13 +196,8 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 a11y/
 ├── packages/
 │   ├── core/                   # 공유 타입 (Task, Observation, Action, ...)
-│   ├── browser/                # Playwright 라이프사이클
-│   ├── actuator/               # 화이트리스트 키 입력기
-│   ├── observer-keyboard/      # screenshot 관측자
-│   ├── observer-screenreader/  # screen reader backend announcement 관측자
 │   ├── agent/                  # LLM 판단 레이어
-│   ├── runner/                 # observe → decide → act 루프
-│   ├── trace/                  # append-only step 로그
+│   ├── runtime/                # 브라우저/관측/입력/trace/실행 루프
 │   └── reporter/               # trace → HTML/JSON 리포트
 ├── apps/cli/                   # 현재 CLI 바이너리(rawstep)
 └── examples/tasks/             # 예시 task 정의
