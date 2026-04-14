@@ -194,8 +194,30 @@ export type ScreenReaderSemanticAction =
   | "click"
   | "heading.next"
   | "heading.previous"
+  | "heading.level.1.next"
+  | "heading.level.1.previous"
+  | "heading.level.2.next"
+  | "heading.level.2.previous"
+  | "heading.level.3.next"
+  | "heading.level.3.previous"
+  | "heading.level.4.next"
+  | "heading.level.4.previous"
+  | "heading.level.5.next"
+  | "heading.level.5.previous"
+  | "heading.level.6.next"
+  | "heading.level.6.previous"
   | "form.next"
   | "form.previous"
+  | "link.next"
+  | "link.previous"
+  | "button.next"
+  | "button.previous"
+  | "landmark.next"
+  | "landmark.previous"
+  | "list.next"
+  | "list.previous"
+  | "table.next"
+  | "table.previous"
   | "read.itemText"
   | "read.itemTextLog"
   | "read.lastSpokenPhrase"
@@ -236,8 +258,30 @@ type ConfiguredScreenReaderActionShape =
   | { semantic: "click"; hint?: string }
   | { semantic: "heading.next"; hint?: string }
   | { semantic: "heading.previous"; hint?: string }
+  | { semantic: "heading.level.1.next"; hint?: string }
+  | { semantic: "heading.level.1.previous"; hint?: string }
+  | { semantic: "heading.level.2.next"; hint?: string }
+  | { semantic: "heading.level.2.previous"; hint?: string }
+  | { semantic: "heading.level.3.next"; hint?: string }
+  | { semantic: "heading.level.3.previous"; hint?: string }
+  | { semantic: "heading.level.4.next"; hint?: string }
+  | { semantic: "heading.level.4.previous"; hint?: string }
+  | { semantic: "heading.level.5.next"; hint?: string }
+  | { semantic: "heading.level.5.previous"; hint?: string }
+  | { semantic: "heading.level.6.next"; hint?: string }
+  | { semantic: "heading.level.6.previous"; hint?: string }
   | { semantic: "form.next"; hint?: string }
   | { semantic: "form.previous"; hint?: string }
+  | { semantic: "link.next"; hint?: string }
+  | { semantic: "link.previous"; hint?: string }
+  | { semantic: "button.next"; hint?: string }
+  | { semantic: "button.previous"; hint?: string }
+  | { semantic: "landmark.next"; hint?: string }
+  | { semantic: "landmark.previous"; hint?: string }
+  | { semantic: "list.next"; hint?: string }
+  | { semantic: "list.previous"; hint?: string }
+  | { semantic: "table.next"; hint?: string }
+  | { semantic: "table.previous"; hint?: string }
   | { semantic: "read.itemText"; hint?: string }
   | { semantic: "read.itemTextLog"; hint?: string }
   | { semantic: "read.lastSpokenPhrase"; hint?: string }

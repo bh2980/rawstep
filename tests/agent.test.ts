@@ -593,6 +593,7 @@ describe("agent helpers", () => {
           { kind: "read", method: "itemText" },
           { kind: "maintenance", method: "clearItemTextLog" },
           { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
+          { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLink" },
           { kind: "invoke", method: "perform", source: "raw" }
         ],
         memory: []
@@ -611,6 +612,7 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- sr.read.itemText");
       expect(promptParts[0].text).toContain("- sr.clear.itemTextLog");
       expect(promptParts[0].text).toContain("- sr.heading.next");
+      expect(promptParts[0].text).toContain("- sr.link.next");
       expect(promptParts[0].text).not.toContain("srUnstable.rawPerform");
     }
   });

@@ -24,6 +24,8 @@ defineConfig({
       screenReaderBackend: "guidepup-voiceover",
       allowedScreenReaderActions: [
         sr.heading.next(),
+        sr.link.next(),
+        sr.landmark.previous(),
         sr.click()
       ]
     },
@@ -36,6 +38,8 @@ defineConfig({
       allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         sr.heading.next({ hint: "Move to the next heading." }),
+        sr.button.next({ hint: "Move to the next button." }),
+        sr.heading.level3.next({ hint: "Move to the next level 3 heading." }),
         sr.click(),
         srUnstable.catalog("commands.jumpToErrorMessageElement", {
           hint: "Move to the current error message.",

@@ -16,6 +16,34 @@ type ScreenReaderActionOptions = {
   hint?: string;
 };
 
+type BuiltInCatalogSemantic =
+  | "heading.next"
+  | "heading.previous"
+  | "heading.level.1.next"
+  | "heading.level.1.previous"
+  | "heading.level.2.next"
+  | "heading.level.2.previous"
+  | "heading.level.3.next"
+  | "heading.level.3.previous"
+  | "heading.level.4.next"
+  | "heading.level.4.previous"
+  | "heading.level.5.next"
+  | "heading.level.5.previous"
+  | "heading.level.6.next"
+  | "heading.level.6.previous"
+  | "form.next"
+  | "form.previous"
+  | "link.next"
+  | "link.previous"
+  | "button.next"
+  | "button.previous"
+  | "landmark.next"
+  | "landmark.previous"
+  | "list.next"
+  | "list.previous"
+  | "table.next"
+  | "table.previous";
+
 type ConfiguredStableScreenReaderActionShape = Omit<ConfiguredStableScreenReaderAction, never>;
 
 type ScreenReaderUnstableCatalogOptions<TSchema extends z.ZodObject<any>> = {
@@ -73,11 +101,126 @@ const BUILTIN_CATALOG_SEMANTICS = {
     "guidepup-voiceover": "keyboard.findPreviousControl",
     "guidepup-nvda": "keyboard.moveToPreviousFormField",
     "guidepup-virtual": "commands.moveToPreviousForm"
+  },
+  "heading.level.1.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel1",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel1"
+  },
+  "heading.level.1.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel1",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel1"
+  },
+  "heading.level.2.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel2",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel2"
+  },
+  "heading.level.2.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel2",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel2"
+  },
+  "heading.level.3.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel3",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel3"
+  },
+  "heading.level.3.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel3",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel3"
+  },
+  "heading.level.4.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel4",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel4"
+  },
+  "heading.level.4.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel4",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel4"
+  },
+  "heading.level.5.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel5",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel5"
+  },
+  "heading.level.5.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel5",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel5"
+  },
+  "heading.level.6.next": {
+    "guidepup-nvda": "keyboard.moveToNextHeadingLevel6",
+    "guidepup-virtual": "commands.moveToNextHeadingLevel6"
+  },
+  "heading.level.6.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel6",
+    "guidepup-virtual": "commands.moveToPreviousHeadingLevel6"
+  },
+  "link.next": {
+    "guidepup-nvda": "keyboard.moveToNextLink",
+    "guidepup-virtual": "commands.moveToNextLink"
+  },
+  "link.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousLink",
+    "guidepup-virtual": "commands.moveToPreviousLink"
+  },
+  "button.next": {
+    "guidepup-voiceover": "commander.FIND_NEXT_BUTTON",
+    "guidepup-nvda": "keyboard.moveToNextButton"
+  },
+  "button.previous": {
+    "guidepup-voiceover": "commander.FIND_PREVIOUS_BUTTON",
+    "guidepup-nvda": "keyboard.moveToPreviousButton"
+  },
+  "landmark.next": {
+    "guidepup-voiceover": "commander.FIND_NEXT_LANDMARK",
+    "guidepup-nvda": "keyboard.moveToNextLandmark",
+    "guidepup-virtual": "commands.moveToNextLandmark"
+  },
+  "landmark.previous": {
+    "guidepup-voiceover": "commander.FIND_PREVIOUS_LANDMARK",
+    "guidepup-nvda": "keyboard.moveToPreviousLandmark",
+    "guidepup-virtual": "commands.moveToPreviousLandmark"
+  },
+  "list.next": {
+    "guidepup-nvda": "keyboard.moveToNextList"
+  },
+  "list.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousList"
+  },
+  "table.next": {
+    "guidepup-nvda": "keyboard.moveToNextTable"
+  },
+  "table.previous": {
+    "guidepup-nvda": "keyboard.moveToPreviousTable"
   }
 } as const satisfies Record<
-  Extract<ScreenReaderSemanticAction, "heading.next" | "heading.previous" | "form.next" | "form.previous">,
-  Record<ScreenReaderBackendId, string>
+  BuiltInCatalogSemantic,
+  Partial<Record<ScreenReaderBackendId, string>>
 >;
+
+const BUILTIN_CATALOG_SEMANTIC_TOKENS = [
+  "heading.next",
+  "heading.previous",
+  "heading.level.1.next",
+  "heading.level.1.previous",
+  "heading.level.2.next",
+  "heading.level.2.previous",
+  "heading.level.3.next",
+  "heading.level.3.previous",
+  "heading.level.4.next",
+  "heading.level.4.previous",
+  "heading.level.5.next",
+  "heading.level.5.previous",
+  "heading.level.6.next",
+  "heading.level.6.previous",
+  "form.next",
+  "form.previous",
+  "link.next",
+  "link.previous",
+  "button.next",
+  "button.previous",
+  "landmark.next",
+  "landmark.previous",
+  "list.next",
+  "list.previous",
+  "table.next",
+  "table.previous"
+] as const satisfies readonly BuiltInCatalogSemantic[];
 
 const SCREEN_READER_SEMANTIC_TOKENS = [
   "next",
@@ -88,10 +231,7 @@ const SCREEN_READER_SEMANTIC_TOKENS = [
   "press",
   "type",
   "click",
-  "heading.next",
-  "heading.previous",
-  "form.next",
-  "form.previous",
+  ...BUILTIN_CATALOG_SEMANTIC_TOKENS,
   "read.itemText",
   "read.itemTextLog",
   "read.lastSpokenPhrase",
@@ -115,11 +255,55 @@ export const sr = {
   click: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("click", options),
   heading: {
     next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.previous", options)
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.previous", options),
+    level1: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.1.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.1.previous", options)
+    },
+    level2: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.2.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.2.previous", options)
+    },
+    level3: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.3.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.3.previous", options)
+    },
+    level4: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.4.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.4.previous", options)
+    },
+    level5: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.5.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.5.previous", options)
+    },
+    level6: {
+      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.6.next", options),
+      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.6.previous", options)
+    }
   },
   form: {
     next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("form.next", options),
     previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("form.previous", options)
+  },
+  link: {
+    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("link.next", options),
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("link.previous", options)
+  },
+  button: {
+    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("button.next", options),
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("button.previous", options)
+  },
+  landmark: {
+    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("landmark.next", options),
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("landmark.previous", options)
+  },
+  list: {
+    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("list.next", options),
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("list.previous", options)
+  },
+  table: {
+    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("table.next", options),
+    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("table.previous", options)
   },
   read: {
     itemText: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("read.itemText", options),
@@ -197,9 +381,7 @@ export function resolveConfiguredScreenReaderActions(
 } {
   const effectiveConfiguredActions = configuredActions ?? buildDefaultConfiguredScreenReaderActions(backendId, capabilities);
   const promptActions = effectiveConfiguredActions.map((action) => resolvePromptAction(action, backendId, capabilities));
-  const runtimeActions = configuredActions
-    ? dedupeRuntimeActions(promptActions.map((action) => action.runtimeAction))
-    : undefined;
+  const runtimeActions = dedupeRuntimeActions(promptActions.map((action) => action.runtimeAction));
 
   return {
     runtimeActions,
@@ -410,16 +592,11 @@ function toRuntimeAction(
     };
   }
 
-  if (
-    action.semantic !== "heading.next"
-    && action.semantic !== "heading.previous"
-    && action.semantic !== "form.next"
-    && action.semantic !== "form.previous"
-  ) {
+  if (!isBuiltInCatalogSemantic(action.semantic)) {
     throw new Error(`Unknown screen reader semantic action: ${formatConfiguredScreenReaderAction(action)}.`);
   }
 
-  const catalogId = BUILTIN_CATALOG_SEMANTICS[action.semantic][backendId];
+  const catalogId = getBuiltInCatalogId(action.semantic, backendId);
   if (!catalogId) {
     throw new Error(`Screen reader backend "${backendId}" does not support action ${formatConfiguredScreenReaderAction(action)}.`);
   }
@@ -444,8 +621,8 @@ function buildDefaultConfiguredScreenReaderActions(
     }
   }
 
-  for (const semantic of ["heading.next", "heading.previous", "form.next", "form.previous"] as const) {
-    const catalogId = BUILTIN_CATALOG_SEMANTICS[semantic][backendId];
+  for (const semantic of BUILTIN_CATALOG_SEMANTIC_TOKENS) {
+    const catalogId = getBuiltInCatalogId(semantic, backendId);
     if (catalogId && hasCatalogId(capabilities, catalogId)) {
       actions.push(buildConfiguredScreenReaderAction(semantic));
     }
@@ -535,13 +712,22 @@ function isScreenReaderSemanticAction(value: unknown): value is ScreenReaderSema
   return typeof value === "string"
     && [
       ...SIMPLE_INVOKE_SEMANTICS,
-      "heading.next",
-      "heading.previous",
-      "form.next",
-      "form.previous",
+      ...BUILTIN_CATALOG_SEMANTIC_TOKENS,
       ...READ_SEMANTICS,
       ...CLEAR_SEMANTICS
     ].includes(value as ScreenReaderSemanticAction);
+}
+
+function isBuiltInCatalogSemantic(value: ScreenReaderSemanticAction): value is BuiltInCatalogSemantic {
+  return BUILTIN_CATALOG_SEMANTIC_TOKENS.includes(value as BuiltInCatalogSemantic);
+}
+
+function getBuiltInCatalogId(
+  semantic: BuiltInCatalogSemantic,
+  backendId: ScreenReaderBackendId
+): string | undefined {
+  const mapping = BUILTIN_CATALOG_SEMANTICS[semantic] as Partial<Record<ScreenReaderBackendId, string>>;
+  return mapping[backendId];
 }
 
 function parsePromptObjectSchema(

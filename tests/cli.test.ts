@@ -276,6 +276,22 @@ describe.sequential("CLI", () => {
     ])).toThrow("--allowed-screen-reader-actions[1] must be one of");
   });
 
+  it("parses expanded screen reader semantic CLI overrides", () => {
+    const parsed = parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--screen-reader-backend",
+      "guidepup-nvda",
+      "--allowed-screen-reader-actions",
+      "sr.link.next,sr.button.previous,sr.heading.level.3.next"
+    ]);
+
+    expect(parsed.allowedScreenReaderActions).toEqual([
+      { semantic: "link.next" },
+      { semantic: "button.previous" },
+      { semantic: "heading.level.3.next" }
+    ]);
+  });
+
   it("rejects invalid agent memory window values", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
@@ -1289,6 +1305,132 @@ describe.sequential("CLI", () => {
     ]);
   });
 
+  it("builds default semantic screen reader action lists for VoiceOver", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-default-voiceover-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-strict": {
+      outDir: "./sr-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover"
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-strict"
+    ]));
+
+    expect(options.prompt.screenReaderActions).toContainEqual({
+      semantic: "button.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commander.FIND_NEXT_BUTTON" }
+    });
+    expect(options.prompt.screenReaderActions).toContainEqual({
+      semantic: "landmark.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commander.FIND_NEXT_LANDMARK" }
+    });
+    expect(options.prompt.screenReaderActions).toContainEqual({
+      semantic: "form.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextControl" }
+    });
+    expect(options.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "table.next")).toBeUndefined();
+  });
+
+  it("builds default semantic screen reader action lists for NVDA and Virtual", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-default-other-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-strict": {
+      outDir: "./strict-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-nvda"
+    },
+    "screenreader-hybrid": {
+      outDir: "./hybrid-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [kb.tab()]
+    }
+  }
+}`
+    );
+
+    const nvdaOptions = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-strict"
+    ]));
+    const virtualOptions = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-hybrid"
+    ]));
+
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "link.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextLink" }
+    });
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "list.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextList" }
+    });
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "table.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextTable" }
+    });
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "heading.level.3.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextHeadingLevel3" }
+    });
+
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "link.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLink" }
+    });
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "landmark.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLandmark" }
+    });
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+      semantic: "heading.level.2.next",
+      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeadingLevel2" }
+    });
+    expect(virtualOptions.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "button.next")).toBeUndefined();
+  });
+
   it("resolves prompt dir from project defaults", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-merge-"));
     const configPath = join(tempDir, "rawstep.config.ts");
@@ -1633,6 +1775,42 @@ describe.sequential("CLI", () => {
       "--mode",
       "screenreader-hybrid"
     ]))).rejects.toThrow('does not support action srUnstable.catalog("commands.notReal")');
+  });
+
+  it("rejects semantic actions that the selected backend does not support", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-voiceover-unsupported-semantic-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    "screenreader-strict": {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedScreenReaderActions: [
+        sr.table.next()
+      ]
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader-strict"
+    ]))).rejects.toThrow('Screen reader backend "guidepup-voiceover" does not support action table.next');
   });
 
   it("rejects invalid screen reader CLI overrides for the selected mode and backend", async () => {
