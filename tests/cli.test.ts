@@ -1116,6 +1116,98 @@ describe.sequential("CLI", () => {
     await expect(loadTask(taskPath)).rejects.toThrow("exactly one rule type");
   });
 
+  it("rejects unsupported verify rule keys with a specific message", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-key-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "invalid-verify-key-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { unknownRule: "x" }
+        ]
+      }
+    });
+
+    await expect(loadTask(taskPath)).rejects.toThrow(
+      "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, requestSeen, responseSeen."
+    );
+  });
+
+  it("rejects nested verify field type errors with a path-based message", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-nested-type-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "invalid-verify-nested-type-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { requestSeen: { urlIncludes: "/api/cart", method: 123 } }
+        ]
+      }
+    });
+
+    await expect(loadTask(taskPath)).rejects.toThrow(
+      "Task verify.all[0].requestSeen.method: Expected string, received number"
+    );
+  });
+
+  it("rejects blank verify strings with a field-specific message", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-empty-string-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "invalid-verify-empty-string-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { responseSeen: { urlIncludes: "", status: 200 } }
+        ]
+      }
+    });
+
+    await expect(loadTask(taskPath)).rejects.toThrow(
+      "Task verify.all[0].responseSeen.urlIncludes: Must be a non-empty string."
+    );
+  });
+
+  it("rejects nested verify number field type errors with a path-based message", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-status-type-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "invalid-verify-status-type-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { responseSeen: { urlIncludes: "/api/cart", status: "bad" } }
+        ]
+      }
+    });
+
+    await expect(loadTask(taskPath)).rejects.toThrow(
+      "Task verify.all[0].responseSeen.status: Expected number, received string"
+    );
+  });
+
   it("rejects invalid task input rules", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-input-"));
     const taskPath = join(tempDir, "task.json");
