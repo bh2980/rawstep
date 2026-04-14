@@ -42,7 +42,7 @@ runTask(task) -> TraceSession:
       obs = observer.observe()                # §settle 이 먼저 수행됨
       ctx = {
         goal: task.goal,
-        allowedKeys: options.allowedKeys ?? ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
+        allowedKeys: options.allowedKeys ?? DEFAULT_ALLOWED_KEYS if task.mode != "screenreader-strict" else [],
         allowedScreenReaderCommands: options.allowedScreenReaderCommands ?? SCREENREADER_COMMANDS if task.mode != "keyboard" else undefined,
         memory: selectAgentMemoryExcerpt(agentMemory, agentMemoryAll, agentMemoryWindow),
       }

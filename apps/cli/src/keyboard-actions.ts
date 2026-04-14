@@ -3,7 +3,7 @@ import type {
   ConfiguredKeyboardAction,
   ResolvedPromptKeyboardAction
 } from "@rawstep/core";
-import { isAllowedKey } from "@rawstep/core";
+import { isAllowedKey, SUPPORTED_KEY_LABELS } from "@rawstep/core";
 
 type KeyboardActionOptions = {
   hint?: string;
@@ -14,11 +14,22 @@ type ConfiguredKeyboardActionShape = Omit<ConfiguredKeyboardAction, never>;
 export const kb = {
   tab: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Tab", options),
   shiftTab: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Shift+Tab", options),
+  backspace: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Backspace", options),
+  delete: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Delete", options),
   enter: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Enter", options),
+  shiftEnter: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Shift+Enter", options),
   space: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Space", options),
   escape: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Escape", options),
   home: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Home", options),
   end: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("End", options),
+  mod: {
+    a: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+A", options),
+    backspace: (options?: KeyboardActionOptions) =>
+      buildConfiguredKeyboardAction("Mod+Backspace", options),
+    delete: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Delete", options),
+    z: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Z", options),
+    shiftZ: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Shift+Z", options)
+  },
   arrow: {
     up: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowUp", options),
     down: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowDown", options),
@@ -95,7 +106,7 @@ function parseConfiguredKeyboardAction(
 
   const key = candidate.key;
   if (typeof key !== "string" || !isAllowedKey(key)) {
-    throw new Error(`${label}.key must be one of Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape.`);
+    throw new Error(`${label}.key must be one of ${SUPPORTED_KEY_LABELS}.`);
   }
 
   const hint = candidate.hint === undefined

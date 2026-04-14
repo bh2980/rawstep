@@ -6,7 +6,7 @@ import { Script } from "node:vm";
 import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
-  ALLOWED_KEYS,
+  DEFAULT_ALLOWED_KEYS,
   type AllowedKey,
   type ConfiguredKeyboardAction
 } from "@rawstep/core";
@@ -490,8 +490,8 @@ function resolveAllowedKeys(
   }
 
   return {
-    runtimeKeys: ALLOWED_KEYS,
-    promptActions: buildPromptKeyboardActions(ALLOWED_KEYS)
+    runtimeKeys: DEFAULT_ALLOWED_KEYS,
+    promptActions: buildPromptKeyboardActions(DEFAULT_ALLOWED_KEYS)
   };
 }
 

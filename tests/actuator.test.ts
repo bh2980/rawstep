@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
+import { resolveKeyboardPressKey } from "../packages/runtime/src/actuator/keys";
 
 describe("Actuator", () => {
   it("presses allowed keys and tracks cost", async () => {
@@ -18,6 +19,28 @@ describe("Actuator", () => {
     expect(result).toEqual({ ok: true, costDelta: 1 });
     expect(actuator.cost).toBe(1);
     expect(actuator.keyCounts.Tab).toBe(1);
+  });
+
+  it("maps Mod shortcuts to the platform-specific modifier", () => {
+    expect(resolveKeyboardPressKey("Mod+A", "darwin")).toBe("Meta+A");
+    expect(resolveKeyboardPressKey("Mod+Shift+Z", "darwin")).toBe("Meta+Shift+Z");
+    expect(resolveKeyboardPressKey("Mod+A", "linux")).toBe("Control+A");
+    expect(resolveKeyboardPressKey("Mod+Shift+Z", "win32")).toBe("Control+Shift+Z");
+    expect(resolveKeyboardPressKey("Backspace", "darwin")).toBe("Backspace");
+    expect(resolveKeyboardPressKey("Shift+Enter", "linux")).toBe("Shift+Enter");
+  });
+
+  it("resolves Mod shortcuts before pressing them", async () => {
+    const press = vi.fn(async () => undefined);
+    const actuator = new Actuator({
+      keyboard: { press }
+    } as never);
+
+    const result = await actuator.execute({ key: "Mod+A" });
+
+    expect(press).toHaveBeenCalledWith(resolveKeyboardPressKey("Mod+A"));
+    expect(result).toEqual({ ok: true, costDelta: 1 });
+    expect(actuator.keyCounts["Mod+A"]).toBe(1);
   });
 
   it("rejects disallowed keys", async () => {

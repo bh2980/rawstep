@@ -1,4 +1,5 @@
 import { loadTask, parseRunArgs, resolveRunOptions, runCli } from "../apps/cli/src";
+import { DEFAULT_ALLOWED_KEYS } from "@rawstep/core";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -241,6 +242,25 @@ describe.sequential("CLI", () => {
     expect(parsed.includeRationale).toBe(false);
   });
 
+  it("parses Mod-based edit keys from the CLI", () => {
+    const parsed = parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--allowed-keys",
+      "Backspace,Delete,Mod+A,Mod+Backspace,Mod+Delete,Mod+Z,Mod+Shift+Z,Shift+Enter"
+    ]);
+
+    expect(parsed.allowedKeys).toEqual([
+      "Backspace",
+      "Delete",
+      "Mod+A",
+      "Mod+Backspace",
+      "Mod+Delete",
+      "Mod+Z",
+      "Mod+Shift+Z",
+      "Shift+Enter"
+    ]);
+  });
+
   it("leaves optional CLI overrides undefined when omitted", () => {
     const parsed = parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
@@ -260,6 +280,40 @@ describe.sequential("CLI", () => {
     expect(parsed.allowedKeys).toBeUndefined();
     expect(parsed.allowedScreenReaderActions).toBeUndefined();
     expect(parsed.screenReaderBackendId).toBeUndefined();
+  });
+
+  it("keeps the default keyboard preset conservative when no allowed keys are configured", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-default-keys-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]));
+
+    expect(options.allowedKeys).toEqual(DEFAULT_ALLOWED_KEYS);
+    expect(options.allowedKeys).not.toContain("Backspace");
+    expect(options.allowedKeys).not.toContain("Mod+A");
   });
 
   it("rejects invalid comma-separated allowed keys and screen reader actions", () => {

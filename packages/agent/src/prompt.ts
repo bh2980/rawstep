@@ -1,5 +1,5 @@
 import {
-  ALLOWED_KEYS,
+  DEFAULT_ALLOWED_KEYS,
   buildAllowedScreenReaderActions,
   type Action,
   type AllowedKey,
@@ -41,7 +41,7 @@ type UserPromptOptions = {
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
-  allowedKeys: readonly AllowedKey[] = ALLOWED_KEYS,
+  allowedKeys: readonly AllowedKey[] = DEFAULT_ALLOWED_KEYS,
   allowedScreenReaderActions?: readonly AllowedScreenReaderAction[],
   includeRationale = false,
   options: SystemPromptOptions = {}

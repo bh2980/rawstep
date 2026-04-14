@@ -115,6 +115,21 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses Mod shortcut and edit-key actions", () => {
+    const modDecision = parseDecision('{"action":"key.Mod+A","rationale":"Select the current value."}');
+    const editDecision = parseDecision('{"action":"key.Backspace"}');
+
+    expect("action" in modDecision).toBe(true);
+    if ("action" in modDecision && "key" in modDecision.action) {
+      expect(modDecision.action.key).toBe("Mod+A");
+    }
+
+    expect("action" in editDecision).toBe(true);
+    if ("action" in editDecision && "key" in editDecision.action) {
+      expect(editDecision.action.key).toBe("Backspace");
+    }
+  });
+
   it("parses valid named input JSON", () => {
     const decision = parseDecision(
       '{"action":"typeText.email","rationale":"Type the email input."}',
@@ -654,6 +669,26 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- key.Tab: 다음 포커스로 이동");
       expect(promptParts[0].text).toContain("- sr.click: 현재 항목을 클릭할 때 사용");
       expect(promptParts[0].text).toContain("- typeText.email");
+    }
+  });
+
+  it("renders configured edit keys only when the task allows them", () => {
+    const promptParts = buildPromptParts(
+      "keyboard",
+      {
+        goal: "Fix the current field value.",
+        allowedKeys: ["Tab", "Backspace", "Mod+A", "Mod+Z"],
+        memory: []
+      },
+      makeKeyboardObservation()
+    );
+
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("- key.Backspace");
+      expect(promptParts[0].text).toContain("- key.Mod+A");
+      expect(promptParts[0].text).toContain("- key.Mod+Z");
+      expect(promptParts[0].text).not.toContain("- key.Delete");
     }
   });
 

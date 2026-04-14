@@ -8,6 +8,7 @@ import {
   type TaskInput
 } from "@rawstep/core";
 import type { Page } from "playwright";
+import { resolveKeyboardPressKey } from "./keys";
 
 export class NotAllowedActionError extends Error {
   constructor(message: string) {
@@ -40,7 +41,7 @@ export class Actuator {
       throw new NotAllowedActionError(`Key "${key}" is not allowed in keyboard mode.`);
     }
 
-    await this.page.keyboard.press(key);
+    await this.page.keyboard.press(resolveKeyboardPressKey(key));
     this.cost += 1;
     this.keyCounts[key] += 1;
   }

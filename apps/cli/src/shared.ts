@@ -7,6 +7,7 @@ import {
   type ResolvedPromptKeyboardAction,
   type ResolvedPromptScreenReaderAction,
   type AllowedKey,
+  SUPPORTED_KEY_LABELS,
   type ScreenshotPolicy,
   type Task,
   type UserModel
@@ -275,11 +276,11 @@ export function parseAllowedKeys(value: unknown, label: string): AllowedKey[] {
 
   return value.map((entry, index) => {
     if (typeof entry !== "string") {
-      throw new Error(`${label}[${index}] must be one of ${ALLOWED_KEY_LABELS}.`);
+      throw new Error(`${label}[${index}] must be one of ${SUPPORTED_KEY_LABELS}.`);
     }
 
     if (!isAllowedKey(entry)) {
-      throw new Error(`${label}[${index}] must be one of ${ALLOWED_KEY_LABELS}.`);
+      throw new Error(`${label}[${index}] must be one of ${SUPPORTED_KEY_LABELS}.`);
     }
 
     return entry;
@@ -343,5 +344,3 @@ function parseCommaSeparatedValues(value: unknown, label: string): string[] {
 
   return entries;
 }
-
-const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";

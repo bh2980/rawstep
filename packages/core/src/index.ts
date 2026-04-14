@@ -9,6 +9,7 @@ import type {
 
 export {
   ALLOWED_KEYS,
+  DEFAULT_ALLOWED_KEYS,
   DEFAULT_VIEWPORT,
   SCREEN_READER_ACTION_KINDS,
   SCREEN_READER_INVOKE_METHODS,
@@ -16,6 +17,8 @@ export {
   SCREEN_READER_MAINTENANCE_METHODS,
   SETTLE_MS,
   SCROLL_HINTS,
+  SUPPORTED_KEYS,
+  SUPPORTED_KEY_LABELS,
   createEmptyKeyCounts,
   isAllowedKey,
   isScreenReaderInvokeMethod,
@@ -565,6 +568,45 @@ export function buildAllowedScreenReaderActions(
       ? [{ kind: "maintenance" as const, method: "clearSpokenPhraseLog" as const }]
       : [])
   ];
+}
+
+export function formatDecisionAction(action: Action): string {
+  if ("key" in action) {
+    return `key(${action.key})`;
+  }
+
+  if ("typeText" in action) {
+    return `typeText(${action.typeText})`;
+  }
+
+  const sr = action.srAction;
+
+  if (sr.kind === "read") {
+    return `srAction.read(${sr.method})`;
+  }
+
+  if (sr.kind === "maintenance") {
+    return `srAction.maintenance(${sr.method})`;
+  }
+
+  switch (sr.method) {
+    case "next":
+    case "previous":
+    case "act":
+    case "interact":
+    case "stopInteracting":
+      return `srAction.invoke(${sr.method})`;
+    case "perform":
+      return sr.command.source === "catalog"
+        ? `srAction.perform(${sr.command.id})`
+        : "srAction.perform(raw)";
+    case "press":
+      return `srAction.press(${sr.key})`;
+    case "type":
+      return `srAction.type(${sr.text})`;
+    case "click":
+      return `srAction.click(${sr.options?.button ?? "left"},${sr.options?.clickCount ?? 1})`;
+  }
 }
 
 export function supportsScreenReaderAction(

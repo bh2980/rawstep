@@ -8,11 +8,12 @@ import {
   type CreateBrowserSessionOptions
 } from "../browser";
 import {
-  ALLOWED_KEYS,
+  DEFAULT_ALLOWED_KEYS,
   buildAllowedScreenReaderActions,
   type AgentMemoryEntry,
   type Agent,
   type Action,
+  type AllowedKey,
   type AllowedScreenReaderAction,
   type EndedBy,
   type ScreenReaderReadback,
@@ -58,7 +59,7 @@ export type RunTaskOptions = {
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
   headless?: boolean;
-  allowedKeys?: readonly (typeof ALLOWED_KEYS)[number][];
+  allowedKeys?: readonly AllowedKey[];
   allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
   screenReaderBackendId?: ScreenReaderBackendId;
   agent?: Agent;
@@ -251,7 +252,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
       const context = {
         goal: task.goal,
         allowedKeys: allowsRawKeyActions(task.mode)
-          ? options.allowedKeys ?? ALLOWED_KEYS
+          ? options.allowedKeys ?? DEFAULT_ALLOWED_KEYS
           : [],
         allowedScreenReaderActions: isScreenReaderMode(task.mode)
           ? options.allowedScreenReaderActions ?? buildAllowedScreenReaderActions(screenReaderCapabilities!)

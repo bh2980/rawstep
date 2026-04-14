@@ -26,7 +26,7 @@ export type Task = {
 
 - 위 `Task` 는 런타임에 실제로 쓰는 정규화된 타입이다.
 - task 원본 파일(`.json`, `.yml`)에는 선택적으로 평평한 `config` 블록이 더 들어갈 수 있다.
-- 허용 키는 `mode`, `outDir`, `maxSteps`, `timeoutMs`, `screenshots`, `verifierAutoComplete`, `includeRationale`, `includeExperienceSummary`, `memory`, `allowedKeys`, `allowedScreenReaderCommands`, `screenReaderBackend` 다.
+- 허용 키는 `mode`, `outDir`, `maxSteps`, `timeoutMs`, `screenshots`, `verifierAutoComplete`, `includeRationale`, `includeExperienceSummary`, `memory`, `allowedKeys`, `allowedScreenReaderActions`, `screenReaderBackend` 다.
 - `memory` 는 `5` 같은 숫자 또는 `all` 문자열만 허용한다.
 - 이 `config` 블록은 프로젝트 기본 설정(`rawstep.config.ts`)을 해당 task에서만 덮어쓸 때만 쓰고, `url`, `goal`, `verify`, `input` 같은 과업 본문은 계속 top-level에 둔다.
 
@@ -87,7 +87,7 @@ type TaskConfigOverride = {
   includeRationale?: boolean;
   memory?: number | "all";
   allowedKeys?: AllowedKey[];
-  allowedScreenReaderCommands?: ScreenReaderCommand[];
+  allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
   screenReaderBackend?: "guidepup-voiceover" | "guidepup-nvda" | "guidepup-virtual";
 };
 ```
@@ -96,7 +96,7 @@ type TaskConfigOverride = {
 
 - `config` 는 실행 preset override이고 과업 본문이 아니다.
 - `provider`, `apiKey`, `model`, `baseURL` 는 task `config` 에 넣을 수 없다.
-- `keyboard` 모드에서는 `allowedScreenReaderCommands`, `screenReaderBackend` 를 넣을 수 없다.
+- `keyboard` 모드에서는 `allowedScreenReaderActions`, `screenReaderBackend` 를 넣을 수 없다.
 - `screenreader-strict` 모드에서는 `allowedKeys` 를 넣을 수 없다.
 
 **YAML 예시**
@@ -119,10 +119,10 @@ config:
     - Shift+Tab
     - Enter
     - Escape
-  allowedScreenReaderCommands:
-    - nextItem
-    - previousItem
-    - act
+  allowedScreenReaderActions:
+    - semantic: next
+    - semantic: previous
+    - semantic: act
 ```
 
 ### VerifySpec
@@ -197,9 +197,33 @@ verify:
 ## §2. AllowedKey
 
 ```ts
-export const ALLOWED_KEYS = [
+export const SUPPORTED_KEYS = [
   "Tab",
   "Shift+Tab",
+  "Home",
+  "End",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Backspace",
+  "Delete",
+  "Enter",
+  "Shift+Enter",
+  "Space",
+  "Escape",
+  "Mod+A",
+  "Mod+Backspace",
+  "Mod+Delete",
+  "Mod+Z",
+  "Mod+Shift+Z",
+] as const;
+
+export const DEFAULT_ALLOWED_KEYS = [
+  "Tab",
+  "Shift+Tab",
+  "Home",
+  "End",
   "ArrowUp",
   "ArrowDown",
   "ArrowLeft",
@@ -209,10 +233,40 @@ export const ALLOWED_KEYS = [
   "Escape",
 ] as const;
 
-export type AllowedKey = typeof ALLOWED_KEYS[number];
+export type AllowedKey = typeof SUPPORTED_KEYS[number];
 ```
 
-이 enum은 **actuator의 런타임 whitelist + agent의 행동 공간 선언** 양쪽에서 단일 진실 원본이다.
+해석 규칙:
+
+- `SUPPORTED_KEYS` 는 엔진이 이해할 수 있는 전체 키 집합이다.
+- `DEFAULT_ALLOWED_KEYS` 는 keyboard 모드 기본 preset이다.
+- 새 편집 키는 **지원만 되고 기본값에는 자동 포함되지 않는다.**
+- `Mod+...` 는 OS 중립 추상키다. 런타임에서 macOS는 `Meta+...`, 그 외는 `Control+...` 로 풀린다.
+
+**rawstep.config.ts 예시**
+
+```ts
+import { defineConfig, kb } from "@rawstep/cli/config";
+
+export default defineConfig({
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      allowedKeys: [
+        kb.tab(),
+        kb.backspace(),
+        kb.mod.a(),
+        kb.mod.z(),
+        kb.enter()
+      ]
+    }
+  }
+});
+```
 
 ---
 

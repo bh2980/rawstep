@@ -14,7 +14,14 @@ defineConfig({
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      allowedKeys: [kb.tab(), kb.enter()]
+      allowedKeys: [
+        kb.tab(),
+        kb.enter(),
+        kb.backspace(),
+        kb.shiftEnter(),
+        kb.mod.a(),
+        kb.mod.z()
+      ]
     },
     "screenreader-strict": {
       outDir: "./sr-out",
@@ -212,6 +219,24 @@ defineConfig({
       memory: 5,
       // @ts-expect-error raw string literals are not part of the public config API
       allowedKeys: ["Tab"]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      allowedKeys: [
+        kb.delete(),
+        kb.mod.backspace(),
+        kb.mod.delete(),
+        kb.mod.shiftZ()
+      ]
     }
   }
 });

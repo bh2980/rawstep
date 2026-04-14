@@ -1,4 +1,26 @@
-export const ALLOWED_KEYS = [
+export const SUPPORTED_KEYS = [
+  "Tab",
+  "Shift+Tab",
+  "Home",
+  "End",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Backspace",
+  "Delete",
+  "Enter",
+  "Shift+Enter",
+  "Space",
+  "Escape",
+  "Mod+A",
+  "Mod+Backspace",
+  "Mod+Delete",
+  "Mod+Z",
+  "Mod+Shift+Z"
+] as const;
+
+export const DEFAULT_ALLOWED_KEYS = [
   "Tab",
   "Shift+Tab",
   "Home",
@@ -11,6 +33,11 @@ export const ALLOWED_KEYS = [
   "Space",
   "Escape"
 ] as const;
+
+// Backward-compatible alias for callers that still import ALLOWED_KEYS as the default preset.
+export const ALLOWED_KEYS = DEFAULT_ALLOWED_KEYS;
+
+export const SUPPORTED_KEY_LABELS = SUPPORTED_KEYS.join(", ");
 
 export const SCREEN_READER_ACTION_KINDS = [
   "invoke",
@@ -51,7 +78,7 @@ export const DEFAULT_VIEWPORT = {
 
 export const SETTLE_MS = 120;
 
-export type AllowedKey = (typeof ALLOWED_KEYS)[number];
+export type AllowedKey = (typeof SUPPORTED_KEYS)[number];
 export type ScreenReaderActionKind = (typeof SCREEN_READER_ACTION_KINDS)[number];
 export type ScreenReaderInvokeMethod = (typeof SCREEN_READER_INVOKE_METHODS)[number];
 export type ScreenReaderReadMethod = (typeof SCREEN_READER_READ_METHODS)[number];
@@ -59,7 +86,7 @@ export type ScreenReaderMaintenanceMethod = (typeof SCREEN_READER_MAINTENANCE_ME
 export type ScrollHint = (typeof SCROLL_HINTS)[number];
 
 export function isAllowedKey(value: string): value is AllowedKey {
-  return (ALLOWED_KEYS as readonly string[]).includes(value);
+  return (SUPPORTED_KEYS as readonly string[]).includes(value);
 }
 
 export function isScrollHint(value: string): value is ScrollHint {
@@ -83,5 +110,5 @@ export function isScreenReaderMaintenanceMethod(value: string): value is ScreenR
 }
 
 export function createEmptyKeyCounts(): Record<AllowedKey, number> {
-  return Object.fromEntries(ALLOWED_KEYS.map((key) => [key, 0])) as Record<AllowedKey, number>;
+  return Object.fromEntries(SUPPORTED_KEYS.map((key) => [key, 0])) as Record<AllowedKey, number>;
 }
