@@ -200,7 +200,7 @@ describe.sequential("CLI", () => {
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-screen-reader-actions",
-      "invoke:perform:catalog:commands.moveToNextHeading,invoke:click",
+      "heading.next,click",
       "--no-verifier-auto-complete",
       "--agent-memory-window",
       "3",
@@ -226,8 +226,8 @@ describe.sequential("CLI", () => {
     expect(parsed.allowedKeys).toEqual(["Tab", "Enter", "Space"]);
     expect(parsed.screenReaderBackendId).toBe("guidepup-virtual");
     expect(parsed.allowedScreenReaderActions).toEqual([
-      { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-      { kind: "invoke", method: "click" }
+      { semantic: "heading.next" },
+      { semantic: "click" }
     ]);
     expect(parsed.verifierAutoComplete).toBe(false);
     expect(parsed.agentMemoryWindow).toBe(3);
@@ -267,7 +267,7 @@ describe.sequential("CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--allowed-screen-reader-actions",
-      "invoke:perform:catalog:commands.moveToNextHeading,badAction"
+      "heading.next,badAction"
     ])).toThrow("--allowed-screen-reader-actions[1] must be one of");
   });
 
@@ -547,8 +547,8 @@ describe.sequential("CLI", () => {
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next" },
+        { semantic: "click" }
       ]
     }
   }
@@ -1180,8 +1180,8 @@ describe.sequential("CLI", () => {
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab", "Enter"],
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next" },
+        { semantic: "click" }
       ]
     }
   }
@@ -1203,10 +1203,7 @@ describe.sequential("CLI", () => {
         "  allowedKeys:",
         "    - Tab",
         "  allowedScreenReaderActions:",
-        "    - kind: invoke",
-        "      method: perform",
-        "      source: catalog",
-        "      id: commands.moveToNextHeading",
+        "    - semantic: heading.next",
         "  screenReaderBackend: guidepup-virtual"
       ].join("\n"),
       "utf8"
@@ -1249,8 +1246,8 @@ describe.sequential("CLI", () => {
       screenReaderBackend: "guidepup-voiceover",
       allowedKeys: ["Tab", "Enter"],
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next" },
+        { semantic: "click" }
       ]
     }
   }
@@ -1274,10 +1271,7 @@ describe.sequential("CLI", () => {
         "  allowedKeys:",
         "    - Tab",
         "  allowedScreenReaderActions:",
-        "    - kind: invoke",
-        "      method: perform",
-        "      source: catalog",
-        "      id: keyboard.findNextHeading",
+        "    - semantic: heading.next",
         "  screenReaderBackend: guidepup-voiceover"
       ].join("\n"),
       "utf8"
@@ -1297,7 +1291,7 @@ describe.sequential("CLI", () => {
       "--allowed-keys",
       "Tab",
       "--allowed-screen-reader-actions",
-      "invoke:perform:catalog:commands.moveToNextHeading,invoke:click"
+      "heading.next,click"
     ]));
 
     expect(options.task.maxSteps).toBe(55);
@@ -1328,15 +1322,6 @@ describe.sequential("CLI", () => {
       extraInstructions: "default-extra",
       keyHints: {
         Tab: "default-tab"
-      },
-      screenReaderActionHints: {
-        invoke: {
-          perform: {
-            catalog: {
-              "keyboard.findNextHeading": "default-next-heading"
-            }
-          }
-        }
       }
     }
   },
@@ -1349,19 +1334,14 @@ describe.sequential("CLI", () => {
       screenReaderBackend: "guidepup-voiceover",
       allowedKeys: ["Tab", "Enter"],
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next", hint: "mode-next-heading" },
+        { semantic: "click", hint: "mode-click" }
       ],
       prompt: {
         extraInstructions: "mode-extra",
         keyHints: {
           Tab: "mode-tab",
           Enter: "mode-enter"
-        },
-        screenReaderActionHints: {
-          invoke: {
-            click: "mode-click"
-          }
         }
       }
     }
@@ -1383,10 +1363,7 @@ describe.sequential("CLI", () => {
         "  prompt:",
         "    extraInstructions: task-extra",
         "    keyHints:",
-        "      Enter: task-enter",
-        "    screenReaderActionHints:",
-        "      invoke:",
-        "        click: task-click"
+        "      Enter: task-enter"
       ].join("\n"),
       "utf8"
     );
@@ -1403,27 +1380,26 @@ describe.sequential("CLI", () => {
       Tab: "mode-tab",
       Enter: "task-enter"
     });
-    expect(options.prompt.screenReaderActionHints).toEqual({
-      invoke: {
-        next: undefined,
-        previous: undefined,
-        act: undefined,
-        interact: undefined,
-        stopInteracting: undefined,
-        press: undefined,
-        type: undefined,
-        click: "task-click",
-        perform: {
-          generic: undefined,
-          raw: undefined,
-          catalog: {
-            "keyboard.findNextHeading": "default-next-heading"
-          }
+    expect(options.prompt.screenReaderActions).toEqual([
+      {
+        semantic: "heading.next",
+        hint: "mode-next-heading",
+        runtimeAction: {
+          kind: "invoke",
+          method: "perform",
+          source: "catalog",
+          id: "keyboard.findNextHeading"
         }
       },
-      read: {},
-      maintenance: {}
-    });
+      {
+        semantic: "click",
+        hint: "mode-click",
+        runtimeAction: {
+          kind: "invoke",
+          method: "click"
+        }
+      }
+    ]);
   });
 
   it("rejects prompt.dir inside task config", async () => {
@@ -1527,7 +1503,7 @@ describe.sequential("CLI", () => {
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      allowedScreenReaderActions: [{ kind: "invoke", method: "click" }]
+      allowedScreenReaderActions: [{ semantic: "click" }]
       
     }
   }
@@ -1594,8 +1570,8 @@ describe.sequential("CLI", () => {
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.notReal" }
+        { semantic: "heading.next" },
+        { semantic: "catalog", id: "commands.notReal" }
       ]
     }
   }
@@ -1608,7 +1584,7 @@ describe.sequential("CLI", () => {
       configPath,
       "--mode",
       "screenreader-hybrid"
-    ]))).rejects.toThrow('does not support actions: invoke:perform:catalog:commands.notReal');
+    ]))).rejects.toThrow('does not support action catalog:commands.notReal');
   });
 
   it("rejects invalid screen reader CLI overrides for the selected mode and backend", async () => {
@@ -1637,8 +1613,8 @@ describe.sequential("CLI", () => {
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next" },
+        { semantic: "click" }
       ]
     },
     "screenreader-hybrid": {
@@ -1649,8 +1625,8 @@ describe.sequential("CLI", () => {
       screenReaderBackend: "guidepup-voiceover",
       allowedKeys: ["Tab"],
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
-        { kind: "invoke", method: "click" }
+        { semantic: "heading.next" },
+        { semantic: "click" }
       ]
     }
   }
@@ -1686,8 +1662,8 @@ describe.sequential("CLI", () => {
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-screen-reader-actions",
-      "invoke:perform:catalog:commands.moveToNextHeading,invoke:perform:catalog:commands.notReal"
-    ]))).rejects.toThrow('does not support actions: invoke:perform:catalog:commands.notReal');
+      "heading.next,catalog:commands.notReal"
+    ]))).rejects.toThrow('does not support action catalog:commands.notReal');
   });
 
   it("rejects missing memory when neither config nor CLI provides it", async () => {

@@ -7,9 +7,7 @@ import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
   ALLOWED_KEYS,
-  supportsScreenReaderAction,
-  type AllowedKey,
-  type AllowedScreenReaderAction
+  type AllowedKey
 } from "@rawstep/core";
 import {
   findScreenReaderBackendById
@@ -24,6 +22,10 @@ import {
   parsePromptOverride,
   type ResolvedRunOptions
 } from "./shared";
+import {
+  formatConfiguredScreenReaderAction,
+  resolveConfiguredScreenReaderActions
+} from "./screenreader-actions";
 import { configRootSchema, parseProjectDefaultsObject } from "./schema";
 import { loadTaskSource, resolveTask, validateTaskConfigOverride } from "./task-file";
 
@@ -149,7 +151,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   }
 
   const screenReaderBackendId = resolveScreenReaderBackendId(selectedMode, configuredModeScreenReaderBackend);
-  const allowedScreenReaderActions = resolveAllowedScreenReaderActions(
+  const resolvedScreenReaderActions = resolveAllowedScreenReaderActions(
     selectedMode,
     configuredAllowedScreenReaderActions,
     screenReaderBackendId
@@ -159,7 +161,8 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     configDir,
     projectDefaults?.prompt,
     modePreset?.prompt,
-    taskSource.taskConfig?.prompt
+    taskSource.taskConfig?.prompt,
+    resolvedScreenReaderActions.promptActions
   );
 
   return {
@@ -196,7 +199,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     baseURL: cliOptions.baseURL
       ?? projectDefaults?.baseURL,
     allowedKeys,
-    allowedScreenReaderActions,
+    allowedScreenReaderActions: resolvedScreenReaderActions.runtimeActions,
     screenReaderBackendId,
     prompt
   };
@@ -438,11 +441,17 @@ function resolveAllowedKeys(
 
 function resolveAllowedScreenReaderActions(
   selectedMode: ResolvedRunOptions["task"]["mode"],
-  configuredAllowedScreenReaderActions: readonly AllowedScreenReaderAction[] | undefined,
+  configuredAllowedScreenReaderActions: readonly import("@rawstep/core").ConfiguredScreenReaderAction[] | undefined,
   screenReaderBackendId: ResolvedRunOptions["screenReaderBackendId"]
-): ResolvedRunOptions["allowedScreenReaderActions"] {
+): {
+  runtimeActions: ResolvedRunOptions["allowedScreenReaderActions"];
+  promptActions: ResolvedRunOptions["prompt"]["screenReaderActions"];
+} {
   if (selectedMode === "keyboard") {
-    return undefined;
+    return {
+      runtimeActions: undefined,
+      promptActions: []
+    };
   }
 
   if (!screenReaderBackendId) {
@@ -450,26 +459,19 @@ function resolveAllowedScreenReaderActions(
   }
 
   const backend = findScreenReaderBackendById(screenReaderBackendId);
-  const allowedActions = configuredAllowedScreenReaderActions ?? undefined;
-  if (allowedActions) {
-    const unsupportedActions = allowedActions.filter((action) => !supportsScreenReaderAction(backend.capabilities, action));
-    if (unsupportedActions.length > 0) {
-      throw new Error(
-        `Screen reader backend "${screenReaderBackendId}" does not support actions: ${unsupportedActions
-          .map((action) => formatAllowedScreenReaderAction(action))
-          .join(", ")}.`
-      );
-    }
-  }
-
-  return allowedActions;
+  return resolveConfiguredScreenReaderActions(
+    configuredAllowedScreenReaderActions,
+    screenReaderBackendId,
+    backend.capabilities
+  );
 }
 
 function resolvePromptOptions(
   configDir: string,
   projectPrompt: ProjectDefaultsShape["prompt"] | undefined,
   modePrompt: PromptOverrideShape | undefined,
-  taskPrompt: PromptOverrideShape | undefined
+  taskPrompt: PromptOverrideShape | undefined,
+  screenReaderActions: ResolvedRunOptions["prompt"]["screenReaderActions"]
 ): ResolvedRunOptions["prompt"] {
   return {
     promptDir: resolve(configDir, projectPrompt?.dir ?? "prompt"),
@@ -483,72 +485,8 @@ function resolvePromptOptions(
       ...(modePrompt?.keyHints ?? {}),
       ...(taskPrompt?.keyHints ?? {})
     },
-    screenReaderActionHints: {
-      invoke: {
-        next: taskPrompt?.screenReaderActionHints?.invoke?.next
-          ?? modePrompt?.screenReaderActionHints?.invoke?.next
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.next,
-        previous: taskPrompt?.screenReaderActionHints?.invoke?.previous
-          ?? modePrompt?.screenReaderActionHints?.invoke?.previous
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.previous,
-        act: taskPrompt?.screenReaderActionHints?.invoke?.act
-          ?? modePrompt?.screenReaderActionHints?.invoke?.act
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.act,
-        interact: taskPrompt?.screenReaderActionHints?.invoke?.interact
-          ?? modePrompt?.screenReaderActionHints?.invoke?.interact
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.interact,
-        stopInteracting: taskPrompt?.screenReaderActionHints?.invoke?.stopInteracting
-          ?? modePrompt?.screenReaderActionHints?.invoke?.stopInteracting
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.stopInteracting,
-        press: taskPrompt?.screenReaderActionHints?.invoke?.press
-          ?? modePrompt?.screenReaderActionHints?.invoke?.press
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.press,
-        type: taskPrompt?.screenReaderActionHints?.invoke?.type
-          ?? modePrompt?.screenReaderActionHints?.invoke?.type
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.type,
-        click: taskPrompt?.screenReaderActionHints?.invoke?.click
-          ?? modePrompt?.screenReaderActionHints?.invoke?.click
-          ?? projectPrompt?.screenReaderActionHints?.invoke?.click,
-        perform: {
-          generic: taskPrompt?.screenReaderActionHints?.invoke?.perform?.generic
-            ?? modePrompt?.screenReaderActionHints?.invoke?.perform?.generic
-            ?? projectPrompt?.screenReaderActionHints?.invoke?.perform?.generic,
-          raw: taskPrompt?.screenReaderActionHints?.invoke?.perform?.raw
-            ?? modePrompt?.screenReaderActionHints?.invoke?.perform?.raw
-            ?? projectPrompt?.screenReaderActionHints?.invoke?.perform?.raw,
-          catalog: {
-            ...(projectPrompt?.screenReaderActionHints?.invoke?.perform?.catalog ?? {}),
-            ...(modePrompt?.screenReaderActionHints?.invoke?.perform?.catalog ?? {}),
-            ...(taskPrompt?.screenReaderActionHints?.invoke?.perform?.catalog ?? {})
-          }
-        }
-      },
-      read: {
-        ...(projectPrompt?.screenReaderActionHints?.read ?? {}),
-        ...(modePrompt?.screenReaderActionHints?.read ?? {}),
-        ...(taskPrompt?.screenReaderActionHints?.read ?? {})
-      },
-      maintenance: {
-        ...(projectPrompt?.screenReaderActionHints?.maintenance ?? {}),
-        ...(modePrompt?.screenReaderActionHints?.maintenance ?? {}),
-        ...(taskPrompt?.screenReaderActionHints?.maintenance ?? {})
-      }
-    }
+    screenReaderActions
   };
-}
-
-function formatAllowedScreenReaderAction(action: AllowedScreenReaderAction): string {
-  if (action.kind !== "invoke") {
-    return `${action.kind}:${action.method}`;
-  }
-
-  if (action.method !== "perform") {
-    return `invoke:${action.method}`;
-  }
-
-  return action.source === "catalog"
-    ? `invoke:perform:catalog:${action.id}`
-    : "invoke:perform:raw";
 }
 
 function resolveScreenReaderBackendId(

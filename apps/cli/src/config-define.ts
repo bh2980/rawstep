@@ -1,7 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
-import type { AllowedKey, AllowedScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
+import type { AllowedKey, ConfiguredScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
 import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
 import type { MemorySetting } from "./shared";
+import { sr } from "./screenreader-actions";
 
 type SharedModeConfig = {
   outDir: string;
@@ -26,7 +27,7 @@ type ScreenReaderStrictModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
     allowedKeys?: never;
-    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+    allowedScreenReaderActions?: readonly ConfiguredScreenReaderAction[];
   };
 }[ScreenReaderBackendId];
 
@@ -34,7 +35,7 @@ type ScreenReaderHybridModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
     allowedKeys?: readonly AllowedKey[];
-    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+    allowedScreenReaderActions?: readonly ConfiguredScreenReaderAction[];
   };
 }[ScreenReaderBackendId];
 
@@ -49,33 +50,6 @@ type ProjectDefaultsConfig = {
 type PromptOverrideConfig = {
   extraInstructions?: string;
   keyHints?: Partial<Record<AllowedKey, string>>;
-  screenReaderActionHints?: {
-    invoke?: {
-      next?: string;
-      previous?: string;
-      act?: string;
-      interact?: string;
-      stopInteracting?: string;
-      press?: string;
-      type?: string;
-      click?: string;
-      perform?: {
-        generic?: string;
-        raw?: string;
-        catalog?: Record<string, string>;
-      };
-    };
-    read?: {
-      itemText?: string;
-      itemTextLog?: string;
-      lastSpokenPhrase?: string;
-      spokenPhraseLog?: string;
-    };
-    maintenance?: {
-      clearItemTextLog?: string;
-      clearSpokenPhraseLog?: string;
-    };
-  };
 };
 
 type ProjectPromptConfig = PromptOverrideConfig & {
@@ -95,3 +69,5 @@ export type RawstepConfig = {
 export function defineConfig<const TConfig extends RawstepConfig>(config: TConfig): TConfig {
   return config;
 }
+
+export { sr };

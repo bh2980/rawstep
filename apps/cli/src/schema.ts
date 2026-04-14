@@ -36,7 +36,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   const candidate = raw as Record<string, unknown>;
   if (candidate.allowedScreenReaderCommands !== undefined) {
     throw new Error(
-      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions with entries like { kind: "perform", id: "keyboard.readCurrentLine" } or { kind: "press" }.`
+      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions with entries like { semantic: "next" } or { semantic: "catalog", id: "keyboard.readCurrentLine" }.`
     );
   }
   if (candidate.run !== undefined || candidate.agent !== undefined) {
@@ -104,7 +104,7 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
 
   if (candidate.allowedScreenReaderCommands !== undefined) {
     throw new Error(
-      `Config file ${configPath} defaults.allowedScreenReaderCommands is removed. Use modes.<mode>.allowedScreenReaderActions instead.`
+      `Config file ${configPath} defaults.allowedScreenReaderCommands is removed. Use modes.<mode>.allowedScreenReaderActions with sr helpers instead.`
     );
   }
 

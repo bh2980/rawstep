@@ -8,6 +8,7 @@ import {
   type AgentMemoryEntry,
   type Decision,
   type Observation,
+  type ResolvedPromptScreenReaderAction,
   type ScreenReaderAction,
   type ScreenReaderCapabilities,
   type StepRecord,
@@ -19,39 +20,11 @@ import {
 import { loadPromptTemplates, renderPromptTemplate } from "./prompt-loader";
 import type { PromptPart } from "./shared";
 
-type ScreenReaderActionHints = {
-  invoke?: {
-    next?: string;
-    previous?: string;
-    act?: string;
-    interact?: string;
-    stopInteracting?: string;
-    press?: string;
-    type?: string;
-    click?: string;
-    perform?: {
-      generic?: string;
-      raw?: string;
-      catalog?: Record<string, string>;
-    };
-  };
-  read?: {
-    itemText?: string;
-    itemTextLog?: string;
-    lastSpokenPhrase?: string;
-    spokenPhraseLog?: string;
-  };
-  maintenance?: {
-    clearItemTextLog?: string;
-    clearSpokenPhraseLog?: string;
-  };
-};
-
 type SystemPromptOptions = {
   promptDir?: string;
   extraInstructions?: string;
   keyHints?: Partial<Record<AllowedKey, string>>;
-  screenReaderActionHints?: ScreenReaderActionHints;
+  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
   screenReaderCapabilities?: ScreenReaderCapabilities;
 };
 
@@ -66,15 +39,16 @@ export function buildSystemPrompt(
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
   const resolvedScreenReaderActions = allowedScreenReaderActions
     ?? (options.screenReaderCapabilities ? buildAllowedScreenReaderActions(options.screenReaderCapabilities) : []);
+  const resolvedPromptScreenReaderActions = options.screenReaderActions
+    ?? buildFallbackPromptScreenReaderActions(resolvedScreenReaderActions);
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedScreenReaderActions),
+      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
       actionGuidance: buildActionGuidance(
         undefined,
-        resolvedScreenReaderActions,
         options.keyHints,
-        options.screenReaderActionHints,
+        resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
       customInstructions: options.extraInstructions ?? "",
@@ -87,12 +61,11 @@ export function buildSystemPrompt(
   if (userModel === "screenreader-hybrid") {
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
       allowedKeys: allowedKeys.join(", "),
-      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedScreenReaderActions),
+      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
       actionGuidance: buildActionGuidance(
         allowedKeys,
-        resolvedScreenReaderActions,
         options.keyHints,
-        options.screenReaderActionHints,
+        resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
       customInstructions: options.extraInstructions ?? "",
@@ -110,7 +83,6 @@ export function buildSystemPrompt(
     allowedKeys: allowedKeys.join(", "),
     actionGuidance: buildActionGuidance(
       allowedKeys,
-      undefined,
       options.keyHints,
       undefined,
       undefined
@@ -485,16 +457,14 @@ function buildRationaleRule(includeRationale: boolean): string {
 
 function buildActionGuidance(
   allowedKeys: readonly AllowedKey[] | undefined,
-  allowedScreenReaderActions: readonly AllowedScreenReaderAction[] | undefined,
   keyHints: Partial<Record<AllowedKey, string>> | undefined,
-  screenReaderActionHints: ScreenReaderActionHints | undefined,
+  screenReaderActions: readonly ResolvedPromptScreenReaderAction[] | undefined,
   screenReaderCapabilities: ScreenReaderCapabilities | undefined
 ): string {
   return [
     ...buildAllowedKeyGuidance(allowedKeys, keyHints),
     ...buildAllowedScreenReaderActionGuidance(
-      allowedScreenReaderActions,
-      screenReaderActionHints,
+      screenReaderActions,
       screenReaderCapabilities
     )
   ].join("\n");
@@ -512,11 +482,10 @@ function buildAllowedKeyGuidance(
 }
 
 function buildAllowedScreenReaderActionGuidance(
-  allowedActions: readonly AllowedScreenReaderAction[] | undefined,
-  actionHints: ScreenReaderActionHints | undefined,
+  promptActions: readonly ResolvedPromptScreenReaderAction[] | undefined,
   capabilities: ScreenReaderCapabilities | undefined
 ): string[] {
-  if (!allowedActions || allowedActions.length === 0) {
+  if (!promptActions || promptActions.length === 0) {
     return [];
   }
 
@@ -527,40 +496,26 @@ function buildAllowedScreenReaderActionGuidance(
       command.argsHint ? `${command.description} (${command.argsHint})` : command.description
     ])
   );
-  const catalogPerformActions = allowedActions.filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
-    action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
-  );
-  const rawPerformAllowed = allowedActions.some((action) =>
-    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
+  const catalogActions = promptActions.filter((action): action is Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }> =>
+    action.semantic === "catalog"
   );
 
-  for (const method of ["next", "previous", "act", "interact", "stopInteracting", "press", "type", "click"] as const) {
-    if (allowedActions.some((action) => action.kind === "invoke" && action.method === method)) {
-      lines.push(actionHints?.invoke?.[method] ?? DEFAULT_INVOKE_HINTS[method]);
+  for (const action of promptActions) {
+    if (action.semantic === "catalog") {
+      continue;
     }
+
+    if (action.semantic === "rawPerform") {
+      lines.push(action.hint ?? DEFAULT_SEMANTIC_HINTS.rawPerform);
+      continue;
+    }
+
+    lines.push(action.hint ?? DEFAULT_SEMANTIC_HINTS[action.semantic]);
   }
 
-  if (catalogPerformActions.length > 0 || rawPerformAllowed) {
-    lines.push(actionHints?.invoke?.perform?.generic ?? DEFAULT_INVOKE_HINTS.perform);
-    if (rawPerformAllowed) {
-      lines.push(actionHints?.invoke?.perform?.raw ?? DEFAULT_PERFORM_RAW_HINT);
-    }
-    if (catalogPerformActions.length <= 20) {
-      for (const action of catalogPerformActions) {
-        lines.push(`- ${action.id}: ${actionHints?.invoke?.perform?.catalog?.[action.id] ?? capabilityDescriptions.get(action.id) ?? action.id}`);
-      }
-    }
-  }
-
-  for (const method of ["itemText", "itemTextLog", "lastSpokenPhrase", "spokenPhraseLog"] as const) {
-    if (allowedActions.some((action) => action.kind === "read" && action.method === method)) {
-      lines.push(actionHints?.read?.[method] ?? DEFAULT_READ_HINTS[method]);
-    }
-  }
-
-  for (const method of ["clearItemTextLog", "clearSpokenPhraseLog"] as const) {
-    if (allowedActions.some((action) => action.kind === "maintenance" && action.method === method)) {
-      lines.push(actionHints?.maintenance?.[method] ?? DEFAULT_MAINTENANCE_HINTS[method]);
+  if (catalogActions.length > 0 && catalogActions.length <= 20) {
+    for (const action of catalogActions) {
+      lines.push(`- ${action.id}: ${action.hint ?? capabilityDescriptions.get(action.id) ?? action.id}`);
     }
   }
 
@@ -568,38 +523,24 @@ function buildAllowedScreenReaderActionGuidance(
 }
 
 function formatAllowedScreenReaderActionsForPrompt(
-  allowedActions: readonly AllowedScreenReaderAction[]
+  promptActions: readonly ResolvedPromptScreenReaderAction[]
 ): string {
-  if (allowedActions.length === 0) {
+  if (promptActions.length === 0) {
     return "(none)";
   }
 
-  const invokeMethods = dedupe(
-    allowedActions
-      .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke" }> => action.kind === "invoke" && action.method !== "perform")
-      .map((action) => action.method)
-  );
-  const performIds = allowedActions
-    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
-      action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
-    )
+  const semanticActions = promptActions
+    .filter((action) => action.semantic !== "catalog" && action.semantic !== "rawPerform")
+    .map((action) => action.semantic);
+  const catalogIds = promptActions
+    .filter((action): action is Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }> => action.semantic === "catalog")
     .map((action) => action.id);
-  const rawPerformAllowed = allowedActions.some((action) =>
-    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
-  );
-  const readMethods = allowedActions
-    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "read" }> => action.kind === "read")
-    .map((action) => action.method);
-  const maintenanceMethods = allowedActions
-    .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "maintenance" }> => action.kind === "maintenance")
-    .map((action) => action.method);
+  const rawPerformAllowed = promptActions.some((action) => action.semantic === "rawPerform");
 
   return [
-    invokeMethods.length > 0 ? `invoke methods: ${invokeMethods.join(", ")}` : undefined,
-    performIds.length > 0 ? `perform ids: ${performIds.join(", ")}` : undefined,
-    rawPerformAllowed ? "perform raw payloads: allowed" : undefined,
-    readMethods.length > 0 ? `read methods: ${readMethods.join(", ")}` : undefined,
-    maintenanceMethods.length > 0 ? `maintenance methods: ${maintenanceMethods.join(", ")}` : undefined
+    semanticActions.length > 0 ? `actions: ${semanticActions.join(", ")}` : undefined,
+    catalogIds.length > 0 ? `catalog ids: ${catalogIds.join(", ")}` : undefined,
+    rawPerformAllowed ? "raw perform: allowed" : undefined
   ].filter((value): value is string => Boolean(value)).join("\n");
 }
 
@@ -650,7 +591,7 @@ const DEFAULT_KEY_HINTS: Record<AllowedKey, string> = {
   Escape: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라."
 };
 
-const DEFAULT_INVOKE_HINTS = {
+const DEFAULT_SEMANTIC_HINTS = {
   next: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
   previous: "previous는 screen reader cursor를 이전 위치로 이동할 때 사용하라.",
   act: "act는 현재 항목의 기본 동작을 실행할 때 사용하라.",
@@ -659,21 +600,17 @@ const DEFAULT_INVOKE_HINTS = {
   press: "press는 현재 screenreader 세션을 통해 특정 키를 누를 때 사용하라.",
   type: "type는 현재 screenreader 세션을 통해 literal text를 입력할 때 사용하라.",
   click: "click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.",
-  perform: "perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라."
-} as const;
-
-const DEFAULT_PERFORM_RAW_HINT = "raw perform은 backend가 raw payload를 지원할 때만 사용하라. payload는 실제 Guidepup command object와 맞아야 한다." as const;
-
-const DEFAULT_READ_HINTS = {
-  itemText: "itemText는 현재 cursor가 가리키는 항목의 텍스트를 직접 읽고 싶을 때 사용하라.",
-  itemTextLog: "itemTextLog는 방문한 항목 텍스트 로그 전체를 확인하고 싶을 때 사용하라.",
-  lastSpokenPhrase: "lastSpokenPhrase는 가장 최근에 읽힌 발화 한 줄을 확인할 때 사용하라.",
-  spokenPhraseLog: "spokenPhraseLog는 현재까지의 발화 로그 전체를 확인할 때 사용하라."
-} as const;
-
-const DEFAULT_MAINTENANCE_HINTS = {
-  clearItemTextLog: "clearItemTextLog는 item text 로그를 비우고 이후 새 로그만 보려 할 때 사용하라.",
-  clearSpokenPhraseLog: "clearSpokenPhraseLog는 spoken phrase 로그를 비우고 이후 새 발화만 보려 할 때 사용하라."
+  "heading.next": "heading.next는 다음 heading으로 크게 이동할 때 사용하라.",
+  "heading.previous": "heading.previous는 이전 heading으로 돌아갈 때 사용하라.",
+  "form.next": "form.next는 다음 form control로 이동할 때 사용하라.",
+  "form.previous": "form.previous는 이전 form control로 돌아갈 때 사용하라.",
+  "read.itemText": "read.itemText는 현재 cursor가 가리키는 항목의 텍스트를 직접 읽고 싶을 때 사용하라.",
+  "read.itemTextLog": "read.itemTextLog는 방문한 항목 텍스트 로그 전체를 확인하고 싶을 때 사용하라.",
+  "read.lastSpokenPhrase": "read.lastSpokenPhrase는 가장 최근에 읽힌 발화 한 줄을 확인할 때 사용하라.",
+  "read.spokenPhraseLog": "read.spokenPhraseLog는 현재까지의 발화 로그 전체를 확인할 때 사용하라.",
+  "clear.itemTextLog": "clear.itemTextLog는 item text 로그를 비우고 이후 새 로그만 보려 할 때 사용하라.",
+  "clear.spokenPhraseLog": "clear.spokenPhraseLog는 spoken phrase 로그를 비우고 이후 새 발화만 보려 할 때 사용하라.",
+  rawPerform: "rawPerform은 backend가 raw payload를 지원할 때만 사용하라. payload는 실제 Guidepup command object와 맞아야 한다."
 } as const;
 
 function exampleInvokeAction(
@@ -693,4 +630,42 @@ function exampleInvokeAction(
     case "click":
       return { kind: "invoke", method: "click", options: { button: "left", clickCount: 1 } };
   }
+}
+
+function buildFallbackPromptScreenReaderActions(
+  allowedActions: readonly AllowedScreenReaderAction[]
+): readonly ResolvedPromptScreenReaderAction[] {
+  return allowedActions.map((action) => {
+    if (action.kind === "read") {
+      return {
+        semantic: `read.${action.method}` as Extract<ResolvedPromptScreenReaderAction["semantic"], `read.${string}`>,
+        runtimeAction: action
+      };
+    }
+
+    if (action.kind === "maintenance") {
+      return {
+        semantic: action.method === "clearItemTextLog" ? "clear.itemTextLog" : "clear.spokenPhraseLog",
+        runtimeAction: action
+      };
+    }
+
+    if (action.method === "perform") {
+      return action.source === "catalog"
+        ? {
+            semantic: "catalog",
+            id: action.id,
+            runtimeAction: action
+          }
+        : {
+            semantic: "rawPerform",
+            runtimeAction: action
+          };
+    }
+
+    return {
+      semantic: action.method,
+      runtimeAction: action
+    };
+  });
 }

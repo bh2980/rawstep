@@ -183,6 +183,74 @@ export type ScreenReaderAction =
   | { kind: "read"; method: ScreenReaderReadMethod }
   | { kind: "maintenance"; method: ScreenReaderMaintenanceMethod };
 
+export type ScreenReaderSemanticAction =
+  | "next"
+  | "previous"
+  | "act"
+  | "interact"
+  | "stopInteracting"
+  | "press"
+  | "type"
+  | "click"
+  | "heading.next"
+  | "heading.previous"
+  | "form.next"
+  | "form.previous"
+  | "read.itemText"
+  | "read.itemTextLog"
+  | "read.lastSpokenPhrase"
+  | "read.spokenPhraseLog"
+  | "clear.itemTextLog"
+  | "clear.spokenPhraseLog"
+  | "catalog"
+  | "rawPerform";
+
+type ConfiguredScreenReaderActionShape =
+  | { semantic: "next"; hint?: string }
+  | { semantic: "previous"; hint?: string }
+  | { semantic: "act"; hint?: string }
+  | { semantic: "interact"; hint?: string }
+  | { semantic: "stopInteracting"; hint?: string }
+  | { semantic: "press"; hint?: string }
+  | { semantic: "type"; hint?: string }
+  | { semantic: "click"; hint?: string }
+  | { semantic: "heading.next"; hint?: string }
+  | { semantic: "heading.previous"; hint?: string }
+  | { semantic: "form.next"; hint?: string }
+  | { semantic: "form.previous"; hint?: string }
+  | { semantic: "read.itemText"; hint?: string }
+  | { semantic: "read.itemTextLog"; hint?: string }
+  | { semantic: "read.lastSpokenPhrase"; hint?: string }
+  | { semantic: "read.spokenPhraseLog"; hint?: string }
+  | { semantic: "clear.itemTextLog"; hint?: string }
+  | { semantic: "clear.spokenPhraseLog"; hint?: string }
+  | { semantic: "catalog"; id: string; hint?: string }
+  | { semantic: "rawPerform"; hint?: string };
+
+declare const configuredScreenReaderActionBrand: unique symbol;
+
+export type ConfiguredScreenReaderAction = ConfiguredScreenReaderActionShape & {
+  readonly [configuredScreenReaderActionBrand]: true;
+};
+
+export type ResolvedPromptScreenReaderAction =
+  | {
+      semantic: Exclude<ScreenReaderSemanticAction, "catalog" | "rawPerform">;
+      hint?: string;
+      runtimeAction: AllowedScreenReaderAction;
+    }
+  | {
+      semantic: "catalog";
+      id: string;
+      hint?: string;
+      runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>;
+    }
+  | {
+      semantic: "rawPerform";
+      hint?: string;
+      runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "raw" }>;
+    };
+
 export type AllowedScreenReaderAction =
   | {
       kind: "invoke";

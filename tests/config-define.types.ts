@@ -1,4 +1,4 @@
-import { defineConfig } from "../apps/cli/src/config-define";
+import { defineConfig, sr } from "../apps/cli/src/config-define";
 
 defineConfig({
   version: 1,
@@ -32,8 +32,8 @@ defineConfig({
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextHeading" },
-        { kind: "invoke", method: "click" }
+        sr.heading.next(),
+        sr.click()
       ]
     },
     "screenreader-hybrid": {
@@ -44,20 +44,9 @@ defineConfig({
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab"],
       allowedScreenReaderActions: [
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-        { kind: "invoke", method: "click" }
-      ],
-      prompt: {
-        screenReaderActionHints: {
-          invoke: {
-            perform: {
-              catalog: {
-                "commands.moveToNextHeading": "Move to the next heading."
-              }
-            }
-          }
-        }
-      }
+        sr.heading.next({ hint: "Move to the next heading." }),
+        sr.click()
+      ]
     }
   }
 });
@@ -85,8 +74,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      // @ts-expect-error perform actions require an id
-      allowedScreenReaderActions: [{ kind: "invoke", method: "perform", source: "catalog" }]
+      // @ts-expect-error raw object literals are not part of the public config API
+      allowedScreenReaderActions: [{ semantic: "catalog", id: "commands.moveToNextHeading" }]
     }
   }
 });

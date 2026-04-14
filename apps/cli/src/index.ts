@@ -79,7 +79,7 @@ export async function runCli(
 export { loadTask } from "./task-file";
 export { parseRunArgs } from "./args";
 export { loadConfig, resolveRunOptions } from "./config";
-export { defineConfig, type RawstepConfig } from "./config-define";
+export { defineConfig, sr, type RawstepConfig } from "./config-define";
 
 function createAgent(
   mode: UserModel,
@@ -99,7 +99,7 @@ function createAgent(
     promptDir: options.prompt.promptDir,
     extraInstructions: options.prompt.extraInstructions,
     keyHints: options.prompt.keyHints,
-    screenReaderActionHints: options.prompt.screenReaderActionHints,
+    screenReaderActions: options.prompt.screenReaderActions,
     screenReaderCapabilities: options.screenReaderBackendId
       ? findScreenReaderBackendById(options.screenReaderBackendId).capabilities
       : undefined

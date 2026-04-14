@@ -10,7 +10,7 @@ import {
   type AgentCompletionClient,
   type PromptPart
 } from "@rawstep/agent";
-import type { AgentContext, Observation } from "@rawstep/core";
+import type { AgentContext, Observation, ResolvedPromptScreenReaderAction } from "@rawstep/core";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -503,6 +503,17 @@ describe("agent helpers", () => {
   it("renders screenreader prompts from prompt files with action placeholders", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
+    const promptActions: ResolvedPromptScreenReaderAction[] = [
+      {
+        semantic: "heading.next",
+        hint: "다음 제목으로 크게 이동할 때 사용하라.",
+        runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
+      },
+      {
+        semantic: "click",
+        runtimeAction: { kind: "invoke", method: "click" }
+      }
+    ];
 
     const prompt = buildSystemPrompt(
       "screenreader-strict",
@@ -512,13 +523,15 @@ describe("agent helpers", () => {
         { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
         { kind: "invoke", method: "click" }
       ],
-      false
+      false,
+      {
+        screenReaderActions: promptActions
+      }
     );
 
-    expect(prompt).toContain("perform ids: commands.moveToNextHeading");
-    expect(prompt).toContain("invoke methods: click");
-    expect(prompt).toContain("perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라.");
-    expect(prompt).toContain("- commands.moveToNextHeading: commands.moveToNextHeading");
+    expect(prompt).toContain("actions: heading.next, click");
+    expect(prompt).not.toContain("catalog ids:");
+    expect(prompt).toContain("다음 제목으로 크게 이동할 때 사용하라.");
     expect(prompt).toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
     expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}}}');
   });

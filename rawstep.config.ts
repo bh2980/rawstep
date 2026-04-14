@@ -1,19 +1,33 @@
-import { defineConfig } from "./apps/cli/src/config-define";
+import { defineConfig, sr } from "./apps/cli/src/config-define";
 
 export default defineConfig({
   version: 1,
   defaults: {
     provider: "openai-compatible",
-    model: "openrouter/auto",
+    model: "google/gemma-4-26b-a4b-it",
     baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
   },
   modes: {
     keyboard: {
       outDir: "./.rawstep/out/keyboard",
       maxSteps: 20,
       timeoutMs: 180000,
-      verifierAutoComplete: true,
+      // verifierAutoComplete: true,
       memory: 5,
+      allowedKeys: [
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "Enter",
+        "Escape",
+        "Shift+Tab",
+        "Space",
+        "Tab",
+        "Home",
+        "End",
+      ],
     },
     "screenreader-strict": {
       outDir: "./.rawstep/out/sr-strict",
@@ -25,14 +39,14 @@ export default defineConfig({
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderCommands: [
-        "nextItem",
-        "previousItem",
-        "nextHeading",
-        "previousHeading",
-        "nextFormControl",
-        "previousFormControl",
-        "act",
+      allowedScreenReaderActions: [
+        sr.next(),
+        sr.previous(),
+        sr.heading.next(),
+        sr.heading.previous(),
+        sr.act(),
+        sr.form.next(),
+        sr.form.previous(),
       ],
     },
     "screenreader-hybrid": {
@@ -45,12 +59,12 @@ export default defineConfig({
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedScreenReaderCommands: [
-        "nextItem",
-        "previousItem",
-        "nextHeading",
-        "previousHeading",
-        "act",
+      allowedScreenReaderActions: [
+        sr.next(),
+        sr.previous(),
+        sr.heading.next(),
+        sr.heading.previous(),
+        sr.act(),
       ],
     },
   },
