@@ -1,16 +1,22 @@
 import type { BrowserSession } from "../browser";
 import type {
   Action,
+  AllowedScreenReaderAction,
   AgentMemoryEntry,
   Decision,
   EndedBy,
   Observation,
+  ScreenReaderCapabilities,
   ScreenshotPolicy,
   UserModel,
   VerdictAnalysis
 } from "@rawstep/core";
 import { KeyboardObserver } from "../observe/keyboard";
-import type { ScreenReaderBackendId, ScreenReaderRuntime } from "../observe/screenreader";
+import {
+  findScreenReaderBackendById,
+  type ScreenReaderBackendId,
+  type ScreenReaderRuntime
+} from "../observe/screenreader";
 
 export type RunnerObserver = {
   observe(): Promise<Observation>;
@@ -108,6 +114,113 @@ export function resolveBrowserHeadless(
 
 export function allowsRawKeyActions(mode: UserModel): boolean {
   return mode === "keyboard" || mode === "screenreader-hybrid";
+}
+
+export function resolveScreenReaderCapabilities(
+  screenReaderRuntime: ScreenReaderRuntime | undefined,
+  allowedScreenReaderActions: readonly AllowedScreenReaderAction[] | undefined,
+  screenReaderBackendId: ScreenReaderBackendId | undefined
+): ScreenReaderCapabilities {
+  if (screenReaderRuntime?.capabilities) {
+    return screenReaderRuntime.capabilities;
+  }
+
+  if (allowedScreenReaderActions && allowedScreenReaderActions.length > 0) {
+    const invokeMethods = {
+      next: false,
+      previous: false,
+      act: false,
+      interact: false,
+      stopInteracting: false,
+      press: false,
+      type: false,
+      click: false,
+      perform: false,
+      supportsRawPerform: false
+    };
+    const readMethods = {
+      itemText: false,
+      itemTextLog: false,
+      lastSpokenPhrase: false,
+      spokenPhraseLog: false
+    };
+    const maintenanceMethods = {
+      clearItemTextLog: false,
+      clearSpokenPhraseLog: false
+    };
+
+    const performCatalog = allowedScreenReaderActions
+      .filter((action): action is Extract<AllowedScreenReaderAction, {
+        kind: "invoke";
+        method: "perform";
+        source: "catalog";
+      }> =>
+        action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
+      )
+      .map((action) => ({
+        id: action.id,
+        label: action.id,
+        description: action.id
+      }));
+
+    for (const action of allowedScreenReaderActions) {
+      if (action.kind === "invoke") {
+        if (action.method === "perform") {
+          invokeMethods.perform = true;
+          if (action.source === "raw") {
+            invokeMethods.supportsRawPerform = true;
+          }
+        } else {
+          invokeMethods[action.method] = true;
+        }
+        continue;
+      }
+
+      if (action.kind === "read") {
+        readMethods[action.method] = true;
+        continue;
+      }
+
+      maintenanceMethods[action.method] = true;
+    }
+
+    return {
+      invoke: invokeMethods,
+      read: readMethods,
+      maintenance: maintenanceMethods,
+      performCatalog
+    };
+  }
+
+  if (screenReaderBackendId) {
+    return findScreenReaderBackendById(screenReaderBackendId).capabilities;
+  }
+
+  return {
+    invoke: {
+      next: false,
+      previous: false,
+      act: false,
+      interact: false,
+      stopInteracting: false,
+      press: false,
+      type: false,
+      click: false,
+      perform: false,
+      supportsRawPerform: false
+    },
+    read: {
+      itemText: false,
+      itemTextLog: false,
+      lastSpokenPhrase: false,
+      spokenPhraseLog: false
+    },
+    maintenance: {
+      clearItemTextLog: false,
+      clearSpokenPhraseLog: false
+    },
+    performCatalog: []
+  };
 }
 
 export function createVerdictAnalysis(

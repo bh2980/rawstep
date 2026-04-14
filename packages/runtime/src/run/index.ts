@@ -10,21 +10,22 @@ import {
 import {
   DEFAULT_ALLOWED_KEYS,
   buildAllowedScreenReaderActions,
+  type Decision,
+  type ExecutionRecord,
   type AgentMemoryEntry,
   type Agent,
   type Action,
   type AllowedKey,
   type AllowedScreenReaderAction,
   type EndedBy,
+  type Observation,
   type ScreenReaderReadback,
-  type ScreenReaderCapabilities,
   type ScreenshotPolicy,
   type Task,
   type TraceSession
 } from "@rawstep/core";
 import {
   createScreenReaderRuntime,
-  findScreenReaderBackendById,
   type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
@@ -37,10 +38,13 @@ import {
   createVerdictAnalysis,
   getErrorMessage,
   isScreenReaderMode,
+  resolveScreenReaderCapabilities,
   resolveVerificationOutcome,
   resolveBrowserHeadless,
   shouldUseInteractiveObservation,
-  selectAgentMemoryExcerpt
+  selectAgentMemoryExcerpt,
+  type ResolvedVerificationOutcome,
+  type RunnerObserver
 } from "./helpers";
 import {
   captureDeveloperScreenshot,
@@ -75,459 +79,548 @@ export type RunTaskOptions = {
 
 export * from "../verify";
 
-function resolveScreenReaderCapabilities(
-  screenReaderRuntime: ScreenReaderRuntime | undefined,
-  options: RunTaskOptions
-): ScreenReaderCapabilities {
-  if (screenReaderRuntime?.capabilities) {
-    return screenReaderRuntime.capabilities;
-  }
+type RunCleanupHandles = {
+  browser?: BrowserSession;
+  screenReaderRuntime?: ScreenReaderRuntime;
+};
 
-  if (options.allowedScreenReaderActions && options.allowedScreenReaderActions.length > 0) {
-    const invokeMethods = {
-      next: false,
-      previous: false,
-      act: false,
-      interact: false,
-      stopInteracting: false,
-      press: false,
-      type: false,
-      click: false,
-      perform: false,
-      supportsRawPerform: false
-    };
-    const readMethods = {
-      itemText: false,
-      itemTextLog: false,
-      lastSpokenPhrase: false,
-      spokenPhraseLog: false
-    };
-    const maintenanceMethods = {
-      clearItemTextLog: false,
-      clearSpokenPhraseLog: false
-    };
+type RunResources = {
+  task: Task;
+  trace: TraceRecorder;
+  deadline: number;
+  screenshotPolicy: ScreenshotPolicy;
+  maxVerificationRetries: number;
+  verifierAutoComplete: boolean;
+  agentMemoryAll: boolean;
+  agentMemoryWindow: number;
+  browser: BrowserSession;
+  observer: RunnerObserver;
+  actuator: Actuator;
+  agent: Agent;
+  allowedKeys: readonly AllowedKey[];
+  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+};
 
-    const performCatalog = options.allowedScreenReaderActions
-      .filter((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
-        action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
-      )
-      .map((action) => ({
-        id: action.id,
-        label: action.id,
-        description: action.id
-      }));
+type RunState = {
+  verificationFailures: number;
+  successfulActionCount: number;
+  agentMemory: AgentMemoryEntry[];
+  pendingScreenReaderReadbacks: ScreenReaderReadback[];
+  endedBy?: EndedBy;
+  failureReasonOverride?: string;
+};
 
-    for (const action of options.allowedScreenReaderActions) {
-      if (action.kind === "invoke") {
-        if (action.method === "perform") {
-          invokeMethods.perform = true;
-          if (action.source === "raw") {
-            invokeMethods.supportsRawPerform = true;
-          }
-        } else {
-          invokeMethods[action.method] = true;
-        }
-        continue;
-      }
-
-      if (action.kind === "read") {
-        readMethods[action.method] = true;
-        continue;
-      }
-
-      maintenanceMethods[action.method] = true;
-    }
-
-    return {
-      invoke: invokeMethods,
-      read: readMethods,
-      maintenance: maintenanceMethods,
-      performCatalog
-    };
-  }
-
-  if (options.screenReaderBackendId) {
-    return findScreenReaderBackendById(options.screenReaderBackendId).capabilities;
-  }
-
-  return {
-    invoke: {
-      next: false,
-      previous: false,
-      act: false,
-      interact: false,
-      stopInteracting: false,
-      press: false,
-      type: false,
-      click: false,
-      perform: false,
-      supportsRawPerform: false
-    },
-    read: {
-      itemText: false,
-      itemTextLog: false,
-      lastSpokenPhrase: false,
-      spokenPhraseLog: false
-    },
-    maintenance: {
-      clearItemTextLog: false,
-      clearSpokenPhraseLog: false
-    },
-    performCatalog: []
+type BuiltAgentStepContext = {
+  observation: Observation;
+  context: {
+    goal: string;
+    allowedKeys: readonly AllowedKey[];
+    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+    memory: AgentMemoryEntry[];
   };
-}
+  observeMs: number;
+};
+
+type StepDecisionContext = Omit<BuiltAgentStepContext, "context"> & {
+  step: number;
+  decision: Decision;
+  decideMs: number;
+};
+
+type StepResult = {
+  continueLoop: boolean;
+  settleAfterStep: boolean;
+};
 
 export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
   const setupStartedAt = Date.now();
-
   const deadline = Date.now() + task.timeoutMs;
-  let verificationFailures = 0;
-  let successfulActionCount = 0;
-  const agentMemory: AgentMemoryEntry[] = [];
-  let pendingScreenReaderReadbacks: ScreenReaderReadback[] = [];
-  let endedBy: EndedBy | undefined;
-  let session: TraceSession | undefined;
+  const cleanup: RunCleanupHandles = {};
+  const state: RunState = {
+    verificationFailures: 0,
+    successfulActionCount: 0,
+    agentMemory: [],
+    pendingScreenReaderReadbacks: []
+  };
+  let resources: RunResources | undefined;
   let unexpectedError: unknown;
-  let failureReasonOverride: string | undefined;
-  let browser: BrowserSession | undefined;
-  let screenReaderRuntime: ScreenReaderRuntime | undefined;
-  let actuator: Actuator | undefined;
-  let agent: Agent | undefined;
-
-  const screenshotPolicy = options.screenshotPolicy ?? "all";
-  const maxVerificationRetries = options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES;
   try {
-    const browserFactory = options.browserSessionFactory ?? createBrowserSession;
-    browser = await browserFactory(task.url, {
-      headless: resolveBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
-    });
-    if (!isScreenReaderMode(task.mode)) {
-      await bootstrapKeyboardFocus(browser.page);
-    }
-    const browserLaunchMs = browser.setupTimings?.browserLaunchMs ?? 0;
-    const pageLoadMs = browser.setupTimings?.pageLoadMs ?? 0;
-    screenReaderRuntime = isScreenReaderMode(task.mode)
-      ? await (options.screenReaderRuntimeFactory
-        ?? ((page) => createScreenReaderRuntime(page, {
-          backendId: options.screenReaderBackendId,
-          allowedActions: options.allowedScreenReaderActions
-        })))(browser.page)
-      : undefined;
-
-    const observer = createObserver(task.mode, browser, screenReaderRuntime);
-    actuator = new Actuator(browser.page, {
-      screenReaderController: screenReaderRuntime?.controller
-    });
-    const screenReaderCapabilities = isScreenReaderMode(task.mode)
-      ? resolveScreenReaderCapabilities(screenReaderRuntime, options)
-      : undefined;
-    agent = options.agent ?? new LLMAgent(task.mode, {
-      ...options.agentOptions,
-      agentMemoryWindow: options.agentMemoryWindow,
-      agentMemoryAll: options.agentMemoryAll,
-      includeExperienceSummary: options.includeExperienceSummary,
-      screenReaderCapabilities,
-      taskInput: task.input
-    });
-    trace.setSetupTimings({
-      setupMs: Date.now() - setupStartedAt,
-      browserLaunchMs,
-      pageLoadMs,
-      screenReaderInitMs: screenReaderRuntime?.setupTimings.screenReaderInitMs ?? 0,
-      firstAnnouncementWaitMs: screenReaderRuntime?.setupTimings.firstAnnouncementWaitMs ?? 0
-    });
+    resources = await initializeRunResources(task, options, trace, setupStartedAt, deadline, cleanup);
 
     for (let step = 0; step < task.maxSteps; step += 1) {
-      if (Date.now() >= deadline) {
-        endedBy = "timeout";
+      if (Date.now() >= resources.deadline) {
+        state.endedBy = "timeout";
         break;
       }
 
-      const observeStartedAt = Date.now();
-      const baseObservation = await observer.observe();
-      const observation = applyPendingScreenReaderReadbacks(baseObservation, pendingScreenReaderReadbacks);
-      if (observation.kind === "screenreader" && pendingScreenReaderReadbacks.length > 0) {
-        pendingScreenReaderReadbacks = [];
-      }
-      const observeMs = Date.now() - observeStartedAt;
-      const context = {
-        goal: task.goal,
-        allowedKeys: allowsRawKeyActions(task.mode)
-          ? options.allowedKeys ?? DEFAULT_ALLOWED_KEYS
-          : [],
-        allowedScreenReaderActions: isScreenReaderMode(task.mode)
-          ? options.allowedScreenReaderActions ?? buildAllowedScreenReaderActions(screenReaderCapabilities!)
-          : undefined,
-        memory: selectAgentMemoryExcerpt(
-          agentMemory,
-          options.agentMemoryAll ?? false,
-          options.agentMemoryWindow ?? 0
-        )
-      };
-      const decideStartedAt = Date.now();
-      const decision = await agent.decide(context, observation);
-      const decideMs = Date.now() - decideStartedAt;
-
-      if ("verdict" in decision) {
-        if (decision.verdict === "success") {
-          const verifyStartedAt = Date.now();
-          const verification = await verifyTask(task, browser);
-          const verifyMs = Date.now() - verifyStartedAt;
-          const verificationFeedback = verification.passed
-            ? undefined
-            : formatVerificationFeedback(verification);
-          const verificationOutcome = resolveVerificationOutcome({
-            kind: "verified-success",
-            passed: verification.passed,
-            verificationFailures,
-            maxVerificationRetries,
-            failureMessage: verificationFeedback
-          });
-          const developerScreenshot = shouldCaptureDeveloperScreenshot(
-            screenshotPolicy,
-            observation,
-            decision,
-            undefined,
-            verification
-          )
-            ? await captureDeveloperScreenshot(browser.page)
-            : undefined;
-          await trace.append(
-            step,
-            observation,
-            decision,
-            { ok: true, costDelta: 0 },
-            {
-              observeMs,
-              decideMs,
-              executeMs: 0,
-              verifyMs
-            },
-            verification,
-            createVerdictAnalysis(
-              decision.verdict,
-              verification,
-              verificationOutcome.finalResult,
-              verificationOutcome.completionSource
-            ),
-            developerScreenshot
-          );
-          const memoryEntry = createAgentMemoryEntry(
-            step,
-            decision,
-            verificationOutcome.finalResult,
-            verificationFeedback
-          );
-          agentMemory.push(memoryEntry);
-          agent.recordStepOutcome?.(memoryEntry);
-          verificationFailures = verificationOutcome.nextVerificationFailures;
-
-          if (verificationOutcome.endedBy) {
-            endedBy = verificationOutcome.endedBy;
-            failureReasonOverride = verificationOutcome.failureReasonOverride;
-            break;
-          }
-
-          continue;
-        }
-
-        await trace.append(
-          step,
-          observation,
-          decision,
-          { ok: true, costDelta: 0 },
-          {
-            observeMs,
-            decideMs,
-            executeMs: 0,
-            verifyMs: 0
-          },
-          undefined,
-          createVerdictAnalysis(
-            decision.verdict,
-            undefined,
-            "failure",
-            "agent"
-          ),
-          shouldCaptureDeveloperScreenshot(screenshotPolicy, observation, decision)
-            ? await captureDeveloperScreenshot(browser.page)
-            : undefined
-        );
-        const memoryEntry = createAgentMemoryEntry(
-          step,
-          decision,
-          "failure"
-        );
-        agentMemory.push(memoryEntry);
-        agent.recordStepOutcome?.(memoryEntry);
-        endedBy = decision.verdict;
+      const stepResult = await executeStep(step, resources, state);
+      if (!stepResult.continueLoop) {
         break;
       }
 
-      const executeStartedAt = Date.now();
-      try {
-        if ("key" in decision.action && !allowsRawKeyActions(task.mode)) {
-          throw new NotAllowedActionError("Raw key actions are not allowed in screenreader-strict mode.");
-        }
-
-        const execution = await actuator.execute(decision.action, task.input);
-        const executeMs = Date.now() - executeStartedAt;
-        if (execution.ok && execution.costDelta > 0 && actionCanChangeTaskState(decision.action)) {
-          successfulActionCount += 1;
-        }
-        if (execution.ok) {
-          pendingScreenReaderReadbacks = [
-            ...pendingScreenReaderReadbacks,
-            ...createScreenReaderReadbacks(execution)
-          ];
-        }
-
-        const shouldCheckVerifierAutoComplete = Boolean(
-          options.verifierAutoComplete
-          && execution.ok
-          && execution.costDelta > 0
-          && actionCanChangeTaskState(decision.action)
-          && successfulActionCount > 0
-        );
-        const verifyStartedAt = shouldCheckVerifierAutoComplete ? Date.now() : 0;
-        const verification = shouldCheckVerifierAutoComplete
-          ? await verifyTask(task, browser)
-          : undefined;
-        const verifyMs = shouldCheckVerifierAutoComplete
-          ? Date.now() - verifyStartedAt
-          : 0;
-        const verificationOutcome = verification
-          ? resolveVerificationOutcome({
-            kind: "verifier-auto-complete",
-            passed: verification.passed,
-            verificationFailures,
-            maxVerificationRetries,
-            failureMessage: verification.passed ? undefined : formatVerificationFeedback(verification)
-          })
-          : undefined;
-        const autoCompleted = verificationOutcome?.finalResult === "success";
-        const developerScreenshot = shouldCaptureDeveloperScreenshot(
-          screenshotPolicy,
-          observation,
-          decision,
-          execution,
-          autoCompleted ? verification : undefined,
-          autoCompleted
-        )
-          ? await captureDeveloperScreenshot(browser.page)
-          : undefined;
-        await trace.append(
-          step,
-          observation,
-          decision,
-          execution,
-          {
-            observeMs,
-            decideMs,
-            executeMs,
-            verifyMs
-          },
-          autoCompleted ? verification : undefined,
-          verificationOutcome?.shouldRecordVerdictAnalysis
-            ? createVerdictAnalysis(
-              undefined,
-              verification,
-              verificationOutcome.finalResult,
-              verificationOutcome.completionSource
-            )
-            : undefined,
-          developerScreenshot
-        );
-        const memoryEntry = createAgentMemoryEntry(
-          step,
-          decision,
-          verificationOutcome?.finalResult ?? "continued",
-          execution.error
-        );
-        agentMemory.push(memoryEntry);
-        agent.recordStepOutcome?.(memoryEntry);
-
-        if (verificationOutcome) {
-          verificationFailures = verificationOutcome.nextVerificationFailures;
-        }
-
-        if (verificationOutcome?.endedBy) {
-          endedBy = verificationOutcome.endedBy;
-          failureReasonOverride = verificationOutcome.failureReasonOverride;
-          break;
-        }
-
-        if (!execution.ok) {
-          continue;
-        }
-
-        if (shouldUseInteractiveObservation(decision)) {
-          observer.prepareNextObservation?.("interactive");
-        }
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const executeMs = Date.now() - executeStartedAt;
-        const failedExecution = {
-          ok: false,
-          error: message,
-          costDelta: 0
-        } as const;
-        await trace.append(step, observation, decision, {
-          ...failedExecution
-        }, {
-          observeMs,
-          decideMs,
-          executeMs,
-          verifyMs: 0
-        }, undefined, undefined, shouldCaptureDeveloperScreenshot(
-          screenshotPolicy,
-          observation,
-          decision,
-          failedExecution
-        )
-          ? await captureDeveloperScreenshot(browser.page)
-          : undefined);
-        const memoryEntry = createAgentMemoryEntry(
-          step,
-          decision,
-          "continued",
-          message
-        );
-        agentMemory.push(memoryEntry);
-        agent.recordStepOutcome?.(memoryEntry);
-
-        if (error instanceof NotAllowedActionError) {
-          endedBy = "error";
-          break;
-        }
-
-        throw error;
+      if (stepResult.settleAfterStep) {
+        await settlePage(resources.browser.page);
       }
-
-      await settlePage(browser.page);
     }
 
-    if (!endedBy) {
-      endedBy = "maxSteps";
+    if (!state.endedBy) {
+      state.endedBy = "maxSteps";
     }
   } catch (error) {
     unexpectedError = error;
-    endedBy = endedBy ?? "error";
-  } finally {
-    if (screenReaderRuntime) {
-      await screenReaderRuntime.close();
-    }
-    if (browser) {
-      await closeBrowserSession(browser);
-    }
-    session = await trace.finalize(endedBy ?? "error", failureReasonOverride);
+    state.endedBy = state.endedBy ?? "error";
   }
 
-  if (session && options.includeExperienceSummary && agent?.summarizeExperience) {
+  const session = await finalizeRun(task, options, trace, resources, cleanup, state);
+
+  if (unexpectedError) {
+    throw unexpectedError;
+  }
+
+  return session;
+}
+
+async function initializeRunResources(
+  task: Task,
+  options: RunTaskOptions,
+  trace: TraceRecorder,
+  setupStartedAt: number,
+  deadline: number,
+  cleanup: RunCleanupHandles
+): Promise<RunResources> {
+  const browserFactory = options.browserSessionFactory ?? createBrowserSession;
+  cleanup.browser = await browserFactory(task.url, {
+    headless: resolveBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
+  });
+  if (!isScreenReaderMode(task.mode)) {
+    await bootstrapKeyboardFocus(cleanup.browser.page);
+  }
+
+  cleanup.screenReaderRuntime = isScreenReaderMode(task.mode)
+    ? await (options.screenReaderRuntimeFactory
+      ?? ((page) => createScreenReaderRuntime(page, {
+        backendId: options.screenReaderBackendId,
+        allowedActions: options.allowedScreenReaderActions
+      })))(cleanup.browser.page)
+    : undefined;
+
+  const observer = createObserver(task.mode, cleanup.browser, cleanup.screenReaderRuntime);
+  const actuator = new Actuator(cleanup.browser.page, {
+    screenReaderController: cleanup.screenReaderRuntime?.controller
+  });
+  const screenReaderCapabilities = isScreenReaderMode(task.mode)
+    ? resolveScreenReaderCapabilities(
+      cleanup.screenReaderRuntime,
+      options.allowedScreenReaderActions,
+      options.screenReaderBackendId
+    )
+    : undefined;
+  const agent = options.agent ?? new LLMAgent(task.mode, {
+    ...options.agentOptions,
+    agentMemoryWindow: options.agentMemoryWindow,
+    agentMemoryAll: options.agentMemoryAll,
+    includeExperienceSummary: options.includeExperienceSummary,
+    screenReaderCapabilities,
+    taskInput: task.input
+  });
+
+  trace.setSetupTimings({
+    setupMs: Date.now() - setupStartedAt,
+    browserLaunchMs: cleanup.browser.setupTimings?.browserLaunchMs ?? 0,
+    pageLoadMs: cleanup.browser.setupTimings?.pageLoadMs ?? 0,
+    screenReaderInitMs: cleanup.screenReaderRuntime?.setupTimings.screenReaderInitMs ?? 0,
+    firstAnnouncementWaitMs: cleanup.screenReaderRuntime?.setupTimings.firstAnnouncementWaitMs ?? 0
+  });
+
+  return {
+    task,
+    trace,
+    deadline,
+    screenshotPolicy: options.screenshotPolicy ?? "all",
+    maxVerificationRetries: options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES,
+    verifierAutoComplete: Boolean(options.verifierAutoComplete),
+    agentMemoryAll: options.agentMemoryAll ?? false,
+    agentMemoryWindow: options.agentMemoryWindow ?? 0,
+    browser: cleanup.browser,
+    observer,
+    actuator,
+    agent,
+    allowedKeys: allowsRawKeyActions(task.mode)
+      ? options.allowedKeys ?? DEFAULT_ALLOWED_KEYS
+      : [],
+    allowedScreenReaderActions: isScreenReaderMode(task.mode)
+      ? options.allowedScreenReaderActions ?? buildAllowedScreenReaderActions(screenReaderCapabilities!)
+      : undefined
+  };
+}
+
+async function executeStep(
+  step: number,
+  resources: RunResources,
+  state: RunState
+): Promise<StepResult> {
+  const builtContext = await buildAgentStepContext(resources, state);
+  const decideStartedAt = Date.now();
+  const decision = await resources.agent.decide(builtContext.context, builtContext.observation);
+  const decideMs = Date.now() - decideStartedAt;
+  const stepContext: StepDecisionContext = {
+    step,
+    observation: builtContext.observation,
+    observeMs: builtContext.observeMs,
+    decision,
+    decideMs
+  };
+
+  if ("verdict" in decision) {
+    return handleVerdictDecision(
+      {
+        ...stepContext,
+        decision
+      },
+      resources,
+      state
+    );
+  }
+
+  return handleActionDecision(
+    {
+      ...stepContext,
+      decision
+    },
+    resources,
+    state
+  );
+}
+
+async function buildAgentStepContext(
+  resources: RunResources,
+  state: RunState
+): Promise<BuiltAgentStepContext> {
+  const observeStartedAt = Date.now();
+  const baseObservation = await resources.observer.observe();
+  const observation = applyPendingScreenReaderReadbacks(
+    baseObservation,
+    state.pendingScreenReaderReadbacks
+  );
+  if (observation.kind === "screenreader" && state.pendingScreenReaderReadbacks.length > 0) {
+    state.pendingScreenReaderReadbacks = [];
+  }
+
+  return {
+    observation,
+    observeMs: Date.now() - observeStartedAt,
+    context: {
+      goal: resources.task.goal,
+      allowedKeys: resources.allowedKeys,
+      allowedScreenReaderActions: resources.allowedScreenReaderActions,
+      memory: selectAgentMemoryExcerpt(
+        state.agentMemory,
+        resources.agentMemoryAll,
+        resources.agentMemoryWindow
+      )
+    }
+  };
+}
+
+async function handleVerdictDecision(
+  stepContext: StepDecisionContext & { decision: Extract<Decision, { verdict: unknown }> },
+  resources: RunResources,
+  state: RunState
+): Promise<StepResult> {
+  const { step, observation, decision, observeMs, decideMs } = stepContext;
+
+  if (decision.verdict === "success") {
+    const verifyStartedAt = Date.now();
+    const verification = await verifyTask(resources.task, resources.browser);
+    const verifyMs = Date.now() - verifyStartedAt;
+    const verificationFeedback = verification.passed
+      ? undefined
+      : formatVerificationFeedback(verification);
+    const verificationOutcome = resolveVerificationOutcome({
+      kind: "verified-success",
+      passed: verification.passed,
+      verificationFailures: state.verificationFailures,
+      maxVerificationRetries: resources.maxVerificationRetries,
+      failureMessage: verificationFeedback
+    });
+    const developerScreenshot = shouldCaptureDeveloperScreenshot(
+      resources.screenshotPolicy,
+      observation,
+      decision,
+      undefined,
+      verification
+    )
+      ? await captureDeveloperScreenshot(resources.browser.page)
+      : undefined;
+
+    await resources.trace.append(
+      step,
+      observation,
+      decision,
+      { ok: true, costDelta: 0 },
+      {
+        observeMs,
+        decideMs,
+        executeMs: 0,
+        verifyMs
+      },
+      verification,
+      createVerdictAnalysis(
+        decision.verdict,
+        verification,
+        verificationOutcome.finalResult,
+        verificationOutcome.completionSource
+      ),
+      developerScreenshot
+    );
+    recordAgentMemoryEntry(resources, state, step, decision, verificationOutcome.finalResult, verificationFeedback);
+    applyVerificationOutcome(state, verificationOutcome);
+
+    return {
+      continueLoop: !verificationOutcome.endedBy,
+      settleAfterStep: false
+    };
+  }
+
+  await resources.trace.append(
+    step,
+    observation,
+    decision,
+    { ok: true, costDelta: 0 },
+    {
+      observeMs,
+      decideMs,
+      executeMs: 0,
+      verifyMs: 0
+    },
+    undefined,
+    createVerdictAnalysis(
+      decision.verdict,
+      undefined,
+      "failure",
+      "agent"
+    ),
+    shouldCaptureDeveloperScreenshot(resources.screenshotPolicy, observation, decision)
+      ? await captureDeveloperScreenshot(resources.browser.page)
+      : undefined
+  );
+  recordAgentMemoryEntry(resources, state, step, decision, "failure");
+  state.endedBy = decision.verdict;
+
+  return {
+    continueLoop: false,
+    settleAfterStep: false
+  };
+}
+
+async function handleActionDecision(
+  stepContext: StepDecisionContext & { decision: Extract<Decision, { action: unknown }> },
+  resources: RunResources,
+  state: RunState
+): Promise<StepResult> {
+  const { step, observation, decision, observeMs, decideMs } = stepContext;
+  const executeStartedAt = Date.now();
+
+  try {
+    if ("key" in decision.action && !allowsRawKeyActions(resources.task.mode)) {
+      throw new NotAllowedActionError("Raw key actions are not allowed in screenreader-strict mode.");
+    }
+
+    const execution = await resources.actuator.execute(decision.action, resources.task.input);
+    const executeMs = Date.now() - executeStartedAt;
+    if (execution.ok && execution.costDelta > 0 && actionCanChangeTaskState(decision.action)) {
+      state.successfulActionCount += 1;
+    }
+    if (execution.ok) {
+      state.pendingScreenReaderReadbacks = [
+        ...state.pendingScreenReaderReadbacks,
+        ...createScreenReaderReadbacks(execution)
+      ];
+    }
+
+    const shouldCheckVerifierAutoComplete = Boolean(
+      resources.verifierAutoComplete
+      && execution.ok
+      && execution.costDelta > 0
+      && actionCanChangeTaskState(decision.action)
+      && state.successfulActionCount > 0
+    );
+    const verifyStartedAt = shouldCheckVerifierAutoComplete ? Date.now() : 0;
+    const verification = shouldCheckVerifierAutoComplete
+      ? await verifyTask(resources.task, resources.browser)
+      : undefined;
+    const verifyMs = shouldCheckVerifierAutoComplete
+      ? Date.now() - verifyStartedAt
+      : 0;
+    const verificationOutcome = verification
+      ? resolveVerificationOutcome({
+        kind: "verifier-auto-complete",
+        passed: verification.passed,
+        verificationFailures: state.verificationFailures,
+        maxVerificationRetries: resources.maxVerificationRetries,
+        failureMessage: verification.passed ? undefined : formatVerificationFeedback(verification)
+      })
+      : undefined;
+    const autoCompleted = verificationOutcome?.finalResult === "success";
+    const developerScreenshot = shouldCaptureDeveloperScreenshot(
+      resources.screenshotPolicy,
+      observation,
+      decision,
+      execution,
+      autoCompleted ? verification : undefined,
+      autoCompleted
+    )
+      ? await captureDeveloperScreenshot(resources.browser.page)
+      : undefined;
+
+    await resources.trace.append(
+      step,
+      observation,
+      decision,
+      execution,
+      {
+        observeMs,
+        decideMs,
+        executeMs,
+        verifyMs
+      },
+      autoCompleted ? verification : undefined,
+      verificationOutcome?.shouldRecordVerdictAnalysis
+        ? createVerdictAnalysis(
+          undefined,
+          verification,
+          verificationOutcome.finalResult,
+          verificationOutcome.completionSource
+        )
+        : undefined,
+      developerScreenshot
+    );
+    recordAgentMemoryEntry(
+      resources,
+      state,
+      step,
+      decision,
+      verificationOutcome?.finalResult ?? "continued",
+      execution.error
+    );
+
+    if (verificationOutcome) {
+      applyVerificationOutcome(state, verificationOutcome);
+      if (verificationOutcome.endedBy) {
+        return {
+          continueLoop: false,
+          settleAfterStep: false
+        };
+      }
+    }
+
+    if (!execution.ok) {
+      return {
+        continueLoop: true,
+        settleAfterStep: false
+      };
+    }
+
+    if (shouldUseInteractiveObservation(decision)) {
+      resources.observer.prepareNextObservation?.("interactive");
+    }
+
+    return {
+      continueLoop: true,
+      settleAfterStep: true
+    };
+  } catch (error) {
+    const message = getErrorMessage(error);
+    const executeMs = Date.now() - executeStartedAt;
+    const failedExecution = {
+      ok: false,
+      error: message,
+      costDelta: 0
+    } as const;
+
+    await resources.trace.append(
+      step,
+      observation,
+      decision,
+      failedExecution,
+      {
+        observeMs,
+        decideMs,
+        executeMs,
+        verifyMs: 0
+      },
+      undefined,
+      undefined,
+      shouldCaptureDeveloperScreenshot(
+        resources.screenshotPolicy,
+        observation,
+        decision,
+        failedExecution
+      )
+        ? await captureDeveloperScreenshot(resources.browser.page)
+        : undefined
+    );
+    recordAgentMemoryEntry(resources, state, step, decision, "continued", message);
+
+    if (error instanceof NotAllowedActionError) {
+      state.endedBy = "error";
+      return {
+        continueLoop: false,
+        settleAfterStep: false
+      };
+    }
+
+    throw error;
+  }
+}
+
+function applyVerificationOutcome(
+  state: RunState,
+  verificationOutcome: ResolvedVerificationOutcome
+): void {
+  state.verificationFailures = verificationOutcome.nextVerificationFailures;
+  if (!verificationOutcome.endedBy) {
+    return;
+  }
+
+  state.endedBy = verificationOutcome.endedBy;
+  state.failureReasonOverride = verificationOutcome.failureReasonOverride;
+}
+
+function recordAgentMemoryEntry(
+  resources: Pick<RunResources, "agent">,
+  state: RunState,
+  step: number,
+  decision: Decision,
+  outcome: AgentMemoryEntry["outcome"],
+  note?: string
+): void {
+  const memoryEntry = createAgentMemoryEntry(step, decision, outcome, note);
+  state.agentMemory.push(memoryEntry);
+  resources.agent.recordStepOutcome?.(memoryEntry);
+}
+
+async function finalizeRun(
+  task: Task,
+  options: RunTaskOptions,
+  trace: TraceRecorder,
+  resources: Pick<RunResources, "agent"> | undefined,
+  cleanup: RunCleanupHandles,
+  state: RunState
+): Promise<TraceSession> {
+  if (cleanup.screenReaderRuntime) {
+    await cleanup.screenReaderRuntime.close();
+  }
+  if (cleanup.browser) {
+    await closeBrowserSession(cleanup.browser);
+  }
+
+  const session = await trace.finalize(state.endedBy ?? "error", state.failureReasonOverride);
+  if (options.includeExperienceSummary && resources?.agent.summarizeExperience) {
     try {
-      const experienceSummary = await agent.summarizeExperience({
+      const experienceSummary = await resources.agent.summarizeExperience({
         task,
         aggregate: session.aggregate,
         steps: session.steps
@@ -539,11 +632,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
     }
   }
 
-  if (unexpectedError) {
-    throw unexpectedError;
-  }
-
-  return session!;
+  return session;
 }
 
 function applyPendingScreenReaderReadbacks(
@@ -564,7 +653,7 @@ function applyPendingScreenReaderReadbacks(
 }
 
 function createScreenReaderReadbacks(
-  execution: import("@rawstep/core").ExecutionRecord
+  execution: ExecutionRecord
 ): ScreenReaderReadback[] {
   const readbacks: ScreenReaderReadback[] = [];
   if (execution.readResult) {
