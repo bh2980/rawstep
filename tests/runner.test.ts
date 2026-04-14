@@ -497,6 +497,7 @@ describe("runTask", () => {
   it("stops after two failed verified-success attempts", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verify-retries-"));
     let callCount = 0;
+    const recordedOutcomes: string[] = [];
 
     const session = await runTask(
       {
@@ -519,6 +520,9 @@ describe("runTask", () => {
               verdict: "success",
               rationale: `Attempt ${callCount}`
             };
+          },
+          recordStepOutcome: (entry) => {
+            recordedOutcomes.push(entry.outcome);
           }
         }
       }
@@ -529,11 +533,13 @@ describe("runTask", () => {
     expect(session.aggregate.failurePoint?.reason).toContain("Verified success was not reached");
     expect(session.steps).toHaveLength(2);
     expect(session.steps[1].verification?.passed).toBe(false);
+    expect(recordedOutcomes).toEqual(["continued", "failure"]);
   });
 
   it("applies a custom verification retry budget consistently across trace and memory", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verify-retries-custom-"));
     const seenHistorySources: string[][] = [];
+    const recordedOutcomes: string[] = [];
     let callCount = 0;
 
     const session = await runTask(
@@ -560,6 +566,9 @@ describe("runTask", () => {
               verdict: "success",
               rationale: `Attempt ${callCount}`
             };
+          },
+          recordStepOutcome: (entry) => {
+            recordedOutcomes.push(entry.outcome);
           }
         }
       }
@@ -573,6 +582,7 @@ describe("runTask", () => {
     expect(session.steps[2].verdictAnalysis?.finalResult).toBe("failure");
     expect(seenHistorySources[1]).toContain("continued");
     expect(seenHistorySources[2]).toContain("continued");
+    expect(recordedOutcomes).toEqual(["continued", "continued", "failure"]);
   });
 
   it("ends with an error when named input is used without opt-in input data", async () => {
@@ -1253,6 +1263,7 @@ describe("runTask", () => {
   it("keeps running when verifier auto-complete is enabled but verification still fails", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-complete-fail-"));
     let callCount = 0;
+    const recordedOutcomes: string[] = [];
 
     const session = await runTask(
       {
@@ -1283,14 +1294,19 @@ describe("runTask", () => {
               verdict: "stuck" as const,
               rationale: "This still is not verified."
             };
+          },
+          recordStepOutcome: (entry) => {
+            recordedOutcomes.push(entry.outcome);
           }
         }
       }
     );
 
+    expect(callCount).toBe(4);
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps.every((step) => step.verification === undefined)).toBe(true);
     expect(session.steps.slice(0, -1).every((step) => step.verdictAnalysis === undefined)).toBe(true);
+    expect(recordedOutcomes).toEqual(["continued", "continued", "continued", "failure"]);
   });
 
   it("can auto-complete using network-only verification rules", async () => {

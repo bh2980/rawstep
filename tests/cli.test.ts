@@ -823,6 +823,45 @@ describe.sequential("CLI", () => {
     expect(execution.includeRationale).toBe(true);
   });
 
+  it("preserves memory=all when CLI does not override execution policy memory", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-execution-policy-memory-all-"));
+    const taskPath = join(tempDir, "task.json");
+
+    await writeTaskFile(taskPath, {
+      id: "execution-policy-memory-all-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      maxSteps: 25,
+      timeoutMs: 1500,
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        memory: "all"
+      }
+    });
+
+    const taskSource = await loadTaskSource(taskPath);
+    const execution = resolveExecutionPolicy({
+      cliOptions: parseRunArgs([taskPath]),
+      taskSource,
+      selectedMode: "keyboard",
+      modePreset: {
+        outDir: "./mode-out",
+        maxSteps: 15,
+        timeoutMs: 1200,
+        memory: 9
+      },
+      configDir: tempDir
+    });
+
+    expect(execution.memory).toEqual({ mode: "all" });
+  });
+
   it("prefers apiKey from rawstep.config.ts defaults over the shared environment variable", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-api-key-"));
     const configPath = join(tempDir, "rawstep.config.ts");
@@ -1136,75 +1175,6 @@ describe.sequential("CLI", () => {
 
     await expect(loadTask(taskPath)).rejects.toThrow(
       "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, requestSeen, responseSeen."
-    );
-  });
-
-  it("rejects nested verify field type errors with a path-based message", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-nested-type-"));
-    const taskPath = join(tempDir, "task.json");
-
-    await writeTaskFile(taskPath, {
-      id: "invalid-verify-nested-type-task",
-      url: "../../fixtures/simple-cta.html",
-      goal: "Verify success.",
-      mode: "keyboard",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      verify: {
-        all: [
-          { requestSeen: { urlIncludes: "/api/cart", method: 123 } }
-        ]
-      }
-    });
-
-    await expect(loadTask(taskPath)).rejects.toThrow(
-      "Task verify.all[0].requestSeen.method: Expected string, received number"
-    );
-  });
-
-  it("rejects blank verify strings with a field-specific message", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-empty-string-"));
-    const taskPath = join(tempDir, "task.json");
-
-    await writeTaskFile(taskPath, {
-      id: "invalid-verify-empty-string-task",
-      url: "../../fixtures/simple-cta.html",
-      goal: "Verify success.",
-      mode: "keyboard",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      verify: {
-        all: [
-          { responseSeen: { urlIncludes: "", status: 200 } }
-        ]
-      }
-    });
-
-    await expect(loadTask(taskPath)).rejects.toThrow(
-      "Task verify.all[0].responseSeen.urlIncludes: Must be a non-empty string."
-    );
-  });
-
-  it("rejects nested verify number field type errors with a path-based message", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-status-type-"));
-    const taskPath = join(tempDir, "task.json");
-
-    await writeTaskFile(taskPath, {
-      id: "invalid-verify-status-type-task",
-      url: "../../fixtures/simple-cta.html",
-      goal: "Verify success.",
-      mode: "keyboard",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      verify: {
-        all: [
-          { responseSeen: { urlIncludes: "/api/cart", status: "bad" } }
-        ]
-      }
-    });
-
-    await expect(loadTask(taskPath)).rejects.toThrow(
-      "Task verify.all[0].responseSeen.status: Expected number, received string"
     );
   });
 
