@@ -4,6 +4,9 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "build": "pnpm -r build",
+    "demo:build": "pnpm --filter @rawstep/demo build",
+    "demo:dev": "pnpm --filter @rawstep/demo dev",
+    "demo:preview": "pnpm --filter @rawstep/demo preview",
     "test": "vitest run",
     "rawstep": "tsx --tsconfig tsconfig.json apps/cli/src/index.ts"
   },
