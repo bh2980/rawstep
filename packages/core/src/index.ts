@@ -201,9 +201,13 @@ export type ScreenReaderSemanticAction =
   | "read.lastSpokenPhrase"
   | "read.spokenPhraseLog"
   | "clear.itemTextLog"
-  | "clear.spokenPhraseLog"
-  | "catalog"
-  | "rawPerform";
+  | "clear.spokenPhraseLog";
+
+export type PromptObjectSchema<TOutput extends Record<string, unknown> = Record<string, unknown>> = {
+  safeParse(value: unknown):
+    | { success: true; data: TOutput }
+    | { success: false; error?: unknown };
+};
 
 type ConfiguredKeyboardActionShape = {
   key: AllowedKey;
@@ -239,32 +243,58 @@ type ConfiguredScreenReaderActionShape =
   | { semantic: "read.lastSpokenPhrase"; hint?: string }
   | { semantic: "read.spokenPhraseLog"; hint?: string }
   | { semantic: "clear.itemTextLog"; hint?: string }
-  | { semantic: "clear.spokenPhraseLog"; hint?: string }
-  | { semantic: "catalog"; id: string; hint?: string }
-  | { semantic: "rawPerform"; hint?: string };
+  | { semantic: "clear.spokenPhraseLog"; hint?: string };
+
+type ConfiguredUnstableScreenReaderActionShape =
+  | {
+      unstable: "catalog";
+      id: string;
+      hint: string;
+      argsSchema: PromptObjectSchema<Record<string, unknown>>;
+      argsExample: Record<string, unknown>;
+    }
+  | {
+      unstable: "rawPerform";
+      hint: string;
+      payloadSchema: PromptObjectSchema<Record<string, unknown>>;
+      payloadExample: Record<string, unknown>;
+    };
 
 declare const configuredScreenReaderActionBrand: unique symbol;
 
-export type ConfiguredScreenReaderAction = ConfiguredScreenReaderActionShape & {
+export type ConfiguredStableScreenReaderAction = ConfiguredScreenReaderActionShape & {
   readonly [configuredScreenReaderActionBrand]: true;
 };
 
+declare const configuredUnstableScreenReaderActionBrand: unique symbol;
+
+export type ConfiguredUnstableScreenReaderAction = ConfiguredUnstableScreenReaderActionShape & {
+  readonly [configuredUnstableScreenReaderActionBrand]: true;
+};
+
+export type ConfiguredScreenReaderAction =
+  | ConfiguredStableScreenReaderAction
+  | ConfiguredUnstableScreenReaderAction;
+
 export type ResolvedPromptScreenReaderAction =
   | {
-      semantic: Exclude<ScreenReaderSemanticAction, "catalog" | "rawPerform">;
+      semantic: ScreenReaderSemanticAction;
       hint?: string;
       runtimeAction: AllowedScreenReaderAction;
     }
   | {
-      semantic: "catalog";
+      unstable: "catalog";
       id: string;
-      argsHint?: string;
-      hint?: string;
+      hint: string;
+      argsSchema: PromptObjectSchema<Record<string, unknown>>;
+      argsExample: Record<string, unknown>;
       runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>;
     }
   | {
-      semantic: "rawPerform";
-      hint?: string;
+      unstable: "rawPerform";
+      hint: string;
+      payloadSchema: PromptObjectSchema<Record<string, unknown>>;
+      payloadExample: Record<string, unknown>;
       runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "raw" }>;
     };
 

@@ -36,7 +36,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   const candidate = raw as Record<string, unknown>;
   if (candidate.allowedScreenReaderCommands !== undefined) {
     throw new Error(
-      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions with entries like { semantic: "next" } or { semantic: "catalog", id: "keyboard.readCurrentLine" }.`
+      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions with entries like sr.next() or srUnstable.catalog(...).`
     );
   }
   if (candidate.run !== undefined || candidate.agent !== undefined) {

@@ -47,7 +47,8 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   await writeFile(
     configPath,
     [
-      'import { defineConfig, kb, sr } from "@rawstep/cli/config";',
+      'import { defineConfig, kb, sr, srUnstable } from "@rawstep/cli/config";',
+      'import { z } from "zod";',
       "",
       "export default defineConfig(",
       body,
@@ -1613,8 +1614,12 @@ describe.sequential("CLI", () => {
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       allowedScreenReaderActions: [
-        { semantic: "heading.next" },
-        { semantic: "catalog", id: "commands.notReal" }
+        sr.heading.next(),
+        srUnstable.catalog("commands.notReal", {
+          hint: "Attempt an unsupported command.",
+          argsSchema: z.object({ index: z.number().int() }),
+          argsExample: { index: 1 }
+        })
       ]
     }
   }
@@ -1627,7 +1632,7 @@ describe.sequential("CLI", () => {
       configPath,
       "--mode",
       "screenreader-hybrid"
-    ]))).rejects.toThrow('does not support action catalog:commands.notReal');
+    ]))).rejects.toThrow('does not support action srUnstable.catalog("commands.notReal")');
   });
 
   it("rejects invalid screen reader CLI overrides for the selected mode and backend", async () => {
@@ -1696,7 +1701,7 @@ describe.sequential("CLI", () => {
       "Tab,Enter"
     ]))).rejects.toThrow("allowedKeys is not allowed in screenreader-strict mode");
 
-    await expect(resolveRunOptions(parseRunArgs([
+    expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -1706,7 +1711,7 @@ describe.sequential("CLI", () => {
       "guidepup-virtual",
       "--allowed-screen-reader-actions",
       "heading.next,catalog:commands.notReal"
-    ]))).rejects.toThrow('does not support action catalog:commands.notReal');
+    ])).toThrow("--allowed-screen-reader-actions[1] must be one of");
   });
 
   it("rejects missing memory when neither config nor CLI provides it", async () => {

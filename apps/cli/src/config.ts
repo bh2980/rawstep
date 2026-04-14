@@ -32,6 +32,7 @@ import {
 } from "./keyboard-actions";
 import {
   sr,
+  srUnstable,
   resolveConfiguredScreenReaderActions
 } from "./screenreader-actions";
 import { configRootSchema, parseProjectDefaultsObject, parseTaskConfigObject } from "./schema";
@@ -300,7 +301,8 @@ async function loadTsConfigModule(configPath: string): Promise<unknown> {
           return config;
         },
         kb,
-        sr
+        sr,
+        srUnstable
       };
     }
 

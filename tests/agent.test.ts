@@ -20,6 +20,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { clearPromptTemplateCache, loadPromptTemplates } from "../packages/agent/src/prompt-loader";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -346,7 +347,21 @@ describe("agent helpers", () => {
     const pressDecision = parseDecision('{"action":"sr.press","key":"Enter"}');
     const typeDecision = parseDecision('{"action":"sr.type","text":"hello"}');
     const clickDecision = parseDecision('{"action":"sr.click","button":"left","clickCount":2}');
-    const rawDecision = parseDecision('{"action":"sr.rawPerform","payload":{"characters":"x"}}');
+    const rawDecision = parseDecision(
+      '{"action":"srUnstable.rawPerform","payload":{"characters":"x"}}',
+      undefined,
+      [{
+        unstable: "rawPerform",
+        hint: "Execute a raw payload.",
+        payloadSchema: z.object({
+          characters: z.string().min(1)
+        }),
+        payloadExample: {
+          characters: "x"
+        },
+        runtimeAction: { kind: "invoke", method: "perform", source: "raw" }
+      }]
+    );
 
     expect("action" in pressDecision).toBe(true);
     if ("action" in pressDecision && "srAction" in pressDecision.action) {
@@ -596,7 +611,7 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- sr.read.itemText");
       expect(promptParts[0].text).toContain("- sr.clear.itemTextLog");
       expect(promptParts[0].text).toContain("- sr.heading.next");
-      expect(promptParts[0].text).toContain("- sr.rawPerform");
+      expect(promptParts[0].text).not.toContain("srUnstable.rawPerform");
     }
   });
 
@@ -831,7 +846,7 @@ describe("agent helpers", () => {
 
     expect(prompt).toContain('{"action":"sr.press","key":"Enter"}');
     expect(prompt).toContain('{"action":"sr.type","text":"<text>"}');
-    expect(prompt).toContain('{"action":"sr.rawPerform","payload":{"<key>":"<value>"}}');
+    expect(prompt).not.toContain("srUnstable.rawPerform");
   });
 
   it("does not invent guidance when hints are absent", async () => {

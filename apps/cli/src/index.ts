@@ -79,7 +79,7 @@ export async function runCli(
 export { loadTask } from "./task-file";
 export { parseRunArgs } from "./args";
 export { loadConfig, resolveRunOptions } from "./config";
-export { defineConfig, kb, sr, type RawstepConfig } from "./config-define";
+export { defineConfig, kb, sr, srUnstable, type RawstepConfig } from "./config-define";
 
 function createAgent(
   mode: UserModel,

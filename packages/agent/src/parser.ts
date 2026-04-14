@@ -221,28 +221,22 @@ function parseStringActionCandidate(
     return parseClickPromptActionCandidate(candidate);
   }
 
-  if (value.startsWith("sr.catalog.")) {
-    return parseExplicitCatalogCandidate(value, candidate);
-  }
-
-  if (value === "sr.rawPerform") {
-    return parseRawPerformCandidate(candidate);
-  }
-
   return { status: "malformed" };
 }
 
 function parseResolvedPromptScreenReaderActionCandidate(
   promptAction: ResolvedPromptScreenReaderAction,
   candidate: Record<string, unknown>
-):
+): 
   | { status: "ok"; action: Action }
   | { status: "malformed" } {
+  if ("unstable" in promptAction) {
+    return promptAction.unstable === "catalog"
+      ? parseCatalogPromptActionCandidate(promptAction, candidate)
+      : parseRawPerformCandidate(promptAction, candidate);
+  }
+
   switch (promptAction.semantic) {
-    case "catalog":
-      return parseCatalogPromptActionCandidate(promptAction, candidate);
-    case "rawPerform":
-      return parseRawPerformCandidate(candidate);
     case "press":
       return parsePressPromptActionCandidate(candidate);
     case "type":
@@ -262,7 +256,7 @@ function parseResolvedPromptScreenReaderActionCandidate(
 }
 
 function parseCatalogPromptActionCandidate(
-  promptAction: Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }>,
+  promptAction: Extract<ResolvedPromptScreenReaderAction, { unstable: "catalog" }>,
   candidate: Record<string, unknown>
 ):
   | { status: "ok"; action: Action }
@@ -273,6 +267,11 @@ function parseCatalogPromptActionCandidate(
 
   const args = candidate.args === undefined ? undefined : parseRecord(candidate.args);
   if (candidate.args !== undefined && !args) {
+    return { status: "malformed" };
+  }
+
+  const parsedArgs = promptAction.argsSchema.safeParse(args ?? {});
+  if (!parsedArgs.success) {
     return { status: "malformed" };
   }
 
@@ -285,43 +284,7 @@ function parseCatalogPromptActionCandidate(
         command: {
           source: "catalog",
           id: promptAction.runtimeAction.id,
-          ...(args ? { args } : {})
-        }
-      }
-    }
-  };
-}
-
-function parseExplicitCatalogCandidate(
-  value: string,
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "args"])) {
-    return { status: "malformed" };
-  }
-
-  const id = value.slice("sr.catalog.".length).trim();
-  if (!id) {
-    return { status: "malformed" };
-  }
-
-  const args = candidate.args === undefined ? undefined : parseRecord(candidate.args);
-  if (candidate.args !== undefined && !args) {
-    return { status: "malformed" };
-  }
-
-  return {
-    status: "ok",
-    action: {
-      srAction: {
-        kind: "invoke",
-        method: "perform",
-        command: {
-          source: "catalog",
-          id,
-          ...(args ? { args } : {})
+          args: parsedArgs.data
         }
       }
     }
@@ -329,6 +292,7 @@ function parseExplicitCatalogCandidate(
 }
 
 function parseRawPerformCandidate(
+  promptAction: Extract<ResolvedPromptScreenReaderAction, { unstable: "rawPerform" }>,
   candidate: Record<string, unknown>
 ):
   | { status: "ok"; action: Action }
@@ -342,13 +306,18 @@ function parseRawPerformCandidate(
     return { status: "malformed" };
   }
 
+  const parsedPayload = promptAction.payloadSchema.safeParse(payload);
+  if (!parsedPayload.success) {
+    return { status: "malformed" };
+  }
+
   return {
     status: "ok",
     action: {
       srAction: {
         kind: "invoke",
         method: "perform",
-        command: { source: "raw", payload }
+        command: { source: "raw", payload: parsedPayload.data }
       }
     }
   };

@@ -1,4 +1,5 @@
-import { defineConfig, kb, sr } from "../apps/cli/src/config-define";
+import { defineConfig, kb, sr, srUnstable } from "../apps/cli/src/config-define";
+import { z } from "zod";
 
 defineConfig({
   version: 1,
@@ -35,7 +36,14 @@ defineConfig({
       allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         sr.heading.next({ hint: "Move to the next heading." }),
-        sr.click()
+        sr.click(),
+        srUnstable.catalog("commands.jumpToErrorMessageElement", {
+          hint: "Move to the current error message.",
+          argsSchema: z.object({
+            index: z.number().int().nonnegative()
+          }),
+          argsExample: { index: 1 }
+        })
       ]
     }
   }
@@ -65,7 +73,37 @@ defineConfig({
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
       // @ts-expect-error raw object literals are not part of the public config API
-      allowedScreenReaderActions: [{ semantic: "catalog", id: "commands.moveToNextHeading" }]
+      allowedScreenReaderActions: [{
+        unstable: "catalog",
+        id: "commands.moveToNextHeading",
+        hint: "Move to the next heading.",
+        argsSchema: z.object({ index: z.number() }),
+        argsExample: { index: 1 }
+      }]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./hybrid-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [kb.tab()],
+      allowedScreenReaderActions: [
+        srUnstable.catalog("commands.jumpToErrorMessageElement", {
+          hint: "Move to the current error message.",
+          argsSchema: z.object({
+            index: z.number().int().nonnegative()
+          }),
+          // @ts-expect-error argsExample must match argsSchema
+          argsExample: { index: "wrong" }
+        })
+      ]
     }
   }
 });

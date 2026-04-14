@@ -27,12 +27,12 @@ export function getBuiltInScreenReaderSemanticByCatalogId(
 export function formatResolvedPromptScreenReaderActionName(
   action: ResolvedPromptScreenReaderAction
 ): string {
-  if (action.semantic === "catalog") {
-    return `sr.catalog.${action.id}`;
+  if ("unstable" in action && action.unstable === "catalog") {
+    return `srUnstable.catalog.${action.id}`;
   }
 
-  if (action.semantic === "rawPerform") {
-    return "sr.rawPerform";
+  if ("unstable" in action && action.unstable === "rawPerform") {
+    return "srUnstable.rawPerform";
   }
 
   return `sr.${action.semantic}`;
@@ -51,13 +51,13 @@ export function formatAllowedScreenReaderActionPromptName(
       : "sr.clear.spokenPhraseLog";
   }
 
-  if (action.method === "perform") {
+  if (action.kind === "invoke" && action.method === "perform") {
     if (action.source === "raw") {
-      return "sr.rawPerform";
+      return "";
     }
 
     const semantic = getBuiltInScreenReaderSemanticByCatalogId(action.id);
-    return semantic ? `sr.${semantic}` : `sr.catalog.${action.id}`;
+    return semantic ? `sr.${semantic}` : "";
   }
 
   return `sr.${action.method}`;

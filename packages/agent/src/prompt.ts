@@ -353,10 +353,6 @@ function buildScreenReaderActionExampleSnippets(
   return dedupe(snippets);
 }
 
-function stringifyActionExample(action: string, includeRationale: boolean): string {
-  return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
-}
-
 function buildScreenReaderActionExampleSnippet(
   action: ResolvedPromptScreenReaderAction,
   includeRationale: boolean
@@ -366,6 +362,14 @@ function buildScreenReaderActionExampleSnippet(
     ? { action: label, rationale: "..." }
     : { action: label };
 
+  if ("unstable" in action) {
+    if (action.unstable === "catalog") {
+      return JSON.stringify({ ...base, args: action.argsExample });
+    }
+
+    return JSON.stringify({ ...base, payload: action.payloadExample });
+  }
+
   switch (action.semantic) {
     case "press":
       return JSON.stringify({ ...base, key: "Enter" });
@@ -373,30 +377,9 @@ function buildScreenReaderActionExampleSnippet(
       return JSON.stringify({ ...base, text: "<text>" });
     case "click":
       return JSON.stringify({ ...base, button: "left", clickCount: 1 });
-    case "catalog":
-      return JSON.stringify(action.argsHint
-        ? { ...base, args: buildCatalogArgsExample(action.argsHint) }
-        : base);
-    case "rawPerform":
-      return JSON.stringify({ ...base, payload: { "<key>": "<value>" } });
     default:
       return JSON.stringify(base);
   }
-}
-
-function buildCatalogArgsExample(argsHint: string): Record<string, unknown> {
-  const normalizedHint = argsHint.replace(/^args:\s*/i, "").trim();
-  const numericMatch = normalizedHint.match(/"([^"]+)":\s*number/i);
-  if (numericMatch?.[1]) {
-    return { [numericMatch[1]]: 1 };
-  }
-
-  const stringMatch = normalizedHint.match(/"([^"]+)":\s*string/i);
-  if (stringMatch?.[1]) {
-    return { [stringMatch[1]]: "<value>" };
-  }
-
-  return { "<arg>": "<value>" };
 }
 
 function buildOutputExamples(snippets: readonly string[]): string {
@@ -553,45 +536,43 @@ function dedupe<T>(items: T[]): T[] {
 export function buildFallbackPromptScreenReaderActions(
   allowedActions: readonly AllowedScreenReaderAction[]
 ): readonly ResolvedPromptScreenReaderAction[] {
-  return allowedActions.map((action) => {
+  const promptActions: ResolvedPromptScreenReaderAction[] = [];
+
+  for (const action of allowedActions) {
     if (action.kind === "read") {
-      return {
-        semantic: `read.${action.method}` as Extract<ResolvedPromptScreenReaderAction["semantic"], `read.${string}`>,
+      promptActions.push({
+        semantic: `read.${action.method}` as const,
         runtimeAction: action
-      };
+      });
+      continue;
     }
 
     if (action.kind === "maintenance") {
-      return {
+      promptActions.push({
         semantic: action.method === "clearItemTextLog" ? "clear.itemTextLog" : "clear.spokenPhraseLog",
         runtimeAction: action
-      };
+      });
+      continue;
     }
 
-    if (action.method === "perform") {
+    if (action.kind === "invoke" && action.method === "perform") {
       if (action.source === "catalog") {
         const builtinSemantic = getBuiltInScreenReaderSemanticByCatalogId(action.id);
-        return builtinSemantic
-          ? {
-              semantic: builtinSemantic,
-              runtimeAction: action
-            }
-          : {
-              semantic: "catalog",
-              id: action.id,
-              runtimeAction: action
-            };
+        if (builtinSemantic) {
+          promptActions.push({
+            semantic: builtinSemantic,
+            runtimeAction: action
+          });
+        }
       }
-
-      return {
-        semantic: "rawPerform",
-        runtimeAction: action
-      };
+      continue;
     }
 
-    return {
+    promptActions.push({
       semantic: action.method,
       runtimeAction: action
-    };
-  });
+    });
+  }
+
+  return promptActions;
 }

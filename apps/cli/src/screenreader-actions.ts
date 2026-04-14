@@ -2,17 +2,33 @@ import {
   supportsScreenReaderAction,
   type AllowedScreenReaderAction,
   type ConfiguredScreenReaderAction,
+  type ConfiguredStableScreenReaderAction,
+  type ConfiguredUnstableScreenReaderAction,
+  type PromptObjectSchema,
   type ResolvedPromptScreenReaderAction,
   type ScreenReaderCapabilities,
   type ScreenReaderSemanticAction
 } from "@rawstep/core";
 import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
+import { z } from "zod";
 
 type ScreenReaderActionOptions = {
   hint?: string;
 };
 
-type ConfiguredScreenReaderActionShape = Omit<ConfiguredScreenReaderAction, never>;
+type ConfiguredStableScreenReaderActionShape = Omit<ConfiguredStableScreenReaderAction, never>;
+
+type ScreenReaderUnstableCatalogOptions<TSchema extends z.ZodObject<any>> = {
+  hint: string;
+  argsSchema: TSchema;
+  argsExample: z.input<TSchema>;
+};
+
+type ScreenReaderUnstableRawPerformOptions<TSchema extends z.ZodObject<any>> = {
+  hint: string;
+  payloadSchema: TSchema;
+  payloadExample: z.input<TSchema>;
+};
 
 const SIMPLE_INVOKE_SEMANTICS = new Set([
   "next",
@@ -81,9 +97,7 @@ const SCREEN_READER_SEMANTIC_TOKENS = [
   "read.lastSpokenPhrase",
   "read.spokenPhraseLog",
   "clear.itemTextLog",
-  "clear.spokenPhraseLog",
-  "catalog:<id>",
-  "rawPerform"
+  "clear.spokenPhraseLog"
 ] as const;
 
 const SCREEN_READER_SEMANTIC_TOKEN_LABELS = SCREEN_READER_SEMANTIC_TOKENS.join(", ");
@@ -114,13 +128,32 @@ export const sr = {
   clear: {
     itemTextLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.itemTextLog", options),
     spokenPhraseLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.spokenPhraseLog", options)
-  },
-  catalog: (id: string, options?: ScreenReaderActionOptions) =>
-    buildConfiguredScreenReaderAction("catalog", options, id),
-  rawPerform: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("rawPerform", options)
+  }
+} as const;
+
+export const srUnstable = {
+  catalog: <TSchema extends z.ZodObject<any>>(
+    id: string,
+    options: ScreenReaderUnstableCatalogOptions<TSchema>
+  ): ConfiguredUnstableScreenReaderAction =>
+    buildConfiguredUnstableCatalogAction(
+      id,
+      options.hint,
+      options.argsSchema,
+      options.argsExample as Record<string, unknown>
+    ),
+  rawPerform: <TSchema extends z.ZodObject<any>>(
+    options: ScreenReaderUnstableRawPerformOptions<TSchema>
+  ): ConfiguredUnstableScreenReaderAction =>
+    buildConfiguredUnstableRawPerformAction(
+      options.hint,
+      options.payloadSchema,
+      options.payloadExample as Record<string, unknown>
+    )
 } as const;
 
 export type ScreenReaderHelperApi = typeof sr;
+export type ScreenReaderUnstableHelperApi = typeof srUnstable;
 
 export function parseConfiguredScreenReaderActions(
   value: unknown,
@@ -173,30 +206,51 @@ export function resolveConfiguredScreenReaderActions(
 }
 
 export function formatConfiguredScreenReaderAction(action: ConfiguredScreenReaderAction): string {
-  if (action.semantic === "catalog") {
-    return `catalog:${action.id}`;
+  if ("unstable" in action) {
+    return action.unstable === "catalog"
+      ? `srUnstable.catalog(${JSON.stringify(action.id)})`
+      : "srUnstable.rawPerform(...)";
   }
 
   return action.semantic;
 }
 
 function buildConfiguredScreenReaderAction(
-  semantic: ConfiguredScreenReaderActionShape["semantic"],
-  options?: ScreenReaderActionOptions,
-  id?: string
-): ConfiguredScreenReaderAction {
-  const base = id === undefined
-    ? {
-        semantic,
-        ...(options?.hint ? { hint: options.hint } : {})
-      }
-    : {
-        semantic,
-        id,
-        ...(options?.hint ? { hint: options.hint } : {})
-      };
+  semantic: ConfiguredStableScreenReaderActionShape["semantic"],
+  options?: ScreenReaderActionOptions
+): ConfiguredStableScreenReaderAction {
+  return {
+    semantic,
+    ...(options?.hint ? { hint: options.hint } : {})
+  } as ConfiguredStableScreenReaderAction;
+}
 
-  return base as ConfiguredScreenReaderAction;
+function buildConfiguredUnstableCatalogAction(
+  id: string,
+  hint: string,
+  argsSchema: PromptObjectSchema<Record<string, unknown>>,
+  argsExample: Record<string, unknown>
+): ConfiguredUnstableScreenReaderAction {
+  return {
+    unstable: "catalog",
+    id,
+    hint,
+    argsSchema,
+    argsExample
+  } as ConfiguredUnstableScreenReaderAction;
+}
+
+function buildConfiguredUnstableRawPerformAction(
+  hint: string,
+  payloadSchema: PromptObjectSchema<Record<string, unknown>>,
+  payloadExample: Record<string, unknown>
+): ConfiguredUnstableScreenReaderAction {
+  return {
+    unstable: "rawPerform",
+    hint,
+    payloadSchema,
+    payloadExample
+  } as ConfiguredUnstableScreenReaderAction;
 }
 
 function parseConfiguredScreenReaderAction(
@@ -204,10 +258,27 @@ function parseConfiguredScreenReaderAction(
   label: string
 ): ConfiguredScreenReaderAction {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} must be an object like { semantic: "next" }.`);
+    throw new Error(`${label} must be an object like sr.next() or srUnstable.catalog(...).`);
   }
 
   const candidate = value as Record<string, unknown>;
+  if (candidate.unstable === "catalog") {
+    ensureOnlyKeys(candidate, label, ["unstable", "id", "hint", "argsSchema", "argsExample"]);
+    const id = parseNonEmptyString(candidate.id, `${label}.id`);
+    const hint = parseNonEmptyString(candidate.hint, `${label}.hint`);
+    const argsSchema = parsePromptObjectSchema(candidate.argsSchema, `${label}.argsSchema`);
+    const argsExample = parseSchemaBoundObjectExample(argsSchema, candidate.argsExample, `${label}.argsExample`);
+    return buildConfiguredUnstableCatalogAction(id, hint, argsSchema, argsExample);
+  }
+
+  if (candidate.unstable === "rawPerform") {
+    ensureOnlyKeys(candidate, label, ["unstable", "hint", "payloadSchema", "payloadExample"]);
+    const hint = parseNonEmptyString(candidate.hint, `${label}.hint`);
+    const payloadSchema = parsePromptObjectSchema(candidate.payloadSchema, `${label}.payloadSchema`);
+    const payloadExample = parseSchemaBoundObjectExample(payloadSchema, candidate.payloadExample, `${label}.payloadExample`);
+    return buildConfiguredUnstableRawPerformAction(hint, payloadSchema, payloadExample);
+  }
+
   const semantic = candidate.semantic;
   if (!isScreenReaderSemanticAction(semantic)) {
     throw new Error(`${label}.semantic must be one of ${SCREEN_READER_SEMANTIC_TOKEN_LABELS}.`);
@@ -217,15 +288,6 @@ function parseConfiguredScreenReaderAction(
     ? undefined
     : parseOptionalHint(candidate.hint, `${label}.hint`);
 
-  if (semantic === "catalog") {
-    ensureOnlyKeys(candidate, label, ["semantic", "id", "hint"]);
-    return buildConfiguredScreenReaderAction(
-      semantic,
-      hint ? { hint } : undefined,
-      parseNonEmptyString(candidate.id, `${label}.id`)
-    );
-  }
-
   ensureOnlyKeys(candidate, label, ["semantic", "hint"]);
   return buildConfiguredScreenReaderAction(semantic, hint ? { hint } : undefined);
 }
@@ -234,20 +296,7 @@ function parseConfiguredScreenReaderActionToken(
   token: string,
   label: string
 ): ConfiguredScreenReaderAction {
-  if (token === "rawPerform") {
-    return buildConfiguredScreenReaderAction("rawPerform");
-  }
-
-  if (token.startsWith("catalog:")) {
-    const id = token.slice("catalog:".length).trim();
-    if (!id) {
-      throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_TOKEN_LABELS}.`);
-    }
-
-    return buildConfiguredScreenReaderAction("catalog", undefined, id);
-  }
-
-  if (!isScreenReaderSemanticAction(token) || token === "catalog") {
+  if (!isScreenReaderSemanticAction(token)) {
     throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_TOKEN_LABELS}.`);
   }
 
@@ -260,21 +309,23 @@ function resolvePromptAction(
   capabilities: ScreenReaderCapabilities
 ): ResolvedPromptScreenReaderAction {
   const runtimeAction = resolveRuntimeAction(action, backendId, capabilities);
-  if (action.semantic === "catalog") {
-    const commandMetadata = capabilities.performCatalog.find((command) => command.id === action.id);
+  if ("unstable" in action && action.unstable === "catalog") {
     return {
-      semantic: "catalog",
+      unstable: "catalog",
       id: action.id,
-      ...(commandMetadata?.argsHint ? { argsHint: commandMetadata.argsHint } : {}),
-      ...(action.hint ? { hint: action.hint } : {}),
+      hint: action.hint,
+      argsSchema: action.argsSchema,
+      argsExample: action.argsExample,
       runtimeAction: runtimeAction as Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>
     };
   }
 
-  if (action.semantic === "rawPerform") {
+  if ("unstable" in action && action.unstable === "rawPerform") {
     return {
-      semantic: "rawPerform",
-      ...(action.hint ? { hint: action.hint } : {}),
+      unstable: "rawPerform",
+      hint: action.hint,
+      payloadSchema: action.payloadSchema,
+      payloadExample: action.payloadExample,
       runtimeAction: runtimeAction as Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "raw" }>
     };
   }
@@ -293,13 +344,13 @@ function resolveRuntimeAction(
 ): AllowedScreenReaderAction {
   const runtimeAction = toRuntimeAction(action, backendId);
 
-  if (action.semantic === "catalog") {
+  if ("unstable" in action && action.unstable === "catalog") {
     if (!hasCatalogId(capabilities, action.id)) {
       throw new Error(`Screen reader backend "${backendId}" does not support action ${formatConfiguredScreenReaderAction(action)}.`);
     }
   }
 
-  if (action.semantic === "rawPerform" && !capabilities.invoke.supportsRawPerform) {
+  if ("unstable" in action && action.unstable === "rawPerform" && !capabilities.invoke.supportsRawPerform) {
     throw new Error(`Screen reader backend "${backendId}" does not support action ${formatConfiguredScreenReaderAction(action)}.`);
   }
 
@@ -314,6 +365,23 @@ function toRuntimeAction(
   action: ConfiguredScreenReaderAction,
   backendId: ScreenReaderBackendId
 ): AllowedScreenReaderAction {
+  if ("unstable" in action) {
+    if (action.unstable === "catalog") {
+      return {
+        kind: "invoke",
+        method: "perform",
+        source: "catalog",
+        id: action.id
+      };
+    }
+
+    return {
+      kind: "invoke",
+      method: "perform",
+      source: "raw"
+    };
+  }
+
   if (SIMPLE_INVOKE_SEMANTICS.has(action.semantic as Extract<ScreenReaderSemanticAction, "next" | "previous" | "act" | "interact" | "stopInteracting" | "press" | "type" | "click">)) {
     return {
       kind: "invoke",
@@ -332,23 +400,6 @@ function toRuntimeAction(
     return {
       kind: "maintenance",
       method: action.semantic === "clear.itemTextLog" ? "clearItemTextLog" : "clearSpokenPhraseLog"
-    };
-  }
-
-  if (action.semantic === "catalog") {
-    return {
-      kind: "invoke",
-      method: "perform",
-      source: "catalog",
-      id: action.id
-    };
-  }
-
-  if (action.semantic === "rawPerform") {
-    return {
-      kind: "invoke",
-      method: "perform",
-      source: "raw"
     };
   }
 
@@ -482,8 +533,39 @@ function isScreenReaderSemanticAction(value: unknown): value is ScreenReaderSema
       "form.next",
       "form.previous",
       ...READ_SEMANTICS,
-      ...CLEAR_SEMANTICS,
-      "catalog",
-      "rawPerform"
+      ...CLEAR_SEMANTICS
     ].includes(value as ScreenReaderSemanticAction);
+}
+
+function parsePromptObjectSchema(
+  value: unknown,
+  label: string
+): PromptObjectSchema<Record<string, unknown>> {
+  if (
+    typeof value !== "object"
+    || value === null
+    || Array.isArray(value)
+    || typeof (value as { safeParse?: unknown }).safeParse !== "function"
+  ) {
+    throw new Error(`${label} must be a Zod object schema.`);
+  }
+
+  return value as PromptObjectSchema<Record<string, unknown>>;
+}
+
+function parseSchemaBoundObjectExample(
+  schema: PromptObjectSchema<Record<string, unknown>>,
+  value: unknown,
+  label: string
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(`${label} must satisfy the provided schema.`);
+  }
+
+  return parsed.data;
 }

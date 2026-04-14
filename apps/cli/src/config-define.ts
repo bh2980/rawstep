@@ -3,7 +3,7 @@ import type { ConfiguredKeyboardAction, ConfiguredScreenReaderAction, Screenshot
 import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
 import type { MemorySetting } from "./shared";
 import { kb } from "./keyboard-actions";
-import { sr } from "./screenreader-actions";
+import { sr, srUnstable } from "./screenreader-actions";
 
 type SharedModeConfig = {
   outDir: string;
@@ -66,3 +66,4 @@ export function defineConfig<const TConfig extends RawstepConfig>(config: TConfi
 
 export { kb };
 export { sr };
+export { srUnstable };
