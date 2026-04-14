@@ -1,4 +1,5 @@
 import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
+import { buildKeyboardActionPlan } from "@rawstep/action-catalog";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
@@ -73,18 +74,21 @@ export class LLMAgent implements Agent {
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
     const taskInputKeys = this.taskInput ? Object.keys(this.taskInput) : undefined;
+    const resolvedPromptKeyboardActions = this.keyboardActions
+      ?? ctx.keyboardActions
+      ?? buildKeyboardActionPlan().descriptors;
     const resolvedPromptScreenReaderActions = this.screenReaderActions
       ?? ctx.screenReaderActions
       ?? [];
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
-      ctx.allowedKeys,
+      resolvedPromptKeyboardActions,
       resolvedPromptScreenReaderActions,
       this.includeRationale,
       {
         promptDir: this.promptDir,
-        keyboardActions: this.keyboardActions,
+        keyboardActions: resolvedPromptKeyboardActions,
         screenReaderActions: resolvedPromptScreenReaderActions
       }
     );
@@ -95,7 +99,7 @@ export class LLMAgent implements Agent {
       this.taskInput,
       {
         promptDir: this.promptDir,
-        keyboardActions: this.keyboardActions,
+        keyboardActions: resolvedPromptKeyboardActions,
         screenReaderActions: resolvedPromptScreenReaderActions
       }
     );
@@ -109,7 +113,12 @@ export class LLMAgent implements Agent {
         obs,
         fullMemory: this.memory
       });
-      const firstPass = parseDecisionResult(rawText, taskInputKeys, resolvedPromptScreenReaderActions);
+      const firstPass = parseDecisionResult(
+        rawText,
+        taskInputKeys,
+        resolvedPromptKeyboardActions,
+        resolvedPromptScreenReaderActions
+      );
       if (firstPass.status === "ok") {
         return firstPass.decision;
       }
@@ -125,10 +134,20 @@ export class LLMAgent implements Agent {
           fullMemory: this.memory
         });
 
-        return parseDecision(retriedRawText, taskInputKeys, resolvedPromptScreenReaderActions);
+        return parseDecision(
+          retriedRawText,
+          taskInputKeys,
+          resolvedPromptKeyboardActions,
+          resolvedPromptScreenReaderActions
+        );
       }
 
-      return parseDecision(rawText, taskInputKeys, resolvedPromptScreenReaderActions);
+      return parseDecision(
+        rawText,
+        taskInputKeys,
+        resolvedPromptKeyboardActions,
+        resolvedPromptScreenReaderActions
+      );
     } catch (error) {
       throw normalizeProviderError(error, obs);
     }

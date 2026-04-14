@@ -313,9 +313,9 @@ describe.sequential("CLI", () => {
       configPath
     ]));
 
-    expect(options.allowedKeys).toEqual(DEFAULT_ALLOWED_KEYS);
-    expect(options.allowedKeys).not.toContain("Backspace");
-    expect(options.allowedKeys).not.toContain("Mod+A");
+    expect(options.keyboardActionPlan.allowedKeys).toEqual(DEFAULT_ALLOWED_KEYS);
+    expect(options.keyboardActionPlan.allowedKeys).not.toContain("Backspace");
+    expect(options.keyboardActionPlan.allowedKeys).not.toContain("Mod+A");
   });
 
   it("rejects invalid comma-separated allowed keys and screen reader actions", () => {
@@ -1408,7 +1408,7 @@ describe.sequential("CLI", () => {
 
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.execution.headless).toBe(true);
-    expect(options.allowedKeys).toEqual(["Tab"]);
+    expect(options.keyboardActionPlan.allowedKeys).toEqual(["Tab"]);
     expect(options.screenReaderActionPlan?.refs).toEqual([
       expect.objectContaining({ semantic: "heading.next" })
     ]);
@@ -1494,7 +1494,7 @@ describe.sequential("CLI", () => {
     expect(options.task.timeoutMs).toBe(210000);
     expect(options.execution.headless).toBe(true);
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
-    expect(options.allowedKeys).toEqual(["Tab"]);
+    expect(options.keyboardActionPlan.allowedKeys).toEqual(["Tab"]);
     expect(options.screenReaderActionPlan?.refs).toEqual([
       expect.objectContaining({ semantic: "heading.next" }),
       expect.objectContaining({ semantic: "click" })
@@ -1684,10 +1684,12 @@ describe.sequential("CLI", () => {
     expect(options.prompt.keyboardActions).toEqual([
       {
         key: "Tab",
+        token: "key.Tab",
         hint: "mode-tab"
       },
       {
         key: "Enter",
+        token: "key.Enter",
         hint: "mode-enter"
       }
     ]);
@@ -1829,9 +1831,9 @@ describe.sequential("CLI", () => {
       "Tab"
     ]));
 
-    expect(options.allowedKeys).toEqual(["Tab"]);
+    expect(options.keyboardActionPlan.allowedKeys).toEqual(["Tab"]);
     expect(options.prompt.keyboardActions).toEqual([
-      { key: "Tab" }
+      { key: "Tab", token: "key.Tab" }
     ]);
   });
 

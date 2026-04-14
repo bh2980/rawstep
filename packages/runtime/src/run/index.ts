@@ -1,5 +1,7 @@
 import {
+  buildKeyboardActionPlan,
   buildScreenReaderActionPlan,
+  type KeyboardActionPlan,
   type ScreenReaderActionPlan
 } from "@rawstep/action-catalog";
 import { Actuator, NotAllowedActionError } from "../actuator";
@@ -12,19 +14,18 @@ import {
   type CreateBrowserSessionOptions
 } from "../browser";
 import {
-  DEFAULT_ALLOWED_KEYS,
   type Decision,
   type ExecutionRecord,
   type AgentMemoryEntry,
   type Agent,
   type Action,
-  type AllowedKey,
   type EndedBy,
   type Observation,
   type ScreenReaderReadback,
   type ScreenshotPolicy,
   type Task,
-  type TraceSession
+  type TraceSession,
+  type UserModel
 } from "@rawstep/core";
 import {
   createScreenReaderRuntime,
@@ -67,7 +68,7 @@ export type RunTaskOptions = {
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
   headless?: boolean;
-  allowedKeys?: readonly AllowedKey[];
+  keyboardActionPlan?: KeyboardActionPlan;
   screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
   agent?: Agent;
@@ -99,7 +100,7 @@ type RunResources = {
   observer: RunnerObserver;
   actuator: Actuator;
   agent: Agent;
-  allowedKeys: readonly AllowedKey[];
+  keyboardActionPlan: KeyboardActionPlan;
   screenReaderActionPlan?: ScreenReaderActionPlan;
 };
 
@@ -116,7 +117,7 @@ type BuiltAgentStepContext = {
   observation: Observation;
   context: {
     goal: string;
-    allowedKeys: readonly AllowedKey[];
+    keyboardActions?: KeyboardActionPlan["descriptors"];
     screenReaderActions?: ScreenReaderActionPlan["descriptors"];
     memory: AgentMemoryEntry[];
   };
@@ -208,9 +209,11 @@ async function initializeRunResources(
       })))(cleanup.browser.page)
     : undefined;
 
+  const keyboardActionPlan = resolveKeyboardActionPlan(task.mode, options.keyboardActionPlan);
   const observer = createObserver(task.mode, cleanup.browser, cleanup.screenReaderRuntime);
   const actuator = new Actuator(cleanup.browser.page, {
-    screenReaderController: cleanup.screenReaderRuntime?.controller
+    screenReaderController: cleanup.screenReaderRuntime?.controller,
+    allowedKeys: keyboardActionPlan.allowedKeys
   });
   const screenReaderCapabilities = isScreenReaderMode(task.mode)
     ? resolveScreenReaderCapabilities(
@@ -249,9 +252,7 @@ async function initializeRunResources(
     observer,
     actuator,
     agent,
-    allowedKeys: allowsRawKeyActions(task.mode)
-      ? options.allowedKeys ?? DEFAULT_ALLOWED_KEYS
-      : [],
+    keyboardActionPlan,
     screenReaderActionPlan: isScreenReaderMode(task.mode)
       ? options.screenReaderActionPlan ?? (
         options.screenReaderBackendId && screenReaderCapabilities
@@ -323,7 +324,7 @@ async function buildAgentStepContext(
     observeMs: Date.now() - observeStartedAt,
     context: {
       goal: resources.task.goal,
-      allowedKeys: resources.allowedKeys,
+      keyboardActions: resources.keyboardActionPlan.descriptors,
       screenReaderActions: resources.screenReaderActionPlan?.descriptors,
       memory: selectAgentMemoryExcerpt(
         state.agentMemory,
@@ -332,6 +333,17 @@ async function buildAgentStepContext(
       )
     }
   };
+}
+
+function resolveKeyboardActionPlan(
+  mode: UserModel,
+  configuredPlan?: KeyboardActionPlan
+): KeyboardActionPlan {
+  if (!allowsRawKeyActions(mode)) {
+    return buildKeyboardActionPlan([]);
+  }
+
+  return configuredPlan ?? buildKeyboardActionPlan();
 }
 
 async function handleVerdictDecision(

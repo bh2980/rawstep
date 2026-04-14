@@ -1,3 +1,7 @@
+import {
+  buildKeyboardActionPlan,
+  createKeyboardActionRef
+} from "../packages/action-catalog/src";
 import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
 import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
 import { resolveVerificationOutcome } from "../packages/runtime/src/run/helpers";
@@ -248,6 +252,42 @@ describe("runTask", () => {
     )).rejects.toThrow('Screen reader backend "guidepup-voiceover" requires a headed browser');
 
     expect(browserSessionFactory).not.toHaveBeenCalled();
+  });
+
+  it("rejects keys that are outside the configured keyboard action plan", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-keyboard-plan-subset-"));
+
+    const session = await runTask(
+      {
+        id: "keyboard-plan-subset",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Use only the allowed keyboard subset.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        keyboardActionPlan: buildKeyboardActionPlan([
+          createKeyboardActionRef("Tab")
+        ]),
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        agent: {
+          decide: async () => ({
+            action: { key: "Backspace" },
+            rationale: "This key is supported globally but not for this run."
+          })
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("error");
+    expect(session.steps[0].execution.error).toBe(
+      'Key "Backspace" is not allowed by the configured allowedKeys.'
+    );
   });
 
   it("completes the simple CTA fixture with a fake deterministic agent", async () => {
@@ -1029,7 +1069,7 @@ describe("runTask", () => {
         }),
         agent: {
           decide: async (ctx) => {
-            expect(ctx.allowedKeys).toEqual([]);
+            expect(ctx.keyboardActions).toEqual([]);
             expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             return {
               action: { key: "Tab" },
@@ -1102,7 +1142,7 @@ describe("runTask", () => {
         }),
         agent: {
           decide: async (ctx, obs) => {
-            expect(ctx.allowedKeys).toEqual([]);
+            expect(ctx.keyboardActions).toEqual([]);
             expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             expect(obs.kind).toBe("screenreader");
 

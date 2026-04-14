@@ -1,9 +1,9 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
-  ConfiguredKeyboardAction,
   ScreenshotPolicy
 } from "@rawstep/core";
 import {
+  type KeyboardActionRef,
   type ScreenReaderExtensionCatalogActionRef,
   type ScreenReaderExtensionRawPerformActionRef,
   type ScreenReaderStableActionRef,
@@ -30,7 +30,7 @@ type SharedModeConfig = {
 };
 
 type KeyboardModeConfig = SharedModeConfig & {
-  allowedKeys?: readonly ConfiguredKeyboardAction[];
+  allowedKeys?: readonly KeyboardActionRef[];
   allowedScreenReaderActions?: never;
   screenReaderBackend?: never;
 };
@@ -60,7 +60,7 @@ type ScreenReaderStrictModeConfig = {
 type ScreenReaderHybridModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
-    allowedKeys?: readonly ConfiguredKeyboardAction[];
+    allowedKeys?: readonly KeyboardActionRef[];
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
   };
 }[ScreenReaderBackendId];

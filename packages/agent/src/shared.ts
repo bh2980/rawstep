@@ -1,9 +1,12 @@
-import type { ScreenReaderActionDescriptor, ScreenReaderCapabilities } from "@rawstep/action-catalog";
+import type {
+  KeyboardActionDescriptor,
+  ScreenReaderActionDescriptor,
+  ScreenReaderCapabilities
+} from "@rawstep/action-catalog";
 import type {
   AgentContext,
   AgentMemoryEntry,
   Observation,
-  ResolvedPromptKeyboardAction,
   TaskInput
 } from "@rawstep/core";
 
@@ -38,7 +41,7 @@ export type LLMAgentOptions = {
   includeRationale?: boolean;
   taskInput?: TaskInput;
   promptDir?: string;
-  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
+  keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
   screenReaderCapabilities?: ScreenReaderCapabilities;
   completionClient?: AgentCompletionClient;

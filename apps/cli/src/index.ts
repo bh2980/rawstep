@@ -49,7 +49,7 @@ export async function runCli(
         : undefined,
       agentMemoryAll: options.execution.memory.mode === "all",
       includeExperienceSummary: options.execution.includeExperienceSummary,
-      allowedKeys: options.allowedKeys,
+      keyboardActionPlan: options.keyboardActionPlan,
       screenReaderActionPlan: options.screenReaderActionPlan,
       screenReaderBackendId: options.screenReaderBackendId
     });

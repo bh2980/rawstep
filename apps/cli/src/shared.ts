@@ -1,14 +1,15 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
+  KeyboardActionDescriptor,
+  KeyboardActionPlan,
+  KeyboardActionRef,
   ScreenReaderActionDescriptor,
   ScreenReaderActionPlan,
   ScreenReaderActionRef
 } from "@rawstep/action-catalog";
 import { z } from "zod";
 import {
-  type ConfiguredKeyboardAction,
   isAllowedKey,
-  type ResolvedPromptKeyboardAction,
   type AllowedKey,
   SUPPORTED_KEY_LABELS,
   type ScreenshotPolicy,
@@ -66,7 +67,7 @@ export type ModeConfigShape = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   memory?: MemorySetting;
-  allowedKeys?: ConfiguredKeyboardAction[];
+  allowedKeys?: KeyboardActionRef[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
 };
@@ -133,7 +134,7 @@ export type ResolvedRunOptions = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
-  allowedKeys: readonly AllowedKey[];
+  keyboardActionPlan: KeyboardActionPlan;
   screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
   prompt: ResolvedPromptOptions;
@@ -151,7 +152,7 @@ export type ProjectPromptShape = {
 
 export type ResolvedPromptOptions = {
   promptDir: string;
-  keyboardActions: readonly ResolvedPromptKeyboardAction[];
+  keyboardActions: readonly KeyboardActionDescriptor[];
   screenReaderActions: readonly ScreenReaderActionDescriptor[];
 };
 

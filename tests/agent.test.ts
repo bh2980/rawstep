@@ -11,15 +11,17 @@ import {
   type PromptPart
 } from "@rawstep/agent";
 import {
+  buildKeyboardActionPlan,
   buildScreenReaderActionPlan,
+  createKeyboardActionRef,
   createRawPerformScreenReaderExtensionRef,
   createStableScreenReaderActionRef,
+  type KeyboardActionDescriptor,
   type ScreenReaderActionDescriptor
 } from "../packages/action-catalog/src";
 import type {
   AgentContext,
-  Observation,
-  ResolvedPromptKeyboardAction
+  Observation
 } from "@rawstep/core";
 import { findScreenReaderBackendById } from "../packages/runtime/src";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
@@ -41,7 +43,7 @@ afterEach(() => {
 function makeKeyboardContext(): AgentContext {
   return {
     goal: "Finish the task.",
-    allowedKeys: ["Tab", "Enter"],
+    keyboardActions: makeKeyboardDescriptors(["Tab", "Enter"]),
     memory: [{
       step: 0,
       action: "key(Tab)",
@@ -89,6 +91,18 @@ function makeScreenReaderDescriptors(
   ).descriptors as ScreenReaderActionDescriptor[];
 }
 
+function makeKeyboardDescriptors(
+  keys: readonly string[],
+  hints?: Partial<Record<string, string>>
+): KeyboardActionDescriptor[] {
+  return buildKeyboardActionPlan(
+    keys.map((key) => createKeyboardActionRef(
+      key as never,
+      hints?.[key]
+    ))
+  ).descriptors as KeyboardActionDescriptor[];
+}
+
 async function createPromptFixtureRoot(contents?: Partial<Record<
   "keyboard.system.md"
   | "keyboard.user.md"
@@ -134,8 +148,17 @@ describe("agent helpers", () => {
   });
 
   it("parses Mod shortcut and edit-key actions", () => {
-    const modDecision = parseDecision('{"action":"key.Mod+A","rationale":"Select the current value."}');
-    const editDecision = parseDecision('{"action":"key.Backspace"}');
+    const keyboardActions = makeKeyboardDescriptors(["Mod+A", "Backspace"]);
+    const modDecision = parseDecision(
+      '{"action":"key.Mod+A","rationale":"Select the current value."}',
+      undefined,
+      keyboardActions
+    );
+    const editDecision = parseDecision(
+      '{"action":"key.Backspace"}',
+      undefined,
+      keyboardActions
+    );
 
     expect("action" in modDecision).toBe(true);
     if ("action" in modDecision && "key" in modDecision.action) {
@@ -181,6 +204,7 @@ describe("agent helpers", () => {
     const decision = parseDecision(
       '{"action":"sr.heading.next","rationale":"Move to the next announced item."}',
       undefined,
+      undefined,
       makeScreenReaderDescriptors(["heading.next"])
     );
 
@@ -196,7 +220,12 @@ describe("agent helpers", () => {
   });
 
   it("parses valid no-arg screen reader invoke actions", () => {
-    const decision = parseDecision('{"action":"sr.next"}', undefined, makeScreenReaderDescriptors(["next"]));
+    const decision = parseDecision(
+      '{"action":"sr.next"}',
+      undefined,
+      undefined,
+      makeScreenReaderDescriptors(["next"])
+    );
 
     expect("action" in decision).toBe(true);
     if ("action" in decision && "srAction" in decision.action) {
@@ -210,10 +239,12 @@ describe("agent helpers", () => {
     const readDecision = parseDecision(
       '{"action":"sr.read.itemText"}',
       undefined,
+      undefined,
       makeScreenReaderDescriptors(["read.itemText"])
     );
     const maintenanceDecision = parseDecision(
       '{"action":"sr.clear.itemTextLog"}',
+      undefined,
       undefined,
       makeScreenReaderDescriptors(["clear.itemTextLog"])
     );
@@ -377,20 +408,24 @@ describe("agent helpers", () => {
     const pressDecision = parseDecision(
       '{"action":"sr.press","key":"Enter"}',
       undefined,
+      undefined,
       makeScreenReaderDescriptors(["press"])
     );
     const typeDecision = parseDecision(
       '{"action":"sr.type","text":"hello"}',
+      undefined,
       undefined,
       makeScreenReaderDescriptors(["type"])
     );
     const clickDecision = parseDecision(
       '{"action":"sr.click","button":"left","clickCount":2}',
       undefined,
+      undefined,
       makeScreenReaderDescriptors(["click"])
     );
     const rawDecision = parseDecision(
       '{"action":"srx.rawPerform","payload":{"characters":"x"}}',
+      undefined,
       undefined,
       buildScreenReaderActionPlan(
         [
@@ -550,7 +585,7 @@ describe("agent helpers", () => {
       "keyboard",
       {
         goal: "Finish the task.",
-        allowedKeys: ["Tab"],
+        keyboardActions: makeKeyboardDescriptors(["Tab"]),
         memory: []
       },
       {
@@ -624,7 +659,7 @@ describe("agent helpers", () => {
       "screenreader-hybrid",
       {
         goal: "Finish the task.",
-        allowedKeys: ["Tab"],
+        keyboardActions: makeKeyboardDescriptors(["Tab"]),
         screenReaderActions: buildScreenReaderActionPlan(
           [
             createStableScreenReaderActionRef("next"),
@@ -670,7 +705,7 @@ describe("agent helpers", () => {
       "screenreader-hybrid",
       {
         goal: "Finish the task.",
-        allowedKeys: ["Tab"],
+        keyboardActions: makeKeyboardDescriptors(["Tab"]),
         screenReaderActions: makeScreenReaderDescriptors(["click"]),
         memory: []
       },
@@ -683,7 +718,9 @@ describe("agent helpers", () => {
         email: "traveler@example.com"
       },
       {
-        keyboardActions: [{ key: "Tab", hint: "다음 포커스로 이동" }],
+        keyboardActions: makeKeyboardDescriptors(["Tab"], {
+          Tab: "다음 포커스로 이동"
+        }),
         screenReaderActions: [
           {
             kind: "stable",
@@ -709,7 +746,7 @@ describe("agent helpers", () => {
       "keyboard",
       {
         goal: "Fix the current field value.",
-        allowedKeys: ["Tab", "Backspace", "Mod+A", "Mod+Z"],
+        keyboardActions: makeKeyboardDescriptors(["Tab", "Backspace", "Mod+A", "Mod+Z"]),
         memory: []
       },
       makeKeyboardObservation()
@@ -839,17 +876,14 @@ describe("agent helpers", () => {
   it("prefers configured keyboard action hints over default key guidance", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
-    const keyboardActions: ResolvedPromptKeyboardAction[] = [
-      {
-        key: "Tab",
-        hint: "커스텀 Tab 설명"
-      }
-    ];
+    const keyboardActions = makeKeyboardDescriptors(["Tab"], {
+      Tab: "커스텀 Tab 설명"
+    });
 
     const prompt = buildSystemPrompt(
       "keyboard",
       undefined,
-      ["Tab"],
+      undefined,
       undefined,
       false,
       {
@@ -934,7 +968,7 @@ describe("agent helpers", () => {
     const prompt = buildSystemPrompt(
       "screenreader-hybrid",
       undefined,
-      ["Tab", "Escape"],
+      makeKeyboardDescriptors(["Tab", "Escape"]),
       makeScreenReaderDescriptors(["click"]),
       false
     );
@@ -955,7 +989,7 @@ describe("agent helpers", () => {
     const prompt = buildSystemPrompt(
       "keyboard",
       undefined,
-      ["Tab"],
+      makeKeyboardDescriptors(["Tab"]),
       undefined,
       false,
       {

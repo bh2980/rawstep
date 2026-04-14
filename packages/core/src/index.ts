@@ -1,4 +1,5 @@
 import {
+  type KeyboardActionDescriptor,
   formatScreenReaderIntent,
   type PromptObjectSchema,
   type ScreenReaderActionDescriptor,
@@ -125,22 +126,6 @@ export type ScreenReaderAction = ScreenReaderIntent;
 export type { PromptObjectSchema, ScreenReaderPerformCommand, ScreenReaderCapabilities, ScreenReaderSemanticAction };
 export type { ScreenReaderActionRef, ScreenReaderActionDescriptor, ScreenReaderActionPlan };
 
-type ConfiguredKeyboardActionShape = {
-  key: AllowedKey;
-  hint?: string;
-};
-
-declare const configuredKeyboardActionBrand: unique symbol;
-
-export type ConfiguredKeyboardAction = ConfiguredKeyboardActionShape & {
-  readonly [configuredKeyboardActionBrand]: true;
-};
-
-export type ResolvedPromptKeyboardAction = {
-  key: AllowedKey;
-  hint?: string;
-};
-
 export type Action =
   | { key: AllowedKey }
   | { typeText: string }
@@ -161,7 +146,7 @@ export type AgentMemoryEntry = {
 
 export type AgentContext = {
   goal: string;
-  allowedKeys: readonly AllowedKey[];
+  keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
   memory: AgentMemoryEntry[];
 };

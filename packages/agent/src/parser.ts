@@ -1,10 +1,12 @@
 import {
+  parseKeyboardActionCandidate,
+  type KeyboardActionDescriptor,
+  type KeyboardActionPlan,
   parseScreenReaderIntentCandidate,
   type ScreenReaderActionDescriptor
 } from "@rawstep/action-catalog";
 import {
   type Action,
-  isAllowedKey,
   type Decision,
   type ExperienceSummary
 } from "@rawstep/core";
@@ -13,9 +15,10 @@ import type { PromptPart } from "./shared";
 export function parseDecision(
   raw: string,
   taskInputKeys?: string[],
+  keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): Decision {
-  const result = parseDecisionResult(raw, taskInputKeys, screenReaderActions);
+  const result = parseDecisionResult(raw, taskInputKeys, keyboardActions, screenReaderActions);
 
   if (result.status === "ok") {
     return result.decision;
@@ -37,6 +40,7 @@ export type ParseDecisionResult =
 export function parseDecisionResult(
   raw: string,
   taskInputKeys?: string[],
+  keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): ParseDecisionResult {
   const snippet = raw.trim().slice(0, 240);
@@ -60,7 +64,12 @@ export function parseDecisionResult(
         return { status: "malformed", snippet };
       }
 
-      const parsedAction = parseStringActionCandidate(candidate, taskInputKeys, screenReaderActions);
+      const parsedAction = parseStringActionCandidate(
+        candidate,
+        taskInputKeys,
+        keyboardActions,
+        screenReaderActions
+      );
       if (parsedAction.status === "invalid-typeText-key") {
         return {
           status: "invalid-typeText-key",
@@ -106,6 +115,7 @@ export function parseDecisionResult(
 function parseStringActionCandidate(
   candidate: Record<string, unknown>,
   taskInputKeys?: string[],
+  keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ):
   | { status: "ok"; action: Action }
@@ -116,17 +126,12 @@ function parseStringActionCandidate(
     return { status: "malformed" };
   }
 
-  if (value.startsWith("key.")) {
-    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
-      return { status: "malformed" };
-    }
-
-    const key = value.slice("key.".length);
-    if (!isAllowedKey(key)) {
-      return { status: "malformed" };
-    }
-
-    return { status: "ok", action: { key } };
+  const parsedKeyboardAction = parseKeyboardActionCandidate(candidate, keyboardActions);
+  if (parsedKeyboardAction.status === "matched") {
+    return { status: "ok", action: parsedKeyboardAction.action };
+  }
+  if (parsedKeyboardAction.status === "malformed") {
+    return { status: "malformed" };
   }
 
   if (value.startsWith("typeText.")) {

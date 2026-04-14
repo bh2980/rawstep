@@ -6,9 +6,12 @@ import { Script } from "node:vm";
 import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
-  DEFAULT_ALLOWED_KEYS,
+  buildKeyboardActionPlan,
+  type KeyboardActionPlan,
+  type KeyboardActionRef
+} from "@rawstep/action-catalog";
+import {
   type AllowedKey,
-  type ConfiguredKeyboardAction,
   type UserModel
 } from "@rawstep/core";
 import {
@@ -27,10 +30,9 @@ import {
 } from "./shared";
 import { resolveExecutionPolicy } from "./execution-policy";
 import {
-  buildPromptKeyboardActions,
   kb,
-  parseConfiguredKeyboardActions,
-  resolveConfiguredKeyboardActions
+  buildKeyboardActionPlanFromAllowedKeys,
+  parseConfiguredKeyboardActions
 } from "./keyboard-actions";
 import {
   sr,
@@ -147,7 +149,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     configuredAllowedScreenReaderActions,
     screenReaderBackendId
   );
-  const resolvedKeyboardActions = resolveAllowedKeys(
+  const keyboardActionPlan = resolveKeyboardActionPlan(
     selectedMode,
     overrideAllowedKeys,
     configuredAllowedKeys
@@ -155,7 +157,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   const prompt = resolvePromptOptions(
     configDir,
     projectDefaults?.prompt,
-    resolvedKeyboardActions.promptActions,
+    keyboardActionPlan.descriptors,
     resolvedScreenReaderActions.promptActions
   );
 
@@ -172,7 +174,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
       ?? projectDefaults?.model,
     baseURL: cliOptions.baseURL
       ?? projectDefaults?.baseURL,
-    allowedKeys: resolvedKeyboardActions.runtimeKeys,
+    keyboardActionPlan,
     screenReaderActionPlan: resolvedScreenReaderActions.plan,
     screenReaderBackendId,
     prompt
@@ -399,36 +401,24 @@ function parseProjectPrompt(
   return parsePromptOverride(rawPrompt, label, { allowDir: true });
 }
 
-function resolveAllowedKeys(
+function resolveKeyboardActionPlan(
   selectedMode: UserModel,
   overrideAllowedKeys: readonly AllowedKey[] | undefined,
-  configuredAllowedKeys: readonly ConfiguredKeyboardAction[] | undefined
-): {
-  runtimeKeys: ResolvedRunOptions["allowedKeys"];
-  promptActions: ResolvedRunOptions["prompt"]["keyboardActions"];
-} {
+  configuredAllowedKeys: readonly KeyboardActionRef[] | undefined
+): KeyboardActionPlan {
   if (selectedMode === "screenreader-strict") {
-    return {
-      runtimeKeys: [],
-      promptActions: []
-    };
+    return buildKeyboardActionPlan([]);
   }
 
   if (overrideAllowedKeys) {
-    return {
-      runtimeKeys: overrideAllowedKeys,
-      promptActions: buildPromptKeyboardActions(overrideAllowedKeys)
-    };
+    return buildKeyboardActionPlanFromAllowedKeys(overrideAllowedKeys);
   }
 
   if (configuredAllowedKeys) {
-    return resolveConfiguredKeyboardActions(configuredAllowedKeys);
+    return buildKeyboardActionPlan(configuredAllowedKeys);
   }
 
-  return {
-    runtimeKeys: DEFAULT_ALLOWED_KEYS,
-    promptActions: buildPromptKeyboardActions(DEFAULT_ALLOWED_KEYS)
-  };
+  return buildKeyboardActionPlan();
 }
 
 function resolveAllowedScreenReaderActions(

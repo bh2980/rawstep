@@ -1,18 +1,18 @@
 import {
+  buildKeyboardActionPlan,
+  buildKeyboardDescriptorExampleSnippet,
   buildScreenReaderDescriptorExampleSnippet,
   formatScreenReaderIntent,
+  type KeyboardActionDescriptor,
   type ScreenReaderActionDescriptor
 } from "@rawstep/action-catalog";
 import {
-  DEFAULT_ALLOWED_KEYS,
   type Action,
-  type AllowedKey,
   type AgentContext,
   type AgentMemoryEntry,
   type Decision,
   formatDecisionAction,
   type Observation,
-  type ResolvedPromptKeyboardAction,
   type StepRecord,
   type Task,
   type TaskInput,
@@ -24,25 +24,26 @@ import type { PromptPart } from "./shared";
 
 type SystemPromptOptions = {
   promptDir?: string;
-  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
+  keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
 };
 
 type UserPromptOptions = {
   promptDir?: string;
-  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
+  keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
 };
 
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
-  allowedKeys: readonly AllowedKey[] = DEFAULT_ALLOWED_KEYS,
+  keyboardActions: readonly KeyboardActionDescriptor[] = buildKeyboardActionPlan().descriptors,
   screenReaderActions: readonly ScreenReaderActionDescriptor[] = [],
   includeRationale = false,
   options: SystemPromptOptions = {}
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
+  const resolvedPromptKeyboardActions = options.keyboardActions ?? keyboardActions;
   const resolvedPromptScreenReaderActions = options.screenReaderActions ?? screenReaderActions;
 
   if (userModel === "screenreader-strict") {
@@ -56,14 +57,14 @@ export function buildSystemPrompt(
       outputExamples: buildScreenReaderHybridOutputExamples(
         taskInput,
         includeRationale,
-        allowedKeys,
+        resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions
       )
     });
   }
 
   return renderPromptTemplate(templates.keyboardSystem, {
-    outputExamples: buildKeyboardOutputExamples(taskInput, allowedKeys, includeRationale)
+    outputExamples: buildKeyboardOutputExamples(taskInput, resolvedPromptKeyboardActions, includeRationale)
   });
 }
 
@@ -109,7 +110,8 @@ export function buildUserPromptText(
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
   const resolvedPromptKeyboardActions = options.keyboardActions
-    ?? buildFallbackPromptKeyboardActions(ctx.allowedKeys);
+    ?? ctx.keyboardActions
+    ?? buildKeyboardActionPlan().descriptors;
   const resolvedPromptScreenReaderActions = options.screenReaderActions
     ?? ctx.screenReaderActions
     ?? [];
@@ -122,7 +124,6 @@ export function buildUserPromptText(
     readbacks: buildReadbacksValue(obs),
     availableActions: buildAvailableActionsValue(
       userModel,
-      ctx.allowedKeys,
       resolvedPromptKeyboardActions,
       resolvedPromptScreenReaderActions,
       taskInput
@@ -250,15 +251,10 @@ function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
 
 function buildKeyboardOutputExamples(
   taskInput: TaskInput | undefined,
-  allowedKeys: readonly AllowedKey[],
+  keyboardActions: readonly KeyboardActionDescriptor[],
   includeRationale = false
 ): string {
-  const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
-  const snippets = [
-    includeRationale
-      ? JSON.stringify({ action: exampleKey, rationale: "..." })
-      : JSON.stringify({ action: exampleKey })
-  ];
+  const snippets = buildKeyboardActionExampleSnippets(keyboardActions, includeRationale);
 
   if (taskInput) {
     const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
@@ -292,14 +288,11 @@ function buildScreenReaderStrictOutputExamples(
 function buildScreenReaderHybridOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
-  allowedKeys: readonly AllowedKey[],
+  keyboardActions: readonly KeyboardActionDescriptor[],
   promptActions: readonly ScreenReaderActionDescriptor[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
-  const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
-  snippets.push(includeRationale
-    ? JSON.stringify({ action: exampleKey, rationale: "..." })
-    : JSON.stringify({ action: exampleKey }));
+  snippets.push(...buildKeyboardActionExampleSnippets(keyboardActions, includeRationale));
 
   if (taskInput) {
     const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
@@ -341,21 +334,29 @@ function buildScreenReaderActionExampleSnippet(
   return buildScreenReaderDescriptorExampleSnippet(action, includeRationale);
 }
 
+function buildKeyboardActionExampleSnippets(
+  keyboardActions: readonly KeyboardActionDescriptor[],
+  includeRationale: boolean
+): string[] {
+  const snippets = keyboardActions
+    .map((action) => buildKeyboardDescriptorExampleSnippet(action, includeRationale));
+
+  return dedupe(snippets);
+}
+
 function buildOutputExamples(snippets: readonly string[]): string {
   return snippets.join("\n");
 }
 
 function buildKeyboardActionsBlock(
-  allowedKeys: readonly AllowedKey[] | undefined,
-  keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined
+  keyboardActions: readonly KeyboardActionDescriptor[] | undefined
 ): string {
-  if (!allowedKeys || allowedKeys.length === 0) {
+  if (!keyboardActions || keyboardActions.length === 0) {
     return "";
   }
 
-  const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
-  return promptActions
-    .map((action) => action.hint ? `- key.${action.key}: ${action.hint}` : `- key.${action.key}`)
+  return keyboardActions
+    .map((action) => action.hint ? `- ${action.token}: ${action.hint}` : `- ${action.token}`)
     .join("\n");
 }
 
@@ -390,15 +391,14 @@ function buildTaskInputActionsBlock(taskInput?: TaskInput): string {
 
 function buildAvailableActionsValue(
   userModel: UserModel,
-  allowedKeys: readonly AllowedKey[],
-  keyboardActions: readonly ResolvedPromptKeyboardAction[],
+  keyboardActions: readonly KeyboardActionDescriptor[],
   screenReaderActions: readonly ScreenReaderActionDescriptor[],
   taskInput?: TaskInput
 ): string {
   const sections: string[] = [];
 
   if (userModel === "keyboard" || userModel === "screenreader-hybrid") {
-    const keyboardActionsBlock = buildKeyboardActionsBlock(allowedKeys, keyboardActions);
+    const keyboardActionsBlock = buildKeyboardActionsBlock(keyboardActions);
     if (keyboardActionsBlock) {
       sections.push(keyboardActionsBlock);
     }
@@ -446,13 +446,6 @@ function buildReadbacksValue(obs: Observation): string {
       : { method: readback.method, value: readback.value ?? "" })
   ).join("\n");
 }
-
-function buildFallbackPromptKeyboardActions(
-  allowedKeys: readonly AllowedKey[]
-): readonly ResolvedPromptKeyboardAction[] {
-  return allowedKeys.map((key) => ({ key }));
-}
-
 function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
 }

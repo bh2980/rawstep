@@ -31,6 +31,7 @@ export class Actuator {
     private readonly page: Page,
     private readonly options: {
       screenReaderController?: ScreenReaderController;
+      allowedKeys?: readonly AllowedKey[];
     } = {}
   ) {
     this.keyCounts = createEmptyKeyCounts();
@@ -39,6 +40,10 @@ export class Actuator {
   async press(key: AllowedKey | string): Promise<void> {
     if (!isAllowedKey(key)) {
       throw new NotAllowedActionError(`Key "${key}" is not allowed in keyboard mode.`);
+    }
+
+    if (this.options.allowedKeys && !this.options.allowedKeys.includes(key)) {
+      throw new NotAllowedActionError(`Key "${key}" is not allowed by the configured allowedKeys.`);
     }
 
     await this.page.keyboard.press(resolveKeyboardPressKey(key));
