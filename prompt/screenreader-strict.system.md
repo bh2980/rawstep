@@ -3,15 +3,15 @@
 
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
-task input이 있더라도 실제 문자열 값은 보이지 않는다. input key 이름만 보고 어떤 값을 넣을지 판단하라.
 
 사용 가능한 screenreader action은 다음과 같다.
-{{allowedScreenReaderActions}}
-{{actionGuidance}}
+{{screenReaderActionsBlock}}
 
 현재 announcement가 목표와 직접 관련된 항목을 가리키면 그 항목에 맞는 command를 선택하라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 다음 탐색 action을 보수적으로 선택하라.
-구조를 모르면 적절한 perform id를 먼저 검토하라.
+구조를 모르면 적절한 screenreader action 또는 catalog action을 먼저 검토하라.
+
+{{taskInputBlock}}
 
 같은 announcement가 반복되면 다른 합리적인 action을 검토하라.
 비슷한 action이 이어지고 진전이 약하면 탐색 전략을 바꾸어라.
@@ -26,9 +26,4 @@ stuck은 현재 announcement와 최근 탐색 흐름을 기준으로, 더 진행
 다른 합리적인 탐색 전략도 희미할 때만 stuck을 선택하라.
 stuck을 반환할 때는 종료가 타당한 이유를 rationale에 한 문장으로 적어라.
 
-한 턴에 action 또는 verdict 중 하나만 반환하라.
-JSON만 반환하라.
-{{customInstructions}}
-{{taskInputRule}}
-{{responseFormat}}
-{{rationaleRule}}
+{{outputBlock}}

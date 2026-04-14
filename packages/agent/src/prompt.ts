@@ -46,53 +46,29 @@ export function buildSystemPrompt(
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
-      actionGuidance: buildActionGuidance(
-        [],
-        resolvedPromptKeyboardActions,
-        resolvedPromptScreenReaderActions,
-        options.screenReaderCapabilities
-      ),
-      customInstructions: "",
-      taskInputRule: buildScreenReaderTaskInputRule(taskInput),
-      responseFormat: buildScreenReaderStrictJsonFormat(taskInput, includeRationale, resolvedScreenReaderActions),
-      rationaleRule: buildRationaleRule(includeRationale)
+      screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
+      taskInputBlock: buildScreenReaderTaskInputBlock(taskInput),
+      outputBlock: buildScreenReaderStrictOutputBlock(taskInput, includeRationale, resolvedScreenReaderActions)
     });
   }
 
   if (userModel === "screenreader-hybrid") {
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
-      allowedKeys: allowedKeys.join(", "),
-      allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
-      actionGuidance: buildActionGuidance(
-        allowedKeys,
-        resolvedPromptKeyboardActions,
-        resolvedPromptScreenReaderActions,
-        options.screenReaderCapabilities
-      ),
-      customInstructions: "",
-      taskInputRule: buildScreenReaderTaskInputRule(taskInput),
-      responseFormat: buildScreenReaderHybridJsonFormat(
+      keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
+      screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
+      taskInputBlock: buildScreenReaderTaskInputBlock(taskInput),
+      outputBlock: buildScreenReaderHybridOutputBlock(
         taskInput,
         includeRationale,
         resolvedScreenReaderActions
-      ),
-      rationaleRule: buildRationaleRule(includeRationale)
+      )
     });
   }
 
   return renderPromptTemplate(templates.keyboardSystem, {
-    allowedKeys: allowedKeys.join(", "),
-    actionGuidance: buildActionGuidance(
-      allowedKeys,
-      resolvedPromptKeyboardActions,
-      undefined,
-      undefined
-    ),
-    customInstructions: "",
-    taskInputRule: buildKeyboardTaskInputRule(taskInput),
-    responseFormat: buildKeyboardJsonFormat(taskInput, includeRationale),
-    rationaleRule: buildRationaleRule(includeRationale)
+    keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
+    taskInputBlock: buildKeyboardTaskInputBlock(taskInput),
+    outputBlock: buildKeyboardOutputBlock(taskInput, includeRationale)
   });
 }
 
@@ -287,7 +263,7 @@ function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
   ].join("\n");
 }
 
-function buildKeyboardTaskInputRule(taskInput?: TaskInput): string {
+function buildKeyboardTaskInputBlock(taskInput?: TaskInput): string {
   if (!taskInput) {
     return "";
   }
@@ -295,18 +271,17 @@ function buildKeyboardTaskInputRule(taskInput?: TaskInput): string {
   const keys = Object.keys(taskInput);
   const exampleKey = keys[0];
   return [
-    `이 task에서는 action으로 {"typeText":"${exampleKey}"} 같은 named input key를 선택할 수 있다.`,
-    `사용 가능한 input keys: ${keys.join(", ")}.`,
-    "typeText는 task에 정의된 입력 키만 선택한다. 임의 문자열이나 실제 비밀번호 값을 만들지 마라.",
-    "focus hint는 현재 active element의 요약이다. focus hint가 none, link, button, select라면 typeText보다 탐색 action을 우선 검토하라.",
-    "typeText는 현재 focus가 텍스트 입력창(input, textarea, contenteditable)에 있다고 보일 때 우선 고려하라.",
-    "focus가 입력창에 있다고 확신하기 어렵다면, 먼저 Tab 또는 Shift+Tab 같은 탐색 action을 검토하라.",
-    "직전 step에서 typeText가 실패했거나 화면 변화가 거의 없었다면, 같은 판단을 반복하기 전에 focus 변화 근거를 다시 확인하라.",
-    "입력 가능 여부는 화면 신호로만 추정해야 하며, 내부 구조를 안다고 가정하지 마라."
+    "입력 규칙:",
+    "- task input의 실제 문자열 값은 보이지 않는다. input key 이름만 보고 판단하라.",
+    `- 사용 가능한 input key: ${keys.join(", ")}`,
+    "- typeText에는 input key 이름만 넣어라. 실제 문자열 값은 만들지 마라.",
+    "- focus hint가 입력창을 가리킬 때만 typeText를 우선 검토하라.",
+    "- 예시:",
+    `  - ${JSON.stringify({ action: { typeText: exampleKey } })}`
   ].join("\n");
 }
 
-function buildScreenReaderTaskInputRule(taskInput?: TaskInput): string {
+function buildScreenReaderTaskInputBlock(taskInput?: TaskInput): string {
   if (!taskInput) {
     return "";
   }
@@ -314,14 +289,17 @@ function buildScreenReaderTaskInputRule(taskInput?: TaskInput): string {
   const keys = Object.keys(taskInput);
   const exampleKey = keys[0];
   return [
-    `이 task에서는 action으로 {"typeText":"${exampleKey}"} 같은 named input key를 선택할 수 있다.`,
-    `사용 가능한 input keys: ${keys.join(", ")}.`,
-    "typeText는 task에 정의된 입력 키만 선택한다. 임의 문자열이나 실제 비밀번호 값을 만들지 마라.",
-    "srAction.kind=\"type\" 는 literal text를 직접 알고 있을 때만 사용하라. 숨겨진 task input 값은 typeText로만 선택하라."
+    "입력 규칙:",
+    "- task input의 실제 문자열 값은 보이지 않는다. input key 이름만 보고 판단하라.",
+    `- 사용 가능한 input key: ${keys.join(", ")}`,
+    "- typeText에는 input key 이름만 넣어라. 실제 문자열 값은 만들지 마라.",
+    "- srAction.type은 literal text를 직접 입력할 때만 사용하라. task input 값에는 쓰지 마라.",
+    "- 예시:",
+    `  - ${JSON.stringify({ action: { typeText: exampleKey } })}`
   ].join("\n");
 }
 
-function buildKeyboardJsonFormat(taskInput?: TaskInput, includeRationale = false): string {
+function buildKeyboardOutputBlock(taskInput?: TaskInput, includeRationale = false): string {
   const snippets = [
     includeRationale
       ? JSON.stringify({ action: { key: "Tab" }, rationale: "..." })
@@ -336,10 +314,10 @@ function buildKeyboardJsonFormat(taskInput?: TaskInput, includeRationale = false
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+  return buildOutputBlock(snippets, includeRationale);
 }
 
-function buildScreenReaderStrictJsonFormat(
+function buildScreenReaderStrictOutputBlock(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   allowedActions: readonly AllowedScreenReaderAction[]
@@ -354,10 +332,10 @@ function buildScreenReaderStrictJsonFormat(
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+  return buildOutputBlock(snippets, includeRationale);
 }
 
-function buildScreenReaderHybridJsonFormat(
+function buildScreenReaderHybridOutputBlock(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   allowedActions: readonly AllowedScreenReaderAction[]
@@ -375,7 +353,7 @@ function buildScreenReaderHybridJsonFormat(
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return `JSON 형식: ${snippets.join(" 또는 ")}`;
+  return buildOutputBlock(snippets, includeRationale);
 }
 
 function buildVerdictSnippets(includeRationale: boolean): string[] {
@@ -451,102 +429,46 @@ function stringifyActionExample(action: Extract<Decision, { action: unknown }>["
   return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
 }
 
-function buildRationaleRule(includeRationale: boolean): string {
-  return includeRationale
-    ? "rationale 필드에 짧은 이유를 포함하라."
-    : "";
-}
-
-function buildActionGuidance(
-  allowedKeys: readonly AllowedKey[] | undefined,
-  keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined,
-  screenReaderActions: readonly ResolvedPromptScreenReaderAction[] | undefined,
-  screenReaderCapabilities: ScreenReaderCapabilities | undefined
-): string {
+function buildOutputBlock(snippets: readonly string[], includeRationale: boolean): string {
   return [
-    ...buildAllowedKeyGuidance(allowedKeys, keyboardActions),
-    ...buildAllowedScreenReaderActionGuidance(
-      screenReaderActions,
-      screenReaderCapabilities
-    )
+    "출력 규칙:",
+    "- JSON 객체 하나만 반환하라.",
+    "- 한 턴에 action 또는 verdict 중 하나만 반환하라.",
+    ...(includeRationale ? ["- action 또는 verdict를 반환할 때 rationale를 포함하라."] : []),
+    "- 예시:",
+    ...snippets.map((snippet) => `  - ${snippet}`)
   ].join("\n");
 }
 
-function buildAllowedKeyGuidance(
+function buildKeyboardActionsBlock(
   allowedKeys: readonly AllowedKey[] | undefined,
   keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined
-): string[] {
+): string {
   if (!allowedKeys || allowedKeys.length === 0) {
-    return [];
+    return "- (none)";
   }
 
   const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
   return promptActions
-    .map((action) => action.hint)
-    .filter((hint): hint is string => Boolean(hint));
+    .map((action) => action.hint ? `- ${action.key}: ${action.hint}` : `- ${action.key}`)
+    .join("\n");
 }
 
-function buildAllowedScreenReaderActionGuidance(
-  promptActions: readonly ResolvedPromptScreenReaderAction[] | undefined,
-  capabilities: ScreenReaderCapabilities | undefined
-): string[] {
-  if (!promptActions || promptActions.length === 0) {
-    return [];
-  }
-
-  const lines: string[] = [];
-  const catalogActions = promptActions.filter((action): action is Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }> =>
-    action.semantic === "catalog"
-  );
-
-  for (const action of promptActions) {
-    if (action.semantic === "catalog") {
-      continue;
-    }
-
-    if (action.semantic === "rawPerform") {
-      if (action.hint) {
-        lines.push(action.hint);
-      }
-      continue;
-    }
-
-    if (action.hint) {
-      lines.push(action.hint);
-    }
-  }
-
-  if (catalogActions.length > 0 && catalogActions.length <= 20) {
-    for (const action of catalogActions) {
-      if (action.hint) {
-        lines.push(`- ${action.id}: ${action.hint}`);
-      }
-    }
-  }
-
-  return lines;
-}
-
-function formatAllowedScreenReaderActionsForPrompt(
-  promptActions: readonly ResolvedPromptScreenReaderAction[]
+function buildScreenReaderActionsBlock(
+  promptActions: readonly ResolvedPromptScreenReaderAction[] | undefined
 ): string {
-  if (promptActions.length === 0) {
-    return "(none)";
+  if (!promptActions || promptActions.length === 0) {
+    return "- (none)";
   }
 
-  const semanticActions = promptActions
-    .filter((action) => action.semantic !== "catalog" && action.semantic !== "rawPerform")
-    .map((action) => action.semantic);
-  const catalogIds = promptActions
-    .filter((action): action is Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }> => action.semantic === "catalog")
-    .map((action) => action.id);
-  const rawPerformAllowed = promptActions.some((action) => action.semantic === "rawPerform");
-
-  return [
-    semanticActions.length > 0 ? `actions: ${semanticActions.join(", ")}` : undefined,
-    catalogIds.length > 0 ? `catalog ids: ${catalogIds.join(", ")}` : undefined,
-    rawPerformAllowed ? "raw perform: allowed" : undefined
-  ].filter((value): value is string => Boolean(value)).join("\n");
+  return promptActions
+    .map((action) => {
+      const label = action.semantic === "catalog"
+        ? `catalog(${action.id})`
+        : action.semantic;
+      return action.hint ? `- ${label}: ${action.hint}` : `- ${label}`;
+    })
+    .join("\n");
 }
 
 function buildFallbackPromptKeyboardActions(

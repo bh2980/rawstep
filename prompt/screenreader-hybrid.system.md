@@ -3,12 +3,13 @@
 
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
-task input이 있더라도 실제 문자열 값은 보이지 않는다. input key 이름만 보고 어떤 값을 넣을지 판단하라.
 
-사용 가능한 일반 키는 {{allowedKeys}}다.
+사용 가능한 일반 키:
+{{keyboardActionsBlock}}
 사용 가능한 screenreader action은 다음과 같다.
-{{allowedScreenReaderActions}}
-{{actionGuidance}}
+{{screenReaderActionsBlock}}
+
+{{taskInputBlock}}
 
 구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader action을 먼저 검토하라.
 현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 action 또는 키를 선택하라.
@@ -28,9 +29,4 @@ stuck은 현재 announcement와 최근 탐색 흐름을 기준으로, 더 진행
 다른 합리적인 탐색 전략도 희미할 때만 stuck을 선택하라.
 stuck을 반환할 때는 종료가 타당한 이유를 rationale에 한 문장으로 적어라.
 
-한 턴에 action 또는 verdict 중 하나만 반환하라.
-JSON만 반환하라.
-{{customInstructions}}
-{{taskInputRule}}
-{{responseFormat}}
-{{rationaleRule}}
+{{outputBlock}}

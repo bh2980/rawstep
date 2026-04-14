@@ -79,9 +79,9 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   await mkdir(promptDir, { recursive: true });
 
   const files = {
-    "keyboard.system.md": "keys={{allowedKeys}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-strict.system.md": "sr={{allowedScreenReaderActions}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
-    "screenreader-hybrid.system.md": "keys={{allowedKeys}}\nsr={{allowedScreenReaderActions}}\n{{actionGuidance}}\n{{customInstructions}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}",
+    "keyboard.system.md": "keys:\n{{keyboardActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
+    "screenreader-strict.system.md": "sr:\n{{screenReaderActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
+    "screenreader-hybrid.system.md": "keys:\n{{keyboardActionsBlock}}\nsr:\n{{screenReaderActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
     "experience-summary.system.md": "summary-template"
   } satisfies Record<string, string>;
 
@@ -449,7 +449,7 @@ describe("agent helpers", () => {
     const templates = loadPromptTemplates(rootDir);
 
     expect(templates.promptDir).toBe(join(rootDir, "prompt"));
-    expect(templates.keyboardSystem).toContain("keys={{allowedKeys}}");
+    expect(templates.keyboardSystem).toContain("{{keyboardActionsBlock}}");
     expect(templates.experienceSummarySystem).toBe("summary-template");
   });
 
@@ -471,10 +471,10 @@ describe("agent helpers", () => {
 
   it("fails when a system prompt template is missing a required placeholder", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.system.md": "keys={{allowedKeys}}"
+      "keyboard.system.md": "keys:\n{{allowedKeys}}"
     });
 
-    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{actionGuidance}}");
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{keyboardActionsBlock}}");
   });
 
   it("renders keyboard system prompts from prompt files with code-generated JSON format", async () => {
@@ -492,15 +492,17 @@ describe("agent helpers", () => {
       true
     );
 
-    expect(prompt).toContain("keys=Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape");
-    expect(prompt).toContain('{"action":{"typeText":"email"},"rationale":"..."}');
-    expect(prompt).toContain("사용 가능한 input keys: email, password.");
-    expect(prompt).toContain("focus hint는 현재 active element의 요약이다. focus hint가 none, link, button, select라면 typeText보다 탐색 action을 우선 검토하라.");
-    expect(prompt).toContain("typeText는 현재 focus가 텍스트 입력창(input, textarea, contenteditable)에 있다고 보일 때 우선 고려하라.");
-    expect(prompt).toContain("focus가 입력창에 있다고 확신하기 어렵다면, 먼저 Tab 또는 Shift+Tab 같은 탐색 action을 검토하라.");
+    expect(prompt).toContain("keys:");
+    expect(prompt).toContain("- Tab");
+    expect(prompt).toContain("- Enter");
+    expect(prompt).toContain("입력 규칙:");
+    expect(prompt).toContain("- 사용 가능한 input key: email, password");
+    expect(prompt).toContain('{"action":{"typeText":"email"}}');
     expect(prompt).not.toContain("traveler@example.com");
     expect(prompt).not.toContain("super-secret");
-    expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라.");
+    expect(prompt).toContain("출력 규칙:");
+    expect(prompt).toContain('- action 또는 verdict를 반환할 때 rationale를 포함하라.');
+    expect(prompt).toContain('{"action":{"typeText":"email"},"rationale":"..."}');
   });
 
   it("prefers configured keyboard action hints over default key guidance", async () => {
@@ -557,10 +559,11 @@ describe("agent helpers", () => {
       }
     );
 
-    expect(prompt).toContain("actions: heading.next, click");
-    expect(prompt).not.toContain("catalog ids:");
-    expect(prompt).toContain("다음 제목으로 크게 이동할 때 사용하라.");
+    expect(prompt).toContain("sr:");
+    expect(prompt).toContain("- heading.next: 다음 제목으로 크게 이동할 때 사용하라.");
+    expect(prompt).toContain("- click");
     expect(prompt).not.toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
+    expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}}}');
   });
 
@@ -576,15 +579,17 @@ describe("agent helpers", () => {
       false
     );
 
-    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
-    expect(prompt).not.toContain("Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.");
-    expect(prompt).not.toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
-    expect(prompt).not.toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
+    expect(prompt).toContain("- Tab");
+    expect(prompt).toContain("- Escape");
+    expect(prompt).toContain("- click");
+    expect(prompt).not.toContain("- Enter");
+    expect(prompt).toContain("출력 규칙:");
+    expect(prompt).not.toContain("- action 또는 verdict를 반환할 때 rationale를 포함하라.");
   });
 
   it("loads prompt templates from an explicit prompt directory", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.system.md": "explicit={{customInstructions}}\n{{allowedKeys}}\n{{actionGuidance}}\n{{taskInputRule}}\n{{responseFormat}}\n{{rationaleRule}}"
+      "keyboard.system.md": "explicit-template\n{{keyboardActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}"
     });
 
     const prompt = buildSystemPrompt(
@@ -598,8 +603,8 @@ describe("agent helpers", () => {
       }
     );
 
-    expect(prompt).toContain("explicit=");
-    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).toContain("explicit-template");
+    expect(prompt).toContain("- Tab");
   });
 
   it("renders experience summary prompts from prompt files", async () => {

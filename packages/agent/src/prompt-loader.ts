@@ -18,29 +18,20 @@ const TEMPLATE_FILES = {
 
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
   keyboardSystem: [
-    "{{allowedKeys}}",
-    "{{actionGuidance}}",
-    "{{customInstructions}}",
-    "{{taskInputRule}}",
-    "{{responseFormat}}",
-    "{{rationaleRule}}"
+    "{{keyboardActionsBlock}}",
+    "{{taskInputBlock}}",
+    "{{outputBlock}}"
   ],
   screenreaderStrictSystem: [
-    "{{allowedScreenReaderActions}}",
-    "{{actionGuidance}}",
-    "{{customInstructions}}",
-    "{{taskInputRule}}",
-    "{{responseFormat}}",
-    "{{rationaleRule}}"
+    "{{screenReaderActionsBlock}}",
+    "{{taskInputBlock}}",
+    "{{outputBlock}}"
   ],
   screenreaderHybridSystem: [
-    "{{allowedKeys}}",
-    "{{allowedScreenReaderActions}}",
-    "{{actionGuidance}}",
-    "{{customInstructions}}",
-    "{{taskInputRule}}",
-    "{{responseFormat}}",
-    "{{rationaleRule}}"
+    "{{keyboardActionsBlock}}",
+    "{{screenReaderActionsBlock}}",
+    "{{taskInputBlock}}",
+    "{{outputBlock}}"
   ]
 };
 
