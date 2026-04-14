@@ -57,6 +57,10 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   );
 }
 
+async function writeTaskFile(taskPath: string, body: unknown): Promise<void> {
+  await writeFile(taskPath, JSON.stringify(body, null, 2), "utf8");
+}
+
 describe.sequential("CLI", () => {
   it("loads task files with explicit task settings and resolves relative fixture URLs", async () => {
     const task = await loadTask(resolve("examples/tasks/simple-cta.json"));
@@ -306,7 +310,7 @@ describe.sequential("CLI", () => {
   it("rejects the removed stub provider in rawstep.config.ts", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-stub-config-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -325,20 +329,18 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: stub-config-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "stub-config-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath,
@@ -391,7 +393,7 @@ describe.sequential("CLI", () => {
   it("auto-discovers rawstep.config.ts from the current working directory and runs with config defaults", { timeout: 15_000 }, async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-discovery-"));
     const taskDir = join(tempDir, "tasks");
-    const taskPath = join(taskDir, "task.yml");
+    const taskPath = join(taskDir, "task.json");
     const outDir = join(tempDir, ".rawstep", "out");
 
     await mkdir(taskDir, { recursive: true });
@@ -414,20 +416,18 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await writeFile(
-      taskPath,
-      [
-        "id: config-discovery-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "config-discovery-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     process.chdir(taskDir);
     const exitCode = await runCli(["run", taskPath], {
@@ -442,7 +442,7 @@ describe.sequential("CLI", () => {
   it("lets --config override the auto-discovered rawstep.config.ts file", { timeout: 15_000 }, async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-explicit-"));
     const taskDir = join(tempDir, "tasks");
-    const taskPath = join(taskDir, "task.yml");
+    const taskPath = join(taskDir, "task.json");
     const discoveredOutDir = join(tempDir, "discovered-out");
     const explicitOutDir = join(tempDir, "explicit-out");
     const explicitConfigPath = join(tempDir, "override.ts");
@@ -484,20 +484,18 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: explicit-config-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "explicit-config-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     process.chdir(taskDir);
     const exitCode = await runCli(["run", taskPath, "--config", explicitConfigPath], {
@@ -512,7 +510,7 @@ describe.sequential("CLI", () => {
   it("merges env, config, task override, and CLI using the documented precedence", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-precedence-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "precedence-task.yml");
+    const taskPath = join(tempDir, "precedence-task.json");
 
     process.env.A11Y_TASK_AGENT_PROVIDER = "openai-compatible";
     process.env.A11Y_TASK_AGENT_MODEL = "env-model";
@@ -554,32 +552,31 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: precedence-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "maxSteps: 50",
-        "timeoutMs: 3000",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  mode: screenreader-hybrid",
-        "  outDir: ./task-out",
-        "  maxSteps: 60",
-        "  timeoutMs: 4000",
-        "  screenshots: none",
-        "  verifierAutoComplete: true",
-        "  includeExperienceSummary: true",
-        "  includeRationale: true",
-        "  memory: all"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "precedence-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      maxSteps: 50,
+      timeoutMs: 3000,
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        mode: "screenreader-hybrid",
+        outDir: "./task-out",
+        maxSteps: 60,
+        timeoutMs: 4000,
+        screenshots: "none",
+        verifierAutoComplete: true,
+        includeExperienceSummary: true,
+        includeRationale: true,
+        memory: "all"
+      }
+    });
 
     const options = await resolveRunOptions(parseRunArgs([
       taskPath,
@@ -615,10 +612,10 @@ describe.sequential("CLI", () => {
     expect(options.includeRationale).toBe(true);
   });
 
-  it("accepts apiKey in rawstep.config.ts and still rejects it in task.yml", async () => {
+  it("accepts apiKey in rawstep.config.ts and still rejects it in task.json", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-secrets-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -639,20 +636,18 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: invalid-secret-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "invalid-secret-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath,
@@ -664,22 +659,21 @@ describe.sequential("CLI", () => {
       model: "claude-config"
     });
 
-    await writeFile(
-      taskPath,
-      [
-        "id: invalid-secret-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  apiKey: secret"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "invalid-secret-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        apiKey: "secret"
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath
@@ -785,7 +779,7 @@ describe.sequential("CLI", () => {
   it("rejects removed config.run/config.agent format with a migration hint", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-old-task-config-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -805,22 +799,22 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: old-task-config",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  run:",
-        "    timeoutMs: 600000"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "old-task-config",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        run: {
+          timeoutMs: 600000
+        }
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath,
@@ -832,7 +826,7 @@ describe.sequential("CLI", () => {
   it("rejects provider overrides inside mode presets and task config", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-provider-reject-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -878,21 +872,20 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: task-provider-reject",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  provider: openai-compatible"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "task-provider-reject",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        provider: "openai-compatible"
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath,
@@ -901,29 +894,24 @@ describe.sequential("CLI", () => {
     ]))).rejects.toThrow("config.provider is not allowed");
   });
 
-  it("loads verify rules from task yaml", async () => {
+  it("loads verify rules from task json", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-verify-task-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: verify-task",
-        "url: ../fixtures/simple-cta.html",
-        "goal: Verify success.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - responseSeen:",
-        "        urlIncludes: /api/cart",
-        "        method: POST",
-        "        status: 200"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "verify-task",
+      url: "../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
+        ]
+      }
+    });
 
     const task = await loadTask(taskPath);
     expect(task.verify.all).toEqual([
@@ -932,28 +920,27 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("loads named inputs from task yaml", async () => {
+  it("loads named inputs from task json", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-input-task-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: input-task",
-        "url: ../fixtures/search.html",
-        "goal: Search for passport.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Search",
-        "input:",
-        "  email: traveler@example.com",
-        "  password: super-secret"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "input-task",
+      url: "../fixtures/search.html",
+      goal: "Search for passport.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { titleIncludes: "Search" }
+        ]
+      },
+      input: {
+        email: "traveler@example.com",
+        password: "super-secret"
+      }
+    });
 
     const task = await loadTask(taskPath);
     expect(task.input).toEqual({
@@ -964,203 +951,205 @@ describe.sequential("CLI", () => {
 
   it("rejects invalid verify rules", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-verify-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: invalid-verify-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Verify success.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Completed",
-        "      textVisible: Started!"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "invalid-verify-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Verify success.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          {
+            titleIncludes: "Completed",
+            textVisible: "Started!"
+          }
+        ]
+      }
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow("exactly one rule type");
   });
 
   it("rejects invalid task input rules", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-invalid-input-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: invalid-input-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Try invalid input.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Simple CTA Fixture",
-        "input:",
-        '  email: ""'
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "invalid-input-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Try invalid input.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { titleIncludes: "Simple CTA Fixture" }
+        ]
+      },
+      input: {
+        email: ""
+      }
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow('Task input.email must be a non-empty string.');
   });
 
   it("rejects the removed legacy input.text field", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-legacy-input-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: legacy-input-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Try legacy input.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Simple CTA Fixture",
-        "input:",
-        "  text: passport"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "legacy-input-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Try legacy input.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { titleIncludes: "Simple CTA Fixture" }
+        ]
+      },
+      input: {
+        text: "passport"
+      }
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow("Task input.text is removed.");
   });
 
   it("rejects reserved task input keys", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-reserved-input-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: reserved-input-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Try reserved input key.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Simple CTA Fixture",
-        "input:",
-        "  task: passport"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "reserved-input-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Try reserved input key.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { titleIncludes: "Simple CTA Fixture" }
+        ]
+      },
+      input: {
+        task: "passport"
+      }
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow('Task input key "task" is reserved.');
   });
 
   it("rejects empty named input maps", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-empty-input-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: empty-input-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Try empty input.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Simple CTA Fixture",
-        "input: {}"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "empty-input-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Try empty input.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      verify: {
+        all: [
+          { titleIncludes: "Simple CTA Fixture" }
+        ]
+      },
+      input: {}
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow("Task input must include at least one named value");
   });
 
   it("rejects task files without verify", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-missing-verify-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: missing-verify-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Missing verify.",
-        "mode: keyboard",
-        "maxSteps: 20",
-        "timeoutMs: 180000"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "missing-verify-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Missing verify.",
+      mode: "keyboard",
+      maxSteps: 20,
+      timeoutMs: 180000
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow('Task file must include verify with a non-empty "all" array.');
   });
 
   it("rejects task files without mode when there is no override", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-missing-mode-"));
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      taskPath,
-      [
-        "id: missing-mode-task",
-        "url: ../../fixtures/simple-cta.html",
-        "goal: Missing mode.",
-        "verify:",
-        "  all:",
-        "    - titleIncludes: Completed",
-        "maxSteps: 20",
-        "timeoutMs: 180000"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "missing-mode-task",
+      url: "../../fixtures/simple-cta.html",
+      goal: "Missing mode.",
+      verify: {
+        all: [
+          { titleIncludes: "Completed" }
+        ]
+      },
+      maxSteps: 20,
+      timeoutMs: 180000
+    });
 
     await expect(loadTask(taskPath)).rejects.toThrow("missing mode");
   });
 
-  it("rejects discovered rawstep.config.yml and tells the user to move to rawstep.config.ts", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-yml-removed-"));
-    const taskPath = join(tempDir, "task.yml");
+  it("uses discovered rawstep.config.ts", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-discovery-"));
+    const taskPath = join(tempDir, "task.json");
 
-    await writeFile(
-      join(tempDir, "rawstep.config.yml"),
-      "version: 1\n",
-      "utf8"
+    await writeConfigModule(
+      join(tempDir, "rawstep.config.ts"),
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: removed-yml-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "config-discovery-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     process.chdir(tempDir);
-    await expect(resolveRunOptions(parseRunArgs([taskPath]))).rejects.toThrow(
-      "rawstep.config.yml is removed. Use rawstep.config.ts instead"
-    );
+    await expect(resolveRunOptions(parseRunArgs([taskPath]))).resolves.toMatchObject({
+      task: {
+        id: "config-discovery-task"
+      }
+    });
   });
 
   it("resolves screen reader backend and allowed command subsets from config and task overrides", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-config-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -1187,27 +1176,24 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: sr-config-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: screenreader-hybrid",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  headless: true",
-        "  allowedKeys:",
-        "    - Tab",
-        "  allowedScreenReaderActions:",
-        "    - semantic: heading.next",
-        "  screenReaderBackend: guidepup-virtual"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "sr-config-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "screenreader-hybrid",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        headless: true,
+        allowedKeys: ["Tab"],
+        allowedScreenReaderActions: [{ semantic: "heading.next" }],
+        screenReaderBackend: "guidepup-virtual"
+      }
+    });
 
     const options = await resolveRunOptions(parseRunArgs([
       taskPath,
@@ -1226,7 +1212,7 @@ describe.sequential("CLI", () => {
   it("lets CLI override screen reader backend, allowed command subsets, and task timing", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-cli-override-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -1253,29 +1239,26 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: sr-cli-override-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: screenreader-hybrid",
-        "maxSteps: 40",
-        "timeoutMs: 200000",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  headless: false",
-        "  allowedKeys:",
-        "    - Tab",
-        "  allowedScreenReaderActions:",
-        "    - semantic: heading.next",
-        "  screenReaderBackend: guidepup-voiceover"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "sr-cli-override-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "screenreader-hybrid",
+      maxSteps: 40,
+      timeoutMs: 200000,
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        headless: false,
+        allowedKeys: ["Tab"],
+        allowedScreenReaderActions: [{ semantic: "heading.next" }],
+        screenReaderBackend: "guidepup-voiceover"
+      }
+    });
 
     const options = await resolveRunOptions(parseRunArgs([
       taskPath,
@@ -1384,7 +1367,7 @@ describe.sequential("CLI", () => {
   it("ignores config.prompt in task config", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-task-prompt-dir-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -1404,23 +1387,23 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: prompt-dir-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  prompt:",
-        "    dir: ./another-prompt"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "prompt-dir-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        prompt: {
+          dir: "./another-prompt"
+        }
+      }
+    });
 
     const options = await resolveRunOptions(parseRunArgs([
       taskPath,
@@ -1729,7 +1712,7 @@ describe.sequential("CLI", () => {
   it("rejects missing memory when neither config nor CLI provides it", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-missing-memory-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
+    const taskPath = join(tempDir, "task.json");
 
     await writeConfigModule(
       configPath,
@@ -1748,20 +1731,18 @@ describe.sequential("CLI", () => {
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: missing-memory-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: keyboard",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed"
-      ].join("\n"),
-      "utf8"
-    );
+    await writeTaskFile(taskPath, {
+      id: "missing-memory-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
 
     await expect(resolveRunOptions(parseRunArgs([
       taskPath,

@@ -3,7 +3,6 @@ import { validateVerifySpec } from "@rawstep/runner";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import YAML from "yaml";
 import {
   parseAllowedKeys,
   parseAllowedScreenReaderActions,
@@ -35,7 +34,14 @@ export async function loadTask(
 export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> {
   const absoluteTaskFile = resolve(taskFile);
   const raw = await readFile(absoluteTaskFile, "utf8");
-  const parsed = YAML.parse(raw) as TaskFileShape;
+  let parsed: TaskFileShape;
+  try {
+    parsed = JSON.parse(raw) as TaskFileShape;
+  } catch (error) {
+    throw new Error(
+      `Task file ${absoluteTaskFile} must be valid JSON. ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 
   if (!parsed.url || !parsed.goal) {
     throw new Error("Task file must include url and goal.");

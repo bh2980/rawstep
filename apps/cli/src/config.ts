@@ -224,11 +224,6 @@ async function findConfigFile(startDir = process.cwd()): Promise<string | undefi
 
   while (true) {
     const tsCandidate = join(currentDir, "rawstep.config.ts");
-    const ymlCandidate = join(currentDir, "rawstep.config.yml");
-    if (await exists(ymlCandidate)) {
-      throw new Error(`rawstep.config.yml is removed. Use rawstep.config.ts instead: ${ymlCandidate}`);
-    }
-
     const candidate = tsCandidate;
     try {
       await access(candidate);
@@ -265,10 +260,6 @@ async function exists(path: string): Promise<boolean> {
 
 function validateExplicitConfigPath(configFile: string): string {
   const resolvedPath = resolve(configFile);
-  if (resolvedPath.endsWith(".yml") || resolvedPath.endsWith(".yaml")) {
-    throw new Error(`rawstep.config.yml is removed. Use rawstep.config.ts instead: ${resolvedPath}`);
-  }
-
   if (!resolvedPath.endsWith(".ts")) {
     throw new Error(`Config file must be a rawstep.config.ts file. Received: ${resolvedPath}`);
   }

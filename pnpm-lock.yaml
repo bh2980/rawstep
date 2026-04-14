@@ -44,9 +44,6 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-      yaml:
-        specifier: ^2.8.1
-        version: 2.8.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -62,15 +59,15 @@ importers:
 
   packages/agent:
     dependencies:
-      '@rawstep/core':
-        specifier: workspace:*
-        version: link:../core
       '@ai-sdk/anthropic':
         specifier: ^2.0.0
         version: 2.0.74(zod@4.3.6)
       '@ai-sdk/openai-compatible':
         specifier: ^1.0.0
         version: 1.0.35(zod@4.3.6)
+      '@rawstep/core':
+        specifier: workspace:*
+        version: link:../core
       ai:
         specifier: ^5.0.0
         version: 5.0.172(zod@4.3.6)
@@ -86,6 +83,18 @@ importers:
 
   packages/core: {}
 
+  packages/guidepup-capabilities:
+    dependencies:
+      '@guidepup/guidepup':
+        specifier: ^0.24.1
+        version: 0.24.1
+      '@guidepup/virtual-screen-reader':
+        specifier: ^0.32.1
+        version: 0.32.1
+      '@rawstep/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/observer-keyboard:
     dependencies:
       '@rawstep/core':
@@ -97,18 +106,21 @@ importers:
 
   packages/observer-screenreader:
     dependencies:
-      '@rawstep/actuator':
-        specifier: workspace:*
-        version: link:../actuator
-      '@rawstep/core':
-        specifier: workspace:*
-        version: link:../core
       '@guidepup/guidepup':
         specifier: ^0.24.1
         version: 0.24.1
       '@guidepup/virtual-screen-reader':
         specifier: ^0.32.1
         version: 0.32.1
+      '@rawstep/actuator':
+        specifier: workspace:*
+        version: link:../actuator
+      '@rawstep/core':
+        specifier: workspace:*
+        version: link:../core
+      '@rawstep/guidepup-capabilities':
+        specifier: workspace:*
+        version: link:../guidepup-capabilities
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
@@ -1708,6 +1720,7 @@ snapshots:
 
   xtend@4.0.2: {}
 
-  yaml@2.8.3: {}
+  yaml@2.8.3:
+    optional: true
 
   zod@4.3.6: {}
