@@ -6,6 +6,7 @@ import {
   type KeyboardActionRef,
   type ScreenReaderExtensionCatalogActionRef,
   type ScreenReaderExtensionRawPerformActionRef,
+  type ScreenReaderSemanticAction,
   type ScreenReaderStableActionRef,
   type ScreenReaderBackendId
 } from "@rawstep/action-catalog";
@@ -35,10 +36,11 @@ type KeyboardModeConfig = SharedModeConfig & {
   screenReaderBackend?: never;
 };
 
-type BackendConfiguredStableScreenReaderAction<TBackend extends ScreenReaderBackendId> = Extract<
-  ScreenReaderStableActionRef,
-  { semantic: BackendStableScreenReaderSemantic<TBackend> }
->;
+type StableScreenReaderActionRefFor<TSemantic extends ScreenReaderSemanticAction> =
+  ScreenReaderStableActionRef & { semantic: TSemantic };
+
+type BackendConfiguredStableScreenReaderAction<TBackend extends ScreenReaderBackendId> =
+  StableScreenReaderActionRefFor<BackendStableScreenReaderSemantic<TBackend>>;
 
 type BackendConfiguredUnstableScreenReaderAction<TBackend extends ScreenReaderBackendId> =
   TBackend extends "guidepup-virtual"
@@ -85,6 +87,13 @@ export type RawstepConfig = {
     "screenreader-hybrid"?: ScreenReaderHybridModeConfig;
   };
 };
+
+export function screenReaderActionsFor<const TBackend extends ScreenReaderBackendId>(
+  _backend: TBackend,
+  actions: readonly BackendConfiguredScreenReaderAction<TBackend>[]
+): readonly BackendConfiguredScreenReaderAction<TBackend>[] {
+  return actions;
+}
 
 export function defineConfig<const TConfig extends RawstepConfig>(config: TConfig): RawstepConfig {
   return config;
