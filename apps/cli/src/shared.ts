@@ -1,8 +1,10 @@
 import type { AgentProvider } from "@rawstep/agent";
 import { z } from "zod";
 import {
+  type ConfiguredKeyboardAction,
   isAllowedKey,
   type ConfiguredScreenReaderAction,
+  type ResolvedPromptKeyboardAction,
   type ResolvedPromptScreenReaderAction,
   type AllowedKey,
   type ScreenshotPolicy,
@@ -59,7 +61,7 @@ export type ModeConfigShape = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   memory?: MemorySetting;
-  allowedKeys?: AllowedKey[];
+  allowedKeys?: ConfiguredKeyboardAction[];
   allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
   screenReaderBackend?: ScreenReaderBackendId;
   prompt?: PromptOverrideShape;
@@ -134,7 +136,6 @@ export type TaskExecutionDefaults = {
 
 export type PromptOverrideShape = {
   extraInstructions?: string;
-  keyHints?: Partial<Record<AllowedKey, string>>;
 };
 
 export type ProjectPromptShape = PromptOverrideShape & {
@@ -144,7 +145,7 @@ export type ProjectPromptShape = PromptOverrideShape & {
 export type ResolvedPromptOptions = {
   promptDir: string;
   extraInstructions?: string;
-  keyHints: Partial<Record<AllowedKey, string>>;
+  keyboardActions: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions: readonly ResolvedPromptScreenReaderAction[];
 };
 
@@ -156,7 +157,7 @@ export const booleanSchema = z.boolean();
 export const nonEmptyStringSchema = z.string().trim().min(1);
 export const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
 export const allowedKeySchema = z.custom<AllowedKey>((value) => typeof value === "string" && isAllowedKey(value));
-export const allowedKeysSchema = z.array(allowedKeySchema);
+export const allowedKeysSchema = z.array(z.unknown());
 export const allowedScreenReaderActionsSchema = z.array(z.unknown());
 export const screenReaderBackendIdSchema = z.custom<ScreenReaderBackendId>(
   (value) => typeof value === "string" && isScreenReaderBackendId(value)
@@ -316,9 +317,13 @@ export function parsePromptOverride(
       `${label}.screenReaderActionHints is removed. Put hints on allowedScreenReaderActions entries instead.`
     );
   }
+  if (candidate.keyHints !== undefined) {
+    throw new Error(
+      `${label}.keyHints is removed. Put hints on allowedKeys entries instead.`
+    );
+  }
   const allowedKeys = new Set([
     "extraInstructions",
-    "keyHints",
     ...(options.allowDir ? ["dir"] : [])
   ]);
 
@@ -331,18 +336,13 @@ export function parsePromptOverride(
   const extraInstructions = candidate.extraInstructions === undefined
     ? undefined
     : parseOptionalString(candidate.extraInstructions, `${label}.extraInstructions`);
-  const keyHints = candidate.keyHints === undefined
-    ? undefined
-    : parsePromptKeyHints(candidate.keyHints, `${label}.keyHints`);
-
   if (!options.allowDir) {
     if (candidate.dir !== undefined) {
       throw new Error(`${label}.dir is not allowed.`);
     }
 
     return {
-      extraInstructions,
-      keyHints
+      extraInstructions
     };
   }
 
@@ -350,8 +350,7 @@ export function parsePromptOverride(
     dir: candidate.dir === undefined
       ? undefined
       : parseOptionalString(candidate.dir, `${label}.dir`),
-    extraInstructions,
-    keyHints
+    extraInstructions
   };
 }
 
@@ -386,26 +385,6 @@ function parseCommaSeparatedValues(value: unknown, label: string): string[] {
   }
 
   return entries;
-}
-
-function parsePromptKeyHints(
-  value: unknown,
-  label: string
-): Partial<Record<AllowedKey, string>> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} must be an object keyed by allowed key names.`);
-  }
-
-  const result: Partial<Record<AllowedKey, string>> = {};
-  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (!isAllowedKey(key)) {
-      throw new Error(`${label}.${key} must be one of ${ALLOWED_KEY_LABELS}.`);
-    }
-
-    result[key] = parseOptionalString(entry, `${label}.${key}`);
-  }
-
-  return result;
 }
 
 const ALLOWED_KEY_LABELS = "Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape";

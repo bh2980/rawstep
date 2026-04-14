@@ -1,7 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
-import type { AllowedKey, ConfiguredScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
+import type { ConfiguredKeyboardAction, ConfiguredScreenReaderAction, ScreenshotPolicy } from "@rawstep/core";
 import type { ScreenReaderBackendId } from "@rawstep/observer-screenreader";
 import type { MemorySetting } from "./shared";
+import { kb } from "./keyboard-actions";
 import { sr } from "./screenreader-actions";
 
 type SharedModeConfig = {
@@ -18,7 +19,7 @@ type SharedModeConfig = {
 };
 
 type KeyboardModeConfig = SharedModeConfig & {
-  allowedKeys?: readonly AllowedKey[];
+  allowedKeys?: readonly ConfiguredKeyboardAction[];
   allowedScreenReaderActions?: never;
   screenReaderBackend?: never;
 };
@@ -34,7 +35,7 @@ type ScreenReaderStrictModeConfig = {
 type ScreenReaderHybridModeConfig = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
     screenReaderBackend: TBackend;
-    allowedKeys?: readonly AllowedKey[];
+    allowedKeys?: readonly ConfiguredKeyboardAction[];
     allowedScreenReaderActions?: readonly ConfiguredScreenReaderAction[];
   };
 }[ScreenReaderBackendId];
@@ -49,7 +50,6 @@ type ProjectDefaultsConfig = {
 
 type PromptOverrideConfig = {
   extraInstructions?: string;
-  keyHints?: Partial<Record<AllowedKey, string>>;
 };
 
 type ProjectPromptConfig = PromptOverrideConfig & {
@@ -70,4 +70,5 @@ export function defineConfig<const TConfig extends RawstepConfig>(config: TConfi
   return config;
 }
 
+export { kb };
 export { sr };

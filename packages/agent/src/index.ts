@@ -49,7 +49,7 @@ export class LLMAgent implements Agent {
   private readonly taskInput?: Task["input"];
   private readonly promptDir?: string;
   private readonly extraInstructions?: string;
-  private readonly keyHints: LLMAgentOptions["keyHints"];
+  private readonly keyboardActions: LLMAgentOptions["keyboardActions"];
   private readonly screenReaderActions: LLMAgentOptions["screenReaderActions"];
   private readonly screenReaderCapabilities: LLMAgentOptions["screenReaderCapabilities"];
   private readonly memory: AgentMemoryEntry[] = [];
@@ -68,7 +68,7 @@ export class LLMAgent implements Agent {
     this.taskInput = options.taskInput;
     this.promptDir = options.promptDir;
     this.extraInstructions = options.extraInstructions;
-    this.keyHints = options.keyHints;
+    this.keyboardActions = options.keyboardActions;
     this.screenReaderActions = options.screenReaderActions;
     this.screenReaderCapabilities = options.screenReaderCapabilities;
   }
@@ -84,7 +84,7 @@ export class LLMAgent implements Agent {
       {
         promptDir: this.promptDir,
         extraInstructions: this.extraInstructions,
-        keyHints: this.keyHints,
+        keyboardActions: this.keyboardActions,
         screenReaderActions: this.screenReaderActions,
         screenReaderCapabilities: this.screenReaderCapabilities
       }

@@ -1,14 +1,11 @@
-import { defineConfig, sr } from "../apps/cli/src/config-define";
+import { defineConfig, kb, sr } from "../apps/cli/src/config-define";
 
 defineConfig({
   version: 1,
   defaults: {
     prompt: {
       dir: "./prompt",
-      extraInstructions: "Stay conservative.",
-      keyHints: {
-        Tab: "Move to the next focusable element."
-      }
+      extraInstructions: "Stay conservative."
     }
   },
   modes: {
@@ -17,12 +14,9 @@ defineConfig({
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      allowedKeys: ["Tab", "Enter"],
+      allowedKeys: [kb.tab(), kb.enter()],
       prompt: {
-        extraInstructions: "Prefer exploration over activation.",
-        keyHints: {
-          Enter: "Activate the focused element."
-        }
+        extraInstructions: "Prefer exploration over activation."
       }
     },
     "screenreader-strict": {
@@ -42,7 +36,7 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: ["Tab"],
+      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         sr.heading.next({ hint: "Move to the next heading." }),
         sr.click()
@@ -90,6 +84,20 @@ defineConfig({
       memory: "all",
       screenReaderBackend: "guidepup-nvda",
       // @ts-expect-error screenreader-strict must not accept allowedKeys
+      allowedKeys: [kb.tab()]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      // @ts-expect-error raw string literals are not part of the public config API
       allowedKeys: ["Tab"]
     }
   }

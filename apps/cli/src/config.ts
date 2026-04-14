@@ -7,7 +7,8 @@ import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
   ALLOWED_KEYS,
-  type AllowedKey
+  type AllowedKey,
+  type ConfiguredKeyboardAction
 } from "@rawstep/core";
 import {
   findScreenReaderBackendById
@@ -19,15 +20,23 @@ import {
   type ProjectDefaultsShape,
   type ProjectConfig,
   type PromptOverrideShape,
+  parseAllowedScreenReaderActions,
   parsePromptOverride,
+  parseScreenReaderBackendId,
   type ResolvedRunOptions
 } from "./shared";
 import {
-  formatConfiguredScreenReaderAction,
+  buildPromptKeyboardActions,
+  kb,
+  parseConfiguredKeyboardActions,
+  resolveConfiguredKeyboardActions
+} from "./keyboard-actions";
+import {
+  sr,
   resolveConfiguredScreenReaderActions
 } from "./screenreader-actions";
-import { configRootSchema, parseProjectDefaultsObject } from "./schema";
-import { loadTaskSource, resolveTask, validateTaskConfigOverride } from "./task-file";
+import { configRootSchema, parseProjectDefaultsObject, parseTaskConfigObject } from "./schema";
+import { loadTaskSource, resolveTask } from "./task-file";
 
 const loadedEnvDirs = new Set<string>();
 
@@ -123,10 +132,10 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     );
   }
 
-  const configuredAllowedKeys =
+  const overrideAllowedKeys =
     cliOptions.allowedKeys
-    ?? taskSource.taskConfig?.allowedKeys
-    ?? modePreset?.allowedKeys;
+    ?? taskSource.taskConfig?.allowedKeys;
+  const configuredAllowedKeys = modePreset?.allowedKeys;
   const configuredAllowedScreenReaderActions =
     cliOptions.allowedScreenReaderActions
     ??
@@ -146,7 +155,10 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     throw new Error("screenReaderBackend is not allowed in keyboard mode.");
   }
 
-  if (selectedMode === "screenreader-strict" && configuredAllowedKeys) {
+  if (
+    selectedMode === "screenreader-strict"
+    && (overrideAllowedKeys !== undefined || configuredAllowedKeys !== undefined)
+  ) {
     throw new Error("allowedKeys is not allowed in screenreader-strict mode.");
   }
 
@@ -156,12 +168,17 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     configuredAllowedScreenReaderActions,
     screenReaderBackendId
   );
-  const allowedKeys = resolveAllowedKeys(selectedMode, configuredAllowedKeys);
+  const resolvedKeyboardActions = resolveAllowedKeys(
+    selectedMode,
+    overrideAllowedKeys,
+    configuredAllowedKeys
+  );
   const prompt = resolvePromptOptions(
     configDir,
     projectDefaults?.prompt,
     modePreset?.prompt,
     taskSource.taskConfig?.prompt,
+    resolvedKeyboardActions.promptActions,
     resolvedScreenReaderActions.promptActions
   );
 
@@ -198,7 +215,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
       ?? projectDefaults?.model,
     baseURL: cliOptions.baseURL
       ?? projectDefaults?.baseURL,
-    allowedKeys,
+    allowedKeys: resolvedKeyboardActions.runtimeKeys,
     allowedScreenReaderActions: resolvedScreenReaderActions.runtimeActions,
     screenReaderBackendId,
     prompt
@@ -293,7 +310,9 @@ async function loadTsConfigModule(configPath: string): Promise<unknown> {
       return {
         defineConfig<T>(config: T): T {
           return config;
-        }
+        },
+        kb,
+        sr
       };
     }
 
@@ -370,7 +389,7 @@ function validateModePreset(
   configPath: string,
   mode: ResolvedRunOptions["task"]["mode"]
 ): ModeConfigShape {
-  const preset = validateTaskConfigOverride(rawPreset, `Config file ${configPath} modes.${mode}`);
+  const preset = validateModePresetOverride(rawPreset, `Config file ${configPath} modes.${mode}`);
   if (mode === "keyboard" && preset?.allowedScreenReaderActions) {
     throw new Error(`Config file ${configPath} modes.${mode}.allowedScreenReaderActions is not allowed in keyboard mode.`);
   }
@@ -394,6 +413,45 @@ function validateModePreset(
     allowedScreenReaderActions: preset?.allowedScreenReaderActions,
     screenReaderBackend: preset?.screenReaderBackend,
     prompt: preset?.prompt
+  };
+}
+
+function validateModePresetOverride(raw: unknown, label: string): ModeConfigShape | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${label} config must be an object.`);
+  }
+
+  const candidate = parseTaskConfigObject(raw, label);
+
+  return {
+    outDir: candidate.outDir,
+    headless: candidate.headless,
+    maxSteps: candidate.maxSteps,
+    timeoutMs: candidate.timeoutMs,
+    screenshots: candidate.screenshots,
+    verifierAutoComplete: candidate.verifierAutoComplete,
+    includeExperienceSummary: candidate.includeExperienceSummary,
+    includeRationale: candidate.includeRationale,
+    memory: candidate.memory,
+    allowedKeys: candidate.allowedKeys === undefined
+      ? undefined
+      : parseConfiguredKeyboardActions(candidate.allowedKeys, `${label}.allowedKeys`),
+    allowedScreenReaderActions: candidate.allowedScreenReaderActions === undefined
+      ? undefined
+      : parseAllowedScreenReaderActions(
+        candidate.allowedScreenReaderActions,
+        `${label}.allowedScreenReaderActions`
+      ),
+    screenReaderBackend: candidate.screenReaderBackend === undefined
+      ? undefined
+      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label}.screenReaderBackend`),
+    prompt: candidate.prompt === undefined
+      ? undefined
+      : parsePromptOverride(candidate.prompt, `${label}.prompt`, { allowDir: false })
   };
 }
 
@@ -430,13 +488,34 @@ function normalizeMemoryAll(memory: number | "all" | undefined): boolean | undef
 
 function resolveAllowedKeys(
   selectedMode: ResolvedRunOptions["task"]["mode"],
-  configuredAllowedKeys: readonly AllowedKey[] | undefined
-): ResolvedRunOptions["allowedKeys"] {
+  overrideAllowedKeys: readonly AllowedKey[] | undefined,
+  configuredAllowedKeys: readonly ConfiguredKeyboardAction[] | undefined
+): {
+  runtimeKeys: ResolvedRunOptions["allowedKeys"];
+  promptActions: ResolvedRunOptions["prompt"]["keyboardActions"];
+} {
   if (selectedMode === "screenreader-strict") {
-    return [];
+    return {
+      runtimeKeys: [],
+      promptActions: []
+    };
   }
 
-  return configuredAllowedKeys ?? ALLOWED_KEYS;
+  if (overrideAllowedKeys) {
+    return {
+      runtimeKeys: overrideAllowedKeys,
+      promptActions: buildPromptKeyboardActions(overrideAllowedKeys)
+    };
+  }
+
+  if (configuredAllowedKeys) {
+    return resolveConfiguredKeyboardActions(configuredAllowedKeys);
+  }
+
+  return {
+    runtimeKeys: ALLOWED_KEYS,
+    promptActions: buildPromptKeyboardActions(ALLOWED_KEYS)
+  };
 }
 
 function resolveAllowedScreenReaderActions(
@@ -471,6 +550,7 @@ function resolvePromptOptions(
   projectPrompt: ProjectDefaultsShape["prompt"] | undefined,
   modePrompt: PromptOverrideShape | undefined,
   taskPrompt: PromptOverrideShape | undefined,
+  keyboardActions: ResolvedRunOptions["prompt"]["keyboardActions"],
   screenReaderActions: ResolvedRunOptions["prompt"]["screenReaderActions"]
 ): ResolvedRunOptions["prompt"] {
   return {
@@ -480,11 +560,7 @@ function resolvePromptOptions(
       modePrompt?.extraInstructions,
       taskPrompt?.extraInstructions
     ].filter((value): value is string => Boolean(value)).join("\n\n") || undefined,
-    keyHints: {
-      ...(projectPrompt?.keyHints ?? {}),
-      ...(modePrompt?.keyHints ?? {}),
-      ...(taskPrompt?.keyHints ?? {})
-    },
+    keyboardActions,
     screenReaderActions
   };
 }

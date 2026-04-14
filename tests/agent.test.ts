@@ -10,7 +10,12 @@ import {
   type AgentCompletionClient,
   type PromptPart
 } from "@rawstep/agent";
-import type { AgentContext, Observation, ResolvedPromptScreenReaderAction } from "@rawstep/core";
+import type {
+  AgentContext,
+  Observation,
+  ResolvedPromptKeyboardAction,
+  ResolvedPromptScreenReaderAction
+} from "@rawstep/core";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -498,6 +503,31 @@ describe("agent helpers", () => {
     expect(prompt).not.toContain("traveler@example.com");
     expect(prompt).not.toContain("super-secret");
     expect(prompt).toContain("rationale 필드에 짧은 이유를 포함하라.");
+  });
+
+  it("prefers configured keyboard action hints over default key guidance", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+    const keyboardActions: ResolvedPromptKeyboardAction[] = [
+      {
+        key: "Tab",
+        hint: "커스텀 Tab 설명"
+      }
+    ];
+
+    const prompt = buildSystemPrompt(
+      "keyboard",
+      undefined,
+      ["Tab"],
+      undefined,
+      false,
+      {
+        keyboardActions
+      }
+    );
+
+    expect(prompt).toContain("커스텀 Tab 설명");
+    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
   });
 
   it("renders screenreader prompts from prompt files with action placeholders", async () => {

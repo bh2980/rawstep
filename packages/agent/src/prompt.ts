@@ -8,6 +8,7 @@ import {
   type AgentMemoryEntry,
   type Decision,
   type Observation,
+  type ResolvedPromptKeyboardAction,
   type ResolvedPromptScreenReaderAction,
   type ScreenReaderAction,
   type ScreenReaderCapabilities,
@@ -23,7 +24,7 @@ import type { PromptPart } from "./shared";
 type SystemPromptOptions = {
   promptDir?: string;
   extraInstructions?: string;
-  keyHints?: Partial<Record<AllowedKey, string>>;
+  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
   screenReaderCapabilities?: ScreenReaderCapabilities;
 };
@@ -37,6 +38,8 @@ export function buildSystemPrompt(
   options: SystemPromptOptions = {}
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
+  const resolvedPromptKeyboardActions = options.keyboardActions
+    ?? buildFallbackPromptKeyboardActions(allowedKeys);
   const resolvedScreenReaderActions = allowedScreenReaderActions
     ?? (options.screenReaderCapabilities ? buildAllowedScreenReaderActions(options.screenReaderCapabilities) : []);
   const resolvedPromptScreenReaderActions = options.screenReaderActions
@@ -46,8 +49,8 @@ export function buildSystemPrompt(
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
       allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
       actionGuidance: buildActionGuidance(
-        undefined,
-        options.keyHints,
+        [],
+        resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
@@ -64,7 +67,7 @@ export function buildSystemPrompt(
       allowedScreenReaderActions: formatAllowedScreenReaderActionsForPrompt(resolvedPromptScreenReaderActions),
       actionGuidance: buildActionGuidance(
         allowedKeys,
-        options.keyHints,
+        resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
@@ -83,7 +86,7 @@ export function buildSystemPrompt(
     allowedKeys: allowedKeys.join(", "),
     actionGuidance: buildActionGuidance(
       allowedKeys,
-      options.keyHints,
+      resolvedPromptKeyboardActions,
       undefined,
       undefined
     ),
@@ -457,12 +460,12 @@ function buildRationaleRule(includeRationale: boolean): string {
 
 function buildActionGuidance(
   allowedKeys: readonly AllowedKey[] | undefined,
-  keyHints: Partial<Record<AllowedKey, string>> | undefined,
+  keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined,
   screenReaderActions: readonly ResolvedPromptScreenReaderAction[] | undefined,
   screenReaderCapabilities: ScreenReaderCapabilities | undefined
 ): string {
   return [
-    ...buildAllowedKeyGuidance(allowedKeys, keyHints),
+    ...buildAllowedKeyGuidance(allowedKeys, keyboardActions),
     ...buildAllowedScreenReaderActionGuidance(
       screenReaderActions,
       screenReaderCapabilities
@@ -472,13 +475,14 @@ function buildActionGuidance(
 
 function buildAllowedKeyGuidance(
   allowedKeys: readonly AllowedKey[] | undefined,
-  keyHints: Partial<Record<AllowedKey, string>> | undefined
+  keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined
 ): string[] {
   if (!allowedKeys || allowedKeys.length === 0) {
     return [];
   }
 
-  return allowedKeys.map((key) => keyHints?.[key] ?? DEFAULT_KEY_HINTS[key]);
+  const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
+  return promptActions.map((action) => action.hint ?? DEFAULT_KEY_HINTS[action.key]);
 }
 
 function buildAllowedScreenReaderActionGuidance(
@@ -542,6 +546,12 @@ function formatAllowedScreenReaderActionsForPrompt(
     catalogIds.length > 0 ? `catalog ids: ${catalogIds.join(", ")}` : undefined,
     rawPerformAllowed ? "raw perform: allowed" : undefined
   ].filter((value): value is string => Boolean(value)).join("\n");
+}
+
+function buildFallbackPromptKeyboardActions(
+  allowedKeys: readonly AllowedKey[]
+): readonly ResolvedPromptKeyboardAction[] {
+  return allowedKeys.map((key) => ({ key }));
 }
 
 function formatScreenReaderAction(action: ScreenReaderAction): string {

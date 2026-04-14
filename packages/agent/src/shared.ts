@@ -1,8 +1,8 @@
 import type {
   AgentContext,
   AgentMemoryEntry,
-  AllowedKey,
   Observation,
+  ResolvedPromptKeyboardAction,
   ResolvedPromptScreenReaderAction,
   ScreenReaderCapabilities,
   TaskInput
@@ -40,7 +40,7 @@ export type LLMAgentOptions = {
   taskInput?: TaskInput;
   promptDir?: string;
   extraInstructions?: string;
-  keyHints?: Partial<Record<AllowedKey, string>>;
+  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
   screenReaderCapabilities?: ScreenReaderCapabilities;
   completionClient?: AgentCompletionClient;

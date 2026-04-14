@@ -205,6 +205,22 @@ export type ScreenReaderSemanticAction =
   | "catalog"
   | "rawPerform";
 
+type ConfiguredKeyboardActionShape = {
+  key: AllowedKey;
+  hint?: string;
+};
+
+declare const configuredKeyboardActionBrand: unique symbol;
+
+export type ConfiguredKeyboardAction = ConfiguredKeyboardActionShape & {
+  readonly [configuredKeyboardActionBrand]: true;
+};
+
+export type ResolvedPromptKeyboardAction = {
+  key: AllowedKey;
+  hint?: string;
+};
+
 type ConfiguredScreenReaderActionShape =
   | { semantic: "next"; hint?: string }
   | { semantic: "previous"; hint?: string }

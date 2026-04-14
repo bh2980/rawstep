@@ -1,4 +1,4 @@
-import { defineConfig, sr } from "./apps/cli/src/config-define";
+import { defineConfig, kb, sr } from "./apps/cli/src/config-define";
 
 export default defineConfig({
   version: 1,
@@ -16,17 +16,17 @@ export default defineConfig({
       // verifierAutoComplete: true,
       memory: 5,
       allowedKeys: [
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight",
-        "ArrowUp",
-        "Enter",
-        "Escape",
-        "Shift+Tab",
-        "Space",
-        "Tab",
-        "Home",
-        "End",
+        kb.arrow.down(),
+        kb.arrow.left(),
+        kb.arrow.right(),
+        kb.arrow.up(),
+        kb.enter(),
+        kb.escape(),
+        kb.shiftTab(),
+        kb.space(),
+        kb.tab(),
+        kb.home(),
+        kb.end(),
       ],
     },
     "screenreader-strict": {

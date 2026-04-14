@@ -47,7 +47,7 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   await writeFile(
     configPath,
     [
-      'import { defineConfig } from "@rawstep/cli/config";',
+      'import { defineConfig, kb, sr } from "@rawstep/cli/config";',
       "",
       "export default defineConfig(",
       body,
@@ -1178,7 +1178,7 @@ describe.sequential("CLI", () => {
       memory: "all",
       headless: false,
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: ["Tab", "Enter"],
+      allowedKeys: [kb.tab(), kb.enter()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
@@ -1244,7 +1244,7 @@ describe.sequential("CLI", () => {
       memory: "all",
       headless: false,
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: ["Tab", "Enter"],
+      allowedKeys: [kb.tab(), kb.enter()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
@@ -1319,10 +1319,7 @@ describe.sequential("CLI", () => {
     model: "claude-config",
     prompt: {
       dir: "./custom-prompt",
-      extraInstructions: "default-extra",
-      keyHints: {
-        Tab: "default-tab"
-      }
+      extraInstructions: "default-extra"
     }
   },
   modes: {
@@ -1332,17 +1329,16 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: ["Tab", "Enter"],
+      allowedKeys: [
+        kb.tab({ hint: "mode-tab" }),
+        kb.enter({ hint: "mode-enter" })
+      ],
       allowedScreenReaderActions: [
         { semantic: "heading.next", hint: "mode-next-heading" },
         { semantic: "click", hint: "mode-click" }
       ],
       prompt: {
-        extraInstructions: "mode-extra",
-        keyHints: {
-          Tab: "mode-tab",
-          Enter: "mode-enter"
-        }
+        extraInstructions: "mode-extra"
       }
     }
   }
@@ -1361,9 +1357,7 @@ describe.sequential("CLI", () => {
         "    - titleIncludes: Completed",
         "config:",
         "  prompt:",
-        "    extraInstructions: task-extra",
-        "    keyHints:",
-        "      Enter: task-enter"
+        "    extraInstructions: task-extra"
       ].join("\n"),
       "utf8"
     );
@@ -1376,10 +1370,16 @@ describe.sequential("CLI", () => {
 
     expect(options.prompt.promptDir).toBe(join(tempDir, "custom-prompt"));
     expect(options.prompt.extraInstructions).toBe("default-extra\n\nmode-extra\n\ntask-extra");
-    expect(options.prompt.keyHints).toEqual({
-      Tab: "mode-tab",
-      Enter: "task-enter"
-    });
+    expect(options.prompt.keyboardActions).toEqual([
+      {
+        key: "Tab",
+        hint: "mode-tab"
+      },
+      {
+        key: "Enter",
+        hint: "mode-enter"
+      }
+    ]);
     expect(options.prompt.screenReaderActions).toEqual([
       {
         semantic: "heading.next",
@@ -1450,7 +1450,48 @@ describe.sequential("CLI", () => {
     ]))).rejects.toThrow("config.prompt.dir is not allowed");
   });
 
-  it("rejects invalid prompt hint keys", async () => {
+  it("drops config keyboard hints when CLI overrides allowed keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-keyboard-hint-override-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      allowedKeys: [
+        kb.tab({ hint: "mode-tab" }),
+        kb.enter({ hint: "mode-enter" })
+      ]
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--allowed-keys",
+      "Tab"
+    ]));
+
+    expect(options.allowedKeys).toEqual(["Tab"]);
+    expect(options.prompt.keyboardActions).toEqual([
+      { key: "Tab" }
+    ]);
+  });
+
+  it("rejects prompt.keyHints after keyboard hints moved into allowedKeys", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-hints-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
@@ -1482,7 +1523,7 @@ describe.sequential("CLI", () => {
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
-    ]))).rejects.toThrow("defaults.prompt.keyHints.BadKey must be one of");
+    ]))).rejects.toThrow("defaults.prompt.keyHints is removed. Put hints on allowedKeys entries instead.");
   });
 
   it("rejects screen reader action config in keyboard mode", async () => {
@@ -1623,7 +1664,7 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: ["Tab"],
+      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
