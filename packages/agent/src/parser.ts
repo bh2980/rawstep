@@ -1,10 +1,7 @@
 import {
+  type Action,
   isAllowedKey,
-  type ClickOptions,
-  type CommandOptions,
   type Decision,
-  type KeyboardOptions,
-  type ScreenReaderAction,
   type ExperienceSummary
 } from "@rawstep/core";
 import type { PromptPart } from "./shared";
@@ -34,7 +31,7 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
 
   try {
     const candidate = JSON.parse(extractJsonObject(raw)) as {
-      action?: { key?: string; typeText?: string; srAction?: unknown; srCommand?: unknown };
+      action?: string;
       verdict?: string;
       rationale?: string;
     };
@@ -51,63 +48,31 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
     }
 
     if (candidate.action) {
-      const key = candidate.action.key;
-      const typeText = candidate.action.typeText;
-      const srAction = candidate.action.srAction;
-
-      if ([key, typeText, srAction].filter((value) => value !== undefined).length !== 1) {
+      if (typeof candidate.action !== "string" || !candidate.action.trim()) {
         return { status: "malformed", snippet };
       }
 
-      if (key) {
-        if (!isAllowedKey(key)) {
-          return { status: "malformed", snippet };
-        }
-
+      const parsedAction = parseStringAction(candidate.action, taskInputKeys);
+      if (parsedAction.status === "invalid-typeText-key") {
         return {
-          status: "ok",
-          decision: {
-            action: { key },
-            ...withOptionalRationale(rationale)
-          }
+          status: "invalid-typeText-key",
+          snippet,
+          key: parsedAction.key,
+          allowedKeys: parsedAction.allowedKeys
         };
       }
 
-      if (typeText) {
-        if (!taskInputKeys || taskInputKeys.length === 0) {
-          return { status: "invalid-typeText-key", snippet, key: typeText, allowedKeys: [] };
-        }
-
-        if (!taskInputKeys.includes(typeText)) {
-          return {
-            status: "invalid-typeText-key",
-            snippet,
-            key: typeText,
-            allowedKeys: [...taskInputKeys]
-          };
-        }
-
-        return {
-          status: "ok",
-          decision: {
-            action: { typeText },
-            ...withOptionalRationale(rationale)
-          }
-        };
+      if (parsedAction.status === "malformed") {
+        return { status: "malformed", snippet };
       }
 
-      const parsedScreenReaderAction = parseScreenReaderAction(srAction);
-      if (parsedScreenReaderAction) {
-        return {
-          status: "ok",
-          decision: {
-            action: { srAction: parsedScreenReaderAction },
-            ...withOptionalRationale(rationale)
-          }
-        };
-      }
-
-      return { status: "malformed", snippet };
+      return {
+        status: "ok",
+        decision: {
+          action: parsedAction.action,
+          ...withOptionalRationale(rationale)
+        }
+      };
     }
 
     if (candidate.verdict === "success" || candidate.verdict === "stuck") {
@@ -130,262 +95,102 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
   }
 }
 
-function parseScreenReaderAction(value: unknown): ScreenReaderAction | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (candidate.kind === "read") {
-    return parseReadAction(candidate);
-  }
-
-  if (candidate.kind === "maintenance") {
-    return parseMaintenanceAction(candidate);
-  }
-
-  if (candidate.kind !== "invoke" || typeof candidate.method !== "string") {
-    return undefined;
-  }
-
-  switch (candidate.method) {
-    case "next":
-    case "previous":
-    case "act":
-    case "interact":
-    case "stopInteracting":
-      return {
-        kind: "invoke",
-        method: candidate.method,
-        ...(parseCommandOptions(candidate.options) ? { options: parseCommandOptions(candidate.options)! } : {})
-      };
-    case "press": {
-      if (typeof candidate.key !== "string" || !candidate.key.trim()) {
-        return undefined;
-      }
-
-      const options = parseKeyboardOptions(candidate.options);
-      if (candidate.options !== undefined && !options) {
-        return undefined;
-      }
-
-      return {
-        kind: "invoke",
-        method: "press",
-        key: candidate.key,
-        ...(options ? { options } : {})
-      };
-    }
-    case "type": {
-      if (typeof candidate.text !== "string") {
-        return undefined;
-      }
-
-      const options = parseKeyboardOptions(candidate.options);
-      if (candidate.options !== undefined && !options) {
-        return undefined;
-      }
-
-      return {
-        kind: "invoke",
-        method: "type",
-        text: candidate.text,
-        ...(options ? { options } : {})
-      };
-    }
-    case "click": {
-      const options = parseClickOptions(candidate.options);
-      if (candidate.options !== undefined && !options) {
-        return undefined;
-      }
-
-      return {
-        kind: "invoke",
-        method: "click",
-        ...(options ? { options } : {})
-      };
-    }
-    case "perform": {
-      const command = parsePerformCommand(candidate.command);
-      if (!command) {
-        return undefined;
-      }
-
-      const options = parseCommandOptions(candidate.options);
-      if (candidate.options !== undefined && !options) {
-        return undefined;
-      }
-
-      return {
-        kind: "invoke",
-        method: "perform",
-        command,
-        ...(options ? { options } : {})
-      };
-    }
-    default:
-      return undefined;
-  }
-}
-
-function parseReadAction(candidate: Record<string, unknown>): ScreenReaderAction | undefined {
-  switch (candidate.method) {
-    case "itemText":
-    case "itemTextLog":
-    case "lastSpokenPhrase":
-    case "spokenPhraseLog":
-      return {
-        kind: "read",
-        method: candidate.method
-      };
-    default:
-      return undefined;
-  }
-}
-
-function parseMaintenanceAction(candidate: Record<string, unknown>): ScreenReaderAction | undefined {
-  switch (candidate.method) {
-    case "clearItemTextLog":
-    case "clearSpokenPhraseLog":
-      return {
-        kind: "maintenance",
-        method: candidate.method
-      };
-    default:
-      return undefined;
-  }
-}
-
-function parsePerformCommand(
-  value: unknown
-): Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>["command"] | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (candidate.source === "catalog") {
-    if (typeof candidate.id !== "string" || !candidate.id.trim()) {
-      return undefined;
+function parseStringAction(
+  value: string,
+  taskInputKeys?: string[]
+):
+  | { status: "ok"; action: Action }
+  | { status: "invalid-typeText-key"; key: string; allowedKeys: string[] }
+  | { status: "malformed" } {
+  if (value.startsWith("key.")) {
+    const key = value.slice("key.".length);
+    if (!isAllowedKey(key)) {
+      return { status: "malformed" };
     }
 
-    if (
-      candidate.args !== undefined
-      && (typeof candidate.args !== "object" || candidate.args === null || Array.isArray(candidate.args))
-    ) {
-      return undefined;
+    return { status: "ok", action: { key } };
+  }
+
+  if (value.startsWith("typeText.")) {
+    const key = value.slice("typeText.".length);
+    if (!taskInputKeys || taskInputKeys.length === 0) {
+      return { status: "invalid-typeText-key", key, allowedKeys: [] };
+    }
+
+    if (!taskInputKeys.includes(key)) {
+      return { status: "invalid-typeText-key", key, allowedKeys: [...taskInputKeys] };
+    }
+
+    return { status: "ok", action: { typeText: key } };
+  }
+
+  if (value.startsWith("sr.invoke.")) {
+    const method = value.slice("sr.invoke.".length);
+    switch (method) {
+      case "next":
+      case "previous":
+      case "act":
+      case "interact":
+      case "stopInteracting":
+        return {
+          status: "ok",
+          action: { srAction: { kind: "invoke", method } }
+        };
+      default:
+        return { status: "malformed" };
+    }
+  }
+
+  if (value.startsWith("sr.read.")) {
+    const method = value.slice("sr.read.".length);
+    switch (method) {
+      case "itemText":
+      case "itemTextLog":
+      case "lastSpokenPhrase":
+      case "spokenPhraseLog":
+        return {
+          status: "ok",
+          action: { srAction: { kind: "read", method } }
+        };
+      default:
+        return { status: "malformed" };
+    }
+  }
+
+  if (value.startsWith("sr.maintenance.")) {
+    const method = value.slice("sr.maintenance.".length);
+    switch (method) {
+      case "clearItemTextLog":
+      case "clearSpokenPhraseLog":
+        return {
+          status: "ok",
+          action: { srAction: { kind: "maintenance", method } }
+        };
+      default:
+        return { status: "malformed" };
+    }
+  }
+
+  const catalogMatch = value.match(/^sr\.perform\.catalog\((.+)\)$/);
+  if (catalogMatch) {
+    const id = catalogMatch[1]?.trim();
+    if (!id) {
+      return { status: "malformed" };
     }
 
     return {
-      source: "catalog",
-      id: candidate.id.trim(),
-      ...(candidate.args ? { args: candidate.args as Record<string, unknown> } : {})
+      status: "ok",
+      action: {
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "catalog", id }
+        }
+      }
     };
   }
 
-  if (
-    candidate.source === "raw"
-    && typeof candidate.payload === "object"
-    && candidate.payload !== null
-    && !Array.isArray(candidate.payload)
-  ) {
-    return {
-      source: "raw",
-      payload: candidate.payload as Record<string, unknown>
-    };
-  }
-
-  return undefined;
-}
-
-function parseCommandOptions(value: unknown): CommandOptions | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (
-    candidate.capture !== undefined
-    && candidate.capture !== true
-    && candidate.capture !== false
-    && candidate.capture !== "initial"
-  ) {
-    return undefined as never;
-  }
-
-  if (
-    candidate.retries !== undefined
-    && (typeof candidate.retries !== "number" || !Number.isInteger(candidate.retries))
-  ) {
-    return undefined as never;
-  }
-
-  if (
-    candidate.timeout !== undefined
-    && (typeof candidate.timeout !== "number" || !Number.isInteger(candidate.timeout))
-  ) {
-    return undefined;
-  }
-
-  return {
-    ...(candidate.capture !== undefined ? { capture: candidate.capture } : {}),
-    ...(candidate.retries !== undefined ? { retries: candidate.retries } : {}),
-    ...(candidate.timeout !== undefined ? { timeout: candidate.timeout } : {})
-  };
-}
-
-function parseKeyboardOptions(value: unknown): KeyboardOptions | undefined {
-  const commandOptions = parseCommandOptions(value);
-  if (value !== undefined && !commandOptions) {
-    return undefined;
-  }
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (candidate.application !== undefined && typeof candidate.application !== "string") {
-    return undefined;
-  }
-
-  return {
-    ...(commandOptions ?? {}),
-    ...(candidate.application !== undefined ? { application: candidate.application } : {})
-  };
-}
-
-function parseClickOptions(value: unknown): ClickOptions | undefined {
-  const commandOptions = parseCommandOptions(value);
-  if (value !== undefined && !commandOptions) {
-    return undefined;
-  }
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (candidate.button !== undefined && candidate.button !== "left" && candidate.button !== "right") {
-    return undefined;
-  }
-
-  if (
-    candidate.clickCount !== undefined
-    && (typeof candidate.clickCount !== "number" || !Number.isInteger(candidate.clickCount))
-  ) {
-    return undefined;
-  }
-
-  return {
-    ...(commandOptions ?? {}),
-    ...(candidate.button !== undefined ? { button: candidate.button } : {}),
-    ...(candidate.clickCount !== undefined ? { clickCount: candidate.clickCount as 1 | 2 | 3 } : {})
-  };
+  return { status: "malformed" };
 }
 
 export function parseExperienceSummary(raw: string): ExperienceSummary {

@@ -270,18 +270,18 @@ function buildKeyboardOutputExamples(
   allowedKeys: readonly AllowedKey[],
   includeRationale = false
 ): string {
-  const exampleKey = allowedKeys[0] ?? "<key>";
+  const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
   const snippets = [
     includeRationale
-      ? JSON.stringify({ action: { key: exampleKey }, rationale: "..." })
-      : JSON.stringify({ action: { key: exampleKey } })
+      ? JSON.stringify({ action: exampleKey, rationale: "..." })
+      : JSON.stringify({ action: exampleKey })
   ];
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
+    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
     snippets.push(includeRationale
-      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
-      : JSON.stringify({ action: { typeText: exampleKey } }));
+      ? JSON.stringify({ action: exampleKey, rationale: "..." })
+      : JSON.stringify({ action: exampleKey }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
@@ -296,10 +296,10 @@ function buildScreenReaderStrictOutputExamples(
   const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
+    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
     snippets.push(includeRationale
-      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
-      : JSON.stringify({ action: { typeText: exampleKey } }));
+      ? JSON.stringify({ action: exampleKey, rationale: "..." })
+      : JSON.stringify({ action: exampleKey }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
@@ -313,16 +313,16 @@ function buildScreenReaderHybridOutputExamples(
   allowedActions: readonly AllowedScreenReaderAction[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
-  const exampleKey = allowedKeys[0] ?? "<key>";
+  const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
   snippets.push(includeRationale
-    ? JSON.stringify({ action: { key: exampleKey }, rationale: "..." })
-    : JSON.stringify({ action: { key: exampleKey } }));
+    ? JSON.stringify({ action: exampleKey, rationale: "..." })
+    : JSON.stringify({ action: exampleKey }));
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
+    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
     snippets.push(includeRationale
-      ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
-      : JSON.stringify({ action: { typeText: exampleKey } }));
+      ? JSON.stringify({ action: exampleKey, rationale: "..." })
+      : JSON.stringify({ action: exampleKey }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
@@ -345,60 +345,15 @@ function buildScreenReaderActionExampleSnippets(
   allowedActions: readonly AllowedScreenReaderAction[],
   includeRationale: boolean
 ): string[] {
-  const snippets: string[] = [];
-  const catalogPerformExample = allowedActions.find((action): action is Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }> =>
-    action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
-  );
-  const rawPerformAllowed = allowedActions.some((action) =>
-    action.kind === "invoke" && action.method === "perform" && action.source === "raw"
-  );
-
-  if (catalogPerformExample) {
-    snippets.push(
-      stringifyActionExample({
-        srAction: {
-          kind: "invoke",
-          method: "perform",
-          command: { source: "catalog", id: catalogPerformExample.id }
-        }
-      }, includeRationale)
-    );
-  }
-
-  if (rawPerformAllowed) {
-    snippets.push(
-      stringifyActionExample({
-        srAction: {
-          kind: "invoke",
-          method: "perform",
-          command: { source: "raw", payload: { characters: "<text>" } }
-        }
-      }, includeRationale)
-    );
-  }
-
-  for (const action of allowedActions) {
-    if (action.kind === "invoke") {
-      if (action.method === "perform") {
-        continue;
-      }
-
-      snippets.push(stringifyActionExample({ srAction: exampleInvokeAction(action.method) }, includeRationale));
-      continue;
-    }
-
-    if (action.kind === "read") {
-      snippets.push(stringifyActionExample({ srAction: { kind: "read", method: action.method } }, includeRationale));
-      continue;
-    }
-
-    snippets.push(stringifyActionExample({ srAction: { kind: "maintenance", method: action.method } }, includeRationale));
-  }
+  const snippets = allowedActions
+    .map((action) => toPromptScreenReaderActionLabelFromAllowed(action))
+    .filter((value): value is string => Boolean(value))
+    .map((label) => stringifyActionExample(label, includeRationale));
 
   return dedupe(snippets);
 }
 
-function stringifyActionExample(action: Extract<Decision, { action: unknown }>["action"], includeRationale: boolean): string {
+function stringifyActionExample(action: string, includeRationale: boolean): string {
   return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
 }
 
@@ -416,7 +371,7 @@ function buildKeyboardActionsBlock(
 
   const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
   return promptActions
-    .map((action) => action.hint ? `- ${action.key}: ${action.hint}` : `- ${action.key}`)
+    .map((action) => action.hint ? `- key.${action.key}: ${action.hint}` : `- key.${action.key}`)
     .join("\n");
 }
 
@@ -429,11 +384,13 @@ function buildScreenReaderActionsBlock(
 
   return promptActions
     .map((action) => {
-      const label = action.semantic === "catalog"
-        ? `catalog(${action.id})`
-        : action.semantic;
+      const label = formatPromptScreenReaderActionLabel(action);
+      if (!label) {
+        return undefined;
+      }
       return action.hint ? `- ${label}: ${action.hint}` : `- ${label}`;
     })
+    .filter((line): line is string => Boolean(line))
     .join("\n");
 }
 
@@ -448,7 +405,7 @@ function buildTaskInputActionsBlock(taskInput?: TaskInput): string {
   }
 
   return keys
-    .map((key) => `- ${JSON.stringify({ action: { typeText: key } })}`)
+    .map((key) => `- typeText.${key}`)
     .join("\n");
 }
 
@@ -551,27 +508,41 @@ function formatScreenReaderAction(action: ScreenReaderAction): string {
   }
 }
 
-function dedupe<T>(items: T[]): T[] {
-  return [...new Set(items)];
+function formatPromptScreenReaderActionLabel(action: ResolvedPromptScreenReaderAction): string | undefined {
+  return toPromptScreenReaderActionLabelFromAllowed(action.runtimeAction);
 }
 
-function exampleInvokeAction(
-  method: Exclude<Extract<AllowedScreenReaderAction, { kind: "invoke" }>["method"], "perform">
-): Exclude<ScreenReaderAction, { kind: "read" } | { kind: "maintenance" } | { kind: "invoke"; method: "perform" }> {
-  switch (method) {
+function toPromptScreenReaderActionLabelFromAllowed(action: AllowedScreenReaderAction): string | undefined {
+  if (action.kind === "read") {
+    return `sr.read.${action.method}`;
+  }
+
+  if (action.kind === "maintenance") {
+    return `sr.maintenance.${action.method}`;
+  }
+
+  if (action.method === "perform") {
+    return action.source === "catalog"
+      ? `sr.perform.catalog(${action.id})`
+      : undefined;
+  }
+
+  switch (action.method) {
     case "next":
     case "previous":
     case "act":
     case "interact":
     case "stopInteracting":
-      return { kind: "invoke", method };
+      return `sr.invoke.${action.method}`;
     case "press":
-      return { kind: "invoke", method: "press", key: "<key>" };
     case "type":
-      return { kind: "invoke", method: "type", text: "<text>" };
     case "click":
-      return { kind: "invoke", method: "click", options: { button: "left", clickCount: 1 } };
+      return undefined;
   }
+}
+
+function dedupe<T>(items: T[]): T[] {
+  return [...new Set(items)];
 }
 
 function buildFallbackPromptScreenReaderActions(

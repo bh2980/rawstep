@@ -103,7 +103,7 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
 
 describe("agent helpers", () => {
   it("parses valid action JSON", () => {
-    const decision = parseDecision('{"action":{"key":"Tab"},"rationale":"Move forward."}');
+    const decision = parseDecision('{"action":"key.Tab","rationale":"Move forward."}');
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
@@ -116,7 +116,7 @@ describe("agent helpers", () => {
 
   it("parses valid named input JSON", () => {
     const decision = parseDecision(
-      '{"action":{"typeText":"email"},"rationale":"Type the email input."}',
+      '{"action":"typeText.email","rationale":"Type the email input."}',
       ["email", "password"]
     );
 
@@ -131,7 +131,7 @@ describe("agent helpers", () => {
 
   it("rejects literal input values in typeText", () => {
     const decision = parseDecision(
-      '{"action":{"typeText":"traveler@example.com"},"rationale":"Type the provided email."}',
+      '{"action":"typeText.traveler@example.com","rationale":"Type the provided email."}',
       ["email"]
     );
 
@@ -144,7 +144,7 @@ describe("agent helpers", () => {
   });
 
   it("parses valid screen reader action JSON", () => {
-    const decision = parseDecision('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}},"rationale":"Move to the next announced item."}');
+    const decision = parseDecision('{"action":"sr.perform.catalog(commands.moveToNextHeading)","rationale":"Move to the next announced item."}');
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
@@ -162,8 +162,41 @@ describe("agent helpers", () => {
     }
   });
 
+  it("parses valid no-arg screen reader invoke actions", () => {
+    const decision = parseDecision('{"action":"sr.invoke.next"}');
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision && "srAction" in decision.action) {
+      expect(decision.action.srAction).toEqual({
+        kind: "invoke",
+        method: "next"
+      });
+    }
+  });
+
+  it("parses valid screen reader read and maintenance actions", () => {
+    const readDecision = parseDecision('{"action":"sr.read.itemText"}');
+    const maintenanceDecision = parseDecision('{"action":"sr.maintenance.clearItemTextLog"}');
+
+    expect("action" in readDecision).toBe(true);
+    if ("action" in readDecision && "srAction" in readDecision.action) {
+      expect(readDecision.action.srAction).toEqual({
+        kind: "read",
+        method: "itemText"
+      });
+    }
+
+    expect("action" in maintenanceDecision).toBe(true);
+    if ("action" in maintenanceDecision && "srAction" in maintenanceDecision.action) {
+      expect(maintenanceDecision.action.srAction).toEqual({
+        kind: "maintenance",
+        method: "clearItemTextLog"
+      });
+    }
+  });
+
   it("parses valid action JSON without rationale", () => {
-    const decision = parseDecision('{"action":{"key":"Tab"}}');
+    const decision = parseDecision('{"action":"key.Tab"}');
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
@@ -174,7 +207,7 @@ describe("agent helpers", () => {
 
   it("parses JSON when the model adds prose before the object", () => {
     const decision = parseDecision(
-      'The current image shows focus on the "About" link.\n\n{"action":{"key":"Tab"}}'
+      'The current image shows focus on the "About" link.\n\n{"action":"key.Tab"}'
     );
 
     expect("action" in decision).toBe(true);
@@ -188,7 +221,7 @@ describe("agent helpers", () => {
 
   it("parses JSON from fenced code blocks", () => {
     const decision = parseDecision(
-      '```json\n{"action":{"key":"Tab"},"rationale":"Move forward."}\n```'
+      '```json\n{"action":"key.Tab","rationale":"Move forward."}\n```'
     );
 
     expect("action" in decision).toBe(true);
@@ -292,8 +325,8 @@ describe("agent helpers", () => {
     });
   });
 
-  it("treats mixed key and typeText actions as malformed", () => {
-    const decision = parseDecision('{"action":{"key":"Tab","typeText":"email"},"rationale":"Invalid."}');
+  it("treats unsupported string actions as malformed", () => {
+    const decision = parseDecision('{"action":"sr.invoke.click","rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -302,8 +335,8 @@ describe("agent helpers", () => {
     }
   });
 
-  it("treats mixed key and srAction actions as malformed", () => {
-    const decision = parseDecision('{"action":{"key":"Tab","srAction":{"kind":"perform","id":"commands.moveToNextHeading"}},"rationale":"Invalid."}');
+  it("treats object-shaped action payloads as malformed", () => {
+    const decision = parseDecision('{"action":{"key":"Tab"},"rationale":"Invalid."}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -372,10 +405,10 @@ describe("agent helpers", () => {
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("goal:\nFinish the task.");
       expect(promptParts[0].text).toContain("available actions:");
-      expect(promptParts[0].text).toContain('{"action":{"typeText":"email"}}');
-      expect(promptParts[0].text).toContain('{"action":{"typeText":"password"}}');
-      expect(promptParts[0].text).toContain("- Tab");
-      expect(promptParts[0].text).toContain("- Enter");
+      expect(promptParts[0].text).toContain("- typeText.email");
+      expect(promptParts[0].text).toContain("- typeText.password");
+      expect(promptParts[0].text).toContain("- key.Tab");
+      expect(promptParts[0].text).toContain("- key.Enter");
       expect(promptParts[0].text).toContain('focus hint:\ninput[type=email] "Work email"');
       expect(promptParts[0].text).not.toContain("traveler@example.com");
       expect(promptParts[0].text).not.toContain("super-secret");
@@ -466,6 +499,39 @@ describe("agent helpers", () => {
     }
   });
 
+  it("renders screen reader available actions with compressed wire-shape labels", () => {
+    const promptParts = buildPromptParts(
+      "screenreader-hybrid",
+      {
+        goal: "Finish the task.",
+        allowedKeys: ["Tab"],
+        allowedScreenReaderActions: [
+          { kind: "invoke", method: "next" },
+          { kind: "read", method: "itemText" },
+          { kind: "maintenance", method: "clearItemTextLog" },
+          { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
+          { kind: "invoke", method: "perform", source: "raw" }
+        ],
+        memory: []
+      },
+      {
+        kind: "screenreader",
+        announcement: "Submit button",
+        announcementCapture: "log"
+      }
+    );
+
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("- key.Tab");
+      expect(promptParts[0].text).toContain("- sr.invoke.next");
+      expect(promptParts[0].text).toContain("- sr.read.itemText");
+      expect(promptParts[0].text).toContain("- sr.maintenance.clearItemTextLog");
+      expect(promptParts[0].text).toContain("- sr.perform.catalog(commands.moveToNextHeading)");
+      expect(promptParts[0].text).not.toContain("sr.perform.raw");
+    }
+  });
+
   it("renders configured action hints in the user prompt instead of the system prompt", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
@@ -500,9 +566,9 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("- Tab: 다음 포커스로 이동");
-      expect(promptParts[0].text).toContain("- click: 현재 항목을 클릭할 때 사용");
-      expect(promptParts[0].text).toContain('{"action":{"typeText":"email"}}');
+      expect(promptParts[0].text).toContain("- key.Tab: 다음 포커스로 이동");
+      expect(promptParts[0].text).not.toContain("sr.invoke.click");
+      expect(promptParts[0].text).toContain("- typeText.email");
     }
   });
 
@@ -529,7 +595,7 @@ describe("agent helpers", () => {
       provider: "anthropic",
       apiKey: "shared-key",
       model: "claude-custom",
-      completionClient: createCompletionClient(['{"action":{"key":"Tab"}}'])
+      completionClient: createCompletionClient(['{"action":"key.Tab"}'])
     });
 
     const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
@@ -546,7 +612,7 @@ describe("agent helpers", () => {
       model: "claude-custom",
       taskInput: { email: "traveler@example.com" },
       completionClient: createCompletionClient([
-        '{"action":{"typeText":"traveler@example.com"},"rationale":"Type the provided email."}'
+        '{"action":"typeText.traveler@example.com","rationale":"Type the provided email."}'
       ])
     });
 
@@ -615,7 +681,7 @@ describe("agent helpers", () => {
     expect(prompt).not.toContain("super-secret");
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
-    expect(prompt).toContain('{"action":{"typeText":"email"},"rationale":"..."}');
+    expect(prompt).toContain('{"action":"typeText.email","rationale":"..."}');
   });
 
   it("prefers configured keyboard action hints over default key guidance", async () => {
@@ -677,7 +743,7 @@ describe("agent helpers", () => {
     expect(prompt).not.toContain("- click");
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
-    expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}}}');
+    expect(prompt).toContain('{"action":"sr.perform.catalog(commands.moveToNextHeading)"}');
   });
 
   it("uses neutral placeholder values in screenreader output examples", async () => {
@@ -696,11 +762,9 @@ describe("agent helpers", () => {
       false
     );
 
-    expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"press","key":"<key>"}}}');
-    expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"type","text":"<text>"}}}');
-    expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"raw","payload":{"characters":"<text>"}}}}}');
-    expect(prompt).not.toContain('"hello"');
-    expect(prompt).not.toContain('"Enter"');
+    expect(prompt).not.toContain("sr.invoke.press");
+    expect(prompt).not.toContain("sr.invoke.type");
+    expect(prompt).not.toContain("sr.perform.raw");
   });
 
   it("does not invent guidance when hints are absent", async () => {
