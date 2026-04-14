@@ -52,22 +52,23 @@ export function buildSystemPrompt(
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      outputBlock: buildScreenReaderStrictOutputBlock(taskInput, includeRationale, resolvedScreenReaderActions)
+      outputExamples: buildScreenReaderStrictOutputExamples(taskInput, includeRationale, resolvedScreenReaderActions)
     });
   }
 
   if (userModel === "screenreader-hybrid") {
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
-      outputBlock: buildScreenReaderHybridOutputBlock(
+      outputExamples: buildScreenReaderHybridOutputExamples(
         taskInput,
         includeRationale,
+        allowedKeys,
         resolvedScreenReaderActions
       )
     });
   }
 
   return renderPromptTemplate(templates.keyboardSystem, {
-    outputBlock: buildKeyboardOutputBlock(taskInput, includeRationale)
+    outputExamples: buildKeyboardOutputExamples(taskInput, allowedKeys, includeRationale)
   });
 }
 
@@ -253,7 +254,7 @@ function buildGoalValue(goal: string): string {
 
 function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
   if (memory.length === 0) {
-    return "(empty)";
+    return "";
   }
 
   return memory.map((entry) =>
@@ -264,25 +265,30 @@ function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
   ).join("\n");
 }
 
-function buildKeyboardOutputBlock(taskInput?: TaskInput, includeRationale = false): string {
+function buildKeyboardOutputExamples(
+  taskInput: TaskInput | undefined,
+  allowedKeys: readonly AllowedKey[],
+  includeRationale = false
+): string {
+  const exampleKey = allowedKeys[0] ?? "<key>";
   const snippets = [
     includeRationale
-      ? JSON.stringify({ action: { key: "Tab" }, rationale: "..." })
-      : JSON.stringify({ action: { key: "Tab" } })
+      ? JSON.stringify({ action: { key: exampleKey }, rationale: "..." })
+      : JSON.stringify({ action: { key: exampleKey } })
   ];
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0];
+    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
     snippets.push(includeRationale
       ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
       : JSON.stringify({ action: { typeText: exampleKey } }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return buildOutputBlock(snippets, includeRationale);
+  return buildOutputExamples(snippets);
 }
 
-function buildScreenReaderStrictOutputBlock(
+function buildScreenReaderStrictOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   allowedActions: readonly AllowedScreenReaderAction[]
@@ -290,35 +296,37 @@ function buildScreenReaderStrictOutputBlock(
   const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0];
+    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
     snippets.push(includeRationale
       ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
       : JSON.stringify({ action: { typeText: exampleKey } }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return buildOutputBlock(snippets, includeRationale);
+  return buildOutputExamples(snippets);
 }
 
-function buildScreenReaderHybridOutputBlock(
+function buildScreenReaderHybridOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
+  allowedKeys: readonly AllowedKey[],
   allowedActions: readonly AllowedScreenReaderAction[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
+  const exampleKey = allowedKeys[0] ?? "<key>";
   snippets.push(includeRationale
-    ? JSON.stringify({ action: { key: "Tab" }, rationale: "..." })
-    : JSON.stringify({ action: { key: "Tab" } }));
+    ? JSON.stringify({ action: { key: exampleKey }, rationale: "..." })
+    : JSON.stringify({ action: { key: exampleKey } }));
 
   if (taskInput) {
-    const exampleKey = Object.keys(taskInput)[0];
+    const exampleKey = Object.keys(taskInput)[0] ?? "<input-key>";
     snippets.push(includeRationale
       ? JSON.stringify({ action: { typeText: exampleKey }, rationale: "..." })
       : JSON.stringify({ action: { typeText: exampleKey } }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
-  return buildOutputBlock(snippets, includeRationale);
+  return buildOutputExamples(snippets);
 }
 
 function buildVerdictSnippets(includeRationale: boolean): string[] {
@@ -363,7 +371,7 @@ function buildScreenReaderActionExampleSnippets(
         srAction: {
           kind: "invoke",
           method: "perform",
-          command: { source: "raw", payload: { characters: "hello" } }
+          command: { source: "raw", payload: { characters: "<text>" } }
         }
       }, includeRationale)
     );
@@ -394,15 +402,8 @@ function stringifyActionExample(action: Extract<Decision, { action: unknown }>["
   return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
 }
 
-function buildOutputBlock(snippets: readonly string[], includeRationale: boolean): string {
-  return [
-    "출력 규칙:",
-    "- JSON 객체 하나만 반환하라.",
-    "- 한 턴에 action 또는 verdict 중 하나만 반환하라.",
-    ...(includeRationale ? ["- action 또는 verdict를 반환할 때 rationale를 포함하라."] : []),
-    "- 예시:",
-    ...snippets.map((snippet) => `  - ${snippet}`)
-  ].join("\n");
+function buildOutputExamples(snippets: readonly string[]): string {
+  return snippets.join("\n");
 }
 
 function buildKeyboardActionsBlock(
@@ -410,7 +411,7 @@ function buildKeyboardActionsBlock(
   keyboardActions: readonly ResolvedPromptKeyboardAction[] | undefined
 ): string {
   if (!allowedKeys || allowedKeys.length === 0) {
-    return "- (none)";
+    return "";
   }
 
   const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
@@ -423,7 +424,7 @@ function buildScreenReaderActionsBlock(
   promptActions: readonly ResolvedPromptScreenReaderAction[] | undefined
 ): string {
   if (!promptActions || promptActions.length === 0) {
-    return "- (none)";
+    return "";
   }
 
   return promptActions
@@ -462,17 +463,21 @@ function buildAvailableActionsValue(
   const sections: string[] = [];
 
   if (userModel === "keyboard" || userModel === "screenreader-hybrid") {
-    sections.push(buildKeyboardActionsBlock(allowedKeys, keyboardActions));
+    const keyboardActionsBlock = buildKeyboardActionsBlock(allowedKeys, keyboardActions);
+    if (keyboardActionsBlock) {
+      sections.push(keyboardActionsBlock);
+    }
   }
 
   if (userModel === "screenreader-strict" || userModel === "screenreader-hybrid") {
-    sections.push(
-      buildScreenReaderActionsBlock(
-        screenReaderActions.length > 0
-          ? screenReaderActions
-          : buildFallbackPromptScreenReaderActions(allowedScreenReaderActions)
-      )
+    const screenReaderActionsBlock = buildScreenReaderActionsBlock(
+      screenReaderActions.length > 0
+        ? screenReaderActions
+        : buildFallbackPromptScreenReaderActions(allowedScreenReaderActions)
     );
+    if (screenReaderActionsBlock) {
+      sections.push(screenReaderActionsBlock);
+    }
   }
 
   const taskInputActionsBlock = buildTaskInputActionsBlock(taskInput);
@@ -488,9 +493,7 @@ function buildFocusHintValue(obs: Observation): string {
     return "";
   }
 
-  return obs.focusHint === "none"
-    ? "none (현재 focus된 인터랙티브 요소가 감지되지 않았다.)"
-    : obs.focusHint;
+  return obs.focusHint;
 }
 
 function buildAnnouncementValue(obs: Observation): string {
@@ -507,9 +510,9 @@ function buildReadbacksValue(obs: Observation): string {
   }
 
   return obs.readbacks.map((readback) =>
-    readback.status === "cleared"
-      ? `- ${readback.method}: cleared`
-      : `- ${readback.method}: ${Array.isArray(readback.value) ? readback.value.join(" | ") : readback.value ?? ""}`
+    JSON.stringify(readback.status === "cleared"
+      ? { method: readback.method, status: readback.status }
+      : { method: readback.method, value: readback.value ?? "" })
   ).join("\n");
 }
 
@@ -563,9 +566,9 @@ function exampleInvokeAction(
     case "stopInteracting":
       return { kind: "invoke", method };
     case "press":
-      return { kind: "invoke", method: "press", key: "Enter" };
+      return { kind: "invoke", method: "press", key: "<key>" };
     case "type":
-      return { kind: "invoke", method: "type", text: "hello" };
+      return { kind: "invoke", method: "type", text: "<text>" };
     case "click":
       return { kind: "invoke", method: "click", options: { button: "left", clickCount: 1 } };
   }

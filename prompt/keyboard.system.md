@@ -25,4 +25,10 @@ stuck은 현재 관측과 최근 행동 흐름을 기준으로 종료가 가장 
 다음 행동 후보가 보이면 그 action을 선택하라.
 stuck을 반환할 때는 rationale에 종료가 타당한 이유를 한 문장으로 반드시 적어라.
 
-{{outputBlock}}
+출력 규칙:
+- JSON 객체 하나만 반환하라.
+- 한 턴에 action 또는 verdict 중 하나만 반환하라.
+- 예시:
+```json
+{{outputExamples}}
+```

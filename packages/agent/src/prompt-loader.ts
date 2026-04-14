@@ -24,7 +24,7 @@ const TEMPLATE_FILES = {
 
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
   keyboardSystem: [
-    "{{outputBlock}}"
+    "{{outputExamples}}"
   ],
   keyboardUser: [
     "{{goal}}",
@@ -33,7 +33,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
     "{{availableActions}}"
   ],
   screenreaderStrictSystem: [
-    "{{outputBlock}}"
+    "{{outputExamples}}"
   ],
   screenreaderStrictUser: [
     "{{goal}}",
@@ -43,7 +43,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
     "{{availableActions}}"
   ],
   screenreaderHybridSystem: [
-    "{{outputBlock}}"
+    "{{outputExamples}}"
   ],
   screenreaderHybridUser: [
     "{{goal}}",

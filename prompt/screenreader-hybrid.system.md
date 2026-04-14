@@ -22,4 +22,10 @@ stuck은 현재 announcement와 최근 탐색 흐름을 기준으로, 더 진행
 다른 합리적인 탐색 전략도 희미할 때만 stuck을 선택하라.
 stuck을 반환할 때는 종료가 타당한 이유를 rationale에 한 문장으로 적어라.
 
-{{outputBlock}}
+출력 규칙:
+- JSON 객체 하나만 반환하라.
+- 한 턴에 action 또는 verdict 중 하나만 반환하라.
+- 예시:
+```json
+{{outputExamples}}
+```
