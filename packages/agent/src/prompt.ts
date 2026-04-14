@@ -28,6 +28,12 @@ type SystemPromptOptions = {
   screenReaderCapabilities?: ScreenReaderCapabilities;
 };
 
+type UserPromptOptions = {
+  promptDir?: string;
+  keyboardActions?: readonly ResolvedPromptKeyboardAction[];
+  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
+};
+
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
@@ -46,15 +52,12 @@ export function buildSystemPrompt(
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
       outputBlock: buildScreenReaderStrictOutputBlock(taskInput, includeRationale, resolvedScreenReaderActions)
     });
   }
 
   if (userModel === "screenreader-hybrid") {
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
-      keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
-      screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
       outputBlock: buildScreenReaderHybridOutputBlock(
         taskInput,
         includeRationale,
@@ -64,16 +67,21 @@ export function buildSystemPrompt(
   }
 
   return renderPromptTemplate(templates.keyboardSystem, {
-    keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
     outputBlock: buildKeyboardOutputBlock(taskInput, includeRationale)
   });
 }
 
-export function buildPromptParts(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): PromptPart[] {
+export function buildPromptParts(
+  userModel: UserModel,
+  ctx: AgentContext,
+  obs: Observation,
+  taskInput?: TaskInput,
+  options: UserPromptOptions = {}
+): PromptPart[] {
   const promptParts: PromptPart[] = [
     {
       type: "text",
-      text: buildUserPromptText(ctx, obs, taskInput)
+      text: buildUserPromptText(userModel, ctx, obs, taskInput, options)
     }
   ];
 
@@ -96,49 +104,44 @@ export function buildPromptParts(ctx: AgentContext, obs: Observation, taskInput?
   return promptParts;
 }
 
-export function buildUserPromptText(ctx: AgentContext, obs: Observation, taskInput?: TaskInput): string {
-  const lines = [
-    `goal: ${ctx.goal}`,
-    formatAgentMemoryBlock(ctx.memory)
-  ];
+export function buildUserPromptText(
+  userModel: UserModel,
+  ctx: AgentContext,
+  obs: Observation,
+  taskInput?: TaskInput,
+  options: UserPromptOptions = {}
+): string {
+  const templates = loadPromptTemplates({ promptDir: options.promptDir });
+  const resolvedPromptKeyboardActions = options.keyboardActions
+    ?? buildFallbackPromptKeyboardActions(ctx.allowedKeys);
+  const resolvedPromptScreenReaderActions = options.screenReaderActions
+    ?? buildFallbackPromptScreenReaderActions(ctx.allowedScreenReaderActions ?? []);
 
-  if (obs.kind === "screenreader") {
-    lines.push(`announcement: ${obs.announcement}`);
-    if (obs.readbacks && obs.readbacks.length > 0) {
-      lines.push(
-        [
-          "screen reader readbacks:",
-          ...obs.readbacks.map((readback) =>
-            readback.status === "cleared"
-              ? `- ${readback.method}: cleared`
-              : `- ${readback.method}: ${Array.isArray(readback.value) ? readback.value.join(" | ") : readback.value ?? ""}`
-          )
-        ].join("\n")
-      );
-    }
+  const commonReplacements = {
+    goal: buildGoalValue(ctx.goal),
+    agentMemory: buildAgentMemoryValue(ctx.memory),
+    focusHint: buildFocusHintValue(obs),
+    announcement: buildAnnouncementValue(obs),
+    readbacks: buildReadbacksValue(obs),
+    availableActions: buildAvailableActionsValue(
+      userModel,
+      ctx.allowedKeys,
+      ctx.allowedScreenReaderActions ?? [],
+      resolvedPromptKeyboardActions,
+      resolvedPromptScreenReaderActions,
+      taskInput
+    )
+  };
+
+  if (userModel === "screenreader-strict") {
+    return renderPromptTemplate(templates.screenreaderStrictUser, commonReplacements);
   }
 
-  if (taskInput) {
-    lines.push(`available input keys: ${Object.keys(taskInput).join(", ")}`);
+  if (userModel === "screenreader-hybrid") {
+    return renderPromptTemplate(templates.screenreaderHybridUser, commonReplacements);
   }
 
-  if (obs.kind === "keyboard") {
-    if (obs.focusHint) {
-      lines.push(
-        obs.focusHint === "none"
-          ? "focus hint: none (현재 focus된 인터랙티브 요소가 감지되지 않았다.)"
-          : `focus hint: ${obs.focusHint}`
-      );
-    }
-
-    lines.push(
-      obs.previousScreenshot
-        ? "images: 첫 번째 이미지는 현재 스크린샷, 두 번째 이미지는 직전 스크린샷이다. 두 이미지를 비교하여 focus ring이 어디서 어디로 이동했는지 확인하라."
-        : "images: 현재 스크린샷 1장이 첨부되어 있다. 직전 스크린샷은 없다 (첫 번째 스텝)."
-    );
-  }
-
-  return lines.join("\n");
+  return renderPromptTemplate(templates.keyboardUser, commonReplacements);
 }
 
 export function buildExperienceSummarySystemPrompt(promptDir?: string): string {
@@ -244,20 +247,21 @@ function summarizeDecisionForPrompt(decision: Decision): string {
     : `verdict(${decision.verdict})`;
 }
 
-function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
+function buildGoalValue(goal: string): string {
+  return goal;
+}
+
+function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
   if (memory.length === 0) {
-    return "agent memory: (empty)";
+    return "(empty)";
   }
 
-  return [
-    "agent memory:",
-    ...memory.map((entry) =>
-      [
-        `- step ${entry.step}: action="${entry.action}", outcome="${entry.outcome}"`,
-        entry.note ? `, note="${entry.note}"` : ""
-      ].join("")
-    )
-  ].join("\n");
+  return memory.map((entry) =>
+    [
+      `- step ${entry.step}: action="${entry.action}", outcome="${entry.outcome}"`,
+      entry.note ? `, note="${entry.note}"` : ""
+    ].join("")
+  ).join("\n");
 }
 
 function buildKeyboardOutputBlock(taskInput?: TaskInput, includeRationale = false): string {
@@ -430,6 +434,83 @@ function buildScreenReaderActionsBlock(
       return action.hint ? `- ${label}: ${action.hint}` : `- ${label}`;
     })
     .join("\n");
+}
+
+function buildTaskInputActionsBlock(taskInput?: TaskInput): string {
+  if (!taskInput) {
+    return "";
+  }
+
+  const keys = Object.keys(taskInput);
+  if (keys.length === 0) {
+    return "";
+  }
+
+  return keys
+    .map((key) => `- ${JSON.stringify({ action: { typeText: key } })}`)
+    .join("\n");
+}
+
+function buildAvailableActionsValue(
+  userModel: UserModel,
+  allowedKeys: readonly AllowedKey[],
+  allowedScreenReaderActions: readonly AllowedScreenReaderAction[],
+  keyboardActions: readonly ResolvedPromptKeyboardAction[],
+  screenReaderActions: readonly ResolvedPromptScreenReaderAction[],
+  taskInput?: TaskInput
+): string {
+  const sections: string[] = [];
+
+  if (userModel === "keyboard" || userModel === "screenreader-hybrid") {
+    sections.push(buildKeyboardActionsBlock(allowedKeys, keyboardActions));
+  }
+
+  if (userModel === "screenreader-strict" || userModel === "screenreader-hybrid") {
+    sections.push(
+      buildScreenReaderActionsBlock(
+        screenReaderActions.length > 0
+          ? screenReaderActions
+          : buildFallbackPromptScreenReaderActions(allowedScreenReaderActions)
+      )
+    );
+  }
+
+  const taskInputActionsBlock = buildTaskInputActionsBlock(taskInput);
+  if (taskInputActionsBlock) {
+    sections.push(taskInputActionsBlock);
+  }
+
+  return sections.join("\n\n");
+}
+
+function buildFocusHintValue(obs: Observation): string {
+  if (obs.kind !== "keyboard" || !obs.focusHint) {
+    return "";
+  }
+
+  return obs.focusHint === "none"
+    ? "none (현재 focus된 인터랙티브 요소가 감지되지 않았다.)"
+    : obs.focusHint;
+}
+
+function buildAnnouncementValue(obs: Observation): string {
+  if (obs.kind !== "screenreader") {
+    return "";
+  }
+
+  return obs.announcement;
+}
+
+function buildReadbacksValue(obs: Observation): string {
+  if (obs.kind !== "screenreader" || !obs.readbacks || obs.readbacks.length === 0) {
+    return "";
+  }
+
+  return obs.readbacks.map((readback) =>
+    readback.status === "cleared"
+      ? `- ${readback.method}: cleared`
+      : `- ${readback.method}: ${Array.isArray(readback.value) ? readback.value.join(" | ") : readback.value ?? ""}`
+  ).join("\n");
 }
 
 function buildFallbackPromptKeyboardActions(

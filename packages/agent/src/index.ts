@@ -86,7 +86,17 @@ export class LLMAgent implements Agent {
         screenReaderCapabilities: this.screenReaderCapabilities
       }
     );
-    const promptParts = buildPromptParts(ctx, obs, this.taskInput);
+    const promptParts = buildPromptParts(
+      this.userModel,
+      ctx,
+      obs,
+      this.taskInput,
+      {
+        promptDir: this.promptDir,
+        keyboardActions: this.keyboardActions,
+        screenReaderActions: this.screenReaderActions
+      }
+    );
     this.recordPromptLog("decision", systemPrompt, promptParts);
 
     try {

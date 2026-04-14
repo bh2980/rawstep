@@ -4,11 +4,6 @@
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
 
-사용 가능한 일반 키:
-{{keyboardActionsBlock}}
-사용 가능한 screenreader action은 다음과 같다.
-{{screenReaderActionsBlock}}
-
 구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader action을 먼저 검토하라.
 현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 action 또는 키를 선택하라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 보수적으로 다음 탐색 행동을 선택하라.

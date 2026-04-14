@@ -4,9 +4,6 @@
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
 
-사용 가능한 screenreader action은 다음과 같다.
-{{screenReaderActionsBlock}}
-
 현재 announcement가 목표와 직접 관련된 항목을 가리키면 그 항목에 맞는 command를 선택하라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 다음 탐색 action을 보수적으로 선택하라.
 구조를 모르면 적절한 screenreader action 또는 catalog action을 먼저 검토하라.

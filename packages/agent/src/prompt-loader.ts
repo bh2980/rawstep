@@ -3,32 +3,54 @@ import { join, resolve, dirname } from "node:path";
 
 export type PromptTemplates = {
   keyboardSystem: string;
+  keyboardUser: string;
   screenreaderStrictSystem: string;
+  screenreaderStrictUser: string;
   screenreaderHybridSystem: string;
+  screenreaderHybridUser: string;
   experienceSummarySystem: string;
   promptDir: string;
 };
 
 const TEMPLATE_FILES = {
   keyboardSystem: "keyboard.system.md",
+  keyboardUser: "keyboard.user.md",
   screenreaderStrictSystem: "screenreader-strict.system.md",
+  screenreaderStrictUser: "screenreader-strict.user.md",
   screenreaderHybridSystem: "screenreader-hybrid.system.md",
+  screenreaderHybridUser: "screenreader-hybrid.user.md",
   experienceSummarySystem: "experience-summary.system.md"
 } as const satisfies Record<Exclude<keyof PromptTemplates, "promptDir">, string>;
 
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
   keyboardSystem: [
-    "{{keyboardActionsBlock}}",
     "{{outputBlock}}"
+  ],
+  keyboardUser: [
+    "{{goal}}",
+    "{{agentMemory}}",
+    "{{focusHint}}",
+    "{{availableActions}}"
   ],
   screenreaderStrictSystem: [
-    "{{screenReaderActionsBlock}}",
     "{{outputBlock}}"
   ],
+  screenreaderStrictUser: [
+    "{{goal}}",
+    "{{agentMemory}}",
+    "{{announcement}}",
+    "{{readbacks}}",
+    "{{availableActions}}"
+  ],
   screenreaderHybridSystem: [
-    "{{keyboardActionsBlock}}",
-    "{{screenReaderActionsBlock}}",
     "{{outputBlock}}"
+  ],
+  screenreaderHybridUser: [
+    "{{goal}}",
+    "{{agentMemory}}",
+    "{{announcement}}",
+    "{{readbacks}}",
+    "{{availableActions}}"
   ]
 };
 
@@ -45,8 +67,11 @@ export function loadPromptTemplates(
 
   const templates = {
     keyboardSystem: readPromptFile(promptDir, "keyboardSystem"),
+    keyboardUser: readPromptFile(promptDir, "keyboardUser"),
     screenreaderStrictSystem: readPromptFile(promptDir, "screenreaderStrictSystem"),
+    screenreaderStrictUser: readPromptFile(promptDir, "screenreaderStrictUser"),
     screenreaderHybridSystem: readPromptFile(promptDir, "screenreaderHybridSystem"),
+    screenreaderHybridUser: readPromptFile(promptDir, "screenreaderHybridUser"),
     experienceSummarySystem: readPromptFile(promptDir, "experienceSummarySystem"),
     promptDir
   };
