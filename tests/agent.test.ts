@@ -493,8 +493,6 @@ describe("agent helpers", () => {
     );
 
     expect(prompt).toContain("keys=Tab, Shift+Tab, Home, End, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Space, Escape");
-    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
-    expect(prompt).toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
     expect(prompt).toContain('{"action":{"typeText":"email"},"rationale":"..."}');
     expect(prompt).toContain("사용 가능한 input keys: email, password.");
     expect(prompt).toContain("focus hint는 현재 active element의 요약이다. focus hint가 none, link, button, select라면 typeText보다 탐색 action을 우선 검토하라.");
@@ -562,11 +560,11 @@ describe("agent helpers", () => {
     expect(prompt).toContain("actions: heading.next, click");
     expect(prompt).not.toContain("catalog ids:");
     expect(prompt).toContain("다음 제목으로 크게 이동할 때 사용하라.");
-    expect(prompt).toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
+    expect(prompt).not.toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
     expect(prompt).toContain('{"action":{"srAction":{"kind":"invoke","method":"perform","command":{"source":"catalog","id":"commands.moveToNextHeading"}}}}');
   });
 
-  it("includes only hints for allowed keys and actions", async () => {
+  it("does not invent guidance when hints are absent", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
 
@@ -578,11 +576,10 @@ describe("agent helpers", () => {
       false
     );
 
-    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
-    expect(prompt).toContain("Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.");
-    expect(prompt).toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
+    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).not.toContain("Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.");
+    expect(prompt).not.toContain("click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.");
     expect(prompt).not.toContain("Enter는 현재 포커스된 요소를 활성화할 때 사용하라.");
-    expect(prompt).not.toContain("perform은 허용된 perform id 목록이나 raw payload를 사용해 Guidepup 고급 command를 실행할 때 사용하라.");
   });
 
   it("loads prompt templates from an explicit prompt directory", async () => {
@@ -602,7 +599,7 @@ describe("agent helpers", () => {
     );
 
     expect(prompt).toContain("explicit=");
-    expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
   });
 
   it("renders experience summary prompts from prompt files", async () => {

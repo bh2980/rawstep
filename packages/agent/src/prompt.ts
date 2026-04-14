@@ -481,7 +481,9 @@ function buildAllowedKeyGuidance(
   }
 
   const promptActions = keyboardActions ?? buildFallbackPromptKeyboardActions(allowedKeys);
-  return promptActions.map((action) => action.hint ?? DEFAULT_KEY_HINTS[action.key]);
+  return promptActions
+    .map((action) => action.hint)
+    .filter((hint): hint is string => Boolean(hint));
 }
 
 function buildAllowedScreenReaderActionGuidance(
@@ -493,12 +495,6 @@ function buildAllowedScreenReaderActionGuidance(
   }
 
   const lines: string[] = [];
-  const capabilityDescriptions = new Map(
-    (capabilities?.performCatalog ?? []).map((command) => [
-      command.id,
-      command.argsHint ? `${command.description} (${command.argsHint})` : command.description
-    ])
-  );
   const catalogActions = promptActions.filter((action): action is Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }> =>
     action.semantic === "catalog"
   );
@@ -509,16 +505,22 @@ function buildAllowedScreenReaderActionGuidance(
     }
 
     if (action.semantic === "rawPerform") {
-      lines.push(action.hint ?? DEFAULT_SEMANTIC_HINTS.rawPerform);
+      if (action.hint) {
+        lines.push(action.hint);
+      }
       continue;
     }
 
-    lines.push(action.hint ?? DEFAULT_SEMANTIC_HINTS[action.semantic]);
+    if (action.hint) {
+      lines.push(action.hint);
+    }
   }
 
   if (catalogActions.length > 0 && catalogActions.length <= 20) {
     for (const action of catalogActions) {
-      lines.push(`- ${action.id}: ${action.hint ?? capabilityDescriptions.get(action.id) ?? action.id}`);
+      if (action.hint) {
+        lines.push(`- ${action.id}: ${action.hint}`);
+      }
     }
   }
 
@@ -585,42 +587,6 @@ function formatScreenReaderAction(action: ScreenReaderAction): string {
 function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
-
-const DEFAULT_KEY_HINTS: Record<AllowedKey, string> = {
-  Tab: "Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.",
-  "Shift+Tab": "Shift+Tab은 포커스 가능한 요소를 이전으로 이동할 때 사용하라.",
-  Home: "Home은 현재 문맥의 시작으로 크게 이동할 때 사용하라.",
-  End: "End는 현재 문맥의 끝으로 크게 이동할 때 사용하라.",
-  ArrowUp: "ArrowUp은 스크롤을 올리거나 복합 위젯 내부에서 위쪽으로 이동할 때 사용하라.",
-  ArrowDown: "ArrowDown은 스크롤을 내리거나 복합 위젯 내부에서 아래쪽으로 이동할 때 사용하라.",
-  ArrowLeft: "ArrowLeft는 복합 위젯 내부에서 왼쪽으로 이동할 때 사용하라.",
-  ArrowRight: "ArrowRight는 복합 위젯 내부에서 오른쪽으로 이동할 때 사용하라.",
-  Enter: "Enter는 현재 포커스된 요소를 활성화할 때 사용하라.",
-  Space: "Space는 현재 포커스된 요소를 활성화하거나 토글할 때 사용하라.",
-  Escape: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라."
-};
-
-const DEFAULT_SEMANTIC_HINTS = {
-  next: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
-  previous: "previous는 screen reader cursor를 이전 위치로 이동할 때 사용하라.",
-  act: "act는 현재 항목의 기본 동작을 실행할 때 사용하라.",
-  interact: "interact는 현재 항목과 상호작용을 시작할 때 사용하라.",
-  stopInteracting: "stopInteracting은 현재 상호작용을 끝낼 때 사용하라.",
-  press: "press는 현재 screenreader 세션을 통해 특정 키를 누를 때 사용하라.",
-  type: "type는 현재 screenreader 세션을 통해 literal text를 입력할 때 사용하라.",
-  click: "click은 현재 screenreader 세션을 통해 마우스 클릭을 실행할 때 사용하라.",
-  "heading.next": "heading.next는 다음 heading으로 크게 이동할 때 사용하라.",
-  "heading.previous": "heading.previous는 이전 heading으로 돌아갈 때 사용하라.",
-  "form.next": "form.next는 다음 form control로 이동할 때 사용하라.",
-  "form.previous": "form.previous는 이전 form control로 돌아갈 때 사용하라.",
-  "read.itemText": "read.itemText는 현재 cursor가 가리키는 항목의 텍스트를 직접 읽고 싶을 때 사용하라.",
-  "read.itemTextLog": "read.itemTextLog는 방문한 항목 텍스트 로그 전체를 확인하고 싶을 때 사용하라.",
-  "read.lastSpokenPhrase": "read.lastSpokenPhrase는 가장 최근에 읽힌 발화 한 줄을 확인할 때 사용하라.",
-  "read.spokenPhraseLog": "read.spokenPhraseLog는 현재까지의 발화 로그 전체를 확인할 때 사용하라.",
-  "clear.itemTextLog": "clear.itemTextLog는 item text 로그를 비우고 이후 새 로그만 보려 할 때 사용하라.",
-  "clear.spokenPhraseLog": "clear.spokenPhraseLog는 spoken phrase 로그를 비우고 이후 새 발화만 보려 할 때 사용하라.",
-  rawPerform: "rawPerform은 backend가 raw payload를 지원할 때만 사용하라. payload는 실제 Guidepup command object와 맞아야 한다."
-} as const;
 
 function exampleInvokeAction(
   method: Exclude<Extract<AllowedScreenReaderAction, { kind: "invoke" }>["method"], "perform">
