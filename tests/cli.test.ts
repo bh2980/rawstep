@@ -1305,10 +1305,9 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("merges prompt settings from defaults, mode, and task config", async () => {
+  it("resolves prompt dir from project defaults", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-merge-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    const taskPath = join(tempDir, "task.yml");
 
     await writeConfigModule(
       configPath,
@@ -1318,8 +1317,7 @@ describe.sequential("CLI", () => {
     provider: "anthropic",
     model: "claude-config",
     prompt: {
-      dir: "./custom-prompt",
-      extraInstructions: "default-extra"
+      dir: "./custom-prompt"
     }
   },
   modes: {
@@ -1336,40 +1334,21 @@ describe.sequential("CLI", () => {
       allowedScreenReaderActions: [
         { semantic: "heading.next", hint: "mode-next-heading" },
         { semantic: "click", hint: "mode-click" }
-      ],
-      prompt: {
-        extraInstructions: "mode-extra"
-      }
+      ]
     }
   }
 }`
     );
-    await writeFile(
-      taskPath,
-      [
-        "id: prompt-merge-task",
-        `url: ${resolve("fixtures/simple-cta.html")}`,
-        "goal: Complete the CTA task.",
-        "mode: screenreader-hybrid",
-        "verify:",
-        "  all:",
-        "    - textVisible: Started!",
-        "    - titleIncludes: Completed",
-        "config:",
-        "  prompt:",
-        "    extraInstructions: task-extra"
-      ].join("\n"),
-      "utf8"
-    );
 
     const options = await resolveRunOptions(parseRunArgs([
-      taskPath,
+      resolve("examples/tasks/simple-cta.json"),
       "--config",
-      configPath
+      configPath,
+      "--mode",
+      "screenreader-hybrid"
     ]));
 
     expect(options.prompt.promptDir).toBe(join(tempDir, "custom-prompt"));
-    expect(options.prompt.extraInstructions).toBe("default-extra\n\nmode-extra\n\ntask-extra");
     expect(options.prompt.keyboardActions).toEqual([
       {
         key: "Tab",
@@ -1402,7 +1381,7 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("rejects prompt.dir inside task config", async () => {
+  it("ignores config.prompt in task config", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-task-prompt-dir-"));
     const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.yml");
@@ -1443,11 +1422,48 @@ describe.sequential("CLI", () => {
       "utf8"
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    const options = await resolveRunOptions(parseRunArgs([
       taskPath,
       "--config",
       configPath
-    ]))).rejects.toThrow("config.prompt.dir is not allowed");
+    ]));
+
+    expect(options.prompt.promptDir).toBe(resolve(tempDir, "prompt"));
+  });
+
+  it("ignores modes.<mode>.prompt", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-mode-prompt-removed-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      prompt: {
+        dir: "./another-prompt"
+      }
+    }
+  }
+}`
+    );
+
+    const options = await resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]));
+
+    expect(options.prompt.promptDir).toBe(resolve(tempDir, "prompt"));
   });
 
   it("drops config keyboard hints when CLI overrides allowed keys", async () => {
@@ -1491,7 +1507,7 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("rejects prompt.keyHints after keyboard hints moved into allowedKeys", async () => {
+  it("ignores unsupported defaults.prompt keys and still honors dir", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-prompt-hints-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
@@ -1503,6 +1519,7 @@ describe.sequential("CLI", () => {
     provider: "anthropic",
     model: "claude-config",
     prompt: {
+      dir: "./custom-prompt",
       keyHints: {
         BadKey: "bad"
       }
@@ -1519,11 +1536,13 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    const options = await resolveRunOptions(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
-    ]))).rejects.toThrow("defaults.prompt.keyHints is removed. Put hints on allowedKeys entries instead.");
+    ]));
+
+    expect(options.prompt.promptDir).toBe(resolve(tempDir, "custom-prompt"));
   });
 
   it("rejects screen reader action config in keyboard mode", async () => {

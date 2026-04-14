@@ -97,7 +97,6 @@ function createAgent(
     includeRationale: options.includeRationale,
     taskInput,
     promptDir: options.prompt.promptDir,
-    extraInstructions: options.prompt.extraInstructions,
     keyboardActions: options.prompt.keyboardActions,
     screenReaderActions: options.prompt.screenReaderActions,
     screenReaderCapabilities: options.screenReaderBackendId

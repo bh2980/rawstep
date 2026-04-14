@@ -4,8 +4,7 @@ defineConfig({
   version: 1,
   defaults: {
     prompt: {
-      dir: "./prompt",
-      extraInstructions: "Stay conservative."
+      dir: "./prompt"
     }
   },
   modes: {
@@ -14,10 +13,7 @@ defineConfig({
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      allowedKeys: [kb.tab(), kb.enter()],
-      prompt: {
-        extraInstructions: "Prefer exploration over activation."
-      }
+      allowedKeys: [kb.tab(), kb.enter()]
     },
     "screenreader-strict": {
       outDir: "./sr-out",
@@ -91,14 +87,18 @@ defineConfig({
 
 defineConfig({
   version: 1,
+  defaults: {
+    prompt: {
+      // @ts-expect-error defaults.prompt must not accept extraInstructions
+      extraInstructions: "Stay conservative."
+    }
+  },
   modes: {
     keyboard: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
-      memory: 5,
-      // @ts-expect-error raw string literals are not part of the public config API
-      allowedKeys: ["Tab"]
+      memory: 5
     }
   }
 });
@@ -111,10 +111,8 @@ defineConfig({
       maxSteps: 20,
       timeoutMs: 180000,
       memory: 5,
-      prompt: {
-        // @ts-expect-error mode prompt must not accept dir
-        dir: "./custom-prompt"
-      }
+      // @ts-expect-error raw string literals are not part of the public config API
+      allowedKeys: ["Tab"]
     }
   }
 });

@@ -23,7 +23,6 @@ import type { PromptPart } from "./shared";
 
 type SystemPromptOptions = {
   promptDir?: string;
-  extraInstructions?: string;
   keyboardActions?: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
   screenReaderCapabilities?: ScreenReaderCapabilities;
@@ -54,7 +53,7 @@ export function buildSystemPrompt(
         resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
-      customInstructions: options.extraInstructions ?? "",
+      customInstructions: "",
       taskInputRule: buildScreenReaderTaskInputRule(taskInput),
       responseFormat: buildScreenReaderStrictJsonFormat(taskInput, includeRationale, resolvedScreenReaderActions),
       rationaleRule: buildRationaleRule(includeRationale)
@@ -71,7 +70,7 @@ export function buildSystemPrompt(
         resolvedPromptScreenReaderActions,
         options.screenReaderCapabilities
       ),
-      customInstructions: options.extraInstructions ?? "",
+      customInstructions: "",
       taskInputRule: buildScreenReaderTaskInputRule(taskInput),
       responseFormat: buildScreenReaderHybridJsonFormat(
         taskInput,
@@ -90,7 +89,7 @@ export function buildSystemPrompt(
       undefined,
       undefined
     ),
-    customInstructions: options.extraInstructions ?? "",
+    customInstructions: "",
     taskInputRule: buildKeyboardTaskInputRule(taskInput),
     responseFormat: buildKeyboardJsonFormat(taskInput, includeRationale),
     rationaleRule: buildRationaleRule(includeRationale)

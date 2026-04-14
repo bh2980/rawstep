@@ -39,7 +39,6 @@ export type LLMAgentOptions = {
   includeRationale?: boolean;
   taskInput?: TaskInput;
   promptDir?: string;
-  extraInstructions?: string;
   keyboardActions?: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
   screenReaderCapabilities?: ScreenReaderCapabilities;

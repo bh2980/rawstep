@@ -7,7 +7,6 @@ import YAML from "yaml";
 import {
   parseAllowedKeys,
   parseAllowedScreenReaderActions,
-  parsePromptOverride,
   parseScreenReaderBackendId,
   type TaskExecutionDefaults,
   type TaskFileShape,
@@ -147,9 +146,6 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
       ),
     screenReaderBackend: candidate.screenReaderBackend === undefined
       ? undefined
-      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`),
-    prompt: candidate.prompt === undefined
-      ? undefined
-      : parsePromptOverride(candidate.prompt, `${label} config.prompt`, { allowDir: false })
+      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`)
   };
 }

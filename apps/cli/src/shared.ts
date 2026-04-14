@@ -64,7 +64,6 @@ export type ModeConfigShape = {
   allowedKeys?: ConfiguredKeyboardAction[];
   allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
   screenReaderBackend?: ScreenReaderBackendId;
-  prompt?: PromptOverrideShape;
 };
 
 export type ProjectDefaultsShape = {
@@ -89,7 +88,6 @@ export type TaskConfigOverride = {
   allowedKeys?: AllowedKey[];
   allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
   screenReaderBackend?: ScreenReaderBackendId;
-  prompt?: PromptOverrideShape;
 };
 
 export type ProjectConfig = {
@@ -134,17 +132,12 @@ export type TaskExecutionDefaults = {
   timeoutMs?: number;
 };
 
-export type PromptOverrideShape = {
-  extraInstructions?: string;
-};
-
-export type ProjectPromptShape = PromptOverrideShape & {
+export type ProjectPromptShape = {
   dir?: string;
 };
 
 export type ResolvedPromptOptions = {
   promptDir: string;
-  extraInstructions?: string;
   keyboardActions: readonly ResolvedPromptKeyboardAction[];
   screenReaderActions: readonly ResolvedPromptScreenReaderAction[];
 };
@@ -301,56 +294,20 @@ export function parsePromptOverride(
   value: unknown,
   label: string,
   options: { allowDir: boolean }
-): ProjectPromptShape | PromptOverrideShape {
+): ProjectPromptShape {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`);
   }
 
-  const candidate = value as Record<string, unknown>;
-  if (candidate.screenReaderCommandHints !== undefined) {
-    throw new Error(
-      `${label}.screenReaderCommandHints is removed. Put hints on allowedScreenReaderActions entries instead.`
-    );
-  }
-  if (candidate.screenReaderActionHints !== undefined) {
-    throw new Error(
-      `${label}.screenReaderActionHints is removed. Put hints on allowedScreenReaderActions entries instead.`
-    );
-  }
-  if (candidate.keyHints !== undefined) {
-    throw new Error(
-      `${label}.keyHints is removed. Put hints on allowedKeys entries instead.`
-    );
-  }
-  const allowedKeys = new Set([
-    "extraInstructions",
-    ...(options.allowDir ? ["dir"] : [])
-  ]);
-
-  for (const key of Object.keys(candidate)) {
-    if (!allowedKeys.has(key)) {
-      throw new Error(`${label}.${key} is not allowed.`);
-    }
-  }
-
-  const extraInstructions = candidate.extraInstructions === undefined
-    ? undefined
-    : parseOptionalString(candidate.extraInstructions, `${label}.extraInstructions`);
   if (!options.allowDir) {
-    if (candidate.dir !== undefined) {
-      throw new Error(`${label}.dir is not allowed.`);
-    }
-
-    return {
-      extraInstructions
-    };
+    throw new Error(`${label} is not allowed.`);
   }
 
+  const candidate = value as Record<string, unknown>;
   return {
     dir: candidate.dir === undefined
       ? undefined
-      : parseOptionalString(candidate.dir, `${label}.dir`),
-    extraInstructions
+      : parseOptionalString(candidate.dir, `${label}.dir`)
   };
 }
 

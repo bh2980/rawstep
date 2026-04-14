@@ -53,6 +53,29 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
     }
   }
 
+  const allowedKeys = new Set([
+    "mode",
+    "outDir",
+    "headless",
+    "maxSteps",
+    "timeoutMs",
+    "screenshots",
+    "verifierAutoComplete",
+    "includeExperienceSummary",
+    "includeRationale",
+    "memory",
+    "allowedKeys",
+    "allowedScreenReaderActions",
+    "screenReaderBackend",
+    "prompt"
+  ]);
+
+  for (const key of Object.keys(candidate)) {
+    if (!allowedKeys.has(key) && !["allowedScreenReaderCommands", "run", "agent", "provider", "model", "baseURL", "apiKey"].includes(key)) {
+      throw new Error(`${label} config.${key} is not allowed.`);
+    }
+  }
+
   return result.data;
 }
 

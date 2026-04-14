@@ -15,7 +15,6 @@ type SharedModeConfig = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   memory: MemorySetting;
-  prompt?: PromptOverrideConfig;
 };
 
 type KeyboardModeConfig = SharedModeConfig & {
@@ -47,12 +46,7 @@ type ProjectDefaultsConfig = {
   baseURL?: string;
   prompt?: ProjectPromptConfig;
 };
-
-type PromptOverrideConfig = {
-  extraInstructions?: string;
-};
-
-type ProjectPromptConfig = PromptOverrideConfig & {
+type ProjectPromptConfig = {
   dir?: string;
 };
 

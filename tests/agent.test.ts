@@ -597,12 +597,11 @@ describe("agent helpers", () => {
       undefined,
       false,
       {
-        promptDir: join(rootDir, "prompt"),
-        extraInstructions: "custom"
+        promptDir: join(rootDir, "prompt")
       }
     );
 
-    expect(prompt).toContain("explicit=custom");
+    expect(prompt).toContain("explicit=");
     expect(prompt).toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
   });
 

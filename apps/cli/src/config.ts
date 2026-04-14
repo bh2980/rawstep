@@ -19,7 +19,6 @@ import {
   type ModeConfigShape,
   type ProjectDefaultsShape,
   type ProjectConfig,
-  type PromptOverrideShape,
   parseAllowedScreenReaderActions,
   parsePromptOverride,
   parseScreenReaderBackendId,
@@ -176,8 +175,6 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
   const prompt = resolvePromptOptions(
     configDir,
     projectDefaults?.prompt,
-    modePreset?.prompt,
-    taskSource.taskConfig?.prompt,
     resolvedKeyboardActions.promptActions,
     resolvedScreenReaderActions.promptActions
   );
@@ -411,8 +408,7 @@ function validateModePreset(
     memory: preset?.memory,
     allowedKeys: preset?.allowedKeys,
     allowedScreenReaderActions: preset?.allowedScreenReaderActions,
-    screenReaderBackend: preset?.screenReaderBackend,
-    prompt: preset?.prompt
+    screenReaderBackend: preset?.screenReaderBackend
   };
 }
 
@@ -448,10 +444,7 @@ function validateModePresetOverride(raw: unknown, label: string): ModeConfigShap
       ),
     screenReaderBackend: candidate.screenReaderBackend === undefined
       ? undefined
-      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label}.screenReaderBackend`),
-    prompt: candidate.prompt === undefined
-      ? undefined
-      : parsePromptOverride(candidate.prompt, `${label}.prompt`, { allowDir: false })
+      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label}.screenReaderBackend`)
   };
 }
 
@@ -466,16 +459,7 @@ function parseProjectPrompt(
   rawPrompt: unknown,
   label: string
 ): ProjectDefaultsShape["prompt"] {
-  const parsed = validateTaskConfigPrompt(rawPrompt, label, true);
-  return parsed;
-}
-
-function validateTaskConfigPrompt(
-  rawPrompt: unknown,
-  label: string,
-  allowDir: boolean
-): PromptOverrideShape | ProjectDefaultsShape["prompt"] {
-  return parsePromptOverride(rawPrompt, label, { allowDir });
+  return parsePromptOverride(rawPrompt, label, { allowDir: true });
 }
 
 function normalizeMemoryWindow(memory: number | "all" | undefined): number | undefined {
@@ -548,18 +532,11 @@ function resolveAllowedScreenReaderActions(
 function resolvePromptOptions(
   configDir: string,
   projectPrompt: ProjectDefaultsShape["prompt"] | undefined,
-  modePrompt: PromptOverrideShape | undefined,
-  taskPrompt: PromptOverrideShape | undefined,
   keyboardActions: ResolvedRunOptions["prompt"]["keyboardActions"],
   screenReaderActions: ResolvedRunOptions["prompt"]["screenReaderActions"]
 ): ResolvedRunOptions["prompt"] {
   return {
     promptDir: resolve(configDir, projectPrompt?.dir ?? "prompt"),
-    extraInstructions: [
-      projectPrompt?.extraInstructions,
-      modePrompt?.extraInstructions,
-      taskPrompt?.extraInstructions
-    ].filter((value): value is string => Boolean(value)).join("\n\n") || undefined,
     keyboardActions,
     screenReaderActions
   };
