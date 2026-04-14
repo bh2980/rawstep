@@ -24,7 +24,6 @@ defineConfig({
       screenReaderBackend: "guidepup-voiceover",
       allowedScreenReaderActions: [
         sr.heading.next(),
-        sr.link.next(),
         sr.landmark.previous(),
         sr.click()
       ]
@@ -38,7 +37,6 @@ defineConfig({
       allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         sr.heading.next({ hint: "Move to the next heading." }),
-        sr.button.next({ hint: "Move to the next button." }),
         sr.heading.level3.next({ hint: "Move to the next level 3 heading." }),
         sr.click(),
         srUnstable.catalog("commands.jumpToErrorMessageElement", {
@@ -47,6 +45,65 @@ defineConfig({
             index: z.number().int().nonnegative()
           }),
           argsExample: { index: 1 }
+        })
+      ]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    "screenreader-strict": {
+      outDir: "./sr-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      allowedScreenReaderActions: [
+        // @ts-expect-error voiceover config must not accept nvda-only list navigation
+        sr.list.next()
+      ]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./hybrid-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [kb.tab()],
+      allowedScreenReaderActions: [
+        // @ts-expect-error virtual config must not accept voiceover-only button navigation
+        sr.button.next()
+      ]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    "screenreader-hybrid": {
+      outDir: "./hybrid-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [kb.tab()],
+      allowedScreenReaderActions: [
+        // @ts-expect-error virtual config must not accept rawPerform
+        srUnstable.rawPerform({
+          hint: "Try raw payload.",
+          payloadSchema: z.object({
+            command: z.string()
+          }),
+          payloadExample: { command: "custom" }
         })
       ]
     }

@@ -16,6 +16,15 @@ type ScreenReaderActionOptions = {
   hint?: string;
 };
 
+type StableConfiguredScreenReaderActionFor<TSemantic extends ConfiguredStableScreenReaderActionShape["semantic"]> =
+  ConfiguredStableScreenReaderAction & { semantic: TSemantic };
+
+type CatalogConfiguredScreenReaderAction =
+  ConfiguredUnstableScreenReaderAction & { unstable: "catalog" };
+
+type RawPerformConfiguredScreenReaderAction =
+  ConfiguredUnstableScreenReaderAction & { unstable: "rawPerform" };
+
 type BuiltInCatalogSemantic =
   | "heading.next"
   | "heading.previous"
@@ -244,7 +253,80 @@ const SCREEN_READER_SEMANTIC_TOKEN_LABELS = SCREEN_READER_SEMANTIC_TOKENS.join("
 const SCREEN_READER_SEMANTIC_CLI_TOKENS = SCREEN_READER_SEMANTIC_TOKENS.map((token) => `sr.${token}`) as readonly string[];
 const SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS = SCREEN_READER_SEMANTIC_CLI_TOKENS.join(", ");
 
-export const sr = {
+export type ScreenReaderHelperApi = {
+  next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"next">;
+  previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"previous">;
+  act: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"act">;
+  interact: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"interact">;
+  stopInteracting: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"stopInteracting">;
+  press: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"press">;
+  type: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"type">;
+  click: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"click">;
+  heading: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.previous">;
+    level1: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.1.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.1.previous">;
+    };
+    level2: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.2.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.2.previous">;
+    };
+    level3: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.3.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.3.previous">;
+    };
+    level4: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.4.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.4.previous">;
+    };
+    level5: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.5.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.5.previous">;
+    };
+    level6: {
+      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.6.next">;
+      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.6.previous">;
+    };
+  };
+  form: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"form.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"form.previous">;
+  };
+  link: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"link.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"link.previous">;
+  };
+  button: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"button.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"button.previous">;
+  };
+  landmark: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"landmark.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"landmark.previous">;
+  };
+  list: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"list.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"list.previous">;
+  };
+  table: {
+    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"table.next">;
+    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"table.previous">;
+  };
+  read: {
+    itemText: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.itemText">;
+    itemTextLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.itemTextLog">;
+    lastSpokenPhrase: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.lastSpokenPhrase">;
+    spokenPhraseLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.spokenPhraseLog">;
+  };
+  clear: {
+    itemTextLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"clear.itemTextLog">;
+    spokenPhraseLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"clear.spokenPhraseLog">;
+  };
+};
+
+export const sr: ScreenReaderHelperApi = {
   next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("next", options),
   previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("previous", options),
   act: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("act", options),
@@ -315,13 +397,23 @@ export const sr = {
     itemTextLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.itemTextLog", options),
     spokenPhraseLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.spokenPhraseLog", options)
   }
-} as const;
+};
 
-export const srUnstable = {
+export type ScreenReaderUnstableHelperApi = {
   catalog: <TSchema extends z.ZodObject<any>>(
     id: string,
     options: ScreenReaderUnstableCatalogOptions<TSchema>
-  ): ConfiguredUnstableScreenReaderAction =>
+  ) => CatalogConfiguredScreenReaderAction;
+  rawPerform: <TSchema extends z.ZodObject<any>>(
+    options: ScreenReaderUnstableRawPerformOptions<TSchema>
+  ) => RawPerformConfiguredScreenReaderAction;
+};
+
+export const srUnstable: ScreenReaderUnstableHelperApi = {
+  catalog: <TSchema extends z.ZodObject<any>>(
+    id: string,
+    options: ScreenReaderUnstableCatalogOptions<TSchema>
+  ): CatalogConfiguredScreenReaderAction =>
     buildConfiguredUnstableCatalogAction(
       id,
       options.hint,
@@ -330,16 +422,13 @@ export const srUnstable = {
     ),
   rawPerform: <TSchema extends z.ZodObject<any>>(
     options: ScreenReaderUnstableRawPerformOptions<TSchema>
-  ): ConfiguredUnstableScreenReaderAction =>
+  ): RawPerformConfiguredScreenReaderAction =>
     buildConfiguredUnstableRawPerformAction(
       options.hint,
       options.payloadSchema,
       options.payloadExample as Record<string, unknown>
     )
-} as const;
-
-export type ScreenReaderHelperApi = typeof sr;
-export type ScreenReaderUnstableHelperApi = typeof srUnstable;
+};
 
 export function parseConfiguredScreenReaderActions(
   value: unknown,
@@ -399,14 +488,14 @@ export function formatConfiguredScreenReaderAction(action: ConfiguredScreenReade
   return action.semantic;
 }
 
-function buildConfiguredScreenReaderAction(
-  semantic: ConfiguredStableScreenReaderActionShape["semantic"],
+function buildConfiguredScreenReaderAction<TSemantic extends ConfiguredStableScreenReaderActionShape["semantic"]>(
+  semantic: TSemantic,
   options?: ScreenReaderActionOptions
-): ConfiguredStableScreenReaderAction {
+): StableConfiguredScreenReaderActionFor<TSemantic> {
   return {
     semantic,
     ...(options?.hint ? { hint: options.hint } : {})
-  } as ConfiguredStableScreenReaderAction;
+  } as StableConfiguredScreenReaderActionFor<TSemantic>;
 }
 
 function buildConfiguredUnstableCatalogAction(
@@ -414,27 +503,27 @@ function buildConfiguredUnstableCatalogAction(
   hint: string,
   argsSchema: PromptObjectSchema<Record<string, unknown>>,
   argsExample: Record<string, unknown>
-): ConfiguredUnstableScreenReaderAction {
+): CatalogConfiguredScreenReaderAction {
   return {
     unstable: "catalog",
     id,
     hint,
     argsSchema,
     argsExample
-  } as ConfiguredUnstableScreenReaderAction;
+  } as CatalogConfiguredScreenReaderAction;
 }
 
 function buildConfiguredUnstableRawPerformAction(
   hint: string,
   payloadSchema: PromptObjectSchema<Record<string, unknown>>,
   payloadExample: Record<string, unknown>
-): ConfiguredUnstableScreenReaderAction {
+): RawPerformConfiguredScreenReaderAction {
   return {
     unstable: "rawPerform",
     hint,
     payloadSchema,
     payloadExample
-  } as ConfiguredUnstableScreenReaderAction;
+  } as RawPerformConfiguredScreenReaderAction;
 }
 
 function parseConfiguredScreenReaderAction(
