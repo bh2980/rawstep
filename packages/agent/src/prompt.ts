@@ -18,6 +18,10 @@ import {
   type TraceAggregate,
   type UserModel
 } from "@rawstep/core";
+import {
+  formatResolvedPromptScreenReaderActionName,
+  getBuiltInScreenReaderSemanticByCatalogId
+} from "./action-strings";
 import { loadPromptTemplates, renderPromptTemplate } from "./prompt-loader";
 import type { PromptPart } from "./shared";
 
@@ -43,8 +47,6 @@ export function buildSystemPrompt(
   options: SystemPromptOptions = {}
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
-  const resolvedPromptKeyboardActions = options.keyboardActions
-    ?? buildFallbackPromptKeyboardActions(allowedKeys);
   const resolvedScreenReaderActions = allowedScreenReaderActions
     ?? (options.screenReaderCapabilities ? buildAllowedScreenReaderActions(options.screenReaderCapabilities) : []);
   const resolvedPromptScreenReaderActions = options.screenReaderActions
@@ -52,7 +54,7 @@ export function buildSystemPrompt(
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      outputExamples: buildScreenReaderStrictOutputExamples(taskInput, includeRationale, resolvedScreenReaderActions)
+      outputExamples: buildScreenReaderStrictOutputExamples(taskInput, includeRationale, resolvedPromptScreenReaderActions)
     });
   }
 
@@ -62,7 +64,7 @@ export function buildSystemPrompt(
         taskInput,
         includeRationale,
         allowedKeys,
-        resolvedScreenReaderActions
+        resolvedPromptScreenReaderActions
       )
     });
   }
@@ -291,9 +293,9 @@ function buildKeyboardOutputExamples(
 function buildScreenReaderStrictOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
-  allowedActions: readonly AllowedScreenReaderAction[]
+  promptActions: readonly ResolvedPromptScreenReaderAction[]
 ): string {
-  const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
+  const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
 
   if (taskInput) {
     const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
@@ -310,9 +312,9 @@ function buildScreenReaderHybridOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   allowedKeys: readonly AllowedKey[],
-  allowedActions: readonly AllowedScreenReaderAction[]
+  promptActions: readonly ResolvedPromptScreenReaderAction[]
 ): string {
-  const snippets = buildScreenReaderActionExampleSnippets(allowedActions, includeRationale);
+  const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
   const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
   snippets.push(includeRationale
     ? JSON.stringify({ action: exampleKey, rationale: "..." })
@@ -342,19 +344,59 @@ function buildVerdictSnippets(includeRationale: boolean): string[] {
 }
 
 function buildScreenReaderActionExampleSnippets(
-  allowedActions: readonly AllowedScreenReaderAction[],
+  promptActions: readonly ResolvedPromptScreenReaderAction[],
   includeRationale: boolean
 ): string[] {
-  const snippets = allowedActions
-    .map((action) => toPromptScreenReaderActionLabelFromAllowed(action))
-    .filter((value): value is string => Boolean(value))
-    .map((label) => stringifyActionExample(label, includeRationale));
+  const snippets = promptActions
+    .map((action) => buildScreenReaderActionExampleSnippet(action, includeRationale));
 
   return dedupe(snippets);
 }
 
 function stringifyActionExample(action: string, includeRationale: boolean): string {
   return JSON.stringify(includeRationale ? { action, rationale: "..." } : { action });
+}
+
+function buildScreenReaderActionExampleSnippet(
+  action: ResolvedPromptScreenReaderAction,
+  includeRationale: boolean
+): string {
+  const label = formatResolvedPromptScreenReaderActionName(action);
+  const base: Record<string, unknown> = includeRationale
+    ? { action: label, rationale: "..." }
+    : { action: label };
+
+  switch (action.semantic) {
+    case "press":
+      return JSON.stringify({ ...base, key: "Enter" });
+    case "type":
+      return JSON.stringify({ ...base, text: "<text>" });
+    case "click":
+      return JSON.stringify({ ...base, button: "left", clickCount: 1 });
+    case "catalog":
+      return JSON.stringify(action.argsHint
+        ? { ...base, args: buildCatalogArgsExample(action.argsHint) }
+        : base);
+    case "rawPerform":
+      return JSON.stringify({ ...base, payload: { "<key>": "<value>" } });
+    default:
+      return JSON.stringify(base);
+  }
+}
+
+function buildCatalogArgsExample(argsHint: string): Record<string, unknown> {
+  const normalizedHint = argsHint.replace(/^args:\s*/i, "").trim();
+  const numericMatch = normalizedHint.match(/"([^"]+)":\s*number/i);
+  if (numericMatch?.[1]) {
+    return { [numericMatch[1]]: 1 };
+  }
+
+  const stringMatch = normalizedHint.match(/"([^"]+)":\s*string/i);
+  if (stringMatch?.[1]) {
+    return { [stringMatch[1]]: "<value>" };
+  }
+
+  return { "<arg>": "<value>" };
 }
 
 function buildOutputExamples(snippets: readonly string[]): string {
@@ -384,13 +426,9 @@ function buildScreenReaderActionsBlock(
 
   return promptActions
     .map((action) => {
-      const label = formatPromptScreenReaderActionLabel(action);
-      if (!label) {
-        return undefined;
-      }
+      const label = formatResolvedPromptScreenReaderActionName(action);
       return action.hint ? `- ${label}: ${action.hint}` : `- ${label}`;
     })
-    .filter((line): line is string => Boolean(line))
     .join("\n");
 }
 
@@ -508,44 +546,11 @@ function formatScreenReaderAction(action: ScreenReaderAction): string {
   }
 }
 
-function formatPromptScreenReaderActionLabel(action: ResolvedPromptScreenReaderAction): string | undefined {
-  return toPromptScreenReaderActionLabelFromAllowed(action.runtimeAction);
-}
-
-function toPromptScreenReaderActionLabelFromAllowed(action: AllowedScreenReaderAction): string | undefined {
-  if (action.kind === "read") {
-    return `sr.read.${action.method}`;
-  }
-
-  if (action.kind === "maintenance") {
-    return `sr.maintenance.${action.method}`;
-  }
-
-  if (action.method === "perform") {
-    return action.source === "catalog"
-      ? `sr.perform.catalog(${action.id})`
-      : undefined;
-  }
-
-  switch (action.method) {
-    case "next":
-    case "previous":
-    case "act":
-    case "interact":
-    case "stopInteracting":
-      return `sr.invoke.${action.method}`;
-    case "press":
-    case "type":
-    case "click":
-      return undefined;
-  }
-}
-
 function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
-function buildFallbackPromptScreenReaderActions(
+export function buildFallbackPromptScreenReaderActions(
   allowedActions: readonly AllowedScreenReaderAction[]
 ): readonly ResolvedPromptScreenReaderAction[] {
   return allowedActions.map((action) => {
@@ -564,16 +569,24 @@ function buildFallbackPromptScreenReaderActions(
     }
 
     if (action.method === "perform") {
-      return action.source === "catalog"
-        ? {
-            semantic: "catalog",
-            id: action.id,
-            runtimeAction: action
-          }
-        : {
-            semantic: "rawPerform",
-            runtimeAction: action
-          };
+      if (action.source === "catalog") {
+        const builtinSemantic = getBuiltInScreenReaderSemanticByCatalogId(action.id);
+        return builtinSemantic
+          ? {
+              semantic: builtinSemantic,
+              runtimeAction: action
+            }
+          : {
+              semantic: "catalog",
+              id: action.id,
+              runtimeAction: action
+            };
+      }
+
+      return {
+        semantic: "rawPerform",
+        runtimeAction: action
+      };
     }
 
     return {

@@ -2,12 +2,18 @@ import {
   type Action,
   isAllowedKey,
   type Decision,
-  type ExperienceSummary
+  type ExperienceSummary,
+  type ResolvedPromptScreenReaderAction
 } from "@rawstep/core";
+import { formatResolvedPromptScreenReaderActionName } from "./action-strings";
 import type { PromptPart } from "./shared";
 
-export function parseDecision(raw: string, taskInputKeys?: string[]): Decision {
-  const result = parseDecisionResult(raw, taskInputKeys);
+export function parseDecision(
+  raw: string,
+  taskInputKeys?: string[],
+  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
+): Decision {
+  const result = parseDecisionResult(raw, taskInputKeys, screenReaderActions);
 
   if (result.status === "ok") {
     return result.decision;
@@ -26,15 +32,15 @@ export type ParseDecisionResult =
   | { status: "invalid-typeText-key"; snippet: string; key: string; allowedKeys: string[] }
   | { status: "malformed"; snippet: string };
 
-export function parseDecisionResult(raw: string, taskInputKeys?: string[]): ParseDecisionResult {
+export function parseDecisionResult(
+  raw: string,
+  taskInputKeys?: string[],
+  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
+): ParseDecisionResult {
   const snippet = raw.trim().slice(0, 240);
 
   try {
-    const candidate = JSON.parse(extractJsonObject(raw)) as {
-      action?: string;
-      verdict?: string;
-      rationale?: string;
-    };
+    const candidate = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>;
 
     const rationale = typeof candidate.rationale === "string" && candidate.rationale.trim()
       ? candidate.rationale.trim()
@@ -47,12 +53,12 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
       return { status: "malformed", snippet };
     }
 
-    if (candidate.action) {
+    if (hasAction) {
       if (typeof candidate.action !== "string" || !candidate.action.trim()) {
         return { status: "malformed", snippet };
       }
 
-      const parsedAction = parseStringAction(candidate.action, taskInputKeys);
+      const parsedAction = parseStringActionCandidate(candidate, taskInputKeys, screenReaderActions);
       if (parsedAction.status === "invalid-typeText-key") {
         return {
           status: "invalid-typeText-key",
@@ -95,14 +101,24 @@ export function parseDecisionResult(raw: string, taskInputKeys?: string[]): Pars
   }
 }
 
-function parseStringAction(
-  value: string,
-  taskInputKeys?: string[]
+function parseStringActionCandidate(
+  candidate: Record<string, unknown>,
+  taskInputKeys?: string[],
+  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
 ):
   | { status: "ok"; action: Action }
   | { status: "invalid-typeText-key"; key: string; allowedKeys: string[] }
   | { status: "malformed" } {
+  const value = typeof candidate.action === "string" ? candidate.action.trim() : "";
+  if (!value) {
+    return { status: "malformed" };
+  }
+
   if (value.startsWith("key.")) {
+    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+      return { status: "malformed" };
+    }
+
     const key = value.slice("key.".length);
     if (!isAllowedKey(key)) {
       return { status: "malformed" };
@@ -112,6 +128,10 @@ function parseStringAction(
   }
 
   if (value.startsWith("typeText.")) {
+    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+      return { status: "malformed" };
+    }
+
     const key = value.slice("typeText.".length);
     if (!taskInputKeys || taskInputKeys.length === 0) {
       return { status: "invalid-typeText-key", key, allowedKeys: [] };
@@ -124,24 +144,18 @@ function parseStringAction(
     return { status: "ok", action: { typeText: key } };
   }
 
-  if (value.startsWith("sr.invoke.")) {
-    const method = value.slice("sr.invoke.".length);
-    switch (method) {
-      case "next":
-      case "previous":
-      case "act":
-      case "interact":
-      case "stopInteracting":
-        return {
-          status: "ok",
-          action: { srAction: { kind: "invoke", method } }
-        };
-      default:
-        return { status: "malformed" };
-    }
+  const promptAction = screenReaderActions?.find(
+    (action) => formatResolvedPromptScreenReaderActionName(action) === value
+  );
+  if (promptAction) {
+    return parseResolvedPromptScreenReaderActionCandidate(promptAction, candidate);
   }
 
   if (value.startsWith("sr.read.")) {
+    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+      return { status: "malformed" };
+    }
+
     const method = value.slice("sr.read.".length);
     switch (method) {
       case "itemText":
@@ -157,24 +171,30 @@ function parseStringAction(
     }
   }
 
-  if (value.startsWith("sr.maintenance.")) {
-    const method = value.slice("sr.maintenance.".length);
+  if (value.startsWith("sr.clear.")) {
+    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+      return { status: "malformed" };
+    }
+
+    const method = value.slice("sr.clear.".length);
     switch (method) {
-      case "clearItemTextLog":
-      case "clearSpokenPhraseLog":
+      case "itemTextLog":
         return {
           status: "ok",
-          action: { srAction: { kind: "maintenance", method } }
+          action: { srAction: { kind: "maintenance", method: "clearItemTextLog" } }
+        };
+      case "spokenPhraseLog":
+        return {
+          status: "ok",
+          action: { srAction: { kind: "maintenance", method: "clearSpokenPhraseLog" } }
         };
       default:
         return { status: "malformed" };
     }
   }
 
-  const catalogMatch = value.match(/^sr\.perform\.catalog\((.+)\)$/);
-  if (catalogMatch) {
-    const id = catalogMatch[1]?.trim();
-    if (!id) {
+  if (value === "sr.next" || value === "sr.previous" || value === "sr.act" || value === "sr.interact" || value === "sr.stopInteracting") {
+    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
       return { status: "malformed" };
     }
 
@@ -183,14 +203,307 @@ function parseStringAction(
       action: {
         srAction: {
           kind: "invoke",
-          method: "perform",
-          command: { source: "catalog", id }
+          method: value.slice("sr.".length) as "next" | "previous" | "act" | "interact" | "stopInteracting"
         }
       }
     };
   }
 
+  if (value === "sr.press") {
+    return parsePressPromptActionCandidate(candidate);
+  }
+
+  if (value === "sr.type") {
+    return parseTypePromptActionCandidate(candidate);
+  }
+
+  if (value === "sr.click") {
+    return parseClickPromptActionCandidate(candidate);
+  }
+
+  if (value.startsWith("sr.catalog.")) {
+    return parseExplicitCatalogCandidate(value, candidate);
+  }
+
+  if (value === "sr.rawPerform") {
+    return parseRawPerformCandidate(candidate);
+  }
+
   return { status: "malformed" };
+}
+
+function parseResolvedPromptScreenReaderActionCandidate(
+  promptAction: ResolvedPromptScreenReaderAction,
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  switch (promptAction.semantic) {
+    case "catalog":
+      return parseCatalogPromptActionCandidate(promptAction, candidate);
+    case "rawPerform":
+      return parseRawPerformCandidate(candidate);
+    case "press":
+      return parsePressPromptActionCandidate(candidate);
+    case "type":
+      return parseTypePromptActionCandidate(candidate);
+    case "click":
+      return parseClickPromptActionCandidate(candidate);
+    default:
+      if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+        return { status: "malformed" };
+      }
+
+      return {
+        status: "ok",
+        action: toActionFromResolvedPromptRuntimeAction(promptAction.runtimeAction)
+      };
+  }
+}
+
+function parseCatalogPromptActionCandidate(
+  promptAction: Extract<ResolvedPromptScreenReaderAction, { semantic: "catalog" }>,
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "args"])) {
+    return { status: "malformed" };
+  }
+
+  const args = candidate.args === undefined ? undefined : parseRecord(candidate.args);
+  if (candidate.args !== undefined && !args) {
+    return { status: "malformed" };
+  }
+
+  return {
+    status: "ok",
+    action: {
+      srAction: {
+        kind: "invoke",
+        method: "perform",
+        command: {
+          source: "catalog",
+          id: promptAction.runtimeAction.id,
+          ...(args ? { args } : {})
+        }
+      }
+    }
+  };
+}
+
+function parseExplicitCatalogCandidate(
+  value: string,
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "args"])) {
+    return { status: "malformed" };
+  }
+
+  const id = value.slice("sr.catalog.".length).trim();
+  if (!id) {
+    return { status: "malformed" };
+  }
+
+  const args = candidate.args === undefined ? undefined : parseRecord(candidate.args);
+  if (candidate.args !== undefined && !args) {
+    return { status: "malformed" };
+  }
+
+  return {
+    status: "ok",
+    action: {
+      srAction: {
+        kind: "invoke",
+        method: "perform",
+        command: {
+          source: "catalog",
+          id,
+          ...(args ? { args } : {})
+        }
+      }
+    }
+  };
+}
+
+function parseRawPerformCandidate(
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "payload"])) {
+    return { status: "malformed" };
+  }
+
+  const payload = parseRecord(candidate.payload);
+  if (!payload) {
+    return { status: "malformed" };
+  }
+
+  return {
+    status: "ok",
+    action: {
+      srAction: {
+        kind: "invoke",
+        method: "perform",
+        command: { source: "raw", payload }
+      }
+    }
+  };
+}
+
+function parsePressPromptActionCandidate(
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "key"])) {
+    return { status: "malformed" };
+  }
+
+  const key = typeof candidate.key === "string" && candidate.key.trim()
+    ? candidate.key.trim()
+    : undefined;
+  if (!key) {
+    return { status: "malformed" };
+  }
+
+  return {
+    status: "ok",
+    action: { srAction: { kind: "invoke", method: "press", key } }
+  };
+}
+
+function parseTypePromptActionCandidate(
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "text"])) {
+    return { status: "malformed" };
+  }
+
+  const text = typeof candidate.text === "string" && candidate.text.length > 0
+    ? candidate.text
+    : undefined;
+  if (!text) {
+    return { status: "malformed" };
+  }
+
+  return {
+    status: "ok",
+    action: { srAction: { kind: "invoke", method: "type", text } }
+  };
+}
+
+function parseClickPromptActionCandidate(
+  candidate: Record<string, unknown>
+):
+  | { status: "ok"; action: Action }
+  | { status: "malformed" } {
+  if (hasUnexpectedKeys(candidate, ["action", "rationale", "button", "clickCount"])) {
+    return { status: "malformed" };
+  }
+
+  const button = parseClickButton(candidate.button);
+  if (candidate.button !== undefined && button === undefined) {
+    return { status: "malformed" };
+  }
+
+  const clickCount = parseClickCount(candidate.clickCount);
+  if (candidate.clickCount !== undefined && clickCount === undefined) {
+    return { status: "malformed" };
+  }
+
+  const options = button !== undefined || clickCount !== undefined
+    ? {
+        ...(button !== undefined ? { button } : {}),
+        ...(clickCount !== undefined ? { clickCount } : {})
+      }
+    : undefined;
+
+  return {
+    status: "ok",
+    action: {
+      srAction: {
+        kind: "invoke",
+        method: "click",
+        ...(options ? { options } : {})
+      }
+    }
+  };
+}
+
+function toActionFromResolvedPromptRuntimeAction(
+  action: ResolvedPromptScreenReaderAction["runtimeAction"]
+): Action {
+  if (action.kind === "read") {
+    return { srAction: { kind: "read", method: action.method } };
+  }
+
+  if (action.kind === "maintenance") {
+    return { srAction: { kind: "maintenance", method: action.method } };
+  }
+
+  if (action.method === "perform") {
+    if (action.source === "catalog") {
+      return {
+        srAction: {
+          kind: "invoke",
+          method: "perform",
+          command: { source: "catalog", id: action.id }
+        }
+      };
+    }
+
+    return {
+      srAction: {
+        kind: "invoke",
+        method: "perform",
+        command: { source: "raw", payload: {} }
+      }
+    };
+  }
+
+  switch (action.method) {
+    case "next":
+    case "previous":
+    case "act":
+    case "interact":
+    case "stopInteracting":
+      return {
+        srAction: {
+          kind: "invoke",
+          method: action.method
+        }
+      };
+    case "press":
+    case "type":
+    case "click":
+      throw new Error(`Parameterized action "${action.method}" must be parsed with dedicated fields.`);
+  }
+}
+
+function hasUnexpectedKeys(candidate: Record<string, unknown>, allowedKeys: readonly string[]): boolean {
+  return Object.keys(candidate).some((key) => !allowedKeys.includes(key));
+}
+
+function parseRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function parseClickButton(value: unknown): "left" | "right" | undefined {
+  return value === "left" || value === "right" ? value : undefined;
+}
+
+function parseClickCount(value: unknown): 1 | 2 | 3 | undefined {
+  return value === 1 || value === 2 || value === 3 ? value : undefined;
 }
 
 export function parseExperienceSummary(raw: string): ExperienceSummary {
@@ -264,68 +577,45 @@ function invalidTypeTextKeyDecision(
 
 function extractJsonObject(raw: string): string {
   const fencedMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fencedMatch) {
-    return fencedMatch[1].trim();
+  const candidate = fencedMatch ? fencedMatch[1] : raw;
+  const start = candidate.indexOf("{");
+  if (start === -1) {
+    throw new Error("no JSON object found");
   }
 
-  const balancedObject = findFirstBalancedJsonObject(raw);
-  if (balancedObject) {
-    return balancedObject;
-  }
-
-  return raw.trim();
-}
-
-function findFirstBalancedJsonObject(raw: string): string | undefined {
-  let start = -1;
   let depth = 0;
   let inString = false;
-  let escaping = false;
-
-  for (let index = 0; index < raw.length; index += 1) {
-    const character = raw[index];
-
+  let escaped = false;
+  for (let index = start; index < candidate.length; index += 1) {
+    const char = candidate[index];
     if (inString) {
-      if (escaping) {
-        escaping = false;
-        continue;
-      }
-
-      if (character === "\\") {
-        escaping = true;
-        continue;
-      }
-
-      if (character === "\"") {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
         inString = false;
       }
       continue;
     }
 
-    if (character === "\"") {
+    if (char === "\"") {
       inString = true;
       continue;
     }
 
-    if (character === "{") {
-      if (depth === 0) {
-        start = index;
-      }
+    if (char === "{") {
       depth += 1;
       continue;
     }
 
-    if (character === "}") {
-      if (depth === 0) {
-        continue;
-      }
-
+    if (char === "}") {
       depth -= 1;
-      if (depth === 0 && start !== -1) {
-        return raw.slice(start, index + 1).trim();
+      if (depth === 0) {
+        return candidate.slice(start, index + 1);
       }
     }
   }
 
-  return undefined;
+  throw new Error("no complete JSON object found");
 }

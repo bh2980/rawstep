@@ -258,6 +258,7 @@ export type ResolvedPromptScreenReaderAction =
   | {
       semantic: "catalog";
       id: string;
+      argsHint?: string;
       hint?: string;
       runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>;
     }

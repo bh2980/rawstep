@@ -261,9 +261,11 @@ function resolvePromptAction(
 ): ResolvedPromptScreenReaderAction {
   const runtimeAction = resolveRuntimeAction(action, backendId, capabilities);
   if (action.semantic === "catalog") {
+    const commandMetadata = capabilities.performCatalog.find((command) => command.id === action.id);
     return {
       semantic: "catalog",
       id: action.id,
+      ...(commandMetadata?.argsHint ? { argsHint: commandMetadata.argsHint } : {}),
       ...(action.hint ? { hint: action.hint } : {}),
       runtimeAction: runtimeAction as Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>
     };
@@ -377,7 +379,6 @@ function buildDefaultConfiguredScreenReaderActions(
   capabilities: ScreenReaderCapabilities
 ): ConfiguredScreenReaderAction[] {
   const actions: ConfiguredScreenReaderAction[] = [];
-  const usedCatalogIds = new Set<string>();
 
   for (const semantic of ["next", "previous", "act", "interact", "stopInteracting", "press", "type", "click"] as const) {
     if (capabilities.invoke[semantic]) {
@@ -389,22 +390,7 @@ function buildDefaultConfiguredScreenReaderActions(
     const catalogId = BUILTIN_CATALOG_SEMANTICS[semantic][backendId];
     if (catalogId && hasCatalogId(capabilities, catalogId)) {
       actions.push(buildConfiguredScreenReaderAction(semantic));
-      usedCatalogIds.add(catalogId);
     }
-  }
-
-  if (capabilities.invoke.perform) {
-    for (const command of capabilities.performCatalog) {
-      if (usedCatalogIds.has(command.id)) {
-        continue;
-      }
-
-      actions.push(buildConfiguredScreenReaderAction("catalog", undefined, command.id));
-    }
-  }
-
-  if (capabilities.invoke.supportsRawPerform) {
-    actions.push(buildConfiguredScreenReaderAction("rawPerform"));
   }
 
   for (const semantic of ["read.itemText", "read.itemTextLog", "read.lastSpokenPhrase", "read.spokenPhraseLog"] as const) {

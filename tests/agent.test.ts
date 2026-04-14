@@ -144,7 +144,14 @@ describe("agent helpers", () => {
   });
 
   it("parses valid screen reader action JSON", () => {
-    const decision = parseDecision('{"action":"sr.perform.catalog(commands.moveToNextHeading)","rationale":"Move to the next announced item."}');
+    const decision = parseDecision(
+      '{"action":"sr.heading.next","rationale":"Move to the next announced item."}',
+      undefined,
+      [{
+        semantic: "heading.next",
+        runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
+      }]
+    );
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
@@ -163,7 +170,7 @@ describe("agent helpers", () => {
   });
 
   it("parses valid no-arg screen reader invoke actions", () => {
-    const decision = parseDecision('{"action":"sr.invoke.next"}');
+    const decision = parseDecision('{"action":"sr.next"}');
 
     expect("action" in decision).toBe(true);
     if ("action" in decision && "srAction" in decision.action) {
@@ -176,7 +183,7 @@ describe("agent helpers", () => {
 
   it("parses valid screen reader read and maintenance actions", () => {
     const readDecision = parseDecision('{"action":"sr.read.itemText"}');
-    const maintenanceDecision = parseDecision('{"action":"sr.maintenance.clearItemTextLog"}');
+    const maintenanceDecision = parseDecision('{"action":"sr.clear.itemTextLog"}');
 
     expect("action" in readDecision).toBe(true);
     if ("action" in readDecision && "srAction" in readDecision.action) {
@@ -325,8 +332,69 @@ describe("agent helpers", () => {
     });
   });
 
-  it("treats unsupported string actions as malformed", () => {
-    const decision = parseDecision('{"action":"sr.invoke.click","rationale":"Invalid."}');
+  it("treats malformed parameterized actions as malformed", () => {
+    const decision = parseDecision('{"action":"sr.press","rationale":"Invalid."}');
+ 
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain("malformed decision");
+    }
+  });
+
+  it("parses parameterized screen reader actions", () => {
+    const pressDecision = parseDecision('{"action":"sr.press","key":"Enter"}');
+    const typeDecision = parseDecision('{"action":"sr.type","text":"hello"}');
+    const clickDecision = parseDecision('{"action":"sr.click","button":"left","clickCount":2}');
+    const rawDecision = parseDecision('{"action":"sr.rawPerform","payload":{"characters":"x"}}');
+
+    expect("action" in pressDecision).toBe(true);
+    if ("action" in pressDecision && "srAction" in pressDecision.action) {
+      expect(pressDecision.action.srAction).toEqual({
+        kind: "invoke",
+        method: "press",
+        key: "Enter"
+      });
+    }
+
+    expect("action" in typeDecision).toBe(true);
+    if ("action" in typeDecision && "srAction" in typeDecision.action) {
+      expect(typeDecision.action.srAction).toEqual({
+        kind: "invoke",
+        method: "type",
+        text: "hello"
+      });
+    }
+
+    expect("action" in clickDecision).toBe(true);
+    if ("action" in clickDecision && "srAction" in clickDecision.action) {
+      expect(clickDecision.action.srAction).toEqual({
+        kind: "invoke",
+        method: "click",
+        options: {
+          button: "left",
+          clickCount: 2
+        }
+      });
+    }
+
+    expect("action" in rawDecision).toBe(true);
+    if ("action" in rawDecision && "srAction" in rawDecision.action) {
+      expect(rawDecision.action.srAction).toEqual({
+        kind: "invoke",
+        method: "perform",
+        command: {
+          source: "raw",
+          payload: {
+            characters: "x"
+          }
+        }
+      });
+    }
+  });
+
+  it("rejects mismatched extra fields on string actions", () => {
+    const decision = parseDecision('{"action":"key.Tab","text":"oops"}');
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
@@ -524,11 +592,11 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("- key.Tab");
-      expect(promptParts[0].text).toContain("- sr.invoke.next");
+      expect(promptParts[0].text).toContain("- sr.next");
       expect(promptParts[0].text).toContain("- sr.read.itemText");
-      expect(promptParts[0].text).toContain("- sr.maintenance.clearItemTextLog");
-      expect(promptParts[0].text).toContain("- sr.perform.catalog(commands.moveToNextHeading)");
-      expect(promptParts[0].text).not.toContain("sr.perform.raw");
+      expect(promptParts[0].text).toContain("- sr.clear.itemTextLog");
+      expect(promptParts[0].text).toContain("- sr.heading.next");
+      expect(promptParts[0].text).toContain("- sr.rawPerform");
     }
   });
 
@@ -567,7 +635,7 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("- key.Tab: 다음 포커스로 이동");
-      expect(promptParts[0].text).not.toContain("sr.invoke.click");
+      expect(promptParts[0].text).toContain("- sr.click: 현재 항목을 클릭할 때 사용");
       expect(promptParts[0].text).toContain("- typeText.email");
     }
   });
@@ -739,11 +807,10 @@ describe("agent helpers", () => {
     );
 
     expect(prompt).toContain("system-strict");
-    expect(prompt).not.toContain("heading.next");
-    expect(prompt).not.toContain("- click");
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
-    expect(prompt).toContain('{"action":"sr.perform.catalog(commands.moveToNextHeading)"}');
+    expect(prompt).toContain('{"action":"sr.heading.next"}');
+    expect(prompt).toContain('{"action":"sr.click","button":"left","clickCount":1}');
   });
 
   it("uses neutral placeholder values in screenreader output examples", async () => {
@@ -762,9 +829,9 @@ describe("agent helpers", () => {
       false
     );
 
-    expect(prompt).not.toContain("sr.invoke.press");
-    expect(prompt).not.toContain("sr.invoke.type");
-    expect(prompt).not.toContain("sr.perform.raw");
+    expect(prompt).toContain('{"action":"sr.press","key":"Enter"}');
+    expect(prompt).toContain('{"action":"sr.type","text":"<text>"}');
+    expect(prompt).toContain('{"action":"sr.rawPerform","payload":{"<key>":"<value>"}}');
   });
 
   it("does not invent guidance when hints are absent", async () => {

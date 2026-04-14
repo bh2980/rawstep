@@ -1,4 +1,4 @@
-import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
+import { buildAllowedScreenReaderActions, type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
@@ -9,6 +9,7 @@ import {
 import {
   buildExperienceSummaryPromptText,
   buildExperienceSummarySystemPrompt,
+  buildFallbackPromptScreenReaderActions,
   buildPromptParts,
   buildSystemPrompt,
   buildUserPromptText
@@ -73,6 +74,10 @@ export class LLMAgent implements Agent {
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
     const taskInputKeys = this.taskInput ? Object.keys(this.taskInput) : undefined;
+    const resolvedScreenReaderActions = ctx.allowedScreenReaderActions
+      ?? (this.screenReaderCapabilities ? buildAllowedScreenReaderActions(this.screenReaderCapabilities) : []);
+    const resolvedPromptScreenReaderActions = this.screenReaderActions
+      ?? buildFallbackPromptScreenReaderActions(resolvedScreenReaderActions);
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
@@ -82,7 +87,7 @@ export class LLMAgent implements Agent {
       {
         promptDir: this.promptDir,
         keyboardActions: this.keyboardActions,
-        screenReaderActions: this.screenReaderActions,
+        screenReaderActions: resolvedPromptScreenReaderActions,
         screenReaderCapabilities: this.screenReaderCapabilities
       }
     );
@@ -94,7 +99,7 @@ export class LLMAgent implements Agent {
       {
         promptDir: this.promptDir,
         keyboardActions: this.keyboardActions,
-        screenReaderActions: this.screenReaderActions
+        screenReaderActions: resolvedPromptScreenReaderActions
       }
     );
     this.recordPromptLog("decision", systemPrompt, promptParts);
@@ -107,7 +112,7 @@ export class LLMAgent implements Agent {
         obs,
         fullMemory: this.memory
       });
-      const firstPass = parseDecisionResult(rawText, taskInputKeys);
+      const firstPass = parseDecisionResult(rawText, taskInputKeys, resolvedPromptScreenReaderActions);
       if (firstPass.status === "ok") {
         return firstPass.decision;
       }
@@ -123,10 +128,10 @@ export class LLMAgent implements Agent {
           fullMemory: this.memory
         });
 
-        return parseDecision(retriedRawText, taskInputKeys);
+        return parseDecision(retriedRawText, taskInputKeys, resolvedPromptScreenReaderActions);
       }
 
-      return parseDecision(rawText, taskInputKeys);
+      return parseDecision(rawText, taskInputKeys, resolvedPromptScreenReaderActions);
     } catch (error) {
       throw normalizeProviderError(error, obs);
     }
