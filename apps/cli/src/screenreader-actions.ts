@@ -101,6 +101,8 @@ const SCREEN_READER_SEMANTIC_TOKENS = [
 ] as const;
 
 const SCREEN_READER_SEMANTIC_TOKEN_LABELS = SCREEN_READER_SEMANTIC_TOKENS.join(", ");
+const SCREEN_READER_SEMANTIC_CLI_TOKENS = SCREEN_READER_SEMANTIC_TOKENS.map((token) => `sr.${token}`) as readonly string[];
+const SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS = SCREEN_READER_SEMANTIC_CLI_TOKENS.join(", ");
 
 export const sr = {
   next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("next", options),
@@ -296,11 +298,16 @@ function parseConfiguredScreenReaderActionToken(
   token: string,
   label: string
 ): ConfiguredScreenReaderAction {
-  if (!isScreenReaderSemanticAction(token)) {
-    throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_TOKEN_LABELS}.`);
+  if (!token.startsWith("sr.")) {
+    throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS}.`);
   }
 
-  return buildConfiguredScreenReaderAction(token);
+  const semantic = token.slice(3);
+  if (!isScreenReaderSemanticAction(semantic)) {
+    throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS}.`);
+  }
+
+  return buildConfiguredScreenReaderAction(semantic);
 }
 
 function resolvePromptAction(

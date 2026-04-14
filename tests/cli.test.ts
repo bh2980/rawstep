@@ -205,7 +205,7 @@ describe.sequential("CLI", () => {
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-screen-reader-actions",
-      "heading.next,click",
+      "sr.heading.next,sr.click",
       "--no-verifier-auto-complete",
       "--agent-memory-window",
       "3",
@@ -272,7 +272,7 @@ describe.sequential("CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--allowed-screen-reader-actions",
-      "heading.next,badAction"
+      "sr.heading.next,badAction"
     ])).toThrow("--allowed-screen-reader-actions[1] must be one of");
   });
 
@@ -1275,7 +1275,7 @@ describe.sequential("CLI", () => {
       "--allowed-keys",
       "Tab",
       "--allowed-screen-reader-actions",
-      "heading.next,click"
+      "sr.heading.next,sr.click"
     ]));
 
     expect(options.task.maxSteps).toBe(55);
@@ -1710,7 +1710,7 @@ describe.sequential("CLI", () => {
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-screen-reader-actions",
-      "heading.next,catalog:commands.notReal"
+      "sr.heading.next,catalog:commands.notReal"
     ])).toThrow("--allowed-screen-reader-actions[1] must be one of");
   });
 
