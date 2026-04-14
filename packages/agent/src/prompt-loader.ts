@@ -19,18 +19,15 @@ const TEMPLATE_FILES = {
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
   keyboardSystem: [
     "{{keyboardActionsBlock}}",
-    "{{taskInputBlock}}",
     "{{outputBlock}}"
   ],
   screenreaderStrictSystem: [
     "{{screenReaderActionsBlock}}",
-    "{{taskInputBlock}}",
     "{{outputBlock}}"
   ],
   screenreaderHybridSystem: [
     "{{keyboardActionsBlock}}",
     "{{screenReaderActionsBlock}}",
-    "{{taskInputBlock}}",
     "{{outputBlock}}"
   ]
 };

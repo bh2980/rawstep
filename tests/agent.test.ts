@@ -79,9 +79,9 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   await mkdir(promptDir, { recursive: true });
 
   const files = {
-    "keyboard.system.md": "keys:\n{{keyboardActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
-    "screenreader-strict.system.md": "sr:\n{{screenReaderActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
-    "screenreader-hybrid.system.md": "keys:\n{{keyboardActionsBlock}}\nsr:\n{{screenReaderActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}",
+    "keyboard.system.md": "keys:\n{{keyboardActionsBlock}}\n{{outputBlock}}",
+    "screenreader-strict.system.md": "sr:\n{{screenReaderActionsBlock}}\n{{outputBlock}}",
+    "screenreader-hybrid.system.md": "keys:\n{{keyboardActionsBlock}}\nsr:\n{{screenReaderActionsBlock}}\n{{outputBlock}}",
     "experience-summary.system.md": "summary-template"
   } satisfies Record<string, string>;
 
@@ -495,9 +495,6 @@ describe("agent helpers", () => {
     expect(prompt).toContain("keys:");
     expect(prompt).toContain("- Tab");
     expect(prompt).toContain("- Enter");
-    expect(prompt).toContain("입력 규칙:");
-    expect(prompt).toContain("- 사용 가능한 input key: email, password");
-    expect(prompt).toContain('{"action":{"typeText":"email"}}');
     expect(prompt).not.toContain("traveler@example.com");
     expect(prompt).not.toContain("super-secret");
     expect(prompt).toContain("출력 규칙:");
@@ -589,7 +586,7 @@ describe("agent helpers", () => {
 
   it("loads prompt templates from an explicit prompt directory", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.system.md": "explicit-template\n{{keyboardActionsBlock}}\n{{taskInputBlock}}\n{{outputBlock}}"
+      "keyboard.system.md": "explicit-template\n{{keyboardActionsBlock}}\n{{outputBlock}}"
     });
 
     const prompt = buildSystemPrompt(

@@ -47,7 +47,6 @@ export function buildSystemPrompt(
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
       screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
-      taskInputBlock: buildScreenReaderTaskInputBlock(taskInput),
       outputBlock: buildScreenReaderStrictOutputBlock(taskInput, includeRationale, resolvedScreenReaderActions)
     });
   }
@@ -56,7 +55,6 @@ export function buildSystemPrompt(
     return renderPromptTemplate(templates.screenreaderHybridSystem, {
       keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
       screenReaderActionsBlock: buildScreenReaderActionsBlock(resolvedPromptScreenReaderActions),
-      taskInputBlock: buildScreenReaderTaskInputBlock(taskInput),
       outputBlock: buildScreenReaderHybridOutputBlock(
         taskInput,
         includeRationale,
@@ -67,7 +65,6 @@ export function buildSystemPrompt(
 
   return renderPromptTemplate(templates.keyboardSystem, {
     keyboardActionsBlock: buildKeyboardActionsBlock(allowedKeys, resolvedPromptKeyboardActions),
-    taskInputBlock: buildKeyboardTaskInputBlock(taskInput),
     outputBlock: buildKeyboardOutputBlock(taskInput, includeRationale)
   });
 }
@@ -260,42 +257,6 @@ function formatAgentMemoryBlock(memory: AgentMemoryEntry[]): string {
         entry.note ? `, note="${entry.note}"` : ""
       ].join("")
     )
-  ].join("\n");
-}
-
-function buildKeyboardTaskInputBlock(taskInput?: TaskInput): string {
-  if (!taskInput) {
-    return "";
-  }
-
-  const keys = Object.keys(taskInput);
-  const exampleKey = keys[0];
-  return [
-    "입력 규칙:",
-    "- task input의 실제 문자열 값은 보이지 않는다. input key 이름만 보고 판단하라.",
-    `- 사용 가능한 input key: ${keys.join(", ")}`,
-    "- typeText에는 input key 이름만 넣어라. 실제 문자열 값은 만들지 마라.",
-    "- focus hint가 입력창을 가리킬 때만 typeText를 우선 검토하라.",
-    "- 예시:",
-    `  - ${JSON.stringify({ action: { typeText: exampleKey } })}`
-  ].join("\n");
-}
-
-function buildScreenReaderTaskInputBlock(taskInput?: TaskInput): string {
-  if (!taskInput) {
-    return "";
-  }
-
-  const keys = Object.keys(taskInput);
-  const exampleKey = keys[0];
-  return [
-    "입력 규칙:",
-    "- task input의 실제 문자열 값은 보이지 않는다. input key 이름만 보고 판단하라.",
-    `- 사용 가능한 input key: ${keys.join(", ")}`,
-    "- typeText에는 input key 이름만 넣어라. 실제 문자열 값은 만들지 마라.",
-    "- srAction.type은 literal text를 직접 입력할 때만 사용하라. task input 값에는 쓰지 마라.",
-    "- 예시:",
-    `  - ${JSON.stringify({ action: { typeText: exampleKey } })}`
   ].join("\n");
 }
 

@@ -11,8 +11,6 @@
 announcement가 비어 있거나 약하면 최근 memory를 참고해 다음 탐색 action을 보수적으로 선택하라.
 구조를 모르면 적절한 screenreader action 또는 catalog action을 먼저 검토하라.
 
-{{taskInputBlock}}
-
 같은 announcement가 반복되면 다른 합리적인 action을 검토하라.
 비슷한 action이 이어지고 진전이 약하면 탐색 전략을 바꾸어라.
 활성화나 입력에 해당하는 srAction 이후에는 결과, 확인, 완료를 직접 나타내는 새로운 announcement가 있는지 먼저 확인하라.
