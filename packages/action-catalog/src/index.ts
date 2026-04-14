@@ -1,2 +1,2 @@
 export * from "./generated";
-export * from "./source";
+export * from "./screen-reader";

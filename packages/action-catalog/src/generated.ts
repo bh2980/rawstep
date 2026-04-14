@@ -164,7 +164,9 @@ export const SUPPORTED_KEY_LABELS = "Tab, Shift+Tab, Home, End, ArrowUp, ArrowDo
 export const SCREEN_READER_ACTION_DEFINITIONS = {
   "next": {
     "helperPath": "next",
+    "promptToken": "sr.next",
     "kind": "invoke",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -174,7 +176,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "previous": {
     "helperPath": "previous",
+    "promptToken": "sr.previous",
     "kind": "invoke",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -184,7 +188,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "act": {
     "helperPath": "act",
+    "promptToken": "sr.act",
     "kind": "invoke",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -194,7 +200,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "interact": {
     "helperPath": "interact",
+    "promptToken": "sr.interact",
     "kind": "invoke",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -204,7 +212,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "stopInteracting": {
     "helperPath": "stopInteracting",
+    "promptToken": "sr.stopInteracting",
     "kind": "invoke",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -214,7 +224,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "press": {
     "helperPath": "press",
+    "promptToken": "sr.press",
     "kind": "invoke",
+    "argumentKind": "key",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -224,7 +236,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "type": {
     "helperPath": "type",
+    "promptToken": "sr.type",
     "kind": "invoke",
+    "argumentKind": "text",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -234,7 +248,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "click": {
     "helperPath": "click",
+    "promptToken": "sr.click",
     "kind": "invoke",
+    "argumentKind": "click",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -244,7 +260,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.next": {
     "helperPath": "heading.next",
+    "promptToken": "sr.heading.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -258,7 +276,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.previous": {
     "helperPath": "heading.previous",
+    "promptToken": "sr.heading.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -272,7 +292,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.1.next": {
     "helperPath": "heading.level1.next",
+    "promptToken": "sr.heading.level.1.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -284,7 +306,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.1.previous": {
     "helperPath": "heading.level1.previous",
+    "promptToken": "sr.heading.level.1.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -296,7 +320,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.2.next": {
     "helperPath": "heading.level2.next",
+    "promptToken": "sr.heading.level.2.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -308,7 +334,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.2.previous": {
     "helperPath": "heading.level2.previous",
+    "promptToken": "sr.heading.level.2.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -320,7 +348,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.3.next": {
     "helperPath": "heading.level3.next",
+    "promptToken": "sr.heading.level.3.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -332,7 +362,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.3.previous": {
     "helperPath": "heading.level3.previous",
+    "promptToken": "sr.heading.level.3.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -344,7 +376,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.4.next": {
     "helperPath": "heading.level4.next",
+    "promptToken": "sr.heading.level.4.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -356,7 +390,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.4.previous": {
     "helperPath": "heading.level4.previous",
+    "promptToken": "sr.heading.level.4.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -368,7 +404,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.5.next": {
     "helperPath": "heading.level5.next",
+    "promptToken": "sr.heading.level.5.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -380,7 +418,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.5.previous": {
     "helperPath": "heading.level5.previous",
+    "promptToken": "sr.heading.level.5.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -392,7 +432,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.6.next": {
     "helperPath": "heading.level6.next",
+    "promptToken": "sr.heading.level.6.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -404,7 +446,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "heading.level.6.previous": {
     "helperPath": "heading.level6.previous",
+    "promptToken": "sr.heading.level.6.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -416,7 +460,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "form.next": {
     "helperPath": "form.next",
+    "promptToken": "sr.form.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -430,7 +476,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "form.previous": {
     "helperPath": "form.previous",
+    "promptToken": "sr.form.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -444,7 +492,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "link.next": {
     "helperPath": "link.next",
+    "promptToken": "sr.link.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -456,7 +506,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "link.previous": {
     "helperPath": "link.previous",
+    "promptToken": "sr.link.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda",
       "guidepup-virtual"
@@ -468,7 +520,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "button.next": {
     "helperPath": "button.next",
+    "promptToken": "sr.button.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda"
@@ -480,7 +534,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "button.previous": {
     "helperPath": "button.previous",
+    "promptToken": "sr.button.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda"
@@ -492,7 +548,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "landmark.next": {
     "helperPath": "landmark.next",
+    "promptToken": "sr.landmark.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -506,7 +564,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "landmark.previous": {
     "helperPath": "landmark.previous",
+    "promptToken": "sr.landmark.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -520,7 +580,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "list.next": {
     "helperPath": "list.next",
+    "promptToken": "sr.list.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda"
     ],
@@ -530,7 +592,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "list.previous": {
     "helperPath": "list.previous",
+    "promptToken": "sr.list.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda"
     ],
@@ -540,7 +604,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "table.next": {
     "helperPath": "table.next",
+    "promptToken": "sr.table.next",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda"
     ],
@@ -550,7 +616,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "table.previous": {
     "helperPath": "table.previous",
+    "promptToken": "sr.table.previous",
     "kind": "catalog",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-nvda"
     ],
@@ -560,7 +628,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "read.itemText": {
     "helperPath": "read.itemText",
+    "promptToken": "sr.read.itemText",
     "kind": "read",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -570,7 +640,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "read.itemTextLog": {
     "helperPath": "read.itemTextLog",
+    "promptToken": "sr.read.itemTextLog",
     "kind": "read",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -580,7 +652,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "read.lastSpokenPhrase": {
     "helperPath": "read.lastSpokenPhrase",
+    "promptToken": "sr.read.lastSpokenPhrase",
     "kind": "read",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -590,7 +664,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "read.spokenPhraseLog": {
     "helperPath": "read.spokenPhraseLog",
+    "promptToken": "sr.read.spokenPhraseLog",
     "kind": "read",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -600,7 +676,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "clear.itemTextLog": {
     "helperPath": "clear.itemTextLog",
+    "promptToken": "sr.clear.itemTextLog",
     "kind": "maintenance",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -610,7 +688,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
   },
   "clear.spokenPhraseLog": {
     "helperPath": "clear.spokenPhraseLog",
+    "promptToken": "sr.clear.spokenPhraseLog",
     "kind": "maintenance",
+    "argumentKind": "none",
     "backendSupport": [
       "guidepup-voiceover",
       "guidepup-nvda",
@@ -747,6 +827,48 @@ export const SCREEN_READER_CLI_TOKENS = [
   "sr.clear.spokenPhraseLog"
 ] as const;
 export const SCREEN_READER_CLI_TOKEN_LABELS = "sr.next, sr.previous, sr.act, sr.interact, sr.stopInteracting, sr.press, sr.type, sr.click, sr.heading.next, sr.heading.previous, sr.heading.level.1.next, sr.heading.level.1.previous, sr.heading.level.2.next, sr.heading.level.2.previous, sr.heading.level.3.next, sr.heading.level.3.previous, sr.heading.level.4.next, sr.heading.level.4.previous, sr.heading.level.5.next, sr.heading.level.5.previous, sr.heading.level.6.next, sr.heading.level.6.previous, sr.form.next, sr.form.previous, sr.link.next, sr.link.previous, sr.button.next, sr.button.previous, sr.landmark.next, sr.landmark.previous, sr.list.next, sr.list.previous, sr.table.next, sr.table.previous, sr.read.itemText, sr.read.itemTextLog, sr.read.lastSpokenPhrase, sr.read.spokenPhraseLog, sr.clear.itemTextLog, sr.clear.spokenPhraseLog" as const;
+export const SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC = {
+  "sr.next": "next",
+  "sr.previous": "previous",
+  "sr.act": "act",
+  "sr.interact": "interact",
+  "sr.stopInteracting": "stopInteracting",
+  "sr.press": "press",
+  "sr.type": "type",
+  "sr.click": "click",
+  "sr.heading.next": "heading.next",
+  "sr.heading.previous": "heading.previous",
+  "sr.heading.level.1.next": "heading.level.1.next",
+  "sr.heading.level.1.previous": "heading.level.1.previous",
+  "sr.heading.level.2.next": "heading.level.2.next",
+  "sr.heading.level.2.previous": "heading.level.2.previous",
+  "sr.heading.level.3.next": "heading.level.3.next",
+  "sr.heading.level.3.previous": "heading.level.3.previous",
+  "sr.heading.level.4.next": "heading.level.4.next",
+  "sr.heading.level.4.previous": "heading.level.4.previous",
+  "sr.heading.level.5.next": "heading.level.5.next",
+  "sr.heading.level.5.previous": "heading.level.5.previous",
+  "sr.heading.level.6.next": "heading.level.6.next",
+  "sr.heading.level.6.previous": "heading.level.6.previous",
+  "sr.form.next": "form.next",
+  "sr.form.previous": "form.previous",
+  "sr.link.next": "link.next",
+  "sr.link.previous": "link.previous",
+  "sr.button.next": "button.next",
+  "sr.button.previous": "button.previous",
+  "sr.landmark.next": "landmark.next",
+  "sr.landmark.previous": "landmark.previous",
+  "sr.list.next": "list.next",
+  "sr.list.previous": "list.previous",
+  "sr.table.next": "table.next",
+  "sr.table.previous": "table.previous",
+  "sr.read.itemText": "read.itemText",
+  "sr.read.itemTextLog": "read.itemTextLog",
+  "sr.read.lastSpokenPhrase": "read.lastSpokenPhrase",
+  "sr.read.spokenPhraseLog": "read.spokenPhraseLog",
+  "sr.clear.itemTextLog": "clear.itemTextLog",
+  "sr.clear.spokenPhraseLog": "clear.spokenPhraseLog"
+} as const;
 export const SCREEN_READER_SEMANTICS_BY_BACKEND = {
   "guidepup-voiceover": [
     "next",

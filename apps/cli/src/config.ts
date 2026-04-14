@@ -34,7 +34,7 @@ import {
 } from "./keyboard-actions";
 import {
   sr,
-  srUnstable,
+  srx,
   resolveConfiguredScreenReaderActions
 } from "./screenreader-actions";
 import { configRootSchema, parseProjectDefaultsObject, parseTaskConfigObject } from "./schema";
@@ -173,7 +173,7 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     baseURL: cliOptions.baseURL
       ?? projectDefaults?.baseURL,
     allowedKeys: resolvedKeyboardActions.runtimeKeys,
-    allowedScreenReaderActions: resolvedScreenReaderActions.runtimeActions,
+    screenReaderActionPlan: resolvedScreenReaderActions.plan,
     screenReaderBackendId,
     prompt
   };
@@ -244,7 +244,7 @@ async function loadTsConfigModule(configPath: string): Promise<unknown> {
         },
         kb,
         sr,
-        srUnstable
+        srx
       };
     }
 
@@ -433,15 +433,15 @@ function resolveAllowedKeys(
 
 function resolveAllowedScreenReaderActions(
   selectedMode: UserModel,
-  configuredAllowedScreenReaderActions: readonly import("@rawstep/core").ConfiguredScreenReaderAction[] | undefined,
+  configuredAllowedScreenReaderActions: readonly import("@rawstep/action-catalog").ScreenReaderActionRef[] | undefined,
   screenReaderBackendId: ResolvedRunOptions["screenReaderBackendId"]
 ): {
-  runtimeActions: ResolvedRunOptions["allowedScreenReaderActions"];
+  plan: ResolvedRunOptions["screenReaderActionPlan"];
   promptActions: ResolvedRunOptions["prompt"]["screenReaderActions"];
 } {
   if (selectedMode === "keyboard") {
     return {
-      runtimeActions: undefined,
+      plan: undefined,
       promptActions: []
     };
   }

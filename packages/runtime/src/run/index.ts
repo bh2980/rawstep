@@ -1,3 +1,7 @@
+import {
+  buildScreenReaderActionPlan,
+  type ScreenReaderActionPlan
+} from "@rawstep/action-catalog";
 import { Actuator, NotAllowedActionError } from "../actuator";
 import { LLMAgent, type LLMAgentOptions } from "@rawstep/agent";
 import {
@@ -9,14 +13,12 @@ import {
 } from "../browser";
 import {
   DEFAULT_ALLOWED_KEYS,
-  buildAllowedScreenReaderActions,
   type Decision,
   type ExecutionRecord,
   type AgentMemoryEntry,
   type Agent,
   type Action,
   type AllowedKey,
-  type AllowedScreenReaderAction,
   type EndedBy,
   type Observation,
   type ScreenReaderReadback,
@@ -66,7 +68,7 @@ export type RunTaskOptions = {
   includeExperienceSummary?: boolean;
   headless?: boolean;
   allowedKeys?: readonly AllowedKey[];
-  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+  screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
   agent?: Agent;
   agentOptions?: LLMAgentOptions;
@@ -98,7 +100,7 @@ type RunResources = {
   actuator: Actuator;
   agent: Agent;
   allowedKeys: readonly AllowedKey[];
-  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+  screenReaderActionPlan?: ScreenReaderActionPlan;
 };
 
 type RunState = {
@@ -115,7 +117,7 @@ type BuiltAgentStepContext = {
   context: {
     goal: string;
     allowedKeys: readonly AllowedKey[];
-    allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+    screenReaderActions?: ScreenReaderActionPlan["descriptors"];
     memory: AgentMemoryEntry[];
   };
   observeMs: number;
@@ -202,7 +204,7 @@ async function initializeRunResources(
     ? await (options.screenReaderRuntimeFactory
       ?? ((page) => createScreenReaderRuntime(page, {
         backendId: options.screenReaderBackendId,
-        allowedActions: options.allowedScreenReaderActions
+        actionPlan: options.screenReaderActionPlan
       })))(cleanup.browser.page)
     : undefined;
 
@@ -213,7 +215,7 @@ async function initializeRunResources(
   const screenReaderCapabilities = isScreenReaderMode(task.mode)
     ? resolveScreenReaderCapabilities(
       cleanup.screenReaderRuntime,
-      options.allowedScreenReaderActions,
+      options.screenReaderActionPlan,
       options.screenReaderBackendId
     )
     : undefined;
@@ -250,8 +252,16 @@ async function initializeRunResources(
     allowedKeys: allowsRawKeyActions(task.mode)
       ? options.allowedKeys ?? DEFAULT_ALLOWED_KEYS
       : [],
-    allowedScreenReaderActions: isScreenReaderMode(task.mode)
-      ? options.allowedScreenReaderActions ?? buildAllowedScreenReaderActions(screenReaderCapabilities!)
+    screenReaderActionPlan: isScreenReaderMode(task.mode)
+      ? options.screenReaderActionPlan ?? (
+        options.screenReaderBackendId && screenReaderCapabilities
+          ? buildScreenReaderActionPlan(
+            undefined,
+            options.screenReaderBackendId,
+            screenReaderCapabilities
+          )
+          : undefined
+      )
       : undefined
   };
 }
@@ -314,7 +324,7 @@ async function buildAgentStepContext(
     context: {
       goal: resources.task.goal,
       allowedKeys: resources.allowedKeys,
-      allowedScreenReaderActions: resources.allowedScreenReaderActions,
+      screenReaderActions: resources.screenReaderActionPlan?.descriptors,
       memory: selectAgentMemoryExcerpt(
         state.agentMemory,
         resources.agentMemoryAll,
@@ -674,9 +684,16 @@ function createScreenReaderReadbacks(
 }
 
 function actionCanChangeTaskState(action: Action): boolean {
-  return "srAction" in action
-    ? action.srAction.kind === "invoke"
-    : true;
+  if (!("srAction" in action)) {
+    return true;
+  }
+
+  if ("extension" in action.srAction) {
+    return true;
+  }
+
+  return !action.srAction.semantic.startsWith("read.")
+    && !action.srAction.semantic.startsWith("clear.");
 }
 
 async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {

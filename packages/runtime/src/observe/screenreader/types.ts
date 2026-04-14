@@ -1,9 +1,9 @@
 import type { ScreenReaderController } from "../../actuator";
 import type {
-  AllowedScreenReaderAction,
   ClickOptions,
   CommandOptions,
   KeyboardOptions,
+  ScreenReaderActionPlan,
   ScreenReaderCapabilities,
   ScreenReaderObservation
 } from "@rawstep/core";
@@ -62,7 +62,7 @@ export type ScreenReaderRuntimeFactory = (page: Page) => Promise<ScreenReaderRun
 export type ScreenReaderRuntimeOptions = {
   backendId?: ScreenReaderBackendId;
   backend?: ScreenReaderBackend;
-  allowedActions?: readonly AllowedScreenReaderAction[];
+  actionPlan?: ScreenReaderActionPlan;
   platform?: NodeJS.Platform;
   observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
 };

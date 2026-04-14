@@ -1,4 +1,4 @@
-import { buildAllowedScreenReaderActions, type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
+import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
@@ -9,7 +9,6 @@ import {
 import {
   buildExperienceSummaryPromptText,
   buildExperienceSummarySystemPrompt,
-  buildFallbackPromptScreenReaderActions,
   buildPromptParts,
   buildSystemPrompt,
   buildUserPromptText
@@ -74,21 +73,19 @@ export class LLMAgent implements Agent {
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
     const taskInputKeys = this.taskInput ? Object.keys(this.taskInput) : undefined;
-    const resolvedScreenReaderActions = ctx.allowedScreenReaderActions
-      ?? (this.screenReaderCapabilities ? buildAllowedScreenReaderActions(this.screenReaderCapabilities) : []);
     const resolvedPromptScreenReaderActions = this.screenReaderActions
-      ?? buildFallbackPromptScreenReaderActions(resolvedScreenReaderActions);
+      ?? ctx.screenReaderActions
+      ?? [];
     const systemPrompt = buildSystemPrompt(
       this.userModel,
       this.taskInput,
       ctx.allowedKeys,
-      ctx.allowedScreenReaderActions,
+      resolvedPromptScreenReaderActions,
       this.includeRationale,
       {
         promptDir: this.promptDir,
         keyboardActions: this.keyboardActions,
-        screenReaderActions: resolvedPromptScreenReaderActions,
-        screenReaderCapabilities: this.screenReaderCapabilities
+        screenReaderActions: resolvedPromptScreenReaderActions
       }
     );
     const promptParts = buildPromptParts(

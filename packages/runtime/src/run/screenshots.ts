@@ -55,26 +55,25 @@ export function shouldCaptureDeveloperScreenshot(
         }
 
         if ("srAction" in decision.action) {
-          if (decision.action.srAction.kind === "invoke") {
-            switch (decision.action.srAction.method) {
-              case "type":
-              case "press":
-              case "interact":
-              case "stopInteracting":
-              case "click":
-                return true;
-              case "next":
-              case "previous":
-              case "act":
-              case "perform":
-                return false;
-            }
+          if ("extension" in decision.action.srAction) {
+            return false;
           }
 
-          switch (decision.action.srAction.kind) {
-            case "read":
-            case "maintenance":
+          switch (decision.action.srAction.semantic) {
+            case "type":
+            case "press":
+            case "interact":
+            case "stopInteracting":
+            case "click":
+            case "read.itemText":
+            case "read.itemTextLog":
+            case "read.lastSpokenPhrase":
+            case "read.spokenPhraseLog":
+            case "clear.itemTextLog":
+            case "clear.spokenPhraseLog":
               return true;
+            default:
+              return false;
           }
         }
       }

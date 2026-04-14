@@ -1,5 +1,9 @@
 import type { Page } from "playwright";
-import { supportsScreenReaderAction } from "@rawstep/core";
+import {
+  buildScreenReaderActionPlan,
+  resolveExecutableScreenReaderAction,
+  type ExecutableScreenReaderAction
+} from "@rawstep/action-catalog";
 import { createAnnouncementReader } from "./announcement";
 import {
   guidepupNvdaBackend,
@@ -29,7 +33,7 @@ export async function createScreenReaderRuntime(
 ): Promise<ScreenReaderRuntime> {
   const platform = options.platform ?? process.platform;
   const backend = resolveScreenReaderBackend(options, platform);
-  validateAllowedActions(options.allowedActions, backend);
+  validateActionPlan(options.actionPlan, backend);
   const session = await backend.createSession(page);
 
   let screenReaderInitMs = 0;
@@ -55,15 +59,13 @@ export async function createScreenReaderRuntime(
     observer: new ScreenReaderObserver(readAnnouncement, firstAnnouncement),
     controller: {
       execute: async (action) => {
-        if (options.allowedActions && !isAllowedByConfiguredActions(options.allowedActions, action)) {
-          throw new Error(`Screen reader action is not allowed by the configured allowedScreenReaderActions: ${formatScreenReaderActionForError(action)}.`);
-        }
+        const executableAction = resolveExecutableScreenReaderAction(action, {
+          backendId: backend.id,
+          capabilities: backend.capabilities,
+          plan: options.actionPlan
+        });
 
-        if (!supportsScreenReaderAction(backend.capabilities, action)) {
-          throw new Error(`Screen reader backend "${backend.id}" does not support action ${formatScreenReaderActionForError(action)}.`);
-        }
-
-        return executeScreenReaderAction(session, action);
+        return executeScreenReaderAction(session, executableAction);
       }
     },
     capabilities: backend.capabilities,
@@ -134,27 +136,26 @@ function resolveScreenReaderBackend(
   return backend;
 }
 
-function validateAllowedActions(
-  allowedActions: ScreenReaderRuntimeOptions["allowedActions"],
+function validateActionPlan(
+  actionPlan: ScreenReaderRuntimeOptions["actionPlan"],
   backend: ScreenReaderBackend
 ): void {
-  if (!allowedActions) {
+  if (!actionPlan) {
     return;
   }
 
-  const unsupported = allowedActions.filter((action) => !supportsScreenReaderAction(backend.capabilities, action));
-  if (unsupported.length > 0) {
+  if (actionPlan.backendId !== backend.id) {
     throw new Error(
-      `Screen reader backend "${backend.id}" does not support actions: ${unsupported
-        .map((action) => formatAllowedScreenReaderActionForError(action))
-        .join(", ")}.`
+      `Screen reader action plan backend "${actionPlan.backendId}" does not match runtime backend "${backend.id}".`
     );
   }
+
+  buildScreenReaderActionPlan(actionPlan.refs, backend.id, backend.capabilities);
 }
 
 async function executeScreenReaderAction(
   session: ScreenReaderSession,
-  action: import("@rawstep/core").ScreenReaderAction
+  action: ExecutableScreenReaderAction
 ): Promise<import("@rawstep/core").ExecutionRecord> {
   if (action.kind === "read") {
     const value = await readScreenReaderValue(session, action.method);
@@ -244,73 +245,6 @@ async function runScreenReaderMaintenance(
       await session.clearSpokenPhraseLog();
       break;
   }
-}
-
-function isAllowedByConfiguredActions(
-  allowedActions: readonly import("@rawstep/core").AllowedScreenReaderAction[],
-  action: import("@rawstep/core").ScreenReaderAction
-): boolean {
-  return allowedActions.some((allowed) => matchesAllowedScreenReaderAction(allowed, action));
-}
-
-function matchesAllowedScreenReaderAction(
-  allowed: import("@rawstep/core").AllowedScreenReaderAction,
-  action: import("@rawstep/core").ScreenReaderAction
-): boolean {
-  if (allowed.kind !== action.kind) {
-    return false;
-  }
-
-  if (allowed.kind === "read" || allowed.kind === "maintenance") {
-    return allowed.method === action.method;
-  }
-
-  if (allowed.method !== action.method) {
-    return false;
-  }
-
-  if (allowed.method !== "perform") {
-    return true;
-  }
-
-  if (action.method !== "perform") {
-    return false;
-  }
-
-  return allowed.source === action.command.source
-    && (allowed.source !== "catalog" || (action.command.source === "catalog" && allowed.id === action.command.id));
-}
-
-function formatAllowedScreenReaderActionForError(
-  action: import("@rawstep/core").AllowedScreenReaderAction
-): string {
-  if (action.kind !== "invoke") {
-    return `${action.kind}:${action.method}`;
-  }
-
-  if (action.method !== "perform") {
-    return `invoke:${action.method}`;
-  }
-
-  return action.source === "catalog"
-    ? `invoke:perform:catalog:${action.id}`
-    : "invoke:perform:raw";
-}
-
-function formatScreenReaderActionForError(
-  action: import("@rawstep/core").ScreenReaderAction
-): string {
-  if (action.kind !== "invoke") {
-    return `${action.kind}:${action.method}`;
-  }
-
-  if (action.method !== "perform") {
-    return `invoke:${action.method}`;
-  }
-
-  return action.command.source === "catalog"
-    ? `invoke:perform:catalog:${action.command.id}`
-    : "invoke:perform:raw";
 }
 
 function getErrorMessage(error: unknown): string {

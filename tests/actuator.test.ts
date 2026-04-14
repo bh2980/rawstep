@@ -63,9 +63,8 @@ describe("Actuator", () => {
     );
 
     const action = {
-      kind: "invoke",
-      method: "perform",
-      command: { source: "catalog", id: "commands.moveToNextHeading" }
+      extension: "catalog",
+      id: "commands.moveToNextHeading"
     } as const;
     const result = await actuator.execute({ srAction: action });
 
@@ -82,9 +81,8 @@ describe("Actuator", () => {
     await expect(
       actuator.execute({
         srAction: {
-          kind: "invoke",
-          method: "perform",
-          command: { source: "catalog", id: "commands.moveToNextHeading" }
+          extension: "catalog",
+          id: "commands.moveToNextHeading"
         }
       })
     ).rejects.toThrow(

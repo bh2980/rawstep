@@ -105,7 +105,9 @@ function buildGeneratedModule(): string {
       entry.semantic,
       {
         helperPath: entry.helperPath,
+        promptToken: `sr.${entry.semantic}`,
         kind: entry.kind,
+        argumentKind: entry.argumentKind ?? "none",
         backendSupport: entry.backendSupport,
         catalogIdsByBackend: entry.catalogIdsByBackend ?? {}
       }
@@ -116,6 +118,9 @@ function buildGeneratedModule(): string {
   );
   const screenReaderSemantics = screenReaderActionSource.map((entry) => entry.semantic);
   const screenReaderCliTokens = screenReaderActionSource.map((entry) => `sr.${entry.semantic}`);
+  const screenReaderPromptTokenToSemantic = Object.fromEntries(
+    screenReaderActionSource.map((entry) => [`sr.${entry.semantic}`, entry.semantic])
+  );
   const semanticsByBackend = Object.fromEntries(
     screenReaderBackendIds.map((backend) => [
       backend,
@@ -156,6 +161,7 @@ function buildGeneratedModule(): string {
     `export const SCREEN_READER_SEMANTIC_LABELS = ${serialize(screenReaderSemantics.join(", "))} as const;`,
     `export const SCREEN_READER_CLI_TOKENS = ${serialize(screenReaderCliTokens)} as const;`,
     `export const SCREEN_READER_CLI_TOKEN_LABELS = ${serialize(screenReaderCliTokens.join(", "))} as const;`,
+    `export const SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC = ${serialize(screenReaderPromptTokenToSemantic)} as const;`,
     `export const SCREEN_READER_SEMANTICS_BY_BACKEND = ${serialize(semanticsByBackend)} as const;`,
     `export const SCREEN_READER_INVOKE_SEMANTICS = ${serialize(semanticsByKind.invoke)} as const;`,
     `export const SCREEN_READER_READ_SEMANTICS = ${serialize(semanticsByKind.read)} as const;`,

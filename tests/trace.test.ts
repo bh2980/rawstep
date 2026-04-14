@@ -125,9 +125,7 @@ describe("TraceRecorder", () => {
       {
         action: {
           srAction: {
-            kind: "invoke",
-            method: "perform",
-            command: { source: "catalog", id: "commands.moveToNextHeading" }
+            semantic: "heading.next"
           }
         },
         rationale: "Move to the next item."

@@ -1,56 +1,49 @@
 import {
+  buildScreenReaderDescriptorExampleSnippet,
+  formatScreenReaderIntent,
+  type ScreenReaderActionDescriptor
+} from "@rawstep/action-catalog";
+import {
   DEFAULT_ALLOWED_KEYS,
-  buildAllowedScreenReaderActions,
   type Action,
   type AllowedKey,
-  type AllowedScreenReaderAction,
   type AgentContext,
   type AgentMemoryEntry,
   type Decision,
+  formatDecisionAction,
   type Observation,
   type ResolvedPromptKeyboardAction,
-  type ResolvedPromptScreenReaderAction,
-  type ScreenReaderAction,
-  type ScreenReaderCapabilities,
   type StepRecord,
   type Task,
   type TaskInput,
   type TraceAggregate,
   type UserModel
 } from "@rawstep/core";
-import {
-  formatResolvedPromptScreenReaderActionName,
-  getBuiltInScreenReaderSemanticByCatalogId
-} from "./action-strings";
 import { loadPromptTemplates, renderPromptTemplate } from "./prompt-loader";
 import type { PromptPart } from "./shared";
 
 type SystemPromptOptions = {
   promptDir?: string;
   keyboardActions?: readonly ResolvedPromptKeyboardAction[];
-  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
-  screenReaderCapabilities?: ScreenReaderCapabilities;
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[];
 };
 
 type UserPromptOptions = {
   promptDir?: string;
   keyboardActions?: readonly ResolvedPromptKeyboardAction[];
-  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[];
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[];
 };
 
 export function buildSystemPrompt(
   userModel: UserModel,
   taskInput?: TaskInput,
   allowedKeys: readonly AllowedKey[] = DEFAULT_ALLOWED_KEYS,
-  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[],
+  screenReaderActions: readonly ScreenReaderActionDescriptor[] = [],
   includeRationale = false,
   options: SystemPromptOptions = {}
 ): string {
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
-  const resolvedScreenReaderActions = allowedScreenReaderActions
-    ?? (options.screenReaderCapabilities ? buildAllowedScreenReaderActions(options.screenReaderCapabilities) : []);
-  const resolvedPromptScreenReaderActions = options.screenReaderActions
-    ?? buildFallbackPromptScreenReaderActions(resolvedScreenReaderActions);
+  const resolvedPromptScreenReaderActions = options.screenReaderActions ?? screenReaderActions;
 
   if (userModel === "screenreader-strict") {
     return renderPromptTemplate(templates.screenreaderStrictSystem, {
@@ -118,7 +111,8 @@ export function buildUserPromptText(
   const resolvedPromptKeyboardActions = options.keyboardActions
     ?? buildFallbackPromptKeyboardActions(ctx.allowedKeys);
   const resolvedPromptScreenReaderActions = options.screenReaderActions
-    ?? buildFallbackPromptScreenReaderActions(ctx.allowedScreenReaderActions ?? []);
+    ?? ctx.screenReaderActions
+    ?? [];
 
   const commonReplacements = {
     goal: buildGoalValue(ctx.goal),
@@ -129,7 +123,6 @@ export function buildUserPromptText(
     availableActions: buildAvailableActionsValue(
       userModel,
       ctx.allowedKeys,
-      ctx.allowedScreenReaderActions ?? [],
       resolvedPromptKeyboardActions,
       resolvedPromptScreenReaderActions,
       taskInput
@@ -212,18 +205,6 @@ function buildSummaryStepsForPrompt(steps: StepRecord[]): Array<{
   }));
 }
 
-function formatDecisionAction(action: Action): string {
-  if ("key" in action) {
-    return `key(${action.key})`;
-  }
-
-  if ("srAction" in action) {
-    return formatScreenReaderAction(action.srAction);
-  }
-
-  return `typeText(${action.typeText})`;
-}
-
 function summarizeObservationForPrompt(step: StepRecord): object {
   if (step.observation.kind === "keyboard") {
     return {
@@ -293,7 +274,7 @@ function buildKeyboardOutputExamples(
 function buildScreenReaderStrictOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
-  promptActions: readonly ResolvedPromptScreenReaderAction[]
+  promptActions: readonly ScreenReaderActionDescriptor[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
 
@@ -312,7 +293,7 @@ function buildScreenReaderHybridOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   allowedKeys: readonly AllowedKey[],
-  promptActions: readonly ResolvedPromptScreenReaderAction[]
+  promptActions: readonly ScreenReaderActionDescriptor[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
   const exampleKey = `key.${allowedKeys[0] ?? "<key>"}`;
@@ -344,7 +325,7 @@ function buildVerdictSnippets(includeRationale: boolean): string[] {
 }
 
 function buildScreenReaderActionExampleSnippets(
-  promptActions: readonly ResolvedPromptScreenReaderAction[],
+  promptActions: readonly ScreenReaderActionDescriptor[],
   includeRationale: boolean
 ): string[] {
   const snippets = promptActions
@@ -354,32 +335,10 @@ function buildScreenReaderActionExampleSnippets(
 }
 
 function buildScreenReaderActionExampleSnippet(
-  action: ResolvedPromptScreenReaderAction,
+  action: ScreenReaderActionDescriptor,
   includeRationale: boolean
 ): string {
-  const label = formatResolvedPromptScreenReaderActionName(action);
-  const base: Record<string, unknown> = includeRationale
-    ? { action: label, rationale: "..." }
-    : { action: label };
-
-  if ("unstable" in action) {
-    if (action.unstable === "catalog") {
-      return JSON.stringify({ ...base, args: action.argsExample });
-    }
-
-    return JSON.stringify({ ...base, payload: action.payloadExample });
-  }
-
-  switch (action.semantic) {
-    case "press":
-      return JSON.stringify({ ...base, key: "Enter" });
-    case "type":
-      return JSON.stringify({ ...base, text: "<text>" });
-    case "click":
-      return JSON.stringify({ ...base, button: "left", clickCount: 1 });
-    default:
-      return JSON.stringify(base);
-  }
+  return buildScreenReaderDescriptorExampleSnippet(action, includeRationale);
 }
 
 function buildOutputExamples(snippets: readonly string[]): string {
@@ -401,7 +360,7 @@ function buildKeyboardActionsBlock(
 }
 
 function buildScreenReaderActionsBlock(
-  promptActions: readonly ResolvedPromptScreenReaderAction[] | undefined
+  promptActions: readonly ScreenReaderActionDescriptor[] | undefined
 ): string {
   if (!promptActions || promptActions.length === 0) {
     return "";
@@ -409,8 +368,7 @@ function buildScreenReaderActionsBlock(
 
   return promptActions
     .map((action) => {
-      const label = formatResolvedPromptScreenReaderActionName(action);
-      return action.hint ? `- ${label}: ${action.hint}` : `- ${label}`;
+      return action.hint ? `- ${action.token}: ${action.hint}` : `- ${action.token}`;
     })
     .join("\n");
 }
@@ -433,9 +391,8 @@ function buildTaskInputActionsBlock(taskInput?: TaskInput): string {
 function buildAvailableActionsValue(
   userModel: UserModel,
   allowedKeys: readonly AllowedKey[],
-  allowedScreenReaderActions: readonly AllowedScreenReaderAction[],
   keyboardActions: readonly ResolvedPromptKeyboardAction[],
-  screenReaderActions: readonly ResolvedPromptScreenReaderAction[],
+  screenReaderActions: readonly ScreenReaderActionDescriptor[],
   taskInput?: TaskInput
 ): string {
   const sections: string[] = [];
@@ -448,11 +405,7 @@ function buildAvailableActionsValue(
   }
 
   if (userModel === "screenreader-strict" || userModel === "screenreader-hybrid") {
-    const screenReaderActionsBlock = buildScreenReaderActionsBlock(
-      screenReaderActions.length > 0
-        ? screenReaderActions
-        : buildFallbackPromptScreenReaderActions(allowedScreenReaderActions)
-    );
+    const screenReaderActionsBlock = buildScreenReaderActionsBlock(screenReaderActions);
     if (screenReaderActionsBlock) {
       sections.push(screenReaderActionsBlock);
     }
@@ -500,79 +453,6 @@ function buildFallbackPromptKeyboardActions(
   return allowedKeys.map((key) => ({ key }));
 }
 
-function formatScreenReaderAction(action: ScreenReaderAction): string {
-  if (action.kind === "read") {
-    return `srAction.read(${action.method})`;
-  }
-
-  if (action.kind === "maintenance") {
-    return `srAction.maintenance(${action.method})`;
-  }
-
-  switch (action.method) {
-    case "next":
-    case "previous":
-    case "act":
-    case "interact":
-    case "stopInteracting":
-      return `srAction.invoke(${action.method})`;
-    case "perform":
-      return action.command.source === "catalog"
-        ? `srAction.perform(${action.command.id})`
-        : "srAction.perform(raw)";
-    case "press":
-      return `srAction.press(${action.key})`;
-    case "type":
-      return `srAction.type(${action.text})`;
-    case "click":
-      return `srAction.click(${action.options?.button ?? "left"},${action.options?.clickCount ?? 1})`;
-  }
-}
-
 function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
-}
-
-export function buildFallbackPromptScreenReaderActions(
-  allowedActions: readonly AllowedScreenReaderAction[]
-): readonly ResolvedPromptScreenReaderAction[] {
-  const promptActions: ResolvedPromptScreenReaderAction[] = [];
-
-  for (const action of allowedActions) {
-    if (action.kind === "read") {
-      promptActions.push({
-        semantic: `read.${action.method}` as const,
-        runtimeAction: action
-      });
-      continue;
-    }
-
-    if (action.kind === "maintenance") {
-      promptActions.push({
-        semantic: action.method === "clearItemTextLog" ? "clear.itemTextLog" : "clear.spokenPhraseLog",
-        runtimeAction: action
-      });
-      continue;
-    }
-
-    if (action.kind === "invoke" && action.method === "perform") {
-      if (action.source === "catalog") {
-        const builtinSemantic = getBuiltInScreenReaderSemanticByCatalogId(action.id);
-        if (builtinSemantic) {
-          promptActions.push({
-            semantic: builtinSemantic,
-            runtimeAction: action
-          });
-        }
-      }
-      continue;
-    }
-
-    promptActions.push({
-      semantic: action.method,
-      runtimeAction: action
-    });
-  }
-
-  return promptActions;
 }

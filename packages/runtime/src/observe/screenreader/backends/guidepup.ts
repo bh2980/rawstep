@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
+import type { ExecutableScreenReaderAction } from "@rawstep/action-catalog";
 import {
   getGuidepupNvdaCapabilities,
   getGuidepupVirtualCapabilities,
@@ -11,8 +12,7 @@ import {
 import type {
   ClickOptions,
   CommandOptions,
-  KeyboardOptions,
-  ScreenReaderAction
+  KeyboardOptions
 } from "@rawstep/core";
 import type { Page } from "playwright";
 import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
@@ -63,7 +63,7 @@ type GuidepupVirtualAdapter = {
   act(options?: CommandOptions): Promise<void>;
   interact(options?: CommandOptions): Promise<void>;
   stopInteracting(options?: CommandOptions): Promise<void>;
-  perform(action: Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void>;
+  perform(action: Extract<ExecutableScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void>;
   press(input: { key: string; options?: KeyboardOptions }): Promise<void>;
   type(input: { text: string; options?: KeyboardOptions }): Promise<void>;
   click(options?: ClickOptions): Promise<void>;
@@ -612,7 +612,7 @@ function resolveGuidepupPerformPayload(
 function normalizePerformAction(
   command: unknown,
   backendLabel: string
-): Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }> {
+): Extract<ExecutableScreenReaderAction, { kind: "invoke"; method: "perform" }> {
   if (
     typeof command === "object"
     && command !== null

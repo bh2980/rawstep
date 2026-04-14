@@ -50,7 +50,7 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   await writeFile(
     configPath,
     [
-      'import { defineConfig, kb, sr, srUnstable } from "@rawstep/cli/config";',
+      'import { defineConfig, kb, sr, srx } from "@rawstep/cli/config";',
       'import { z } from "zod";',
       "",
       "export default defineConfig(",
@@ -1395,7 +1395,7 @@ describe.sequential("CLI", () => {
       config: {
         headless: true,
         allowedKeys: ["Tab"],
-        allowedScreenReaderActions: [{ semantic: "heading.next" }],
+        allowedScreenReaderActions: ["sr.heading.next"],
         screenReaderBackend: "guidepup-virtual"
       }
     });
@@ -1409,8 +1409,16 @@ describe.sequential("CLI", () => {
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.execution.headless).toBe(true);
     expect(options.allowedKeys).toEqual(["Tab"]);
-    expect(options.allowedScreenReaderActions).toEqual([
-      { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
+    expect(options.screenReaderActionPlan?.refs).toEqual([
+      expect.objectContaining({ semantic: "heading.next" })
+    ]);
+    expect(options.prompt.screenReaderActions).toEqual([
+      expect.objectContaining({
+        kind: "stable",
+        semantic: "heading.next",
+        token: "sr.heading.next",
+        argumentKind: "none"
+      })
     ]);
   });
 
@@ -1460,7 +1468,7 @@ describe.sequential("CLI", () => {
       config: {
         headless: false,
         allowedKeys: ["Tab"],
-        allowedScreenReaderActions: [{ semantic: "heading.next" }],
+        allowedScreenReaderActions: ["sr.heading.next"],
         screenReaderBackend: "guidepup-voiceover"
       }
     });
@@ -1487,9 +1495,9 @@ describe.sequential("CLI", () => {
     expect(options.execution.headless).toBe(true);
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.allowedKeys).toEqual(["Tab"]);
-    expect(options.allowedScreenReaderActions).toEqual([
-      { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-      { kind: "invoke", method: "click" }
+    expect(options.screenReaderActionPlan?.refs).toEqual([
+      expect.objectContaining({ semantic: "heading.next" }),
+      expect.objectContaining({ semantic: "click" })
     ]);
   });
 
@@ -1525,18 +1533,21 @@ describe.sequential("CLI", () => {
       "screenreader-strict"
     ]));
 
-    expect(options.prompt.screenReaderActions).toContainEqual({
+    expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "button.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commander.FIND_NEXT_BUTTON" }
-    });
-    expect(options.prompt.screenReaderActions).toContainEqual({
+      token: "sr.button.next"
+    }));
+    expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "landmark.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commander.FIND_NEXT_LANDMARK" }
-    });
-    expect(options.prompt.screenReaderActions).toContainEqual({
+      token: "sr.landmark.next"
+    }));
+    expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "form.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.findNextControl" }
-    });
+      token: "sr.form.next"
+    }));
     expect(options.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "table.next")).toBeUndefined();
   });
 
@@ -1587,35 +1598,42 @@ describe.sequential("CLI", () => {
       "screenreader-hybrid"
     ]));
 
-    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "link.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextLink" }
-    });
-    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      token: "sr.link.next"
+    }));
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "list.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextList" }
-    });
-    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      token: "sr.list.next"
+    }));
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "table.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextTable" }
-    });
-    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual({
+      token: "sr.table.next"
+    }));
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "heading.level.3.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "keyboard.moveToNextHeadingLevel3" }
-    });
+      token: "sr.heading.level.3.next"
+    }));
 
-    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "link.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLink" }
-    });
-    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+      token: "sr.link.next"
+    }));
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "landmark.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLandmark" }
-    });
-    expect(virtualOptions.prompt.screenReaderActions).toContainEqual({
+      token: "sr.landmark.next"
+    }));
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "heading.level.2.next",
-      runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeadingLevel2" }
-    });
+      token: "sr.heading.level.2.next"
+    }));
     expect(virtualOptions.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "button.next")).toBeUndefined();
   });
 
@@ -1674,24 +1692,20 @@ describe.sequential("CLI", () => {
       }
     ]);
     expect(options.prompt.screenReaderActions).toEqual([
-      {
+      expect.objectContaining({
+        kind: "stable",
         semantic: "heading.next",
         hint: "mode-next-heading",
-        runtimeAction: {
-          kind: "invoke",
-          method: "perform",
-          source: "catalog",
-          id: "keyboard.findNextHeading"
-        }
-      },
-      {
+        token: "sr.heading.next",
+        argumentKind: "none"
+      }),
+      expect.objectContaining({
+        kind: "stable",
         semantic: "click",
         hint: "mode-click",
-        runtimeAction: {
-          kind: "invoke",
-          method: "click"
-        }
-      }
+        token: "sr.click",
+        argumentKind: "click"
+      })
     ]);
   });
 
@@ -1945,7 +1959,7 @@ describe.sequential("CLI", () => {
       screenReaderBackend: "guidepup-virtual",
       allowedScreenReaderActions: [
         sr.heading.next(),
-        srUnstable.catalog("commands.notReal", {
+        srx.catalog("commands.notReal", {
           hint: "Attempt an unsupported command.",
           argsSchema: z.object({ index: z.number().int() }),
           argsExample: { index: 1 }
@@ -1962,7 +1976,7 @@ describe.sequential("CLI", () => {
       configPath,
       "--mode",
       "screenreader-hybrid"
-    ]))).rejects.toThrow('does not support action srUnstable.catalog("commands.notReal")');
+    ]))).rejects.toThrow('does not support action srx.catalog("commands.notReal")');
   });
 
   it("rejects semantic actions that the selected backend does not support", async () => {
@@ -1998,7 +2012,7 @@ describe.sequential("CLI", () => {
       configPath,
       "--mode",
       "screenreader-strict"
-    ]))).rejects.toThrow('Screen reader backend "guidepup-voiceover" does not support action table.next');
+    ]))).rejects.toThrow('Screen reader backend "guidepup-voiceover" does not support action sr.table.next.');
   });
 
   it("rejects invalid screen reader CLI overrides for the selected mode and backend", async () => {

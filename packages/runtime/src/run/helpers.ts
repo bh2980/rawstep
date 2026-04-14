@@ -1,11 +1,12 @@
+import { formatScreenReaderIntent, type ScreenReaderActionPlan } from "@rawstep/action-catalog";
 import type { BrowserSession } from "../browser";
-import type {
+import {
   Action,
-  AllowedScreenReaderAction,
   AgentMemoryEntry,
   Decision,
   EndedBy,
   Observation,
+  formatDecisionAction as formatCoreDecisionAction,
   ScreenReaderCapabilities,
   ScreenshotPolicy,
   UserModel,
@@ -78,7 +79,16 @@ export function createAgentMemoryEntry(
 }
 
 export function shouldUseInteractiveObservation(decision: Extract<Decision, { action: unknown }>): boolean {
-  return "srAction" in decision.action && decision.action.srAction.kind === "invoke";
+  if (!("srAction" in decision.action)) {
+    return false;
+  }
+
+  if ("extension" in decision.action.srAction) {
+    return true;
+  }
+
+  return !decision.action.srAction.semantic.startsWith("read.")
+    && !decision.action.srAction.semantic.startsWith("clear.");
 }
 
 export function isScreenReaderMode(mode: UserModel): boolean {
@@ -118,78 +128,15 @@ export function allowsRawKeyActions(mode: UserModel): boolean {
 
 export function resolveScreenReaderCapabilities(
   screenReaderRuntime: ScreenReaderRuntime | undefined,
-  allowedScreenReaderActions: readonly AllowedScreenReaderAction[] | undefined,
+  screenReaderActionPlan: ScreenReaderActionPlan | undefined,
   screenReaderBackendId: ScreenReaderBackendId | undefined
 ): ScreenReaderCapabilities {
   if (screenReaderRuntime?.capabilities) {
     return screenReaderRuntime.capabilities;
   }
 
-  if (allowedScreenReaderActions && allowedScreenReaderActions.length > 0) {
-    const invokeMethods = {
-      next: false,
-      previous: false,
-      act: false,
-      interact: false,
-      stopInteracting: false,
-      press: false,
-      type: false,
-      click: false,
-      perform: false,
-      supportsRawPerform: false
-    };
-    const readMethods = {
-      itemText: false,
-      itemTextLog: false,
-      lastSpokenPhrase: false,
-      spokenPhraseLog: false
-    };
-    const maintenanceMethods = {
-      clearItemTextLog: false,
-      clearSpokenPhraseLog: false
-    };
-
-    const performCatalog = allowedScreenReaderActions
-      .filter((action): action is Extract<AllowedScreenReaderAction, {
-        kind: "invoke";
-        method: "perform";
-        source: "catalog";
-      }> =>
-        action.kind === "invoke" && action.method === "perform" && action.source === "catalog"
-      )
-      .map((action) => ({
-        id: action.id,
-        label: action.id,
-        description: action.id
-      }));
-
-    for (const action of allowedScreenReaderActions) {
-      if (action.kind === "invoke") {
-        if (action.method === "perform") {
-          invokeMethods.perform = true;
-          if (action.source === "raw") {
-            invokeMethods.supportsRawPerform = true;
-          }
-        } else {
-          invokeMethods[action.method] = true;
-        }
-        continue;
-      }
-
-      if (action.kind === "read") {
-        readMethods[action.method] = true;
-        continue;
-      }
-
-      maintenanceMethods[action.method] = true;
-    }
-
-    return {
-      invoke: invokeMethods,
-      read: readMethods,
-      maintenance: maintenanceMethods,
-      performCatalog
-    };
+  if (screenReaderActionPlan) {
+    return findScreenReaderBackendById(screenReaderActionPlan.backendId).capabilities;
   }
 
   if (screenReaderBackendId) {
@@ -301,45 +248,16 @@ export function resolveVerificationOutcome(args: {
   };
 }
 
-function formatDecisionAction(action: Action): string {
-  if ("key" in action) {
-    return `key(${action.key})`;
-  }
-
+function formatActionForMemory(action: Action): string {
   if ("srAction" in action) {
-    if (action.srAction.kind === "read") {
-      return `srAction.read(${action.srAction.method})`;
-    }
-
-    if (action.srAction.kind === "maintenance") {
-      return `srAction.maintenance(${action.srAction.method})`;
-    }
-
-    switch (action.srAction.method) {
-      case "next":
-      case "previous":
-      case "act":
-      case "interact":
-      case "stopInteracting":
-        return `srAction.invoke(${action.srAction.method})`;
-      case "perform":
-        return action.srAction.command.source === "catalog"
-          ? `srAction.perform(${action.srAction.command.id})`
-          : "srAction.perform(raw)";
-      case "press":
-        return `srAction.press(${action.srAction.key})`;
-      case "type":
-        return `srAction.type(${action.srAction.text})`;
-      case "click":
-        return `srAction.click(${action.srAction.options?.button ?? "left"},${action.srAction.options?.clickCount ?? 1})`;
-    }
+    return formatScreenReaderIntent(action.srAction);
   }
 
-  return `typeText(${action.typeText})`;
+  return formatCoreDecisionAction(action);
 }
 
 function formatMemoryAction(decision: Decision): string {
   return "action" in decision
-    ? formatDecisionAction(decision.action)
+    ? formatActionForMemory(decision.action)
     : `verdict(${decision.verdict})`;
 }

@@ -3,9 +3,9 @@ import { validateVerifySpec } from "@rawstep/runtime";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseTaskScreenReaderActions } from "./screenreader-actions";
 import {
   parseAllowedKeys,
-  parseAllowedScreenReaderActions,
   parseScreenReaderBackendId,
   type TaskExecutionDefaults,
   type TaskFileShape,
@@ -164,7 +164,7 @@ export function validateTaskConfigOverride(raw: unknown, label: string): TaskCon
       : parseAllowedKeys(candidate.allowedKeys, `${label} config.allowedKeys`),
     allowedScreenReaderActions: candidate.allowedScreenReaderActions === undefined
       ? undefined
-      : parseAllowedScreenReaderActions(
+      : parseTaskScreenReaderActions(
         candidate.allowedScreenReaderActions,
         `${label} config.allowedScreenReaderActions`
       ),

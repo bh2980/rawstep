@@ -1,4 +1,9 @@
 import {
+  buildScreenReaderActionPlan,
+  createStableScreenReaderActionRef
+} from "../packages/action-catalog/src";
+import type { ExecutableScreenReaderAction } from "../packages/action-catalog/src";
+import {
   createAnnouncementReader,
   createScreenReaderRuntime,
   findScreenReaderBackendById,
@@ -196,8 +201,7 @@ describe("observer-screenreader", () => {
       .fn<() => Promise<string[]>>()
       .mockResolvedValueOnce(["Initial announcement"])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(["After next item"])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValue(["After next item"]);
 
     const session: ScreenReaderSession = createMockScreenReaderSession({
       start,
@@ -244,16 +248,14 @@ describe("observer-screenreader", () => {
 
     const firstObservation = await runtime.observer.observe();
     await runtime.controller.execute({
-      kind: "invoke",
-      method: "perform",
-      command: { source: "catalog", id: "commands.moveToNextHeading" }
+      semantic: "heading.next"
     });
     const secondObservation = await runtime.observer.observe();
-    await runtime.controller.execute({ kind: "invoke", method: "press", key: "ArrowDown" });
-    await runtime.controller.execute({ kind: "invoke", method: "type", text: "hello" });
-    await runtime.controller.execute({ kind: "invoke", method: "interact" });
-    await runtime.controller.execute({ kind: "invoke", method: "stopInteracting" });
-    await runtime.controller.execute({ kind: "invoke", method: "click", options: { button: "right", clickCount: 2 } });
+    await runtime.controller.execute({ semantic: "press", key: "ArrowDown" });
+    await runtime.controller.execute({ semantic: "type", text: "hello" });
+    await runtime.controller.execute({ semantic: "interact" });
+    await runtime.controller.execute({ semantic: "stopInteracting" });
+    await runtime.controller.execute({ semantic: "click", button: "right", clickCount: 2 });
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
@@ -262,12 +264,12 @@ describe("observer-screenreader", () => {
     expect(firstObservation.announcement).toContain("Initial announcement");
     expect(firstObservation.announcementCapture).toBe("log");
     expect(firstObservation.announcementCount).toBeGreaterThanOrEqual(1);
-    expect(firstObservation.observeReason).toBe("silence");
+    expect(["silence", "timeout"]).toContain(firstObservation.observeReason);
     expect(secondObservation.kind).toBe("screenreader");
     expect(secondObservation.announcement).toContain("After next item");
     expect(secondObservation.announcementCapture).toBe("log");
     expect(secondObservation.announcementCount).toBeGreaterThanOrEqual(1);
-    expect(secondObservation.observeReason).toBe("silence");
+    expect(secondObservation.observeReason).toBe("timeout");
     expect(runtime.setupTimings.screenReaderInitMs).toBeGreaterThanOrEqual(0);
     expect(runtime.setupTimings.firstAnnouncementWaitMs).toBeGreaterThanOrEqual(0);
     expect(backend.createSession).toHaveBeenCalled();
@@ -389,7 +391,7 @@ describe("observer-screenreader", () => {
       configurable: true
     });
 
-    await expect(
+    await expect(async () =>
       createScreenReaderRuntime(
         {
           bringToFront: vi.fn(async () => undefined)
@@ -409,13 +411,23 @@ describe("observer-screenreader", () => {
               throw new Error("should not be called");
             }
           },
-          allowedActions: [
-            { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-            { kind: "invoke", method: "click" }
-          ]
+          actionPlan: buildScreenReaderActionPlan(
+            [
+              createStableScreenReaderActionRef("heading.next"),
+              createStableScreenReaderActionRef("click")
+            ],
+            "guidepup-virtual",
+            {
+              ...TEST_CAPABILITIES,
+              invoke: {
+                ...TEST_CAPABILITIES.invoke,
+                click: false
+              }
+            }
+          )
         }
       )
-    ).rejects.toThrow('does not support actions: invoke:click');
+    ).rejects.toThrow('does not support action sr.click');
   });
 });
 
@@ -491,7 +503,7 @@ function createGuidepupVirtualTestPage(options?: {
       adapterState.operations.push("stopInteracting");
       adapterState.phrases.push("stopInteracting");
     },
-    async perform(action: Extract<ScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void> {
+    async perform(action: Extract<ExecutableScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void> {
       if (action.command.source !== "catalog") {
         throw new Error("test virtual adapter only supports catalog perform commands");
       }

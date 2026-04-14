@@ -874,6 +874,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
@@ -903,21 +904,14 @@ describe("runTask", () => {
         }),
         agent: {
           decide: async (ctx, obs) => {
-            expect(ctx.allowedScreenReaderActions).toContainEqual({
-              kind: "invoke",
-              method: "perform",
-              source: "catalog",
-              id: "commands.moveToNextHeading"
-            });
+            expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             expect(obs.kind).toBe("screenreader");
 
             if (observeCalls === 1) {
               return {
                 action: {
                   srAction: {
-                    kind: "invoke",
-                    method: "perform",
-                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                    semantic: "heading.next"
                   }
                 },
                 rationale: "Move to the next heading."
@@ -934,20 +928,16 @@ describe("runTask", () => {
     );
 
     expect(observedActions).toEqual([{
-      kind: "invoke",
-      method: "perform",
-      command: { source: "catalog", id: "commands.moveToNextHeading" }
+      semantic: "heading.next"
     }]);
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.steps[0].observation.kind).toBe("screenreader");
-    expect(session.steps[0].decision).toEqual({
-      action: {
-        srAction: {
-          kind: "invoke",
-          method: "perform",
-          command: { source: "catalog", id: "commands.moveToNextHeading" }
-        }
-      },
+      expect(session.steps[0].decision).toEqual({
+        action: {
+          srAction: {
+            semantic: "heading.next"
+          }
+        },
       rationale: "Move to the next heading."
     });
     if (session.steps[0].observation.kind === "screenreader") {
@@ -982,6 +972,7 @@ describe("runTask", () => {
         outDir,
         screenshotPolicy: "none",
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
@@ -1026,6 +1017,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
@@ -1038,12 +1030,7 @@ describe("runTask", () => {
         agent: {
           decide: async (ctx) => {
             expect(ctx.allowedKeys).toEqual([]);
-            expect(ctx.allowedScreenReaderActions).toContainEqual({
-              kind: "invoke",
-              method: "perform",
-              source: "catalog",
-              id: "commands.moveToNextHeading"
-            });
+            expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             return {
               action: { key: "Tab" },
               rationale: "This should be rejected in strict mode."
@@ -1085,6 +1072,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
@@ -1115,21 +1103,14 @@ describe("runTask", () => {
         agent: {
           decide: async (ctx, obs) => {
             expect(ctx.allowedKeys).toEqual([]);
-            expect(ctx.allowedScreenReaderActions).toContainEqual({
-              kind: "invoke",
-              method: "perform",
-              source: "catalog",
-              id: "commands.moveToNextHeading"
-            });
+            expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             expect(obs.kind).toBe("screenreader");
 
             if (observeCalls === 1) {
               return {
                 action: {
                   srAction: {
-                    kind: "invoke",
-                    method: "perform",
-                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                    semantic: "heading.next"
                   }
                 },
                 rationale: "Move to the next heading."
@@ -1146,9 +1127,7 @@ describe("runTask", () => {
     );
 
     expect(observedActions).toEqual([{
-      kind: "invoke",
-      method: "perform",
-      command: { source: "catalog", id: "commands.moveToNextHeading" }
+      semantic: "heading.next"
     }]);
     expect(session.aggregate.endedBy).toBe("success");
     expect(session.aggregate.actionCounts).toEqual({
@@ -1379,6 +1358,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => {
@@ -1407,7 +1387,7 @@ describe("runTask", () => {
           decide: async () => {
             if (observeCalls === 1) {
               return {
-                action: { srAction: { kind: "invoke", method: "click" as const } },
+                action: { srAction: { semantic: "click" as const } },
                 rationale: "Activate the button."
               };
             }
@@ -1446,6 +1426,7 @@ describe("runTask", () => {
         outDir,
         agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
@@ -1501,6 +1482,7 @@ describe("runTask", () => {
         outDir,
         screenshotPolicy: "failure-only",
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
           observer: {
             observe: async () => ({
@@ -1518,9 +1500,7 @@ describe("runTask", () => {
               return {
                 action: {
                   srAction: {
-                    kind: "invoke",
-                    method: "perform",
-                    command: { source: "catalog", id: "commands.moveToNextHeading" }
+                    semantic: "heading.next"
                   }
                 },
                 rationale: "Move once before deciding."
@@ -1567,6 +1547,7 @@ describe("runTask", () => {
         screenshotPolicy: "failure-only",
         verifierAutoComplete: true,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async (page) => {
           await page.evaluate(() => {
             const button = document.querySelector("button");
@@ -1601,7 +1582,7 @@ describe("runTask", () => {
         agent: {
           decide: async () => {
             return {
-              action: { srAction: { kind: "invoke", method: "click" as const } },
+              action: { srAction: { semantic: "click" as const } },
               rationale: "Activate the CTA."
             };
           }

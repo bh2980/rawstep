@@ -1,11 +1,14 @@
 import type { AgentProvider } from "@rawstep/agent";
+import type {
+  ScreenReaderActionDescriptor,
+  ScreenReaderActionPlan,
+  ScreenReaderActionRef
+} from "@rawstep/action-catalog";
 import { z } from "zod";
 import {
   type ConfiguredKeyboardAction,
   isAllowedKey,
-  type ConfiguredScreenReaderAction,
   type ResolvedPromptKeyboardAction,
-  type ResolvedPromptScreenReaderAction,
   type AllowedKey,
   SUPPORTED_KEY_LABELS,
   type ScreenshotPolicy,
@@ -36,7 +39,7 @@ export type CliRunOptions = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   allowedKeys?: AllowedKey[];
-  allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
+  allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackendId?: ScreenReaderBackendId;
   provider?: AgentProvider;
   model?: string;
@@ -64,7 +67,7 @@ export type ModeConfigShape = {
   includeRationale?: boolean;
   memory?: MemorySetting;
   allowedKeys?: ConfiguredKeyboardAction[];
-  allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
+  allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
 };
 
@@ -89,7 +92,7 @@ export type TaskConfigOverride = {
   includeRationale?: boolean;
   memory?: MemorySetting;
   allowedKeys?: AllowedKey[];
-  allowedScreenReaderActions?: ConfiguredScreenReaderAction[];
+  allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
 };
 
@@ -131,7 +134,7 @@ export type ResolvedRunOptions = {
   model?: string;
   baseURL?: string;
   allowedKeys: readonly AllowedKey[];
-  allowedScreenReaderActions?: readonly import("@rawstep/core").AllowedScreenReaderAction[];
+  screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
   prompt: ResolvedPromptOptions;
 };
@@ -149,7 +152,7 @@ export type ProjectPromptShape = {
 export type ResolvedPromptOptions = {
   promptDir: string;
   keyboardActions: readonly ResolvedPromptKeyboardAction[];
-  screenReaderActions: readonly ResolvedPromptScreenReaderAction[];
+  screenReaderActions: readonly ScreenReaderActionDescriptor[];
 };
 
 export const userModelSchema = z.enum(["keyboard", "screenreader-strict", "screenreader-hybrid"]);
@@ -296,7 +299,7 @@ export function parseAllowedKeys(value: unknown, label: string): AllowedKey[] {
   });
 }
 
-export function parseAllowedScreenReaderActions(value: unknown, label: string): ConfiguredScreenReaderAction[] {
+export function parseAllowedScreenReaderActions(value: unknown, label: string): ScreenReaderActionRef[] {
   return parseConfiguredScreenReaderActions(value, label);
 }
 
@@ -334,7 +337,7 @@ export function parseCommaSeparatedAllowedKeys(value: unknown, label: string): A
   return parseAllowedKeys(parseCommaSeparatedValues(value, label), label);
 }
 
-export function parseCommaSeparatedScreenReaderActions(value: unknown, label: string): ConfiguredScreenReaderAction[] {
+export function parseCommaSeparatedScreenReaderActions(value: unknown, label: string): ScreenReaderActionRef[] {
   return parseCommaSeparatedConfiguredScreenReaderActions(value, label);
 }
 

@@ -10,12 +10,18 @@ import {
   type AgentCompletionClient,
   type PromptPart
 } from "@rawstep/agent";
+import {
+  buildScreenReaderActionPlan,
+  createRawPerformScreenReaderExtensionRef,
+  createStableScreenReaderActionRef,
+  type ScreenReaderActionDescriptor
+} from "../packages/action-catalog/src";
 import type {
   AgentContext,
   Observation,
-  ResolvedPromptKeyboardAction,
-  ResolvedPromptScreenReaderAction
+  ResolvedPromptKeyboardAction
 } from "@rawstep/core";
+import { findScreenReaderBackendById } from "../packages/runtime/src";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,6 +75,18 @@ function createCompletionClient(responses: string[]): AgentCompletionClient {
       return responses.shift() ?? "";
     }
   };
+}
+
+function makeScreenReaderDescriptors(
+  semantics: readonly string[],
+  backendId: "guidepup-voiceover" | "guidepup-nvda" | "guidepup-virtual" = "guidepup-virtual"
+): ScreenReaderActionDescriptor[] {
+  const backend = findScreenReaderBackendById(backendId);
+  return buildScreenReaderActionPlan(
+    semantics.map((semantic) => createStableScreenReaderActionRef(semantic as never)),
+    backendId,
+    backend.capabilities
+  ).descriptors as ScreenReaderActionDescriptor[];
 }
 
 async function createPromptFixtureRoot(contents?: Partial<Record<
@@ -163,10 +181,7 @@ describe("agent helpers", () => {
     const decision = parseDecision(
       '{"action":"sr.heading.next","rationale":"Move to the next announced item."}',
       undefined,
-      [{
-        semantic: "heading.next",
-        runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
-      }]
+      makeScreenReaderDescriptors(["heading.next"])
     );
 
     expect("action" in decision).toBe(true);
@@ -174,46 +189,46 @@ describe("agent helpers", () => {
       expect("srAction" in decision.action).toBe(true);
       if ("srAction" in decision.action) {
         expect(decision.action.srAction).toEqual({
-          kind: "invoke",
-          method: "perform",
-          command: {
-            source: "catalog",
-            id: "commands.moveToNextHeading"
-          }
+          semantic: "heading.next"
         });
       }
     }
   });
 
   it("parses valid no-arg screen reader invoke actions", () => {
-    const decision = parseDecision('{"action":"sr.next"}');
+    const decision = parseDecision('{"action":"sr.next"}', undefined, makeScreenReaderDescriptors(["next"]));
 
     expect("action" in decision).toBe(true);
     if ("action" in decision && "srAction" in decision.action) {
       expect(decision.action.srAction).toEqual({
-        kind: "invoke",
-        method: "next"
+        semantic: "next"
       });
     }
   });
 
   it("parses valid screen reader read and maintenance actions", () => {
-    const readDecision = parseDecision('{"action":"sr.read.itemText"}');
-    const maintenanceDecision = parseDecision('{"action":"sr.clear.itemTextLog"}');
+    const readDecision = parseDecision(
+      '{"action":"sr.read.itemText"}',
+      undefined,
+      makeScreenReaderDescriptors(["read.itemText"])
+    );
+    const maintenanceDecision = parseDecision(
+      '{"action":"sr.clear.itemTextLog"}',
+      undefined,
+      makeScreenReaderDescriptors(["clear.itemTextLog"])
+    );
 
     expect("action" in readDecision).toBe(true);
     if ("action" in readDecision && "srAction" in readDecision.action) {
       expect(readDecision.action.srAction).toEqual({
-        kind: "read",
-        method: "itemText"
+        semantic: "read.itemText"
       });
     }
 
     expect("action" in maintenanceDecision).toBe(true);
     if ("action" in maintenanceDecision && "srAction" in maintenanceDecision.action) {
       expect(maintenanceDecision.action.srAction).toEqual({
-        kind: "maintenance",
-        method: "clearItemTextLog"
+        semantic: "clear.itemTextLog"
       });
     }
   });
@@ -359,30 +374,45 @@ describe("agent helpers", () => {
   });
 
   it("parses parameterized screen reader actions", () => {
-    const pressDecision = parseDecision('{"action":"sr.press","key":"Enter"}');
-    const typeDecision = parseDecision('{"action":"sr.type","text":"hello"}');
-    const clickDecision = parseDecision('{"action":"sr.click","button":"left","clickCount":2}');
-    const rawDecision = parseDecision(
-      '{"action":"srUnstable.rawPerform","payload":{"characters":"x"}}',
+    const pressDecision = parseDecision(
+      '{"action":"sr.press","key":"Enter"}',
       undefined,
-      [{
-        unstable: "rawPerform",
-        hint: "Execute a raw payload.",
-        payloadSchema: z.object({
-          characters: z.string().min(1)
-        }),
-        payloadExample: {
-          characters: "x"
-        },
-        runtimeAction: { kind: "invoke", method: "perform", source: "raw" }
-      }]
+      makeScreenReaderDescriptors(["press"])
+    );
+    const typeDecision = parseDecision(
+      '{"action":"sr.type","text":"hello"}',
+      undefined,
+      makeScreenReaderDescriptors(["type"])
+    );
+    const clickDecision = parseDecision(
+      '{"action":"sr.click","button":"left","clickCount":2}',
+      undefined,
+      makeScreenReaderDescriptors(["click"])
+    );
+    const rawDecision = parseDecision(
+      '{"action":"srx.rawPerform","payload":{"characters":"x"}}',
+      undefined,
+      buildScreenReaderActionPlan(
+        [
+          createRawPerformScreenReaderExtensionRef(
+            "Execute a raw payload.",
+            z.object({
+              characters: z.string().min(1)
+            }),
+            {
+              characters: "x"
+            }
+          )
+        ],
+        "guidepup-nvda",
+        findScreenReaderBackendById("guidepup-nvda").capabilities
+      ).descriptors
     );
 
     expect("action" in pressDecision).toBe(true);
     if ("action" in pressDecision && "srAction" in pressDecision.action) {
       expect(pressDecision.action.srAction).toEqual({
-        kind: "invoke",
-        method: "press",
+        semantic: "press",
         key: "Enter"
       });
     }
@@ -390,8 +420,7 @@ describe("agent helpers", () => {
     expect("action" in typeDecision).toBe(true);
     if ("action" in typeDecision && "srAction" in typeDecision.action) {
       expect(typeDecision.action.srAction).toEqual({
-        kind: "invoke",
-        method: "type",
+        semantic: "type",
         text: "hello"
       });
     }
@@ -399,25 +428,18 @@ describe("agent helpers", () => {
     expect("action" in clickDecision).toBe(true);
     if ("action" in clickDecision && "srAction" in clickDecision.action) {
       expect(clickDecision.action.srAction).toEqual({
-        kind: "invoke",
-        method: "click",
-        options: {
-          button: "left",
-          clickCount: 2
-        }
+        semantic: "click",
+        button: "left",
+        clickCount: 2
       });
     }
 
     expect("action" in rawDecision).toBe(true);
     if ("action" in rawDecision && "srAction" in rawDecision.action) {
       expect(rawDecision.action.srAction).toEqual({
-        kind: "invoke",
-        method: "perform",
-        command: {
-          source: "raw",
-          payload: {
-            characters: "x"
-          }
+        extension: "rawPerform",
+        payload: {
+          characters: "x"
         }
       });
     }
@@ -603,14 +625,22 @@ describe("agent helpers", () => {
       {
         goal: "Finish the task.",
         allowedKeys: ["Tab"],
-        allowedScreenReaderActions: [
-          { kind: "invoke", method: "next" },
-          { kind: "read", method: "itemText" },
-          { kind: "maintenance", method: "clearItemTextLog" },
-          { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-          { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextLink" },
-          { kind: "invoke", method: "perform", source: "raw" }
-        ],
+        screenReaderActions: buildScreenReaderActionPlan(
+          [
+            createStableScreenReaderActionRef("next"),
+            createStableScreenReaderActionRef("read.itemText"),
+            createStableScreenReaderActionRef("clear.itemTextLog"),
+            createStableScreenReaderActionRef("heading.next"),
+            createStableScreenReaderActionRef("link.next"),
+            createRawPerformScreenReaderExtensionRef(
+              "Execute a raw payload.",
+              z.object({ characters: z.string().min(1) }),
+              { characters: "x" }
+            )
+          ],
+          "guidepup-nvda",
+          findScreenReaderBackendById("guidepup-nvda").capabilities
+        ).descriptors,
         memory: []
       },
       {
@@ -628,7 +658,7 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- sr.clear.itemTextLog");
       expect(promptParts[0].text).toContain("- sr.heading.next");
       expect(promptParts[0].text).toContain("- sr.link.next");
-      expect(promptParts[0].text).not.toContain("srUnstable.rawPerform");
+      expect(promptParts[0].text).toContain("- srx.rawPerform");
     }
   });
 
@@ -641,7 +671,7 @@ describe("agent helpers", () => {
       {
         goal: "Finish the task.",
         allowedKeys: ["Tab"],
-        allowedScreenReaderActions: [{ kind: "invoke", method: "click" }],
+        screenReaderActions: makeScreenReaderDescriptors(["click"]),
         memory: []
       },
       {
@@ -656,9 +686,11 @@ describe("agent helpers", () => {
         keyboardActions: [{ key: "Tab", hint: "다음 포커스로 이동" }],
         screenReaderActions: [
           {
+            kind: "stable",
+            token: "sr.click",
             semantic: "click",
             hint: "현재 항목을 클릭할 때 사용",
-            runtimeAction: { kind: "invoke", method: "click" }
+            argumentKind: "click"
           }
         ]
       }
@@ -832,15 +864,19 @@ describe("agent helpers", () => {
   it("renders screenreader prompts from prompt files with action placeholders", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
-    const promptActions: ResolvedPromptScreenReaderAction[] = [
+    const promptActions: ScreenReaderActionDescriptor[] = [
       {
+        kind: "stable",
+        token: "sr.heading.next",
         semantic: "heading.next",
         hint: "다음 제목으로 크게 이동할 때 사용하라.",
-        runtimeAction: { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" }
+        argumentKind: "none"
       },
       {
+        kind: "stable",
+        token: "sr.click",
         semantic: "click",
-        runtimeAction: { kind: "invoke", method: "click" }
+        argumentKind: "click"
       }
     ];
 
@@ -848,10 +884,7 @@ describe("agent helpers", () => {
       "screenreader-strict",
       undefined,
       undefined,
-      [
-        { kind: "invoke", method: "perform", source: "catalog", id: "commands.moveToNextHeading" },
-        { kind: "invoke", method: "click" }
-      ],
+      promptActions,
       false,
       {
         screenReaderActions: promptActions
@@ -873,17 +906,25 @@ describe("agent helpers", () => {
       "screenreader-strict",
       undefined,
       [],
-      [
-        { kind: "invoke", method: "press" },
-        { kind: "invoke", method: "type" },
-        { kind: "invoke", method: "perform", source: "raw" }
-      ],
+      buildScreenReaderActionPlan(
+        [
+          createStableScreenReaderActionRef("press"),
+          createStableScreenReaderActionRef("type"),
+          createRawPerformScreenReaderExtensionRef(
+            "Execute a raw payload.",
+            z.object({ characters: z.string().min(1) }),
+            { characters: "x" }
+          )
+        ],
+        "guidepup-nvda",
+        findScreenReaderBackendById("guidepup-nvda").capabilities
+      ).descriptors,
       false
     );
 
     expect(prompt).toContain('{"action":"sr.press","key":"Enter"}');
     expect(prompt).toContain('{"action":"sr.type","text":"<text>"}');
-    expect(prompt).not.toContain("srUnstable.rawPerform");
+    expect(prompt).toContain('{"action":"srx.rawPerform","payload":{"characters":"x"}}');
   });
 
   it("does not invent guidance when hints are absent", async () => {
@@ -894,7 +935,7 @@ describe("agent helpers", () => {
       "screenreader-hybrid",
       undefined,
       ["Tab", "Escape"],
-      [{ kind: "invoke", method: "click" }],
+      makeScreenReaderDescriptors(["click"]),
       false
     );
 

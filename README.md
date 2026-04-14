@@ -63,16 +63,16 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `rawstep`으로 확인하
 
 - 관측 채널: 기본 screen reader backend인 [Guidepup](https://guidepup.dev/)
   계열 backend를 통해 수집되는 spoken announcement text.
-- 행동 공간: screen reader canonical command
-  (`nextItem`, `previousItem`, `nextHeading`, `previousHeading`,
-  `nextFormControl`, `previousFormControl`, `act`) + task input이 있을 때만 `typeText("<input-key>")`.
+- 행동 공간: screen reader canonical action
+  (`sr.next`, `sr.previous`, `sr.heading.next`, `sr.heading.previous`,
+  `sr.form.next`, `sr.form.previous`, `sr.act`) + task input이 있을 때만 `typeText("<input-key>")`.
 - screenshot 없음. DOM 없음. accessibility tree 없음. 브라우저 title/URL path
   힌트도 없음. 에이전트는 말 그대로 "보지 못합니다".
 
 ### `screenreader-hybrid` — 현실적 사용 모드
 
 - 관측 채널: `screenreader-strict`와 동일.
-- 행동 공간: screen reader canonical command + 일반 키
+- 행동 공간: screen reader canonical action + 일반 키
   (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + task input이 있을 때만 `typeText("<input-key>")`.
 - 스크린 리더 탐색과 일반 키보드 입력을 같이 허용한다.
 - 하이브리드라는 말은 **행동 공간만 넓어진다**는 뜻이다. 시야가 생기는 것은 아니다.
@@ -272,14 +272,14 @@ export default defineConfig({
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderCommands: [
-        "nextItem",
-        "previousItem",
-        "nextHeading",
-        "previousHeading",
-        "nextFormControl",
-        "previousFormControl",
-        "act"
+      allowedScreenReaderActions: [
+        sr.next(),
+        sr.previous(),
+        sr.heading.next(),
+        sr.heading.previous(),
+        sr.form.next(),
+        sr.form.previous(),
+        sr.act()
       ]
     }
   }
@@ -293,7 +293,7 @@ export default defineConfig({
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다. 선택한 mode에 해당 preset이 없으면 실행하지 않습니다.
 - `headless` 는 브라우저 창 표시 여부입니다. 기본은 `keyboard` 와 `guidepup-virtual` 이면 headless, `guidepup-voiceover` / `guidepup-nvda` 면 headed 입니다.
 - `screenReaderBackend` 는 screenreader mode preset이나 task `config` override에 반드시 있어야 합니다.
-- `allowedKeys`, `allowedScreenReaderCommands` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
+- `allowedKeys`, `allowedScreenReaderActions` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - `allowedKeys` 는 키만 제어합니다. `typeText("email")` 같은 named input 액션은 여기에 포함되지 않고, task에 `input` 이 있을 때만 자동으로 허용됩니다.
 - task 파일(`.json`, `.yml`)은 과업 본문이고, `config` 블록은 task 단위 실행 override 입니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값입니다.
@@ -333,7 +333,7 @@ export default defineConfig({
 - `includeRationale`: agent `rationale` 저장 여부
 - `memory`: 숫자 또는 `all`
 - `allowedKeys`: keyboard / hybrid 모드 키 subset
-- `allowedScreenReaderCommands`: screenreader 명령 subset
+- `allowedScreenReaderActions`: screenreader action subset
 - `screenReaderBackend`: `guidepup-voiceover | guidepup-nvda | guidepup-virtual`
 
 **task 파일 top-level**
@@ -347,7 +347,7 @@ export default defineConfig({
 - `screenshots`, `verifierAutoComplete`
 - `includeExperienceSummary`, `includeRationale`
 - `memory`
-- `allowedKeys`, `allowedScreenReaderCommands`
+- `allowedKeys`, `allowedScreenReaderActions`
 - `screenReaderBackend`
 
 쉽게 말하면:
@@ -373,9 +373,9 @@ config:
   memory: all
   headless: true
   screenReaderBackend: guidepup-virtual
-  allowedScreenReaderCommands:
-    - nextItem
-    - act
+  allowedScreenReaderActions:
+    - sr.next
+    - sr.act
 ```
 
 반대로 top-level task 본문에는 과업 자체만 둡니다.
@@ -445,7 +445,12 @@ export default defineConfig({
       headless: true,
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: ["Tab", "Shift+Tab", "Enter", "Escape"],
-      allowedScreenReaderCommands: ["nextItem", "previousItem", "nextHeading", "act"]
+      allowedScreenReaderActions: [
+        sr.next(),
+        sr.previous(),
+        sr.heading.next(),
+        sr.act()
+      ]
     }
   }
 });
@@ -489,7 +494,7 @@ pnpm rawstep run examples/tasks/simple-cta.json \
   --timeout-ms 240000 \
   --screen-reader-backend guidepup-virtual \
   --allowed-keys Tab,Enter \
-  --allowed-screen-reader-commands nextItem,act \
+  --allowed-screen-reader-actions sr.next,sr.act \
   --agent-memory-window 5 \
   --no-agent-memory-all \
   --include-experience-summary \
@@ -514,7 +519,7 @@ pnpm rawstep run examples/tasks/simple-cta.json \
 - `--timeout-ms <n>`: 전체 실행 제한 시간
 - `--screen-reader-backend <guidepup-voiceover|guidepup-nvda|guidepup-virtual>`: screenreader backend 선택
 - `--allowed-keys Tab,Shift+Tab,Enter`: keyboard / hybrid 모드 키 subset 제한
-- `--allowed-screen-reader-commands nextItem,act`: screenreader command subset 제한
+- `--allowed-screen-reader-actions sr.next,sr.act`: screenreader action subset 제한
 - `--verifier-auto-complete` / `--no-verifier-auto-complete`: verifier 자동 종료 실험 옵션
 - `--agent-memory-window <n>`: 최근 N개 step archive만 agent에게 재주입
 - `--agent-memory-all` / `--no-agent-memory-all`: 누적 text memory 전체 재주입 여부
@@ -529,7 +534,7 @@ config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있�
 - `screenReaderBackend` -> `--screen-reader-backend`
 - `headless` -> `--headless` / `--headed`
 - `allowedKeys` -> `--allowed-keys`
-- `allowedScreenReaderCommands` -> `--allowed-screen-reader-commands`
+- `allowedScreenReaderActions` -> `--allowed-screen-reader-actions`
 - `maxSteps` -> `--max-steps`
 - `timeoutMs` -> `--timeout-ms`
 - `verifierAutoComplete` -> `--verifier-auto-complete` / `--no-verifier-auto-complete`
@@ -541,16 +546,16 @@ config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있�
 배열형 override는 쉼표 구분 한 개 플래그로 받습니다.
 
 - `--allowed-keys Tab,Shift+Tab,Enter,Space`
-- `--allowed-screen-reader-commands nextItem,previousItem,act`
+- `--allowed-screen-reader-actions sr.next,sr.previous,sr.act`
 
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
 
 모드별 제약은 다음처럼 걸립니다.
 
-- `keyboard` 모드에서는 `screenReaderBackend`, `allowedScreenReaderCommands` 를 쓸 수 없습니다.
+- `keyboard` 모드에서는 `screenReaderBackend`, `allowedScreenReaderActions` 를 쓸 수 없습니다.
 - `screenreader-strict` 모드에서는 `allowedKeys` 를 쓸 수 없습니다.
-- `guidepup-virtual` backend는 `nextFormControl`, `previousFormControl` 을 지원하지 않습니다.
+- backend별 지원 action 차이는 `@rawstep/action-catalog`가 중앙에서 판정합니다.
 
 ## `verify` 레퍼런스
 
@@ -677,12 +682,12 @@ system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터
 - [experience-summary.system.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.system.md)
 
 이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.  
-`{{allowedKeys}}`, `{{allowedScreenReaderCommands}}`, `{{responseFormat}}`, `{{rationaleRule}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
+`{{goal}}`, `{{agentMemory}}`, `{{announcement}}`, `{{readbacks}}`, `{{availableActions}}`, `{{outputExamples}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
 
 `--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
 
 - `all` — 모든 step 저장
-- `important` — verdict step, verification step, 실행 실패 step, `typeText(<input-key>)`, `srCommand(act)` 만 저장
+- `important` — verdict step, verification step, 실행 실패 step, `typeText(<input-key>)`, `sr.click` 같은 상태 변화 가능 action만 저장
 - `failure-only` — 실패와 verifier 실패 위주로만 저장
 - `none` — screenreader 리포트용 개발자 스크린샷을 저장하지 않음
 
@@ -725,8 +730,8 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 - 임의 자유 텍스트 입력은 금지합니다. 다만 task가 고정 문자열을 제공한 경우에만
   제한된 text input action을 허용합니다.
-- Screen reader strict/hybrid 모드는 RawStep canonical command를 쓰고, 실제 구현은 backend가 맡습니다.
+- Screen reader strict/hybrid 모드는 RawStep canonical semantic action을 쓰고, 실제 구현은 backend가 맡습니다.
 - 현재 backend id 계약은 `guidepup-voiceover`, `guidepup-nvda`, `guidepup-virtual` 입니다.
-- `guidepup-virtual` v1은 `nextItem`, `previousItem`, `nextHeading`, `previousHeading`, `act` 만 지원합니다.
+- backend마다 지원하는 stable `sr.*` action 범위가 다르고, 지원 여부는 `@rawstep/action-catalog` registry 기준으로 판정합니다.
 - 에이전트의 성공/실패 판정은 설계상 관측 채널만으로 자체 선언합니다.
   ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.

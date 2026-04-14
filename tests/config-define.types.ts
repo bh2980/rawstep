@@ -1,4 +1,4 @@
-import { defineConfig, kb, sr, srUnstable } from "../apps/cli/src/config-define";
+import { defineConfig, kb, sr, srx } from "../apps/cli/src/config-define";
 import { z } from "zod";
 
 defineConfig({
@@ -46,7 +46,7 @@ defineConfig({
         sr.heading.next({ hint: "Move to the next heading." }),
         sr.heading.level3.next({ hint: "Move to the next level 3 heading." }),
         sr.click(),
-        srUnstable.catalog("commands.jumpToErrorMessageElement", {
+        srx.catalog("commands.jumpToErrorMessageElement", {
           hint: "Move to the current error message.",
           argsSchema: z.object({
             index: z.number().int().nonnegative()
@@ -105,7 +105,7 @@ defineConfig({
       allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         // @ts-expect-error virtual config must not accept rawPerform
-        srUnstable.rawPerform({
+        srx.rawPerform({
           hint: "Try raw payload.",
           payloadSchema: z.object({
             command: z.string()
@@ -163,7 +163,7 @@ defineConfig({
       screenReaderBackend: "guidepup-virtual",
       allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
-        srUnstable.catalog("commands.jumpToErrorMessageElement", {
+        srx.catalog("commands.jumpToErrorMessageElement", {
           hint: "Move to the current error message.",
           argsSchema: z.object({
             index: z.number().int().nonnegative()

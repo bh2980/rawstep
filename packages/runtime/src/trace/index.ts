@@ -248,17 +248,22 @@ function countActions(steps: StepRecord[]): ActionCounts {
       }
 
       if ("srAction" in step.decision.action) {
-        switch (step.decision.action.srAction.kind) {
-          case "invoke":
-            counts.srInvokeCount += 1;
-            break;
-          case "read":
-            counts.srReadCount += 1;
-            break;
-          case "maintenance":
-            counts.srMaintenanceCount += 1;
-            break;
+        if ("extension" in step.decision.action.srAction) {
+          counts.srInvokeCount += 1;
+          return counts;
         }
+
+        if (step.decision.action.srAction.semantic.startsWith("read.")) {
+          counts.srReadCount += 1;
+          return counts;
+        }
+
+        if (step.decision.action.srAction.semantic.startsWith("clear.")) {
+          counts.srMaintenanceCount += 1;
+          return counts;
+        }
+
+        counts.srInvokeCount += 1;
         return counts;
       }
 

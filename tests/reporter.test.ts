@@ -125,9 +125,7 @@ describe("reporter", () => {
             decision: {
               action: {
                 srAction: {
-                  kind: "invoke",
-                  method: "perform",
-                  command: { source: "catalog", id: "commands.moveToNextHeading" }
+                  semantic: "heading.next"
                 }
               },
               rationale: "Move the VoiceOver cursor forward."
@@ -171,7 +169,7 @@ describe("reporter", () => {
     );
 
     const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("srAction.perform(commands.moveToNextHeading)");
+    expect(html).toContain("sr.heading.next");
     expect(html).toContain("Get started button");
     expect(html).toContain("Announcement capture");
     expect(html).toContain("log");
@@ -309,7 +307,7 @@ describe("reporter", () => {
               observeReason: "silence"
             },
             decision: {
-              action: { srAction: { kind: "invoke", method: "click" } }
+              action: { srAction: { semantic: "click" } }
             },
             execution: {
               ok: true,

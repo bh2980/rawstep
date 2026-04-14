@@ -50,7 +50,7 @@ export async function runCli(
       agentMemoryAll: options.execution.memory.mode === "all",
       includeExperienceSummary: options.execution.includeExperienceSummary,
       allowedKeys: options.allowedKeys,
-      allowedScreenReaderActions: options.allowedScreenReaderActions,
+      screenReaderActionPlan: options.screenReaderActionPlan,
       screenReaderBackendId: options.screenReaderBackendId
     });
     const reportStartedAt = Date.now();
@@ -81,7 +81,7 @@ export async function runCli(
 export { loadTask } from "./task-file";
 export { parseRunArgs } from "./args";
 export { loadConfig, resolveRunOptions } from "./config";
-export { defineConfig, kb, sr, srUnstable, type RawstepConfig } from "./config-define";
+export { defineConfig, kb, sr, srx, type RawstepConfig } from "./config-define";
 
 function createAgent(
   mode: UserModel,

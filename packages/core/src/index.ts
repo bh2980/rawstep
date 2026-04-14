@@ -1,10 +1,23 @@
-import { SCREEN_READER_SEMANTICS } from "@rawstep/action-catalog";
+import {
+  formatScreenReaderIntent,
+  type PromptObjectSchema,
+  type ScreenReaderActionDescriptor,
+  type ScreenReaderActionPlan,
+  type ScreenReaderActionRef,
+  type ScreenReaderCapabilities,
+  type ScreenReaderClickOptions,
+  type ScreenReaderCommandOptions,
+  type ScreenReaderIntent,
+  type ScreenReaderKeyboardOptions,
+  type ScreenReaderMaintenanceMethod,
+  type ScreenReaderPerformCommand,
+  type ScreenReaderReadMethod,
+  type ScreenReaderSemanticAction
+} from "@rawstep/action-catalog";
 import type {
   AllowedKey,
   ScreenReaderActionKind,
   ScreenReaderInvokeMethod,
-  ScreenReaderReadMethod,
-  ScreenReaderMaintenanceMethod,
   ScrollHint
 } from "./constants";
 
@@ -105,95 +118,12 @@ export type ScreenReaderObservation = {
 
 export type Observation = KeyboardObservation | ScreenReaderObservation;
 
-export type CommandOptions = {
-  capture?: boolean | "initial";
-  retries?: number;
-  timeout?: number;
-};
-
-export type KeyboardOptions = CommandOptions & {
-  application?: string;
-};
-
-export type ClickOptions = CommandOptions & {
-  button?: "left" | "right";
-  clickCount?: 1 | 2 | 3;
-};
-
-export type ScreenReaderPerformCommand = {
-  id: string;
-  label: string;
-  description: string;
-  argsHint?: string;
-};
-
-export type ScreenReaderCapabilities = {
-  invoke: {
-    next: boolean;
-    previous: boolean;
-    act: boolean;
-    interact: boolean;
-    stopInteracting: boolean;
-    press: boolean;
-    type: boolean;
-    click: boolean;
-    perform: boolean;
-    supportsRawPerform: boolean;
-  };
-  read: {
-    itemText: boolean;
-    itemTextLog: boolean;
-    lastSpokenPhrase: boolean;
-    spokenPhraseLog: boolean;
-  };
-  maintenance: {
-    clearItemTextLog: boolean;
-    clearSpokenPhraseLog: boolean;
-  };
-  performCatalog: readonly ScreenReaderPerformCommand[];
-};
-
-export type ScreenReaderAction =
-  | {
-      kind: "invoke";
-      method: "next" | "previous" | "act" | "interact" | "stopInteracting";
-      options?: CommandOptions;
-    }
-  | {
-      kind: "invoke";
-      method: "press";
-      key: string;
-      options?: KeyboardOptions;
-    }
-  | {
-      kind: "invoke";
-      method: "type";
-      text: string;
-      options?: KeyboardOptions;
-    }
-  | {
-      kind: "invoke";
-      method: "click";
-      options?: ClickOptions;
-    }
-  | {
-      kind: "invoke";
-      method: "perform";
-      command:
-        | { source: "catalog"; id: string; args?: Record<string, unknown> }
-        | { source: "raw"; payload: Record<string, unknown> };
-      options?: CommandOptions;
-    }
-  | { kind: "read"; method: ScreenReaderReadMethod }
-  | { kind: "maintenance"; method: ScreenReaderMaintenanceMethod };
-
-export type ScreenReaderSemanticAction = (typeof SCREEN_READER_SEMANTICS)[number];
-
-export type PromptObjectSchema<TOutput extends Record<string, unknown> = Record<string, unknown>> = {
-  safeParse(value: unknown):
-    | { success: true; data: TOutput }
-    | { success: false; error?: unknown };
-};
+export type CommandOptions = ScreenReaderCommandOptions;
+export type KeyboardOptions = ScreenReaderKeyboardOptions;
+export type ClickOptions = ScreenReaderClickOptions;
+export type ScreenReaderAction = ScreenReaderIntent;
+export type { PromptObjectSchema, ScreenReaderPerformCommand, ScreenReaderCapabilities, ScreenReaderSemanticAction };
+export type { ScreenReaderActionRef, ScreenReaderActionDescriptor, ScreenReaderActionPlan };
 
 type ConfiguredKeyboardActionShape = {
   key: AllowedKey;
@@ -210,85 +140,6 @@ export type ResolvedPromptKeyboardAction = {
   key: AllowedKey;
   hint?: string;
 };
-
-type ConfiguredScreenReaderActionShape = {
-  [Semantic in ScreenReaderSemanticAction]: {
-    semantic: Semantic;
-    hint?: string;
-  };
-}[ScreenReaderSemanticAction];
-
-type ConfiguredUnstableScreenReaderActionShape =
-  | {
-      unstable: "catalog";
-      id: string;
-      hint: string;
-      argsSchema: PromptObjectSchema<Record<string, unknown>>;
-      argsExample: Record<string, unknown>;
-    }
-  | {
-      unstable: "rawPerform";
-      hint: string;
-      payloadSchema: PromptObjectSchema<Record<string, unknown>>;
-      payloadExample: Record<string, unknown>;
-    };
-
-declare const configuredScreenReaderActionBrand: unique symbol;
-
-export type ConfiguredStableScreenReaderAction = ConfiguredScreenReaderActionShape & {
-  readonly [configuredScreenReaderActionBrand]: true;
-};
-
-declare const configuredUnstableScreenReaderActionBrand: unique symbol;
-
-export type ConfiguredUnstableScreenReaderAction = ConfiguredUnstableScreenReaderActionShape & {
-  readonly [configuredUnstableScreenReaderActionBrand]: true;
-};
-
-export type ConfiguredScreenReaderAction =
-  | ConfiguredStableScreenReaderAction
-  | ConfiguredUnstableScreenReaderAction;
-
-export type ResolvedPromptScreenReaderAction =
-  | {
-      semantic: ScreenReaderSemanticAction;
-      hint?: string;
-      runtimeAction: AllowedScreenReaderAction;
-    }
-  | {
-      unstable: "catalog";
-      id: string;
-      hint: string;
-      argsSchema: PromptObjectSchema<Record<string, unknown>>;
-      argsExample: Record<string, unknown>;
-      runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "catalog" }>;
-    }
-  | {
-      unstable: "rawPerform";
-      hint: string;
-      payloadSchema: PromptObjectSchema<Record<string, unknown>>;
-      payloadExample: Record<string, unknown>;
-      runtimeAction: Extract<AllowedScreenReaderAction, { kind: "invoke"; method: "perform"; source: "raw" }>;
-    };
-
-export type AllowedScreenReaderAction =
-  | {
-      kind: "invoke";
-      method: "next" | "previous" | "act" | "interact" | "stopInteracting" | "press" | "type" | "click";
-    }
-  | {
-      kind: "invoke";
-      method: "perform";
-      source: "catalog";
-      id: string;
-    }
-  | {
-      kind: "invoke";
-      method: "perform";
-      source: "raw";
-    }
-  | { kind: "read"; method: ScreenReaderReadMethod }
-  | { kind: "maintenance"; method: ScreenReaderMaintenanceMethod };
 
 export type Action =
   | { key: AllowedKey }
@@ -311,7 +162,7 @@ export type AgentMemoryEntry = {
 export type AgentContext = {
   goal: string;
   allowedKeys: readonly AllowedKey[];
-  allowedScreenReaderActions?: readonly AllowedScreenReaderAction[];
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[];
   memory: AgentMemoryEntry[];
 };
 
@@ -454,48 +305,6 @@ export type ScreenReaderReadback = {
   status?: "cleared";
 };
 
-export function buildAllowedScreenReaderActions(
-  capabilities: ScreenReaderCapabilities
-): AllowedScreenReaderAction[] {
-  return [
-    ...(capabilities.invoke.next ? [{ kind: "invoke" as const, method: "next" as const }] : []),
-    ...(capabilities.invoke.previous ? [{ kind: "invoke" as const, method: "previous" as const }] : []),
-    ...(capabilities.invoke.act ? [{ kind: "invoke" as const, method: "act" as const }] : []),
-    ...(capabilities.invoke.interact ? [{ kind: "invoke" as const, method: "interact" as const }] : []),
-    ...(capabilities.invoke.stopInteracting
-      ? [{ kind: "invoke" as const, method: "stopInteracting" as const }]
-      : []),
-    ...(capabilities.invoke.perform
-      ? capabilities.performCatalog.map((command) => ({
-          kind: "invoke" as const,
-          method: "perform" as const,
-          source: "catalog" as const,
-          id: command.id
-        }))
-      : []),
-    ...(capabilities.invoke.supportsRawPerform
-      ? [{ kind: "invoke" as const, method: "perform" as const, source: "raw" as const }]
-      : []),
-    ...(capabilities.invoke.press ? [{ kind: "invoke" as const, method: "press" as const }] : []),
-    ...(capabilities.invoke.type ? [{ kind: "invoke" as const, method: "type" as const }] : []),
-    ...(capabilities.invoke.click ? [{ kind: "invoke" as const, method: "click" as const }] : []),
-    ...(capabilities.read.itemText ? [{ kind: "read" as const, method: "itemText" as const }] : []),
-    ...(capabilities.read.itemTextLog ? [{ kind: "read" as const, method: "itemTextLog" as const }] : []),
-    ...(capabilities.read.lastSpokenPhrase
-      ? [{ kind: "read" as const, method: "lastSpokenPhrase" as const }]
-      : []),
-    ...(capabilities.read.spokenPhraseLog
-      ? [{ kind: "read" as const, method: "spokenPhraseLog" as const }]
-      : []),
-    ...(capabilities.maintenance.clearItemTextLog
-      ? [{ kind: "maintenance" as const, method: "clearItemTextLog" as const }]
-      : []),
-    ...(capabilities.maintenance.clearSpokenPhraseLog
-      ? [{ kind: "maintenance" as const, method: "clearSpokenPhraseLog" as const }]
-      : [])
-  ];
-}
-
 export function formatDecisionAction(action: Action): string {
   if ("key" in action) {
     return `key(${action.key})`;
@@ -505,71 +314,5 @@ export function formatDecisionAction(action: Action): string {
     return `typeText(${action.typeText})`;
   }
 
-  const sr = action.srAction;
-
-  if (sr.kind === "read") {
-    return `srAction.read(${sr.method})`;
-  }
-
-  if (sr.kind === "maintenance") {
-    return `srAction.maintenance(${sr.method})`;
-  }
-
-  switch (sr.method) {
-    case "next":
-    case "previous":
-    case "act":
-    case "interact":
-    case "stopInteracting":
-      return `srAction.invoke(${sr.method})`;
-    case "perform":
-      return sr.command.source === "catalog"
-        ? `srAction.perform(${sr.command.id})`
-        : "srAction.perform(raw)";
-    case "press":
-      return `srAction.press(${sr.key})`;
-    case "type":
-      return `srAction.type(${sr.text})`;
-    case "click":
-      return `srAction.click(${sr.options?.button ?? "left"},${sr.options?.clickCount ?? 1})`;
-  }
-}
-
-export function supportsScreenReaderAction(
-  capabilities: ScreenReaderCapabilities,
-  action: AllowedScreenReaderAction | ScreenReaderAction
-): boolean {
-  if (action.kind === "read") {
-    return capabilities.read[action.method];
-  }
-
-  if (action.kind === "maintenance") {
-    return capabilities.maintenance[action.method];
-  }
-
-  if (action.method === "perform") {
-    if (!capabilities.invoke.perform) {
-      return false;
-    }
-
-    const source = "command" in action ? action.command.source : action.source;
-    if (source === "raw") {
-      return capabilities.invoke.supportsRawPerform;
-    }
-
-    const id = "command" in action
-      ? action.command.source === "catalog"
-        ? action.command.id
-        : undefined
-      : action.source === "catalog"
-        ? action.id
-        : undefined;
-    if (!id) {
-      return false;
-    }
-
-    return capabilities.performCatalog.some((command) => command.id === id);
-  }
-
-  return capabilities.invoke[action.method];
+  return formatScreenReaderIntent(action.srAction);
 }

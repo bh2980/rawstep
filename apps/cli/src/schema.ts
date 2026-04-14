@@ -37,7 +37,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   const candidate = raw as Record<string, unknown>;
   if (candidate.allowedScreenReaderCommands !== undefined) {
     throw new Error(
-      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions instead. In rawstep.config.ts use helpers like sr.next(), and in task JSON use objects like { "semantic": "next" }.`
+      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions instead. In rawstep.config.ts use helpers like sr.next(), and in task JSON use stable tokens like "sr.next".`
     );
   }
   if (candidate.run !== undefined || candidate.agent !== undefined) {

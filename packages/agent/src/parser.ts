@@ -1,17 +1,19 @@
 import {
+  parseScreenReaderIntentCandidate,
+  type ScreenReaderActionDescriptor
+} from "@rawstep/action-catalog";
+import {
   type Action,
   isAllowedKey,
   type Decision,
-  type ExperienceSummary,
-  type ResolvedPromptScreenReaderAction
+  type ExperienceSummary
 } from "@rawstep/core";
-import { formatResolvedPromptScreenReaderActionName } from "./action-strings";
 import type { PromptPart } from "./shared";
 
 export function parseDecision(
   raw: string,
   taskInputKeys?: string[],
-  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): Decision {
   const result = parseDecisionResult(raw, taskInputKeys, screenReaderActions);
 
@@ -35,7 +37,7 @@ export type ParseDecisionResult =
 export function parseDecisionResult(
   raw: string,
   taskInputKeys?: string[],
-  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): ParseDecisionResult {
   const snippet = raw.trim().slice(0, 240);
 
@@ -104,7 +106,7 @@ export function parseDecisionResult(
 function parseStringActionCandidate(
   candidate: Record<string, unknown>,
   taskInputKeys?: string[],
-  screenReaderActions?: readonly ResolvedPromptScreenReaderAction[]
+  screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ):
   | { status: "ok"; action: Action }
   | { status: "invalid-typeText-key"; key: string; allowedKeys: string[] }
@@ -144,335 +146,21 @@ function parseStringActionCandidate(
     return { status: "ok", action: { typeText: key } };
   }
 
-  const promptAction = screenReaderActions?.find(
-    (action) => formatResolvedPromptScreenReaderActionName(action) === value
-  );
-  if (promptAction) {
-    return parseResolvedPromptScreenReaderActionCandidate(promptAction, candidate);
-  }
-
-  if (value.startsWith("sr.read.")) {
-    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
-      return { status: "malformed" };
-    }
-
-    const method = value.slice("sr.read.".length);
-    switch (method) {
-      case "itemText":
-      case "itemTextLog":
-      case "lastSpokenPhrase":
-      case "spokenPhraseLog":
-        return {
-          status: "ok",
-          action: { srAction: { kind: "read", method } }
-        };
-      default:
-        return { status: "malformed" };
-    }
-  }
-
-  if (value.startsWith("sr.clear.")) {
-    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
-      return { status: "malformed" };
-    }
-
-    const method = value.slice("sr.clear.".length);
-    switch (method) {
-      case "itemTextLog":
-        return {
-          status: "ok",
-          action: { srAction: { kind: "maintenance", method: "clearItemTextLog" } }
-        };
-      case "spokenPhraseLog":
-        return {
-          status: "ok",
-          action: { srAction: { kind: "maintenance", method: "clearSpokenPhraseLog" } }
-        };
-      default:
-        return { status: "malformed" };
-    }
-  }
-
-  if (value === "sr.next" || value === "sr.previous" || value === "sr.act" || value === "sr.interact" || value === "sr.stopInteracting") {
-    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
-      return { status: "malformed" };
-    }
-
+  const parsedScreenReaderIntent = parseScreenReaderIntentCandidate(candidate, screenReaderActions);
+  if (parsedScreenReaderIntent.status === "matched") {
     return {
       status: "ok",
-      action: {
-        srAction: {
-          kind: "invoke",
-          method: value.slice("sr.".length) as "next" | "previous" | "act" | "interact" | "stopInteracting"
-        }
-      }
+      action: { srAction: parsedScreenReaderIntent.intent }
     };
   }
 
-  if (value === "sr.press") {
-    return parsePressPromptActionCandidate(candidate);
-  }
-
-  if (value === "sr.type") {
-    return parseTypePromptActionCandidate(candidate);
-  }
-
-  if (value === "sr.click") {
-    return parseClickPromptActionCandidate(candidate);
-  }
-
-  return { status: "malformed" };
-}
-
-function parseResolvedPromptScreenReaderActionCandidate(
-  promptAction: ResolvedPromptScreenReaderAction,
-  candidate: Record<string, unknown>
-): 
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if ("unstable" in promptAction) {
-    return promptAction.unstable === "catalog"
-      ? parseCatalogPromptActionCandidate(promptAction, candidate)
-      : parseRawPerformCandidate(promptAction, candidate);
-  }
-
-  switch (promptAction.semantic) {
-    case "press":
-      return parsePressPromptActionCandidate(candidate);
-    case "type":
-      return parseTypePromptActionCandidate(candidate);
-    case "click":
-      return parseClickPromptActionCandidate(candidate);
-    default:
-      if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
-        return { status: "malformed" };
-      }
-
-      return {
-        status: "ok",
-        action: toActionFromResolvedPromptRuntimeAction(promptAction.runtimeAction)
-      };
-  }
-}
-
-function parseCatalogPromptActionCandidate(
-  promptAction: Extract<ResolvedPromptScreenReaderAction, { unstable: "catalog" }>,
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "args"])) {
-    return { status: "malformed" };
-  }
-
-  const args = candidate.args === undefined ? undefined : parseRecord(candidate.args);
-  if (candidate.args !== undefined && !args) {
-    return { status: "malformed" };
-  }
-
-  const parsedArgs = promptAction.argsSchema.safeParse(args ?? {});
-  if (!parsedArgs.success) {
-    return { status: "malformed" };
-  }
-
-  return {
-    status: "ok",
-    action: {
-      srAction: {
-        kind: "invoke",
-        method: "perform",
-        command: {
-          source: "catalog",
-          id: promptAction.runtimeAction.id,
-          args: parsedArgs.data
-        }
-      }
-    }
-  };
-}
-
-function parseRawPerformCandidate(
-  promptAction: Extract<ResolvedPromptScreenReaderAction, { unstable: "rawPerform" }>,
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "payload"])) {
-    return { status: "malformed" };
-  }
-
-  const payload = parseRecord(candidate.payload);
-  if (!payload) {
-    return { status: "malformed" };
-  }
-
-  const parsedPayload = promptAction.payloadSchema.safeParse(payload);
-  if (!parsedPayload.success) {
-    return { status: "malformed" };
-  }
-
-  return {
-    status: "ok",
-    action: {
-      srAction: {
-        kind: "invoke",
-        method: "perform",
-        command: { source: "raw", payload: parsedPayload.data }
-      }
-    }
-  };
-}
-
-function parsePressPromptActionCandidate(
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "key"])) {
-    return { status: "malformed" };
-  }
-
-  const key = typeof candidate.key === "string" && candidate.key.trim()
-    ? candidate.key.trim()
-    : undefined;
-  if (!key) {
-    return { status: "malformed" };
-  }
-
-  return {
-    status: "ok",
-    action: { srAction: { kind: "invoke", method: "press", key } }
-  };
-}
-
-function parseTypePromptActionCandidate(
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "text"])) {
-    return { status: "malformed" };
-  }
-
-  const text = typeof candidate.text === "string" && candidate.text.length > 0
-    ? candidate.text
-    : undefined;
-  if (!text) {
-    return { status: "malformed" };
-  }
-
-  return {
-    status: "ok",
-    action: { srAction: { kind: "invoke", method: "type", text } }
-  };
-}
-
-function parseClickPromptActionCandidate(
-  candidate: Record<string, unknown>
-):
-  | { status: "ok"; action: Action }
-  | { status: "malformed" } {
-  if (hasUnexpectedKeys(candidate, ["action", "rationale", "button", "clickCount"])) {
-    return { status: "malformed" };
-  }
-
-  const button = parseClickButton(candidate.button);
-  if (candidate.button !== undefined && button === undefined) {
-    return { status: "malformed" };
-  }
-
-  const clickCount = parseClickCount(candidate.clickCount);
-  if (candidate.clickCount !== undefined && clickCount === undefined) {
-    return { status: "malformed" };
-  }
-
-  const options = button !== undefined || clickCount !== undefined
-    ? {
-        ...(button !== undefined ? { button } : {}),
-        ...(clickCount !== undefined ? { clickCount } : {})
-      }
-    : undefined;
-
-  return {
-    status: "ok",
-    action: {
-      srAction: {
-        kind: "invoke",
-        method: "click",
-        ...(options ? { options } : {})
-      }
-    }
-  };
-}
-
-function toActionFromResolvedPromptRuntimeAction(
-  action: ResolvedPromptScreenReaderAction["runtimeAction"]
-): Action {
-  if (action.kind === "read") {
-    return { srAction: { kind: "read", method: action.method } };
-  }
-
-  if (action.kind === "maintenance") {
-    return { srAction: { kind: "maintenance", method: action.method } };
-  }
-
-  if (action.method === "perform") {
-    if (action.source === "catalog") {
-      return {
-        srAction: {
-          kind: "invoke",
-          method: "perform",
-          command: { source: "catalog", id: action.id }
-        }
-      };
-    }
-
-    return {
-      srAction: {
-        kind: "invoke",
-        method: "perform",
-        command: { source: "raw", payload: {} }
-      }
-    };
-  }
-
-  switch (action.method) {
-    case "next":
-    case "previous":
-    case "act":
-    case "interact":
-    case "stopInteracting":
-      return {
-        srAction: {
-          kind: "invoke",
-          method: action.method
-        }
-      };
-    case "press":
-    case "type":
-    case "click":
-      throw new Error(`Parameterized action "${action.method}" must be parsed with dedicated fields.`);
-  }
+  return parsedScreenReaderIntent.status === "malformed"
+    ? { status: "malformed" }
+    : { status: "malformed" };
 }
 
 function hasUnexpectedKeys(candidate: Record<string, unknown>, allowedKeys: readonly string[]): boolean {
   return Object.keys(candidate).some((key) => !allowedKeys.includes(key));
-}
-
-function parseRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function parseClickButton(value: unknown): "left" | "right" | undefined {
-  return value === "left" || value === "right" ? value : undefined;
-}
-
-function parseClickCount(value: unknown): 1 | 2 | 3 | undefined {
-  return value === 1 || value === 2 || value === 3 ? value : undefined;
 }
 
 export function parseExperienceSummary(raw: string): ExperienceSummary {

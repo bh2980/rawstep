@@ -17,6 +17,7 @@ export type ScreenReaderActionSource = {
   semantic: string;
   helperPath: string;
   kind: "invoke" | "read" | "maintenance" | "catalog";
+  argumentKind?: "none" | "key" | "text" | "click";
   backendSupport: readonly ScreenReaderBackendId[];
   catalogIdsByBackend?: Partial<Record<ScreenReaderBackendId, string>>;
 };
@@ -55,9 +56,9 @@ export const screenReaderActionSource: readonly ScreenReaderActionSource[] = [
   { semantic: "act", helperPath: "act", kind: "invoke", backendSupport: allBackends },
   { semantic: "interact", helperPath: "interact", kind: "invoke", backendSupport: allBackends },
   { semantic: "stopInteracting", helperPath: "stopInteracting", kind: "invoke", backendSupport: allBackends },
-  { semantic: "press", helperPath: "press", kind: "invoke", backendSupport: allBackends },
-  { semantic: "type", helperPath: "type", kind: "invoke", backendSupport: allBackends },
-  { semantic: "click", helperPath: "click", kind: "invoke", backendSupport: allBackends },
+  { semantic: "press", helperPath: "press", kind: "invoke", argumentKind: "key", backendSupport: allBackends },
+  { semantic: "type", helperPath: "type", kind: "invoke", argumentKind: "text", backendSupport: allBackends },
+  { semantic: "click", helperPath: "click", kind: "invoke", argumentKind: "click", backendSupport: allBackends },
   {
     semantic: "heading.next",
     helperPath: "heading.next",

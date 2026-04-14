@@ -1,17 +1,21 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
   ConfiguredKeyboardAction,
-  ConfiguredStableScreenReaderAction,
-  ConfiguredUnstableScreenReaderAction,
   ScreenshotPolicy
 } from "@rawstep/core";
 import {
-  SCREEN_READER_SEMANTICS_BY_BACKEND,
+  type ScreenReaderExtensionCatalogActionRef,
+  type ScreenReaderExtensionRawPerformActionRef,
+  type ScreenReaderStableActionRef,
   type ScreenReaderBackendId
 } from "@rawstep/action-catalog";
 import type { MemorySetting } from "./shared";
 import { kb } from "./keyboard-actions";
-import { sr, srUnstable } from "./screenreader-actions";
+import {
+  BackendStableScreenReaderSemantic,
+  sr,
+  srx
+} from "./screenreader-actions";
 
 type SharedModeConfig = {
   outDir: string;
@@ -31,18 +35,15 @@ type KeyboardModeConfig = SharedModeConfig & {
   screenReaderBackend?: never;
 };
 
-type BackendStableScreenReaderSemantic<TBackend extends ScreenReaderBackendId> =
-  (typeof SCREEN_READER_SEMANTICS_BY_BACKEND)[TBackend][number];
-
 type BackendConfiguredStableScreenReaderAction<TBackend extends ScreenReaderBackendId> = Extract<
-  ConfiguredStableScreenReaderAction,
+  ScreenReaderStableActionRef,
   { semantic: BackendStableScreenReaderSemantic<TBackend> }
 >;
 
 type BackendConfiguredUnstableScreenReaderAction<TBackend extends ScreenReaderBackendId> =
   TBackend extends "guidepup-virtual"
-    ? Extract<ConfiguredUnstableScreenReaderAction, { unstable: "catalog" }>
-    : ConfiguredUnstableScreenReaderAction;
+    ? ScreenReaderExtensionCatalogActionRef
+    : ScreenReaderExtensionCatalogActionRef | ScreenReaderExtensionRawPerformActionRef;
 
 type BackendConfiguredScreenReaderAction<TBackend extends ScreenReaderBackendId> =
   | BackendConfiguredStableScreenReaderAction<TBackend>
@@ -91,4 +92,4 @@ export function defineConfig<const TConfig extends RawstepConfig>(config: TConfi
 
 export { kb };
 export { sr };
-export { srUnstable };
+export { srx };
