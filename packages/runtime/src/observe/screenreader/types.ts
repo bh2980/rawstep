@@ -7,12 +7,10 @@ import type {
   ScreenReaderCapabilities,
   ScreenReaderObservation
 } from "@rawstep/core";
+import { SCREEN_READER_BACKEND_IDS } from "@rawstep/action-catalog";
 import type { Page } from "playwright";
-export const SCREEN_READER_BACKEND_IDS = [
-  "guidepup-voiceover",
-  "guidepup-nvda",
-  "guidepup-virtual"
-] as const;
+
+export { SCREEN_READER_BACKEND_IDS };
 
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
 

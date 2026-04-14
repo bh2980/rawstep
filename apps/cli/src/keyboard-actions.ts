@@ -4,6 +4,8 @@ import type {
   ResolvedPromptKeyboardAction
 } from "@rawstep/core";
 import { isAllowedKey, SUPPORTED_KEY_LABELS } from "@rawstep/core";
+import { KEYBOARD_HELPER_PATH_TO_KEY } from "@rawstep/action-catalog";
+import { buildNestedHelperTree, type ExpandDeep, type PathToTree, type UnionToIntersection } from "./helper-tree";
 
 type KeyboardActionOptions = {
   hint?: string;
@@ -11,34 +13,22 @@ type KeyboardActionOptions = {
 
 type ConfiguredKeyboardActionShape = Omit<ConfiguredKeyboardAction, never>;
 
-export const kb = {
-  tab: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Tab", options),
-  shiftTab: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Shift+Tab", options),
-  backspace: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Backspace", options),
-  delete: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Delete", options),
-  enter: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Enter", options),
-  shiftEnter: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Shift+Enter", options),
-  space: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Space", options),
-  escape: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Escape", options),
-  home: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Home", options),
-  end: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("End", options),
-  mod: {
-    a: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+A", options),
-    backspace: (options?: KeyboardActionOptions) =>
-      buildConfiguredKeyboardAction("Mod+Backspace", options),
-    delete: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Delete", options),
-    z: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Z", options),
-    shiftZ: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("Mod+Shift+Z", options)
-  },
-  arrow: {
-    up: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowUp", options),
-    down: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowDown", options),
-    left: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowLeft", options),
-    right: (options?: KeyboardActionOptions) => buildConfiguredKeyboardAction("ArrowRight", options)
-  }
-} as const;
+type KeyboardHelperPath = keyof typeof KEYBOARD_HELPER_PATH_TO_KEY & string;
 
-export type KeyboardHelperApi = typeof kb;
+export type KeyboardHelperApi = ExpandDeep<
+  UnionToIntersection<{
+    [Path in KeyboardHelperPath]: PathToTree<
+      Path,
+      (options?: KeyboardActionOptions) => ConfiguredKeyboardAction
+    >;
+  }[KeyboardHelperPath]>
+>;
+
+export const kb = buildNestedHelperTree(
+  KEYBOARD_HELPER_PATH_TO_KEY,
+  (key) => (options?: KeyboardActionOptions) =>
+    buildConfiguredKeyboardAction(key as ConfiguredKeyboardActionShape["key"], options)
+) as KeyboardHelperApi;
 
 export function parseConfiguredKeyboardActions(
   value: unknown,

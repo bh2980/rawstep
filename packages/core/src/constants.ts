@@ -1,43 +1,17 @@
-export const SUPPORTED_KEYS = [
-  "Tab",
-  "Shift+Tab",
-  "Home",
-  "End",
-  "ArrowUp",
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "Backspace",
-  "Delete",
-  "Enter",
-  "Shift+Enter",
-  "Space",
-  "Escape",
-  "Mod+A",
-  "Mod+Backspace",
-  "Mod+Delete",
-  "Mod+Z",
-  "Mod+Shift+Z"
-] as const;
+import {
+  DEFAULT_ALLOWED_KEYS,
+  SUPPORTED_KEYS,
+  SUPPORTED_KEY_LABELS
+} from "@rawstep/action-catalog";
 
-export const DEFAULT_ALLOWED_KEYS = [
-  "Tab",
-  "Shift+Tab",
-  "Home",
-  "End",
-  "ArrowUp",
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "Enter",
-  "Space",
-  "Escape"
-] as const;
+export {
+  DEFAULT_ALLOWED_KEYS,
+  SUPPORTED_KEYS,
+  SUPPORTED_KEY_LABELS
+};
 
 // Backward-compatible alias for callers that still import ALLOWED_KEYS as the default preset.
 export const ALLOWED_KEYS = DEFAULT_ALLOWED_KEYS;
-
-export const SUPPORTED_KEY_LABELS = SUPPORTED_KEYS.join(", ");
 
 export const SCREEN_READER_ACTION_KINDS = [
   "invoke",

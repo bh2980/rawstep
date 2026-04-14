@@ -1,4 +1,15 @@
 import {
+  SCREEN_READER_ACTION_DEFINITIONS,
+  SCREEN_READER_CATALOG_IDS_BY_SEMANTIC,
+  SCREEN_READER_CATALOG_SEMANTICS,
+  SCREEN_READER_CLI_TOKEN_LABELS,
+  SCREEN_READER_HELPER_PATH_TO_SEMANTIC,
+  SCREEN_READER_INVOKE_SEMANTICS,
+  SCREEN_READER_MAINTENANCE_SEMANTICS,
+  SCREEN_READER_READ_SEMANTICS,
+  SCREEN_READER_SEMANTIC_LABELS
+} from "@rawstep/action-catalog";
+import {
   supportsScreenReaderAction,
   type AllowedScreenReaderAction,
   type ConfiguredScreenReaderAction,
@@ -11,6 +22,7 @@ import {
 } from "@rawstep/core";
 import type { ScreenReaderBackendId } from "@rawstep/runtime";
 import { z } from "zod";
+import { buildNestedHelperTree, type ExpandDeep, type PathToTree, type UnionToIntersection } from "./helper-tree";
 
 type ScreenReaderActionOptions = {
   hint?: string;
@@ -25,33 +37,13 @@ type CatalogConfiguredScreenReaderAction =
 type RawPerformConfiguredScreenReaderAction =
   ConfiguredUnstableScreenReaderAction & { unstable: "rawPerform" };
 
-type BuiltInCatalogSemantic =
-  | "heading.next"
-  | "heading.previous"
-  | "heading.level.1.next"
-  | "heading.level.1.previous"
-  | "heading.level.2.next"
-  | "heading.level.2.previous"
-  | "heading.level.3.next"
-  | "heading.level.3.previous"
-  | "heading.level.4.next"
-  | "heading.level.4.previous"
-  | "heading.level.5.next"
-  | "heading.level.5.previous"
-  | "heading.level.6.next"
-  | "heading.level.6.previous"
-  | "form.next"
-  | "form.previous"
-  | "link.next"
-  | "link.previous"
-  | "button.next"
-  | "button.previous"
-  | "landmark.next"
-  | "landmark.previous"
-  | "list.next"
-  | "list.previous"
-  | "table.next"
-  | "table.previous";
+type BuiltInCatalogSemantic = (typeof SCREEN_READER_CATALOG_SEMANTICS)[number];
+type ScreenReaderActionDefinition = {
+  helperPath: string;
+  kind: "invoke" | "read" | "maintenance" | "catalog";
+  backendSupport: readonly ScreenReaderBackendId[];
+  catalogIdsByBackend: Partial<Record<ScreenReaderBackendId, string>>;
+};
 
 type ConfiguredStableScreenReaderActionShape = Omit<ConfiguredStableScreenReaderAction, never>;
 
@@ -67,337 +59,45 @@ type ScreenReaderUnstableRawPerformOptions<TSchema extends z.ZodObject<any>> = {
   payloadExample: z.input<TSchema>;
 };
 
-const SIMPLE_INVOKE_SEMANTICS = new Set([
-  "next",
-  "previous",
-  "act",
-  "interact",
-  "stopInteracting",
-  "press",
-  "type",
-  "click"
-] as const satisfies readonly ScreenReaderSemanticAction[]);
+const SIMPLE_INVOKE_SEMANTICS = new Set(
+  SCREEN_READER_INVOKE_SEMANTICS as readonly ScreenReaderSemanticAction[]
+);
 
-const READ_SEMANTICS = new Set([
-  "read.itemText",
-  "read.itemTextLog",
-  "read.lastSpokenPhrase",
-  "read.spokenPhraseLog"
-] as const satisfies readonly ScreenReaderSemanticAction[]);
+const READ_SEMANTICS = new Set(
+  SCREEN_READER_READ_SEMANTICS as readonly ScreenReaderSemanticAction[]
+);
 
-const CLEAR_SEMANTICS = new Set([
-  "clear.itemTextLog",
-  "clear.spokenPhraseLog"
-] as const satisfies readonly ScreenReaderSemanticAction[]);
+const CLEAR_SEMANTICS = new Set(
+  SCREEN_READER_MAINTENANCE_SEMANTICS as readonly ScreenReaderSemanticAction[]
+);
 
-const BUILTIN_CATALOG_SEMANTICS = {
-  "heading.next": {
-    "guidepup-voiceover": "keyboard.findNextHeading",
-    "guidepup-nvda": "keyboard.moveToNextHeading",
-    "guidepup-virtual": "commands.moveToNextHeading"
-  },
-  "heading.previous": {
-    "guidepup-voiceover": "keyboard.findPreviousHeading",
-    "guidepup-nvda": "keyboard.moveToPreviousHeading",
-    "guidepup-virtual": "commands.moveToPreviousHeading"
-  },
-  "form.next": {
-    "guidepup-voiceover": "keyboard.findNextControl",
-    "guidepup-nvda": "keyboard.moveToNextFormField",
-    "guidepup-virtual": "commands.moveToNextForm"
-  },
-  "form.previous": {
-    "guidepup-voiceover": "keyboard.findPreviousControl",
-    "guidepup-nvda": "keyboard.moveToPreviousFormField",
-    "guidepup-virtual": "commands.moveToPreviousForm"
-  },
-  "heading.level.1.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel1",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel1"
-  },
-  "heading.level.1.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel1",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel1"
-  },
-  "heading.level.2.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel2",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel2"
-  },
-  "heading.level.2.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel2",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel2"
-  },
-  "heading.level.3.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel3",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel3"
-  },
-  "heading.level.3.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel3",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel3"
-  },
-  "heading.level.4.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel4",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel4"
-  },
-  "heading.level.4.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel4",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel4"
-  },
-  "heading.level.5.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel5",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel5"
-  },
-  "heading.level.5.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel5",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel5"
-  },
-  "heading.level.6.next": {
-    "guidepup-nvda": "keyboard.moveToNextHeadingLevel6",
-    "guidepup-virtual": "commands.moveToNextHeadingLevel6"
-  },
-  "heading.level.6.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel6",
-    "guidepup-virtual": "commands.moveToPreviousHeadingLevel6"
-  },
-  "link.next": {
-    "guidepup-nvda": "keyboard.moveToNextLink",
-    "guidepup-virtual": "commands.moveToNextLink"
-  },
-  "link.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousLink",
-    "guidepup-virtual": "commands.moveToPreviousLink"
-  },
-  "button.next": {
-    "guidepup-voiceover": "commander.FIND_NEXT_BUTTON",
-    "guidepup-nvda": "keyboard.moveToNextButton"
-  },
-  "button.previous": {
-    "guidepup-voiceover": "commander.FIND_PREVIOUS_BUTTON",
-    "guidepup-nvda": "keyboard.moveToPreviousButton"
-  },
-  "landmark.next": {
-    "guidepup-voiceover": "commander.FIND_NEXT_LANDMARK",
-    "guidepup-nvda": "keyboard.moveToNextLandmark",
-    "guidepup-virtual": "commands.moveToNextLandmark"
-  },
-  "landmark.previous": {
-    "guidepup-voiceover": "commander.FIND_PREVIOUS_LANDMARK",
-    "guidepup-nvda": "keyboard.moveToPreviousLandmark",
-    "guidepup-virtual": "commands.moveToPreviousLandmark"
-  },
-  "list.next": {
-    "guidepup-nvda": "keyboard.moveToNextList"
-  },
-  "list.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousList"
-  },
-  "table.next": {
-    "guidepup-nvda": "keyboard.moveToNextTable"
-  },
-  "table.previous": {
-    "guidepup-nvda": "keyboard.moveToPreviousTable"
-  }
-} as const satisfies Record<
-  BuiltInCatalogSemantic,
-  Partial<Record<ScreenReaderBackendId, string>>
+type ScreenReaderHelperPath = keyof typeof SCREEN_READER_HELPER_PATH_TO_SEMANTIC & string;
+
+export type ScreenReaderHelperApi = ExpandDeep<
+  UnionToIntersection<{
+    [Path in ScreenReaderHelperPath]: PathToTree<
+      Path,
+      (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<
+        (typeof SCREEN_READER_HELPER_PATH_TO_SEMANTIC)[Path]
+      >
+    >;
+  }[ScreenReaderHelperPath]>
 >;
 
-const BUILTIN_CATALOG_SEMANTIC_TOKENS = [
-  "heading.next",
-  "heading.previous",
-  "heading.level.1.next",
-  "heading.level.1.previous",
-  "heading.level.2.next",
-  "heading.level.2.previous",
-  "heading.level.3.next",
-  "heading.level.3.previous",
-  "heading.level.4.next",
-  "heading.level.4.previous",
-  "heading.level.5.next",
-  "heading.level.5.previous",
-  "heading.level.6.next",
-  "heading.level.6.previous",
-  "form.next",
-  "form.previous",
-  "link.next",
-  "link.previous",
-  "button.next",
-  "button.previous",
-  "landmark.next",
-  "landmark.previous",
-  "list.next",
-  "list.previous",
-  "table.next",
-  "table.previous"
-] as const satisfies readonly BuiltInCatalogSemantic[];
+export const sr = buildNestedHelperTree(
+  SCREEN_READER_HELPER_PATH_TO_SEMANTIC,
+  (semantic) => (options?: ScreenReaderActionOptions) =>
+    buildConfiguredScreenReaderAction(
+      semantic as ConfiguredStableScreenReaderActionShape["semantic"],
+      options
+    )
+) as ScreenReaderHelperApi;
 
-const SCREEN_READER_SEMANTIC_TOKENS = [
-  "next",
-  "previous",
-  "act",
-  "interact",
-  "stopInteracting",
-  "press",
-  "type",
-  "click",
-  ...BUILTIN_CATALOG_SEMANTIC_TOKENS,
-  "read.itemText",
-  "read.itemTextLog",
-  "read.lastSpokenPhrase",
-  "read.spokenPhraseLog",
-  "clear.itemTextLog",
-  "clear.spokenPhraseLog"
-] as const;
-
-const SCREEN_READER_SEMANTIC_TOKEN_LABELS = SCREEN_READER_SEMANTIC_TOKENS.join(", ");
-const SCREEN_READER_SEMANTIC_CLI_TOKENS = SCREEN_READER_SEMANTIC_TOKENS.map((token) => `sr.${token}`) as readonly string[];
-const SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS = SCREEN_READER_SEMANTIC_CLI_TOKENS.join(", ");
-
-export type ScreenReaderHelperApi = {
-  next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"next">;
-  previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"previous">;
-  act: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"act">;
-  interact: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"interact">;
-  stopInteracting: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"stopInteracting">;
-  press: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"press">;
-  type: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"type">;
-  click: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"click">;
-  heading: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.previous">;
-    level1: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.1.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.1.previous">;
-    };
-    level2: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.2.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.2.previous">;
-    };
-    level3: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.3.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.3.previous">;
-    };
-    level4: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.4.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.4.previous">;
-    };
-    level5: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.5.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.5.previous">;
-    };
-    level6: {
-      next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.6.next">;
-      previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"heading.level.6.previous">;
-    };
-  };
-  form: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"form.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"form.previous">;
-  };
-  link: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"link.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"link.previous">;
-  };
-  button: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"button.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"button.previous">;
-  };
-  landmark: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"landmark.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"landmark.previous">;
-  };
-  list: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"list.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"list.previous">;
-  };
-  table: {
-    next: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"table.next">;
-    previous: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"table.previous">;
-  };
-  read: {
-    itemText: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.itemText">;
-    itemTextLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.itemTextLog">;
-    lastSpokenPhrase: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.lastSpokenPhrase">;
-    spokenPhraseLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"read.spokenPhraseLog">;
-  };
-  clear: {
-    itemTextLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"clear.itemTextLog">;
-    spokenPhraseLog: (options?: ScreenReaderActionOptions) => StableConfiguredScreenReaderActionFor<"clear.spokenPhraseLog">;
-  };
-};
-
-export const sr: ScreenReaderHelperApi = {
-  next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("next", options),
-  previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("previous", options),
-  act: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("act", options),
-  interact: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("interact", options),
-  stopInteracting: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("stopInteracting", options),
-  press: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("press", options),
-  type: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("type", options),
-  click: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("click", options),
-  heading: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.previous", options),
-    level1: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.1.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.1.previous", options)
-    },
-    level2: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.2.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.2.previous", options)
-    },
-    level3: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.3.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.3.previous", options)
-    },
-    level4: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.4.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.4.previous", options)
-    },
-    level5: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.5.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.5.previous", options)
-    },
-    level6: {
-      next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.6.next", options),
-      previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("heading.level.6.previous", options)
-    }
-  },
-  form: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("form.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("form.previous", options)
-  },
-  link: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("link.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("link.previous", options)
-  },
-  button: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("button.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("button.previous", options)
-  },
-  landmark: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("landmark.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("landmark.previous", options)
-  },
-  list: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("list.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("list.previous", options)
-  },
-  table: {
-    next: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("table.next", options),
-    previous: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("table.previous", options)
-  },
-  read: {
-    itemText: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("read.itemText", options),
-    itemTextLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("read.itemTextLog", options),
-    lastSpokenPhrase: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("read.lastSpokenPhrase", options),
-    spokenPhraseLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("read.spokenPhraseLog", options)
-  },
-  clear: {
-    itemTextLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.itemTextLog", options),
-    spokenPhraseLog: (options?: ScreenReaderActionOptions) => buildConfiguredScreenReaderAction("clear.spokenPhraseLog", options)
-  }
-};
+function getScreenReaderActionDefinition(
+  semantic: ScreenReaderSemanticAction
+): ScreenReaderActionDefinition {
+  return SCREEN_READER_ACTION_DEFINITIONS[semantic] as ScreenReaderActionDefinition;
+}
 
 export type ScreenReaderUnstableHelperApi = {
   catalog: <TSchema extends z.ZodObject<any>>(
@@ -554,7 +254,7 @@ function parseConfiguredScreenReaderAction(
 
   const semantic = candidate.semantic;
   if (!isScreenReaderSemanticAction(semantic)) {
-    throw new Error(`${label}.semantic must be one of ${SCREEN_READER_SEMANTIC_TOKEN_LABELS}.`);
+    throw new Error(`${label}.semantic must be one of ${SCREEN_READER_SEMANTIC_LABELS}.`);
   }
 
   const hint = candidate.hint === undefined
@@ -570,12 +270,12 @@ function parseConfiguredScreenReaderActionToken(
   label: string
 ): ConfiguredScreenReaderAction {
   if (!token.startsWith("sr.")) {
-    throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS}.`);
+    throw new Error(`${label} must be one of ${SCREEN_READER_CLI_TOKEN_LABELS}.`);
   }
 
   const semantic = token.slice(3);
   if (!isScreenReaderSemanticAction(semantic)) {
-    throw new Error(`${label} must be one of ${SCREEN_READER_SEMANTIC_CLI_TOKEN_LABELS}.`);
+    throw new Error(`${label} must be one of ${SCREEN_READER_CLI_TOKEN_LABELS}.`);
   }
 
   return buildConfiguredScreenReaderAction(semantic);
@@ -704,31 +404,39 @@ function buildDefaultConfiguredScreenReaderActions(
 ): ConfiguredScreenReaderAction[] {
   const actions: ConfiguredScreenReaderAction[] = [];
 
-  for (const semantic of ["next", "previous", "act", "interact", "stopInteracting", "press", "type", "click"] as const) {
-    if (capabilities.invoke[semantic]) {
-      actions.push(buildConfiguredScreenReaderAction(semantic));
+  for (const semantic of Object.keys(SCREEN_READER_ACTION_DEFINITIONS) as ScreenReaderSemanticAction[]) {
+    const definition = getScreenReaderActionDefinition(semantic);
+    if (!definition.backendSupport.includes(backendId)) {
+      continue;
     }
-  }
 
-  for (const semantic of BUILTIN_CATALOG_SEMANTIC_TOKENS) {
-    const catalogId = getBuiltInCatalogId(semantic, backendId);
+    if (definition.kind === "invoke" && capabilities.invoke[semantic as keyof ScreenReaderCapabilities["invoke"]]) {
+      actions.push(buildConfiguredScreenReaderAction(semantic));
+      continue;
+    }
+
+    if (definition.kind === "read") {
+      const method = semantic.slice("read.".length) as keyof ScreenReaderCapabilities["read"];
+      if (capabilities.read[method]) {
+        actions.push(buildConfiguredScreenReaderAction(semantic));
+      }
+      continue;
+    }
+
+    if (definition.kind === "maintenance") {
+      const method = semantic === "clear.itemTextLog"
+        ? "clearItemTextLog"
+        : "clearSpokenPhraseLog";
+      if (capabilities.maintenance[method]) {
+        actions.push(buildConfiguredScreenReaderAction(semantic));
+      }
+      continue;
+    }
+
+    const catalogId = definition.catalogIdsByBackend[backendId];
     if (catalogId && hasCatalogId(capabilities, catalogId)) {
       actions.push(buildConfiguredScreenReaderAction(semantic));
     }
-  }
-
-  for (const semantic of ["read.itemText", "read.itemTextLog", "read.lastSpokenPhrase", "read.spokenPhraseLog"] as const) {
-    const method = semantic.slice("read.".length) as keyof ScreenReaderCapabilities["read"];
-    if (capabilities.read[method]) {
-      actions.push(buildConfiguredScreenReaderAction(semantic));
-    }
-  }
-
-  if (capabilities.maintenance.clearItemTextLog) {
-    actions.push(buildConfiguredScreenReaderAction("clear.itemTextLog"));
-  }
-  if (capabilities.maintenance.clearSpokenPhraseLog) {
-    actions.push(buildConfiguredScreenReaderAction("clear.spokenPhraseLog"));
   }
 
   return actions;
@@ -799,24 +507,18 @@ function ensureOnlyKeys(
 
 function isScreenReaderSemanticAction(value: unknown): value is ScreenReaderSemanticAction {
   return typeof value === "string"
-    && [
-      ...SIMPLE_INVOKE_SEMANTICS,
-      ...BUILTIN_CATALOG_SEMANTIC_TOKENS,
-      ...READ_SEMANTICS,
-      ...CLEAR_SEMANTICS
-    ].includes(value as ScreenReaderSemanticAction);
+    && Object.prototype.hasOwnProperty.call(SCREEN_READER_ACTION_DEFINITIONS, value);
 }
 
 function isBuiltInCatalogSemantic(value: ScreenReaderSemanticAction): value is BuiltInCatalogSemantic {
-  return BUILTIN_CATALOG_SEMANTIC_TOKENS.includes(value as BuiltInCatalogSemantic);
+  return SCREEN_READER_CATALOG_SEMANTICS.includes(value as BuiltInCatalogSemantic);
 }
 
 function getBuiltInCatalogId(
   semantic: BuiltInCatalogSemantic,
   backendId: ScreenReaderBackendId
 ): string | undefined {
-  const mapping = BUILTIN_CATALOG_SEMANTICS[semantic] as Partial<Record<ScreenReaderBackendId, string>>;
-  return mapping[backendId];
+  return (SCREEN_READER_CATALOG_IDS_BY_SEMANTIC[semantic] as Partial<Record<ScreenReaderBackendId, string>> | undefined)?.[backendId];
 }
 
 function parsePromptObjectSchema(

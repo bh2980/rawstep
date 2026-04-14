@@ -26,6 +26,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@rawstep/action-catalog':
+        specifier: workspace:*
+        version: link:../../packages/action-catalog
       '@rawstep/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -124,6 +127,8 @@ importers:
         specifier: ^8.0.4
         version: 8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
+  packages/action-catalog: {}
+
   packages/agent:
     dependencies:
       '@ai-sdk/anthropic':
@@ -132,6 +137,9 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^1.0.0
         version: 1.0.35(zod@4.3.6)
+      '@rawstep/action-catalog':
+        specifier: workspace:*
+        version: link:../action-catalog
       '@rawstep/core':
         specifier: workspace:*
         version: link:../core
@@ -139,7 +147,11 @@ importers:
         specifier: ^5.0.0
         version: 5.0.172(zod@4.3.6)
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@rawstep/action-catalog':
+        specifier: workspace:*
+        version: link:../action-catalog
 
   packages/reporter:
     dependencies:
@@ -155,6 +167,9 @@ importers:
       '@guidepup/virtual-screen-reader':
         specifier: ^0.32.1
         version: 0.32.1
+      '@rawstep/action-catalog':
+        specifier: workspace:*
+        version: link:../action-catalog
       '@rawstep/agent':
         specifier: workspace:*
         version: link:../agent

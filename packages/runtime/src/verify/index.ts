@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { BrowserSession } from "../browser";
 import type {
   RequestVerificationRule,
@@ -9,6 +10,27 @@ import type {
 } from "@rawstep/core";
 
 export const MAX_VERIFICATION_RETRIES = 2;
+
+const nonEmptyString = z.string().min(1);
+
+const verifyRuleSchema: z.ZodType<VerifyRule> = z.union([
+  z.object({ titleIncludes: nonEmptyString }).strict(),
+  z.object({ urlIncludes: nonEmptyString }).strict(),
+  z.object({ textVisible: nonEmptyString }).strict(),
+  z.object({
+    requestSeen: z.object({
+      urlIncludes: nonEmptyString,
+      method: z.string().optional()
+    })
+  }).strict() as z.ZodType<RequestVerificationRule>,
+  z.object({
+    responseSeen: z.object({
+      urlIncludes: nonEmptyString,
+      method: z.string().optional(),
+      status: z.number().optional()
+    })
+  }).strict() as z.ZodType<ResponseVerificationRule>
+]);
 
 export async function verifyTask(
   task: Task,
@@ -64,7 +86,7 @@ export async function evaluateVerifyRule(
     return matchRequestRule(rule, browser);
   }
 
-  return matchResponseRule(rule, browser);
+  return matchResponseRule(rule as ResponseVerificationRule, browser);
 }
 
 export function formatVerificationFeedback(result: VerificationRecord): string {
@@ -80,7 +102,7 @@ export function validateVerifySpec(raw: unknown): VerifySpec {
     throw new Error('Task file must include verify with a non-empty "all" array.');
   }
 
-  if (typeof raw !== "object" || !("all" in raw)) {
+  if (typeof raw !== "object" || !("all" in (raw as object))) {
     throw new Error('Task verify must be an object with a non-empty "all" array.');
   }
 
@@ -90,87 +112,27 @@ export function validateVerifySpec(raw: unknown): VerifySpec {
   }
 
   return {
-    all: all.map((item) => validateVerifyRule(item))
-  };
-}
+    all: all.map((item, index) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item)) {
+        throw new Error(`Task verify.all[${index}] must be an object with exactly one rule type.`);
+      }
 
-function validateVerifyRule(raw: unknown): VerifyRule {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Each verify rule must be an object.");
-  }
+      const topLevelKeys = Object.keys(item as Record<string, unknown>);
+      if (topLevelKeys.length !== 1) {
+        throw new Error(`Task verify.all[${index}] must be an object with exactly one rule type.`);
+      }
 
-  const entries = Object.entries(raw);
-  if (entries.length !== 1) {
-    throw new Error("Each verify rule must contain exactly one rule type.");
-  }
-
-  const [key, value] = entries[0];
-  if (key === "titleIncludes" || key === "urlIncludes" || key === "textVisible") {
-    if (typeof value !== "string" || !value.trim()) {
-      throw new Error(`Verify rule "${key}" must be a non-empty string.`);
-    }
-
-    return { [key]: value } as VerifyRule;
-  }
-
-  if (key === "requestSeen") {
-    return { requestSeen: validateRequestRule(value) };
-  }
-
-  if (key === "responseSeen") {
-    return { responseSeen: validateResponseRule(value) };
-  }
-
-  throw new Error(`Unsupported verify rule: ${key}.`);
-}
-
-function validateRequestRule(raw: unknown): RequestVerificationRule["requestSeen"] {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error('Verify rule "requestSeen" must be an object.');
-  }
-
-  const urlIncludes = (raw as { urlIncludes?: unknown }).urlIncludes;
-  const method = (raw as { method?: unknown }).method;
-
-  if (typeof urlIncludes !== "string" || !urlIncludes.trim()) {
-    throw new Error('Verify rule "requestSeen.urlIncludes" must be a non-empty string.');
-  }
-
-  if (method !== undefined && typeof method !== "string") {
-    throw new Error('Verify rule "requestSeen.method" must be a string when provided.');
-  }
-
-  return {
-    urlIncludes,
-    method
-  };
-}
-
-function validateResponseRule(raw: unknown): ResponseVerificationRule["responseSeen"] {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error('Verify rule "responseSeen" must be an object.');
-  }
-
-  const urlIncludes = (raw as { urlIncludes?: unknown }).urlIncludes;
-  const method = (raw as { method?: unknown }).method;
-  const status = (raw as { status?: unknown }).status;
-
-  if (typeof urlIncludes !== "string" || !urlIncludes.trim()) {
-    throw new Error('Verify rule "responseSeen.urlIncludes" must be a non-empty string.');
-  }
-
-  if (method !== undefined && typeof method !== "string") {
-    throw new Error('Verify rule "responseSeen.method" must be a string when provided.');
-  }
-
-  if (status !== undefined && typeof status !== "number") {
-    throw new Error('Verify rule "responseSeen.status" must be a number when provided.');
-  }
-
-  return {
-    urlIncludes,
-    method,
-    status
+      const result = verifyRuleSchema.safeParse(item);
+      if (!result.success) {
+        const issue = result.error.issues[0];
+        const path = issue?.path.map(String).join(".");
+        const msg = path
+          ? `Task verify.all[${index}].${path}: ${issue?.message}`
+          : `Task verify.all[${index}] is invalid: ${issue?.message ?? "unrecognized rule type"}`;
+        throw new Error(msg);
+      }
+      return result.data;
+    })
   };
 }
 

@@ -1,3 +1,4 @@
+import { SCREEN_READER_SEMANTICS } from "@rawstep/action-catalog";
 import type {
   AllowedKey,
   ScreenReaderActionKind,
@@ -186,47 +187,7 @@ export type ScreenReaderAction =
   | { kind: "read"; method: ScreenReaderReadMethod }
   | { kind: "maintenance"; method: ScreenReaderMaintenanceMethod };
 
-export type ScreenReaderSemanticAction =
-  | "next"
-  | "previous"
-  | "act"
-  | "interact"
-  | "stopInteracting"
-  | "press"
-  | "type"
-  | "click"
-  | "heading.next"
-  | "heading.previous"
-  | "heading.level.1.next"
-  | "heading.level.1.previous"
-  | "heading.level.2.next"
-  | "heading.level.2.previous"
-  | "heading.level.3.next"
-  | "heading.level.3.previous"
-  | "heading.level.4.next"
-  | "heading.level.4.previous"
-  | "heading.level.5.next"
-  | "heading.level.5.previous"
-  | "heading.level.6.next"
-  | "heading.level.6.previous"
-  | "form.next"
-  | "form.previous"
-  | "link.next"
-  | "link.previous"
-  | "button.next"
-  | "button.previous"
-  | "landmark.next"
-  | "landmark.previous"
-  | "list.next"
-  | "list.previous"
-  | "table.next"
-  | "table.previous"
-  | "read.itemText"
-  | "read.itemTextLog"
-  | "read.lastSpokenPhrase"
-  | "read.spokenPhraseLog"
-  | "clear.itemTextLog"
-  | "clear.spokenPhraseLog";
+export type ScreenReaderSemanticAction = (typeof SCREEN_READER_SEMANTICS)[number];
 
 export type PromptObjectSchema<TOutput extends Record<string, unknown> = Record<string, unknown>> = {
   safeParse(value: unknown):
@@ -250,47 +211,12 @@ export type ResolvedPromptKeyboardAction = {
   hint?: string;
 };
 
-type ConfiguredScreenReaderActionShape =
-  | { semantic: "next"; hint?: string }
-  | { semantic: "previous"; hint?: string }
-  | { semantic: "act"; hint?: string }
-  | { semantic: "interact"; hint?: string }
-  | { semantic: "stopInteracting"; hint?: string }
-  | { semantic: "press"; hint?: string }
-  | { semantic: "type"; hint?: string }
-  | { semantic: "click"; hint?: string }
-  | { semantic: "heading.next"; hint?: string }
-  | { semantic: "heading.previous"; hint?: string }
-  | { semantic: "heading.level.1.next"; hint?: string }
-  | { semantic: "heading.level.1.previous"; hint?: string }
-  | { semantic: "heading.level.2.next"; hint?: string }
-  | { semantic: "heading.level.2.previous"; hint?: string }
-  | { semantic: "heading.level.3.next"; hint?: string }
-  | { semantic: "heading.level.3.previous"; hint?: string }
-  | { semantic: "heading.level.4.next"; hint?: string }
-  | { semantic: "heading.level.4.previous"; hint?: string }
-  | { semantic: "heading.level.5.next"; hint?: string }
-  | { semantic: "heading.level.5.previous"; hint?: string }
-  | { semantic: "heading.level.6.next"; hint?: string }
-  | { semantic: "heading.level.6.previous"; hint?: string }
-  | { semantic: "form.next"; hint?: string }
-  | { semantic: "form.previous"; hint?: string }
-  | { semantic: "link.next"; hint?: string }
-  | { semantic: "link.previous"; hint?: string }
-  | { semantic: "button.next"; hint?: string }
-  | { semantic: "button.previous"; hint?: string }
-  | { semantic: "landmark.next"; hint?: string }
-  | { semantic: "landmark.previous"; hint?: string }
-  | { semantic: "list.next"; hint?: string }
-  | { semantic: "list.previous"; hint?: string }
-  | { semantic: "table.next"; hint?: string }
-  | { semantic: "table.previous"; hint?: string }
-  | { semantic: "read.itemText"; hint?: string }
-  | { semantic: "read.itemTextLog"; hint?: string }
-  | { semantic: "read.lastSpokenPhrase"; hint?: string }
-  | { semantic: "read.spokenPhraseLog"; hint?: string }
-  | { semantic: "clear.itemTextLog"; hint?: string }
-  | { semantic: "clear.spokenPhraseLog"; hint?: string };
+type ConfiguredScreenReaderActionShape = {
+  [Semantic in ScreenReaderSemanticAction]: {
+    semantic: Semantic;
+    hint?: string;
+  };
+}[ScreenReaderSemanticAction];
 
 type ConfiguredUnstableScreenReaderActionShape =
   | {

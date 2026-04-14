@@ -15,6 +15,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@rawstep/action-catalog": "workspace:*",
     "@rawstep/agent": "workspace:*",
     "@rawstep/core": "workspace:*",
     "@rawstep/reporter": "workspace:*",
