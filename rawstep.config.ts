@@ -2,16 +2,16 @@ import {
   defineConfig,
   kb,
   sr,
-  type ProjectConfigSource
+  type ProjectConfigSource,
 } from "@rawstep/config";
 
 const config: ProjectConfigSource = defineConfig({
   version: 1,
   defaults: {
     provider: "openai-compatible",
-    model: "google/gemma-4-26b-a4b-it",
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey: process.env.OPENROUTER_API_KEY,
+    model: process.env.AI_MODEL,
+    baseURL: process.env.AI_BASE_URL,
+    apiKey: process.env.AI_API_KEY,
   },
   modes: {
     keyboard: {
@@ -56,53 +56,8 @@ const config: ProjectConfigSource = defineConfig({
         kb.end({ hint: "End는 현재 문맥의 끝으로 크게 이동할 때 사용하라." }),
       ],
     },
-    "screenreader-strict": {
-      outDir: "./.rawstep/out/sr-strict",
-      headless: false,
-      maxSteps: 200,
-      timeoutMs: 300000,
-      screenshots: "all",
-      verifierAutoComplete: true,
-      includeRationale: true,
-      includeExperienceSummary: true,
-      memory: "all",
-      screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderActions: [
-        sr.next({
-          hint: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
-        }),
-        sr.previous({
-          hint: "previous는 screen reader cursor를 이전 위치로 이동할 때 사용하라.",
-        }),
-        sr.landmark.next({
-          hint: "landmark.next는 main, navigation 같은 큰 구역을 빠르게 훑을 때 사용하라.",
-        }),
-        sr.landmark.previous({
-          hint: "landmark.previous는 이전 큰 구역으로 돌아갈 때 사용하라.",
-        }),
-        sr.heading.next({
-          hint: "heading.next는 다음 heading으로 크게 이동할 때 사용하라.",
-        }),
-        sr.heading.previous({
-          hint: "heading.previous는 이전 heading으로 돌아갈 때 사용하라.",
-        }),
-        sr.button.next({
-          hint: "button.next는 다음 버튼으로 바로 이동해 주요 CTA를 찾을 때 사용하라.",
-        }),
-        sr.button.previous({
-          hint: "button.previous는 이전 버튼으로 돌아갈 때 사용하라.",
-        }),
-        sr.act({ hint: "act는 현재 항목의 기본 동작을 실행할 때 사용하라." }),
-        sr.form.next({
-          hint: "form.next는 다음 form control로 이동할 때 사용하라.",
-        }),
-        sr.form.previous({
-          hint: "form.previous는 이전 form control로 돌아갈 때 사용하라.",
-        }),
-      ],
-    },
-    "screenreader-hybrid": {
-      outDir: "./.rawstep/out/sr-hybrid",
+    screenreader: {
+      outDir: "./.rawstep/out/screenreader",
       headless: false,
       maxSteps: 240,
       timeoutMs: 420000,

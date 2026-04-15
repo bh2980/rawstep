@@ -29,7 +29,7 @@
 1. URL
 2. 자연어로 쓴 과업 (예: *"첫 번째 상품을 장바구니에 담고 장바구니 화면을
    연다"*)
-3. 사용자 모델: `keyboard`, `screenreader-strict`, 또는 `screenreader-hybrid`
+3. 사용자 모델: `keyboard` 또는 `screenreader`
 
 그러면 Playwright로 브라우저를 띄우고, 선택한 사용자 모델과 **동일한 관측/
 행동 제약** 아래에 AI 에이전트를 앉혀 시도를 시작합니다. 모든 step이
@@ -59,23 +59,16 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `rawstep`으로 확인하
 - 마우스 없음. 자유 타이핑 없음.
 - 단, task에 `input` 이 있으면 그 안의 named input key를 가리키는 `typeText("email")` 같은 액션은 허용됩니다.
 
-### `screenreader-strict` — 순수 SR 탐색 실험 모드
+### `screenreader` — screen reader 사용자 모드
 
 - 관측 채널: 기본 screen reader backend인 [Guidepup](https://guidepup.dev/)
   계열 backend를 통해 수집되는 spoken announcement text.
 - 행동 공간: screen reader canonical action
-  (`sr.next`, `sr.previous`, `sr.heading.next`, `sr.heading.previous`,
-  `sr.form.next`, `sr.form.previous`, `sr.act`) + task input이 있을 때만 `typeText("<input-key>")`.
+  + 일반 키
+  (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + task input이 있을 때만 `typeText("<input-key>")`.
 - screenshot 없음. DOM 없음. accessibility tree 없음. 브라우저 title/URL path
   힌트도 없음. 에이전트는 말 그대로 "보지 못합니다".
-
-### `screenreader-hybrid` — 현실적 사용 모드
-
-- 관측 채널: `screenreader-strict`와 동일.
-- 행동 공간: screen reader canonical action + 일반 키
-  (`Tab`, `Shift+Tab`, `Arrow` keys, `Enter`, `Space`, `Escape`) + task input이 있을 때만 `typeText("<input-key>")`.
-- 스크린 리더 탐색과 일반 키보드 입력을 같이 허용한다.
-- 하이브리드라는 말은 **행동 공간만 넓어진다**는 뜻이다. 시야가 생기는 것은 아니다.
+- `allowedKeys` 를 비우면 예전 strict처럼 screen reader action만 남습니다.
 
 ## 관측 채널과 행동 공간을 어떻게 제한하는가
 
@@ -121,7 +114,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `rawstep`으로 확인하
 - 스크롤 위치 힌트 (`top`/`middle`/`bottom` 수준 — 스크롤바를 시각적으로
   보는 것에 준합니다. `scrollTop=1234px` 같은 정밀 수치는 주지 않습니다)
 
-**`screenreader-strict` / `screenreader-hybrid` 모드 관측**
+**`screenreader` 모드 관측**
 
 - 직전 액션 이후 screen reader가 실제로 말한 announcement 텍스트
 - observer는 내부적으로 `previousAnnouncement` 를 유지할 수 있지만, 현재 agent 프롬프트에는 `announcement` 1개와 `agent memory` 만 넣습니다.
@@ -137,7 +130,7 @@ axe로 잡고, 실제 과업이 수행 가능한지는 `rawstep`으로 확인하
 - `announcementCapture` 는 "무엇으로 잡았는가", `observeReason` 는 "왜 여기서 관측을
   닫았는가"를 뜻합니다.
 - agent 프롬프트에는 screenshot, title, urlPath를 넣지 않습니다.
-- 즉 `screenreader-hybrid` 도 일반 키를 더 쓸 수 있을 뿐, 관측 채널은 여전히 announcement-only 입니다.
+- 즉 `screenreader` 는 일반 키를 함께 쓸 수 있어도, 관측 채널은 여전히 announcement-only 입니다.
 - 다만 개발자용 trace/report에는 디버깅을 위해 step 시점 screenshot을 별도로 저장할 수 있습니다. 이 이미지는 agent 입력에는 절대 들어가지 않습니다.
 
 ### 의도적으로 주지 않는 정보
@@ -273,24 +266,28 @@ export default defineConfig({
       verifierAutoComplete: true,
       memory: 5
     },
-    "screenreader-strict": {
-      outDir: "./.rawstep/out/sr-strict",
+    screenreader: {
+      outDir: "./.rawstep/out/screenreader",
       headless: false,
-      maxSteps: 200,
-      timeoutMs: 300000,
+      maxSteps: 240,
+      timeoutMs: 420000,
       screenshots: "all",
       verifierAutoComplete: true,
       includeRationale: true,
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
+      allowedKeys: [
+        kb.tab(),
+        kb.shiftTab(),
+        kb.enter(),
+        kb.escape()
+      ],
       allowedScreenReaderActions: [
         sr.next(),
         sr.previous(),
         sr.heading.next(),
-        sr.heading.previous(),
         sr.form.next(),
-        sr.form.previous(),
         sr.act()
       ]
     }
@@ -381,7 +378,7 @@ verify:
     - textVisible: Started!
     - titleIncludes: Completed
 config:
-  mode: screenreader-strict
+  mode: screenreader
   timeoutMs: 600000
   memory: all
   headless: true
@@ -438,7 +435,7 @@ export default defineConfig({
 });
 ```
 
-**예시 2: screenreader-hybrid preset**
+**예시 2: screenreader preset**
 
 ```ts
 import { defineConfig } from "@rawstep/config";
@@ -450,8 +447,8 @@ export default defineConfig({
     model: "claude-3-5-sonnet-latest"
   },
   modes: {
-    "screenreader-hybrid": {
-      outDir: "./.rawstep/out/sr-hybrid",
+    screenreader: {
+      outDir: "./.rawstep/out/screenreader",
       maxSteps: 80,
       timeoutMs: 300000,
       memory: "all",
@@ -501,7 +498,7 @@ CLI에서 실행별로 덮어쓸 수도 있습니다.
 ```bash
 pnpm rawstep run examples/tasks/simple-cta.json \
   --config ./rawstep.config.ts \
-  --mode screenreader-hybrid \
+  --mode screenreader \
   --headless \
   --max-steps 40 \
   --timeout-ms 240000 \
@@ -524,14 +521,14 @@ pnpm rawstep run examples/tasks/simple-cta.json \
 `rawstep run` 이 지원하는 대표 플래그는 아래와 같습니다.
 
 - `--config <rawstep.config.ts>`: 명시적 config 파일 경로
-- `--mode <keyboard|screenreader-strict|screenreader-hybrid>`: 사용자 모델 선택
+- `--mode <keyboard|screenreader>`: 사용자 모델 선택
 - `--out <dir>`: 결과 출력 디렉터리
 - `--headless` / `--headed`: 브라우저 표시 여부 강제
 - `--screenshots <all|important|failure-only|none>`: screenreader 리포트용 개발자 스크린샷 저장 정책
 - `--max-steps <n>`: 최대 step 수
 - `--timeout-ms <n>`: 전체 실행 제한 시간
 - `--screen-reader-backend <guidepup-voiceover|guidepup-nvda|guidepup-virtual>`: screenreader backend 선택
-- `--allowed-keys Tab,Shift+Tab,Enter`: keyboard / hybrid 모드 키 subset 제한
+- `--allowed-keys Tab,Shift+Tab,Enter`: keyboard / screenreader 모드 키 subset 제한
 - `--allowed-screen-reader-actions sr.next,sr.act`: screenreader action subset 제한
 - `--verifier-auto-complete` / `--no-verifier-auto-complete`: verifier 자동 종료 실험 옵션
 - `--agent-memory-window <n>`: 최근 N개 step archive만 agent에게 재주입
@@ -567,7 +564,7 @@ config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있�
 모드별 제약은 다음처럼 걸립니다.
 
 - `keyboard` 모드에서는 `screenReaderBackend`, `allowedScreenReaderActions` 를 쓸 수 없습니다.
-- `screenreader-strict` 모드에서는 `allowedKeys` 를 쓸 수 없습니다.
+- `screenreader` 모드에서 `allowedKeys: []` 로 두면 예전 strict처럼 screen reader action만 남습니다.
 - backend별 지원 action 차이는 `@rawstep/action-catalog`가 중앙에서 판정합니다.
 
 ## `verify` 레퍼런스
@@ -690,8 +687,7 @@ verify:
 system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터리에서 직접 편집합니다.
 
 - [keyboard.system.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.system.md)
-- [screenreader-strict.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader-strict.system.md)
-- [screenreader-hybrid.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader-hybrid.system.md)
+- [screenreader.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader.system.md)
 - [experience-summary.system.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.system.md)
 
 이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.  

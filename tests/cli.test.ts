@@ -312,16 +312,10 @@ describe.sequential("CLI", () => {
     ]))).rejects.toThrow("Missing rawstep.config.ts");
   });
 
-  it("loads screenreader-hybrid mode tasks without rejecting them at parse time", async () => {
-    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader-hybrid");
+  it("loads screenreader mode tasks without rejecting them at parse time", async () => {
+    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader");
 
-    expect(task.mode).toBe("screenreader-hybrid");
-  });
-
-  it("loads screenreader-strict mode tasks without rejecting them at parse time", async () => {
-    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader-strict");
-
-    expect(task.mode).toBe("screenreader-strict");
+    expect(task.mode).toBe("screenreader");
   });
 
   it("loads the email login example with named inputs", async () => {
@@ -337,7 +331,7 @@ describe.sequential("CLI", () => {
   });
 
   it("rejects an unsupported screenreader mode in task files", async () => {
-    await expect(loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader" as never)).rejects.toThrow(
+    await expect(loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader-hybrid" as never)).rejects.toThrow(
       "Unsupported mode"
     );
   });
@@ -346,7 +340,7 @@ describe.sequential("CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--mode",
-      "screenreader",
+      "screenreader-strict",
       "--out",
       "./tmp/out"
     ])).toThrow("Unsupported mode");
@@ -354,7 +348,7 @@ describe.sequential("CLI", () => {
 
   it("generates usage text from config-owned CLI manifest", () => {
     expect(formatRunCommandUsage()).toContain(
-      "--mode keyboard|screenreader-strict|screenreader-hybrid"
+      "--mode keyboard|screenreader"
     );
     expect(formatRunCommandUsage()).toContain(
       "--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual"
@@ -550,7 +544,7 @@ describe.sequential("CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--mode",
-      "screenreader-strict",
+      "screenreader",
       "--out",
       "./tmp/out",
       "--screenshots",
@@ -794,8 +788,8 @@ describe.sequential("CLI", () => {
       verifierAutoComplete: false,
       memory: 5
     },
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 40,
       timeoutMs: 2500,
       screenshots: "all",
@@ -826,7 +820,7 @@ describe.sequential("CLI", () => {
         ]
       },
       config: {
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         outDir: "./task-out",
         maxSteps: 60,
         timeoutMs: 4000,
@@ -1248,7 +1242,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    screenreader-strict: {
+    screenreader: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1671,7 +1665,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-hybrid": {
+    screenreader: {
       outDir: "./sr-out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1691,7 +1685,7 @@ describe.sequential("CLI", () => {
       id: "sr-config-task",
       url: resolve("fixtures/simple-cta.html"),
       goal: "Complete the CTA task.",
-      mode: "screenreader-hybrid",
+      mode: "screenreader",
       verify: {
         all: [
           { textVisible: "Started!" },
@@ -1728,6 +1722,52 @@ describe.sequential("CLI", () => {
     ]);
   });
 
+  it("treats screenreader with allowedKeys: [] as screen reader actions only", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-keyless-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    screenreader: {
+      outDir: "./sr-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      headless: false,
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [],
+      allowedScreenReaderActions: [
+        { semantic: "heading.next" },
+        { semantic: "click" }
+      ]
+    }
+  }
+}`
+    );
+
+    const options = await resolvePlan(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader"
+    ]));
+
+    expect(options.keyboardActionPlan.allowedKeys).toEqual([]);
+    expect(options.prompt.keyboardActions).toEqual([]);
+    expect(options.screenReaderActionPlan?.refs).toEqual([
+      expect.objectContaining({ semantic: "heading.next" }),
+      expect.objectContaining({ semantic: "click" })
+    ]);
+  });
+
   it("lets CLI override screen reader backend, allowed command subsets, and task timing", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-cli-override-"));
     const configPath = join(tempDir, "rawstep.config.ts");
@@ -1742,7 +1782,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-hybrid": {
+    screenreader: {
       outDir: "./sr-out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1762,7 +1802,7 @@ describe.sequential("CLI", () => {
       id: "sr-cli-override-task",
       url: resolve("fixtures/simple-cta.html"),
       goal: "Complete the CTA task.",
-      mode: "screenreader-hybrid",
+      mode: "screenreader",
       maxSteps: 40,
       timeoutMs: 200000,
       verify: {
@@ -1820,7 +1860,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-strict": {
+    screenreader: {
       outDir: "./sr-out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1836,7 +1876,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-strict"
+      "screenreader"
     ]));
 
     expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
@@ -1870,20 +1910,12 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-strict": {
-      outDir: "./strict-out",
+    screenreader: {
+      outDir: "./screenreader-nvda-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-nvda"
-    },
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      memory: "all",
-      screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()]
     }
   }
 }`
@@ -1894,14 +1926,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-strict"
-    ]));
-    const virtualOptions = await resolvePlan(parseRunArgs([
-      resolve("examples/tasks/simple-cta.json"),
-      "--config",
-      configPath,
-      "--mode",
-      "screenreader-hybrid"
+      "screenreader"
     ]));
 
     expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
@@ -1924,6 +1949,35 @@ describe.sequential("CLI", () => {
       semantic: "heading.level.3.next",
       token: "sr.heading.level.3.next"
     }));
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    screenreader: {
+      outDir: "./screenreader-virtual-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      allowedKeys: [kb.tab()]
+    }
+  }
+}`
+    );
+
+    const virtualOptions = await resolvePlan(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader"
+    ]));
 
     expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
@@ -1959,7 +2013,7 @@ describe.sequential("CLI", () => {
     }
   },
   modes: {
-    "screenreader-hybrid": {
+    screenreader: {
       outDir: "./sr-out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1983,7 +2037,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-hybrid"
+      "screenreader"
     ]));
 
     expect(options.prompt.promptDir).toBe(join(tempDir, "custom-prompt"));
@@ -2226,7 +2280,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-hybrid": {
+    screenreader: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -2242,7 +2296,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-hybrid"
+      "screenreader"
     ]))).rejects.toThrow("must be one of guidepup-voiceover, guidepup-nvda, guidepup-virtual");
   });
 
@@ -2259,7 +2313,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-hybrid": {
+    screenreader: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -2283,7 +2337,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-hybrid"
+      "screenreader"
     ]))).rejects.toThrow('does not support action srx.catalog("commands.notReal")');
   });
 
@@ -2300,7 +2354,7 @@ describe.sequential("CLI", () => {
     model: "claude-config"
   },
   modes: {
-    "screenreader-strict": {
+    screenreader: {
       outDir: "./out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -2319,7 +2373,7 @@ describe.sequential("CLI", () => {
       "--config",
       configPath,
       "--mode",
-      "screenreader-strict"
+      "screenreader"
     ]))).rejects.toThrow('Screen reader backend "guidepup-voiceover" does not support action sr.table.next.');
   });
 
@@ -2342,19 +2396,8 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000,
       memory: 5
     },
-    "screenreader-strict": {
-      outDir: "./strict-out",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      memory: "all",
-      screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderActions: [
-        { semantic: "heading.next" },
-        { semantic: "click" }
-      ]
-    },
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -2379,22 +2422,12 @@ describe.sequential("CLI", () => {
       "guidepup-virtual"
     ]))).rejects.toThrow("screenReaderBackend is not allowed in keyboard mode");
 
-    await expect(resolvePlan(parseRunArgs([
-      resolve("examples/tasks/simple-cta.json"),
-      "--config",
-      configPath,
-      "--mode",
-      "screenreader-strict",
-      "--allowed-keys",
-      "Tab,Enter"
-    ]))).rejects.toThrow("allowedKeys is not allowed in screenreader-strict mode");
-
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
       "--mode",
-      "screenreader-hybrid",
+      "screenreader",
       "--screen-reader-backend",
       "guidepup-virtual",
       "--allowed-screen-reader-actions",

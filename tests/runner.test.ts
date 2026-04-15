@@ -131,14 +131,14 @@ describe("runTask", () => {
         expectedHeadless: true
       },
       {
-        id: "strict-virtual-default-headless",
-        mode: "screenreader-strict" as const,
+        id: "screenreader-virtual-default-headless",
+        mode: "screenreader" as const,
         backendId: "guidepup-virtual" as const,
         expectedHeadless: true
       },
       {
-        id: "hybrid-voiceover-default-headed",
-        mode: "screenreader-hybrid" as const,
+        id: "screenreader-voiceover-default-headed",
+        mode: "screenreader" as const,
         backendId: "guidepup-voiceover" as const,
         expectedHeadless: false
       }
@@ -183,7 +183,7 @@ describe("runTask", () => {
         id: "headless-option",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Check browser launch options.",
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         maxSteps: 1,
         timeoutMs: 60_000,
         verify: {
@@ -215,7 +215,7 @@ describe("runTask", () => {
         id: "native-sr-headless",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Check invalid headless override.",
-        mode: "screenreader-strict",
+        mode: "screenreader",
         maxSteps: 1,
         timeoutMs: 60_000,
         verify: {
@@ -907,7 +907,7 @@ describe("runTask", () => {
     expect(session.steps.at(-1)?.verification?.passed).toBe(true);
   });
 
-  it("runs the screenreader-hybrid path with mocked announcements and screen reader actions", async () => {
+  it("runs the screenreader path with mocked announcements and screen reader actions", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-"));
     const observedActions: ScreenReaderAction[] = [];
     let observeCalls = 0;
@@ -917,7 +917,7 @@ describe("runTask", () => {
         id: "screenreader-basic",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Find and activate the main call to action.",
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {
@@ -1014,7 +1014,7 @@ describe("runTask", () => {
         id: "screenreader-no-shots",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Finish without saving developer screenshots.",
-        mode: "screenreader-strict",
+        mode: "screenreader",
         maxSteps: 2,
         timeoutMs: 60_000,
         verify: {
@@ -1051,15 +1051,15 @@ describe("runTask", () => {
     }
   });
 
-  it("fails when screenreader-strict returns a raw key action", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-key-"));
+  it("fails when screenreader has no allowed keys and the agent still returns a raw key action", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-keyless-key-"));
 
     const session = await runTask(
       {
-        id: "screenreader-strict-key",
+        id: "screenreader-keyless-key",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Do not allow raw keys.",
-        mode: "screenreader-strict",
+        mode: "screenreader",
         maxSteps: 2,
         timeoutMs: 60_000,
         verify: {
@@ -1068,6 +1068,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        keyboardActionPlan: buildKeyboardActionPlan([]),
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1085,7 +1086,7 @@ describe("runTask", () => {
             expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             return {
               action: { key: "Tab" },
-              rationale: "This should be rejected in strict mode."
+              rationale: "This should be rejected because no raw keys are allowed."
             };
           }
         }
@@ -1093,7 +1094,7 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("error");
-    expect(session.steps[0].execution.error).toBe("Raw key actions are not allowed in screenreader-strict mode.");
+    expect(session.steps[0].execution.error).toBe('Key "Tab" is not allowed by the configured allowedKeys.');
     expect(session.aggregate.actionCounts).toEqual({
       srInvokeCount: 0,
       srReadCount: 0,
@@ -1103,17 +1104,17 @@ describe("runTask", () => {
     });
   });
 
-  it("runs the screenreader-strict path with screen reader actions only", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-strict-"));
+  it("runs the screenreader path with screen reader actions only when keyboard actions are disabled", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-keyless-"));
     const observedActions: ScreenReaderAction[] = [];
     let observeCalls = 0;
 
     const session = await runTask(
       {
-        id: "screenreader-strict-basic",
+        id: "screenreader-keyless-basic",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Find and activate the main call to action.",
-        mode: "screenreader-strict",
+        mode: "screenreader",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {
@@ -1122,6 +1123,7 @@ describe("runTask", () => {
       },
       {
         outDir,
+        keyboardActionPlan: buildKeyboardActionPlan([]),
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1398,7 +1400,7 @@ describe("runTask", () => {
         id: "screenreader-interactive",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Activate the main button.",
-        mode: "screenreader-strict",
+        mode: "screenreader",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {
@@ -1455,7 +1457,7 @@ describe("runTask", () => {
     expect(observedProfiles).toEqual(["interactive"]);
   });
 
-  it("feeds verifier feedback back into the screenreader-hybrid path", async () => {
+  it("feeds verifier feedback back into the screenreader path", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-verify-"));
     const seenHistorySources: string[][] = [];
     let callCount = 0;
@@ -1465,7 +1467,7 @@ describe("runTask", () => {
         id: "screenreader-verify",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Reach verified success.",
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {
@@ -1520,7 +1522,7 @@ describe("runTask", () => {
         id: "screenreader-failure-shots",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Reach verified success.",
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         maxSteps: 3,
         timeoutMs: 60_000,
         verify: {
@@ -1584,7 +1586,7 @@ describe("runTask", () => {
         id: "verifier-auto-shots",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
         goal: "Reach auto-completed verified success.",
-        mode: "screenreader-hybrid",
+        mode: "screenreader",
         maxSteps: 4,
         timeoutMs: 60_000,
         verify: {

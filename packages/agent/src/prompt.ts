@@ -46,15 +46,9 @@ export function buildSystemPrompt(
   const resolvedPromptKeyboardActions = options.keyboardActions ?? keyboardActions;
   const resolvedPromptScreenReaderActions = options.screenReaderActions ?? screenReaderActions;
 
-  if (userModel === "screenreader-strict") {
-    return renderPromptTemplate(templates.screenreaderStrictSystem, {
-      outputExamples: buildScreenReaderStrictOutputExamples(taskInput, includeRationale, resolvedPromptScreenReaderActions)
-    });
-  }
-
-  if (userModel === "screenreader-hybrid") {
-    return renderPromptTemplate(templates.screenreaderHybridSystem, {
-      outputExamples: buildScreenReaderHybridOutputExamples(
+  if (userModel === "screenreader") {
+    return renderPromptTemplate(templates.screenreaderSystem, {
+      outputExamples: buildScreenReaderOutputExamples(
         taskInput,
         includeRationale,
         resolvedPromptKeyboardActions,
@@ -130,12 +124,8 @@ export function buildUserPromptText(
     )
   };
 
-  if (userModel === "screenreader-strict") {
-    return renderPromptTemplate(templates.screenreaderStrictUser, commonReplacements);
-  }
-
-  if (userModel === "screenreader-hybrid") {
-    return renderPromptTemplate(templates.screenreaderHybridUser, commonReplacements);
+  if (userModel === "screenreader") {
+    return renderPromptTemplate(templates.screenreaderUser, commonReplacements);
   }
 
   return renderPromptTemplate(templates.keyboardUser, commonReplacements);
@@ -268,25 +258,7 @@ function buildKeyboardOutputExamples(
   return buildOutputExamples(snippets);
 }
 
-function buildScreenReaderStrictOutputExamples(
-  taskInput: TaskInput | undefined,
-  includeRationale: boolean,
-  promptActions: readonly ScreenReaderActionDescriptor[]
-): string {
-  const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
-
-  if (taskInput) {
-    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
-    snippets.push(includeRationale
-      ? JSON.stringify({ action: exampleKey, rationale: "..." })
-      : JSON.stringify({ action: exampleKey }));
-  }
-
-  snippets.push(...buildVerdictSnippets(includeRationale));
-  return buildOutputExamples(snippets);
-}
-
-function buildScreenReaderHybridOutputExamples(
+function buildScreenReaderOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
   keyboardActions: readonly KeyboardActionDescriptor[],
@@ -398,14 +370,14 @@ function buildAvailableActionsValue(
 ): string {
   const sections: string[] = [];
 
-  if (userModel === "keyboard" || userModel === "screenreader-hybrid") {
+  if (userModel === "keyboard" || keyboardActions.length > 0) {
     const keyboardActionsBlock = buildKeyboardActionsBlock(keyboardActions);
     if (keyboardActionsBlock) {
       sections.push(keyboardActionsBlock);
     }
   }
 
-  if (userModel === "screenreader-strict" || userModel === "screenreader-hybrid") {
+  if (userModel === "screenreader") {
     const screenReaderActionsBlock = buildScreenReaderActionsBlock(screenReaderActions);
     if (screenReaderActionsBlock) {
       sections.push(screenReaderActionsBlock);

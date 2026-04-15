@@ -102,7 +102,7 @@ describe("TraceRecorder", () => {
       id: "trace-screenreader-test",
       url: "file:///trace-screenreader-test.html",
       goal: "Trace one screenreader step.",
-      mode: "screenreader-strict",
+      mode: "screenreader",
       maxSteps: 1,
       timeoutMs: 1000,
       verify: {

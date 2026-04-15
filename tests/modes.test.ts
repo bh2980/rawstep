@@ -15,8 +15,7 @@ describe("mode policy", () => {
   it("exports the supported mode values in definition", () => {
     expect(USER_MODEL_VALUES).toEqual([
       "keyboard",
-      "screenreader-strict",
-      "screenreader-hybrid"
+      "screenreader"
     ]);
 
     expect(Object.keys(MODE_SPEC)).toEqual([...USER_MODEL_VALUES]);
@@ -24,13 +23,24 @@ describe("mode policy", () => {
 
   it("parses supported mode values and rejects unsupported ones", () => {
     expect(parseUserModel("keyboard")).toBe("keyboard");
-    expect(parseUserModel("screenreader-strict")).toBe("screenreader-strict");
-    expect(parseUserModel("screenreader-hybrid")).toBe("screenreader-hybrid");
+    expect(parseUserModel("screenreader")).toBe("screenreader");
 
     expect(isUserModel("keyboard")).toBe(true);
-    expect(isUserModel("screenreader")).toBe(false);
-    expect(() => parseUserModel("screenreader")).toThrow(
-      "Unsupported mode: screenreader. Expected one of keyboard, screenreader-strict, screenreader-hybrid."
+    expect(isUserModel("screenreader")).toBe(true);
+    expect(() => parseUserModel("screenreader-strict")).toThrow(
+      "Unsupported mode: screenreader-strict. Expected one of keyboard, screenreader."
+    );
+    expect(() => parseUserModel("screenreader-hybrid")).toThrow(
+      "Unsupported mode: screenreader-hybrid. Expected one of keyboard, screenreader."
+    );
+    expect(() => parseUserModel("screenReader")).toThrow(
+      "Unsupported mode: screenReader. Expected one of keyboard, screenreader."
+    );
+    expect(() => parseUserModel("screen-reader")).toThrow(
+      "Unsupported mode: screen-reader. Expected one of keyboard, screenreader."
+    );
+    expect(() => parseUserModel("sr")).toThrow(
+      "Unsupported mode: sr. Expected one of keyboard, screenreader."
     );
   });
 
@@ -41,16 +51,10 @@ describe("mode policy", () => {
     expect(supportsVisualObservation("keyboard")).toBe(true);
     expect(supportsScreenReaderObservation("keyboard")).toBe(false);
 
-    expect(isScreenReaderMode("screenreader-strict")).toBe(true);
-    expect(allowsRawKeyActions("screenreader-strict")).toBe(false);
-    expect(requiresScreenReaderBackend("screenreader-strict")).toBe(true);
-    expect(supportsVisualObservation("screenreader-strict")).toBe(false);
-    expect(supportsScreenReaderObservation("screenreader-strict")).toBe(true);
-
-    expect(isScreenReaderMode("screenreader-hybrid")).toBe(true);
-    expect(allowsRawKeyActions("screenreader-hybrid")).toBe(true);
-    expect(requiresScreenReaderBackend("screenreader-hybrid")).toBe(true);
-    expect(supportsVisualObservation("screenreader-hybrid")).toBe(false);
-    expect(supportsScreenReaderObservation("screenreader-hybrid")).toBe(true);
+    expect(isScreenReaderMode("screenreader")).toBe(true);
+    expect(allowsRawKeyActions("screenreader")).toBe(true);
+    expect(requiresScreenReaderBackend("screenreader")).toBe(true);
+    expect(supportsVisualObservation("screenreader")).toBe(false);
+    expect(supportsScreenReaderObservation("screenreader")).toBe(true);
   });
 });

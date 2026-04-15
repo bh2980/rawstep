@@ -90,7 +90,7 @@ describe("reporter", () => {
     expect(html).toContain("Browser launch");
   });
 
-  it("renders screenreader-hybrid actions in the HTML report", async () => {
+  it("renders screenreader actions in the HTML report", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-screenreader-"));
     const reportPath = await renderReport(
       {
@@ -98,7 +98,7 @@ describe("reporter", () => {
           id: "screenreader-task",
           url: "file:///screenreader-task.html",
           goal: "Move to the next announced item.",
-          mode: "screenreader-hybrid",
+          mode: "screenreader",
           maxSteps: 2,
           timeoutMs: 1000,
           verify: {
@@ -286,7 +286,7 @@ describe("reporter", () => {
           id: "auto-complete-task",
           url: "file:///auto-complete-task.html",
           goal: "Finish via verifier auto-complete.",
-          mode: "screenreader-hybrid",
+          mode: "screenreader",
           maxSteps: 2,
           timeoutMs: 1000,
           verify: {

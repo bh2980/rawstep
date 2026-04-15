@@ -106,10 +106,8 @@ function makeKeyboardDescriptors(
 async function createPromptFixtureRoot(contents?: Partial<Record<
   "keyboard.system.md"
   | "keyboard.user.md"
-  | "screenreader-strict.system.md"
-  | "screenreader-strict.user.md"
-  | "screenreader-hybrid.system.md"
-  | "screenreader-hybrid.user.md"
+  | "screenreader.system.md"
+  | "screenreader.user.md"
   | "experience-summary.system.md",
   string
 >>): Promise<string> {
@@ -120,10 +118,8 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   const files = {
     "keyboard.system.md": "system-keyboard\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
     "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
-    "screenreader-strict.system.md": "system-strict\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
-    "screenreader-strict.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\navailable actions:\n{{availableActions}}",
-    "screenreader-hybrid.system.md": "system-hybrid\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
-    "screenreader-hybrid.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\navailable actions:\n{{availableActions}}",
+    "screenreader.system.md": "system-screenreader\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
+    "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\navailable actions:\n{{availableActions}}",
     "experience-summary.system.md": "summary-template"
   } satisfies Record<string, string>;
 
@@ -662,7 +658,7 @@ describe("agent helpers", () => {
 
   it("builds text-only prompt parts for screenreader observations", () => {
     const promptParts = buildPromptParts(
-      "screenreader-strict",
+      "screenreader",
       makeKeyboardContext(),
       {
         kind: "screenreader",
@@ -681,7 +677,7 @@ describe("agent helpers", () => {
 
   it("renders readbacks as structured JSON lines", () => {
     const promptParts = buildPromptParts(
-      "screenreader-strict",
+      "screenreader",
       makeKeyboardContext(),
       {
         kind: "screenreader",
@@ -705,7 +701,7 @@ describe("agent helpers", () => {
 
   it("renders screen reader available actions with compressed wire-shape labels", () => {
     const promptParts = buildPromptParts(
-      "screenreader-hybrid",
+      "screenreader",
       {
         goal: "Finish the task.",
         keyboardActions: makeKeyboardDescriptors(["Tab"]),
@@ -751,7 +747,7 @@ describe("agent helpers", () => {
     process.chdir(rootDir);
 
     const promptParts = buildPromptParts(
-      "screenreader-hybrid",
+      "screenreader",
       {
         goal: "Finish the task.",
         keyboardActions: makeKeyboardDescriptors(["Tab"]),
@@ -876,7 +872,7 @@ describe("agent helpers", () => {
   it("fails when a required prompt file is missing", async () => {
     const rootDir = await createPromptFixtureRoot();
 
-    await rm(join(rootDir, "prompt", "screenreader-hybrid.system.md"));
+    await rm(join(rootDir, "prompt", "screenreader.system.md"));
 
     expect(() => loadPromptTemplates(rootDir)).toThrow("Missing prompt file");
   });
@@ -884,7 +880,7 @@ describe("agent helpers", () => {
   it("fails when a required prompt file is empty", async () => {
     const rootDir = await createPromptFixtureRoot();
 
-    await writeFile(join(rootDir, "prompt", "screenreader-hybrid.system.md"), "", "utf8");
+    await writeFile(join(rootDir, "prompt", "screenreader.system.md"), "", "utf8");
 
     expect(() => loadPromptTemplates(rootDir)).toThrow("Prompt file is empty");
   });
@@ -964,7 +960,7 @@ describe("agent helpers", () => {
     ];
 
     const prompt = buildSystemPrompt(
-      "screenreader-strict",
+      "screenreader",
       undefined,
       undefined,
       promptActions,
@@ -974,7 +970,7 @@ describe("agent helpers", () => {
       }
     );
 
-    expect(prompt).toContain("system-strict");
+    expect(prompt).toContain("system-screenreader");
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
     expect(prompt).toContain('{"action":"sr.heading.next"}');
@@ -986,7 +982,7 @@ describe("agent helpers", () => {
     process.chdir(rootDir);
 
     const prompt = buildSystemPrompt(
-      "screenreader-strict",
+      "screenreader",
       undefined,
       [],
       buildScreenReaderActionPlan(
@@ -1015,14 +1011,14 @@ describe("agent helpers", () => {
     process.chdir(rootDir);
 
     const prompt = buildSystemPrompt(
-      "screenreader-hybrid",
+      "screenreader",
       undefined,
       makeKeyboardDescriptors(["Tab", "Escape"]),
       makeScreenReaderDescriptors(["click"]),
       false
     );
 
-    expect(prompt).toContain("system-hybrid");
+    expect(prompt).toContain("system-screenreader");
     expect(prompt).not.toContain("- Tab");
     expect(prompt).not.toContain("- Escape");
     expect(prompt).not.toContain("- click");

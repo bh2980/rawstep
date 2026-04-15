@@ -425,7 +425,7 @@ async function handleActionDecision(
 
   try {
     if ("key" in decision.action && !allowsRawKeyActions(resources.task.mode)) {
-      throw new NotAllowedActionError("Raw key actions are not allowed in screenreader-strict mode.");
+      throw new NotAllowedActionError("Raw key actions are not allowed in the current mode.");
     }
 
     const execution = await resources.actuator.execute(decision.action, resources.task.input);

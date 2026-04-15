@@ -23,20 +23,8 @@ defineConfig({
         kb.mod.z()
       ]
     },
-    "screenreader-strict": {
-      outDir: "./sr-out",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      memory: "all",
-      screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderActions: [
-        sr.heading.next(),
-        sr.landmark.previous(),
-        sr.click()
-      ]
-    },
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -61,7 +49,7 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-strict": {
+    screenreader: {
       outDir: "./sr-out",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -78,8 +66,8 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -96,8 +84,8 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -134,8 +122,8 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -155,8 +143,8 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-hybrid": {
-      outDir: "./hybrid-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
@@ -179,13 +167,12 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
-    "screenreader-strict": {
-      outDir: "./sr-out",
+    screenreader: {
+      outDir: "./screenreader-out",
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-nvda",
-      // @ts-expect-error screenreader-strict must not accept allowedKeys
       allowedKeys: [kb.tab()]
     }
   }

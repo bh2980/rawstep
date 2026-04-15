@@ -9,8 +9,7 @@ type ModeSpec = {
 
 export const USER_MODEL_VALUES = [
   "keyboard",
-  "screenreader-strict",
-  "screenreader-hybrid"
+  "screenreader"
 ] as const;
 
 export const MODE_SPEC = {
@@ -20,13 +19,7 @@ export const MODE_SPEC = {
     requiresScreenReaderBackend: false,
     supportsVisualObservation: true
   },
-  "screenreader-strict": {
-    observation: "announcement",
-    allowsRawKeys: false,
-    requiresScreenReaderBackend: true,
-    supportsVisualObservation: false
-  },
-  "screenreader-hybrid": {
+  screenreader: {
     observation: "announcement",
     allowsRawKeys: true,
     requiresScreenReaderBackend: true,
