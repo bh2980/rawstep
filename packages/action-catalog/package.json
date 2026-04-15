@@ -5,6 +5,6 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsx scripts/generate.ts && tsc -p tsconfig.json"
+    "build": "tsx scripts/generate.ts && tsc -b tsconfig.json"
   }
 }

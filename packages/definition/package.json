@@ -9,6 +9,6 @@
     "zod": "^4.3.6"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -b tsconfig.json"
   }
 }

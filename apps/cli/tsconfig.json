@@ -1,8 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../packages/agent" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/definition" },
+    { "path": "../../packages/reporter" },
+    { "path": "../../packages/runtime" }
+  ]
 }

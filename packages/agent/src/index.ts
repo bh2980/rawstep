@@ -25,6 +25,7 @@ import {
   type AgentCompletionClient,
   type AgentProvider,
   type LLMAgentOptions,
+  type ProviderDecisionInput,
   type PromptLogEntry,
   type PromptPart,
   type ResolvedAgentConfig
@@ -35,6 +36,7 @@ export type {
   AgentCompletionClient,
   AgentProvider,
   LLMAgentOptions,
+  ProviderDecisionInput,
   PromptLogEntry,
   PromptPart,
   ResolvedAgentConfig

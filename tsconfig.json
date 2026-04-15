@@ -10,5 +10,14 @@
       "@rawstep/reporter": ["./packages/reporter/src"]
     }
   },
-  "include": ["./.env.d.ts", "./rawstep.config.ts"]
+  "include": ["./.env.d.ts", "./rawstep.config.ts"],
+  "references": [
+    { "path": "./packages/action-catalog" },
+    { "path": "./packages/definition" },
+    { "path": "./packages/agent" },
+    { "path": "./packages/config" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/reporter" },
+    { "path": "./apps/cli" }
+  ]
 }
