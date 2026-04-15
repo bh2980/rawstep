@@ -23,7 +23,7 @@ import type {
   AgentContext,
   Observation
 } from "@rawstep/definition";
-import { findScreenReaderBackendById } from "@rawstep/runtime";
+import { getScreenReaderBackendCapabilities } from "@rawstep/definition";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,11 +84,10 @@ function makeScreenReaderDescriptors(
   semantics: readonly string[],
   backendId: "guidepup-voiceover" | "guidepup-nvda" | "guidepup-virtual" = "guidepup-virtual"
 ): ScreenReaderActionDescriptor[] {
-  const backend = findScreenReaderBackendById(backendId);
   return buildScreenReaderActionPlan(
     semantics.map((semantic) => createStableScreenReaderActionRef(semantic as never)),
     backendId,
-    backend.capabilities
+    getScreenReaderBackendCapabilities(backendId)
   ).descriptors as ScreenReaderActionDescriptor[];
 }
 
@@ -490,7 +489,7 @@ describe("agent helpers", () => {
           )
         ],
         "guidepup-nvda",
-        findScreenReaderBackendById("guidepup-nvda").capabilities
+        getScreenReaderBackendCapabilities("guidepup-nvda")
       ).descriptors
     );
 
@@ -724,7 +723,7 @@ describe("agent helpers", () => {
             )
           ],
           "guidepup-nvda",
-          findScreenReaderBackendById("guidepup-nvda").capabilities
+          getScreenReaderBackendCapabilities("guidepup-nvda")
         ).descriptors,
         memory: []
       },
@@ -1001,7 +1000,7 @@ describe("agent helpers", () => {
           )
         ],
         "guidepup-nvda",
-        findScreenReaderBackendById("guidepup-nvda").capabilities
+        getScreenReaderBackendCapabilities("guidepup-nvda")
       ).descriptors,
       false
     );

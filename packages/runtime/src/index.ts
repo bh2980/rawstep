@@ -18,7 +18,6 @@ export {
   EMPTY_SCREEN_READER_CAPABILITIES,
   findScreenReaderBackendById,
   listScreenReaderBackends,
-  resolveScreenReaderBrowserHeadless,
   resolveScreenReaderCapabilities,
   resolveScreenReaderObserveProfiles,
   type ScreenReaderBackend,
@@ -32,7 +31,6 @@ export {
   type ScreenReaderSession
 } from "./observe/screenreader";
 export { runTask, type RunTaskOptions } from "./run";
-export { resolveScreenReaderBrowserHeadless as resolveBrowserHeadless } from "./observe/screenreader";
 export { TraceRecorder, persistFinalizedTraceSession } from "./trace";
 export {
   evaluateVerifyRule,

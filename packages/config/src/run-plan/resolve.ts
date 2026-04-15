@@ -1,5 +1,4 @@
 import { basename } from "node:path";
-import type { AgentProvider } from "@rawstep/agent";
 import {
   buildKeyboardActionPlan,
   type KeyboardActionDescriptor,
@@ -9,7 +8,6 @@ import {
 } from "@rawstep/action-catalog";
 import {
   allowsRawKeyActions,
-  parseUserModel,
   requiresScreenReaderBackend,
   resolveTaskSource,
   supportsVisualObservation,
@@ -19,6 +17,7 @@ import {
   type TaskSource,
 } from "@rawstep/definition";
 import { buildKeyboardActionPlanFromAllowedKeys } from "../keyboard-actions";
+import type { AgentProvider } from "../project/provider";
 import { loadProjectConfig } from "../project/resolve";
 import { resolveConfiguredScreenReaderActions } from "../screenreader-actions";
 import { resolveRunPlanPrecedence, type RunPlanCliOverrides } from "./precedence";
@@ -62,7 +61,7 @@ export type ResolvedRunPlan = {
   };
 };
 
-export type LoadedTaskSource = {
+type LoadedTaskSource = {
   absoluteTaskFile: string;
   taskId: string;
   taskConfig?: TaskOverrideSource;
@@ -151,44 +150,7 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
   };
 }
 
-export async function loadTask(
-  taskFile: string,
-  overrideMode?: ResolvedTask["mode"]
-): Promise<ResolvedTask> {
-  const taskSource = await loadTaskSource(taskFile);
-  const mode = overrideMode === undefined
-    ? taskSource.taskConfig?.mode ?? taskSource.parsed.mode
-    : parseUserModel(overrideMode);
-  if (!mode) {
-    throw new Error(
-      `Task file ${taskSource.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
-    );
-  }
-
-  const maxSteps = taskSource.taskConfig?.maxSteps ?? taskSource.parsed.maxSteps;
-  if (maxSteps === undefined) {
-    throw new Error(
-      `Task file ${taskSource.absoluteTaskFile} is missing maxSteps. Set maxSteps in the task file, task config.maxSteps, or modes.${mode}.maxSteps in rawstep.config.ts.`
-    );
-  }
-
-  const timeoutMs = taskSource.taskConfig?.timeoutMs ?? taskSource.parsed.timeoutMs;
-  if (timeoutMs === undefined) {
-    throw new Error(
-      `Task file ${taskSource.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in the task file, task config.timeoutMs, or modes.${mode}.timeoutMs in rawstep.config.ts.`
-    );
-  }
-
-  return resolveTaskSource(taskSource.parsed, {
-    taskId: taskSource.taskId,
-    resolvedUrl: resolveTaskUrl(taskSource.parsed.url, taskSource.absoluteTaskFile),
-    mode,
-    maxSteps,
-    timeoutMs,
-  });
-}
-
-export async function loadTaskSource(taskFile: string): Promise<LoadedTaskSource> {
+async function loadTaskSource(taskFile: string): Promise<LoadedTaskSource> {
   const loaded = await readTaskFile(taskFile);
   const parsed = validateTaskSource(loaded.raw, `Task file ${loaded.absoluteTaskFile}`);
   const taskId = parsed.id ?? stripFileExtension(basename(loaded.absoluteTaskFile));

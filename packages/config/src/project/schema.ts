@@ -1,4 +1,3 @@
-import type { AgentProvider } from "@rawstep/agent";
 import type {
   AllowedKey,
   KeyboardActionRef,
@@ -22,6 +21,11 @@ import {
 import { z } from "zod";
 import { parseConfiguredKeyboardActions } from "../keyboard-actions";
 import { parseConfiguredScreenReaderActions } from "../screenreader-actions";
+import {
+  AGENT_PROVIDER_VALUES,
+  parseAgentProvider,
+  type AgentProvider,
+} from "./provider";
 import type {
   ProjectConfigSource,
   ProjectDefaultsSource,
@@ -50,7 +54,6 @@ export type ValidatedProjectConfig = {
   modes?: Partial<Record<UserModel, ProjectModePreset>>;
 };
 
-export const AGENT_PROVIDER_VALUES = ["anthropic", "openai-compatible"] as const;
 export const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
 const userModelSchema = z.enum(USER_MODEL_VALUES);
 const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
@@ -88,17 +91,6 @@ const configRootSchema = z.object({
   modes: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 
-export function parseAgentProvider(value: unknown): AgentProvider {
-  const result = z.enum(AGENT_PROVIDER_VALUES).safeParse(value);
-  if (result.success) {
-    return result.data;
-  }
-
-  throw new Error(
-    `Unsupported agent provider: ${String(value)}. Expected one of ${AGENT_PROVIDER_VALUES.join(", ")}.`
-  );
-}
-
 export function parseScreenshotPolicy(value: unknown): ScreenshotPolicy {
   const result = screenshotPolicySchema.safeParse(value);
   if (result.success) {
@@ -129,15 +121,6 @@ export function parseOptionalString(value: unknown, label: string): string {
   return result.data;
 }
 
-export function parseOptionalBoolean(value: unknown, label: string): boolean {
-  const result = booleanSchema.safeParse(value);
-  if (!result.success) {
-    throw new Error(`${label} must be a boolean.`);
-  }
-
-  return result.data;
-}
-
 export function parseMemorySetting(value: unknown, label: string): MemorySetting {
   const result = memorySettingSchema.safeParse(value);
   if (!result.success) {
@@ -147,7 +130,7 @@ export function parseMemorySetting(value: unknown, label: string): MemorySetting
   return result.data;
 }
 
-export function parseConfiguredAllowedKeys(value: unknown, label: string): KeyboardActionRef[] {
+function parseConfiguredAllowedKeys(value: unknown, label: string): KeyboardActionRef[] {
   return parseConfiguredKeyboardActions(value, label);
 }
 
@@ -165,7 +148,7 @@ export function parseAllowedKeyNames(value: unknown, label: string): AllowedKey[
   });
 }
 
-export function parseConfiguredAllowedScreenReaderActions(value: unknown, label: string): ScreenReaderActionRef[] {
+function parseConfiguredAllowedScreenReaderActions(value: unknown, label: string): ScreenReaderActionRef[] {
   return parseConfiguredScreenReaderActions(value, label);
 }
 

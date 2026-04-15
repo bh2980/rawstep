@@ -3,14 +3,23 @@ import {
   type RunPlanCliOverrides,
   resolveRunPlan
 } from "@rawstep/config";
-import { parseRunArgs, runCli } from "../apps/cli/src";
-import { loadTask, loadTaskSource } from "../packages/config/src/run-plan/resolve";
-import { resolveRunPlanPrecedence } from "../packages/config/src/run-plan/precedence";
-import { type UserModel, validateTaskInput, validateTaskSource } from "@rawstep/definition";
+import { parseRunArgs } from "../apps/cli/src/args";
+import { runCli } from "../apps/cli/src/index";
+import {
+  parseUserModel,
+  resolveTaskSource,
+  type ResolvedTask,
+  type TaskOverrideSource,
+  type TaskSource,
+  type UserModel,
+  validateTaskInput,
+  validateTaskSource
+} from "@rawstep/definition";
 import { DEFAULT_ALLOWED_KEYS } from "@rawstep/action-catalog";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -71,7 +80,14 @@ async function writeTaskFile(taskPath: string, body: unknown): Promise<void> {
   await writeFile(taskPath, JSON.stringify(body, null, 2), "utf8");
 }
 
-async function resolveRunOptions(cliOptions: RunPlanCliOverrides) {
+type LoadedTaskSource = {
+  absoluteTaskFile: string;
+  taskId: string;
+  taskConfig?: TaskOverrideSource;
+  parsed: TaskSource;
+};
+
+async function resolvePlan(cliOptions: RunPlanCliOverrides) {
   const plan = await resolveRunPlan(cliOptions);
 
   return {
@@ -106,55 +122,65 @@ async function resolveRunOptions(cliOptions: RunPlanCliOverrides) {
   };
 }
 
-function resolveExecutionPolicy(input: {
-  cliOptions: RunPlanCliOverrides;
-  taskSource: Awaited<ReturnType<typeof loadTaskSource>>;
-  selectedMode: UserModel;
-  modePreset: {
-    outDir?: string;
-    headless?: boolean;
-    maxSteps?: number;
-    timeoutMs?: number;
-    maxVerificationRetries?: number;
-    screenshots?: "all" | "important" | "failure-only" | "none";
-    verifierAutoComplete?: boolean;
-    includeExperienceSummary?: boolean;
-    includeRationale?: boolean;
-    memory?: number | "all";
-    allowedKeys?: any[];
-    allowedScreenReaderActions?: any[];
-    screenReaderBackend?: any;
-  };
-  configDir: string;
-}) {
-  const merged = resolveRunPlanPrecedence({
-    cliOverrides: input.cliOptions,
-    taskFile: input.taskSource.absoluteTaskFile,
-    taskSource: input.taskSource.parsed,
-    taskConfig: input.taskSource.taskConfig,
-    projectConfig: {
-      path: join(input.configDir, "rawstep.config.ts"),
-      config: {
-        version: 1 as const,
-        modes: {
-          [input.selectedMode]: input.modePreset
-        }
-      }
-    }
-  });
+async function readValidatedTaskSource(taskFile: string): Promise<LoadedTaskSource> {
+  const absoluteTaskFile = resolve(taskFile);
+  const parsed = validateTaskSource(
+    JSON.parse(await readFile(absoluteTaskFile, "utf8")),
+    `Task file ${absoluteTaskFile}`
+  );
 
   return {
-    outDir: merged.outDir,
-    headless: merged.headless,
-    maxSteps: merged.maxSteps,
-    timeoutMs: merged.timeoutMs,
-    maxVerificationRetries: merged.maxVerificationRetries,
-    screenshotPolicy: merged.screenshotPolicy,
-    verifierAutoComplete: merged.verifierAutoComplete,
-    memory: merged.memory,
-    includeExperienceSummary: merged.includeExperienceSummary,
-    includeRationale: merged.includeRationale
+    absoluteTaskFile,
+    taskId: parsed.id ?? stripFileExtension(basename(absoluteTaskFile)),
+    taskConfig: parsed.config,
+    parsed
   };
+}
+
+async function loadResolvedTask(taskFile: string, overrideMode?: unknown): Promise<ResolvedTask> {
+  const taskSource = await readValidatedTaskSource(taskFile);
+  const mode = overrideMode === undefined
+    ? taskSource.taskConfig?.mode ?? taskSource.parsed.mode
+    : parseUserModel(overrideMode);
+  if (!mode) {
+    throw new Error(
+      `Task file ${taskSource.absoluteTaskFile} is missing mode. Set mode in the task file, task config.mode, or pass --mode.`
+    );
+  }
+
+  const maxSteps = taskSource.taskConfig?.maxSteps ?? taskSource.parsed.maxSteps;
+  if (maxSteps === undefined) {
+    throw new Error(
+      `Task file ${taskSource.absoluteTaskFile} is missing maxSteps. Set maxSteps in the task file, task config.maxSteps, or modes.${mode}.maxSteps in rawstep.config.ts.`
+    );
+  }
+
+  const timeoutMs = taskSource.taskConfig?.timeoutMs ?? taskSource.parsed.timeoutMs;
+  if (timeoutMs === undefined) {
+    throw new Error(
+      `Task file ${taskSource.absoluteTaskFile} is missing timeoutMs. Set timeoutMs in the task file, task config.timeoutMs, or modes.${mode}.timeoutMs in rawstep.config.ts.`
+    );
+  }
+
+  return resolveTaskSource(taskSource.parsed, {
+    taskId: taskSource.taskId,
+    resolvedUrl: resolveTaskFileUrl(taskSource.parsed.url, taskSource.absoluteTaskFile),
+    mode,
+    maxSteps,
+    timeoutMs
+  });
+}
+
+function resolveTaskFileUrl(rawUrl: string, absoluteTaskFile: string): string {
+  if (/^[a-z]+:\/\//i.test(rawUrl)) {
+    return rawUrl;
+  }
+
+  return pathToFileURL(resolve(dirname(absoluteTaskFile), rawUrl)).toString();
+}
+
+function stripFileExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, "");
 }
 
 describe.sequential("CLI", () => {
@@ -206,7 +232,7 @@ describe.sequential("CLI", () => {
   });
 
   it("loads task files with explicit task settings and resolves relative fixture URLs", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.json"));
+    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"));
 
     expect(task.id).toBe("simple-cta");
     expect(task.mode).toBe("keyboard");
@@ -281,25 +307,25 @@ describe.sequential("CLI", () => {
     const taskPath = resolve("examples/tasks/simple-cta.json");
     process.chdir(tempDir);
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath
     ]))).rejects.toThrow("Missing rawstep.config.ts");
   });
 
   it("loads screenreader-hybrid mode tasks without rejecting them at parse time", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader-hybrid");
+    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader-hybrid");
 
     expect(task.mode).toBe("screenreader-hybrid");
   });
 
   it("loads screenreader-strict mode tasks without rejecting them at parse time", async () => {
-    const task = await loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader-strict");
+    const task = await loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader-strict");
 
     expect(task.mode).toBe("screenreader-strict");
   });
 
   it("loads the email login example with named inputs", async () => {
-    const task = await loadTask(resolve("examples/tasks/email-login.json"));
+    const task = await loadResolvedTask(resolve("examples/tasks/email-login.json"));
 
     expect(task.id).toBe("email-login");
     expect(task.input).toEqual({ email: "traveler@example.com" });
@@ -311,7 +337,7 @@ describe.sequential("CLI", () => {
   });
 
   it("rejects an unsupported screenreader mode in task files", async () => {
-    await expect(loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader" as never)).rejects.toThrow(
+    await expect(loadResolvedTask(resolve("examples/tasks/simple-cta.json"), "screenreader" as never)).rejects.toThrow(
       "Unsupported mode"
     );
   });
@@ -467,7 +493,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -575,7 +601,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -813,7 +839,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath,
@@ -884,7 +910,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -910,14 +936,33 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath
     ]))).rejects.toThrow("apiKey is not allowed");
   });
 
   it("resolves execution policy in one place with the documented precedence", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-execution-policy-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./mode-out",
+      maxSteps: 15,
+      timeoutMs: 1200,
+      maxVerificationRetries: 5,
+      screenshots: "all",
+      verifierAutoComplete: false,
+      memory: 9
+    }
+  }
+}`
+    );
 
     await writeTaskFile(taskPath, {
       id: "execution-policy-task",
@@ -945,32 +990,19 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const taskSource = await loadTaskSource(taskPath);
-    const execution = resolveExecutionPolicy({
-      cliOptions: parseRunArgs([
-        taskPath,
-        "--out",
-        "./cli-out",
-        "--max-steps",
-        "45",
-        "--timeout-ms",
-        "3500",
-        "--agent-memory-window",
-        "2"
-      ]),
-      taskSource,
-      selectedMode: "keyboard",
-      modePreset: {
-        outDir: "./mode-out",
-        maxSteps: 15,
-        timeoutMs: 1200,
-        maxVerificationRetries: 5,
-        screenshots: "all",
-        verifierAutoComplete: false,
-        memory: 9
-      },
-      configDir: tempDir
-    });
+    const execution = (await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--out",
+      "./cli-out",
+      "--max-steps",
+      "45",
+      "--timeout-ms",
+      "3500",
+      "--agent-memory-window",
+      "2"
+    ]))).execution;
 
     expect(execution.outDir).toBe(resolve("cli-out"));
     expect(execution.maxSteps).toBe(45);
@@ -985,7 +1017,23 @@ describe.sequential("CLI", () => {
 
   it("preserves memory=all when CLI does not override execution policy memory", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-execution-policy-memory-all-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./mode-out",
+      maxSteps: 15,
+      timeoutMs: 1200,
+      memory: 9
+    }
+  }
+}`
+    );
 
     await writeTaskFile(taskPath, {
       id: "execution-policy-memory-all-task",
@@ -1005,19 +1053,11 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const taskSource = await loadTaskSource(taskPath);
-    const execution = resolveExecutionPolicy({
-      cliOptions: parseRunArgs([taskPath]),
-      taskSource,
-      selectedMode: "keyboard",
-      modePreset: {
-        outDir: "./mode-out",
-        maxSteps: 15,
-        timeoutMs: 1200,
-        memory: 9
-      },
-      configDir: tempDir
-    });
+    const execution = (await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]))).execution;
 
     expect(execution.memory).toEqual({ mode: "all" });
   });
@@ -1047,7 +1087,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1083,7 +1123,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1111,7 +1151,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1158,7 +1198,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -1187,7 +1227,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1233,7 +1273,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -1264,7 +1304,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1296,7 +1336,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -1335,7 +1375,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -1361,7 +1401,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const task = await loadTask(taskPath);
+    const task = await loadResolvedTask(taskPath);
     expect(task.verify.all).toEqual([
       { textVisible: "Started!" },
       { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
@@ -1390,7 +1430,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const task = await loadTask(taskPath);
+    const task = await loadResolvedTask(taskPath);
     expect(task.input).toEqual({
       email: "traveler@example.com",
       password: "super-secret"
@@ -1418,7 +1458,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow("exactly one rule type");
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow("exactly one rule type");
   });
 
   it("rejects unsupported verify rule keys with a specific message", async () => {
@@ -1439,7 +1479,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow(
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow(
       "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, requestSeen, responseSeen."
     );
   });
@@ -1465,7 +1505,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow('Task input.email must be a non-empty string.');
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow('Task input.email must be a non-empty string.');
   });
 
   it("rejects reserved task input.text", async () => {
@@ -1489,7 +1529,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow('Task input key "text" is reserved.');
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow('Task input key "text" is reserved.');
   });
 
   it("rejects reserved task input keys", async () => {
@@ -1513,7 +1553,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow('Task input key "task" is reserved.');
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow('Task input key "task" is reserved.');
   });
 
   it("rejects empty named input maps", async () => {
@@ -1535,7 +1575,7 @@ describe.sequential("CLI", () => {
       input: {}
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow("Task input must include at least one named value");
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow("Task input must include at least one named value");
   });
 
   it("rejects task files without verify", async () => {
@@ -1551,7 +1591,7 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow('Task file must include verify with a non-empty "all" array.');
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow('Task file must include verify with a non-empty "all" array.');
   });
 
   it("rejects task files without mode when there is no override", async () => {
@@ -1571,7 +1611,7 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow("missing mode");
+    await expect(loadResolvedTask(taskPath)).rejects.toThrow("missing mode");
   });
 
   it("uses discovered rawstep.config.ts", async () => {
@@ -1610,7 +1650,7 @@ describe.sequential("CLI", () => {
     });
 
     process.chdir(tempDir);
-    await expect(resolveRunOptions(parseRunArgs([taskPath]))).resolves.toMatchObject({
+    await expect(resolvePlan(parseRunArgs([taskPath]))).resolves.toMatchObject({
       task: {
         id: "config-discovery-task"
       }
@@ -1666,7 +1706,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -1739,7 +1779,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath,
@@ -1791,7 +1831,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -1849,14 +1889,14 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const nvdaOptions = await resolveRunOptions(parseRunArgs([
+    const nvdaOptions = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
       "--mode",
       "screenreader-strict"
     ]));
-    const virtualOptions = await resolveRunOptions(parseRunArgs([
+    const virtualOptions = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -1938,7 +1978,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2018,7 +2058,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath
@@ -2053,7 +2093,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -2089,7 +2129,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2132,7 +2172,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolveRunOptions(parseRunArgs([
+    const options = await resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -2166,7 +2206,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
@@ -2197,7 +2237,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2238,7 +2278,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2274,7 +2314,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2329,7 +2369,7 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2339,7 +2379,7 @@ describe.sequential("CLI", () => {
       "guidepup-virtual"
     ]))).rejects.toThrow("screenReaderBackend is not allowed in keyboard mode");
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
@@ -2397,7 +2437,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(resolveRunOptions(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       taskPath,
       "--config",
       configPath

@@ -57,9 +57,6 @@ export async function runCli(
     return 1;
   }
 }
-
-export { parseRunArgs } from "./args";
-
 function createAgent(
   mode: UserModel,
   taskInput: TaskInput | undefined,

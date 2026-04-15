@@ -1,4 +1,3 @@
-import type { AgentProvider } from "@rawstep/agent";
 import {
   formatScreenReaderBackendIdList,
   parseScreenReaderBackendId,
@@ -14,6 +13,9 @@ import {
 import {
   AGENT_PROVIDER_VALUES,
   parseAgentProvider,
+  type AgentProvider,
+} from "../project/provider";
+import {
   parseAllowedKeyNames,
   parseOptionalNonNegativeInteger,
   parseScreenshotPolicy,

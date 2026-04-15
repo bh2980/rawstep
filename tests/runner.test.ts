@@ -7,8 +7,7 @@ import type {
   ScreenReaderAction,
   ScreenReaderCapabilities
 } from "@rawstep/definition";
-import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
-import { resolveVerificationOutcome } from "../packages/runtime/src/run/helpers";
+import { createBrowserSession, runTask } from "@rawstep/runtime";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -123,87 +122,54 @@ function createMockScreenReaderRuntime(overrides: {
 }
 
 describe("runTask", () => {
-  it("resolves verified-success outcomes in one helper", () => {
-    expect(resolveVerificationOutcome({
-      kind: "verified-success",
-      passed: true,
-      verificationFailures: 1,
-      maxVerificationRetries: 3
-    })).toEqual({
-      finalResult: "success",
-      verificationResult: "passed",
-      nextVerificationFailures: 1,
-      endedBy: "success",
-      completionSource: "agent",
-      shouldRecordVerdictAnalysis: true
-    });
+  it("passes default headless values into the browser factory based on mode and backend", async () => {
+    const cases = [
+      {
+        id: "keyboard-default-headless",
+        mode: "keyboard" as const,
+        backendId: undefined,
+        expectedHeadless: true
+      },
+      {
+        id: "strict-virtual-default-headless",
+        mode: "screenreader-strict" as const,
+        backendId: "guidepup-virtual" as const,
+        expectedHeadless: true
+      },
+      {
+        id: "hybrid-voiceover-default-headed",
+        mode: "screenreader-hybrid" as const,
+        backendId: "guidepup-voiceover" as const,
+        expectedHeadless: false
+      }
+    ];
 
-    expect(resolveVerificationOutcome({
-      kind: "verified-success",
-      passed: false,
-      verificationFailures: 1,
-      maxVerificationRetries: 3,
-      failureMessage: "no match"
-    })).toEqual({
-      finalResult: "continued",
-      verificationResult: "failed",
-      nextVerificationFailures: 2,
-      completionSource: "agent",
-      shouldRecordVerdictAnalysis: true
-    });
+    for (const testCase of cases) {
+      const outDir = await mkdtemp(join(tmpdir(), `a11y-runner-${testCase.id}-`));
+      const browserSessionFactory = vi.fn(async (_url: string, options) => {
+        throw new Error(`headless:${String(options?.headless)}`);
+      });
 
-    expect(resolveVerificationOutcome({
-      kind: "verified-success",
-      passed: false,
-      verificationFailures: 2,
-      maxVerificationRetries: 3,
-      failureMessage: "no match"
-    })).toEqual({
-      finalResult: "failure",
-      verificationResult: "failed",
-      nextVerificationFailures: 3,
-      endedBy: "stuck",
-      failureReasonOverride: "Verified success was not reached: no match",
-      completionSource: "agent",
-      shouldRecordVerdictAnalysis: true
-    });
-  });
-
-  it("preserves verifier auto-complete success/fail semantics in one helper", () => {
-    expect(resolveVerificationOutcome({
-      kind: "verifier-auto-complete",
-      passed: true,
-      verificationFailures: 2,
-      maxVerificationRetries: 3
-    })).toEqual({
-      finalResult: "success",
-      verificationResult: "passed",
-      nextVerificationFailures: 2,
-      endedBy: "success",
-      completionSource: "verifier-auto-complete",
-      shouldRecordVerdictAnalysis: true
-    });
-
-    expect(resolveVerificationOutcome({
-      kind: "verifier-auto-complete",
-      passed: false,
-      verificationFailures: 2,
-      maxVerificationRetries: 3,
-      failureMessage: "still missing"
-    })).toEqual({
-      finalResult: "continued",
-      verificationResult: "failed",
-      nextVerificationFailures: 2,
-      completionSource: "verifier-auto-complete",
-      shouldRecordVerdictAnalysis: false
-    });
-  });
-
-  it("defaults browser headless based on mode and screen reader backend", () => {
-    expect(resolveBrowserHeadless("keyboard")).toBe(true);
-    expect(resolveBrowserHeadless("screenreader-strict", undefined, "guidepup-virtual")).toBe(true);
-    expect(resolveBrowserHeadless("screenreader-hybrid", undefined, "guidepup-voiceover")).toBe(false);
-    expect(resolveBrowserHeadless("screenreader-hybrid", false, "guidepup-virtual")).toBe(false);
+      await expect(runTask(
+        {
+          id: testCase.id,
+          url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+          goal: "Check browser launch options.",
+          mode: testCase.mode,
+          maxSteps: 1,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Simple CTA Fixture" }]
+          }
+        },
+        {
+          outDir,
+          screenReaderBackendId: testCase.backendId,
+          browserSessionFactory,
+          agent: createStuckAgent()
+        }
+      )).rejects.toThrow(`headless:${String(testCase.expectedHeadless)}`);
+    }
   });
 
   it("passes the resolved headless setting into the browser factory", async () => {

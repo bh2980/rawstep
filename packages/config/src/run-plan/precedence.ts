@@ -1,5 +1,4 @@
 import { dirname, resolve } from "node:path";
-import type { AgentProvider } from "@rawstep/agent";
 import type {
   AllowedKey,
   KeyboardActionRef,
@@ -15,6 +14,7 @@ import type {
 } from "@rawstep/definition";
 import type { LoadedProjectConfig } from "../project/resolve";
 import type { ProjectModePreset } from "../project/schema";
+import type { AgentProvider } from "../project/provider";
 
 const DEFAULT_MAX_VERIFICATION_RETRIES = 2;
 

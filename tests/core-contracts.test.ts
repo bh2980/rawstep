@@ -1,4 +1,4 @@
-import * as definition from "../packages/definition/src";
+import * as definition from "@rawstep/definition";
 import { describe, expect, it } from "vitest";
 
 describe("@rawstep/definition contract surface", () => {

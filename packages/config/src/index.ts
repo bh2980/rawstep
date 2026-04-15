@@ -11,15 +11,6 @@ export {
   RUN_COMMAND_ARG_MANIFEST,
 } from "./run-plan/cli-manifest";
 export {
-  parseAgentProvider,
-  parseAllowedKeyNames,
-  parseConfiguredAllowedKeys,
-  parseConfiguredAllowedScreenReaderActions,
-  parseOptionalBoolean,
-  parseOptionalNonNegativeInteger,
-  parseScreenshotPolicy,
-} from "./project/schema";
-export {
   resolveRunPlan,
   type ResolvedRunPlan,
 } from "./run-plan/resolve";

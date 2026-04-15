@@ -2,11 +2,6 @@
   "name": "@rawstep/cli",
   "version": "0.0.0",
   "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": "./dist/index.js"
-  },
   "bin": {
     "rawstep": "dist/index.js"
   },

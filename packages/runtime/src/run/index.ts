@@ -75,8 +75,6 @@ export type RunTaskOptions = {
   screenReaderRuntimeFactory?: ScreenReaderRuntimeFactory;
 };
 
-export * from "../verify";
-
 type RunCleanupHandles = {
   browser?: BrowserSession;
   screenReaderRuntime?: ScreenReaderRuntime;

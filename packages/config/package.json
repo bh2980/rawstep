@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@rawstep/action-catalog": "workspace:*",
-    "@rawstep/agent": "workspace:*",
     "@rawstep/definition": "workspace:*",
     "dotenv": "^17.4.2",
     "typescript": "^5.9.3",
