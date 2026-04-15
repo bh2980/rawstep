@@ -172,7 +172,8 @@ describe("observer-screenreader", () => {
       default: {
         pollIntervalMs: 1,
         silenceWindowMs: 1,
-        maxObserveMs: 6
+        // Leave enough room for the quiet-period check to win over the wall-clock limit.
+        maxObserveMs: 20
       }
     });
 
