@@ -1,4 +1,5 @@
-# rawstep
+# RawStep
+> 과업 기반 접근성 사용성 테스트
 
 ## 왜 이 프로젝트가 필요한가
 
@@ -10,7 +11,7 @@ axe-core, Lighthouse와 같은 기존 도구는 DOM을 스캔해 **규칙 위반
 - 스크린리더 사용자는 Enter를 누른 뒤 무슨 일이 일어났는지 이해할 수 있는가?
 - 구체적으로 **어디서** 사용자가 막히는가?
 
-`rawstep`은 AI를 활용해 주어진 과업의 수행 과정을 추적합니다. 이를 통해 실제 사용자가 사용할 수 있는지, 사용할 수 있더라도 불편함은 없는지 검사할 수 있습니다.
+`rawstep`은 AI를 활용해 **주어진 과업의 수행 과정**을 추적합니다. 이를 통해 서비스가 제한된 환경에서 사용할 수 있는지, 사용할 수 있더라도 불편함은 없는지 확인할 수 있습니다.
 
 |                  | axe / Lighthouse / Pa11y | rawstep                        |
 |------------------|--------------------------|--------------------------------|
@@ -75,7 +76,7 @@ screenreader 모드는 OS 접근성 권한이 필요합니다. backend에 따라
 
 - `document.activeElement`, ARIA role/label, accessibility tree
 - DOM 셀렉터, 요소의 존재 여부
-- 정밀 scroll 수치 (`top/middle/bottom` 수준은 허용)
+- 정밀 scroll 수치 (keyboard 모드에서 `top/middle/bottom` 수준은 허용)
 
 ---
 
@@ -165,7 +166,7 @@ task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `
 `rawstep.config.ts`는 선택 사항이 아닌 **실행 계약 파일**입니다. 없으면 CLI가 바로 실패합니다.
 
 ```ts
-import { defineConfig } from "@rawstep/config";
+import { defineConfig, kb, sr } from "@rawstep/config";
 
 export default defineConfig({
   version: 1,
@@ -199,7 +200,7 @@ export default defineConfig({
         kb.arrow.up(), kb.arrow.down(), kb.arrow.left(), kb.arrow.right(),
         kb.home(), kb.end()
       ],
-      allowedScreenReaderActions: screenReaderActionsFor("guidepup-voiceover", [
+      allowedScreenReaderActions: [
         sr.next(), sr.previous(),
         sr.landmark.next(), sr.landmark.previous(),
         sr.heading.next(), sr.heading.previous(),
@@ -207,7 +208,7 @@ export default defineConfig({
         sr.form.next(), sr.form.previous(),
         sr.interact(), sr.stopInteracting(),
         sr.act()
-      ])
+      ]
     }
   }
 });
@@ -457,13 +458,12 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 | 성공 근거 분리 | agent 선언 성공과 verifier 통과를 따로 표시 |
 | 종료 출처 분리 | agent 선언 종료인지 verifier auto-complete 종료인지 구분 |
 | 실패 지점 | 실패 시 종료 직전 관측 하이라이트 |
-| Oracle check | agent 자칭 성공을 외부 독립 검증한 결과 (opt-in) |
 
 ---
 
 ## 프롬프트 편집
 
-프롬프트는 루트 `prompt/` 디렉터리에서 직접 편집합니다. 이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.
+프롬프트는 기본적으로 루트 `prompt/` 디렉터리에서 읽습니다. `rawstep.config.ts > defaults.prompt.dir` 를 쓰면 다른 디렉터리로 바꿀 수 있습니다. 선택한 prompt 디렉터리의 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.
 
 | 파일 | 역할 |
 |------|------|
@@ -479,7 +479,7 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 
 ### 템플릿 변수
 
-**`keyboard.user.md`**: `{{goal}}`, `{{agentMemory}}`, `{{availableActions}}`
+**`keyboard.user.md`**: `{{goal}}`, `{{agentMemory}}`, `{{focusHint}}`, `{{availableActions}}`
 
 **`screenreader.user.md`**: `{{goal}}`, `{{agentMemory}}`, `{{announcement}}`, `{{readbacks}}`, `{{availableActions}}`
 
@@ -515,4 +515,4 @@ generated 결과물은 직접 고치지 않습니다. 항상 원본 파일을 �
 - 임의 자유 텍스트 입력은 금지합니다. task가 고정 문자열을 제공한 경우에만 제한된 text input action을 허용합니다.
 - backend마다 지원하는 stable `sr.*` action 범위가 다릅니다. 지원 여부는 `@rawstep/action-catalog` registry 기준으로 판정합니다.
 - `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이 이미지 입력을 지원해야 합니다.
-- 에이전트의 성공/실패 판정은 관측 채널만으로 자체 선언합니다. ground-truth 검증이 필요하면 선택적 oracle을 사용하세요.
+- 에이전트의 성공/실패 판정은 관측 채널과 verifier 결과만으로 결정합니다. 별도의 ground-truth oracle 경로는 현재 내장되어 있지 않습니다.
