@@ -1,11 +1,12 @@
 import type { TraceSession } from "@rawstep/definition";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { renderHtml } from "./html";
 
 export type PublishedRunOutputs = {
   outputPaths: {
     traceJsonl: string;
+    diagnosticsJsonl?: string;
     traceJson: string;
     metricsJson: string;
     promptsJson: string;
@@ -43,6 +44,13 @@ export async function publishRunOutputs(
     promptsJson: resolve(outDir, "prompts.json"),
     reportHtml: reportPath
   };
+  const diagnosticsJsonlPath = resolve(outDir, "diagnostics.jsonl");
+  try {
+    await access(diagnosticsJsonlPath);
+    outputPaths.diagnosticsJsonl = diagnosticsJsonlPath;
+  } catch {
+    // Diagnostics are written lazily and may not exist for a clean run.
+  }
 
   await writeFile(outputPaths.traceJson, JSON.stringify(session, null, 2), "utf8");
   await writeFile(outputPaths.metricsJson, JSON.stringify(session.aggregate, null, 2), "utf8");
@@ -59,6 +67,7 @@ export async function publishRunOutputs(
       `Result: ${session.aggregate.result}.`,
       "Outputs:",
       `- ${outputPaths.traceJsonl}`,
+      ...(outputPaths.diagnosticsJsonl ? [`- ${outputPaths.diagnosticsJsonl}`] : []),
       `- ${outputPaths.metricsJson}`,
       `- ${outputPaths.promptsJson}`,
       `- ${outputPaths.reportHtml}`

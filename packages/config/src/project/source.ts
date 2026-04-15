@@ -4,6 +4,7 @@ import type {
   ScreenReaderBackendId,
   ScreenReaderBackendsSupportingRawPerform,
   ScreenshotPolicy,
+  VoiceOverConfig,
   UserModel
 } from "@rawstep/definition";
 import type {
@@ -22,7 +23,7 @@ import {
 import type { AgentProvider } from "./provider";
 
 type SharedModeConfigSource = {
-  outDir: string;
+  outDir?: string;
   headless?: boolean;
   maxSteps: number;
   timeoutMs: number;
@@ -57,6 +58,7 @@ type ScreenReaderModeConfigSource = {
     screenReaderBackend: TBackend;
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
     observe?: ScreenReaderObserveConfig;
+    voiceOver?: VoiceOverConfig;
   };
 }[ScreenReaderBackendId];
 

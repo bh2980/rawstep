@@ -28,7 +28,8 @@ import {
   type ScreenReaderReadback,
   type ScreenshotPolicy,
   type TraceSession,
-  type UserModel
+  type UserModel,
+  type VoiceOverConfig,
 } from "@rawstep/definition";
 import {
   createScreenReaderRuntime,
@@ -38,9 +39,11 @@ import {
   type ScreenReaderRuntimeFactory
 } from "../observe/screenreader";
 import { TraceRecorder } from "../trace";
+import type { ScreenReaderTraceArtifacts } from "../trace/artifacts";
 import {
   createAgentMemoryEntry,
   createObserver,
+  captureScreenReaderDomFocus,
   createVerdictAnalysis,
   getErrorMessage,
   resolveAgentContextMemory,
@@ -68,6 +71,7 @@ export type RunTaskOptions = {
   screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
   screenReaderObserve?: ScreenReaderObserveConfig;
+  voiceOver?: VoiceOverConfig;
   agent: Agent;
   browserSessionFactory?: (
     url: string,
@@ -89,6 +93,7 @@ type RunResources = {
   maxVerificationRetries: number;
   verifierAutoComplete: boolean;
   browser: BrowserSession;
+  screenReaderRuntime?: ScreenReaderRuntime;
   observer: RunnerObserver;
   actuator: Actuator;
   agent: Agent;
@@ -115,6 +120,7 @@ type BuiltAgentStepContext = {
     memory: AgentMemoryEntry[];
   };
   observeMs: number;
+  screenReaderArtifacts?: ScreenReaderTraceArtifacts;
 };
 
 type StepDecisionContext = Omit<BuiltAgentStepContext, "context"> & {
@@ -199,7 +205,8 @@ async function initializeRunResources(
       ?? ((page) => createScreenReaderRuntime(page, {
         backendId: options.screenReaderBackendId,
         actionPlan: options.screenReaderActionPlan,
-        observe: options.screenReaderObserve
+        observe: options.screenReaderObserve,
+        voiceOver: options.voiceOver
       })))(cleanup.browser.page)
     : undefined;
 
@@ -236,6 +243,7 @@ async function initializeRunResources(
     maxVerificationRetries: options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES,
     verifierAutoComplete: Boolean(options.verifierAutoComplete),
     browser: cleanup.browser,
+    screenReaderRuntime: cleanup.screenReaderRuntime,
     observer,
     actuator,
     agent,
@@ -267,6 +275,7 @@ async function executeStep(
     step,
     observation: builtContext.observation,
     observeMs: builtContext.observeMs,
+    screenReaderArtifacts: builtContext.screenReaderArtifacts,
     decision,
     decideMs
   };
@@ -298,23 +307,31 @@ async function buildAgentStepContext(
 ): Promise<BuiltAgentStepContext> {
   const observeStartedAt = Date.now();
   const baseObservation = await resources.observer.observe();
-  const observation = applyPendingSyntheticAnnouncement(
+  const agentObservation = applyPendingSyntheticAnnouncement(
     applyPendingScreenReaderReadbacks(
       baseObservation,
       state.pendingScreenReaderReadbacks
     ),
     state.pendingSyntheticAnnouncement
   );
-  if (observation.kind === "screenreader" && state.pendingSyntheticAnnouncement) {
+  if (agentObservation.kind === "screenreader" && state.pendingSyntheticAnnouncement) {
     state.pendingSyntheticAnnouncement = undefined;
   }
-  if (observation.kind === "screenreader" && state.pendingScreenReaderReadbacks.length > 0) {
+  if (agentObservation.kind === "screenreader" && state.pendingScreenReaderReadbacks.length > 0) {
     state.pendingScreenReaderReadbacks = [];
   }
 
+  const screenReaderArtifacts = agentObservation.kind === "screenreader"
+    ? {
+        domFocus: await captureScreenReaderDomFocus(resources.browser.page),
+        cursorScreenshot: await resources.screenReaderRuntime?.captureCursorScreenshot()
+      }
+    : undefined;
+
   return {
-    observation,
+    observation: agentObservation,
     observeMs: Date.now() - observeStartedAt,
+    screenReaderArtifacts,
     context: {
       goal: resources.task.goal,
       keyboardActions: resources.keyboardActionPlan.descriptors,
@@ -384,7 +401,8 @@ async function handleVerdictDecision(
         verificationOutcome.finalResult,
         verificationOutcome.completionSource
       ),
-      developerScreenshot
+      developerScreenshot,
+      stepContext.screenReaderArtifacts
     );
     recordAgentMemoryEntry(resources, state, step, decision, verificationOutcome.finalResult, verificationFeedback);
     applyVerificationOutcome(state, verificationOutcome);
@@ -415,7 +433,8 @@ async function handleVerdictDecision(
     ),
     shouldCaptureDeveloperScreenshot(resources.screenshotPolicy, observation, decision)
       ? await captureDeveloperScreenshot(resources.browser.page)
-      : undefined
+      : undefined,
+    stepContext.screenReaderArtifacts
   );
   recordAgentMemoryEntry(resources, state, step, decision, "failure");
   state.endedBy = decision.verdict;
@@ -509,7 +528,8 @@ async function handleActionDecision(
           verificationOutcome.completionSource
         )
         : undefined,
-      developerScreenshot
+      developerScreenshot,
+      stepContext.screenReaderArtifacts
     );
     recordAgentMemoryEntry(
       resources,
@@ -570,7 +590,8 @@ async function handleActionDecision(
         failedExecution
       )
         ? await captureDeveloperScreenshot(resources.browser.page)
-        : undefined
+        : undefined,
+      stepContext.screenReaderArtifacts
     );
     recordAgentMemoryEntry(resources, state, step, decision, "continued", message);
 

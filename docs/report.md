@@ -1,6 +1,6 @@
 # 리포트
 
-한 번의 실행마다 `outDir` 아래에 HTML 리포트와 실행 산출물이 저장됩니다. 리포트는 성공/실패 결과만 보는 것이 아니라, **어느 step에서 무엇을 보고 어떤 행동을 했는지** 과정을 다시 따라갈 수 있도록 설계되어 있습니다.
+한 번의 실행마다 HTML 리포트와 실행 산출물이 `outDir/<taskId>/<runId>/` 아래에 저장됩니다. 여기서 `outDir`는 설정된 출력 루트 디렉터리입니다. 리포트는 성공/실패 결과만 보는 것이 아니라, **어느 step에서 무엇을 보고 어떤 행동을 했는지** 과정을 다시 따라갈 수 있도록 설계되어 있습니다.
 
 ---
 
@@ -8,6 +8,10 @@
 
 | 항목 | 설명 |
 |------|------|
+| `trace.jsonl` | step별 사용자용 리플레이 기록 |
+| `diagnostics.jsonl` | 내부 런타임 경고/에러 기록. 이벤트가 있을 때만 생성 |
+| `trace.json` | 최종 합본 trace |
+| `metrics.json` | aggregate 요약 수치 |
 | `prompts.json` | step별 system/user prompt와 이미지 개수 |
 | Verdict | 과업 달성 / 막힘 / 시간 초과 여부 |
 | 단계별 리플레이 | 각 step의 관측, 행동, 이유 |
@@ -42,6 +46,7 @@
 step 하나를 열면 아래 순서로 읽습니다.
 
 1. **observation** — keyboard 모드면 title, URL path, focus hint, scroll hint. screenreader 모드면 announcement, capture 방식, announcement count, observe reason.
+   screenreader 보조 수집 실패는 raw 에러 대신 `DOM Focus: Failed`, `Cursor Screenshot: Unsupported` 같은 상태만 표시됩니다.
 2. **decision / action** — 어떤 키나 `sr.*` action을 선택했는지. rationale 저장이 켜져 있으면 선택 이유도 확인 가능.
 3. **verification** — verifier가 돌았는지, 통과했는지, 어떤 rule에서 실패했는지.
 4. **timing** — 느린 step이 observe 때문인지 decide 때문인지 분리해서 확인.
@@ -89,6 +94,18 @@ HTML 리포트만으로 부족할 때 `prompts.json`을 봅니다. step별 syste
 - prompt를 수정한 뒤 실제로 어떤 텍스트가 모델에 전달됐는지 확인하고 싶을 때
 - `availableActions`에 `hint`가 제대로 붙었는지 확인하고 싶을 때
 - screenreader에서 announcement 블록이 어떻게 렌더링됐는지 보고 싶을 때
+
+---
+
+## `diagnostics.jsonl` 활용
+
+`trace.jsonl`과 HTML 리포트는 사용자 관점 흐름을 보기 위한 파일입니다. 반대로 `diagnostics.jsonl`은 런타임 내부 경고/에러를 보는 파일입니다.
+
+- `domFocus` 수집 실패 이유
+- VoiceOver cursor screenshot 미지원/실패 이유
+- raw 에러 문자열이나 stack이 필요한 디버깅
+
+즉, **리플레이는 trace**, **엔진 고장 원인은 diagnostics**로 나눠서 보면 됩니다.
 
 ---
 

@@ -8,7 +8,8 @@ import type {
   ScreenReaderCapabilities
 } from "@rawstep/definition";
 import { createBrowserSession, runTask } from "@rawstep/runtime";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { captureScreenReaderDomFocus } from "../packages/runtime/src/run/helpers";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -104,6 +105,21 @@ function createMockScreenReaderRuntime(overrides: {
     screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
   };
+  captureCursorScreenshot?: () => Promise<
+    | { status: "captured"; sourcePath: string }
+    | { status: "disabled" }
+    | {
+        status: "unsupported" | "failed";
+        diagnostic: {
+          scope: "cursorScreenshot";
+          level: "warn" | "error";
+          code: string;
+          message: string;
+          error?: string;
+          stack?: string;
+        };
+      }
+  >;
   close?: () => Promise<void>;
 }) {
   return {
@@ -116,6 +132,7 @@ function createMockScreenReaderRuntime(overrides: {
       screenReaderInitMs: 12,
       firstAnnouncementWaitMs: 34
     },
+    captureCursorScreenshot: overrides.captureCursorScreenshot ?? (async () => ({ status: "disabled" as const })),
     close: overrides.close ?? (async () => undefined)
   };
 }
@@ -958,6 +975,7 @@ describe("runTask", () => {
           decide: async (ctx, obs) => {
             expect(ctx.screenReaderActions?.some((action) => action.token === "sr.heading.next")).toBe(true);
             expect(obs.kind).toBe("screenreader");
+            expect("domFocus" in obs && obs.domFocus).toBeFalsy();
 
             if (observeCalls === 1) {
               return {
@@ -995,6 +1013,10 @@ describe("runTask", () => {
     if (session.steps[0].observation.kind === "screenreader") {
       expect(session.steps[0].observation.screenshot?.path).toBe("screenshots/step-000.png");
       expect(session.steps[0].observation.announcementCapture).toBe("log");
+      expect(session.steps[0].observation.domFocus).toMatchObject({
+        status: "captured",
+        targetTagName: "body"
+      });
     }
     expect(session.aggregate.actionCounts).toEqual({
       srInvokeCount: 1,
@@ -1808,5 +1830,125 @@ describe("runTask", () => {
       finalResult: "success",
       completionSource: "verifier-auto-complete"
     });
+  });
+
+  it("records VoiceOver cursor screenshots in the trace without exposing them to the agent", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-voiceover-cursor-"));
+    const cursorSourcePath = join(outDir, "voiceover-cursor-source.png");
+    await writeFile(cursorSourcePath, "fake-cursor-png", "utf8");
+
+    const session = await runTask(
+      {
+        id: "screenreader-voiceover-cursor",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Capture the current VoiceOver cursor.",
+        mode: "screenreader",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-voiceover",
+        voiceOver: {
+          cursorScreenshot: true
+        },
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Get started button",
+              announcementCapture: "log"
+            })
+          },
+          captureCursorScreenshot: async () => ({
+            status: "captured",
+            sourcePath: cursorSourcePath
+          })
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            expect(obs.kind).toBe("screenreader");
+            expect("cursorScreenshot" in obs && obs.cursorScreenshot).toBeFalsy();
+            return {
+              verdict: "success",
+              rationale: "The button announcement is present."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.cursorScreenshot).toEqual({
+        status: "captured",
+        path: "screenshots/step-000-voiceover-cursor.png"
+      });
+    }
+  });
+
+  it("records domFocus capture errors in the trace when focus inspection fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-dom-focus-error-"));
+
+    const session = await runTask(
+      {
+        id: "screenreader-dom-focus-error",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Capture a domFocus inspection failure.",
+        mode: "screenreader",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        screenshotPolicy: "none",
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async (page) => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => {
+              await page.close();
+              return {
+                kind: "screenreader",
+                announcement: "Get started button",
+                announcementCapture: "log"
+              };
+            }
+          }
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            expect(obs.kind).toBe("screenreader");
+            expect("domFocus" in obs && obs.domFocus).toBeFalsy();
+            return {
+              verdict: "stuck",
+              rationale: "Stop after the forced domFocus capture failure."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.domFocus).toEqual({
+        status: "failed"
+      });
+    }
+    await expect(access(join(outDir, "diagnostics.jsonl"))).resolves.toBeUndefined();
+    const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+    expect(diagnostics).toContain("DOM_FOCUS_CAPTURE_FAILED");
+    expect(diagnostics.toLowerCase()).toContain("closed");
+  });
+
+  it("keeps the domFocus page.evaluate callback free of tsx helper wrappers", () => {
+    expect(String(captureScreenReaderDomFocus)).not.toContain("__name(");
   });
 });

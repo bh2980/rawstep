@@ -5,6 +5,7 @@ import type {
 import type { Decision, Verdict } from "../agent";
 import type {
   ScrollHint,
+  ScreenReaderDomFocusSnapshot,
   ScreenReaderReadback,
 } from "../observation";
 import type { ResolvedTask } from "../task";
@@ -55,6 +56,8 @@ export type RecordedScreenReaderObservation = {
   announcementCount?: number;
   observeReason?: "silence" | "timeout" | "fallback" | "synthetic";
   readbacks?: ScreenReaderReadback[];
+  domFocus?: RecordedScreenReaderDomFocus;
+  cursorScreenshot?: RecordedScreenReaderCursorScreenshot;
   screenshot?: {
     path: string;
     viewport: { w: number; h: number };
@@ -62,6 +65,34 @@ export type RecordedScreenReaderObservation = {
 };
 
 export type RecordedObservation = RecordedKeyboardObservation | RecordedScreenReaderObservation;
+
+export type RecordedScreenReaderDomFocus =
+  | ({
+      status: "captured";
+    } & ScreenReaderDomFocusSnapshot)
+  | {
+      status: "failed";
+    };
+
+export type RecordedScreenReaderCursorScreenshot =
+  | {
+      status: "captured";
+      path: string;
+    }
+  | {
+      status: "disabled" | "unsupported" | "failed";
+    };
+
+export type DiagnosticEvent = {
+  ts: string;
+  step: number;
+  scope: "domFocus" | "cursorScreenshot";
+  level: "warn" | "error";
+  code: string;
+  message: string;
+  error?: string;
+  stack?: string;
+};
 
 export type VerificationRecord = {
   passed: boolean;

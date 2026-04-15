@@ -16,11 +16,13 @@ import {
   type ScreenReaderObserveConfig,
   type TaskOverrideSource,
   type TaskSource,
+  type VoiceOverConfig,
 } from "@rawstep/definition";
 import { buildKeyboardActionPlanFromAllowedKeys } from "../keyboard-actions";
 import type { AgentProvider } from "../project/provider";
 import { loadProjectConfig } from "../project/resolve";
 import { resolveConfiguredScreenReaderActions } from "../screenreader-actions";
+import { buildRunOutputDir } from "./output-path";
 import { resolveRunPlanPrecedence, type RunPlanCliOverrides } from "./precedence";
 import { readTaskFile, resolveTaskUrl } from "./task-file";
 import { validateTaskSource } from "@rawstep/definition";
@@ -56,6 +58,7 @@ export type ResolvedRunPlan = {
     screenReaderActionPlan?: ScreenReaderActionPlan;
     screenReaderBackendId?: ScreenReaderBackendId;
     screenReaderObserve?: ScreenReaderObserveConfig;
+    voiceOver?: VoiceOverConfig;
   };
   prompt: {
     keyboardActions: readonly KeyboardActionDescriptor[];
@@ -91,6 +94,9 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
   if (supportsVisualObservation(merged.selectedMode) && merged.configuredScreenReaderObserve) {
     throw new Error(`observe is not allowed in ${merged.selectedMode} mode.`);
   }
+  if (supportsVisualObservation(merged.selectedMode) && merged.configuredVoiceOver) {
+    throw new Error(`voiceOver is not allowed in ${merged.selectedMode} mode.`);
+  }
 
   if (!allowsRawKeyActions(merged.selectedMode)
     && (merged.overrideAllowedKeys !== undefined || merged.configuredAllowedKeys !== undefined)
@@ -105,10 +111,12 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
     maxSteps: merged.maxSteps,
     timeoutMs: merged.timeoutMs,
   });
+  const outDir = buildRunOutputDir(merged.outDirRoot, task.id);
   const screenReaderBackendId = resolveScreenReaderBackendId(
     merged.selectedMode,
     merged.configuredScreenReaderBackend,
   );
+  validateVoiceOverConfig(screenReaderBackendId, merged.configuredVoiceOver);
   const { plan: screenReaderActionPlan, promptActions } = resolveAllowedScreenReaderActions(
     merged.selectedMode,
     merged.configuredAllowedScreenReaderActions,
@@ -126,7 +134,7 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       taskFile: taskSource.absoluteTaskFile,
       configFile: projectConfig.path,
       promptDir: merged.promptDir,
-      outDir: merged.outDir,
+      outDir,
     },
     agent: {
       provider: merged.provider,
@@ -148,12 +156,26 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       screenReaderActionPlan,
       screenReaderBackendId,
       screenReaderObserve: merged.configuredScreenReaderObserve,
+      voiceOver: merged.configuredVoiceOver,
     },
     prompt: {
       keyboardActions: keyboardActionPlan.descriptors,
       screenReaderActions: promptActions,
     },
   };
+}
+
+function validateVoiceOverConfig(
+  screenReaderBackendId: ScreenReaderBackendId | undefined,
+  voiceOver: VoiceOverConfig | undefined,
+): void {
+  if (!voiceOver) {
+    return;
+  }
+
+  if (screenReaderBackendId !== "guidepup-voiceover") {
+    throw new Error('voiceOver is only allowed when screenReaderBackend is "guidepup-voiceover".');
+  }
 }
 
 async function loadTaskSource(taskFile: string): Promise<LoadedTaskSource> {

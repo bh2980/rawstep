@@ -16,11 +16,11 @@ import {
   validateTaskSource
 } from "@rawstep/definition";
 import { DEFAULT_ALLOWED_KEYS } from "@rawstep/action-catalog";
-import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_CWD = process.cwd();
@@ -28,6 +28,7 @@ const ORIGINAL_CWD = process.cwd();
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   process.chdir(ORIGINAL_CWD);
+  vi.useRealTimers();
 });
 
 function createFixtureAgent() {
@@ -115,6 +116,7 @@ async function resolvePlan(cliOptions: RunPlanCliOverrides) {
     screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
     screenReaderBackendId: plan.interaction.screenReaderBackendId,
     screenReaderObserve: plan.interaction.screenReaderObserve,
+    voiceOver: plan.interaction.voiceOver,
     prompt: {
       promptDir: plan.paths.promptDir,
       keyboardActions: plan.prompt.keyboardActions,
@@ -184,6 +186,26 @@ function stripFileExtension(filename: string): string {
   return filename.replace(/\.[^.]+$/, "");
 }
 
+function expectRunId(runId: string): void {
+  expect(runId).toMatch(/^\d{8}-\d{6}-\d{3}(?:-\d+)?$/);
+}
+
+function expectResolvedOutDir(outDir: string, outDirRoot: string, taskId: string): void {
+  expect(dirname(outDir)).toBe(join(outDirRoot, taskId));
+  expectRunId(basename(outDir));
+}
+
+async function expectSingleRunOutputDir(outDirRoot: string, taskId: string): Promise<string> {
+  const taskDir = join(outDirRoot, taskId);
+  const runDirs = (await readdir(taskDir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+  expect(runDirs).toHaveLength(1);
+  expectRunId(runDirs[0] ?? "");
+  return join(taskDir, runDirs[0] ?? "");
+}
+
 describe.sequential("CLI", () => {
   it("validates task input in definition", () => {
     expect(validateTaskInput({
@@ -247,7 +269,7 @@ describe.sequential("CLI", () => {
 
   it("runs the keyboard flow and writes outputs", { timeout: 15_000 }, async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-run-config-"));
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-cli-"));
+    const outDirRoot = await mkdtemp(join(tmpdir(), "a11y-cli-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
     await writeConfigModule(
@@ -279,12 +301,13 @@ describe.sequential("CLI", () => {
       "--mode",
       "keyboard",
       "--out",
-      outDir
+      outDirRoot
     ], {
       createAgent: () => createFixtureAgent()
     });
 
     expect(exitCode).toBe(0);
+    const outDir = await expectSingleRunOutputDir(outDirRoot, "simple-cta");
     await expect(access(join(outDir, "trace.jsonl"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "metrics.json"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "prompts.json"))).resolves.toBeUndefined();
@@ -689,8 +712,9 @@ describe.sequential("CLI", () => {
     });
 
     expect(exitCode).toBe(0);
-    await expect(access(join(outDir, "trace.jsonl"))).resolves.toBeUndefined();
-    await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
+    const runOutDir = await expectSingleRunOutputDir(outDir, "config-discovery-task");
+    await expect(access(join(runOutDir, "trace.jsonl"))).resolves.toBeUndefined();
+    await expect(access(join(runOutDir, "report", "index.html"))).resolves.toBeUndefined();
   });
 
   it("lets --config override the auto-discovered rawstep.config.ts file", { timeout: 15_000 }, async () => {
@@ -757,8 +781,9 @@ describe.sequential("CLI", () => {
     });
 
     expect(exitCode).toBe(0);
-    await expect(access(join(explicitOutDir, "trace.jsonl"))).resolves.toBeUndefined();
-    await expect(access(join(discoveredOutDir, "trace.jsonl"))).rejects.toThrow();
+    const runOutDir = await expectSingleRunOutputDir(explicitOutDir, "explicit-config-task");
+    await expect(access(join(runOutDir, "trace.jsonl"))).resolves.toBeUndefined();
+    await expect(access(join(discoveredOutDir, "explicit-config-task"))).rejects.toThrow();
   });
 
   it("merges env, config, task override, and CLI using the documented precedence", async () => {
@@ -856,7 +881,7 @@ describe.sequential("CLI", () => {
     expect(options.task.mode).toBe("keyboard");
     expect(options.task.maxSteps).toBe(60);
     expect(options.task.timeoutMs).toBe(4000);
-    expect(options.execution.outDir).toBe(resolve("cli-out"));
+    expectResolvedOutDir(options.execution.outDir, resolve("cli-out"), "precedence-task");
     expect(options.execution.screenshotPolicy).toBe("none");
     expect(options.execution.verifierAutoComplete).toBe(true);
     expect(options.execution.maxVerificationRetries).toBe(3);
@@ -916,6 +941,50 @@ describe.sequential("CLI", () => {
     expect(options.screenReaderObserve).toEqual({
       silenceWindowMs: 1500,
       maxObserveMs: 12000
+    });
+  });
+
+  it("resolves voiceOver settings only for the VoiceOver backend", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-voiceover-config-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "voiceover-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    screenreader: {
+      outDir: "./screenreader-out",
+      maxSteps: 40,
+      timeoutMs: 2500,
+      memory: "all",
+      screenReaderBackend: "guidepup-voiceover",
+      voiceOver: {
+        cursorScreenshot: true
+      }
+    }
+  }
+}`
+    );
+
+    await writeTaskFile(taskPath, {
+      id: "voiceover-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Check voiceOver settings.",
+      mode: "screenreader",
+      verify: { all: [{ titleIncludes: "Simple CTA Fixture" }] }
+    });
+
+    const options = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+
+    expect(options.screenReaderBackendId).toBe("guidepup-voiceover");
+    expect(options.voiceOver).toEqual({
+      cursorScreenshot: true
     });
   });
 
@@ -1050,7 +1119,7 @@ describe.sequential("CLI", () => {
       "2"
     ]))).execution;
 
-    expect(execution.outDir).toBe(resolve("cli-out"));
+    expectResolvedOutDir(execution.outDir, resolve("cli-out"), "execution-policy-task");
     expect(execution.maxSteps).toBe(45);
     expect(execution.timeoutMs).toBe(3500);
     expect(execution.maxVerificationRetries).toBe(7);
@@ -1059,6 +1128,160 @@ describe.sequential("CLI", () => {
     expect(execution.memory).toEqual({ mode: "window", window: 2 });
     expect(execution.includeExperienceSummary).toBe(true);
     expect(execution.includeRationale).toBe(true);
+  });
+
+  it("uses the task filename as the output folder when id is omitted", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-outdir-filename-task-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "filename-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
+
+    const options = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+
+    expectResolvedOutDir(options.execution.outDir, join(tempDir, "config-out"), "filename-task");
+  });
+
+  it("uses the default keyboard output root when modes.keyboard.outDir is omitted", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-default-keyboard-outdir-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    const options = await resolvePlan(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]));
+
+    expectResolvedOutDir(
+      options.execution.outDir,
+      join(tempDir, ".rawstep", "out", "keyboard"),
+      "simple-cta"
+    );
+  });
+
+  it("uses the default screenreader output root when modes.screenreader.outDir is omitted", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-default-screenreader-outdir-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    screenreader: {
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual"
+    }
+  }
+}`
+    );
+
+    const options = await resolvePlan(parseRunArgs([
+      resolve("examples/tasks/email-login.json"),
+      "--config",
+      configPath
+    ]));
+
+    expectResolvedOutDir(
+      options.execution.outDir,
+      join(tempDir, ".rawstep", "out", "screenreader"),
+      "email-login"
+    );
+  });
+
+  it("adds a numeric suffix when two output paths are resolved in the same millisecond", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-outdir-runid-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      id: "same-ms-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      mode: "keyboard",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      }
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2042-05-06T07:08:09.123Z"));
+
+    const first = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+    const second = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+
+    expect(dirname(first.execution.outDir)).toBe(join(tempDir, "config-out", "same-ms-task"));
+    expect(basename(first.execution.outDir)).toMatch(/^\d{8}-\d{6}-\d{3}$/);
+    expect(second.execution.outDir).toBe(`${first.execution.outDir}-2`);
   });
 
   it("preserves memory=all when CLI does not override execution policy memory", async () => {

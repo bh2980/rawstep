@@ -12,12 +12,17 @@ import type {
   TaskOverrideSource,
   TaskSource,
   UserModel,
+  VoiceOverConfig,
 } from "@rawstep/definition";
 import type { LoadedProjectConfig } from "../project/resolve";
 import type { ProjectModePreset } from "../project/schema";
 import type { AgentProvider } from "../project/provider";
 
 const DEFAULT_MAX_VERIFICATION_RETRIES = 2;
+const DEFAULT_MODE_OUT_DIRS = {
+  keyboard: ".rawstep/out/keyboard",
+  screenreader: ".rawstep/out/screenreader",
+} as const satisfies Record<UserModel, string>;
 
 export type RunPlanCliOverrides = {
   taskFile: string;
@@ -43,7 +48,7 @@ export type RunPlanCliOverrides = {
 
 export type ResolvedRunPlanPrecedence = {
   selectedMode: UserModel;
-  outDir: string;
+  outDirRoot: string;
   maxSteps: number;
   timeoutMs: number;
   headless?: boolean;
@@ -66,6 +71,7 @@ export type ResolvedRunPlanPrecedence = {
   configuredAllowedScreenReaderActions?: ScreenReaderActionRef[];
   configuredScreenReaderBackend?: ScreenReaderBackendId;
   configuredScreenReaderObserve?: ScreenReaderObserveConfig;
+  configuredVoiceOver?: VoiceOverConfig;
 };
 
 type ResolveRunPlanPrecedenceInput = {
@@ -99,12 +105,11 @@ export function resolveRunPlanPrecedence({
     throw new Error(`Missing modes.${selectedMode} in ${configPath}. Add a preset for this mode to rawstep.config.ts.`);
   }
 
-  const outDir = cliOverrides.outDir
-    ?? resolveOutputDir(taskConfig?.outDir, dirname(taskFile))
-    ?? resolveOutputDir(modePreset.outDir, configDir);
-  if (!outDir) {
-    throw new Error(`Missing output directory. Pass --out <dir> or set modes.${selectedMode}.outDir in rawstep.config.ts.`);
-  }
+  const outDirRoot = cliOverrides.outDir
+    ?? resolveOutputRootDir(taskConfig?.outDir, dirname(taskFile))
+    ?? resolveOutputRootDir(modePreset.outDir, configDir);
+  const resolvedOutDirRoot = outDirRoot
+    ?? resolve(configDir, DEFAULT_MODE_OUT_DIRS[selectedMode]);
 
   const maxSteps = cliOverrides.maxSteps
     ?? taskConfig?.maxSteps
@@ -130,7 +135,7 @@ export function resolveRunPlanPrecedence({
 
   return {
     selectedMode,
-    outDir,
+    outDirRoot: resolvedOutDirRoot,
     maxSteps,
     timeoutMs,
     headless: cliOverrides.headless
@@ -179,10 +184,16 @@ export function resolveRunPlanPrecedence({
           ...(taskConfig?.observe ?? {})
         }
       : undefined,
+    configuredVoiceOver: taskConfig?.voiceOver || modePreset.voiceOver
+      ? {
+          ...(modePreset.voiceOver ?? {}),
+          ...(taskConfig?.voiceOver ?? {})
+        }
+      : undefined,
   };
 }
 
-function resolveOutputDir(rawOutDir: string | undefined, baseDir: string | undefined): string | undefined {
+function resolveOutputRootDir(rawOutDir: string | undefined, baseDir: string | undefined): string | undefined {
   if (!rawOutDir || !baseDir) {
     return undefined;
   }

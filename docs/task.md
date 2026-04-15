@@ -74,10 +74,14 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 
 task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `baseURL`은 넣을 수 없습니다.
 
+`config.outDir`를 쓰면 그 값은 최종 폴더가 아니라 **출력 루트 디렉터리**로 해석됩니다.  
+실제 저장 위치는 `config.outDir/<taskId>/<runId>`이며, 상대 경로면 task 파일 기준으로 resolve됩니다.
+
 ```json
 {
   "config": {
     "mode": "screenreader",
+    "outDir": "./custom-out",
     "timeoutMs": 600000,
     "memory": "all",
     "headless": true,

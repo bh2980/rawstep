@@ -47,6 +47,7 @@ export {
 export type {
   MemorySetting,
   ScreenReaderObserveConfig,
+  VoiceOverConfig,
   TaskInput,
   TaskOverrideSource,
   TaskSource,
@@ -54,6 +55,8 @@ export type {
 } from "./task";
 export type {
   ScrollHint,
+  ScreenReaderCursorScreenshot,
+  ScreenReaderDomFocusSnapshot,
   ScreenReaderReadback,
   KeyboardObservation,
   ScreenReaderObservation,
@@ -82,8 +85,11 @@ export type {
 } from "./agent";
 export type {
   EndedBy,
+  DiagnosticEvent,
   ExecutionRecord,
   RecordedKeyboardObservation,
+  RecordedScreenReaderCursorScreenshot,
+  RecordedScreenReaderDomFocus,
   RecordedScreenReaderObservation,
   RecordedObservation,
   VerificationRecord,

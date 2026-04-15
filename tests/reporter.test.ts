@@ -1,6 +1,6 @@
 import { publishRunOutputs, renderReport } from "@rawstep/reporter";
 import type { StepRecord, TraceSession } from "@rawstep/definition";
-import { access, mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -454,6 +454,56 @@ describe("reporter", () => {
     expect(html).not.toContain('<details class="timing-details">');
   });
 
+  it("renders VoiceOver cursor screenshots in the detail panel", async () => {
+    const html = await render(
+      makeSession([
+        makeScreenReaderStep(0, {
+          observation: {
+            kind: "screenreader",
+            announcement: "Get started button",
+            announcementCapture: "log",
+            announcementCount: 1,
+            observeReason: "silence",
+            cursorScreenshot: {
+              status: "captured",
+              path: "screenshots/step-000-voiceover-cursor.png"
+            }
+          }
+        }),
+      ])
+    );
+
+    expect(html).toContain("VoiceOver Cursor");
+    expect(html).toContain('"cursorScreenshot":{"status":"Captured","path":"../screenshots/step-000-voiceover-cursor.png"}');
+    expect(html).toContain("step-000-voiceover-cursor.png");
+  });
+
+  it("renders status-only diagnostics for failed screenreader helpers", async () => {
+    const html = await render(
+      makeSession([
+        makeScreenReaderStep(0, {
+          observation: {
+            kind: "screenreader",
+            announcement: "",
+            announcementCapture: "none",
+            observeReason: "timeout",
+            domFocus: {
+              status: "failed"
+            },
+            cursorScreenshot: {
+              status: "unsupported"
+            }
+          }
+        }),
+      ])
+    );
+
+    expect(html).toContain('"domFocus":{"status":"Failed","hasDocumentFocus":null,"target":null,"label":null,"selector":null}');
+    expect(html).toContain('"cursorScreenshot":{"status":"Unsupported","path":null}');
+    expect(html).not.toContain("Capture Error");
+    expect(html).not.toContain("__name");
+  });
+
   it("keeps the default list compact even for 400-step runs", async () => {
     const steps = Array.from({ length: 400 }, (_, index) => {
       if (index === 47) {
@@ -531,5 +581,27 @@ describe("reporter", () => {
     expect(published.reportPath).toBe(join(outDir, "report", "index.html"));
     expect(published.summaryText).toContain("Task report-task finished with success.");
     expect(published.summaryText).toContain(join(outDir, "report", "index.html"));
+  });
+
+  it("includes diagnostics output in the summary only when the file exists", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-diagnostics-"));
+    const session = makeSession([], {
+      aggregate: {
+        result: "failure",
+        endedBy: "error",
+        totalSteps: 0,
+        terminatedAtStep: null,
+      },
+    });
+
+    await readFile(await renderReport(session, outDir), "utf8");
+    await access(join(outDir, "report", "index.html"));
+
+    await writeFile(join(outDir, "diagnostics.jsonl"), '{"level":"error"}\n', "utf8");
+
+    const published = await publishRunOutputs(session, outDir, []);
+
+    expect(published.outputPaths.diagnosticsJsonl).toBe(join(outDir, "diagnostics.jsonl"));
+    expect(published.summaryText).toContain(join(outDir, "diagnostics.jsonl"));
   });
 });

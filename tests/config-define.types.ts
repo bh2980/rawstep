@@ -49,6 +49,23 @@ defineConfig({
 defineConfig({
   version: 1,
   modes: {
+    keyboard: {
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    },
+    screenreader: {
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual"
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
     screenreader: {
       outDir: "./screenreader-out",
       maxSteps: 20,
@@ -70,6 +87,9 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
+      voiceOver: {
+        cursorScreenshot: true
+      },
       allowedScreenReaderActions: [
         // @ts-expect-error voiceover config must not accept nvda-only list navigation
         sr.list.next()
@@ -87,6 +107,9 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
+      voiceOver: {
+        cursorScreenshot: true
+      },
       allowedScreenReaderActions: [
         sr.key.tab(),
         // @ts-expect-error virtual config must not accept voiceover-only button navigation

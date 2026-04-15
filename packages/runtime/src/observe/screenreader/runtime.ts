@@ -32,10 +32,7 @@ export async function createScreenReaderRuntime(
   try {
     const screenReaderInitStartedAt = Date.now();
     await page.bringToFront();
-    await focusPageRoot(page);
     await session.start();
-    await focusPageRoot(page);
-    await synchronizeScreenReaderFocus(session, backend);
     screenReaderInitMs = Date.now() - screenReaderInitStartedAt;
   } catch (error) {
     throw new Error(
@@ -70,14 +67,58 @@ export async function createScreenReaderRuntime(
       screenReaderInitMs,
       firstAnnouncementWaitMs
     },
+    captureCursorScreenshot: async () => {
+      if (!options.voiceOver?.cursorScreenshot) {
+        return { status: "disabled" };
+      }
+
+      if (backend.id !== "guidepup-voiceover") {
+        return {
+          status: "unsupported",
+          diagnostic: {
+            scope: "cursorScreenshot",
+            level: "warn",
+            code: "CURSOR_SCREENSHOT_UNSUPPORTED_BACKEND",
+            message: `VoiceOver cursor screenshots are not supported by backend "${backend.id}".`
+          }
+        };
+      }
+
+      if (!session.takeCursorScreenshot) {
+        return {
+          status: "unsupported",
+          diagnostic: {
+            scope: "cursorScreenshot",
+            level: "warn",
+            code: "CURSOR_SCREENSHOT_UNSUPPORTED_SESSION",
+            message: `VoiceOver cursor screenshots are not supported by backend "${backend.id}" in this session.`
+          }
+        };
+      }
+
+      try {
+        const sourcePath = await session.takeCursorScreenshot();
+        return { status: "captured", sourcePath };
+      } catch (error) {
+        return {
+          status: "failed",
+          diagnostic: {
+            scope: "cursorScreenshot",
+            level: "error",
+            code: "CURSOR_SCREENSHOT_CAPTURE_FAILED",
+            message: "Failed to capture the VoiceOver cursor screenshot.",
+            error: getErrorMessage(error),
+            ...(error instanceof Error && error.stack ? { stack: error.stack } : {})
+          }
+        };
+      }
+    },
     close: async () => {
       try {
         await session.stop();
       } catch {
         // Best effort cleanup only.
       }
-
-      await cleanupBootstrapFocus(page);
     }
   };
 }

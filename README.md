@@ -32,8 +32,10 @@ pnpm build
 cp .env.sample .env
 # .env 에서 AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_BASE_URL 값을 채운다
 pnpm rawstep run examples/tasks/simple-cta.json
-open ./.rawstep/out/keyboard/report/index.html
 ```
+
+실제 산출물은 `./.rawstep/out/<mode>/<taskId>/<runId>/` 아래에 저장됩니다.  
+실행이 끝나면 CLI가 실제 `report/index.html` 경로를 출력하므로, 그 경로를 그대로 열면 됩니다.
 
 이 repo에는 바로 실행 가능한 기본 [rawstep.config.ts](./rawstep.config.ts)가 포함되어 있습니다.
 처음에는 `rawstep.config.ts`를 새로 만들기보다 `.env.sample`을 복사해 `.env`만 채우면 됩니다.

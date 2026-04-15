@@ -52,6 +52,17 @@ type StepViewModel = {
         capture: string;
         count: string | null;
         reason: string | null;
+        cursorScreenshot: {
+          status: string;
+          path: string | null;
+        } | null;
+        domFocus: {
+          status: string;
+          hasDocumentFocus: string | null;
+          target: string | null;
+          label: string | null;
+          selector: string | null;
+        } | null;
       };
 };
 
@@ -1339,6 +1350,17 @@ export function renderHtml(session: TraceSession): string {
         '</div>';
       }
 
+      if (
+        step.observation.kind === 'screenreader'
+        && step.observation.cursorScreenshot
+        && step.observation.cursorScreenshot.path
+      ) {
+        observation += '<div class="detail-subhead">VoiceOver Cursor</div>' +
+          '<div class="detail-media-frame">' +
+          '<img class="detail-screenshot" src="' + esc(step.observation.cursorScreenshot.path) + '" loading="lazy" alt="step ' + esc(step.stepNumber) + ' voiceover cursor screenshot" />' +
+        '</div>';
+      }
+
       if (step.observation.kind === 'screenreader') {
         observation += '<div class="detail-subhead">Announcement</div>' + (step.observation.announcement
           ? '<div class="detail-announcement">' + esc(step.observation.announcement) + '</div>'
@@ -1350,6 +1372,24 @@ export function renderHtml(session: TraceSession): string {
             : '') +
           (step.observation.reason
             ? '<div class="detail-kv-row"><strong>Reason</strong><div class="detail-copy">' + esc(step.observation.reason) + '</div></div>'
+            : '') +
+          (step.observation.cursorScreenshot
+            ? '<div class="detail-kv-row"><strong>Cursor Screenshot</strong><div class="detail-copy">' + esc(step.observation.cursorScreenshot.status) + '</div></div>'
+            : '') +
+          (step.observation.domFocus
+            ? '<div class="detail-kv-row"><strong>DOM Focus</strong><div class="detail-copy">' + esc(step.observation.domFocus.status) + '</div></div>' +
+              (step.observation.domFocus.target
+                ? '<div class="detail-kv-row"><strong>Target</strong><div class="detail-copy">' + esc(step.observation.domFocus.target) + '</div></div>'
+                : '') +
+              (step.observation.domFocus.hasDocumentFocus
+                ? '<div class="detail-kv-row"><strong>Document Focus</strong><div class="detail-copy">' + esc(step.observation.domFocus.hasDocumentFocus) + '</div></div>'
+                : '') +
+              (step.observation.domFocus.label
+                ? '<div class="detail-kv-row"><strong>Label</strong><div class="detail-copy">' + esc(step.observation.domFocus.label) + '</div></div>'
+                : '') +
+              (step.observation.domFocus.selector
+                ? '<div class="detail-kv-row"><strong>Selector</strong><div class="detail-copy">' + esc(step.observation.domFocus.selector) + '</div></div>'
+                : '')
             : '') +
         '</div>';
       } else if (!step.screenshotPath) {
@@ -1721,7 +1761,6 @@ function buildStepViewModel(
   const screenshotPath = step.observation.screenshot
     ? toReportImagePath(step.observation.screenshot.path)
     : null;
-
   let failureSummary: string | null = null;
   if (isFailurePoint) {
     failureSummary = failurePointReason ?? firstFailure(step) ?? step.execution.error ?? "Failure point";
@@ -1771,6 +1810,29 @@ function buildStepViewModel(
             capture: formatAnnouncementCapture(step.observation.announcementCapture),
             count: formatAnnouncementCount(step.observation.announcementCount),
             reason: formatObserveReason(step.observation.observeReason),
+            cursorScreenshot: step.observation.cursorScreenshot
+              ? {
+                  status: formatCursorScreenshotStatus(step.observation.cursorScreenshot.status),
+                  path: step.observation.cursorScreenshot.status === "captured"
+                    ? toReportImagePath(step.observation.cursorScreenshot.path)
+                    : null,
+                }
+              : null,
+            domFocus: step.observation.domFocus
+              ? {
+                  status: formatDomFocusStatus(step.observation.domFocus.status),
+                  hasDocumentFocus: step.observation.domFocus.status === "captured"
+                    ? step.observation.domFocus.hasDocumentFocus ? "Yes" : "No"
+                    : null,
+                  target: formatDomFocusTarget(step.observation.domFocus),
+                  label: step.observation.domFocus.status === "captured"
+                    ? step.observation.domFocus.targetLabel ?? null
+                    : null,
+                  selector: step.observation.domFocus.status === "captured"
+                    ? step.observation.domFocus.targetSelector ?? null
+                    : null,
+                }
+              : null,
           },
   };
 }
@@ -1893,6 +1955,50 @@ function formatObserveReason(
       return "Used synthetic announcement";
     default:
       return null;
+  }
+}
+
+function formatDomFocusTarget(
+  domFocus: NonNullable<Extract<StepRecord["observation"], { kind: "screenreader" }>["domFocus"]>
+): string | null {
+  if (domFocus.status !== "captured") {
+    return null;
+  }
+
+  const parts = [domFocus.targetTagName];
+  if (domFocus.targetId) {
+    parts.push(`#${domFocus.targetId}`);
+  }
+  if (domFocus.targetType) {
+    parts.push(`type=${domFocus.targetType}`);
+  }
+  if (domFocus.targetRole) {
+    parts.push(`role=${domFocus.targetRole}`);
+  }
+  if (domFocus.targetName) {
+    parts.push(`name=${domFocus.targetName}`);
+  }
+
+  const value = parts.filter(Boolean).join(" ");
+  return value || null;
+}
+
+function formatDomFocusStatus(status: "captured" | "failed"): string {
+  return status === "captured" ? "Captured" : "Failed";
+}
+
+function formatCursorScreenshotStatus(
+  status: "captured" | "disabled" | "unsupported" | "failed"
+): string {
+  switch (status) {
+    case "captured":
+      return "Captured";
+    case "disabled":
+      return "Disabled";
+    case "unsupported":
+      return "Unsupported";
+    case "failed":
+      return "Failed";
   }
 }
 

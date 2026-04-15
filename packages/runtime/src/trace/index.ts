@@ -1,5 +1,6 @@
 import {
   type ActionCounts,
+  type DiagnosticEvent,
   type Decision,
   type EndedBy,
   type ExperienceSummary,
@@ -7,6 +8,8 @@ import {
   type KeyboardObservation,
   type Observation,
   type RecordedKeyboardObservation,
+  type RecordedScreenReaderCursorScreenshot,
+  type RecordedScreenReaderDomFocus,
   type RecordedObservation,
   type ResolvedTask,
   type StepRecord,
@@ -15,15 +18,21 @@ import {
   type VerdictAnalysis,
   type VerificationRecord
 } from "@rawstep/definition";
-import { mkdir, appendFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type {
+  PendingDiagnosticEvent,
+  ScreenReaderTraceArtifacts,
+} from "./artifacts";
 
 export class TraceRecorder {
   private readonly startedAt = new Date().toISOString();
   private readonly traceJsonlPath: string;
+  private readonly diagnosticsJsonlPath: string;
   private readonly screenshotsDir: string;
   private readonly steps: StepRecord[] = [];
   private session?: TraceSession;
+  private diagnosticsInitialized = false;
   private setupTimings: Omit<TraceAggregate["timings"], "reportMs"> = {
     setupMs: 0,
     browserLaunchMs: 0,
@@ -38,6 +47,7 @@ export class TraceRecorder {
     private readonly outDir: string
   ) {
     this.traceJsonlPath = join(outDir, "trace.jsonl");
+    this.diagnosticsJsonlPath = join(outDir, "diagnostics.jsonl");
     this.screenshotsDir = join(outDir, "screenshots");
   }
 
@@ -58,9 +68,15 @@ export class TraceRecorder {
     developerScreenshot?: {
       pngBase64: string;
       viewport: { w: number; h: number };
-    }
+    },
+    screenReaderArtifacts?: ScreenReaderTraceArtifacts
   ): Promise<void> {
-    const recordedObservation = await this.serializeObservation(step, observation, developerScreenshot);
+    const recordedObservation = await this.serializeObservation(
+      step,
+      observation,
+      developerScreenshot,
+      screenReaderArtifacts
+    );
     const record: StepRecord = {
       step,
       timestamp: new Date().toISOString(),
@@ -74,6 +90,7 @@ export class TraceRecorder {
 
     this.steps.push(record);
     await appendFile(this.traceJsonlPath, `${JSON.stringify(record)}\n`, "utf8");
+    await this.appendDiagnostics(step, screenReaderArtifacts);
   }
 
   async finalize(
@@ -148,7 +165,8 @@ export class TraceRecorder {
     developerScreenshot?: {
       pngBase64: string;
       viewport: { w: number; h: number };
-    }
+    },
+    screenReaderArtifacts?: ScreenReaderTraceArtifacts
   ): Promise<RecordedObservation> {
     if (observation.kind !== "keyboard") {
       const recorded: RecordedObservation = {
@@ -157,7 +175,19 @@ export class TraceRecorder {
         announcementCapture: observation.announcementCapture,
         announcementCount: observation.announcementCount,
         observeReason: observation.observeReason,
-        readbacks: observation.readbacks
+        readbacks: observation.readbacks,
+        ...(screenReaderArtifacts?.domFocus
+          ? { domFocus: serializeDomFocus(screenReaderArtifacts.domFocus) }
+          : {}),
+        ...(screenReaderArtifacts?.cursorScreenshot
+          ? {
+              cursorScreenshot: await serializeCursorScreenshot(
+                step,
+                screenReaderArtifacts.cursorScreenshot,
+                this.screenshotsDir
+              )
+            }
+          : {})
       };
 
       if (developerScreenshot) {
@@ -169,6 +199,74 @@ export class TraceRecorder {
 
     return serializeKeyboardObservation(step, observation, this.screenshotsDir);
   }
+
+  private async appendDiagnostics(
+    step: number,
+    screenReaderArtifacts?: ScreenReaderTraceArtifacts
+  ): Promise<void> {
+    const diagnostics: PendingDiagnosticEvent[] = [];
+    if (screenReaderArtifacts?.domFocus?.status === "failed") {
+      diagnostics.push(screenReaderArtifacts.domFocus.diagnostic);
+    }
+    if (
+      screenReaderArtifacts?.cursorScreenshot?.status === "unsupported"
+      || screenReaderArtifacts?.cursorScreenshot?.status === "failed"
+    ) {
+      diagnostics.push(screenReaderArtifacts.cursorScreenshot.diagnostic);
+    }
+
+    if (diagnostics.length === 0) {
+      return;
+    }
+
+    if (!this.diagnosticsInitialized) {
+      await writeFile(this.diagnosticsJsonlPath, "");
+      this.diagnosticsInitialized = true;
+    }
+
+    for (const diagnostic of diagnostics) {
+      const event: DiagnosticEvent = {
+        ts: new Date().toISOString(),
+        step,
+        ...diagnostic
+      };
+      await appendFile(this.diagnosticsJsonlPath, `${JSON.stringify(event)}\n`, "utf8");
+    }
+  }
+}
+
+function serializeDomFocus(
+  capture: ScreenReaderTraceArtifacts["domFocus"]
+): RecordedScreenReaderDomFocus {
+  if (!capture || capture.status === "failed") {
+    return { status: "failed" };
+  }
+
+  return {
+    status: "captured",
+    ...capture.snapshot
+  };
+}
+
+async function serializeCursorScreenshot(
+  step: number,
+  capture: NonNullable<ScreenReaderTraceArtifacts["cursorScreenshot"]>,
+  screenshotsDir: string
+): Promise<RecordedScreenReaderCursorScreenshot> {
+  if (capture.status !== "captured") {
+    return { status: capture.status };
+  }
+
+  const filename = `step-${String(step).padStart(3, "0")}-voiceover-cursor.png`;
+  const relativePath = `screenshots/${filename}`;
+  const absolutePath = join(screenshotsDir, filename);
+
+  await copyFile(capture.sourcePath, absolutePath);
+
+  return {
+    status: "captured",
+    path: relativePath
+  };
 }
 
 export async function persistFinalizedTraceSession(session: TraceSession, outDir: string): Promise<void> {

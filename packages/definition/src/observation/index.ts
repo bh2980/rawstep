@@ -11,6 +11,22 @@ export type ScreenReaderReadback = {
   status?: "cleared";
 };
 
+export type ScreenReaderDomFocusSnapshot = {
+  hasDocumentFocus: boolean;
+  targetTagName?: string;
+  targetId?: string;
+  targetType?: string;
+  targetName?: string;
+  targetRole?: string;
+  targetLabel?: string;
+  targetText?: string;
+  targetSelector?: string;
+};
+
+export type ScreenReaderCursorScreenshot = {
+  sourcePath: string;
+};
+
 export type KeyboardObservation = {
   kind: "keyboard";
   screenshot: {
@@ -34,6 +50,8 @@ export type ScreenReaderObservation = {
   observeReason?: "silence" | "timeout" | "fallback" | "synthetic";
   previousAnnouncement?: string;
   readbacks?: ScreenReaderReadback[];
+  domFocus?: ScreenReaderDomFocusSnapshot;
+  cursorScreenshot?: ScreenReaderCursorScreenshot;
 };
 
 export type Observation = KeyboardObservation | ScreenReaderObservation;

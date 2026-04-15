@@ -1,6 +1,6 @@
 import type { KeyboardObservation, ResolvedTask } from "@rawstep/definition";
 import { TraceRecorder } from "@rawstep/runtime";
-import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { access, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -90,6 +90,7 @@ describe("TraceRecorder", () => {
 
     const jsonl = await readFile(join(outDir, "trace.jsonl"), "utf8");
     expect(jsonl.trim().split("\n")).toHaveLength(2);
+    await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
 
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
     const metrics = JSON.parse(await readFile(join(outDir, "metrics.json"), "utf8")) as { endedBy: string };
@@ -150,5 +151,140 @@ describe("TraceRecorder", () => {
       expect(session.steps[0].observation.observeReason).toBe("silence");
     }
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
+  });
+
+  it("copies VoiceOver cursor screenshots into the trace output", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-trace-voiceover-cursor-"));
+    const cursorSourceDir = await mkdtemp(join(tmpdir(), "a11y-voiceover-source-"));
+    const cursorSourcePath = join(cursorSourceDir, "cursor.png");
+    await writeFile(cursorSourcePath, "fake-cursor-png", "utf8");
+
+    const task: ResolvedTask = {
+      id: "trace-voiceover-cursor-test",
+      url: "file:///trace-voiceover-cursor-test.html",
+      goal: "Trace one VoiceOver step.",
+      mode: "screenreader",
+      maxSteps: 1,
+      timeoutMs: 1000,
+      verify: {
+        all: [{ textVisible: "Get started button" }]
+      }
+    };
+
+    const recorder = new TraceRecorder(task, outDir);
+    await recorder.initialize();
+
+    await recorder.append(
+      0,
+      {
+        kind: "screenreader",
+        announcement: "Get started button",
+        announcementCapture: "log",
+      },
+      {
+        action: {
+          srAction: {
+            semantic: "heading.next"
+          }
+        },
+        rationale: "Move to the next item."
+      },
+      { ok: true, costDelta: 1 },
+      { observeMs: 9, decideMs: 19, executeMs: 29, verifyMs: 0 },
+      undefined,
+      undefined,
+      undefined,
+      {
+        cursorScreenshot: {
+          status: "captured",
+          sourcePath: cursorSourcePath
+        }
+      }
+    );
+
+    const session = await recorder.finalize("success");
+
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.cursorScreenshot).toEqual({
+        status: "captured",
+        path: "screenshots/step-000-voiceover-cursor.png"
+      });
+    }
+    await expect(stat(join(outDir, "screenshots", "step-000-voiceover-cursor.png"))).resolves.toBeTruthy();
+  });
+
+  it("writes diagnostics lazily and keeps raw errors out of the trace", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-trace-diagnostics-"));
+    const task: ResolvedTask = {
+      id: "trace-diagnostics-test",
+      url: "file:///trace-diagnostics-test.html",
+      goal: "Trace one failed screenreader helper.",
+      mode: "screenreader",
+      maxSteps: 1,
+      timeoutMs: 1000,
+      verify: {
+        all: [{ textVisible: "Get started button" }]
+      }
+    };
+
+    const recorder = new TraceRecorder(task, outDir);
+    await recorder.initialize();
+
+    await recorder.append(
+      0,
+      {
+        kind: "screenreader",
+        announcement: "",
+        announcementCapture: "none",
+        observeReason: "timeout"
+      },
+      {
+        action: {
+          typeText: "email"
+        },
+        rationale: "Try typing."
+      },
+      { ok: false, costDelta: 0, error: "Action did not produce an observable text-entry state change." },
+      { observeMs: 9, decideMs: 19, executeMs: 29, verifyMs: 0 },
+      undefined,
+      undefined,
+      undefined,
+      {
+        domFocus: {
+          status: "failed",
+          diagnostic: {
+            scope: "domFocus",
+            level: "error",
+            code: "DOM_FOCUS_CAPTURE_FAILED",
+            message: "Failed to capture DOM focus.",
+            error: "ReferenceError: __name is not defined"
+          }
+        },
+        cursorScreenshot: {
+          status: "unsupported",
+          diagnostic: {
+            scope: "cursorScreenshot",
+            level: "warn",
+            code: "CURSOR_SCREENSHOT_UNSUPPORTED_BACKEND",
+            message: "VoiceOver cursor screenshots are not supported by backend \"guidepup-virtual\"."
+          }
+        }
+      }
+    );
+
+    const session = await recorder.finalize("stuck");
+
+    expect(session.steps[0].observation.kind).toBe("screenreader");
+    if (session.steps[0].observation.kind === "screenreader") {
+      expect(session.steps[0].observation.domFocus).toEqual({ status: "failed" });
+      expect(session.steps[0].observation.cursorScreenshot).toEqual({ status: "unsupported" });
+      expect(JSON.stringify(session.steps[0].observation)).not.toContain("__name");
+    }
+
+    const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+    expect(diagnostics).toContain("DOM_FOCUS_CAPTURE_FAILED");
+    expect(diagnostics).toContain("CURSOR_SCREENSHOT_UNSUPPORTED_BACKEND");
+    expect(diagnostics).toContain("__name");
   });
 });

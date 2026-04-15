@@ -10,9 +10,11 @@ import type {
   ScreenReaderBackendId,
   ScreenReaderObserveConfig,
   ScreenReaderBackendSpec,
-  ScreenReaderObservation
+  ScreenReaderObservation,
+  VoiceOverConfig,
 } from "@rawstep/definition";
 import type { Page } from "playwright";
+import type { ScreenReaderCursorScreenshotCapture } from "../../trace/artifacts";
 
 export type ScreenReaderObserveProfile = {
   pollIntervalMs: number;
@@ -39,6 +41,7 @@ export type ScreenReaderSession = {
   itemTextLog(): Promise<string[]>;
   clearSpokenPhraseLog(): Promise<void>;
   clearItemTextLog(): Promise<void>;
+  takeCursorScreenshot?(): Promise<string>;
 };
 
 export type ScreenReaderBackendImplementation = {
@@ -63,6 +66,7 @@ export type ScreenReaderRuntime = {
     screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
   };
+  captureCursorScreenshot(): Promise<ScreenReaderCursorScreenshotCapture>;
   close(): Promise<void>;
 };
 
@@ -74,6 +78,7 @@ export type ScreenReaderRuntimeOptions = {
   actionPlan?: ScreenReaderActionPlan;
   platform?: NodeJS.Platform;
   observe?: ScreenReaderObserveConfig;
+  voiceOver?: VoiceOverConfig;
 };
 
 export type AnnouncementState = Pick<

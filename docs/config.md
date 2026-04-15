@@ -90,12 +90,16 @@ AI provider 관련 값과 prompt 디렉터리만 받습니다.
 
 ### `modes.<mode>`
 
-`outDir`, `maxSteps`, `timeoutMs`, `memory`는 사실상 필수입니다.  
+`maxSteps`, `timeoutMs`, `memory`는 사실상 필수입니다.  
 `screenreader` 모드에는 `screenReaderBackend`도 필수입니다.
+
+`outDir`를 생략하면 모드별 기본 출력 루트를 사용합니다.
+- `keyboard`: `./.rawstep/out/keyboard`
+- `screenreader`: `./.rawstep/out/screenreader`
 
 | 필드 | 설명 | 기본값 |
 |------|------|--------|
-| `outDir` | 결과 출력 디렉터리 | — |
+| `outDir` | 출력 루트 디렉터리. 실제 저장 위치는 `<outDir>/<taskId>/<runId>` | `keyboard`: `./.rawstep/out/keyboard`, `screenreader`: `./.rawstep/out/screenreader` |
 | `headless` | 브라우저 창 표시 여부 | mode/backend 기본 정책 |
 | `maxSteps` | 최대 step 수 | — |
 | `timeoutMs` | 전체 실행 제한 시간(ms) | — |

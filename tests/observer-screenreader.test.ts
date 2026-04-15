@@ -93,6 +93,7 @@ function createMockScreenReaderSession(overrides: Partial<ScreenReaderSession> =
     spokenPhraseLog: vi.fn(async () => []),
     clearItemTextLog: vi.fn(async () => undefined),
     clearSpokenPhraseLog: vi.fn(async () => undefined),
+    takeCursorScreenshot: vi.fn(async () => "/tmp/voiceover-cursor.png"),
     ...overrides
   };
 }
@@ -262,7 +263,7 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
-    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(evaluate).not.toHaveBeenCalled();
     expect(firstObservation.kind).toBe("screenreader");
     expect(firstObservation.announcement).toContain("Initial announcement");
     expect(firstObservation.announcementCapture).toBe("log");
@@ -285,7 +286,7 @@ describe("observer-screenreader", () => {
     expect(stop).toHaveBeenCalled();
   });
 
-  it("synchronizes the initial screen reader cursor to keyboard focus when the backend supports it", async () => {
+  it("does not force an initial screen reader cursor sync during startup", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -318,10 +319,139 @@ describe("observer-screenreader", () => {
 
     await runtime.close();
 
-    expect(perform).toHaveBeenCalledWith(
-      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
-      { capture: "initial" }
+    expect(perform).not.toHaveBeenCalled();
+  });
+
+  it("captures VoiceOver cursor screenshots only when the voiceOver option is enabled", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const takeCursorScreenshot = vi.fn(async () => "/tmp/voiceover-cursor.png");
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            takeCursorScreenshot,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValue([])
+          })
+        },
+        voiceOver: {
+          cursorScreenshot: true
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
     );
+
+    await expect(runtime.captureCursorScreenshot()).resolves.toEqual({
+      status: "captured",
+      sourcePath: "/tmp/voiceover-cursor.png"
+    });
+    expect(takeCursorScreenshot).toHaveBeenCalledTimes(1);
+
+    await runtime.close();
+  });
+
+  it("returns disabled when VoiceOver cursor screenshots are not enabled", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const takeCursorScreenshot = vi.fn(async () => "/tmp/voiceover-cursor.png");
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            takeCursorScreenshot,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    await expect(runtime.captureCursorScreenshot()).resolves.toEqual({
+      status: "disabled"
+    });
+    expect(takeCursorScreenshot).not.toHaveBeenCalled();
+
+    await runtime.close();
+  });
+
+  it("returns failed with diagnostics when VoiceOver cursor capture throws", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            takeCursorScreenshot: vi.fn(async () => {
+              throw new Error("capture blew up");
+            }),
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValue([])
+          })
+        },
+        voiceOver: {
+          cursorScreenshot: true
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    await expect(runtime.captureCursorScreenshot()).resolves.toEqual({
+      status: "failed",
+      diagnostic: {
+        scope: "cursorScreenshot",
+        level: "error",
+        code: "CURSOR_SCREENSHOT_CAPTURE_FAILED",
+        message: "Failed to capture the VoiceOver cursor screenshot.",
+        error: "capture blew up",
+        stack: expect.any(String)
+      }
+    });
+
+    await runtime.close();
   });
 
   it("lets internal screen reader text entry bypass the public action plan", async () => {
@@ -433,7 +563,7 @@ describe("observer-screenreader", () => {
       announcementCount: 1,
       observeReason: "fallback"
     });
-    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(evaluate).not.toHaveBeenCalled();
   });
 
   it("rejects explicitly configured backends that do not support the current platform", async () => {

@@ -15,6 +15,10 @@ export AI_MODEL=<your-model>
 pnpm rawstep run examples/tasks/simple-cta.json
 ```
 
+실행이 끝나면 CLI가 실제 `report/index.html` 경로를 출력합니다.  
+산출물은 `--out/<taskId>/<runId>/` 또는 `modes.<mode>.outDir/<taskId>/<runId>/` 아래에 저장됩니다.
+런타임 내부 경고/에러가 있었던 실행만 `diagnostics.jsonl`이 추가로 생기고, CLI 출력 목록에도 그 경로가 함께 표시됩니다.
+
 전체 옵션을 사용한 예시:
 
 ```bash
@@ -61,7 +65,7 @@ CLI 플래그
 | `<task-file>` | 실행할 task JSON 파일 경로 **(필수)** | — |
 | `--config <path>` | `rawstep.config.ts` 경로 | 현재 디렉터리 탐색 |
 | `--mode <keyboard\|screenreader>` | 실행 모드 강제 지정 | task 설정값 |
-| `--out <dir>` | 결과 출력 디렉터리 | `./out` |
+| `--out <dir>` | 출력 루트 디렉터리. 실제 저장 위치는 `<dir>/<taskId>/<runId>` | `modes.<mode>.outDir` 또는 모드별 기본값 |
 | `--headless` / `--headed` | 브라우저 창 표시 여부 | `--headless` |
 
 ### 실행 제어
