@@ -8,7 +8,7 @@ import type {
   AgentMemoryEntry,
   Observation,
   TaskInput
-} from "@rawstep/core";
+} from "@rawstep/definition";
 
 export const DEFAULT_MAX_TOKENS = 800;
 

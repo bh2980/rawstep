@@ -119,7 +119,7 @@ function validateActionPlan(
 async function executeScreenReaderAction(
   session: ScreenReaderSession,
   action: ExecutableScreenReaderAction
-): Promise<import("@rawstep/core").ExecutionRecord> {
+): Promise<import("@rawstep/definition").ExecutionRecord> {
   if (action.kind === "read") {
     const value = await readScreenReaderValue(session, action.method);
     return {

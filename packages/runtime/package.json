@@ -10,7 +10,7 @@
   "dependencies": {
     "@rawstep/action-catalog": "workspace:*",
     "@rawstep/agent": "workspace:*",
-    "@rawstep/core": "workspace:*",
+    "@rawstep/definition": "workspace:*",
     "@guidepup/guidepup": "^0.24.1",
     "@guidepup/virtual-screen-reader": "^0.32.1",
     "playwright": "^1.59.1"

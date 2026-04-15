@@ -1,4 +1,4 @@
-import type { ScrollHint } from "@rawstep/core";
+import type { ScrollHint } from "@rawstep/definition";
 
 export const SCROLL_HINTS = ["top", "middle", "bottom"] as const satisfies readonly ScrollHint[];
 

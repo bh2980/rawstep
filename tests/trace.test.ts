@@ -1,4 +1,4 @@
-import type { KeyboardObservation, Task } from "@rawstep/core";
+import type { KeyboardObservation, ResolvedTask } from "@rawstep/definition";
 import { TraceRecorder } from "@rawstep/runtime";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 describe("TraceRecorder", () => {
   it("writes jsonl, metrics, and screenshot files", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-trace-"));
-    const task: Task = {
+    const task: ResolvedTask = {
       id: "trace-test",
       url: "file:///trace-test.html",
       goal: "Trace one step.",
@@ -98,7 +98,7 @@ describe("TraceRecorder", () => {
 
   it("writes developer screenshots for screenreader observations without exposing them to the agent path", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-trace-screenreader-"));
-    const task: Task = {
+    const task: ResolvedTask = {
       id: "trace-screenreader-test",
       url: "file:///trace-screenreader-test.html",
       goal: "Trace one screenreader step.",

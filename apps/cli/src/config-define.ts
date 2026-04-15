@@ -1,7 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
+  MemorySetting,
   ScreenshotPolicy
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import {
   type KeyboardActionRef,
   type ScreenReaderExtensionCatalogActionRef,
@@ -10,7 +11,6 @@ import {
   type ScreenReaderStableActionRef,
   type ScreenReaderBackendId
 } from "@rawstep/action-catalog";
-import type { MemorySetting } from "./shared";
 import { kb } from "./keyboard-actions";
 import {
   BackendStableScreenReaderSemantic,

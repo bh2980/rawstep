@@ -9,7 +9,7 @@ import {
   type Action,
   type Decision,
   type ExperienceSummary
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import type { PromptPart } from "./shared";
 
 export function parseDecision(

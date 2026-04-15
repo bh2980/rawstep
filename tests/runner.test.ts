@@ -2,7 +2,7 @@ import {
   buildKeyboardActionPlan,
   createKeyboardActionRef
 } from "../packages/action-catalog/src";
-import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
+import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/definition";
 import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
 import { resolveVerificationOutcome } from "../packages/runtime/src/run/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";

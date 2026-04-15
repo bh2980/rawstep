@@ -22,7 +22,7 @@ import {
 import type {
   AgentContext,
   Observation
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import { findScreenReaderBackendById } from "../packages/runtime/src";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

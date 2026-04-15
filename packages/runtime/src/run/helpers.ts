@@ -12,7 +12,7 @@ import {
   ScreenshotPolicy,
   UserModel,
   VerdictAnalysis
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import { KeyboardObserver } from "../observe/keyboard";
 import {
   type ScreenReaderRuntime

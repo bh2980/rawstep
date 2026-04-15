@@ -17,7 +17,7 @@
   "dependencies": {
     "@rawstep/action-catalog": "workspace:*",
     "@rawstep/agent": "workspace:*",
-    "@rawstep/core": "workspace:*",
+    "@rawstep/definition": "workspace:*",
     "@rawstep/reporter": "workspace:*",
     "@rawstep/runtime": "workspace:*",
     "dotenv": "^17.4.2",

@@ -1,7 +1,7 @@
 import {
   type KeyboardObservation,
   type ScrollHint
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import type { Page } from "playwright";
 import { DEFAULT_VIEWPORT } from "../../browser/constants";
 import { isScrollHint } from "./constants";

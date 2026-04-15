@@ -3,7 +3,7 @@ import {
   type ExecutionRecord,
   type ScreenReaderAction,
   type TaskInput
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import {
   createEmptyKeyCounts,
   isAllowedKey,

@@ -13,12 +13,12 @@ import {
   type AgentMemoryEntry,
   type Decision,
   type Observation,
+  type ResolvedTask,
   type StepRecord,
-  type Task,
   type TaskInput,
   type TraceAggregate,
   type UserModel
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import { loadPromptTemplates, renderPromptTemplate } from "./prompt-loader";
 import type { PromptPart } from "./shared";
 
@@ -146,7 +146,7 @@ export function buildExperienceSummarySystemPrompt(promptDir?: string): string {
 }
 
 export function buildExperienceSummaryPromptText(
-  task: Task,
+  task: ResolvedTask,
   aggregate: TraceAggregate,
   steps: StepRecord[]
 ): string {

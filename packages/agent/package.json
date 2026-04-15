@@ -11,7 +11,7 @@
     "@ai-sdk/anthropic": "^2.0.0",
     "@ai-sdk/openai-compatible": "^1.0.0",
     "@rawstep/action-catalog": "workspace:*",
-    "@rawstep/core": "workspace:*",
+    "@rawstep/definition": "workspace:*",
     "ai": "^5.0.0"
   }
 }

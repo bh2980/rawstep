@@ -11,7 +11,7 @@ import {
 } from "@rawstep/action-catalog";
 import type {
   ScreenReaderObservation
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import type { Page } from "playwright";
 
 export { SCREEN_READER_BACKEND_IDS };

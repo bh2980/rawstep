@@ -1,4 +1,4 @@
-import type { TraceSession } from "@rawstep/core";
+import type { TraceSession } from "@rawstep/definition";
 import { renderActionCounts, renderExperienceSummary, renderStep } from "./step";
 import { escapeHtml } from "./utils";
 

@@ -1,4 +1,4 @@
-import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type StepRecord, type Task, type TraceAggregate, type UserModel } from "@rawstep/core";
+import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type ResolvedTask, type StepRecord, type TaskInput, type TraceAggregate, type UserModel } from "@rawstep/definition";
 import { buildKeyboardActionPlan } from "@rawstep/action-catalog";
 import { resolveAgentConfig } from "./config";
 import {
@@ -47,7 +47,7 @@ export class LLMAgent implements Agent {
   private readonly includeExperienceSummary: boolean;
   private readonly agentMemoryWindow: number;
   private readonly agentMemoryAll: boolean;
-  private readonly taskInput?: Task["input"];
+  private readonly taskInput?: TaskInput;
   private readonly promptDir?: string;
   private readonly keyboardActions: LLMAgentOptions["keyboardActions"];
   private readonly screenReaderActions: LLMAgentOptions["screenReaderActions"];
@@ -174,7 +174,7 @@ export class LLMAgent implements Agent {
   }
 
   async summarizeExperience(input: {
-    task: Task;
+    task: ResolvedTask;
     aggregate: TraceAggregate;
     steps: StepRecord[];
   }): Promise<ExperienceSummary> {

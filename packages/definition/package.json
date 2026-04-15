@@ -1,14 +1,13 @@
 {
-  "name": "@rawstep/reporter",
+  "name": "@rawstep/definition",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "dependencies": {
+    "@rawstep/action-catalog": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json"
-  },
-  "dependencies": {
-    "@rawstep/action-catalog": "workspace:*",
-    "@rawstep/definition": "workspace:*"
   }
 }

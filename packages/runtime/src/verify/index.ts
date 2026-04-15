@@ -2,12 +2,12 @@ import { z } from "zod";
 import type { BrowserSession } from "../browser";
 import type {
   RequestVerificationRule,
+  ResolvedTask,
   ResponseVerificationRule,
-  Task,
   VerificationRecord,
   VerifyRule,
   VerifySpec
-} from "@rawstep/core";
+} from "@rawstep/definition";
 
 export const MAX_VERIFICATION_RETRIES = 2;
 
@@ -35,7 +35,7 @@ const verifyRuleSchemas = {
 const supportedVerifyRuleKeys = Object.keys(verifyRuleSchemas) as Array<keyof typeof verifyRuleSchemas>;
 
 export async function verifyTask(
-  task: Task,
+  task: ResolvedTask,
   browser: BrowserSession
 ): Promise<VerificationRecord> {
   const failures: string[] = [];

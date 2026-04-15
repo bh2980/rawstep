@@ -12,10 +12,12 @@ import {
 } from "@rawstep/action-catalog";
 import { z } from "zod";
 import {
+  type MemorySetting,
+  type ResolvedTask,
   type ScreenshotPolicy,
-  type Task,
+  type TaskInput,
   type UserModel
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import {
   isScreenReaderBackendId,
   type ScreenReaderBackendId
@@ -47,15 +49,6 @@ export type CliRunOptions = {
   baseURL?: string;
 };
 
-export type MemorySetting = number | "all";
-
-export type TaskFileShape = Partial<Task> & {
-  url?: string;
-  goal?: string;
-  id?: string;
-  config?: TaskConfigOverride;
-};
-
 export type ModeConfigShape = {
   outDir?: string;
   headless?: boolean;
@@ -78,23 +71,6 @@ export type ProjectDefaultsShape = {
   baseURL?: string;
   apiKey?: string;
   prompt?: ProjectPromptShape;
-};
-
-export type TaskConfigOverride = {
-  mode?: UserModel;
-  outDir?: string;
-  headless?: boolean;
-  maxSteps?: number;
-  timeoutMs?: number;
-  maxVerificationRetries?: number;
-  screenshots?: ScreenshotPolicy;
-  verifierAutoComplete?: boolean;
-  includeExperienceSummary?: boolean;
-  includeRationale?: boolean;
-  memory?: MemorySetting;
-  allowedKeys?: AllowedKey[];
-  allowedScreenReaderActions?: ScreenReaderActionRef[];
-  screenReaderBackend?: ScreenReaderBackendId;
 };
 
 export type ProjectConfig = {
@@ -125,7 +101,7 @@ export type ResolvedExecutionPolicy = {
 };
 
 export type ResolvedRunOptions = {
-  task: Task;
+  task: ResolvedTask;
   taskFile: string;
   configFile?: string;
   mode?: UserModel;
@@ -170,7 +146,7 @@ export const screenReaderBackendIdSchema = z.custom<ScreenReaderBackendId>(
   (value) => typeof value === "string" && isScreenReaderBackendId(value)
 );
 
-export function validateTaskInput(raw: unknown): Task["input"] {
+export function validateTaskInput(raw: unknown): TaskInput | undefined {
   if (raw === undefined || raw === null) {
     return undefined;
   }

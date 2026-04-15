@@ -1,4 +1,4 @@
-import type { StepRecord, TraceSession } from "@rawstep/core";
+import type { StepRecord, TraceSession } from "@rawstep/definition";
 import { escapeHtml, formatAction, toReportImagePath } from "./utils";
 
 export function renderStep(step: StepRecord): string {

@@ -5,7 +5,7 @@ import {
   validateVerifySpec,
   verifyTask
 } from "@rawstep/runtime";
-import type { Task } from "@rawstep/core";
+import type { ResolvedTask } from "@rawstep/definition";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -155,7 +155,7 @@ describe("verifier", () => {
           verify: {
             all: [{ textVisible: "Started!" }]
           }
-        } satisfies Task,
+        } satisfies ResolvedTask,
         session
       );
 

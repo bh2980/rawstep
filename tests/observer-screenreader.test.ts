@@ -14,7 +14,7 @@ import {
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "@rawstep/runtime";
-import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/core";
+import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/definition";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;

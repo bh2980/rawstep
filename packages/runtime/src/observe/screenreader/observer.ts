@@ -1,4 +1,4 @@
-import type { ScreenReaderObservation } from "@rawstep/core";
+import type { ScreenReaderObservation } from "@rawstep/definition";
 import type {
   AnnouncementReader,
   AnnouncementState,

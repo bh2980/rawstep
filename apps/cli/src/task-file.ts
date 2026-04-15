@@ -1,4 +1,4 @@
-import { type Task, type UserModel } from "@rawstep/core";
+import { type ResolvedTask, type TaskOverrideSource, type TaskSource, type UserModel } from "@rawstep/definition";
 import { validateVerifySpec } from "@rawstep/runtime";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
@@ -8,8 +8,6 @@ import {
   parseAllowedKeys,
   parseScreenReaderBackendId,
   type TaskExecutionDefaults,
-  type TaskFileShape,
-  type TaskConfigOverride,
   parseUserModel,
   validateTaskInput,
 } from "./shared";
@@ -18,8 +16,8 @@ import { parseTaskConfigObject } from "./schema";
 export type LoadedTaskFile = {
   absoluteTaskFile: string;
   taskId: string;
-  taskConfig?: TaskConfigOverride;
-  parsed: TaskFileShape;
+  taskConfig?: TaskOverrideSource;
+  parsed: TaskSource;
 };
 
 type ResolvedTaskExecution = {
@@ -32,7 +30,7 @@ export async function loadTask(
   taskFile: string,
   overrideMode?: UserModel,
   defaults: TaskExecutionDefaults = {}
-): Promise<Task> {
+): Promise<ResolvedTask> {
   const source = await loadTaskSource(taskFile);
   return resolveTask(source, resolveTaskExecution(source, overrideMode, defaults));
 }
@@ -40,9 +38,9 @@ export async function loadTask(
 export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> {
   const absoluteTaskFile = resolve(taskFile);
   const raw = await readFile(absoluteTaskFile, "utf8");
-  let parsed: TaskFileShape;
+  let parsed: TaskSource;
   try {
-    parsed = JSON.parse(raw) as TaskFileShape;
+    parsed = JSON.parse(raw) as TaskSource;
   } catch (error) {
     throw new Error(
       `Task file ${absoluteTaskFile} must be valid JSON. ${error instanceof Error ? error.message : String(error)}`
@@ -53,7 +51,7 @@ export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> 
     throw new Error("Task file must include url and goal.");
   }
 
-  const taskConfig = validateTaskConfigOverride(parsed.config, `Task file ${absoluteTaskFile}`);
+  const taskConfig = validateTaskOverrideSource(parsed.config, `Task file ${absoluteTaskFile}`);
   const taskId = parsed.id ?? stripFileExtension(basename(absoluteTaskFile));
 
   return {
@@ -67,7 +65,7 @@ export async function loadTaskSource(taskFile: string): Promise<LoadedTaskFile> 
 export function resolveTask(
   source: LoadedTaskFile,
   execution: ResolvedTaskExecution
-): Task {
+): ResolvedTask {
   return {
     id: source.taskId,
     url: resolveTaskUrl(source.parsed.url!, source.absoluteTaskFile),
@@ -136,7 +134,7 @@ function resolveTaskExecution(
   };
 }
 
-export function validateTaskConfigOverride(raw: unknown, label: string): TaskConfigOverride | undefined {
+export function validateTaskOverrideSource(raw: unknown, label: string): TaskOverrideSource | undefined {
   if (raw === undefined || raw === null) {
     return undefined;
   }

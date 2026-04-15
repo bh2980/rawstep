@@ -2,7 +2,7 @@ import type {
   ScreenReaderActionPlan,
   ScreenReaderCapabilities
 } from "@rawstep/action-catalog";
-import type { UserModel } from "@rawstep/core";
+import type { UserModel } from "@rawstep/definition";
 import {
   SCREEN_READER_BACKEND_IDS,
   type ScreenReaderBackend,

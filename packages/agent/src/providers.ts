@@ -1,6 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { Observation } from "@rawstep/core";
+import type { Observation } from "@rawstep/definition";
 import { generateText } from "ai";
 import { toLanguageModelContent } from "./provider-content";
 import {

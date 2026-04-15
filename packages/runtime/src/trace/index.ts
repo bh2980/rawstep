@@ -8,13 +8,13 @@ import {
   type Observation,
   type RecordedKeyboardObservation,
   type RecordedObservation,
+  type ResolvedTask,
   type StepRecord,
-  type Task,
   type TraceAggregate,
   type TraceSession,
   type VerdictAnalysis,
   type VerificationRecord
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import { mkdir, appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -34,7 +34,7 @@ export class TraceRecorder {
   private reportMs = 0;
 
   constructor(
-    private readonly task: Task,
+    private readonly task: ResolvedTask,
     private readonly outDir: string
   ) {
     this.traceJsonlPath = join(outDir, "trace.jsonl");

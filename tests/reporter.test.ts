@@ -1,5 +1,5 @@
 import { renderReport } from "@rawstep/reporter";
-import type { TraceSession } from "@rawstep/core";
+import type { TraceSession } from "@rawstep/definition";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

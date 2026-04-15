@@ -13,7 +13,7 @@ import {
 } from "@rawstep/action-catalog";
 import {
   type UserModel
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import {
   findScreenReaderBackendById
 } from "@rawstep/runtime";

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { LLMAgent } from "@rawstep/agent";
-import type { Agent, Task, UserModel } from "@rawstep/core";
+import type { Agent, ResolvedTask, TaskInput, UserModel } from "@rawstep/definition";
 import { renderReport } from "@rawstep/reporter";
 import { findScreenReaderBackendById, runTask } from "@rawstep/runtime";
 import { mkdir } from "node:fs/promises";
@@ -14,7 +14,7 @@ import { type ResolvedRunOptions } from "./shared";
 type RunCliDependencies = {
   createAgent?: (
     mode: UserModel,
-    taskInput: Task["input"],
+    taskInput: TaskInput | undefined,
     options: ResolvedRunOptions
   ) => Agent & { getPromptLog?(): unknown[] };
 };
@@ -85,7 +85,7 @@ export { defineConfig, kb, sr, srx, type RawstepConfig } from "./config-define";
 
 function createAgent(
   mode: UserModel,
-  taskInput: Task["input"],
+  taskInput: TaskInput | undefined,
   options: ResolvedRunOptions
 ): LLMAgent {
   return new LLMAgent(mode, {

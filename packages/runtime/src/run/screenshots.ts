@@ -3,7 +3,7 @@ import type {
   Decision,
   Observation,
   ScreenshotPolicy
-} from "@rawstep/core";
+} from "@rawstep/definition";
 
 export function shouldCaptureDeveloperScreenshot(
   policy: ScreenshotPolicy,

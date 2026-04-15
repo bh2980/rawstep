@@ -21,12 +21,12 @@ import {
   type Action,
   type EndedBy,
   type Observation,
+  type ResolvedTask,
   type ScreenReaderReadback,
   type ScreenshotPolicy,
-  type Task,
   type TraceSession,
   type UserModel
-} from "@rawstep/core";
+} from "@rawstep/definition";
 import {
   createScreenReaderRuntime,
   resolveScreenReaderBrowserHeadless,
@@ -88,7 +88,7 @@ type RunCleanupHandles = {
 };
 
 type RunResources = {
-  task: Task;
+  task: ResolvedTask;
   trace: TraceRecorder;
   deadline: number;
   screenshotPolicy: ScreenshotPolicy;
@@ -135,7 +135,7 @@ type StepResult = {
   settleAfterStep: boolean;
 };
 
-export async function runTask(task: Task, options: RunTaskOptions): Promise<TraceSession> {
+export async function runTask(task: ResolvedTask, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
   await trace.initialize();
   const setupStartedAt = Date.now();
@@ -186,7 +186,7 @@ export async function runTask(task: Task, options: RunTaskOptions): Promise<Trac
 }
 
 async function initializeRunResources(
-  task: Task,
+  task: ResolvedTask,
   options: RunTaskOptions,
   trace: TraceRecorder,
   setupStartedAt: number,
@@ -625,7 +625,7 @@ function recordAgentMemoryEntry(
 }
 
 async function finalizeRun(
-  task: Task,
+  task: ResolvedTask,
   options: RunTaskOptions,
   trace: TraceRecorder,
   resources: Pick<RunResources, "agent"> | undefined,
