@@ -62,10 +62,11 @@ export async function loadConfig(configFile?: string): Promise<LoadedProjectConf
   }
   const parsed = parsedResult.data;
 
-  if (parsed?.tasks !== undefined) {
-    throw new Error(
-      `Config file ${resolvedPath} uses removed tasks overrides. Use task config with flat keys instead.`
-    );
+  const allowedRootKeys = new Set(["version", "defaults", "modes"]);
+  for (const key of Object.keys(parsed)) {
+    if (!allowedRootKeys.has(key)) {
+      throw new Error(`Config file ${resolvedPath} ${key} is not allowed.`);
+    }
   }
 
   const config: ProjectConfig = {

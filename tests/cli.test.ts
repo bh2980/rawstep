@@ -171,13 +171,13 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("rejects the removed legacy screenreader mode", async () => {
+  it("rejects an unsupported screenreader mode in task files", async () => {
     await expect(loadTask(resolve("examples/tasks/simple-cta.json"), "screenreader" as never)).rejects.toThrow(
       "Unsupported mode"
     );
   });
 
-  it("rejects legacy screenreader mode on the CLI", () => {
+  it("rejects an unsupported screenreader mode on the CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--mode",
@@ -372,7 +372,7 @@ describe.sequential("CLI", () => {
     ])).toThrow("Unsupported screenshot policy");
   });
 
-  it("rejects the removed stub provider on the CLI", () => {
+  it("rejects an unsupported stub provider on the CLI", () => {
     expect(() => parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--provider",
@@ -380,7 +380,7 @@ describe.sequential("CLI", () => {
     ])).toThrow("Unsupported agent provider");
   });
 
-  it("rejects the removed stub provider in rawstep.config.ts", async () => {
+  it("rejects an unsupported stub provider in rawstep.config.ts", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-stub-config-"));
     const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.json");
@@ -932,7 +932,7 @@ describe.sequential("CLI", () => {
     expect(options.apiKey).toBe("dotenv-key");
   });
 
-  it("rejects removed defaults.run/defaults.agent format with a migration hint", async () => {
+  it("rejects defaults.run/defaults.agent because defaults only accepts current keys", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-old-defaults-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
@@ -955,10 +955,10 @@ describe.sequential("CLI", () => {
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath
-    ]))).rejects.toThrow("removed defaults.run/defaults.agent format");
+    ]))).rejects.toThrow("defaults.run is not allowed");
   });
 
-  it("rejects removed config.run/config.agent format with a migration hint", async () => {
+  it("rejects config.run/config.agent because task config only accepts current keys", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-old-task-config-"));
     const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "task.json");
@@ -1002,7 +1002,113 @@ describe.sequential("CLI", () => {
       taskPath,
       "--config",
       configPath
-    ]))).rejects.toThrow("removed config.run/config.agent format");
+    ]))).rejects.toThrow("config.run is not allowed");
+  });
+
+  it("rejects defaults.allowedScreenReaderCommands because defaults only accepts current keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-defaults-current-only-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    allowedScreenReaderCommands: ["next"]
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]))).rejects.toThrow("defaults.allowedScreenReaderCommands is not allowed");
+  });
+
+  it("rejects task config.allowedScreenReaderCommands because task config only accepts current keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-task-config-current-only-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  defaults: {
+    provider: "anthropic",
+    model: "claude-config"
+  },
+  modes: {
+    screenreader-strict: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5,
+      screenReaderBackend: "guidepup-voiceover"
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      id: "task-config-screenreader-commands-reject",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Complete the CTA task.",
+      verify: {
+        all: [
+          { textVisible: "Started!" },
+          { titleIncludes: "Completed" }
+        ]
+      },
+      config: {
+        allowedScreenReaderCommands: ["next"]
+      }
+    });
+
+    await expect(resolveRunOptions(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]))).rejects.toThrow("config.allowedScreenReaderCommands is not allowed");
+  });
+
+  it("rejects root-level tasks because the config file only accepts current root keys", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-root-current-only-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  tasks: {
+    smoke: {
+      timeoutMs: 1000
+    }
+  },
+  modes: {
+    keyboard: {
+      outDir: "./out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: 5
+    }
+  }
+}`
+    );
+
+    await expect(resolveRunOptions(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath
+    ]))).rejects.toThrow("tasks is not allowed");
   });
 
   it("rejects provider overrides inside mode presets and task config", async () => {
@@ -1202,14 +1308,14 @@ describe.sequential("CLI", () => {
     await expect(loadTask(taskPath)).rejects.toThrow('Task input.email must be a non-empty string.');
   });
 
-  it("rejects the removed legacy input.text field", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-legacy-input-"));
+  it("rejects reserved task input.text", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-reserved-text-input-"));
     const taskPath = join(tempDir, "task.json");
 
     await writeTaskFile(taskPath, {
-      id: "legacy-input-task",
+      id: "reserved-text-input-task",
       url: "../../fixtures/simple-cta.html",
-      goal: "Try legacy input.",
+      goal: "Try reserved input.",
       mode: "keyboard",
       maxSteps: 20,
       timeoutMs: 180000,
@@ -1223,7 +1329,7 @@ describe.sequential("CLI", () => {
       }
     });
 
-    await expect(loadTask(taskPath)).rejects.toThrow("Task input.text is removed.");
+    await expect(loadTask(taskPath)).rejects.toThrow('Task input key "text" is reserved.');
   });
 
   it("rejects reserved task input keys", async () => {
@@ -1762,7 +1868,7 @@ describe.sequential("CLI", () => {
   });
 
   it("ignores modes.<mode>.prompt", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-mode-prompt-removed-"));
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-mode-prompt-ignored-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
     await writeConfigModule(

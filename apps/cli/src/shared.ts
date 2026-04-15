@@ -189,24 +189,19 @@ export function validateTaskInput(raw: unknown): Task["input"] {
   }
 
   const normalized: Record<string, string> = {};
+  const reservedKeys = new Set(["task", "text"]);
   for (const [key, value] of entries) {
     const normalizedKey = key.trim();
     if (!normalizedKey) {
       throw new Error("Task input keys must be non-empty strings.");
     }
-    if (normalizedKey === "task") {
-      throw new Error('Task input key "task" is reserved. Use a descriptive key like "email" or "password".');
+    if (reservedKeys.has(normalizedKey)) {
+      throw new Error(`Task input key "${normalizedKey}" is reserved. Use a descriptive key like "email" or "password".`);
     }
     if (typeof value !== "string" || !value.trim()) {
       throw new Error(`Task input.${normalizedKey} must be a non-empty string.`);
     }
     normalized[normalizedKey] = value;
-  }
-
-  if ("text" in normalized) {
-    throw new Error(
-      'Task input.text is removed. Use named inputs like { email: "user@example.com" }.'
-    );
   }
 
   return normalized;

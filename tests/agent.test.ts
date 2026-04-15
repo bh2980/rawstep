@@ -523,7 +523,7 @@ describe("agent helpers", () => {
     expect(() => resolveAgentConfig()).toThrow("Anthropic provider requires a model");
   });
 
-  it("rejects the removed stub provider from env", () => {
+  it("rejects an unsupported stub provider from env", () => {
     process.env.A11Y_TASK_AGENT_PROVIDER = "stub";
 
     expect(() => resolveAgentConfig()).toThrow("Unsupported agent provider");

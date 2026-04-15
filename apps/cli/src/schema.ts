@@ -35,17 +35,6 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   }
 
   const candidate = raw as Record<string, unknown>;
-  if (candidate.allowedScreenReaderCommands !== undefined) {
-    throw new Error(
-      `${label} config.allowedScreenReaderCommands is removed. Use allowedScreenReaderActions instead. In rawstep.config.ts use helpers like sr.next(), and in task JSON use stable tokens like "sr.next".`
-    );
-  }
-  if (candidate.run !== undefined || candidate.agent !== undefined) {
-    throw new Error(
-      `${label} uses removed config.run/config.agent format. Use flat keys instead, for example:\nconfig:\n  mode: screenreader-strict\n  timeoutMs: 600000\n  memory: all`
-    );
-  }
-
   for (const key of ["provider", "model", "baseURL", "apiKey"]) {
     if (candidate[key] !== undefined) {
       throw new Error(
@@ -73,7 +62,7 @@ export function parseTaskConfigObject(raw: unknown, label: string) {
   ]);
 
   for (const key of Object.keys(candidate)) {
-    if (!allowedKeys.has(key) && !["allowedScreenReaderCommands", "run", "agent", "provider", "model", "baseURL", "apiKey"].includes(key)) {
+    if (!allowedKeys.has(key) && !["provider", "model", "baseURL", "apiKey"].includes(key)) {
       throw new Error(`${label} config.${key} is not allowed.`);
     }
   }
@@ -99,39 +88,11 @@ export function parseProjectDefaultsObject(raw: unknown, configPath: string) {
     throw new Error(`Unsupported agent provider: ${String(candidate.provider)}. Expected one of anthropic, openai-compatible.`);
   }
 
-  if (candidate.run !== undefined || candidate.agent !== undefined) {
-    throw new Error(
-      `Config file ${configPath} uses removed defaults.run/defaults.agent format. Use:\ndefaults:\n  provider: openai-compatible\n  model: openrouter/auto\nmodes:\n  keyboard:\n    outDir: ./.rawstep/out/keyboard`
-    );
-  }
-
-  for (const key of [
-    "outDir",
-    "headless",
-    "maxSteps",
-    "timeoutMs",
-    "maxVerificationRetries",
-    "screenshots",
-    "verifierAutoComplete",
-    "includeRationale",
-    "includeExperienceSummary",
-    "memory",
-    "mode",
-    "allowedKeys",
-    "allowedScreenReaderActions",
-    "screenReaderBackend"
-  ]) {
-    if (candidate[key] !== undefined) {
-      throw new Error(
-        `Config file ${configPath} defaults.${key} is not allowed. Put execution presets under modes.<mode>.`
-      );
+  const allowedKeys = new Set(["provider", "apiKey", "model", "baseURL", "prompt"]);
+  for (const key of Object.keys(candidate)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`Config file ${configPath} defaults.${key} is not allowed.`);
     }
-  }
-
-  if (candidate.allowedScreenReaderCommands !== undefined) {
-    throw new Error(
-      `Config file ${configPath} defaults.allowedScreenReaderCommands is removed. Use modes.<mode>.allowedScreenReaderActions with sr helpers instead.`
-    );
   }
 
   const result = projectDefaultsObjectSchema.safeParse(raw);
