@@ -2,10 +2,9 @@ import { closeBrowserSession, createBrowserSession } from "@rawstep/runtime";
 import {
   evaluateVerifyRule,
   formatVerificationFeedback,
-  validateVerifySpec,
   verifyTask
 } from "@rawstep/runtime";
-import type { ResolvedTask } from "@rawstep/definition";
+import { validateVerifySpec, type ResolvedTask } from "@rawstep/definition";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";

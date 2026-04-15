@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@rawstep/core": ["./packages/core/src"],
+      "@rawstep/definition": ["./packages/definition/src"],
       "@rawstep/agent": ["./packages/agent/src"],
       "@rawstep/runtime": ["./packages/runtime/src"],
       "@rawstep/reporter": ["./packages/reporter/src"]

@@ -15,7 +15,6 @@ import {
   type MemorySetting,
   type ResolvedTask,
   type ScreenshotPolicy,
-  type TaskInput,
   type UserModel
 } from "@rawstep/definition";
 import {
@@ -145,43 +144,6 @@ export const allowedScreenReaderActionsSchema = z.array(z.unknown());
 export const screenReaderBackendIdSchema = z.custom<ScreenReaderBackendId>(
   (value) => typeof value === "string" && isScreenReaderBackendId(value)
 );
-
-export function validateTaskInput(raw: unknown): TaskInput | undefined {
-  if (raw === undefined || raw === null) {
-    return undefined;
-  }
-
-  if (typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error(
-      'Task input must be an object like { email: "user@example.com", password: "secret123" }.'
-    );
-  }
-
-  const entries = Object.entries(raw as Record<string, unknown>);
-  if (entries.length === 0) {
-    throw new Error(
-      'Task input must include at least one named value, for example { email: "user@example.com" }.'
-    );
-  }
-
-  const normalized: Record<string, string> = {};
-  const reservedKeys = new Set(["task", "text"]);
-  for (const [key, value] of entries) {
-    const normalizedKey = key.trim();
-    if (!normalizedKey) {
-      throw new Error("Task input keys must be non-empty strings.");
-    }
-    if (reservedKeys.has(normalizedKey)) {
-      throw new Error(`Task input key "${normalizedKey}" is reserved. Use a descriptive key like "email" or "password".`);
-    }
-    if (typeof value !== "string" || !value.trim()) {
-      throw new Error(`Task input.${normalizedKey} must be a non-empty string.`);
-    }
-    normalized[normalizedKey] = value;
-  }
-
-  return normalized;
-}
 
 export function parseUserModel(value: unknown): UserModel {
   const result = userModelSchema.safeParse(value);

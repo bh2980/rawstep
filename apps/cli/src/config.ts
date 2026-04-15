@@ -40,7 +40,7 @@ import {
   resolveConfiguredScreenReaderActions
 } from "./screenreader-actions";
 import { configRootSchema, parseProjectDefaultsObject, parseTaskConfigObject } from "./schema";
-import { loadTaskSource, resolveTask } from "./task-file";
+import { loadTaskSource, resolveTask } from "./task-loader";
 
 const loadedEnvDirs = new Set<string>();
 

@@ -1,6 +1,7 @@
 import { loadTask, parseRunArgs, resolveRunOptions, runCli } from "../apps/cli/src";
 import { resolveExecutionPolicy } from "../apps/cli/src/execution-policy";
-import { loadTaskSource } from "../apps/cli/src/task-file";
+import { loadTaskSource } from "../apps/cli/src/task-loader";
+import { validateTaskInput, validateTaskSource } from "@rawstep/definition";
 import { DEFAULT_ALLOWED_KEYS } from "@rawstep/action-catalog";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -66,6 +67,53 @@ async function writeTaskFile(taskPath: string, body: unknown): Promise<void> {
 }
 
 describe.sequential("CLI", () => {
+  it("validates task input in definition", () => {
+    expect(validateTaskInput({
+      email: "traveler@example.com",
+      password: "super-secret"
+    })).toEqual({
+      email: "traveler@example.com",
+      password: "super-secret"
+    });
+
+    expect(() => validateTaskInput({ email: "" })).toThrow('Task input.email must be a non-empty string.');
+  });
+
+  it("validates task source in definition", () => {
+    expect(validateTaskSource({
+      url: "../fixtures/simple-cta.html",
+      goal: "Complete the CTA task.",
+      verify: {
+        all: [
+          { textVisible: "Started!" }
+        ]
+      }
+    }, "Task file /tmp/task.json")).toEqual({
+      url: "../fixtures/simple-cta.html",
+      goal: "Complete the CTA task.",
+      verify: {
+        all: [
+          { textVisible: "Started!" }
+        ]
+      },
+      id: undefined,
+      mode: undefined,
+      maxSteps: undefined,
+      timeoutMs: undefined,
+      input: undefined,
+      config: undefined
+    });
+
+    expect(() => validateTaskSource({
+      goal: "Missing url.",
+      verify: {
+        all: [
+          { textVisible: "Started!" }
+        ]
+      }
+    }, "Task file /tmp/task.json")).toThrow("Task file must include url and goal.");
+  });
+
   it("loads task files with explicit task settings and resolves relative fixture URLs", async () => {
     const task = await loadTask(resolve("examples/tasks/simple-cta.json"));
 

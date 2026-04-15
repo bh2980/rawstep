@@ -29,12 +29,12 @@ export type TaskOverrideSource = {
 
 export type TaskSource = {
   id?: string;
-  url?: string;
-  goal?: string;
+  url: string;
+  goal: string;
   mode?: UserModel;
   maxSteps?: number;
   timeoutMs?: number;
-  verify?: VerifySpec;
+  verify: VerifySpec;
   input?: TaskInput;
   config?: TaskOverrideSource;
 };

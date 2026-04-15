@@ -78,7 +78,7 @@ export async function runCli(
   }
 }
 
-export { loadTask } from "./task-file";
+export { loadTask } from "./task-loader";
 export { parseRunArgs } from "./args";
 export { loadConfig, resolveRunOptions } from "./config";
 export { defineConfig, kb, sr, srx, type RawstepConfig } from "./config-define";

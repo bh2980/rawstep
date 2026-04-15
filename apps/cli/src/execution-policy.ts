@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import type { UserModel } from "@rawstep/definition";
 import { MAX_VERIFICATION_RETRIES } from "@rawstep/runtime";
-import type { LoadedTaskFile } from "./task-file";
+import type { LoadedTaskFile } from "./task-loader";
 import type {
   CliRunOptions,
   ModeConfigShape,

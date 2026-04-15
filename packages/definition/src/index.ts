@@ -1,10 +1,17 @@
 export type { UserModel } from "./modes";
+export { validateVerifySpec } from "./verify";
 export type {
   RequestVerificationRule,
   ResponseVerificationRule,
   VerifyRule,
   VerifySpec,
 } from "./verify";
+export {
+  resolveTaskSource,
+  validateTaskInput,
+  validateTaskOverrideSource,
+  validateTaskSource,
+} from "./task";
 export type {
   MemorySetting,
   TaskInput,

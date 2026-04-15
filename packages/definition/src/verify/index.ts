@@ -23,3 +23,5 @@ export type VerifyRule =
 export type VerifySpec = {
   all: VerifyRule[];
 };
+
+export { validateVerifySpec } from "./schema";

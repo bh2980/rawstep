@@ -45,6 +45,5 @@ export {
   evaluateVerifyRule,
   formatVerificationFeedback,
   MAX_VERIFICATION_RETRIES,
-  validateVerifySpec,
   verifyTask
 } from "./verify";

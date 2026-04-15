@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@rawstep/action-catalog": "workspace:*"
+    "@rawstep/action-catalog": "workspace:*",
+    "zod": "^4.3.6"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
