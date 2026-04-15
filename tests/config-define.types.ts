@@ -29,8 +29,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
+        sr.key.tab(),
         sr.heading.next({ hint: "Move to the next heading." }),
         sr.heading.level3.next({ hint: "Move to the next level 3 heading." }),
         sr.click(),
@@ -42,6 +42,21 @@ defineConfig({
           argsExample: { index: 1 }
         })
       ]
+    }
+  }
+});
+
+defineConfig({
+  version: 1,
+  modes: {
+    screenreader: {
+      outDir: "./screenreader-out",
+      maxSteps: 20,
+      timeoutMs: 180000,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      // @ts-expect-error screenreader mode must not accept allowedKeys
+      allowedKeys: [kb.tab()]
     }
   }
 });
@@ -72,8 +87,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
+        sr.key.tab(),
         // @ts-expect-error virtual config must not accept voiceover-only button navigation
         sr.button.next()
       ]
@@ -90,8 +105,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
+        sr.key.tab(),
         // @ts-expect-error virtual config must not accept rawPerform
         srx.rawPerform({
           hint: "Try raw payload.",
@@ -149,8 +164,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
+        sr.key.tab(),
         srx.catalog("commands.jumpToErrorMessageElement", {
           hint: "Move to the current error message.",
           argsSchema: z.object({
@@ -173,7 +188,7 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-nvda",
-      allowedKeys: [kb.tab()]
+      allowedScreenReaderActions: [sr.key.tab()]
     }
   }
 });

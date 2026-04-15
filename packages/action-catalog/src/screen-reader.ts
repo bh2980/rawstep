@@ -3,6 +3,7 @@ import {
   SCREEN_READER_BACKEND_IDS,
   SCREEN_READER_CLI_TOKEN_LABELS,
   SCREEN_READER_CLI_TOKENS,
+  SCREEN_READER_PUBLIC_SEMANTICS,
   SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC,
   SCREEN_READER_SEMANTIC_BY_CATALOG_ID,
   SCREEN_READER_SEMANTICS
@@ -10,7 +11,9 @@ import {
 
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
 export type ScreenReaderSemanticAction = (typeof SCREEN_READER_SEMANTICS)[number];
+export type PublicScreenReaderSemanticAction = (typeof SCREEN_READER_PUBLIC_SEMANTICS)[number];
 export type ScreenReaderStablePromptToken = (typeof SCREEN_READER_CLI_TOKENS)[number];
+export type InternalScreenReaderPromptToken = `sr.${ScreenReaderSemanticAction}`;
 export type ScreenReaderReadMethod =
   | "itemText"
   | "itemTextLog"
@@ -24,11 +27,14 @@ export type ScreenReaderResolutionKind = "invoke" | "read" | "maintenance" | "ca
 
 type ScreenReaderActionDefinition = {
   helperPath: string;
-  promptToken: ScreenReaderStablePromptToken;
+  promptToken: InternalScreenReaderPromptToken;
   kind: ScreenReaderResolutionKind;
   argumentKind: ScreenReaderStableArgumentKind;
   backendSupport: readonly ScreenReaderBackendId[];
   catalogIdsByBackend: Partial<Record<ScreenReaderBackendId, string>>;
+  fixedKey?: string;
+  defaultAllowed: boolean;
+  public: boolean;
 };
 
 export type PromptObjectSchema<TOutput extends Record<string, unknown> = Record<string, unknown>> = {
@@ -116,7 +122,7 @@ export type ScreenReaderActionRef =
 export type ScreenReaderStableActionDescriptor = {
   kind: "stable";
   semantic: ScreenReaderSemanticAction;
-  token: ScreenReaderStablePromptToken;
+  token: InternalScreenReaderPromptToken;
   hint?: string;
   argumentKind: ScreenReaderStableArgumentKind;
 };
@@ -307,6 +313,11 @@ export function isScreenReaderSemanticAction(value: unknown): value is ScreenRea
     && Object.prototype.hasOwnProperty.call(SCREEN_READER_ACTION_DEFINITIONS, value);
 }
 
+export function isPublicScreenReaderSemanticAction(value: unknown): value is PublicScreenReaderSemanticAction {
+  return typeof value === "string"
+    && (SCREEN_READER_PUBLIC_SEMANTICS as readonly string[]).includes(value);
+}
+
 export function getScreenReaderSemanticByCatalogId(id: string): ScreenReaderSemanticAction | undefined {
   return SCREEN_READER_SEMANTIC_BY_CATALOG_ID[id as keyof typeof SCREEN_READER_SEMANTIC_BY_CATALOG_ID];
 }
@@ -353,8 +364,11 @@ export function buildDefaultScreenReaderActionRefs(
 ): ScreenReaderStableActionRef[] {
   const refs: ScreenReaderStableActionRef[] = [];
 
-  for (const semantic of SCREEN_READER_SEMANTICS) {
-    if (isStableSemanticSupported(semantic, backendId, capabilities)) {
+  for (const semantic of SCREEN_READER_PUBLIC_SEMANTICS) {
+    if (
+      getScreenReaderActionDefinition(semantic).defaultAllowed
+      && isStableSemanticSupported(semantic, backendId, capabilities)
+    ) {
       refs.push(createStableScreenReaderActionRef(semantic));
     }
   }
@@ -655,6 +669,10 @@ function isStableSemanticSupported(
 
   switch (definition.kind) {
     case "invoke":
+      if (definition.fixedKey) {
+        return capabilities.invoke.press;
+      }
+
       return definition.argumentKind === "none"
         ? capabilities.invoke[semantic as Extract<
             keyof ScreenReaderCapabilities["invoke"],
@@ -692,6 +710,14 @@ function resolveStableExecutableAction(
 
   switch (definition.kind) {
     case "invoke":
+      if (definition.fixedKey) {
+        return {
+          kind: "invoke",
+          method: "press",
+          key: definition.fixedKey
+        };
+      }
+
       switch (intent.semantic) {
         case "next":
         case "previous":
@@ -788,7 +814,7 @@ function parseScreenReaderActionRef(
   const candidate = value as Record<string, unknown>;
   if (candidate.semantic !== undefined) {
     ensureOnlyKeys(candidate, label, ["semantic", "hint"]);
-    if (!isScreenReaderSemanticAction(candidate.semantic)) {
+    if (!isPublicScreenReaderSemanticAction(candidate.semantic)) {
       throw new Error(`${label}.semantic must be one of ${SCREEN_READER_CLI_TOKEN_LABELS}.`);
     }
 

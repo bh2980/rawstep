@@ -21,7 +21,7 @@ export const MODE_SPEC = {
   },
   screenreader: {
     observation: "announcement",
-    allowsRawKeys: true,
+    allowsRawKeys: false,
     requiresScreenReaderBackend: true,
     supportsVisualObservation: false
   }

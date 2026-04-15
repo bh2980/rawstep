@@ -55,7 +55,11 @@ describe("action catalog", () => {
 
   it("keeps helper path and catalog-id reverse mappings consistent", () => {
     expect(SCREEN_READER_HELPER_PATH_TO_SEMANTIC).toEqual(
-      Object.fromEntries(screenReaderActionSource.map((entry) => [entry.helperPath, entry.semantic]))
+      Object.fromEntries(
+        screenReaderActionSource
+          .filter((entry) => entry.public !== false)
+          .map((entry) => [entry.helperPath, entry.semantic])
+      )
     );
 
     for (const entry of screenReaderActionSource) {

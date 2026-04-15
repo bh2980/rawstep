@@ -20,6 +20,9 @@ export type ScreenReaderActionSource = {
   argumentKind?: "none" | "key" | "text" | "click";
   backendSupport: readonly ScreenReaderBackendId[];
   catalogIdsByBackend?: Partial<Record<ScreenReaderBackendId, string>>;
+  fixedKey?: string;
+  defaultAllowed?: boolean;
+  public?: boolean;
 };
 
 const allBackends = screenReaderBackendIds;
@@ -50,15 +53,25 @@ export const keyboardActionSource: readonly KeyboardActionSource[] = [
   { key: "Mod+Shift+Z", helperPath: "mod.shiftZ", cliToken: "Mod+Shift+Z", defaultAllowed: false }
 ] as const;
 
+const screenReaderKeyActionSource: readonly ScreenReaderActionSource[] = keyboardActionSource.map((entry) => ({
+  semantic: `key.${entry.helperPath}`,
+  helperPath: `key.${entry.helperPath}`,
+  kind: "invoke",
+  backendSupport: allBackends,
+  fixedKey: entry.key,
+  defaultAllowed: entry.defaultAllowed
+})) as readonly ScreenReaderActionSource[];
+
 export const screenReaderActionSource: readonly ScreenReaderActionSource[] = [
   { semantic: "next", helperPath: "next", kind: "invoke", backendSupport: allBackends },
   { semantic: "previous", helperPath: "previous", kind: "invoke", backendSupport: allBackends },
   { semantic: "act", helperPath: "act", kind: "invoke", backendSupport: allBackends },
   { semantic: "interact", helperPath: "interact", kind: "invoke", backendSupport: allBackends },
   { semantic: "stopInteracting", helperPath: "stopInteracting", kind: "invoke", backendSupport: allBackends },
-  { semantic: "press", helperPath: "press", kind: "invoke", argumentKind: "key", backendSupport: allBackends },
+  { semantic: "press", helperPath: "press", kind: "invoke", argumentKind: "key", backendSupport: allBackends, public: false },
   { semantic: "type", helperPath: "type", kind: "invoke", argumentKind: "text", backendSupport: allBackends },
   { semantic: "click", helperPath: "click", kind: "invoke", argumentKind: "click", backendSupport: allBackends },
+  ...screenReaderKeyActionSource,
   {
     semantic: "heading.next",
     helperPath: "heading.next",

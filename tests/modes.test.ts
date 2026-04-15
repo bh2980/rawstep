@@ -52,7 +52,7 @@ describe("mode policy", () => {
     expect(supportsScreenReaderObservation("keyboard")).toBe(false);
 
     expect(isScreenReaderMode("screenreader")).toBe(true);
-    expect(allowsRawKeyActions("screenreader")).toBe(true);
+    expect(allowsRawKeyActions("screenreader")).toBe(false);
     expect(requiresScreenReaderBackend("screenreader")).toBe(true);
     expect(supportsVisualObservation("screenreader")).toBe(false);
     expect(supportsScreenReaderObservation("screenreader")).toBe(true);

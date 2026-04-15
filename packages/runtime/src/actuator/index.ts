@@ -33,6 +33,7 @@ export class Actuator {
     private readonly page: Page,
     private readonly options: {
       screenReaderController?: ScreenReaderController;
+      useScreenReaderTextEntry?: boolean;
       allowedKeys?: readonly AllowedKey[];
     } = {}
   ) {
@@ -122,6 +123,21 @@ export class Actuator {
         costDelta: 0,
         error: "Action did not produce an observable text-entry state change."
       };
+    }
+
+    if (this.options.useScreenReaderTextEntry) {
+      if (!this.options.screenReaderController) {
+        throw new NotAllowedActionError(
+          "Screen reader text entry is not available without a screen reader controller."
+        );
+      }
+
+      const execution = await this.options.screenReaderController.execute({
+        semantic: "type",
+        text: inputValue
+      });
+      this.cost += execution.costDelta;
+      return execution;
     }
 
     await this.page.keyboard.type(inputValue);

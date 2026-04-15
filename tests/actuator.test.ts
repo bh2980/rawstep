@@ -106,6 +106,31 @@ describe("Actuator", () => {
     expect(actuator.cost).toBe(1);
   });
 
+  it("routes named task input through the screen reader controller when configured", async () => {
+    const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi.fn(async () => true);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type: vi.fn(async () => undefined) },
+        evaluate
+      } as never,
+      {
+        screenReaderController: { execute },
+        useScreenReaderTextEntry: true
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+
+    expect(evaluate).toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledWith({
+      semantic: "type",
+      text: "passport"
+    });
+    expect(result).toEqual({ ok: true, costDelta: 1 });
+    expect(actuator.cost).toBe(1);
+  });
+
   it("returns a low-info failure when text entry is not allowed by the gate", async () => {
     const type = vi.fn(async () => undefined);
     const evaluate = vi.fn(async () => false);

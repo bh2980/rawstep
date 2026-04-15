@@ -326,11 +326,10 @@ function buildKeyboardOutputExamples(
 function buildScreenReaderOutputExamples(
   taskInput: TaskInput | undefined,
   includeRationale: boolean,
-  keyboardActions: readonly KeyboardActionDescriptor[],
+  _keyboardActions: readonly KeyboardActionDescriptor[],
   promptActions: readonly ScreenReaderActionDescriptor[]
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
-  snippets.push(...buildKeyboardActionExampleSnippets(keyboardActions, includeRationale));
 
   if (taskInput) {
     const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
@@ -434,7 +433,7 @@ function buildAvailableActionsValue(
 ): string {
   const items: string[] = [];
 
-  if (userModel === "keyboard" || keyboardActions.length > 0) {
+  if (userModel === "keyboard") {
     items.push(...buildKeyboardActionsBlock(keyboardActions));
   }
 

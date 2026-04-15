@@ -109,22 +109,36 @@ function buildGeneratedModule(): string {
         kind: entry.kind,
         argumentKind: entry.argumentKind ?? "none",
         backendSupport: entry.backendSupport,
-        catalogIdsByBackend: entry.catalogIdsByBackend ?? {}
+        catalogIdsByBackend: entry.catalogIdsByBackend ?? {},
+        ...(entry.fixedKey ? { fixedKey: entry.fixedKey } : {}),
+        defaultAllowed: entry.defaultAllowed ?? true,
+        public: entry.public ?? true
       }
     ])
   );
+  const publicScreenReaderActionSource = screenReaderActionSource
+    .filter((entry) => entry.public !== false);
+  const publicScreenReaderSemantics = publicScreenReaderActionSource.map((entry) => entry.semantic);
   const screenReaderHelperPathToSemantic = Object.fromEntries(
-    screenReaderActionSource.map((entry) => [entry.helperPath, entry.semantic])
+    publicScreenReaderActionSource.map((entry) => [entry.helperPath, entry.semantic])
   );
   const screenReaderSemantics = screenReaderActionSource.map((entry) => entry.semantic);
-  const screenReaderCliTokens = screenReaderActionSource.map((entry) => `sr.${entry.semantic}`);
+  const screenReaderCliTokens = publicScreenReaderActionSource.map((entry) => `sr.${entry.semantic}`);
   const screenReaderPromptTokenToSemantic = Object.fromEntries(
-    screenReaderActionSource.map((entry) => [`sr.${entry.semantic}`, entry.semantic])
+    publicScreenReaderActionSource.map((entry) => [`sr.${entry.semantic}`, entry.semantic])
   );
   const semanticsByBackend = Object.fromEntries(
     screenReaderBackendIds.map((backend) => [
       backend,
       screenReaderActionSource
+        .filter((entry) => entry.backendSupport.includes(backend))
+        .map((entry) => entry.semantic)
+    ])
+  );
+  const publicSemanticsByBackend = Object.fromEntries(
+    screenReaderBackendIds.map((backend) => [
+      backend,
+      publicScreenReaderActionSource
         .filter((entry) => entry.backendSupport.includes(backend))
         .map((entry) => entry.semantic)
     ])
@@ -159,10 +173,12 @@ function buildGeneratedModule(): string {
     `export const SCREEN_READER_HELPER_PATH_TO_SEMANTIC = ${serialize(screenReaderHelperPathToSemantic)} as const;`,
     `export const SCREEN_READER_SEMANTICS = ${serialize(screenReaderSemantics)} as const;`,
     `export const SCREEN_READER_SEMANTIC_LABELS = ${serialize(screenReaderSemantics.join(", "))} as const;`,
+    `export const SCREEN_READER_PUBLIC_SEMANTICS = ${serialize(publicScreenReaderSemantics)} as const;`,
     `export const SCREEN_READER_CLI_TOKENS = ${serialize(screenReaderCliTokens)} as const;`,
     `export const SCREEN_READER_CLI_TOKEN_LABELS = ${serialize(screenReaderCliTokens.join(", "))} as const;`,
     `export const SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC = ${serialize(screenReaderPromptTokenToSemantic)} as const;`,
     `export const SCREEN_READER_SEMANTICS_BY_BACKEND = ${serialize(semanticsByBackend)} as const;`,
+    `export const SCREEN_READER_PUBLIC_SEMANTICS_BY_BACKEND = ${serialize(publicSemanticsByBackend)} as const;`,
     `export const SCREEN_READER_INVOKE_SEMANTICS = ${serialize(semanticsByKind.invoke)} as const;`,
     `export const SCREEN_READER_READ_SEMANTICS = ${serialize(semanticsByKind.read)} as const;`,
     `export const SCREEN_READER_MAINTENANCE_SEMANTICS = ${serialize(semanticsByKind.maintenance)} as const;`,

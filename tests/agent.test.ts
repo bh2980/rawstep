@@ -461,11 +461,11 @@ describe("agent helpers", () => {
   });
 
   it("parses parameterized screen reader actions", () => {
-    const pressDecision = parseDecision(
-      '{"action":"sr.press","key":"Enter"}',
+    const keyDecision = parseDecision(
+      '{"action":"sr.key.tab"}',
       undefined,
       undefined,
-      makeScreenReaderDescriptors(["press"])
+      makeScreenReaderDescriptors(["key.tab"])
     );
     const typeDecision = parseDecision(
       '{"action":"sr.type","text":"hello"}',
@@ -500,11 +500,10 @@ describe("agent helpers", () => {
       ).descriptors
     );
 
-    expect("action" in pressDecision).toBe(true);
-    if ("action" in pressDecision && "srAction" in pressDecision.action) {
-      expect(pressDecision.action.srAction).toEqual({
-        semantic: "press",
-        key: "Enter"
+    expect("action" in keyDecision).toBe(true);
+    if ("action" in keyDecision && "srAction" in keyDecision.action) {
+      expect(keyDecision.action.srAction).toEqual({
+        semantic: "key.tab"
       });
     }
 
@@ -533,6 +532,21 @@ describe("agent helpers", () => {
           characters: "x"
         }
       });
+    }
+  });
+
+  it("does not parse raw key actions when screenreader prompt actions do not expose them", () => {
+    const decision = parseDecision(
+      '{"action":"key.Tab"}',
+      undefined,
+      [],
+      makeScreenReaderDescriptors(["key.tab", "next"])
+    );
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain("malformed decision");
     }
   });
 
@@ -803,7 +817,6 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("- key.Tab");
       expect(promptParts[0].text).toContain("- sr.next");
       expect(promptParts[0].text).toContain("- sr.read.itemText");
       expect(promptParts[0].text).toContain("- sr.clear.itemTextLog");
@@ -851,7 +864,6 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("- key.Tab: 다음 포커스로 이동");
       expect(promptParts[0].text).toContain("- sr.click: 현재 항목을 클릭할 때 사용");
       expect(promptParts[0].text).toContain("- typeText.email");
     }
@@ -1108,7 +1120,7 @@ describe("agent helpers", () => {
     expect(prompt).toContain("라벨이나 필드 이름만 들렸다고 입력 가능한 필드라고 단정하지 마라.");
     expect(prompt).toContain("편집 가능한 텍스트 입력 상태가 직접 읽히면 typeText를 우선 검토하라.");
     expect(prompt).toContain("그런 직접 신호가 없더라도, 입력 목표이고 현재 announcement와 최근 readback 또는 직전 탐색 맥락이 함께 입력 필드일 가능성을 충분히 뒷받침하면 typeText를 시도할 수 있다.");
-    expect(prompt).toContain("typeText가 텍스트 입력 상태 변화 없이 실패하면, 같은 위치에서 interact를 반복하지 말고 Tab, Shift+Tab, form 이동처럼 전략을 바꾸어라.");
+    expect(prompt).toContain("typeText가 텍스트 입력 상태 변화 없이 실패하면, 같은 위치에서 interact를 반복하지 말고 sr.key.tab, sr.key.shiftTab, form 이동처럼 전략을 바꾸어라.");
   });
 
   it("uses neutral placeholder values in screenreader output examples", async () => {
@@ -1121,7 +1133,7 @@ describe("agent helpers", () => {
       [],
       buildScreenReaderActionPlan(
         [
-          createStableScreenReaderActionRef("press"),
+          createStableScreenReaderActionRef("key.enter"),
           createStableScreenReaderActionRef("type"),
           createRawPerformScreenReaderExtensionRef(
             "Execute a raw payload.",
@@ -1135,7 +1147,7 @@ describe("agent helpers", () => {
       false
     );
 
-    expect(prompt).toContain('{"action":"sr.press","key":"Enter"}');
+    expect(prompt).toContain('{"action":"sr.key.enter"}');
     expect(prompt).toContain('{"action":"sr.type","text":"<text>"}');
     expect(prompt).toContain('{"action":"srx.rawPerform","payload":{"characters":"x"}}');
   });

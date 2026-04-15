@@ -210,6 +210,7 @@ async function initializeRunResources(
   const observer = createObserver(task.mode, cleanup.browser, cleanup.screenReaderRuntime);
   const actuator = new Actuator(cleanup.browser.page, {
     screenReaderController: cleanup.screenReaderRuntime?.controller,
+    useScreenReaderTextEntry: isScreenReaderMode(task.mode),
     allowedKeys: keyboardActionPlan.allowedKeys
   });
   const screenReaderCapabilities = isScreenReaderMode(task.mode)

@@ -172,7 +172,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "previous": {
     "helperPath": "previous",
@@ -184,7 +186,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "act": {
     "helperPath": "act",
@@ -196,7 +200,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "interact": {
     "helperPath": "interact",
@@ -208,7 +214,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "stopInteracting": {
     "helperPath": "stopInteracting",
@@ -220,7 +228,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "press": {
     "helperPath": "press",
@@ -232,7 +242,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": false
   },
   "type": {
     "helperPath": "type",
@@ -244,7 +256,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "click": {
     "helperPath": "click",
@@ -256,7 +270,294 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.tab": {
+    "helperPath": "key.tab",
+    "promptToken": "sr.key.tab",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Tab",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.shiftTab": {
+    "helperPath": "key.shiftTab",
+    "promptToken": "sr.key.shiftTab",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Shift+Tab",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.home": {
+    "helperPath": "key.home",
+    "promptToken": "sr.key.home",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Home",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.end": {
+    "helperPath": "key.end",
+    "promptToken": "sr.key.end",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "End",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.arrow.up": {
+    "helperPath": "key.arrow.up",
+    "promptToken": "sr.key.arrow.up",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "ArrowUp",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.arrow.down": {
+    "helperPath": "key.arrow.down",
+    "promptToken": "sr.key.arrow.down",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "ArrowDown",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.arrow.left": {
+    "helperPath": "key.arrow.left",
+    "promptToken": "sr.key.arrow.left",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "ArrowLeft",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.arrow.right": {
+    "helperPath": "key.arrow.right",
+    "promptToken": "sr.key.arrow.right",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "ArrowRight",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.backspace": {
+    "helperPath": "key.backspace",
+    "promptToken": "sr.key.backspace",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Backspace",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.delete": {
+    "helperPath": "key.delete",
+    "promptToken": "sr.key.delete",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Delete",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.enter": {
+    "helperPath": "key.enter",
+    "promptToken": "sr.key.enter",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Enter",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.shiftEnter": {
+    "helperPath": "key.shiftEnter",
+    "promptToken": "sr.key.shiftEnter",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Shift+Enter",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.space": {
+    "helperPath": "key.space",
+    "promptToken": "sr.key.space",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Space",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.escape": {
+    "helperPath": "key.escape",
+    "promptToken": "sr.key.escape",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Escape",
+    "defaultAllowed": true,
+    "public": true
+  },
+  "key.mod.a": {
+    "helperPath": "key.mod.a",
+    "promptToken": "sr.key.mod.a",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Mod+A",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.mod.backspace": {
+    "helperPath": "key.mod.backspace",
+    "promptToken": "sr.key.mod.backspace",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Mod+Backspace",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.mod.delete": {
+    "helperPath": "key.mod.delete",
+    "promptToken": "sr.key.mod.delete",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Mod+Delete",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.mod.z": {
+    "helperPath": "key.mod.z",
+    "promptToken": "sr.key.mod.z",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Mod+Z",
+    "defaultAllowed": false,
+    "public": true
+  },
+  "key.mod.shiftZ": {
+    "helperPath": "key.mod.shiftZ",
+    "promptToken": "sr.key.mod.shiftZ",
+    "kind": "invoke",
+    "argumentKind": "none",
+    "backendSupport": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
+    "catalogIdsByBackend": {},
+    "fixedKey": "Mod+Shift+Z",
+    "defaultAllowed": false,
+    "public": true
   },
   "heading.next": {
     "helperPath": "heading.next",
@@ -272,7 +573,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "keyboard.findNextHeading",
       "guidepup-nvda": "keyboard.moveToNextHeading",
       "guidepup-virtual": "commands.moveToNextHeading"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.previous": {
     "helperPath": "heading.previous",
@@ -288,7 +591,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "keyboard.findPreviousHeading",
       "guidepup-nvda": "keyboard.moveToPreviousHeading",
       "guidepup-virtual": "commands.moveToPreviousHeading"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.1.next": {
     "helperPath": "heading.level1.next",
@@ -302,7 +607,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel1",
       "guidepup-virtual": "commands.moveToNextHeadingLevel1"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.1.previous": {
     "helperPath": "heading.level1.previous",
@@ -316,7 +623,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel1",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel1"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.2.next": {
     "helperPath": "heading.level2.next",
@@ -330,7 +639,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel2",
       "guidepup-virtual": "commands.moveToNextHeadingLevel2"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.2.previous": {
     "helperPath": "heading.level2.previous",
@@ -344,7 +655,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel2",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel2"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.3.next": {
     "helperPath": "heading.level3.next",
@@ -358,7 +671,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel3",
       "guidepup-virtual": "commands.moveToNextHeadingLevel3"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.3.previous": {
     "helperPath": "heading.level3.previous",
@@ -372,7 +687,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel3",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel3"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.4.next": {
     "helperPath": "heading.level4.next",
@@ -386,7 +703,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel4",
       "guidepup-virtual": "commands.moveToNextHeadingLevel4"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.4.previous": {
     "helperPath": "heading.level4.previous",
@@ -400,7 +719,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel4",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel4"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.5.next": {
     "helperPath": "heading.level5.next",
@@ -414,7 +735,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel5",
       "guidepup-virtual": "commands.moveToNextHeadingLevel5"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.5.previous": {
     "helperPath": "heading.level5.previous",
@@ -428,7 +751,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel5",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel5"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.6.next": {
     "helperPath": "heading.level6.next",
@@ -442,7 +767,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel6",
       "guidepup-virtual": "commands.moveToNextHeadingLevel6"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "heading.level.6.previous": {
     "helperPath": "heading.level6.previous",
@@ -456,7 +783,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel6",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel6"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "form.next": {
     "helperPath": "form.next",
@@ -472,7 +801,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "keyboard.findNextControl",
       "guidepup-nvda": "keyboard.moveToNextFormField",
       "guidepup-virtual": "commands.moveToNextForm"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "form.previous": {
     "helperPath": "form.previous",
@@ -488,7 +819,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "keyboard.findPreviousControl",
       "guidepup-nvda": "keyboard.moveToPreviousFormField",
       "guidepup-virtual": "commands.moveToPreviousForm"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "link.next": {
     "helperPath": "link.next",
@@ -502,7 +835,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextLink",
       "guidepup-virtual": "commands.moveToNextLink"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "link.previous": {
     "helperPath": "link.previous",
@@ -516,7 +851,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousLink",
       "guidepup-virtual": "commands.moveToPreviousLink"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "button.next": {
     "helperPath": "button.next",
@@ -530,7 +867,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-voiceover": "commander.FIND_NEXT_BUTTON",
       "guidepup-nvda": "keyboard.moveToNextButton"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "button.previous": {
     "helperPath": "button.previous",
@@ -544,7 +883,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-voiceover": "commander.FIND_PREVIOUS_BUTTON",
       "guidepup-nvda": "keyboard.moveToPreviousButton"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "landmark.next": {
     "helperPath": "landmark.next",
@@ -560,7 +901,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "commander.FIND_NEXT_LANDMARK",
       "guidepup-nvda": "keyboard.moveToNextLandmark",
       "guidepup-virtual": "commands.moveToNextLandmark"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "landmark.previous": {
     "helperPath": "landmark.previous",
@@ -576,7 +919,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "commander.FIND_PREVIOUS_LANDMARK",
       "guidepup-nvda": "keyboard.moveToPreviousLandmark",
       "guidepup-virtual": "commands.moveToPreviousLandmark"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "list.next": {
     "helperPath": "list.next",
@@ -588,7 +933,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextList"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "list.previous": {
     "helperPath": "list.previous",
@@ -600,7 +947,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousList"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "table.next": {
     "helperPath": "table.next",
@@ -612,7 +961,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextTable"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "table.previous": {
     "helperPath": "table.previous",
@@ -624,7 +975,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousTable"
-    }
+    },
+    "defaultAllowed": true,
+    "public": true
   },
   "read.itemText": {
     "helperPath": "read.itemText",
@@ -636,7 +989,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "read.itemTextLog": {
     "helperPath": "read.itemTextLog",
@@ -648,7 +1003,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "read.lastSpokenPhrase": {
     "helperPath": "read.lastSpokenPhrase",
@@ -660,7 +1017,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "read.spokenPhraseLog": {
     "helperPath": "read.spokenPhraseLog",
@@ -672,7 +1031,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "clear.itemTextLog": {
     "helperPath": "clear.itemTextLog",
@@ -684,7 +1045,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   },
   "clear.spokenPhraseLog": {
     "helperPath": "clear.spokenPhraseLog",
@@ -696,7 +1059,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda",
       "guidepup-virtual"
     ],
-    "catalogIdsByBackend": {}
+    "catalogIdsByBackend": {},
+    "defaultAllowed": true,
+    "public": true
   }
 } as const;
 export const SCREEN_READER_HELPER_PATH_TO_SEMANTIC = {
@@ -705,9 +1070,27 @@ export const SCREEN_READER_HELPER_PATH_TO_SEMANTIC = {
   "act": "act",
   "interact": "interact",
   "stopInteracting": "stopInteracting",
-  "press": "press",
   "type": "type",
   "click": "click",
+  "key.tab": "key.tab",
+  "key.shiftTab": "key.shiftTab",
+  "key.home": "key.home",
+  "key.end": "key.end",
+  "key.arrow.up": "key.arrow.up",
+  "key.arrow.down": "key.arrow.down",
+  "key.arrow.left": "key.arrow.left",
+  "key.arrow.right": "key.arrow.right",
+  "key.backspace": "key.backspace",
+  "key.delete": "key.delete",
+  "key.enter": "key.enter",
+  "key.shiftEnter": "key.shiftEnter",
+  "key.space": "key.space",
+  "key.escape": "key.escape",
+  "key.mod.a": "key.mod.a",
+  "key.mod.backspace": "key.mod.backspace",
+  "key.mod.delete": "key.mod.delete",
+  "key.mod.z": "key.mod.z",
+  "key.mod.shiftZ": "key.mod.shiftZ",
   "heading.next": "heading.next",
   "heading.previous": "heading.previous",
   "heading.level1.next": "heading.level.1.next",
@@ -750,6 +1133,25 @@ export const SCREEN_READER_SEMANTICS = [
   "press",
   "type",
   "click",
+  "key.tab",
+  "key.shiftTab",
+  "key.home",
+  "key.end",
+  "key.arrow.up",
+  "key.arrow.down",
+  "key.arrow.left",
+  "key.arrow.right",
+  "key.backspace",
+  "key.delete",
+  "key.enter",
+  "key.shiftEnter",
+  "key.space",
+  "key.escape",
+  "key.mod.a",
+  "key.mod.backspace",
+  "key.mod.delete",
+  "key.mod.z",
+  "key.mod.shiftZ",
   "heading.next",
   "heading.previous",
   "heading.level.1.next",
@@ -783,16 +1185,94 @@ export const SCREEN_READER_SEMANTICS = [
   "clear.itemTextLog",
   "clear.spokenPhraseLog"
 ] as const;
-export const SCREEN_READER_SEMANTIC_LABELS = "next, previous, act, interact, stopInteracting, press, type, click, heading.next, heading.previous, heading.level.1.next, heading.level.1.previous, heading.level.2.next, heading.level.2.previous, heading.level.3.next, heading.level.3.previous, heading.level.4.next, heading.level.4.previous, heading.level.5.next, heading.level.5.previous, heading.level.6.next, heading.level.6.previous, form.next, form.previous, link.next, link.previous, button.next, button.previous, landmark.next, landmark.previous, list.next, list.previous, table.next, table.previous, read.itemText, read.itemTextLog, read.lastSpokenPhrase, read.spokenPhraseLog, clear.itemTextLog, clear.spokenPhraseLog" as const;
+export const SCREEN_READER_SEMANTIC_LABELS = "next, previous, act, interact, stopInteracting, press, type, click, key.tab, key.shiftTab, key.home, key.end, key.arrow.up, key.arrow.down, key.arrow.left, key.arrow.right, key.backspace, key.delete, key.enter, key.shiftEnter, key.space, key.escape, key.mod.a, key.mod.backspace, key.mod.delete, key.mod.z, key.mod.shiftZ, heading.next, heading.previous, heading.level.1.next, heading.level.1.previous, heading.level.2.next, heading.level.2.previous, heading.level.3.next, heading.level.3.previous, heading.level.4.next, heading.level.4.previous, heading.level.5.next, heading.level.5.previous, heading.level.6.next, heading.level.6.previous, form.next, form.previous, link.next, link.previous, button.next, button.previous, landmark.next, landmark.previous, list.next, list.previous, table.next, table.previous, read.itemText, read.itemTextLog, read.lastSpokenPhrase, read.spokenPhraseLog, clear.itemTextLog, clear.spokenPhraseLog" as const;
+export const SCREEN_READER_PUBLIC_SEMANTICS = [
+  "next",
+  "previous",
+  "act",
+  "interact",
+  "stopInteracting",
+  "type",
+  "click",
+  "key.tab",
+  "key.shiftTab",
+  "key.home",
+  "key.end",
+  "key.arrow.up",
+  "key.arrow.down",
+  "key.arrow.left",
+  "key.arrow.right",
+  "key.backspace",
+  "key.delete",
+  "key.enter",
+  "key.shiftEnter",
+  "key.space",
+  "key.escape",
+  "key.mod.a",
+  "key.mod.backspace",
+  "key.mod.delete",
+  "key.mod.z",
+  "key.mod.shiftZ",
+  "heading.next",
+  "heading.previous",
+  "heading.level.1.next",
+  "heading.level.1.previous",
+  "heading.level.2.next",
+  "heading.level.2.previous",
+  "heading.level.3.next",
+  "heading.level.3.previous",
+  "heading.level.4.next",
+  "heading.level.4.previous",
+  "heading.level.5.next",
+  "heading.level.5.previous",
+  "heading.level.6.next",
+  "heading.level.6.previous",
+  "form.next",
+  "form.previous",
+  "link.next",
+  "link.previous",
+  "button.next",
+  "button.previous",
+  "landmark.next",
+  "landmark.previous",
+  "list.next",
+  "list.previous",
+  "table.next",
+  "table.previous",
+  "read.itemText",
+  "read.itemTextLog",
+  "read.lastSpokenPhrase",
+  "read.spokenPhraseLog",
+  "clear.itemTextLog",
+  "clear.spokenPhraseLog"
+] as const;
 export const SCREEN_READER_CLI_TOKENS = [
   "sr.next",
   "sr.previous",
   "sr.act",
   "sr.interact",
   "sr.stopInteracting",
-  "sr.press",
   "sr.type",
   "sr.click",
+  "sr.key.tab",
+  "sr.key.shiftTab",
+  "sr.key.home",
+  "sr.key.end",
+  "sr.key.arrow.up",
+  "sr.key.arrow.down",
+  "sr.key.arrow.left",
+  "sr.key.arrow.right",
+  "sr.key.backspace",
+  "sr.key.delete",
+  "sr.key.enter",
+  "sr.key.shiftEnter",
+  "sr.key.space",
+  "sr.key.escape",
+  "sr.key.mod.a",
+  "sr.key.mod.backspace",
+  "sr.key.mod.delete",
+  "sr.key.mod.z",
+  "sr.key.mod.shiftZ",
   "sr.heading.next",
   "sr.heading.previous",
   "sr.heading.level.1.next",
@@ -826,16 +1306,34 @@ export const SCREEN_READER_CLI_TOKENS = [
   "sr.clear.itemTextLog",
   "sr.clear.spokenPhraseLog"
 ] as const;
-export const SCREEN_READER_CLI_TOKEN_LABELS = "sr.next, sr.previous, sr.act, sr.interact, sr.stopInteracting, sr.press, sr.type, sr.click, sr.heading.next, sr.heading.previous, sr.heading.level.1.next, sr.heading.level.1.previous, sr.heading.level.2.next, sr.heading.level.2.previous, sr.heading.level.3.next, sr.heading.level.3.previous, sr.heading.level.4.next, sr.heading.level.4.previous, sr.heading.level.5.next, sr.heading.level.5.previous, sr.heading.level.6.next, sr.heading.level.6.previous, sr.form.next, sr.form.previous, sr.link.next, sr.link.previous, sr.button.next, sr.button.previous, sr.landmark.next, sr.landmark.previous, sr.list.next, sr.list.previous, sr.table.next, sr.table.previous, sr.read.itemText, sr.read.itemTextLog, sr.read.lastSpokenPhrase, sr.read.spokenPhraseLog, sr.clear.itemTextLog, sr.clear.spokenPhraseLog" as const;
+export const SCREEN_READER_CLI_TOKEN_LABELS = "sr.next, sr.previous, sr.act, sr.interact, sr.stopInteracting, sr.type, sr.click, sr.key.tab, sr.key.shiftTab, sr.key.home, sr.key.end, sr.key.arrow.up, sr.key.arrow.down, sr.key.arrow.left, sr.key.arrow.right, sr.key.backspace, sr.key.delete, sr.key.enter, sr.key.shiftEnter, sr.key.space, sr.key.escape, sr.key.mod.a, sr.key.mod.backspace, sr.key.mod.delete, sr.key.mod.z, sr.key.mod.shiftZ, sr.heading.next, sr.heading.previous, sr.heading.level.1.next, sr.heading.level.1.previous, sr.heading.level.2.next, sr.heading.level.2.previous, sr.heading.level.3.next, sr.heading.level.3.previous, sr.heading.level.4.next, sr.heading.level.4.previous, sr.heading.level.5.next, sr.heading.level.5.previous, sr.heading.level.6.next, sr.heading.level.6.previous, sr.form.next, sr.form.previous, sr.link.next, sr.link.previous, sr.button.next, sr.button.previous, sr.landmark.next, sr.landmark.previous, sr.list.next, sr.list.previous, sr.table.next, sr.table.previous, sr.read.itemText, sr.read.itemTextLog, sr.read.lastSpokenPhrase, sr.read.spokenPhraseLog, sr.clear.itemTextLog, sr.clear.spokenPhraseLog" as const;
 export const SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC = {
   "sr.next": "next",
   "sr.previous": "previous",
   "sr.act": "act",
   "sr.interact": "interact",
   "sr.stopInteracting": "stopInteracting",
-  "sr.press": "press",
   "sr.type": "type",
   "sr.click": "click",
+  "sr.key.tab": "key.tab",
+  "sr.key.shiftTab": "key.shiftTab",
+  "sr.key.home": "key.home",
+  "sr.key.end": "key.end",
+  "sr.key.arrow.up": "key.arrow.up",
+  "sr.key.arrow.down": "key.arrow.down",
+  "sr.key.arrow.left": "key.arrow.left",
+  "sr.key.arrow.right": "key.arrow.right",
+  "sr.key.backspace": "key.backspace",
+  "sr.key.delete": "key.delete",
+  "sr.key.enter": "key.enter",
+  "sr.key.shiftEnter": "key.shiftEnter",
+  "sr.key.space": "key.space",
+  "sr.key.escape": "key.escape",
+  "sr.key.mod.a": "key.mod.a",
+  "sr.key.mod.backspace": "key.mod.backspace",
+  "sr.key.mod.delete": "key.mod.delete",
+  "sr.key.mod.z": "key.mod.z",
+  "sr.key.mod.shiftZ": "key.mod.shiftZ",
   "sr.heading.next": "heading.next",
   "sr.heading.previous": "heading.previous",
   "sr.heading.level.1.next": "heading.level.1.next",
@@ -879,6 +1377,25 @@ export const SCREEN_READER_SEMANTICS_BY_BACKEND = {
     "press",
     "type",
     "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
     "heading.next",
     "heading.previous",
     "form.next",
@@ -903,6 +1420,25 @@ export const SCREEN_READER_SEMANTICS_BY_BACKEND = {
     "press",
     "type",
     "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
     "heading.next",
     "heading.previous",
     "heading.level.1.next",
@@ -945,6 +1481,183 @@ export const SCREEN_READER_SEMANTICS_BY_BACKEND = {
     "press",
     "type",
     "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
+    "heading.next",
+    "heading.previous",
+    "heading.level.1.next",
+    "heading.level.1.previous",
+    "heading.level.2.next",
+    "heading.level.2.previous",
+    "heading.level.3.next",
+    "heading.level.3.previous",
+    "heading.level.4.next",
+    "heading.level.4.previous",
+    "heading.level.5.next",
+    "heading.level.5.previous",
+    "heading.level.6.next",
+    "heading.level.6.previous",
+    "form.next",
+    "form.previous",
+    "link.next",
+    "link.previous",
+    "landmark.next",
+    "landmark.previous",
+    "read.itemText",
+    "read.itemTextLog",
+    "read.lastSpokenPhrase",
+    "read.spokenPhraseLog",
+    "clear.itemTextLog",
+    "clear.spokenPhraseLog"
+  ]
+} as const;
+export const SCREEN_READER_PUBLIC_SEMANTICS_BY_BACKEND = {
+  "guidepup-voiceover": [
+    "next",
+    "previous",
+    "act",
+    "interact",
+    "stopInteracting",
+    "type",
+    "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
+    "heading.next",
+    "heading.previous",
+    "form.next",
+    "form.previous",
+    "button.next",
+    "button.previous",
+    "landmark.next",
+    "landmark.previous",
+    "read.itemText",
+    "read.itemTextLog",
+    "read.lastSpokenPhrase",
+    "read.spokenPhraseLog",
+    "clear.itemTextLog",
+    "clear.spokenPhraseLog"
+  ],
+  "guidepup-nvda": [
+    "next",
+    "previous",
+    "act",
+    "interact",
+    "stopInteracting",
+    "type",
+    "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
+    "heading.next",
+    "heading.previous",
+    "heading.level.1.next",
+    "heading.level.1.previous",
+    "heading.level.2.next",
+    "heading.level.2.previous",
+    "heading.level.3.next",
+    "heading.level.3.previous",
+    "heading.level.4.next",
+    "heading.level.4.previous",
+    "heading.level.5.next",
+    "heading.level.5.previous",
+    "heading.level.6.next",
+    "heading.level.6.previous",
+    "form.next",
+    "form.previous",
+    "link.next",
+    "link.previous",
+    "button.next",
+    "button.previous",
+    "landmark.next",
+    "landmark.previous",
+    "list.next",
+    "list.previous",
+    "table.next",
+    "table.previous",
+    "read.itemText",
+    "read.itemTextLog",
+    "read.lastSpokenPhrase",
+    "read.spokenPhraseLog",
+    "clear.itemTextLog",
+    "clear.spokenPhraseLog"
+  ],
+  "guidepup-virtual": [
+    "next",
+    "previous",
+    "act",
+    "interact",
+    "stopInteracting",
+    "type",
+    "click",
+    "key.tab",
+    "key.shiftTab",
+    "key.home",
+    "key.end",
+    "key.arrow.up",
+    "key.arrow.down",
+    "key.arrow.left",
+    "key.arrow.right",
+    "key.backspace",
+    "key.delete",
+    "key.enter",
+    "key.shiftEnter",
+    "key.space",
+    "key.escape",
+    "key.mod.a",
+    "key.mod.backspace",
+    "key.mod.delete",
+    "key.mod.z",
+    "key.mod.shiftZ",
     "heading.next",
     "heading.previous",
     "heading.level.1.next",
@@ -981,7 +1694,26 @@ export const SCREEN_READER_INVOKE_SEMANTICS = [
   "stopInteracting",
   "press",
   "type",
-  "click"
+  "click",
+  "key.tab",
+  "key.shiftTab",
+  "key.home",
+  "key.end",
+  "key.arrow.up",
+  "key.arrow.down",
+  "key.arrow.left",
+  "key.arrow.right",
+  "key.backspace",
+  "key.delete",
+  "key.enter",
+  "key.shiftEnter",
+  "key.space",
+  "key.escape",
+  "key.mod.a",
+  "key.mod.backspace",
+  "key.mod.delete",
+  "key.mod.z",
+  "key.mod.shiftZ"
 ] as const;
 export const SCREEN_READER_READ_SEMANTICS = [
   "read.itemText",

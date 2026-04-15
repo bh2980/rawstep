@@ -72,39 +72,6 @@ const config: ProjectConfigSource = defineConfig({
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: [
-        kb.arrow.down({
-          hint: "ArrowDown은 스크롤을 내리거나 복합 위젯 내부에서 아래쪽으로 이동할 때 사용하라.",
-        }),
-        kb.arrow.left({
-          hint: "ArrowLeft는 복합 위젯 내부에서 왼쪽으로 이동할 때 사용하라.",
-        }),
-        kb.arrow.right({
-          hint: "ArrowRight는 복합 위젯 내부에서 오른쪽으로 이동할 때 사용하라.",
-        }),
-        kb.arrow.up({
-          hint: "ArrowUp은 스크롤을 올리거나 복합 위젯 내부에서 위쪽으로 이동할 때 사용하라.",
-        }),
-        kb.enter({
-          hint: "Enter는 현재 포커스된 요소를 활성화할 때 사용하라.",
-        }),
-        kb.escape({
-          hint: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.",
-        }),
-        kb.shiftTab({
-          hint: "Shift+Tab은 포커스 가능한 요소를 이전으로 이동할 때 사용하라.",
-        }),
-        kb.space({
-          hint: "Space는 현재 포커스된 요소를 활성화하거나 토글할 때 사용하라.",
-        }),
-        kb.tab({
-          hint: "Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.",
-        }),
-        kb.home({
-          hint: "Home은 현재 문맥의 시작으로 크게 이동할 때 사용하라.",
-        }),
-        kb.end({ hint: "End는 현재 문맥의 끝으로 크게 이동할 때 사용하라." }),
-      ],
       allowedScreenReaderActions: [
         sr.next({
           hint: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
@@ -112,30 +79,43 @@ const config: ProjectConfigSource = defineConfig({
         sr.previous({
           hint: "previous는 screen reader cursor를 이전 위치로 이동할 때 사용하라.",
         }),
-        sr.landmark.next({
-          hint: "landmark.next는 main, navigation 같은 큰 구역을 빠르게 훑을 때 사용하라.",
+        sr.key.arrow.down({
+          hint: "ArrowDown은 스크롤을 내리거나 복합 위젯 내부에서 아래쪽으로 이동할 때 사용하라.",
         }),
-        sr.landmark.previous({
-          hint: "landmark.previous는 이전 큰 구역으로 돌아갈 때 사용하라.",
+        sr.key.arrow.left({
+          hint: "ArrowLeft는 복합 위젯 내부에서 왼쪽으로 이동할 때 사용하라.",
         }),
-        sr.heading.next({
-          hint: "heading.next는 다음 heading으로 크게 이동할 때 사용하라.",
+        sr.key.arrow.right({
+          hint: "ArrowRight는 복합 위젯 내부에서 오른쪽으로 이동할 때 사용하라.",
         }),
-        sr.heading.previous({
-          hint: "heading.previous는 이전 heading으로 돌아갈 때 사용하라.",
+        sr.key.arrow.up({
+          hint: "ArrowUp은 스크롤을 올리거나 복합 위젯 내부에서 위쪽으로 이동할 때 사용하라.",
         }),
-        sr.button.next({
-          hint: "button.next는 다음 버튼으로 바로 이동해 주요 CTA를 찾을 때 사용하라.",
+        sr.key.enter({
+          hint: "Enter는 현재 포커스된 요소를 활성화할 때 사용하라.",
         }),
-        sr.button.previous({
-          hint: "button.previous는 이전 버튼으로 돌아갈 때 사용하라.",
+        sr.key.escape({
+          hint: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라.",
         }),
-        sr.form.next({
-          hint: "form.next는 다음 form control로 바로 이동할 때 사용하라.",
+        sr.key.shiftTab({
+          hint: "Shift+Tab은 포커스 가능한 요소를 이전으로 이동할 때 사용하라.",
         }),
-        sr.form.previous({
-          hint: "form.previous는 이전 form control로 돌아갈 때 사용하라.",
+        sr.key.space({
+          hint: "Space는 현재 포커스된 요소를 활성화하거나 토글할 때 사용하라.",
         }),
+        sr.key.tab({
+          hint: "Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.",
+        }),
+        sr.key.home({
+          hint: "Home은 현재 문맥의 시작으로 크게 이동할 때 사용하라.",
+        }),
+        sr.key.end({
+          hint: "End는 현재 문맥의 끝으로 크게 이동할 때 사용하라.",
+        }),
+        sr.key.mod.a({
+          hint: "입력창에 포커스를 둔 상태에서 텍스트를 전체 선택할 때 사용하라.",
+        }),
+        sr.key.backspace({ hint: "입력 중인 텍스트를 지울 때 사용하라." }),
         sr.interact({
           hint: "interact는 현재 web area나 그룹 안으로 들어가 더 자세히 탐색할 때 사용하라.",
         }),

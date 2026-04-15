@@ -59,6 +59,10 @@ export function shouldCaptureDeveloperScreenshot(
             return false;
           }
 
+          if (decision.action.srAction.semantic.startsWith("key.")) {
+            return true;
+          }
+
           switch (decision.action.srAction.semantic) {
             case "type":
             case "press":

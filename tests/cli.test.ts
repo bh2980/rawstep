@@ -1724,7 +1724,6 @@ describe.sequential("CLI", () => {
       memory: "all",
       headless: false,
       screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab(), kb.enter()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
@@ -1746,7 +1745,6 @@ describe.sequential("CLI", () => {
       },
       config: {
         headless: true,
-        allowedKeys: ["Tab"],
         allowedScreenReaderActions: ["sr.heading.next"],
         screenReaderBackend: "guidepup-virtual"
       }
@@ -1760,7 +1758,7 @@ describe.sequential("CLI", () => {
 
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
     expect(options.execution.headless).toBe(true);
-    expect(options.keyboardActionPlan.allowedKeys).toEqual(["Tab"]);
+    expect(options.keyboardActionPlan.allowedKeys).toEqual([]);
     expect(options.screenReaderActionPlan?.refs).toEqual([
       expect.objectContaining({ semantic: "heading.next" })
     ]);
@@ -1774,7 +1772,7 @@ describe.sequential("CLI", () => {
     ]);
   });
 
-  it("treats screenreader with allowedKeys: [] as screen reader actions only", async () => {
+  it("rejects allowedKeys in screenreader mode config", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-keyless-"));
     const configPath = join(tempDir, "rawstep.config.ts");
 
@@ -1804,20 +1802,13 @@ describe.sequential("CLI", () => {
 }`
     );
 
-    const options = await resolvePlan(parseRunArgs([
+    await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),
       "--config",
       configPath,
       "--mode",
       "screenreader"
-    ]));
-
-    expect(options.keyboardActionPlan.allowedKeys).toEqual([]);
-    expect(options.prompt.keyboardActions).toEqual([]);
-    expect(options.screenReaderActionPlan?.refs).toEqual([
-      expect.objectContaining({ semantic: "heading.next" }),
-      expect.objectContaining({ semantic: "click" })
-    ]);
+    ]))).rejects.toThrow("allowedKeys is not allowed in screenreader mode.");
   });
 
   it("lets CLI override screen reader backend, allowed command subsets, and task timing", async () => {
@@ -1841,7 +1832,6 @@ describe.sequential("CLI", () => {
       memory: "all",
       headless: false,
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: [kb.tab(), kb.enter()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
@@ -1865,7 +1855,6 @@ describe.sequential("CLI", () => {
       },
       config: {
         headless: false,
-        allowedKeys: ["Tab"],
         allowedScreenReaderActions: ["sr.heading.next"],
         screenReaderBackend: "guidepup-voiceover"
       }
@@ -1882,8 +1871,6 @@ describe.sequential("CLI", () => {
       "--headless",
       "--screen-reader-backend",
       "guidepup-virtual",
-      "--allowed-keys",
-      "Tab",
       "--allowed-screen-reader-actions",
       "sr.heading.next,sr.click"
     ]));
@@ -1892,7 +1879,7 @@ describe.sequential("CLI", () => {
     expect(options.task.timeoutMs).toBe(210000);
     expect(options.execution.headless).toBe(true);
     expect(options.screenReaderBackendId).toBe("guidepup-virtual");
-    expect(options.keyboardActionPlan.allowedKeys).toEqual(["Tab"]);
+    expect(options.keyboardActionPlan.allowedKeys).toEqual([]);
     expect(options.screenReaderActionPlan?.refs).toEqual([
       expect.objectContaining({ semantic: "heading.next" }),
       expect.objectContaining({ semantic: "click" })
@@ -1931,6 +1918,11 @@ describe.sequential("CLI", () => {
       "screenreader"
     ]));
 
+    expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
+      semantic: "key.tab",
+      token: "sr.key.tab"
+    }));
     expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
       semantic: "button.next",
@@ -1983,6 +1975,11 @@ describe.sequential("CLI", () => {
 
     expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
+      semantic: "key.arrow.down",
+      token: "sr.key.arrow.down"
+    }));
+    expect(nvdaOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
       semantic: "link.next",
       token: "sr.link.next"
     }));
@@ -2016,8 +2013,7 @@ describe.sequential("CLI", () => {
       maxSteps: 20,
       timeoutMs: 180000,
       memory: "all",
-      screenReaderBackend: "guidepup-virtual",
-      allowedKeys: [kb.tab()]
+      screenReaderBackend: "guidepup-virtual"
     }
   }
 }`
@@ -2031,6 +2027,11 @@ describe.sequential("CLI", () => {
       "screenreader"
     ]));
 
+    expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
+      kind: "stable",
+      semantic: "key.tab",
+      token: "sr.key.tab"
+    }));
     expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
       semantic: "link.next",
@@ -2071,11 +2072,9 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: [
-        kb.tab({ hint: "mode-tab" }),
-        kb.enter({ hint: "mode-enter" })
-      ],
       allowedScreenReaderActions: [
+        { semantic: "key.tab", hint: "mode-tab" },
+        { semantic: "key.enter", hint: "mode-enter" },
         { semantic: "heading.next", hint: "mode-next-heading" },
         { semantic: "click", hint: "mode-click" }
       ]
@@ -2093,19 +2092,22 @@ describe.sequential("CLI", () => {
     ]));
 
     expect(options.prompt.promptDir).toBe(join(tempDir, "custom-prompt"));
-    expect(options.prompt.keyboardActions).toEqual([
-      {
-        key: "Tab",
-        token: "key.Tab",
-        hint: "mode-tab"
-      },
-      {
-        key: "Enter",
-        token: "key.Enter",
-        hint: "mode-enter"
-      }
-    ]);
+    expect(options.prompt.keyboardActions).toEqual([]);
     expect(options.prompt.screenReaderActions).toEqual([
+      expect.objectContaining({
+        kind: "stable",
+        semantic: "key.tab",
+        hint: "mode-tab",
+        token: "sr.key.tab",
+        argumentKind: "none"
+      }),
+      expect.objectContaining({
+        kind: "stable",
+        semantic: "key.enter",
+        hint: "mode-enter",
+        token: "sr.key.enter",
+        argumentKind: "none"
+      }),
       expect.objectContaining({
         kind: "stable",
         semantic: "heading.next",
@@ -2454,7 +2456,6 @@ describe.sequential("CLI", () => {
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedKeys: [kb.tab()],
       allowedScreenReaderActions: [
         { semantic: "heading.next" },
         { semantic: "click" }
@@ -2463,6 +2464,16 @@ describe.sequential("CLI", () => {
   }
 }`
     );
+
+    await expect(resolvePlan(parseRunArgs([
+      resolve("examples/tasks/simple-cta.json"),
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader",
+      "--allowed-keys",
+      "Tab"
+    ]))).rejects.toThrow("allowedKeys is not allowed in screenreader mode.");
 
     await expect(resolvePlan(parseRunArgs([
       resolve("examples/tasks/simple-cta.json"),

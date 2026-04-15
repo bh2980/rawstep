@@ -2,7 +2,7 @@ import {
   SCREEN_READER_CLI_TOKEN_LABELS,
   SCREEN_READER_HELPER_PATH_TO_SEMANTIC,
   SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC,
-  SCREEN_READER_SEMANTICS_BY_BACKEND,
+  SCREEN_READER_PUBLIC_SEMANTICS_BY_BACKEND,
   buildDefaultScreenReaderActionRefs,
   buildScreenReaderActionPlan,
   createCatalogScreenReaderExtensionRef,
@@ -165,4 +165,4 @@ export function formatConfiguredScreenReaderAction(action: ScreenReaderActionRef
 }
 
 export type BackendStableScreenReaderSemantic<TBackend extends ScreenReaderBackendId> =
-  (typeof SCREEN_READER_SEMANTICS_BY_BACKEND)[TBackend][number];
+  (typeof SCREEN_READER_PUBLIC_SEMANTICS_BY_BACKEND)[TBackend][number];

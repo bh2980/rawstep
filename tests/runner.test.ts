@@ -1005,6 +1005,87 @@ describe("runTask", () => {
     });
   });
 
+  it("routes screenreader typeText actions through the screen reader controller", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-type-text-"));
+    const observedActions: ScreenReaderAction[] = [];
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-type-text",
+        url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+        goal: "Type the email address with the screen reader path.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        input: {
+          email: "traveler@example.com"
+        },
+        verify: {
+          all: [{ titleIncludes: "Email Login Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: async (url) => {
+          const session = await createBrowserSession(url, { headless: true });
+          await session.page.evaluate(() => {
+            (document.getElementById("email") as HTMLInputElement | null)?.focus();
+          });
+          return session;
+        },
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+              return {
+                kind: "screenreader",
+                announcement: observeCalls === 1 ? "Email, edit text" : "Email, edit text, traveler@example.com",
+                announcementCapture: "log"
+              };
+            }
+          },
+          controller: {
+            execute: async (action) => {
+              observedActions.push(action);
+              return { ok: true, costDelta: 1 };
+            }
+          }
+        }),
+        agent: {
+          decide: async (_ctx, _obs) => {
+            if (observeCalls === 1) {
+              return {
+                action: { typeText: "email" as const },
+                rationale: "Type the provided email."
+              };
+            }
+
+            return {
+              verdict: "success",
+              rationale: "The email input already contains the task value."
+            };
+          }
+        }
+      }
+    );
+
+    expect(
+      observedActions.filter((action) => action.semantic === "type")
+    ).toEqual([{
+      semantic: "type",
+      text: "traveler@example.com"
+    }]);
+    expect(session.aggregate.actionCounts).toEqual({
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
+      rawKeyCount: 0,
+      typeTextCount: 1
+    });
+  });
+
   it("writes automatic screenreader debug probes during screenreader runs", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-debug-"));
     const logResponses = [["before observe"], [], ["after action"]];
@@ -1156,7 +1237,7 @@ describe("runTask", () => {
     }
   });
 
-  it("fails when screenreader has no allowed keys and the agent still returns a raw key action", async () => {
+  it("fails when the agent still returns a raw key action in screenreader mode", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-keyless-key-"));
 
     const session = await runTask(
@@ -1173,7 +1254,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        keyboardActionPlan: buildKeyboardActionPlan([]),
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1199,7 +1279,7 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("error");
-    expect(session.steps[0].execution.error).toBe('Key "Tab" is not allowed by the configured allowedKeys.');
+    expect(session.steps[0].execution.error).toBe("Raw key actions are not allowed in the current mode.");
     expect(session.aggregate.actionCounts).toEqual({
       srInvokeCount: 0,
       srReadCount: 0,
