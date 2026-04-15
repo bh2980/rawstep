@@ -35,6 +35,7 @@ export async function createScreenReaderRuntime(
     await focusPageRoot(page);
     await session.start();
     await focusPageRoot(page);
+    await synchronizeScreenReaderFocus(session, backend);
     screenReaderInitMs = Date.now() - screenReaderInitStartedAt;
   } catch (error) {
     throw new Error(
@@ -54,15 +55,15 @@ export async function createScreenReaderRuntime(
   return {
     observer: new ScreenReaderObserver(readAnnouncement, firstAnnouncement),
     controller: {
-      execute: async (action) => {
-        const executableAction = resolveExecutableScreenReaderAction(action, {
-          backendId: backend.id,
-          capabilities: backend.capabilities,
-          plan: options.actionPlan
-        });
-
-        return executeScreenReaderAction(session, executableAction);
-      }
+      execute: async (action) => executeResolvedScreenReaderAction(action, {
+        session,
+        backend,
+        actionPlan: options.actionPlan
+      }),
+      executeInternal: async (action) => executeResolvedScreenReaderAction(action, {
+        session,
+        backend
+      })
     },
     capabilities: backend.capabilities,
     setupTimings: {
@@ -79,6 +80,23 @@ export async function createScreenReaderRuntime(
       await cleanupBootstrapFocus(page);
     }
   };
+}
+
+async function executeResolvedScreenReaderAction(
+  action: import("@rawstep/definition").ScreenReaderAction,
+  options: {
+    session: ScreenReaderSession;
+    backend: ScreenReaderBackend;
+    actionPlan?: ScreenReaderRuntimeOptions["actionPlan"];
+  }
+): Promise<import("@rawstep/definition").ExecutionRecord> {
+  const executableAction = resolveExecutableScreenReaderAction(action, {
+    backendId: options.backend.id,
+    capabilities: options.backend.capabilities,
+    plan: options.actionPlan
+  });
+
+  return executeScreenReaderAction(options.session, executableAction);
 }
 
 function validateActionPlan(
@@ -202,6 +220,7 @@ function getErrorMessage(error: unknown): string {
 
 async function focusPageRoot(page: Page): Promise<void> {
   await page.evaluate(() => {
+    window.focus();
     const target = document.body ?? document.documentElement;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -213,7 +232,7 @@ async function focusPageRoot(page: Page): Promise<void> {
       target.setAttribute("data-a11y-bootstrap-tabindex", "true");
     }
 
-    target.focus();
+    target.focus({ preventScroll: true });
   });
 }
 
@@ -227,4 +246,36 @@ async function cleanupBootstrapFocus(page: Page): Promise<void> {
     target.removeAttribute("tabindex");
     target.removeAttribute("data-a11y-bootstrap-tabindex");
   });
+}
+
+async function synchronizeScreenReaderFocus(
+  session: ScreenReaderSession,
+  backend: ScreenReaderBackend
+): Promise<void> {
+  const syncCommandId = resolveInitialFocusSyncCommandId(backend);
+  if (!syncCommandId) {
+    return;
+  }
+
+  await session.perform(
+    { source: "catalog", id: syncCommandId },
+    { capture: "initial" }
+  );
+}
+
+function resolveInitialFocusSyncCommandId(
+  backend: Pick<ScreenReaderBackend, "capabilities">
+): string | undefined {
+  const availableIds = new Set(backend.capabilities.performCatalog.map((command) => command.id));
+
+  for (const candidate of [
+    "keyboard.moveCursorToKeyboardFocus",
+    "keyboard.moveToFocusObject"
+  ]) {
+    if (availableIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
 }

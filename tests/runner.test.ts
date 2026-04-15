@@ -94,7 +94,7 @@ function createMockScreenReaderRuntime(overrides: {
     observe: () => Promise<{
       kind: "screenreader";
       announcement: string;
-      announcementCapture: "log";
+      announcementCapture: "log" | "fallback" | "none" | "synthetic";
     }>;
   };
   controller?: {
@@ -1084,6 +1084,89 @@ describe("runTask", () => {
       rawKeyCount: 0,
       typeTextCount: 1
     });
+  });
+
+  it("uses a synthetic announcement for VoiceOver typeText actions", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-voiceover-type-text-"));
+    const observedActions: ScreenReaderAction[] = [];
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-type-text-voiceover",
+        url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+        goal: "Type the email address with a stable VoiceOver-friendly fallback.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        input: {
+          email: "traveler@example.com"
+        },
+        verify: {
+          all: [{ titleIncludes: "Email Login Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: async (url) => {
+          const session = await createBrowserSession(url, { headless: true });
+          await session.page.evaluate(() => {
+            (document.getElementById("email") as HTMLInputElement | null)?.focus();
+          });
+          return session;
+        },
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+              return {
+                kind: "screenreader",
+                announcement: observeCalls === 1 ? "Email, edit text" : "Email, edit text, traveler@examplecom",
+                announcementCapture: "log"
+              };
+            }
+          },
+          controller: {
+            execute: async (action) => {
+              observedActions.push(action);
+              return { ok: true, costDelta: 1 };
+            }
+          }
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            if (observeCalls === 1) {
+              return {
+                action: { typeText: "email" as const },
+                rationale: "Type the provided email."
+              };
+            }
+
+            expect(obs.kind).toBe("screenreader");
+            if (obs.kind === "screenreader") {
+              expect(obs.announcement).toBe("Email, traveler@example.com");
+              expect(obs.announcementCapture).toBe("synthetic");
+            }
+
+            return {
+              verdict: "success",
+              rationale: "The synthetic announcement reflects the typed email."
+            };
+          }
+        }
+      }
+    );
+
+    expect(
+      observedActions.filter((action) => action.semantic === "type")
+    ).toEqual([]);
+    expect(session.steps[1]?.observation.kind).toBe("screenreader");
+    if (session.steps[1]?.observation.kind === "screenreader") {
+      expect(session.steps[1].observation.announcement).toBe("Email, traveler@example.com");
+      expect(session.steps[1].observation.announcementCapture).toBe("synthetic");
+      expect(session.steps[1].observation.observeReason).toBe("synthetic");
+    }
   });
 
   it("can disable developer screenshots for screenreader steps", async () => {

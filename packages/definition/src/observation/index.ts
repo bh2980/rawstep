@@ -29,9 +29,9 @@ export type KeyboardObservation = {
 export type ScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
-  announcementCapture: "log" | "fallback" | "none";
+  announcementCapture: "log" | "fallback" | "none" | "synthetic";
   announcementCount?: number;
-  observeReason?: "silence" | "timeout" | "fallback";
+  observeReason?: "silence" | "timeout" | "fallback" | "synthetic";
   previousAnnouncement?: string;
   readbacks?: ScreenReaderReadback[];
 };

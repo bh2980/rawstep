@@ -131,6 +131,77 @@ describe("Actuator", () => {
     expect(actuator.cost).toBe(1);
   });
 
+  it("prefers the screen reader controller internal path for named task input when available", async () => {
+    const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const executeInternal = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi.fn(async () => true);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type: vi.fn(async () => undefined) },
+        evaluate
+      } as never,
+      {
+        screenReaderController: { execute, executeInternal },
+        useScreenReaderTextEntry: true
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+
+    expect(evaluate).toHaveBeenCalled();
+    expect(executeInternal).toHaveBeenCalledWith({
+      semantic: "type",
+      text: "passport"
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, costDelta: 1 });
+    expect(actuator.cost).toBe(1);
+  });
+
+  it("uses a synthetic VoiceOver text-entry path for typeText when configured", async () => {
+    const type = vi.fn(async () => undefined);
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({
+        expected: "traveler@example.com",
+        observed: "traveler@example.com",
+        verified: true,
+        fieldLabel: "Email",
+        fieldRole: "email",
+        isSensitive: false,
+        syntheticAnnouncement: "Email, traveler@example.com"
+      });
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: { execute: vi.fn(async () => ({ ok: true, costDelta: 1 })) }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "email" }, { email: "traveler@example.com" });
+
+    expect(type).toHaveBeenCalledWith("traveler@example.com");
+    expect(result).toEqual({
+      ok: true,
+      costDelta: 1,
+      textEntryResult: {
+        expected: "traveler@example.com",
+        observed: "traveler@example.com",
+        verified: true,
+        fieldLabel: "Email",
+        fieldRole: "email",
+        isSensitive: false,
+        syntheticAnnouncement: "Email, traveler@example.com"
+      }
+    });
+  });
+
   it("returns a low-info failure when text entry is not allowed by the gate", async () => {
     const type = vi.fn(async () => undefined);
     const evaluate = vi.fn(async () => false);

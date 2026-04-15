@@ -285,6 +285,107 @@ describe("observer-screenreader", () => {
     expect(stop).toHaveBeenCalled();
   });
 
+  it("synchronizes the initial screen reader cursor to keyboard focus when the backend supports it", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    await runtime.close();
+
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { capture: "initial" }
+    );
+  });
+
+  it("lets internal screen reader text entry bypass the public action plan", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const type = vi.fn(async () => undefined);
+    const session: ScreenReaderSession = createMockScreenReaderSession({
+      type,
+      spokenPhraseLog: vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce(["Initial announcement"])
+        .mockResolvedValue([])
+    });
+    const backend: ScreenReaderBackend = {
+      ...findScreenReaderBackendById("guidepup-virtual"),
+      capabilities: TEST_CAPABILITIES,
+      createSession: vi.fn(async () => session)
+    };
+
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend,
+        actionPlan: buildScreenReaderActionPlan(
+          [createStableScreenReaderActionRef("heading.next")],
+          backend.id,
+          backend.capabilities
+        ),
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    await expect(runtime.controller.execute({
+      semantic: "type",
+      text: "hello"
+    })).rejects.toThrow(
+      "Screen reader action is not allowed by the configured allowedScreenReaderActions: sr.type(hello)."
+    );
+
+    const executeInternal = runtime.controller.executeInternal;
+    expect(executeInternal).toBeTypeOf("function");
+
+    await expect(executeInternal!({
+      semantic: "type",
+      text: "hello"
+    })).resolves.toEqual({
+      ok: true,
+      costDelta: 1
+    });
+
+    expect(type).toHaveBeenCalledWith("hello", undefined);
+    await runtime.close();
+  });
+
   it("uses the fallback phrase for the first observation when the log is empty", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",

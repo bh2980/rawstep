@@ -101,6 +101,7 @@ type RunState = {
   successfulActionCount: number;
   agentMemory: AgentMemoryEntry[];
   pendingScreenReaderReadbacks: ScreenReaderReadback[];
+  pendingSyntheticAnnouncement?: string;
   endedBy?: EndedBy;
   failureReasonOverride?: string;
 };
@@ -207,6 +208,7 @@ async function initializeRunResources(
   const actuator = new Actuator(cleanup.browser.page, {
     screenReaderController: cleanup.screenReaderRuntime?.controller,
     useScreenReaderTextEntry: isScreenReaderMode(task.mode),
+    screenReaderBackendId: options.screenReaderBackendId,
     allowedKeys: keyboardActionPlan.allowedKeys
   });
   const screenReaderCapabilities = isScreenReaderMode(task.mode)
@@ -296,10 +298,16 @@ async function buildAgentStepContext(
 ): Promise<BuiltAgentStepContext> {
   const observeStartedAt = Date.now();
   const baseObservation = await resources.observer.observe();
-  const observation = applyPendingScreenReaderReadbacks(
-    baseObservation,
-    state.pendingScreenReaderReadbacks
+  const observation = applyPendingSyntheticAnnouncement(
+    applyPendingScreenReaderReadbacks(
+      baseObservation,
+      state.pendingScreenReaderReadbacks
+    ),
+    state.pendingSyntheticAnnouncement
   );
+  if (observation.kind === "screenreader" && state.pendingSyntheticAnnouncement) {
+    state.pendingSyntheticAnnouncement = undefined;
+  }
   if (observation.kind === "screenreader" && state.pendingScreenReaderReadbacks.length > 0) {
     state.pendingScreenReaderReadbacks = [];
   }
@@ -441,6 +449,9 @@ async function handleActionDecision(
         ...state.pendingScreenReaderReadbacks,
         ...createScreenReaderReadbacks(execution)
       ];
+      if (execution.textEntryResult?.syntheticAnnouncement) {
+        state.pendingSyntheticAnnouncement = execution.textEntryResult.syntheticAnnouncement;
+      }
     }
 
     const shouldCheckVerifierAutoComplete = Boolean(
@@ -654,6 +665,23 @@ function applyPendingScreenReaderReadbacks(
   };
 }
 
+function applyPendingSyntheticAnnouncement(
+  observation: Awaited<ReturnType<ReturnType<typeof createObserver>["observe"]>>,
+  pendingSyntheticAnnouncement: string | undefined
+) {
+  if (observation.kind !== "screenreader" || !pendingSyntheticAnnouncement) {
+    return observation;
+  }
+
+  return {
+    ...observation,
+    announcement: pendingSyntheticAnnouncement,
+    announcementCapture: "synthetic" as const,
+    announcementCount: 1,
+    observeReason: "synthetic" as const
+  };
+}
+
 function createScreenReaderReadbacks(
   execution: ExecutionRecord
 ): ScreenReaderReadback[] {
@@ -691,6 +719,7 @@ function actionCanChangeTaskState(action: Action): boolean {
 async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {
   await page.bringToFront();
   await page.evaluate(() => {
+    window.focus();
     const target = document.body ?? document.documentElement;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -702,6 +731,6 @@ async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<voi
       target.setAttribute("data-rawstep-keyboard-bootstrap", "true");
     }
 
-    target.focus();
+    target.focus({ preventScroll: true });
   });
 }

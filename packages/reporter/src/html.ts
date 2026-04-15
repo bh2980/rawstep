@@ -1866,6 +1866,8 @@ function formatAnnouncementCapture(capture: Extract<StepRecord["observation"], {
       return "Last spoken phrase fallback";
     case "none":
       return "No capture";
+    case "synthetic":
+      return "Synthetic announcement";
   }
 }
 
@@ -1887,6 +1889,8 @@ function formatObserveReason(
       return "Stopped at timeout";
     case "fallback":
       return "Used fallback value";
+    case "synthetic":
+      return "Used synthetic announcement";
     default:
       return null;
   }

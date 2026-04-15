@@ -15,6 +15,15 @@ export type ExecutionRecord = {
   ok: boolean;
   error?: string;
   costDelta: number;
+  textEntryResult?: {
+    expected: string;
+    observed: string;
+    verified: boolean;
+    fieldLabel?: string;
+    fieldRole?: string;
+    isSensitive?: boolean;
+    syntheticAnnouncement?: string;
+  };
   readResult?: {
     method: ScreenReaderReadMethod;
     value: string | string[];
@@ -42,9 +51,9 @@ export type RecordedKeyboardObservation = {
 export type RecordedScreenReaderObservation = {
   kind: "screenreader";
   announcement: string;
-  announcementCapture: "log" | "fallback" | "none";
+  announcementCapture: "log" | "fallback" | "none" | "synthetic";
   announcementCount?: number;
-  observeReason?: "silence" | "timeout" | "fallback";
+  observeReason?: "silence" | "timeout" | "fallback" | "synthetic";
   readbacks?: ScreenReaderReadback[];
   screenshot?: {
     path: string;
