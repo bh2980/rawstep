@@ -114,6 +114,7 @@ async function resolvePlan(cliOptions: RunPlanCliOverrides) {
     keyboardActionPlan: plan.interaction.keyboardActionPlan,
     screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
     screenReaderBackendId: plan.interaction.screenReaderBackendId,
+    screenReaderObserve: plan.interaction.screenReaderObserve,
     prompt: {
       promptDir: plan.paths.promptDir,
       keyboardActions: plan.prompt.keyboardActions,
@@ -865,6 +866,57 @@ describe.sequential("CLI", () => {
     expect(options.execution.memory).toEqual({ mode: "window", window: 3 });
     expect(options.execution.includeExperienceSummary).toBe(true);
     expect(options.execution.includeRationale).toBe(true);
+  });
+
+  it("lets screenreader observe settings be overridden in config and task config", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-observe-config-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "observe-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    screenreader: {
+      outDir: "./screenreader-out",
+      maxSteps: 40,
+      timeoutMs: 2500,
+      memory: "all",
+      screenReaderBackend: "guidepup-virtual",
+      observe: {
+        silenceWindowMs: 1500,
+        maxObserveMs: 9000
+      }
+    }
+  }
+}`
+    );
+
+    await writeTaskFile(taskPath, {
+      id: "observe-task",
+      url: resolve("fixtures/simple-cta.html"),
+      goal: "Check observe settings.",
+      mode: "screenreader",
+      verify: { all: [{ titleIncludes: "Simple CTA Fixture" }] },
+      config: {
+        observe: {
+          maxObserveMs: 12000
+        }
+      }
+    });
+
+    const options = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath
+    ]));
+
+    expect(options.screenReaderBackendId).toBe("guidepup-virtual");
+    expect(options.screenReaderObserve).toEqual({
+      silenceWindowMs: 1500,
+      maxObserveMs: 12000
+    });
   });
 
   it("accepts apiKey in rawstep.config.ts and still rejects it in task.json", async () => {

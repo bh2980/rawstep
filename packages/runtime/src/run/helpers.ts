@@ -22,7 +22,6 @@ import {
 
 export type RunnerObserver = {
   observe(): Promise<Observation>;
-  prepareNextObservation?(profile: "initial" | "default" | "interactive"): void;
 };
 
 export function getErrorMessage(error: unknown): string {
@@ -69,19 +68,6 @@ export function createAgentMemoryEntry(
     outcome,
     ...(note ? { note } : {})
   };
-}
-
-export function shouldUseInteractiveObservation(decision: Extract<Decision, { action: unknown }>): boolean {
-  if (!("srAction" in decision.action)) {
-    return false;
-  }
-
-  if ("extension" in decision.action.srAction) {
-    return true;
-  }
-
-  return !decision.action.srAction.semantic.startsWith("read.")
-    && !decision.action.srAction.semantic.startsWith("clear.");
 }
 
 export function createVerdictAnalysis(

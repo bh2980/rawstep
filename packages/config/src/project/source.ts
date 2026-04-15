@@ -1,5 +1,6 @@
 import type {
   MemorySetting,
+  ScreenReaderObserveConfig,
   ScreenReaderBackendId,
   ScreenReaderBackendsSupportingRawPerform,
   ScreenshotPolicy,
@@ -62,6 +63,7 @@ type ModeWithoutScreenReaderBackendConfig<AllowsRawKeys extends boolean> =
   & {
     allowedScreenReaderActions?: never;
     screenReaderBackend?: never;
+    observe?: never;
   };
 
 type ModeWithScreenReaderBackendConfig<AllowsRawKeys extends boolean> = {
@@ -69,6 +71,7 @@ type ModeWithScreenReaderBackendConfig<AllowsRawKeys extends boolean> = {
     screenReaderBackend: TBackend;
     allowedKeys?: ModeAllowedKeysField<AllowsRawKeys>["allowedKeys"];
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
+    observe?: ScreenReaderObserveConfig;
   };
 }[ScreenReaderBackendId];
 

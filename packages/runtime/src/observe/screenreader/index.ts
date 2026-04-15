@@ -2,7 +2,7 @@ export { createAnnouncementReader } from "./announcement";
 export { ScreenReaderObserver } from "./observer";
 export {
   createEmptyScreenReaderCapabilities,
-  DEFAULT_SCREEN_READER_OBSERVE_POLICY,
+  DEFAULT_SCREEN_READER_OBSERVE_PROFILE,
   EMPTY_SCREEN_READER_CAPABILITIES,
   BUILTIN_SCREEN_READER_BACKENDS,
   findScreenReaderBackendById,
@@ -10,15 +10,13 @@ export {
   resolveScreenReaderBackend,
   resolveScreenReaderBrowserHeadless,
   resolveScreenReaderCapabilities,
-  resolveScreenReaderObserveProfiles
+  resolveScreenReaderObserveProfile
 } from "./registry";
 export { createScreenReaderRuntime } from "./runtime";
 export type {
   ScreenReaderBackend,
   ScreenReaderBackendImplementation,
   ScreenReaderObserveProfile,
-  ScreenReaderObserveProfileName,
-  ScreenReaderObservePolicy,
   ScreenReaderRuntimeOptions,
   ScreenReaderRuntime,
   ScreenReaderRuntimeFactory,

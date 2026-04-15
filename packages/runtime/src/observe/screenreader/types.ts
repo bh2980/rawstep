@@ -8,11 +8,11 @@ import type {
 } from "@rawstep/action-catalog";
 import type {
   ScreenReaderBackendId,
+  ScreenReaderObserveConfig,
   ScreenReaderBackendSpec,
   ScreenReaderObservation
 } from "@rawstep/definition";
 import type { Page } from "playwright";
-export type ScreenReaderObserveProfileName = "initial" | "default" | "interactive";
 
 export type ScreenReaderObserveProfile = {
   pollIntervalMs: number;
@@ -20,8 +20,6 @@ export type ScreenReaderObserveProfile = {
   maxObserveMs: number;
   allowFallback: boolean;
 };
-
-export type ScreenReaderObservePolicy = Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile>;
 
 export type ScreenReaderSession = {
   start(options?: ScreenReaderCommandOptions): Promise<void>;
@@ -50,12 +48,11 @@ export type ScreenReaderBackendImplementation = {
 
 export type ScreenReaderBackend = ScreenReaderBackendImplementation & ScreenReaderBackendSpec & {
   id: ScreenReaderBackendId;
-  observePolicy: ScreenReaderObservePolicy;
+  observeProfile: ScreenReaderObserveProfile;
 };
 
 export type ScreenReaderRuntimeObserver = {
   observe(): Promise<ScreenReaderObservation>;
-  prepareNextObservation?(profile: ScreenReaderObserveProfileName): void;
 };
 
 export type ScreenReaderRuntime = {
@@ -76,7 +73,7 @@ export type ScreenReaderRuntimeOptions = {
   backend?: ScreenReaderBackend;
   actionPlan?: ScreenReaderActionPlan;
   platform?: NodeJS.Platform;
-  observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
+  observe?: ScreenReaderObserveConfig;
 };
 
 export type AnnouncementState = Pick<
@@ -85,5 +82,4 @@ export type AnnouncementState = Pick<
 >;
 
 export type AnnouncementReader = (
-  profile?: ScreenReaderObserveProfileName
 ) => Promise<AnnouncementState>;

@@ -10,11 +10,9 @@ import { createAnnouncementReader } from "./announcement";
 import { ScreenReaderObserver } from "./observer";
 import {
   resolveScreenReaderBackend,
-  resolveScreenReaderObserveProfiles
+  resolveScreenReaderObserveProfile
 } from "./registry";
 import type {
-  AnnouncementReader,
-  AnnouncementState,
   ScreenReaderBackend,
   ScreenReaderRuntime,
   ScreenReaderRuntimeOptions,
@@ -46,11 +44,11 @@ export async function createScreenReaderRuntime(
 
   const readAnnouncement = createAnnouncementReader(
     session,
-    undefined,
-    resolveScreenReaderObserveProfiles(backend, options.observeProfiles)
+    {},
+    resolveScreenReaderObserveProfile(backend, options.observe)
   );
   const firstAnnouncementWaitStartedAt = Date.now();
-  const firstAnnouncement = await captureInitialAnnouncement(page, readAnnouncement);
+  const firstAnnouncement = await readAnnouncement();
   const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
 
   return {
@@ -81,22 +79,6 @@ export async function createScreenReaderRuntime(
       await cleanupBootstrapFocus(page);
     }
   };
-}
-
-async function captureInitialAnnouncement(
-  page: Page,
-  readAnnouncement: AnnouncementReader
-): Promise<AnnouncementState> {
-  const firstAttempt = await readAnnouncement("initial");
-  if (firstAttempt.announcementCapture !== "none") {
-    return firstAttempt;
-  }
-
-  await focusPageRoot(page);
-  const secondAttempt = await readAnnouncement("initial");
-  return secondAttempt.announcementCapture === "none"
-    ? firstAttempt
-    : secondAttempt;
 }
 
 function validateActionPlan(

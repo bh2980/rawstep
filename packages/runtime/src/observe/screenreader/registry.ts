@@ -11,14 +11,13 @@ import {
   requiresScreenReaderBackend,
   supportsVisualObservation,
   type ScreenReaderBackendId,
+  type ScreenReaderObserveConfig,
   type UserModel
 } from "@rawstep/definition";
 import {
   type ScreenReaderBackend,
   type ScreenReaderBackendImplementation,
-  type ScreenReaderObservePolicy,
   type ScreenReaderObserveProfile,
-  type ScreenReaderObserveProfileName,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeOptions
 } from "./types";
@@ -28,25 +27,11 @@ import {
   createGuidepupVoiceOverBackendImplementation
 } from "./backends/guidepup";
 
-export const DEFAULT_SCREEN_READER_OBSERVE_POLICY: ScreenReaderObservePolicy = {
-  initial: {
-    pollIntervalMs: 120,
-    silenceWindowMs: 700,
-    maxObserveMs: 6000,
-    allowFallback: true
-  },
-  default: {
-    pollIntervalMs: 100,
-    silenceWindowMs: 500,
-    maxObserveMs: 3000,
-    allowFallback: false
-  },
-  interactive: {
-    pollIntervalMs: 120,
-    silenceWindowMs: 800,
-    maxObserveMs: 5000,
-    allowFallback: false
-  }
+export const DEFAULT_SCREEN_READER_OBSERVE_PROFILE: ScreenReaderObserveProfile = {
+  pollIntervalMs: 100,
+  silenceWindowMs: 1200,
+  maxObserveMs: 7000,
+  allowFallback: false
 };
 
 export const EMPTY_SCREEN_READER_CAPABILITIES: ScreenReaderCapabilities = createEmptyScreenReaderCapabilities();
@@ -143,16 +128,13 @@ export function resolveScreenReaderBrowserHeadless(
   return getBackendBrowserPolicy(backendId).defaultHeadless;
 }
 
-export function resolveScreenReaderObserveProfiles(
-  backend: Pick<ScreenReaderBackend, "observePolicy"> | undefined,
-  overrides: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {}
-): ScreenReaderObservePolicy {
-  const defaults = backend?.observePolicy ?? DEFAULT_SCREEN_READER_OBSERVE_POLICY;
-
+export function resolveScreenReaderObserveProfile(
+  backend: Pick<ScreenReaderBackend, "observeProfile"> | undefined,
+  overrides: ScreenReaderObserveConfig = {}
+): ScreenReaderObserveProfile {
   return {
-    initial: { ...defaults.initial, ...overrides.initial },
-    default: { ...defaults.default, ...overrides.default },
-    interactive: { ...defaults.interactive, ...overrides.interactive }
+    ...(backend?.observeProfile ?? DEFAULT_SCREEN_READER_OBSERVE_PROFILE),
+    ...overrides
   };
 }
 
@@ -214,16 +196,12 @@ function createScreenReaderBackendEntry(
     id,
     ...implementation,
     ...spec,
-    observePolicy: cloneObservePolicy(DEFAULT_SCREEN_READER_OBSERVE_POLICY)
+    observeProfile: cloneObserveProfile(DEFAULT_SCREEN_READER_OBSERVE_PROFILE)
   };
 }
 
-function cloneObservePolicy(policy: ScreenReaderObservePolicy): ScreenReaderObservePolicy {
-  return {
-    initial: { ...policy.initial },
-    default: { ...policy.default },
-    interactive: { ...policy.interactive }
-  };
+function cloneObserveProfile(profile: ScreenReaderObserveProfile): ScreenReaderObserveProfile {
+  return { ...profile };
 }
 
 function validateScreenReaderBackendPlatform(

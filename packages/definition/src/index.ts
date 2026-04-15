@@ -46,6 +46,7 @@ export {
 } from "./task";
 export type {
   MemorySetting,
+  ScreenReaderObserveConfig,
   TaskInput,
   TaskOverrideSource,
   TaskSource,

@@ -116,11 +116,9 @@ describe("observer-screenreader", () => {
       clearSpokenPhraseLog: vi.fn(async () => undefined),
       lastSpokenPhrase: vi.fn(async () => "Welcome")
     }, {
-      default: {
-        pollIntervalMs: 1,
-        silenceWindowMs: 1,
-        maxObserveMs: 4
-      }
+      pollIntervalMs: 1,
+      silenceWindowMs: 1,
+      maxObserveMs: 4
     });
 
     await expect(reader()).resolves.toMatchObject({
@@ -136,7 +134,7 @@ describe("observer-screenreader", () => {
     });
   });
 
-  it("uses the last spoken phrase for the initial observation when the log is empty", async () => {
+  it("uses the last spoken phrase when the log is empty", async () => {
     const reader = createAnnouncementReader({
       spokenPhraseLog: vi
         .fn<() => Promise<string[]>>()
@@ -146,14 +144,13 @@ describe("observer-screenreader", () => {
       clearSpokenPhraseLog: vi.fn(async () => undefined),
       lastSpokenPhrase: vi.fn(async () => "Main landmark")
     }, {
-      initial: {
-        pollIntervalMs: 1,
-        silenceWindowMs: 1,
-        maxObserveMs: 3
-      }
+      pollIntervalMs: 1,
+      silenceWindowMs: 1,
+      maxObserveMs: 3,
+      allowFallback: true
     });
 
-    await expect(reader("initial")).resolves.toEqual({
+    await expect(reader()).resolves.toEqual({
       announcement: "Main landmark",
       announcementCapture: "fallback",
       announcementCount: 1,
@@ -172,12 +169,10 @@ describe("observer-screenreader", () => {
       clearSpokenPhraseLog: vi.fn(async () => undefined),
       lastSpokenPhrase: vi.fn(async () => "")
     }, {
-      default: {
-        pollIntervalMs: 1,
-        silenceWindowMs: 1,
-        // Leave enough room for the quiet-period check to win over the wall-clock limit.
-        maxObserveMs: 20
-      }
+      pollIntervalMs: 1,
+      silenceWindowMs: 1,
+      // Leave enough room for the quiet-period check to win over the wall-clock limit.
+      maxObserveMs: 20
     });
 
     await expect(reader()).resolves.toEqual({
@@ -246,17 +241,10 @@ describe("observer-screenreader", () => {
       } as never,
       {
         backend,
-        observeProfiles: {
-          initial: {
-            pollIntervalMs: 1,
-            silenceWindowMs: 1,
-            maxObserveMs: 6
-          },
-          default: {
-            pollIntervalMs: 1,
-            silenceWindowMs: 1,
-            maxObserveMs: 6
-          }
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 6
         }
       }
     );
@@ -297,7 +285,7 @@ describe("observer-screenreader", () => {
     expect(stop).toHaveBeenCalled();
   });
 
-  it("retries the initial observation once when the first capture is empty", async () => {
+  it("uses the fallback phrase for the first observation when the log is empty", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -316,25 +304,20 @@ describe("observer-screenreader", () => {
           createSession: async () => createMockScreenReaderSession({
             lastSpokenPhrase: vi
               .fn<() => Promise<string>>()
-              .mockResolvedValueOnce("")
               .mockResolvedValueOnce("Recovered initial announcement"),
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce([])
-              .mockResolvedValueOnce([])
-              .mockResolvedValueOnce([])
               .mockResolvedValueOnce([]),
-            clearSpokenPhraseLog: vi.fn(async () => undefined)
+              clearSpokenPhraseLog: vi.fn(async () => undefined)
           })
         },
-        observeProfiles: {
-          initial: {
-            pollIntervalMs: 1,
-            silenceWindowMs: 1,
-            maxObserveMs: 3
-          }
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3,
+          allowFallback: true
         }
       }
     );
@@ -349,7 +332,7 @@ describe("observer-screenreader", () => {
       announcementCount: 1,
       observeReason: "fallback"
     });
-    expect(evaluate).toHaveBeenCalledTimes(4);
+    expect(evaluate).toHaveBeenCalledTimes(3);
   });
 
   it("rejects explicitly configured backends that do not support the current platform", async () => {

@@ -9,6 +9,12 @@ import type { VerifySpec } from "../verify";
 
 export type MemorySetting = number | "all";
 export type TaskInput = Record<string, string>;
+export type ScreenReaderObserveConfig = {
+  pollIntervalMs?: number;
+  silenceWindowMs?: number;
+  maxObserveMs?: number;
+  allowFallback?: boolean;
+};
 
 export type TaskOverrideSource = {
   mode?: UserModel;
@@ -25,6 +31,7 @@ export type TaskOverrideSource = {
   allowedKeys?: KeyboardSupportedKey[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
+  observe?: ScreenReaderObserveConfig;
 };
 
 export type TaskSource = {

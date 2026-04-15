@@ -7,6 +7,7 @@ import type {
 import type {
   MemorySetting,
   ScreenReaderBackendId,
+  ScreenReaderObserveConfig,
   ScreenshotPolicy,
   TaskOverrideSource,
   TaskSource,
@@ -64,6 +65,7 @@ export type ResolvedRunPlanPrecedence = {
   configuredAllowedKeys?: KeyboardActionRef[];
   configuredAllowedScreenReaderActions?: ScreenReaderActionRef[];
   configuredScreenReaderBackend?: ScreenReaderBackendId;
+  configuredScreenReaderObserve?: ScreenReaderObserveConfig;
 };
 
 type ResolveRunPlanPrecedenceInput = {
@@ -171,6 +173,12 @@ export function resolveRunPlanPrecedence({
     configuredScreenReaderBackend: cliOverrides.screenReaderBackendId
       ?? taskConfig?.screenReaderBackend
       ?? modePreset.screenReaderBackend,
+    configuredScreenReaderObserve: taskConfig?.observe || modePreset.observe
+      ? {
+          ...(modePreset.observe ?? {}),
+          ...(taskConfig?.observe ?? {})
+        }
+      : undefined,
   };
 }
 

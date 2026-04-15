@@ -46,7 +46,8 @@ export async function runCli(
       maxVerificationRetries: plan.execution.maxVerificationRetries,
       keyboardActionPlan: plan.interaction.keyboardActionPlan,
       screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
-      screenReaderBackendId: plan.interaction.screenReaderBackendId
+      screenReaderBackendId: plan.interaction.screenReaderBackendId,
+      screenReaderObserve: plan.interaction.screenReaderObserve
     });
     const published = await publishRunOutputs(session, plan.paths.outDir, agent.getPromptLog?.());
     process.stdout.write(`${published.summaryText}\n`);

@@ -13,6 +13,7 @@ import {
   supportsVisualObservation,
   type ResolvedTask,
   type ScreenReaderBackendId,
+  type ScreenReaderObserveConfig,
   type TaskOverrideSource,
   type TaskSource,
 } from "@rawstep/definition";
@@ -54,6 +55,7 @@ export type ResolvedRunPlan = {
     keyboardActionPlan: KeyboardActionPlan;
     screenReaderActionPlan?: ScreenReaderActionPlan;
     screenReaderBackendId?: ScreenReaderBackendId;
+    screenReaderObserve?: ScreenReaderObserveConfig;
   };
   prompt: {
     keyboardActions: readonly KeyboardActionDescriptor[];
@@ -85,6 +87,9 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
 
   if (supportsVisualObservation(merged.selectedMode) && merged.configuredScreenReaderBackend) {
     throw new Error(`screenReaderBackend is not allowed in ${merged.selectedMode} mode.`);
+  }
+  if (supportsVisualObservation(merged.selectedMode) && merged.configuredScreenReaderObserve) {
+    throw new Error(`observe is not allowed in ${merged.selectedMode} mode.`);
   }
 
   if (!allowsRawKeyActions(merged.selectedMode)
@@ -142,6 +147,7 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       keyboardActionPlan,
       screenReaderActionPlan,
       screenReaderBackendId,
+      screenReaderObserve: merged.configuredScreenReaderObserve,
     },
     prompt: {
       keyboardActions: keyboardActionPlan.descriptors,

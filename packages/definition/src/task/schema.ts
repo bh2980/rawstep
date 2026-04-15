@@ -11,7 +11,13 @@ import { z } from "zod";
 import { parseScreenReaderBackendId } from "../backends";
 import { parseUserModel, USER_MODEL_VALUES } from "../modes";
 import { validateVerifySpec } from "../verify";
-import type { MemorySetting, TaskInput, TaskOverrideSource, TaskSource } from "./source";
+import type {
+  MemorySetting,
+  ScreenReaderObserveConfig,
+  TaskInput,
+  TaskOverrideSource,
+  TaskSource
+} from "./source";
 
 const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
 
@@ -20,6 +26,12 @@ const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const nonEmptyStringSchema = z.string().trim().min(1);
 const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
+const screenReaderObserveConfigSchema = z.object({
+  pollIntervalMs: nonNegativeIntegerSchema.optional(),
+  silenceWindowMs: nonNegativeIntegerSchema.optional(),
+  maxObserveMs: nonNegativeIntegerSchema.optional(),
+  allowFallback: z.boolean().optional()
+}).strict();
 
 const taskConfigObjectSchema = z.object({
   mode: userModelSchema.optional(),
@@ -36,6 +48,7 @@ const taskConfigObjectSchema = z.object({
   allowedKeys: z.array(z.unknown()).optional(),
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
   screenReaderBackend: z.unknown().optional(),
+  observe: z.unknown().optional(),
   prompt: z.unknown().optional()
 }).passthrough();
 
@@ -110,7 +123,10 @@ export function validateTaskOverrideSource(raw: unknown, label: string): TaskOve
       ),
     screenReaderBackend: candidate.screenReaderBackend === undefined
       ? undefined
-      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`)
+      : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`),
+    observe: candidate.observe === undefined
+      ? undefined
+      : parseScreenReaderObserveConfig(candidate.observe, `${label} config.observe`)
   };
 }
 
@@ -171,6 +187,7 @@ function parseTaskConfigObject(raw: unknown, label: string) {
     "allowedKeys",
     "allowedScreenReaderActions",
     "screenReaderBackend",
+    "observe",
     "prompt"
   ]);
 
@@ -239,6 +256,15 @@ function parseTaskScreenReaderActions(value: unknown, label: string): ScreenRead
 
     return createStableScreenReaderActionRef(semantic);
   });
+}
+
+function parseScreenReaderObserveConfig(value: unknown, label: string): ScreenReaderObserveConfig {
+  const result = screenReaderObserveConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return result.data;
 }
 
 

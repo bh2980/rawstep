@@ -1,31 +1,23 @@
 import type { ScreenReaderObservation } from "@rawstep/definition";
 import type {
   AnnouncementReader,
-  AnnouncementState,
-  ScreenReaderObserveProfileName
+  AnnouncementState
 } from "./types";
 
 export class ScreenReaderObserver {
   private previousAnnouncement?: string;
-  private pendingInitialObservation?: AnnouncementState;
-  private nextProfile: ScreenReaderObserveProfileName = "default";
+  private pendingObservation?: AnnouncementState;
 
   constructor(
     private readonly readAnnouncement: AnnouncementReader,
-    prefetchedInitialObservation?: AnnouncementState
+    prefetchedObservation?: AnnouncementState
   ) {
-    this.pendingInitialObservation = prefetchedInitialObservation;
-  }
-
-  prepareNextObservation(profile: ScreenReaderObserveProfileName): void {
-    this.nextProfile = profile;
+    this.pendingObservation = prefetchedObservation;
   }
 
   async observe(): Promise<ScreenReaderObservation> {
-    const profile = this.pendingInitialObservation ? "initial" : this.nextProfile;
-    this.nextProfile = "default";
-    const announcementState = this.pendingInitialObservation ?? await this.readAnnouncement(profile);
-    this.pendingInitialObservation = undefined;
+    const announcementState = this.pendingObservation ?? await this.readAnnouncement();
+    this.pendingObservation = undefined;
     const observation: ScreenReaderObservation = {
       kind: "screenreader",
       announcement: announcementState.announcement,

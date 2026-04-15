@@ -8,7 +8,7 @@ import type {
   ScreenReaderCapabilities
 } from "@rawstep/definition";
 import { createBrowserSession, runTask } from "@rawstep/runtime";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -94,9 +94,8 @@ function createMockScreenReaderRuntime(overrides: {
     observe: () => Promise<{
       kind: "screenreader";
       announcement: string;
-      announcementCapture: "log";
+      announcementCapture: "log" | "fallback" | "none";
     }>;
-    prepareNextObservation?: (profile: "initial" | "default" | "interactive") => void;
   };
   controller?: {
     execute: (action: ScreenReaderAction) => Promise<{ ok: boolean; costDelta: number }>;
@@ -980,7 +979,7 @@ describe("runTask", () => {
       }
     );
 
-    expect(observedActions).toEqual([{
+    expect(observedActions.filter((action) => !action.semantic.startsWith("read."))).toEqual([{
       semantic: "heading.next"
     }]);
     expect(session.aggregate.endedBy).toBe("success");
@@ -1003,6 +1002,112 @@ describe("runTask", () => {
       srMaintenanceCount: 0,
       rawKeyCount: 0,
       typeTextCount: 0
+    });
+  });
+
+  it("writes automatic screenreader debug probes during screenreader runs", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-debug-"));
+    const logResponses = [["before observe"], [], ["after action"]];
+    const lastResponses = ["before observe last", "after observe last", "after action last"];
+
+    await runTask(
+      {
+        id: "screenreader-debug",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Capture debug probes around announcement collection.",
+        mode: "screenreader",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "",
+              announcementCapture: "none"
+            })
+          },
+          controller: {
+            execute: async (action) => {
+              if ("semantic" in action && action.semantic === "read.spokenPhraseLog") {
+                return {
+                  ok: true,
+                  costDelta: 1,
+                  readResult: {
+                    method: "spokenPhraseLog" as const,
+                    value: logResponses.shift() ?? []
+                  }
+                };
+              }
+
+              if ("semantic" in action && action.semantic === "read.lastSpokenPhrase") {
+                return {
+                  ok: true,
+                  costDelta: 1,
+                  readResult: {
+                    method: "lastSpokenPhrase" as const,
+                    value: lastResponses.shift() ?? ""
+                  }
+                };
+              }
+
+              return { ok: true, costDelta: 1 };
+            }
+          }
+        }),
+        agent: {
+          decide: async () => ({
+            action: {
+              srAction: {
+                semantic: "click"
+              }
+            },
+            rationale: "Run one action so after-action probes are recorded."
+          })
+        }
+      }
+    );
+
+    const debug = JSON.parse(
+      await readFile(join(outDir, "screenreader-debug.json"), "utf8")
+    ) as {
+      backendId: string;
+      entries: Array<{
+        step: number;
+        phase: string;
+        observation?: { announcementCapture: string };
+        probe?: {
+          spokenPhraseLog: string[];
+          lastSpokenPhrase: string;
+        };
+      }>;
+    };
+
+    expect(debug.backendId).toBe("guidepup-virtual");
+    expect(debug.entries.map((entry) => entry.phase)).toEqual([
+      "before-observe",
+      "after-observe",
+      "after-action"
+    ]);
+    expect(debug.entries[0]?.probe).toEqual({
+      spokenPhraseLog: ["before observe"],
+      lastSpokenPhrase: "before observe last"
+    });
+    expect(debug.entries[1]?.observation?.announcementCapture).toBe("none");
+    expect(debug.entries[1]?.probe).toEqual({
+      spokenPhraseLog: [],
+      lastSpokenPhrase: "after observe last"
+    });
+    expect(debug.entries[2]?.probe).toEqual({
+      spokenPhraseLog: ["after action"],
+      lastSpokenPhrase: "after action last"
     });
   });
 
@@ -1179,7 +1284,7 @@ describe("runTask", () => {
       }
     );
 
-    expect(observedActions).toEqual([{
+    expect(observedActions.filter((action) => !action.semantic.startsWith("read."))).toEqual([{
       semantic: "heading.next"
     }]);
     expect(session.aggregate.endedBy).toBe("success");
@@ -1390,9 +1495,8 @@ describe("runTask", () => {
     });
   });
 
-  it("switches the next screenreader observation to interactive after a successful srAction", async () => {
+  it("continues with the same screenreader observation flow after a successful srAction", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-interactive-"));
-    const observedProfiles: string[] = [];
     let observeCalls = 0;
 
     const session = await runTask(
@@ -1429,9 +1533,6 @@ describe("runTask", () => {
                 announcement: "Started!",
                 announcementCapture: "log"
               };
-            },
-            prepareNextObservation: (profile) => {
-              observedProfiles.push(profile);
             }
           }
         }),
@@ -1454,7 +1555,6 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("success");
-    expect(observedProfiles).toEqual(["interactive"]);
   });
 
   it("feeds verifier feedback back into the screenreader path", async () => {

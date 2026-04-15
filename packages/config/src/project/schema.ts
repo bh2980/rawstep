@@ -15,6 +15,7 @@ import {
   USER_MODEL_VALUES,
   type MemorySetting,
   type ScreenReaderBackendId,
+  type ScreenReaderObserveConfig,
   type ScreenshotPolicy,
   type UserModel,
 } from "@rawstep/definition";
@@ -46,6 +47,7 @@ export type ProjectModePreset = {
   allowedKeys?: KeyboardActionRef[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
+  observe?: ScreenReaderObserveConfig;
 };
 
 export type ValidatedProjectConfig = {
@@ -61,6 +63,12 @@ const nonNegativeIntegerSchema = z.number().int().min(0);
 const booleanSchema = z.boolean();
 const nonEmptyStringSchema = z.string().trim().min(1);
 const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
+const screenReaderObserveConfigSchema = z.object({
+  pollIntervalMs: nonNegativeIntegerSchema.optional(),
+  silenceWindowMs: nonNegativeIntegerSchema.optional(),
+  maxObserveMs: nonNegativeIntegerSchema.optional(),
+  allowFallback: booleanSchema.optional()
+}).strict();
 const modePresetObjectSchema = z.object({
   mode: userModelSchema.optional(),
   outDir: nonEmptyStringSchema.optional(),
@@ -76,6 +84,7 @@ const modePresetObjectSchema = z.object({
   allowedKeys: z.array(z.unknown()).optional(),
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
   screenReaderBackend: z.unknown().optional(),
+  observe: z.unknown().optional(),
   prompt: z.unknown().optional(),
 }).passthrough();
 const projectDefaultsObjectSchema = z.object({
@@ -249,6 +258,7 @@ export function parseModePresetSource(
     "allowedKeys",
     "allowedScreenReaderActions",
     "screenReaderBackend",
+    "observe",
     "prompt",
   ]);
 
@@ -281,6 +291,9 @@ export function parseModePresetSource(
     screenReaderBackend: result.data.screenReaderBackend === undefined
       ? undefined
       : parseScreenReaderBackendId(result.data.screenReaderBackend, `${label}.screenReaderBackend`),
+    observe: result.data.observe === undefined
+      ? undefined
+      : parseScreenReaderObserveConfig(result.data.observe, `${label}.observe`),
   };
 
   if (supportsVisualObservation(mode) && parsed.allowedScreenReaderActions) {
@@ -288,6 +301,9 @@ export function parseModePresetSource(
   }
   if (supportsVisualObservation(mode) && parsed.screenReaderBackend) {
     throw new Error(`${label}.screenReaderBackend is not allowed in ${mode} mode.`);
+  }
+  if (supportsVisualObservation(mode) && parsed.observe) {
+    throw new Error(`${label}.observe is not allowed in ${mode} mode.`);
   }
   if (!allowsRawKeyActions(mode) && parsed.allowedKeys) {
     throw new Error(`${label}.allowedKeys is not allowed in ${mode} mode.`);
@@ -344,6 +360,15 @@ export function parseProjectConfigSource(raw: unknown, configPath: string): Vali
     defaults: parseProjectDefaultsSource(result.data.defaults, configPath),
     modes: parseModePresetMap(result.data.modes, configPath),
   };
+}
+
+function parseScreenReaderObserveConfig(value: unknown, label: string): ScreenReaderObserveConfig {
+  const result = screenReaderObserveConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return result.data;
 }
 
 export type { ProjectConfigSource };

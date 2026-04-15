@@ -1,23 +1,21 @@
 import {
   type AnnouncementReader,
-  type ScreenReaderObservePolicy,
   type ScreenReaderSession,
   type ScreenReaderObserveProfile,
-  type ScreenReaderObserveProfileName
 } from "./types";
 import {
-  DEFAULT_SCREEN_READER_OBSERVE_POLICY
+  DEFAULT_SCREEN_READER_OBSERVE_PROFILE
 } from "./registry";
+import type { ScreenReaderObserveConfig } from "@rawstep/definition";
 
 export function createAnnouncementReader(
   session: Pick<ScreenReaderSession, "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog">,
-  profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {},
-  defaults: ScreenReaderObservePolicy = DEFAULT_SCREEN_READER_OBSERVE_POLICY
+  overrides: ScreenReaderObserveConfig = {},
+  defaults: ScreenReaderObserveProfile = DEFAULT_SCREEN_READER_OBSERVE_PROFILE
 ): AnnouncementReader {
-  const resolvedProfiles = resolveObserveProfiles(defaults, profiles);
+  const profile = resolveObserveProfile(defaults, overrides);
 
-  return async (profileName = "default") => {
-    const profile = resolvedProfiles[profileName];
+  return async () => {
     const collected: string[] = [];
     const startedAt = Date.now();
     let lastNewPhraseAt: number | undefined;
@@ -90,14 +88,13 @@ async function readAndClearSpokenPhrases(
   return phrases;
 }
 
-function resolveObserveProfiles(
-  defaults: ScreenReaderObservePolicy,
-  profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>
-): ScreenReaderObservePolicy {
+function resolveObserveProfile(
+  defaults: ScreenReaderObserveProfile,
+  overrides: ScreenReaderObserveConfig
+): ScreenReaderObserveProfile {
   return {
-    initial: { ...defaults.initial, ...profiles.initial },
-    default: { ...defaults.default, ...profiles.default },
-    interactive: { ...defaults.interactive, ...profiles.interactive }
+    ...defaults,
+    ...overrides
   };
 }
 
