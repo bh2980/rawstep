@@ -16,7 +16,9 @@ type FilterKey = "all" | "important" | "verify-fail" | "failure-point" | "verdic
 type StepViewModel = {
   index: number;
   stepNumber: number;
-  actionLabel: string;
+  transitionLabel: string;
+  decisionLabel: string;
+  decisionKindLabel: string;
   status: StepStatus;
   statusLabel: string;
   tone: "success" | "failure" | "warning" | "neutral";
@@ -610,6 +612,7 @@ export function renderHtml(session: TraceSession): string {
       background: var(--neutral-soft);
       border-color: var(--border);
     }
+    .step-decision,
     .step-rationale,
     .step-failure {
       min-width: 0;
@@ -617,6 +620,12 @@ export function renderHtml(session: TraceSession): string {
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 13px;
+    }
+    .step-decision {
+      color: var(--text-faint);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
     }
     .step-rationale {
       color: var(--text-muted);
@@ -907,6 +916,23 @@ export function renderHtml(session: TraceSession): string {
       font-size: 13px;
       line-height: 1.65;
     }
+    .detail-decision {
+      display: grid;
+      gap: 10px;
+    }
+    .detail-decision-topline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .detail-inline-label {
+      color: var(--text-faint);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
     .timing-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1190,6 +1216,9 @@ export function renderHtml(session: TraceSession): string {
       font-size: 11px;
       box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
     }
+    .panel-transition-chip {
+      background: rgba(255, 255, 255, 0.9);
+    }
     .panel-status-chip {
       min-width: 0;
       min-height: 28px;
@@ -1419,11 +1448,17 @@ export function renderHtml(session: TraceSession): string {
         chunks.push('<section class="detail-section"><div class="failure-box">' + esc(step.failureSummary) + '</div></section>');
       }
 
-      if (step.rationale) {
-        chunks.push(panelSection('Rationale',
-          '<div class="detail-block"><div class="detail-copy">' + esc(step.rationale) + '</div></div>'
-        ));
-      }
+      chunks.push(panelSection('Decision',
+        '<div class="detail-decision">' +
+          '<div class="detail-decision-topline">' +
+            '<span class="detail-inline-label">' + esc(step.decisionKindLabel) + '</span>' +
+            '<span class="action-chip panel-action-chip">' + esc(step.decisionLabel) + '</span>' +
+          '</div>' +
+          (step.rationale
+            ? '<div class="detail-block"><div class="detail-copy">' + esc(step.rationale) + '</div></div>'
+            : '') +
+        '</div>'
+      ));
 
       if (step.observation.kind === 'keyboard') {
         chunks.push(panelSection('Page',
@@ -1454,7 +1489,7 @@ export function renderHtml(session: TraceSession): string {
         '<div class="detail-panel-title">' +
           '<div class="detail-step-line">Step ' + esc(current) + ' / ' + esc(total) + '</div>' +
           '<div class="panel-hero">' +
-            '<span class="action-chip panel-action-chip">' + esc(step.actionLabel) + '</span>' +
+            '<span class="action-chip panel-action-chip panel-transition-chip">' + esc(step.transitionLabel) + '</span>' +
             '<span class="status-chip panel-status-chip tone-' + esc(step.tone) + '">' + esc(step.statusLabel) + '</span>' +
             (step.relativeLabel ? '<span class="detail-step-meta">' + esc(step.relativeLabel) + '</span>' : '') +
           '</div>' +
@@ -1710,7 +1745,14 @@ function buildReportModel(session: TraceSession): ReportModel {
   const failurePointStep = session.aggregate.failurePoint?.stepIndex;
 
   const steps = session.steps.map((step, index) =>
-    buildStepViewModel(step, index, startedAtMs, failurePointStep, session.aggregate.failurePoint?.reason)
+    buildStepViewModel(
+      step,
+      index,
+      session.steps[index - 1],
+      startedAtMs,
+      failurePointStep,
+      session.aggregate.failurePoint?.reason
+    )
   );
 
   const filters: Record<FilterKey, number> = {
@@ -1747,6 +1789,7 @@ function buildReportModel(session: TraceSession): ReportModel {
 function buildStepViewModel(
   step: StepRecord,
   index: number,
+  previousStep: StepRecord | undefined,
   startedAtMs: number,
   failurePointStep: number | undefined,
   failurePointReason: string | undefined
@@ -1773,7 +1816,9 @@ function buildStepViewModel(
   return {
     index,
     stepNumber: step.step + 1,
-    actionLabel: formatActionLabel(step),
+    transitionLabel: formatTransitionLabel(previousStep),
+    decisionLabel: formatDecisionLabel(step),
+    decisionKindLabel: "verdict" in step.decision ? "Verdict" : "Next action",
     status,
     statusLabel: meta.label,
     tone: meta.tone,
@@ -1842,7 +1887,7 @@ function buildActionBreakdown(steps: StepViewModel[]): ReportModel["actionBreakd
 
   for (const step of steps) {
     if (step.isVerdict) continue;
-    counts.set(step.actionLabel, (counts.get(step.actionLabel) ?? 0) + 1);
+    counts.set(step.decisionLabel, (counts.get(step.decisionLabel) ?? 0) + 1);
   }
 
   const total = Array.from(counts.values()).reduce((sum, count) => sum + count, 0);
@@ -1906,10 +1951,18 @@ function getStepStatus(step: StepRecord, failurePointStep: number | undefined): 
   return "normal";
 }
 
-function formatActionLabel(step: StepRecord): string {
+function formatDecisionLabel(step: StepRecord): string {
   if ("verdict" in step.decision) return step.decision.verdict;
   const label = formatAction(step.decision.action);
   return label.startsWith("sr.") ? `SR:${label.slice(3)}` : label;
+}
+
+function formatTransitionLabel(previousStep: StepRecord | undefined): string {
+  if (!previousStep) {
+    return "Initial";
+  }
+
+  return `After ${formatDecisionLabel(previousStep)}`;
 }
 
 function firstFailure(step: StepRecord): string | null {
@@ -2133,10 +2186,10 @@ function renderMinimap(model: ReportModel): string {
     return `<rect
       class="minimap-segment"
       data-step-index="${index}"
-      data-tooltip="${h(`step ${step.stepNumber} · ${step.actionLabel} · ${step.statusLabel}`)}"
+      data-tooltip="${h(`step ${step.stepNumber} · ${step.transitionLabel} · ${step.statusLabel}`)}"
       tabindex="0"
       role="button"
-      aria-label="${h(`step ${step.stepNumber} ${step.actionLabel} ${step.statusLabel}`)}"
+      aria-label="${h(`step ${step.stepNumber} ${step.transitionLabel} ${step.statusLabel}`)}"
       x="${x}"
       y="${MINIMAP_BAR_Y}"
       width="${width}"
@@ -2228,15 +2281,16 @@ function renderStepList(model: ReportModel): string {
       type="button"
       data-step-index="${step.index}"
       data-filters="${filters.join(" ")}"
-      aria-label="${h(`step ${step.stepNumber} ${step.actionLabel}`)}"
+      aria-label="${h(`step ${step.stepNumber} ${step.transitionLabel}`)}"
     >
       <span class="step-number">step ${step.stepNumber}</span>
       <span class="step-content">
         <span class="step-topline">
-          <span class="action-chip${chipClass}">${h(step.actionLabel)}</span>
+          <span class="action-chip${chipClass}">${h(step.transitionLabel)}</span>
           <span class="status-chip tone-${step.tone}">${h(step.statusLabel)}</span>
           ${step.relativeLabel ? `<span class="summary-muted">${h(step.relativeLabel)}</span>` : ""}
         </span>
+        <span class="step-decision">${h(`${step.decisionKindLabel}: ${step.decisionLabel}`)}</span>
         ${step.rationale ? `<span class="step-rationale">${h(step.rationale)}</span>` : ""}
         ${step.failureSummary ? `<span class="step-failure">${h(step.failureSummary)}</span>` : ""}
       </span>

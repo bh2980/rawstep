@@ -308,8 +308,10 @@ describe("reporter", () => {
     expect(initialMarkup).toMatch(/class="step-row is-status-success is-verdict-success"[\s\S]*?data-step-index="2"/);
     expect(html).toContain('id="step-pagination"');
     expect(html).toContain("Page 1 / 1");
-    expect(html).toContain('aria-label="step 1 Tab');
+    expect(html).toContain('aria-label="step 1 Initial');
     expect(html).not.toContain('aria-label="step 0 ');
+    expect(html).toContain("Next action: Tab");
+    expect(html).toContain("After Tab");
     expect(html).toContain("submit button not reachable");
     expect(html).toContain('loading="lazy"');
     expect(initialMarkup).not.toContain('<img class="detail-screenshot"');
@@ -353,6 +355,8 @@ describe("reporter", () => {
     expect(html).toContain('id="timing-overview"');
     expect(html).toContain('id="timing-sparkline"');
     expect(html).toContain("SR:heading.next");
+    expect(html).toContain("Initial");
+    expect(html).toContain("After Enter");
     expect(html).toContain("Decision Time");
     expect(html).toContain("grid-template-columns: minmax(96px, 108px) minmax(120px, 1fr) 60px;");
     expect(html).toContain("min-width: 120px;");
@@ -416,7 +420,7 @@ describe("reporter", () => {
     expect(html).not.toContain("Experience summary unavailable");
   });
 
-  it("builds detail panel content in observation, verification, rationale order and shows timing without a disclosure", async () => {
+  it("builds detail panel content in observation, verification, decision order and shows timing without a disclosure", async () => {
     const html = await render(
       makeSession([
         makeScreenReaderStep(0, {
@@ -436,12 +440,12 @@ describe("reporter", () => {
 
     const observationIndex = html.indexOf("panelSection('Observation',");
     const verificationIndex = html.indexOf("panelSection('Verification',");
-    const rationaleIndex = html.indexOf("panelSection('Rationale',");
+    const decisionIndex = html.indexOf("panelSection('Decision',");
     const timeIndex = html.indexOf("panelSection('Time', renderTimingGrid(step))");
 
     expect(observationIndex).toBeLessThan(verificationIndex);
-    expect(verificationIndex).toBeLessThan(rationaleIndex);
-    expect(rationaleIndex).toBeLessThan(timeIndex);
+    expect(verificationIndex).toBeLessThan(decisionIndex);
+    expect(decisionIndex).toBeLessThan(timeIndex);
     expect(html).toContain('"hasTimingDetails":true');
     expect(html).toContain("detail-subhead\">Announcement</div>");
     expect(html).toContain("<strong>Capture</strong>");
@@ -450,6 +454,7 @@ describe("reporter", () => {
     expect(html).toContain("1 phrase");
     expect(html).toContain("<strong>Reason</strong>");
     expect(html).toContain("Stopped after quiet period");
+    expect(html).toContain("Next action");
     expect(html).toContain('<div class="detail-block"><div class="detail-copy">');
     expect(html).not.toContain('<details class="timing-details">');
   });
