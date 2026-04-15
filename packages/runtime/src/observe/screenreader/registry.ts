@@ -29,8 +29,8 @@ import {
 
 export const DEFAULT_SCREEN_READER_OBSERVE_PROFILE: ScreenReaderObserveProfile = {
   pollIntervalMs: 100,
-  silenceWindowMs: 1200,
-  maxObserveMs: 7000,
+  silenceWindowMs: 500,
+  maxObserveMs: 3000,
   allowFallback: false
 };
 
