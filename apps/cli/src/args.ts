@@ -4,16 +4,16 @@ import {
   parseUserModel
 } from "@rawstep/definition";
 import {
-  type CliRunOptions,
+  parseCommaSeparatedConfiguredScreenReaderActions,
   parseAgentProvider,
-  parseCommaSeparatedAllowedKeys,
-  parseCommaSeparatedScreenReaderActions,
+  parseAllowedKeyNames,
   parseOptionalNonNegativeInteger,
-  parseScreenReaderBackendId,
-  parseScreenshotPolicy
-} from "./shared";
+  parseScreenshotPolicy,
+  type RunPlanCliOverrides
+} from "@rawstep/config";
+import { parseScreenReaderBackendId } from "@rawstep/definition";
 
-export function parseRunArgs(argv: string[]): CliRunOptions {
+export function parseRunArgs(argv: string[]): RunPlanCliOverrides {
   if (argv.length === 0) {
     throw new Error("Missing task file. Usage: rawstep run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed]");
   }
@@ -131,7 +131,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       if (!next) {
         throw new Error("Missing value for --allowed-keys.");
       }
-      allowedKeys = parseCommaSeparatedAllowedKeys(next, "--allowed-keys");
+      allowedKeys = parseAllowedKeyNames(parseCommaSeparatedValues(next, "--allowed-keys"), "--allowed-keys");
       index += 1;
       continue;
     }
@@ -140,7 +140,7 @@ export function parseRunArgs(argv: string[]): CliRunOptions {
       if (!next) {
         throw new Error("Missing value for --allowed-screen-reader-actions.");
       }
-      allowedScreenReaderActions = parseCommaSeparatedScreenReaderActions(next, "--allowed-screen-reader-actions");
+      allowedScreenReaderActions = parseCommaSeparatedConfiguredScreenReaderActions(next, "--allowed-screen-reader-actions");
       index += 1;
       continue;
     }
@@ -242,4 +242,20 @@ export function printUsage(): void {
   process.stderr.write(
     `Usage: rawstep run <task-file> [--config <rawstep.config.ts>] [--mode keyboard|screenreader-strict|screenreader-hybrid] [--out <dir>] [--headless|--headed] [--screenshots all|important|failure-only|none] [--max-steps <n>] [--timeout-ms <n>] [--screen-reader-backend ${formatScreenReaderBackendIdList("|")}] [--allowed-keys Tab,Backspace,Mod+A] [--allowed-screen-reader-actions sr.heading.next,sr.click] [--verifier-auto-complete|--no-verifier-auto-complete] [--agent-memory-window <n>] [--agent-memory-all|--no-agent-memory-all] [--include-experience-summary|--no-include-experience-summary] [--include-rationale|--no-include-rationale] [--provider anthropic|openai-compatible] [--model <id>] [--base-url <url>]\n`
   );
+}
+
+function parseCommaSeparatedValues(value: unknown, label: string): string[] {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a comma-separated string.`);
+  }
+
+  const entries = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (entries.length === 0) {
+    throw new Error(`${label} must include at least one value.`);
+  }
+
+  return entries;
 }

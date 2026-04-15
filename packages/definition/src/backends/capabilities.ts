@@ -1,6 +1,11 @@
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import type { ScreenReaderCapabilities, ScreenReaderPerformCommand } from "@rawstep/action-catalog";
+import type {
+  ScreenReaderBackendId,
+  ScreenReaderCapabilities,
+  ScreenReaderPerformCommand
+} from "@rawstep/action-catalog";
+import { backendSupportsRawPerform } from "./source";
 
 const requireFromHere = createRequire(__filename);
 const guidepupPackageRoot = dirname(requireFromHere.resolve("@guidepup/guidepup/package.json"));
@@ -182,6 +187,21 @@ export function resolveGuidepupVirtualPerformCommand(
   }
 
   return commands[id.slice("commands.".length)];
+}
+
+export function getScreenReaderBackendCapabilities(
+  backendId: ScreenReaderBackendId
+): ScreenReaderCapabilities {
+  const supportsRawPerform = backendSupportsRawPerform(backendId);
+
+  switch (backendId) {
+    case "guidepup-voiceover":
+      return getGuidepupVoiceOverCapabilities({ supportsRawPerform });
+    case "guidepup-nvda":
+      return getGuidepupNvdaCapabilities({ supportsRawPerform });
+    case "guidepup-virtual":
+      return getGuidepupVirtualCapabilities({ supportsRawPerform });
+  }
 }
 
 function createKeyboardPerformCommands(commandMap: CommandRecord): ScreenReaderPerformCommand[] {

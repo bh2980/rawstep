@@ -1,7 +1,8 @@
-import { loadTask, parseRunArgs, resolveRunOptions, runCli } from "../apps/cli/src";
-import { resolveExecutionPolicy } from "../apps/cli/src/execution-policy";
-import { loadTaskSource } from "../apps/cli/src/task-loader";
-import { validateTaskInput, validateTaskSource } from "@rawstep/definition";
+import { type RunPlanCliOverrides, resolveRunPlan } from "@rawstep/config";
+import { parseRunArgs, runCli } from "../apps/cli/src";
+import { loadTask, loadTaskSource } from "../packages/config/src/run-plan/resolve";
+import { resolveRunPlanPrecedence } from "../packages/config/src/run-plan/precedence";
+import { type UserModel, validateTaskInput, validateTaskSource } from "@rawstep/definition";
 import { DEFAULT_ALLOWED_KEYS } from "@rawstep/action-catalog";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -51,7 +52,7 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
   await writeFile(
     configPath,
     [
-      'import { defineConfig, kb, sr, srx } from "@rawstep/cli/config";',
+      'import { defineConfig, kb, sr, srx } from "@rawstep/config";',
       'import { z } from "zod";',
       "",
       "export default defineConfig(",
@@ -64,6 +65,92 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
 
 async function writeTaskFile(taskPath: string, body: unknown): Promise<void> {
   await writeFile(taskPath, JSON.stringify(body, null, 2), "utf8");
+}
+
+async function resolveRunOptions(cliOptions: RunPlanCliOverrides) {
+  const plan = await resolveRunPlan(cliOptions);
+
+  return {
+    task: plan.task,
+    taskFile: plan.paths.taskFile,
+    configFile: plan.paths.configFile,
+    mode: plan.task.mode,
+    execution: {
+      outDir: plan.paths.outDir,
+      headless: plan.execution.headless,
+      maxSteps: plan.task.maxSteps,
+      timeoutMs: plan.task.timeoutMs,
+      maxVerificationRetries: plan.execution.maxVerificationRetries,
+      screenshotPolicy: plan.execution.screenshotPolicy,
+      verifierAutoComplete: plan.execution.verifierAutoComplete,
+      memory: plan.agent.memory,
+      includeExperienceSummary: plan.agent.includeExperienceSummary,
+      includeRationale: plan.agent.includeRationale
+    },
+    provider: plan.agent.provider,
+    apiKey: plan.agent.apiKey,
+    model: plan.agent.model,
+    baseURL: plan.agent.baseURL,
+    keyboardActionPlan: plan.interaction.keyboardActionPlan,
+    screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
+    screenReaderBackendId: plan.interaction.screenReaderBackendId,
+    prompt: {
+      promptDir: plan.paths.promptDir,
+      keyboardActions: plan.prompt.keyboardActions,
+      screenReaderActions: plan.prompt.screenReaderActions
+    }
+  };
+}
+
+function resolveExecutionPolicy(input: {
+  cliOptions: RunPlanCliOverrides;
+  taskSource: Awaited<ReturnType<typeof loadTaskSource>>;
+  selectedMode: UserModel;
+  modePreset: {
+    outDir?: string;
+    headless?: boolean;
+    maxSteps?: number;
+    timeoutMs?: number;
+    maxVerificationRetries?: number;
+    screenshots?: "all" | "important" | "failure-only" | "none";
+    verifierAutoComplete?: boolean;
+    includeExperienceSummary?: boolean;
+    includeRationale?: boolean;
+    memory?: number | "all";
+    allowedKeys?: any[];
+    allowedScreenReaderActions?: any[];
+    screenReaderBackend?: any;
+  };
+  configDir: string;
+}) {
+  const merged = resolveRunPlanPrecedence({
+    cliOverrides: input.cliOptions,
+    taskFile: input.taskSource.absoluteTaskFile,
+    taskSource: input.taskSource.parsed,
+    taskConfig: input.taskSource.taskConfig,
+    projectConfig: {
+      path: join(input.configDir, "rawstep.config.ts"),
+      config: {
+        version: 1 as const,
+        modes: {
+          [input.selectedMode]: input.modePreset
+        }
+      }
+    }
+  });
+
+  return {
+    outDir: merged.outDir,
+    headless: merged.headless,
+    maxSteps: merged.maxSteps,
+    timeoutMs: merged.timeoutMs,
+    maxVerificationRetries: merged.maxVerificationRetries,
+    screenshotPolicy: merged.screenshotPolicy,
+    verifierAutoComplete: merged.verifierAutoComplete,
+    memory: merged.memory,
+    includeExperienceSummary: merged.includeExperienceSummary,
+    includeRationale: merged.includeRationale
+  };
 }
 
 describe.sequential("CLI", () => {

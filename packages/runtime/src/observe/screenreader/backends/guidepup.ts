@@ -7,15 +7,15 @@ import {
   type ScreenReaderCommandOptions,
   type ScreenReaderKeyboardOptions
 } from "@rawstep/action-catalog";
-import type { Page } from "playwright";
-import type { ScreenReaderBackendImplementation, ScreenReaderSession } from "../types";
 import {
   getGuidepupNvdaCapabilities,
   getGuidepupVirtualCapabilities,
   getGuidepupVoiceOverCapabilities,
   resolveGuidepupNvdaPerformCommand,
   resolveGuidepupVoiceOverPerformCommand
-} from "./guidepup-capabilities";
+} from "@rawstep/definition";
+import type { Page } from "playwright";
+import type { ScreenReaderBackendImplementation, ScreenReaderSession } from "../types";
 
 type GuidepupClickOptions = {
   button?: "left" | "right";

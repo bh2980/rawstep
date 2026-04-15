@@ -5,6 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
+    "@guidepup/guidepup": "^0.24.1",
+    "@guidepup/virtual-screen-reader": "^0.32.1",
     "@rawstep/action-catalog": "workspace:*",
     "zod": "^4.3.6"
   },

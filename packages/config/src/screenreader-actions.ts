@@ -21,7 +21,10 @@ import {
   type ScreenReaderSemanticAction,
   type ScreenReaderStableActionRef
 } from "@rawstep/action-catalog";
-import type { ScreenReaderBackendId } from "@rawstep/definition";
+import {
+  getScreenReaderBackendCapabilities,
+  type ScreenReaderBackendId
+} from "@rawstep/definition";
 import { z } from "zod";
 import {
   buildNestedHelperTree,
@@ -142,12 +145,12 @@ export function parseCommaSeparatedConfiguredScreenReaderActions(
 
 export function resolveConfiguredScreenReaderActions(
   configuredActions: readonly ScreenReaderActionRef[] | undefined,
-  backendId: ScreenReaderBackendId,
-  capabilities: ScreenReaderCapabilities
+  backendId: ScreenReaderBackendId
 ): {
   plan: ScreenReaderActionPlan;
   promptActions: readonly ScreenReaderActionDescriptor[];
 } {
+  const capabilities = getScreenReaderBackendCapabilities(backendId);
   const refs = configuredActions ?? buildDefaultScreenReaderActionRefs(backendId, capabilities);
   const plan = buildScreenReaderActionPlan(refs, backendId, capabilities);
 

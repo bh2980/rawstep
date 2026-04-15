@@ -26,12 +26,12 @@ importers:
 
   apps/cli:
     dependencies:
-      '@rawstep/action-catalog':
-        specifier: workspace:*
-        version: link:../../packages/action-catalog
       '@rawstep/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@rawstep/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@rawstep/definition':
         specifier: workspace:*
         version: link:../../packages/definition
@@ -41,15 +41,6 @@ importers:
       '@rawstep/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
 
   packages/action-catalog: {}
 
@@ -71,8 +62,35 @@ importers:
         specifier: ^5.0.0
         version: 5.0.172(zod@4.3.6)
 
+  packages/config:
+    dependencies:
+      '@rawstep/action-catalog':
+        specifier: workspace:*
+        version: link:../action-catalog
+      '@rawstep/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@rawstep/definition':
+        specifier: workspace:*
+        version: link:../definition
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+
   packages/definition:
     dependencies:
+      '@guidepup/guidepup':
+        specifier: ^0.24.1
+        version: 0.24.1
+      '@guidepup/virtual-screen-reader':
+        specifier: ^0.32.1
+        version: 0.32.1
       '@rawstep/action-catalog':
         specifier: workspace:*
         version: link:../action-catalog

@@ -3,6 +3,7 @@
   "compilerOptions": {
     "paths": {
       "@rawstep/definition": ["./packages/definition/src"],
+      "@rawstep/config": ["./packages/config/src"],
       "@rawstep/agent": ["./packages/agent/src"],
       "@rawstep/runtime": ["./packages/runtime/src"],
       "@rawstep/reporter": ["./packages/reporter/src"]

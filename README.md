@@ -209,7 +209,7 @@ a11y/
 pnpm install
 pnpm build
 cat > rawstep.config.ts <<'TS'
-import { defineConfig } from "@rawstep/cli/config";
+import { defineConfig } from "@rawstep/config";
 
 export default defineConfig({
   version: 1,
@@ -243,7 +243,7 @@ macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접�
 이 파일은 선택 사항이 아니라 **실행 계약 파일**입니다. 없으면 CLI가 바로 실패합니다.
 
 ```ts
-import { defineConfig } from "@rawstep/cli/config";
+import { defineConfig } from "@rawstep/config";
 
 export default defineConfig({
   version: 1,
@@ -403,7 +403,7 @@ verify:
 **예시 1: keyboard 기본 preset**
 
 ```ts
-import { defineConfig } from "@rawstep/cli/config";
+import { defineConfig } from "@rawstep/config";
 
 export default defineConfig({
   version: 1,
@@ -428,7 +428,7 @@ export default defineConfig({
 **예시 2: screenreader-hybrid preset**
 
 ```ts
-import { defineConfig } from "@rawstep/cli/config";
+import { defineConfig } from "@rawstep/config";
 
 export default defineConfig({
   version: 1,

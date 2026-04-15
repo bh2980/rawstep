@@ -2,11 +2,9 @@ import {
   defineConfig,
   kb,
   sr,
-  screenReaderActionsFor,
-  type RawstepConfig,
-} from "./apps/cli/src/config-define";
+} from "@rawstep/config";
 
-const config: RawstepConfig = defineConfig({
+const config = defineConfig({
   version: 1,
   defaults: {
     provider: "openai-compatible",
@@ -68,7 +66,7 @@ const config: RawstepConfig = defineConfig({
       includeExperienceSummary: true,
       memory: "all",
       screenReaderBackend: "guidepup-voiceover",
-      allowedScreenReaderActions: screenReaderActionsFor("guidepup-voiceover", [
+      allowedScreenReaderActions: [
         sr.next({
           hint: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
         }),
@@ -100,7 +98,7 @@ const config: RawstepConfig = defineConfig({
         sr.form.previous({
           hint: "form.previous는 이전 form control로 돌아갈 때 사용하라.",
         }),
-      ]),
+      ],
     },
     "screenreader-hybrid": {
       outDir: "./.rawstep/out/sr-hybrid",
@@ -146,7 +144,7 @@ const config: RawstepConfig = defineConfig({
         }),
         kb.end({ hint: "End는 현재 문맥의 끝으로 크게 이동할 때 사용하라." }),
       ],
-      allowedScreenReaderActions: screenReaderActionsFor("guidepup-voiceover", [
+      allowedScreenReaderActions: [
         sr.next({
           hint: "next는 screen reader cursor를 다음 위치로 이동할 때 사용하라.",
         }),
@@ -184,7 +182,7 @@ const config: RawstepConfig = defineConfig({
           hint: "stopInteracting은 현재 상호작용 문맥에서 빠져나올 때 사용하라.",
         }),
         sr.act({ hint: "act는 현재 항목의 기본 동작을 실행할 때 사용하라." }),
-      ]),
+      ],
     },
   },
 });

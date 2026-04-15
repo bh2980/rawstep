@@ -1,4 +1,4 @@
-import { defineConfig, kb, sr, srx } from "../apps/cli/src/config-define";
+import { defineConfig, kb, sr, srx } from "@rawstep/config";
 import { z } from "zod";
 
 defineConfig({

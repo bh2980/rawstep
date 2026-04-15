@@ -11,6 +11,7 @@ export default defineConfig({
     alias: {
       "@rawstep/action-catalog": resolve(__dirname, "packages/action-catalog/src"),
       "@rawstep/definition": resolve(__dirname, "packages/definition/src"),
+      "@rawstep/config": resolve(__dirname, "packages/config/src"),
       "@rawstep/agent": resolve(__dirname, "packages/agent/src"),
       "@rawstep/runtime": resolve(__dirname, "packages/runtime/src"),
       "@rawstep/reporter": resolve(__dirname, "packages/reporter/src")

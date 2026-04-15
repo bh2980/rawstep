@@ -6,21 +6,21 @@ import type {
   ScreenshotPolicy,
   UserModel
 } from "@rawstep/definition";
-import {
-  type KeyboardActionRef,
-  type ScreenReaderExtensionCatalogActionRef,
-  type ScreenReaderExtensionRawPerformActionRef,
-  type ScreenReaderSemanticAction,
-  type ScreenReaderStableActionRef
+import type {
+  KeyboardActionRef,
+  ScreenReaderExtensionCatalogActionRef,
+  ScreenReaderExtensionRawPerformActionRef,
+  ScreenReaderSemanticAction,
+  ScreenReaderStableActionRef
 } from "@rawstep/action-catalog";
-import { kb } from "./keyboard-actions";
+import { kb } from "../keyboard-actions";
 import {
-  BackendStableScreenReaderSemantic,
+  type BackendStableScreenReaderSemantic,
   sr,
   srx
-} from "./screenreader-actions";
+} from "../screenreader-actions";
 
-type SharedModeConfig = {
+type SharedModeConfigSource = {
   outDir: string;
   headless?: boolean;
   maxSteps: number;
@@ -32,7 +32,7 @@ type SharedModeConfig = {
   memory: MemorySetting;
 };
 
-type KeyboardModeConfig = SharedModeConfig & {
+type KeyboardModeConfigSource = SharedModeConfigSource & {
   allowedKeys?: readonly KeyboardActionRef[];
   allowedScreenReaderActions?: never;
   screenReaderBackend?: never;
@@ -53,54 +53,57 @@ type BackendConfiguredScreenReaderAction<TBackend extends ScreenReaderBackendId>
   | BackendConfiguredStableScreenReaderAction<TBackend>
   | BackendConfiguredUnstableScreenReaderAction<TBackend>;
 
-type ScreenReaderStrictModeConfig = {
-  [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
+type ScreenReaderStrictModeConfigSource = {
+  [TBackend in ScreenReaderBackendId]: SharedModeConfigSource & {
     screenReaderBackend: TBackend;
     allowedKeys?: never;
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
   };
 }[ScreenReaderBackendId];
 
-type ScreenReaderHybridModeConfig = {
-  [TBackend in ScreenReaderBackendId]: SharedModeConfig & {
+type ScreenReaderHybridModeConfigSource = {
+  [TBackend in ScreenReaderBackendId]: SharedModeConfigSource & {
     screenReaderBackend: TBackend;
     allowedKeys?: readonly KeyboardActionRef[];
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
   };
 }[ScreenReaderBackendId];
 
-type ProjectDefaultsConfig = {
+export type ProjectPromptSource = {
+  dir?: string;
+};
+
+export type ProjectDefaultsSource = {
   provider?: AgentProvider;
   apiKey?: string;
   model?: string;
   baseURL?: string;
-  prompt?: ProjectPromptConfig;
-};
-type ProjectPromptConfig = {
-  dir?: string;
+  prompt?: ProjectPromptSource;
 };
 
-export type RawstepConfig = {
+export type ModeConfigSource = {
+  [Mode in UserModel]:
+    Mode extends "keyboard"
+      ? KeyboardModeConfigSource
+      : Mode extends "screenreader-strict"
+        ? ScreenReaderStrictModeConfigSource
+        : ScreenReaderHybridModeConfigSource;
+}[UserModel];
+
+export type ProjectConfigSource = {
   version: 1;
-  defaults?: ProjectDefaultsConfig;
+  defaults?: ProjectDefaultsSource;
   modes: Partial<{
     [Mode in UserModel]:
       Mode extends "keyboard"
-        ? KeyboardModeConfig
+        ? KeyboardModeConfigSource
         : Mode extends "screenreader-strict"
-          ? ScreenReaderStrictModeConfig
-          : ScreenReaderHybridModeConfig;
+          ? ScreenReaderStrictModeConfigSource
+          : ScreenReaderHybridModeConfigSource;
   }>;
 };
 
-export function screenReaderActionsFor<const TBackend extends ScreenReaderBackendId>(
-  _backend: TBackend,
-  actions: readonly BackendConfiguredScreenReaderAction<TBackend>[]
-): readonly BackendConfiguredScreenReaderAction<TBackend>[] {
-  return actions;
-}
-
-export function defineConfig<const TConfig extends RawstepConfig>(config: TConfig): RawstepConfig {
+export function defineConfig<const TConfig extends ProjectConfigSource>(config: TConfig): TConfig {
   return config;
 }
 
