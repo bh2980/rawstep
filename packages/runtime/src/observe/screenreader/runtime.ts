@@ -7,27 +7,19 @@ import {
   type ScreenReaderReadMethod
 } from "@rawstep/action-catalog";
 import { createAnnouncementReader } from "./announcement";
-import {
-  guidepupNvdaBackend,
-  guidepupVirtualBackend,
-  guidepupVoiceOverBackend
-} from "./backends/guidepup";
 import { ScreenReaderObserver } from "./observer";
+import {
+  resolveScreenReaderBackend,
+  resolveScreenReaderObserveProfiles
+} from "./registry";
 import type {
   AnnouncementReader,
   AnnouncementState,
-  ScreenReaderBackendId,
   ScreenReaderBackend,
   ScreenReaderRuntime,
   ScreenReaderRuntimeOptions,
   ScreenReaderSession
 } from "./types";
-
-export const BUILTIN_SCREEN_READER_BACKENDS: readonly ScreenReaderBackend[] = [
-  guidepupVoiceOverBackend,
-  guidepupNvdaBackend,
-  guidepupVirtualBackend
-];
 
 export async function createScreenReaderRuntime(
   page: Page,
@@ -52,7 +44,11 @@ export async function createScreenReaderRuntime(
     );
   }
 
-  const readAnnouncement = createAnnouncementReader(session, options.observeProfiles);
+  const readAnnouncement = createAnnouncementReader(
+    session,
+    undefined,
+    resolveScreenReaderObserveProfiles(backend, options.observeProfiles)
+  );
   const firstAnnouncementWaitStartedAt = Date.now();
   const firstAnnouncement = await captureInitialAnnouncement(page, readAnnouncement);
   const firstAnnouncementWaitMs = Date.now() - firstAnnouncementWaitStartedAt;
@@ -87,15 +83,6 @@ export async function createScreenReaderRuntime(
   };
 }
 
-export function findScreenReaderBackendById(id: ScreenReaderBackendId): ScreenReaderBackend {
-  const backend = BUILTIN_SCREEN_READER_BACKENDS.find((candidate) => candidate.id === id);
-  if (!backend) {
-    throw new Error(`Unknown screen reader backend "${id}".`);
-  }
-
-  return backend;
-}
-
 async function captureInitialAnnouncement(
   page: Page,
   readAnnouncement: AnnouncementReader
@@ -110,32 +97,6 @@ async function captureInitialAnnouncement(
   return secondAttempt.announcementCapture === "none"
     ? firstAttempt
     : secondAttempt;
-}
-
-function resolveScreenReaderBackend(
-  options: ScreenReaderRuntimeOptions,
-  platform: NodeJS.Platform
-): ScreenReaderBackend {
-  if (options.backend) {
-    if (!options.backend.supports(platform)) {
-      throw new Error(`Screen reader backend "${options.backend.id}" is not supported on platform "${platform}".`);
-    }
-
-    return options.backend;
-  }
-
-  if (!options.backendId) {
-    throw new Error(
-      'screenreader mode requires an explicit screenReaderBackend. Set screenReaderBackend to "guidepup-voiceover", "guidepup-nvda", or "guidepup-virtual".'
-    );
-  }
-
-  const backend = findScreenReaderBackendById(options.backendId);
-  if (!backend.supports(platform)) {
-    throw new Error(`Screen reader backend "${options.backendId}" is not supported on platform "${platform}".`);
-  }
-
-  return backend;
 }
 
 function validateActionPlan(

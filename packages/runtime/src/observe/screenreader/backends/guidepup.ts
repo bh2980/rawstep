@@ -8,7 +8,7 @@ import {
   type ScreenReaderKeyboardOptions
 } from "@rawstep/action-catalog";
 import type { Page } from "playwright";
-import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
+import type { ScreenReaderBackendImplementation, ScreenReaderSession } from "../types";
 import {
   getGuidepupNvdaCapabilities,
   getGuidepupVirtualCapabilities,
@@ -83,7 +83,7 @@ const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS = 10;
 
 let guidepupVirtualAdapterScriptPromise: Promise<string> | undefined;
 
-export const guidepupVoiceOverBackend: ScreenReaderBackend = {
+export const guidepupVoiceOverBackendImplementation: ScreenReaderBackendImplementation = {
   id: "guidepup-voiceover",
   capabilities: getGuidepupVoiceOverCapabilities(),
   supports(platform) {
@@ -95,7 +95,7 @@ export const guidepupVoiceOverBackend: ScreenReaderBackend = {
   }
 };
 
-export const guidepupNvdaBackend: ScreenReaderBackend = {
+export const guidepupNvdaBackendImplementation: ScreenReaderBackendImplementation = {
   id: "guidepup-nvda",
   capabilities: getGuidepupNvdaCapabilities(),
   supports(platform) {
@@ -107,7 +107,7 @@ export const guidepupNvdaBackend: ScreenReaderBackend = {
   }
 };
 
-export const guidepupVirtualBackend: ScreenReaderBackend = {
+export const guidepupVirtualBackendImplementation: ScreenReaderBackendImplementation = {
   id: "guidepup-virtual",
   capabilities: getGuidepupVirtualCapabilities(),
   supports() {

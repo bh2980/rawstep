@@ -17,6 +17,21 @@ import type { Page } from "playwright";
 export { SCREEN_READER_BACKEND_IDS };
 
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
+export type ScreenReaderObserveProfileName = "initial" | "default" | "interactive";
+
+export type ScreenReaderObserveProfile = {
+  pollIntervalMs: number;
+  silenceWindowMs: number;
+  maxObserveMs: number;
+  allowFallback: boolean;
+};
+
+export type ScreenReaderObservePolicy = Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile>;
+
+export type ScreenReaderBrowserPolicy = {
+  defaultHeadless: boolean;
+  headlessAllowed: boolean;
+};
 
 export type ScreenReaderSession = {
   start(options?: ScreenReaderCommandOptions): Promise<void>;
@@ -38,11 +53,16 @@ export type ScreenReaderSession = {
   clearItemTextLog(): Promise<void>;
 };
 
-export type ScreenReaderBackend = {
+export type ScreenReaderBackendImplementation = {
   id: ScreenReaderBackendId;
   capabilities: ScreenReaderCapabilities;
   supports(platform: NodeJS.Platform): boolean;
   createSession(page: Page): Promise<ScreenReaderSession>;
+};
+
+export type ScreenReaderBackend = ScreenReaderBackendImplementation & {
+  browserPolicy: ScreenReaderBrowserPolicy;
+  observePolicy: ScreenReaderObservePolicy;
 };
 
 export type ScreenReaderRuntimeObserver = {
@@ -69,36 +89,6 @@ export type ScreenReaderRuntimeOptions = {
   actionPlan?: ScreenReaderActionPlan;
   platform?: NodeJS.Platform;
   observeProfiles?: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>;
-};
-
-export type ScreenReaderObserveProfileName = "initial" | "default" | "interactive";
-
-export type ScreenReaderObserveProfile = {
-  pollIntervalMs: number;
-  silenceWindowMs: number;
-  maxObserveMs: number;
-  allowFallback: boolean;
-};
-
-export const DEFAULT_OBSERVE_PROFILES: Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile> = {
-  initial: {
-    pollIntervalMs: 120,
-    silenceWindowMs: 700,
-    maxObserveMs: 6000,
-    allowFallback: true
-  },
-  default: {
-    pollIntervalMs: 100,
-    silenceWindowMs: 500,
-    maxObserveMs: 3000,
-    allowFallback: false
-  },
-  interactive: {
-    pollIntervalMs: 120,
-    silenceWindowMs: 800,
-    maxObserveMs: 5000,
-    allowFallback: false
-  }
 };
 
 export type AnnouncementState = Pick<

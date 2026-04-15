@@ -1,16 +1,20 @@
 import {
-  DEFAULT_OBSERVE_PROFILES,
   type AnnouncementReader,
+  type ScreenReaderObservePolicy,
   type ScreenReaderSession,
   type ScreenReaderObserveProfile,
   type ScreenReaderObserveProfileName
 } from "./types";
+import {
+  DEFAULT_SCREEN_READER_OBSERVE_POLICY
+} from "./registry";
 
 export function createAnnouncementReader(
   session: Pick<ScreenReaderSession, "lastSpokenPhrase" | "spokenPhraseLog" | "clearSpokenPhraseLog">,
-profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {}
+  profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>> = {},
+  defaults: ScreenReaderObservePolicy = DEFAULT_SCREEN_READER_OBSERVE_POLICY
 ): AnnouncementReader {
-  const resolvedProfiles = resolveObserveProfiles(profiles);
+  const resolvedProfiles = resolveObserveProfiles(defaults, profiles);
 
   return async (profileName = "default") => {
     const profile = resolvedProfiles[profileName];
@@ -87,12 +91,13 @@ async function readAndClearSpokenPhrases(
 }
 
 function resolveObserveProfiles(
+  defaults: ScreenReaderObservePolicy,
   profiles: Partial<Record<ScreenReaderObserveProfileName, Partial<ScreenReaderObserveProfile>>>
-): Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile> {
+): ScreenReaderObservePolicy {
   return {
-    initial: { ...DEFAULT_OBSERVE_PROFILES.initial, ...profiles.initial },
-    default: { ...DEFAULT_OBSERVE_PROFILES.default, ...profiles.default },
-    interactive: { ...DEFAULT_OBSERVE_PROFILES.interactive, ...profiles.interactive }
+    initial: { ...defaults.initial, ...profiles.initial },
+    default: { ...defaults.default, ...profiles.default },
+    interactive: { ...defaults.interactive, ...profiles.interactive }
   };
 }
 

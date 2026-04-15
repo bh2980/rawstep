@@ -4,9 +4,13 @@ import {
 } from "../packages/action-catalog/src";
 import type { ExecutableScreenReaderAction } from "../packages/action-catalog/src";
 import {
+  createEmptyScreenReaderCapabilities,
   createAnnouncementReader,
   createScreenReaderRuntime,
   findScreenReaderBackendById,
+  listScreenReaderBackends,
+  resolveScreenReaderCapabilities,
+  SCREEN_READER_BACKEND_IDS,
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "@rawstep/runtime";
@@ -91,6 +95,14 @@ function createMockScreenReaderSession(overrides: Partial<ScreenReaderSession> =
 }
 
 describe("observer-screenreader", () => {
+  it("lists built-in backends in catalog order", () => {
+    expect(listScreenReaderBackends().map((backend) => backend.id)).toEqual(SCREEN_READER_BACKEND_IDS);
+  });
+
+  it("returns empty capabilities when no runtime or backend context is available", () => {
+    expect(resolveScreenReaderCapabilities({})).toEqual(createEmptyScreenReaderCapabilities());
+  });
+
   it("reads the spoken phrase log first and then reports none when no text was captured", async () => {
     const reader = createAnnouncementReader({
       spokenPhraseLog: vi
@@ -217,7 +229,7 @@ describe("observer-screenreader", () => {
       clearSpokenPhraseLog
     });
     const backend: ScreenReaderBackend = {
-      id: "guidepup-virtual",
+      ...findScreenReaderBackendById("guidepup-virtual"),
       capabilities: TEST_CAPABILITIES,
       supports: vi.fn(() => true),
       createSession: vi.fn(async () => session)
@@ -296,7 +308,7 @@ describe("observer-screenreader", () => {
       } as never,
       {
         backend: {
-          id: "guidepup-virtual",
+          ...findScreenReaderBackendById("guidepup-virtual"),
           capabilities: TEST_CAPABILITIES,
           supports: () => true,
           createSession: async () => createMockScreenReaderSession({
@@ -398,7 +410,7 @@ describe("observer-screenreader", () => {
         } as never,
         {
           backend: {
-            id: "guidepup-virtual",
+            ...findScreenReaderBackendById("guidepup-virtual"),
             capabilities: {
               ...TEST_CAPABILITIES,
               invoke: {

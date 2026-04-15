@@ -29,6 +29,8 @@ import {
 } from "@rawstep/core";
 import {
   createScreenReaderRuntime,
+  resolveScreenReaderBrowserHeadless,
+  resolveScreenReaderCapabilities,
   type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
@@ -41,9 +43,7 @@ import {
   createVerdictAnalysis,
   getErrorMessage,
   isScreenReaderMode,
-  resolveScreenReaderCapabilities,
   resolveVerificationOutcome,
-  resolveBrowserHeadless,
   shouldUseInteractiveObservation,
   selectAgentMemoryExcerpt,
   type ResolvedVerificationOutcome,
@@ -195,7 +195,7 @@ async function initializeRunResources(
 ): Promise<RunResources> {
   const browserFactory = options.browserSessionFactory ?? createBrowserSession;
   cleanup.browser = await browserFactory(task.url, {
-    headless: resolveBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
+    headless: resolveScreenReaderBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
   });
   if (!isScreenReaderMode(task.mode)) {
     await bootstrapKeyboardFocus(cleanup.browser.page);
@@ -216,11 +216,11 @@ async function initializeRunResources(
     allowedKeys: keyboardActionPlan.allowedKeys
   });
   const screenReaderCapabilities = isScreenReaderMode(task.mode)
-    ? resolveScreenReaderCapabilities(
-      cleanup.screenReaderRuntime,
-      options.screenReaderActionPlan,
-      options.screenReaderBackendId
-    )
+    ? resolveScreenReaderCapabilities({
+      runtime: cleanup.screenReaderRuntime,
+      actionPlan: options.screenReaderActionPlan,
+      backendId: options.screenReaderBackendId
+    })
     : undefined;
   const agent = options.agent ?? new LLMAgent(task.mode, {
     ...options.agentOptions,

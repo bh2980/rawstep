@@ -1,20 +1,29 @@
 export { createAnnouncementReader } from "./announcement";
-export {
-  guidepupNvdaBackend,
-  guidepupVirtualBackend,
-  guidepupVoiceOverBackend
-} from "./backends/guidepup";
 export { ScreenReaderObserver } from "./observer";
 export {
+  createEmptyScreenReaderCapabilities,
+  DEFAULT_SCREEN_READER_OBSERVE_POLICY,
+  EMPTY_SCREEN_READER_CAPABILITIES,
   BUILTIN_SCREEN_READER_BACKENDS,
-  createScreenReaderRuntime,
-  findScreenReaderBackendById
-} from "./runtime";
+  findScreenReaderBackendById,
+  guidepupNvdaBackend,
+  guidepupVirtualBackend,
+  guidepupVoiceOverBackend,
+  listScreenReaderBackends,
+  resolveScreenReaderBackend,
+  resolveScreenReaderBrowserHeadless,
+  resolveScreenReaderCapabilities,
+  resolveScreenReaderObserveProfiles
+} from "./registry";
+export { createScreenReaderRuntime } from "./runtime";
 export type {
   ScreenReaderBackend,
+  ScreenReaderBackendImplementation,
   ScreenReaderBackendId,
+  ScreenReaderBrowserPolicy,
   ScreenReaderObserveProfile,
   ScreenReaderObserveProfileName,
+  ScreenReaderObservePolicy,
   ScreenReaderRuntimeOptions,
   ScreenReaderRuntime,
   ScreenReaderRuntimeFactory,

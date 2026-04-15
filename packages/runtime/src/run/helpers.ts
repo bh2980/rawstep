@@ -1,8 +1,6 @@
 import {
   formatDecisionAction,
   formatScreenReaderIntent,
-  type ScreenReaderActionPlan,
-  type ScreenReaderCapabilities
 } from "@rawstep/action-catalog";
 import type { BrowserSession } from "../browser";
 import {
@@ -17,8 +15,6 @@ import {
 } from "@rawstep/core";
 import { KeyboardObserver } from "../observe/keyboard";
 import {
-  findScreenReaderBackendById,
-  type ScreenReaderBackendId,
   type ScreenReaderRuntime
 } from "../observe/screenreader";
 
@@ -98,79 +94,8 @@ export function isScreenReaderMode(mode: UserModel): boolean {
   return mode === "screenreader-strict" || mode === "screenreader-hybrid";
 }
 
-export function resolveBrowserHeadless(
-  mode: UserModel,
-  configuredHeadless?: boolean,
-  screenReaderBackendId?: ScreenReaderBackendId
-): boolean {
-  if (configuredHeadless !== undefined) {
-    if (
-      isScreenReaderMode(mode)
-      &&
-      configuredHeadless
-      && (screenReaderBackendId === "guidepup-voiceover" || screenReaderBackendId === "guidepup-nvda")
-    ) {
-      throw new Error(
-        `Screen reader backend "${screenReaderBackendId}" requires a headed browser. Use --headed or set headless: false.`
-      );
-    }
-
-    return configuredHeadless;
-  }
-
-  if (!isScreenReaderMode(mode)) {
-    return true;
-  }
-
-  return screenReaderBackendId === "guidepup-virtual";
-}
-
 export function allowsRawKeyActions(mode: UserModel): boolean {
   return mode === "keyboard" || mode === "screenreader-hybrid";
-}
-
-export function resolveScreenReaderCapabilities(
-  screenReaderRuntime: ScreenReaderRuntime | undefined,
-  screenReaderActionPlan: ScreenReaderActionPlan | undefined,
-  screenReaderBackendId: ScreenReaderBackendId | undefined
-): ScreenReaderCapabilities {
-  if (screenReaderRuntime?.capabilities) {
-    return screenReaderRuntime.capabilities;
-  }
-
-  if (screenReaderActionPlan) {
-    return findScreenReaderBackendById(screenReaderActionPlan.backendId).capabilities;
-  }
-
-  if (screenReaderBackendId) {
-    return findScreenReaderBackendById(screenReaderBackendId).capabilities;
-  }
-
-  return {
-    invoke: {
-      next: false,
-      previous: false,
-      act: false,
-      interact: false,
-      stopInteracting: false,
-      press: false,
-      type: false,
-      click: false,
-      perform: false,
-      supportsRawPerform: false
-    },
-    read: {
-      itemText: false,
-      itemTextLog: false,
-      lastSpokenPhrase: false,
-      spokenPhraseLog: false
-    },
-    maintenance: {
-      clearItemTextLog: false,
-      clearSpokenPhraseLog: false
-    },
-    performCatalog: []
-  };
 }
 
 export function createVerdictAnalysis(
