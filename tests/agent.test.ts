@@ -1093,6 +1093,24 @@ describe("agent helpers", () => {
     expect(prompt).toContain('{"action":"sr.click","button":"left","clickCount":1}');
   });
 
+  it("includes conservative text-entry guidance in the default screenreader system prompt", () => {
+    const prompt = buildSystemPrompt(
+      "screenreader",
+      undefined,
+      undefined,
+      undefined,
+      false,
+      {
+        promptDir: join(ORIGINAL_CWD, "prompt")
+      }
+    );
+
+    expect(prompt).toContain("라벨이나 필드 이름만 들렸다고 입력 가능한 필드라고 단정하지 마라.");
+    expect(prompt).toContain("편집 가능한 텍스트 입력 상태가 직접 읽히면 typeText를 우선 검토하라.");
+    expect(prompt).toContain("그런 직접 신호가 없더라도, 입력 목표이고 현재 announcement와 최근 readback 또는 직전 탐색 맥락이 함께 입력 필드일 가능성을 충분히 뒷받침하면 typeText를 시도할 수 있다.");
+    expect(prompt).toContain("typeText가 텍스트 입력 상태 변화 없이 실패하면, 같은 위치에서 interact를 반복하지 말고 Tab, Shift+Tab, form 이동처럼 전략을 바꾸어라.");
+  });
+
   it("uses neutral placeholder values in screenreader output examples", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);

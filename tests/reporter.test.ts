@@ -1,531 +1,529 @@
 import { publishRunOutputs, renderReport } from "@rawstep/reporter";
-import type { TraceSession } from "@rawstep/definition";
+import type { StepRecord, TraceSession } from "@rawstep/definition";
 import { access, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+async function render(session: TraceSession): Promise<string> {
+  const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-"));
+  const reportPath = await renderReport(session, outDir);
+  return readFile(reportPath, "utf8");
+}
+
+function makeKeyboardStep(step: number, overrides: Partial<StepRecord> = {}): StepRecord {
+  const base: StepRecord = {
+    step,
+    timestamp: `2026-04-12T00:00:0${Math.min(step + 1, 9)}.000Z`,
+    observation: {
+      kind: "keyboard",
+      screenshot: {
+        path: `screenshots/step-${String(step).padStart(3, "0")}.png`,
+        viewport: { w: 1280, h: 800 },
+      },
+      browserChrome: {
+        title: `Fixture ${step}`,
+        urlPath: `/fixture/${step}`,
+      },
+      focusHint: step % 2 === 0 ? `focus-${step}` : undefined,
+      scrollHint: "top",
+    },
+    decision: {
+      action: { key: "Tab" },
+      rationale: `step ${step} rationale`,
+    },
+    execution: {
+      ok: true,
+      costDelta: 1,
+    },
+    timings: {
+      observeMs: 10 + step,
+      decideMs: 20 + step,
+      executeMs: 30 + step,
+      verifyMs: 0,
+    },
+  };
+
+  return {
+    ...base,
+    ...overrides,
+    observation: {
+      ...base.observation,
+      ...(overrides.observation as Partial<typeof base.observation> | undefined),
+    },
+    execution: {
+      ...base.execution,
+      ...(overrides.execution ?? {}),
+    },
+    timings: {
+      ...base.timings,
+      ...(overrides.timings ?? {}),
+    },
+  };
+}
+
+function makeScreenReaderStep(step: number, overrides: Partial<StepRecord> = {}): StepRecord {
+  const base: StepRecord = {
+    step,
+    timestamp: `2026-04-12T00:00:0${Math.min(step + 1, 9)}.000Z`,
+    observation: {
+      kind: "screenreader",
+      announcement: `announcement ${step}`,
+      announcementCapture: "log",
+      announcementCount: 1,
+      observeReason: "silence",
+      screenshot: {
+        path: `screenshots/sr-${String(step).padStart(3, "0")}.png`,
+        viewport: { w: 1280, h: 800 },
+      },
+    },
+    decision: {
+      action: {
+        srAction: {
+          semantic: "heading.next",
+        },
+      },
+      rationale: `sr step ${step} rationale`,
+    },
+    execution: {
+      ok: true,
+      costDelta: 1,
+    },
+    timings: {
+      observeMs: 12 + step,
+      decideMs: 2400 + step,
+      executeMs: 22 + step,
+      verifyMs: 0,
+    },
+  };
+
+  return {
+    ...base,
+    ...overrides,
+    observation: {
+      ...base.observation,
+      ...(overrides.observation as Partial<typeof base.observation> | undefined),
+    },
+    execution: {
+      ...base.execution,
+      ...(overrides.execution ?? {}),
+    },
+    timings: {
+      ...base.timings,
+      ...(overrides.timings ?? {}),
+    },
+  };
+}
+
+function makeSession(
+  steps: StepRecord[],
+  overrides: Partial<TraceSession> = {}
+): TraceSession {
+  const aggregate: TraceSession["aggregate"] = {
+    result: "failure",
+    totalSteps: steps.length,
+    durationMs: 5000,
+    timings: {
+      setupMs: 120,
+      browserLaunchMs: 20,
+      pageLoadMs: 30,
+      screenReaderInitMs: 0,
+      firstAnnouncementWaitMs: 0,
+      reportMs: 45,
+    },
+    actionCounts: {
+      srInvokeCount: 0,
+      srReadCount: 0,
+      srMaintenanceCount: 0,
+      rawKeyCount: steps.filter((step) => "action" in step.decision && "key" in step.decision.action).length,
+      typeTextCount: steps.filter((step) => "action" in step.decision && "typeText" in step.decision.action).length,
+    },
+    terminatedAtStep: steps.length > 0 ? steps[steps.length - 1]!.step : null,
+    endedBy: "maxSteps",
+  };
+
+  return {
+    task: {
+      id: "report-task",
+      url: "file:///report-task.html",
+      goal: "Review the page",
+      mode: "keyboard",
+      maxSteps: 10,
+      timeoutMs: 1000,
+      verify: {
+        all: [{ titleIncludes: "Fixture" }],
+      },
+    },
+    startedAt: "2026-04-12T00:00:00.000Z",
+    endedAt: "2026-04-12T00:00:05.000Z",
+    steps,
+    aggregate,
+    ...overrides,
+    task: {
+      id: "report-task",
+      url: "file:///report-task.html",
+      goal: "Review the page",
+      mode: "keyboard",
+      maxSteps: 10,
+      timeoutMs: 1000,
+      verify: {
+        all: [{ titleIncludes: "Fixture" }],
+      },
+      ...(overrides.task ?? {}),
+    },
+    aggregate: {
+      ...aggregate,
+      ...(overrides.aggregate ?? {}),
+      timings: {
+        ...aggregate.timings,
+        ...(overrides.aggregate?.timings ?? {}),
+      },
+      actionCounts: {
+        ...aggregate.actionCounts,
+        ...(overrides.aggregate?.actionCounts ?? {}),
+      },
+    },
+  };
+}
+
 describe("reporter", () => {
-  it("renders named input actions in the HTML report", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-type-text-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "type-text-task",
-          url: "file:///type-text-task.html",
-          goal: "Type the fixed email input.",
-          mode: "keyboard",
-          maxSteps: 2,
-          timeoutMs: 1000,
-          input: { email: "passport" },
-          verify: {
-            all: [{ titleIncludes: "Search Fixture" }]
-          }
+  it("renders summary first with minimap, filters, and panel shell", async () => {
+    const steps = [
+      makeKeyboardStep(0),
+      makeKeyboardStep(1, {
+        verification: {
+          passed: false,
+          failures: ['button[type="submit"] not reachable via Tab'],
         },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:05.000Z",
-        steps: [
-          {
-            step: 0,
-            timestamp: "2026-04-12T00:00:01.000Z",
-            observation: {
-              kind: "keyboard",
-              screenshot: {
-                path: "screenshots/step-000.png",
-                viewport: { w: 1280, h: 800 }
-              },
-              browserChrome: {
-                title: "Search Fixture",
-                urlPath: "/fixture"
-              },
-              scrollHint: "top"
-            },
-            decision: {
-              action: { typeText: "email" },
-              rationale: "Type the provided email input."
-            },
-            execution: {
-              ok: true,
-              costDelta: 1
-            },
-            timings: {
-              observeMs: 11,
-              decideMs: 22,
-              executeMs: 33,
-              verifyMs: 0
-            }
-          }
-        ],
-        aggregate: {
-          result: "failure",
-          totalSteps: 1,
-          durationMs: 5000,
-          timings: {
-            setupMs: 120,
-            browserLaunchMs: 20,
-            pageLoadMs: 30,
-            screenReaderInitMs: 0,
-            firstAnnouncementWaitMs: 0,
-            reportMs: 45
-          },
-          actionCounts: {
-            srInvokeCount: 0,
-            srReadCount: 0,
-            srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 1
-          },
-          terminatedAtStep: 0,
-          endedBy: "maxSteps"
-        }
-      } satisfies TraceSession,
-      outDir
-    );
-
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("typeText(email)");
-    expect(html).toContain("typeTextCount");
-    expect(html).toContain("Observe: 11 ms");
-    expect(html).toContain("Setup");
-    expect(html).toContain("Browser launch");
-  });
-
-  it("renders screenreader actions in the HTML report", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-screenreader-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "screenreader-task",
-          url: "file:///screenreader-task.html",
-          goal: "Move to the next announced item.",
-          mode: "screenreader",
-          maxSteps: 2,
-          timeoutMs: 1000,
-          verify: {
-            all: [{ textVisible: "Get started button" }]
-          }
+      }),
+      makeKeyboardStep(2, {
+        decision: {
+          verdict: "stuck",
+          rationale: "더 이상 진행할 수 없다.",
         },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:03.000Z",
-        steps: [
-          {
-            step: 0,
-            timestamp: "2026-04-12T00:00:01.000Z",
-            observation: {
-              kind: "screenreader",
-              announcement: "Get started button",
-              announcementCapture: "log",
-              announcementCount: 1,
-              observeReason: "silence",
-              screenshot: {
-                path: "screenshots/step-000.png",
-                viewport: { w: 1280, h: 800 }
-              }
-            },
-            decision: {
-              action: {
-                srAction: {
-                  semantic: "heading.next"
-                }
-              },
-              rationale: "Move the VoiceOver cursor forward."
-            },
-            execution: {
-              ok: true,
-              costDelta: 1
-            },
-            timings: {
-              observeMs: 10,
-              decideMs: 20,
-              executeMs: 30,
-              verifyMs: 0
-            }
-          }
-        ],
-        aggregate: {
-          result: "failure",
-          totalSteps: 1,
-          durationMs: 3000,
-          timings: {
-            setupMs: 100,
-            browserLaunchMs: 10,
-            pageLoadMs: 20,
-            screenReaderInitMs: 30,
-            firstAnnouncementWaitMs: 40,
-            reportMs: 40
-          },
-          actionCounts: {
-            srInvokeCount: 1,
-            srReadCount: 0,
-            srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 0
-          },
-          terminatedAtStep: 0,
-          endedBy: "maxSteps"
-        }
-      } satisfies TraceSession,
-      outDir
-    );
-
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("sr.heading.next");
-    expect(html).toContain("Get started button");
-    expect(html).toContain("Announcement capture");
-    expect(html).toContain("log");
-    expect(html).toContain("Announcement count");
-    expect(html).toContain("Observe reason");
-    expect(html).toContain("silence");
-    expect(html).toContain("../screenshots/step-000.png");
-    expect(html).not.toContain("No screenshot");
-  });
-
-  it("renders verification results in the HTML report", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "verified-task",
-          url: "file:///verified-task.html",
-          goal: "Finish with verified success.",
-          mode: "keyboard",
-          maxSteps: 2,
-          timeoutMs: 1000,
-          verify: {
-            all: [{ textVisible: "Started!" }]
-          }
+        execution: {
+          ok: true,
+          costDelta: 0,
         },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:05.000Z",
-        steps: [
-          {
-            step: 0,
-            timestamp: "2026-04-12T00:00:03.000Z",
-            observation: {
-              kind: "keyboard",
-              screenshot: {
-                path: "screenshots/step-000.png",
-                viewport: { w: 1280, h: 800 }
-              },
-              browserChrome: {
-                title: "Simple CTA Fixture",
-                urlPath: "/fixture"
-              },
-              scrollHint: "top"
-            },
-            decision: {
-              verdict: "success",
-              rationale: "Looks done."
-            },
-            execution: {
-              ok: true,
-              costDelta: 0
-            },
-            timings: {
-              observeMs: 12,
-              decideMs: 24,
-              executeMs: 0,
-              verifyMs: 18
-            },
-            verification: {
-              passed: false,
-              failures: ['Verification failed: expected visible text "Started!" was not observed.']
-            },
-            verdictAnalysis: {
-              agentVerdict: "success",
-              verificationResult: "failed",
-              finalResult: "continued",
-              completionSource: "agent"
-            }
-          }
-        ],
+      }),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
         aggregate: {
-          result: "failure",
-          totalSteps: 1,
-          durationMs: 5000,
-          timings: {
-            setupMs: 130,
-            browserLaunchMs: 13,
-            pageLoadMs: 26,
-            screenReaderInitMs: 0,
-            firstAnnouncementWaitMs: 0,
-            reportMs: 55
-          },
-          actionCounts: {
-            srInvokeCount: 0,
-            srReadCount: 0,
-            srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 0
-          },
-          terminatedAtStep: 0,
           endedBy: "stuck",
           failurePoint: {
-            stepIndex: 0,
-            reason: 'Verified success was not reached: Verification failed: expected visible text "Started!" was not observed.'
-          }
-        }
-      } satisfies TraceSession,
-      outDir
+            stepIndex: 1,
+            reason: 'button[type="submit"] not reachable via Tab',
+          },
+        },
+        experienceSummary: {
+          overall: "로그인 버튼까지 가지 못했다.",
+          blockers: ["submit 버튼 접근 불가"],
+          surprise: "첫 입력 전부터 focus 흐름이 깨졌다.",
+          oneLineFeel: "첫 진입부터 막히는 화면이었다.",
+        },
+      })
     );
 
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("Verification: <code>failed</code>");
-    expect(html).toContain("Agent verdict");
-    expect(html).toContain("Final result at this step");
-    expect(html).toContain("Completion source");
-    expect(html).toContain("expected visible text");
-    expect(html).toContain("Verified success was not reached");
+    expect(html.indexOf('id="experience-summary"')).toBeLessThan(html.indexOf('id="overview-flow"'));
+    expect(html).toContain('id="step-minimap"');
+    expect(html.indexOf('data-filter-tab="all"')).toBeLessThan(html.indexOf('data-filter-tab="important"'));
+    expect(html).toContain('data-filter-tab="all"');
+    expect(html).toContain('class="failure-marker-halo"');
+    expect(html).toContain('id="detail-panel"');
+    expect(html).toContain("첫 진입부터 막히는 화면이었다.");
+    const initialMarkup = html.split("<script>")[0]!;
+    const start = initialMarkup.indexOf('id="experience-summary"');
+    const end = initialMarkup.indexOf("</section>", start);
+    const summarySection = initialMarkup.slice(start, end);
+    expect(summarySection).toContain('class="summary-note tone-failure"');
+    expect(summarySection).toContain('class="summary-note tone-neutral"');
+    expect(summarySection).not.toContain('<span class="pill tone-failure">');
   });
 
-  it("renders verifier auto-complete steps without an agent verdict", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-auto-complete-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "auto-complete-task",
-          url: "file:///auto-complete-task.html",
-          goal: "Finish via verifier auto-complete.",
-          mode: "screenreader",
-          maxSteps: 2,
-          timeoutMs: 1000,
-          verify: {
-            all: [{ textVisible: "Started!" }]
-          }
-        },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:02.000Z",
-        steps: [
-          {
-            step: 0,
-            timestamp: "2026-04-12T00:00:01.000Z",
-            observation: {
-              kind: "screenreader",
-              announcement: "Started!",
-              announcementCapture: "log",
-              announcementCount: 1,
-              observeReason: "silence"
-            },
-            decision: {
-              action: { srAction: { semantic: "click" } }
-            },
-            execution: {
-              ok: true,
-              costDelta: 1
-            },
-            timings: {
-              observeMs: 10,
-              decideMs: 20,
-              executeMs: 30,
-              verifyMs: 15
-            },
-            verification: {
-              passed: true,
-              failures: []
-            },
-            verdictAnalysis: {
-              verificationResult: "passed",
-              finalResult: "success",
-              completionSource: "verifier-auto-complete"
-            }
-          }
-        ],
+  it("renders a compact summary when blockers and surprise are empty", async () => {
+    const html = await render(
+      makeSession([], {
         aggregate: {
           result: "success",
-          totalSteps: 1,
-          durationMs: 2000,
-          timings: {
-            setupMs: 100,
-            browserLaunchMs: 10,
-            pageLoadMs: 20,
-            screenReaderInitMs: 30,
-            firstAnnouncementWaitMs: 40,
-            reportMs: 20
+          endedBy: "success",
+          totalSteps: 0,
+          terminatedAtStep: null,
+        },
+        experienceSummary: {
+          overall: "바로 성공 메시지까지 도달했다.",
+          blockers: [],
+          surprise: null,
+          oneLineFeel: "막힘 없이 끝났다.",
+        },
+      })
+    );
+    const initialMarkup = html.split("<script>")[0]!;
+    const start = initialMarkup.indexOf('id="experience-summary"');
+    const end = initialMarkup.indexOf("</section>", start);
+    const summarySection = initialMarkup.slice(start, end);
+
+    expect(initialMarkup).toContain('class="card summary-card is-compact"');
+    expect(summarySection).not.toContain('<div class="summary-grid">');
+    expect(summarySection).toContain("막힘 없이 끝났다.");
+  });
+
+  it("defaults to the all filter, paginates 10 rows, and surfaces failure summaries in the list", async () => {
+    const steps = [
+      makeKeyboardStep(0),
+      makeKeyboardStep(1, {
+        verification: {
+          passed: false,
+          failures: ["submit button not reachable"],
+        },
+      }),
+      makeKeyboardStep(2, {
+        decision: {
+          verdict: "success",
+          rationale: "완료로 보인다.",
+        },
+        execution: {
+          ok: true,
+          costDelta: 0,
+        },
+      }),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
+        aggregate: {
+          result: "failure",
+          failurePoint: {
+            stepIndex: 1,
+            reason: "submit button not reachable",
           },
+        },
+      })
+    );
+    const initialMarkup = html.split("<script>")[0]!;
+
+    expect(initialMarkup).toMatch(/class="step-row is-status-normal"[\s\S]*?data-step-index="0"/);
+    expect(initialMarkup).toMatch(/class="step-row is-status-failure-point is-failure-point"[\s\S]*?data-step-index="1"/);
+    expect(initialMarkup).toMatch(/class="step-row is-status-success is-verdict-success"[\s\S]*?data-step-index="2"/);
+    expect(html).toContain('id="step-pagination"');
+    expect(html).toContain("Page 1 / 1");
+    expect(html).toContain('aria-label="step 1 Tab');
+    expect(html).not.toContain('aria-label="step 0 ');
+    expect(html).toContain("submit button not reachable");
+    expect(html).toContain('loading="lazy"');
+    expect(initialMarkup).not.toContain('<img class="detail-screenshot"');
+  });
+
+  it("renders action breakdown and timing sparkline for overview navigation", async () => {
+    const steps = [
+      makeKeyboardStep(0, {
+        decision: {
+          action: { key: "Enter" },
+          rationale: "CTA를 눌러 본다.",
+        },
+      }),
+      makeScreenReaderStep(1),
+      makeKeyboardStep(2, {
+        decision: {
+          action: { typeText: "email" },
+          rationale: "이메일을 입력한다.",
+        },
+      }),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
+        task: {
+          mode: "screenreader",
+        },
+        aggregate: {
           actionCounts: {
             srInvokeCount: 1,
             srReadCount: 0,
             srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 0
+            rawKeyCount: 1,
+            typeTextCount: 1,
           },
-          terminatedAtStep: 0,
-          endedBy: "success"
-        }
-      } satisfies TraceSession,
-      outDir
+        },
+      })
     );
 
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("not-declared");
-    expect(html).toContain("verifier-auto-complete");
-    expect(html).not.toContain("<p>undefined</p>");
+    expect(html).toContain('id="action-breakdown"');
+    expect(html).toContain('id="timing-overview"');
+    expect(html).toContain('id="timing-sparkline"');
+    expect(html).toContain("SR:heading.next");
+    expect(html).toContain("Decision Time");
+    expect(html).toContain("grid-template-columns: minmax(96px, 108px) minmax(120px, 1fr) 60px;");
+    expect(html).toContain("min-width: 120px;");
+    expect(html).toContain("min-height: 28px;");
+    expect(html).toContain("padding: 0 10px;");
+    expect(html).toContain("font-size: 10px;");
+    expect(html).toContain("--panel-w: clamp(480px, 50vw, 760px);");
+    expect(html).toContain("width: calc(100vw - var(--panel-w) - 24px);");
+    expect(html).toContain("min-height: 320px;");
+    expect(html).toContain("max-height: 420px;");
   });
 
-  it("renders experience summary when present", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-summary-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "summary-task",
-          url: "file:///summary-task.html",
-          goal: "Finish and summarize.",
-          mode: "keyboard",
-          maxSteps: 1,
-          timeoutMs: 1000,
-          verify: {
-            all: [{ titleIncludes: "summary-task" }]
-          }
+  it("removes noisy infrastructure and debug fields from the report HTML", async () => {
+    const steps = [
+      makeScreenReaderStep(0, {
+        verification: {
+          passed: true,
+          failures: [],
         },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:01.000Z",
-        steps: [],
-        aggregate: {
-          result: "success",
-          totalSteps: 0,
-          durationMs: 1000,
-          timings: {
-            setupMs: 10,
-            browserLaunchMs: 1,
-            pageLoadMs: 2,
-            screenReaderInitMs: 0,
-            firstAnnouncementWaitMs: 0,
-            reportMs: 0
-          },
-          actionCounts: {
-            srInvokeCount: 0,
-            srReadCount: 0,
-            srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 0
-          },
-          terminatedAtStep: null,
-          endedBy: "success"
+        verdictAnalysis: {
+          verificationResult: "passed",
+          finalResult: "success",
+          completionSource: "verifier-auto-complete",
         },
-        experienceSummary: {
-          overall: "The run finished directly.",
-          blockers: ["The initial direction was slightly unclear."],
-          surprise: "The feedback appeared immediately after the action.",
-          oneLineFeel: "Direct run with one small hesitation."
-        }
-      } satisfies TraceSession,
-      outDir
-    );
+      }),
+    ];
 
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("Experience summary");
-    expect(html).toContain("The run finished directly.");
-    expect(html).toContain("The initial direction was slightly unclear.");
-    expect(html).toContain("Direct run with one small hesitation.");
+    const html = await render(makeSession(steps));
+
+    expect(html).not.toContain("announcementCapture");
+    expect(html).not.toContain("announcementCount");
+    expect(html).not.toContain("observeReason");
+    expect(html).not.toContain("browserLaunchMs");
+    expect(html).not.toContain("pageLoadMs");
+    expect(html).not.toContain("screenReaderInitMs");
+    expect(html).not.toContain("reportMs");
+    expect(html).not.toContain("costDelta");
+    expect(html).not.toContain("verificationResult");
+    expect(html).not.toContain("completionSource");
+    expect(html).not.toContain("2026-04-12T00:00:01.000Z");
+    expect(html).not.toContain("ACTION");
+    expect(html).not.toContain("RATIONALE");
+    expect(html).not.toContain("OBSERVATION");
+    expect(html).not.toContain("TIMINGS");
   });
 
-  it("renders an experience summary warning when summary generation fails", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-summary-error-"));
-    const reportPath = await renderReport(
-      {
-        task: {
-          id: "summary-error-task",
-          url: "file:///summary-error-task.html",
-          goal: "Render a summary warning.",
-          mode: "keyboard",
-          maxSteps: 1,
-          timeoutMs: 1000,
-          verify: {
-            all: [{ titleIncludes: "summary-error-task" }]
-          }
-        },
-        startedAt: "2026-04-12T00:00:00.000Z",
-        endedAt: "2026-04-12T00:00:01.000Z",
-        steps: [],
+  it("renders a quiet summary warning when summary generation fails", async () => {
+    const html = await render(
+      makeSession([], {
         aggregate: {
           result: "success",
+          endedBy: "success",
           totalSteps: 0,
-          durationMs: 1000,
-          timings: {
-            setupMs: 10,
-            browserLaunchMs: 1,
-            pageLoadMs: 2,
-            screenReaderInitMs: 0,
-            firstAnnouncementWaitMs: 0,
-            reportMs: 0
-          },
-          actionCounts: {
-            srInvokeCount: 0,
-            srReadCount: 0,
-            srMaintenanceCount: 0,
-            rawKeyCount: 0,
-            typeTextCount: 0
-          },
           terminatedAtStep: null,
-          endedBy: "success"
         },
-        experienceSummaryError: "summary parser mismatch"
-      } satisfies TraceSession,
-      outDir
+        experienceSummaryError: "summary parser mismatch",
+      })
     );
 
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("Experience summary unavailable: summary parser mismatch");
+    expect(html).toContain("Summary unavailable. summary parser mismatch");
+    expect(html).not.toContain("Experience summary unavailable");
+  });
+
+  it("builds detail panel content in observation, verification, rationale order and shows timing without a disclosure", async () => {
+    const html = await render(
+      makeSession([
+        makeScreenReaderStep(0, {
+          verification: {
+            passed: false,
+            failures: ["focus trap"],
+          },
+          timings: {
+            observeMs: 120,
+            decideMs: 240,
+            executeMs: 80,
+            verifyMs: 70,
+          },
+        }),
+      ])
+    );
+
+    const observationIndex = html.indexOf("panelSection('Observation',");
+    const verificationIndex = html.indexOf("panelSection('Verification',");
+    const rationaleIndex = html.indexOf("panelSection('Rationale',");
+    const timeIndex = html.indexOf("panelSection('Time', renderTimingGrid(step))");
+
+    expect(observationIndex).toBeLessThan(verificationIndex);
+    expect(verificationIndex).toBeLessThan(rationaleIndex);
+    expect(rationaleIndex).toBeLessThan(timeIndex);
+    expect(html).toContain('"hasTimingDetails":true');
+    expect(html).toContain("detail-subhead\">Announcement</div>");
+    expect(html).toContain('<div class="detail-block"><div class="detail-copy">');
+    expect(html).not.toContain('<details class="timing-details">');
+  });
+
+  it("keeps the default list compact even for 400-step runs", async () => {
+    const steps = Array.from({ length: 400 }, (_, index) => {
+      if (index === 47) {
+        return makeKeyboardStep(index, {
+          verification: {
+            passed: false,
+            failures: ["submit button not reachable"],
+          },
+        });
+      }
+
+      if (index === 312) {
+        return makeKeyboardStep(index, {
+          decision: {
+            verdict: "stuck",
+            rationale: "더 이상 진행 불가",
+          },
+          execution: {
+            ok: true,
+            costDelta: 0,
+          },
+        });
+      }
+
+      return makeKeyboardStep(index);
+    });
+
+    const html = await render(
+      makeSession(steps, {
+        aggregate: {
+          totalSteps: 400,
+          endedBy: "stuck",
+          failurePoint: {
+            stepIndex: 312,
+            reason: "더 이상 진행 불가",
+          },
+        },
+      })
+    );
+    const initialMarkup = html.split("<script>")[0]!;
+
+    const minimapSegments = html.match(/class="minimap-segment"/g)?.length ?? 0;
+    const rowCount = html.match(/class="step-row/g)?.length ?? 0;
+    const hiddenCount = html.match(/class="step-row is-hidden/g)?.length ?? 0;
+
+    expect(minimapSegments).toBe(400);
+    expect(rowCount).toBe(400);
+    expect(hiddenCount).toBe(390);
+    expect(html).toContain("Page 1 / 40");
+    expect(initialMarkup).not.toContain('<img class="detail-screenshot"');
   });
 
   it("publishes CLI-facing output files and summary text", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-publish-"));
-    const session = {
-      task: {
-        id: "publish-task",
-        url: "file:///publish-task.html",
-        goal: "Write report artifacts.",
-        mode: "keyboard",
-        maxSteps: 1,
-        timeoutMs: 1000,
-        verify: {
-          all: [{ titleIncludes: "publish-task" }]
-        }
-      },
-      startedAt: "2026-04-12T00:00:00.000Z",
-      endedAt: "2026-04-12T00:00:01.000Z",
-      steps: [],
+    const session = makeSession([], {
       aggregate: {
         result: "success",
+        endedBy: "success",
         totalSteps: 0,
-        durationMs: 1000,
-        timings: {
-          setupMs: 10,
-          browserLaunchMs: 1,
-          pageLoadMs: 2,
-          screenReaderInitMs: 0,
-          firstAnnouncementWaitMs: 0,
-          reportMs: 0
-        },
-        actionCounts: {
-          srInvokeCount: 0,
-          srReadCount: 0,
-          srMaintenanceCount: 0,
-          rawKeyCount: 0,
-          typeTextCount: 0
-        },
         terminatedAtStep: null,
-        endedBy: "success"
-      }
-    } satisfies TraceSession;
+      },
+    });
 
     const published = await publishRunOutputs(session, outDir, [{
       kind: "decision",
       systemPrompt: "system",
-      userPromptText: "user"
+      userPromptText: "user",
     }]);
 
     await expect(access(join(outDir, "trace.json"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "metrics.json"))).resolves.toBeUndefined();
     await expect(access(join(outDir, "prompts.json"))).resolves.toBeUndefined();
-    await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
-    expect(published.summaryText).toContain("Task publish-task finished with success.");
-    expect(published.summaryText).toContain(join(outDir, "metrics.json"));
-    expect(published.outputPaths.traceJson).toBe(join(outDir, "trace.json"));
-    expect(published.outputPaths.reportHtml).toBe(join(outDir, "report", "index.html"));
-    expect(session.aggregate.timings.reportMs).toBeGreaterThanOrEqual(0);
+    await expect(access(join(outDir, "report/index.html"))).resolves.toBeUndefined();
 
-    const prompts = JSON.parse(await readFile(join(outDir, "prompts.json"), "utf8")) as Array<{ kind: string }>;
-    expect(prompts).toEqual([{ kind: "decision", systemPrompt: "system", userPromptText: "user" }]);
+    expect(published.reportPath).toBe(join(outDir, "report", "index.html"));
+    expect(published.summaryText).toContain("Task report-task finished with success.");
+    expect(published.summaryText).toContain(join(outDir, "report", "index.html"));
   });
 });

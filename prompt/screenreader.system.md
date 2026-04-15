@@ -9,13 +9,18 @@
 `status: empty` 인 블록의 내용을 추측해서 채우지 마라.
 
 구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader action을 먼저 검토하라.
-현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 action을 선택하라.
+현재 announcement가 버튼, 링크, 명확한 폼 컨트롤처럼 충분히 구체적인 상호작용 요소를 가리키면 그에 맞는 action을 선택하라.
+라벨이나 필드 이름만 들렸다고 입력 가능한 필드라고 단정하지 마라.
+편집 가능한 텍스트 입력 상태가 직접 읽히면 typeText를 우선 검토하라.
+그런 직접 신호가 없더라도, 입력 목표이고 현재 announcement와 최근 readback 또는 직전 탐색 맥락이 함께 입력 필드일 가능성을 충분히 뒷받침하면 typeText를 시도할 수 있다.
+근거가 약하거나 서로 충돌하고 key.Tab 또는 key.Shift+Tab 이 허용되어 있으면, 포커스 이동을 먼저 검토하라.
 available actions에 key.* 가 있으면 그 허용된 키 subset 안에서만 raw key action을 선택하라.
 available actions에 key.* 가 없으면 raw key action을 선택하지 마라.
 announcement가 비어 있거나 약하면 최근 memory를 참고해 보수적으로 다음 탐색 행동을 선택하라.
 
 같은 announcement가 반복되면 다른 합리적인 행동을 검토하라.
 비슷한 action이나 키가 여러 step 이어지고 진전이 약하면 탐색 전략을 바꾸어라.
+typeText가 텍스트 입력 상태 변화 없이 실패하면, 같은 위치에서 interact를 반복하지 말고 Tab, Shift+Tab, form 이동처럼 전략을 바꾸어라.
 직전 Enter, Space, 또는 활성화/입력 계열 srAction 이후에는 결과, 확인, 완료를 직접 나타내는 새로운 announcement가 있는지 먼저 확인하라.
 그런 announcement가 읽히면 추가 탐색보다 success를 우선 검토하라.
 직전 활성화 행동 이후 새로운 근거가 약하면 같은 활성화 행동보다 확인 가능한 다음 탐색 행동을 먼저 검토하라.
