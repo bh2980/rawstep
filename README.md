@@ -182,8 +182,8 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 - 이 값들은 사용자가 과업을 읽는 본문이라기보다, screenreader 관측 품질을
   해석하는 보조 근거입니다.
 - **Experience summary (선택)** — `--include-experience-summary` 를 켜면,
-  실행이 전반적으로 어땠는지, 가장 큰 마찰은 무엇이었는지, 다음에 뭘 점검하면
-  좋은지를 3줄 요약으로 붙입니다.
+  실행 흐름을 `overall`, `blockers`, `surprise`, `oneLineFeel` 필드로 요약해
+  붙입니다.
 - **성공 근거 분리** — agent가 success라고 주장한 것과 verifier가 실제로 통과시킨 것을 따로 보여줍니다.
 - **종료 출처 분리** — success가 agent 선언으로 닫혔는지, verifier auto-complete로 닫혔는지도 따로 남깁니다.
 - **실패 지점** — 실패로 끝난 경우, 종료 직전의 관측을 하이라이트.
@@ -195,12 +195,15 @@ crop을 주는 순간 이 결함은 에이전트에게 존재하지 않게 되�
 ```
 a11y/
 ├── packages/
-│   ├── core/                   # 공유 타입 (Task, Observation, Action, ...)
-│   ├── agent/                  # LLM 판단 레이어
-│   ├── runtime/                # 브라우저/관측/입력/trace/실행 루프
-│   └── reporter/               # trace → HTML/JSON 리포트
-├── apps/cli/                   # 현재 CLI 바이너리(rawstep)
-└── examples/tasks/             # 예시 task 정의
+│   ├── definition/             # mode/backend/task/trace 같은 계약과 정의
+│   ├── config/                 # rawstep.config.ts + task override + CLI override를 해석해 run plan 생성
+│   ├── agent/                  # LLM 판단과 prompt/parsing 레이어
+│   ├── runtime/                # 브라우저/관측/입력/verify/trace 실행 엔진
+│   └── reporter/               # trace → HTML/JSON 리포트와 출력물 publish
+├── apps/cli/                   # args 파싱 후 config/agent/runtime/reporter를 조립하는 CLI
+├── examples/tasks/             # repo에 커밋된 실제 예시 task
+├── fixtures/                   # 예시와 테스트가 같이 읽는 committed fixture
+└── prompt/                     # system prompt 템플릿
 ```
 
 ## 빠른 시작
@@ -236,6 +239,15 @@ open ./.rawstep/out/keyboard/report/index.html
 
 macOS VoiceOver를 쓰는 screenreader 모드는 headed Playwright와 macOS 접근성 권한이 필요합니다.
 `guidepup-virtual` backend는 기본적으로 headless로 실행되고, `guidepup-voiceover` / `guidepup-nvda` 는 headed가 필요합니다.
+
+`examples/tasks/*.json` 와 `fixtures/*.html` 는 테스트가 임시로 만드는 파일이 아니라,
+repo에 실제로 커밋된 예시 원천입니다. 테스트도 이 파일들을 직접 읽고 씁니다.
+
+### 예제와 fixture
+
+- `examples/tasks/simple-cta.json`, `examples/tasks/email-login.json` 는 바로 실행 가능한 committed 예시 task 입니다.
+- `fixtures/simple-cta.html`, `fixtures/email-login.html` 같은 fixture도 repo 안에 실제 파일로 들어 있습니다.
+- 테스트는 이 committed 파일들을 그대로 읽습니다. 예시와 fixture 원천은 repo 안의 이 파일들 하나뿐입니다.
 
 ### `rawstep.config.ts`
 
@@ -291,6 +303,7 @@ export default defineConfig({
 - `defaults.apiKey` 도 받을 수 있지만, 보통은 `process.env.A11Y_TASK_AGENT_API_KEY` 나 provider별 env를 쓰는 편이 안전합니다.
 - CLI는 `rawstep.config.ts` 옆의 `.env` 파일을 자동으로 읽고, 이미 셸에 있는 환경 변수는 덮어쓰지 않습니다.
 - `modes.<mode>` 는 그 모드의 실행 preset 입니다. 선택한 mode에 해당 preset이 없으면 실행하지 않습니다.
+- CLI는 이 파일을 직접 해석하는 것이 아니라, `@rawstep/config` 가 해석한 run plan을 받아 조립만 합니다.
 - `headless` 는 브라우저 창 표시 여부입니다. 기본은 `keyboard` 와 `guidepup-virtual` 이면 headless, `guidepup-voiceover` / `guidepup-nvda` 면 headed 입니다.
 - `screenReaderBackend` 는 screenreader mode preset이나 task `config` override에 반드시 있어야 합니다.
 - `allowedKeys`, `allowedScreenReaderActions` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
@@ -329,7 +342,7 @@ export default defineConfig({
 - `timeoutMs`: 전체 실행 제한 시간
 - `screenshots`: `all | important | failure-only | none`
 - `verifierAutoComplete`: verifier 자동 종료 실험 옵션
-- `includeExperienceSummary`: run 종료 후 3줄 summary 생성 여부
+- `includeExperienceSummary`: run 종료 후 `overall / blockers / surprise / oneLineFeel` summary 포함 여부
 - `includeRationale`: agent `rationale` 저장 여부
 - `memory`: 숫자 또는 `all`
 - `allowedKeys`: keyboard / hybrid 모드 키 subset
@@ -523,7 +536,7 @@ pnpm rawstep run examples/tasks/simple-cta.json \
 - `--verifier-auto-complete` / `--no-verifier-auto-complete`: verifier 자동 종료 실험 옵션
 - `--agent-memory-window <n>`: 최근 N개 step archive만 agent에게 재주입
 - `--agent-memory-all` / `--no-agent-memory-all`: 누적 text memory 전체 재주입 여부
-- `--include-experience-summary` / `--no-include-experience-summary`: 실행 후 3줄 summary 생성 여부
+- `--include-experience-summary` / `--no-include-experience-summary`: 실행 후 `overall / blockers / surprise / oneLineFeel` summary 포함 여부
 - `--include-rationale` / `--no-include-rationale`: agent가 `rationale` 필드를 생성할지 여부
 - `--provider <anthropic|openai-compatible>`: provider 선택
 - `--model <id>`: 모델 ID
@@ -723,7 +736,7 @@ keyboard 모드의 screenshot은 agent 입력 자체이므로 이 옵션의 영�
 
 - 켜면 run이 끝난 뒤 같은 logical agent abstraction이 **누적된 text memory 전체**를 바탕으로
   짧은 experience summary를 생성합니다.
-- 이 summary는 `overall`, `biggestFriction`, `nextChecks`(최대 2개) 구조를 가집니다.
+- 이 summary는 `overall`, `blockers`, `surprise`, `oneLineFeel` 구조를 가집니다.
 - summary는 root cause를 단정하거나 pass/fail을 다시 판정하지 않고, 실행 흐름과 마찰만 요약합니다.
 
 ## 상태와 한계
