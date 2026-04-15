@@ -1,6 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
   MemorySetting,
+  ScreenReaderBackendId,
+  ScreenReaderBackendsSupportingRawPerform,
   ScreenshotPolicy,
   UserModel
 } from "@rawstep/definition";
@@ -9,8 +11,7 @@ import {
   type ScreenReaderExtensionCatalogActionRef,
   type ScreenReaderExtensionRawPerformActionRef,
   type ScreenReaderSemanticAction,
-  type ScreenReaderStableActionRef,
-  type ScreenReaderBackendId
+  type ScreenReaderStableActionRef
 } from "@rawstep/action-catalog";
 import { kb } from "./keyboard-actions";
 import {
@@ -44,9 +45,9 @@ type BackendConfiguredStableScreenReaderAction<TBackend extends ScreenReaderBack
   StableScreenReaderActionRefFor<BackendStableScreenReaderSemantic<TBackend>>;
 
 type BackendConfiguredUnstableScreenReaderAction<TBackend extends ScreenReaderBackendId> =
-  TBackend extends "guidepup-virtual"
-    ? ScreenReaderExtensionCatalogActionRef
-    : ScreenReaderExtensionCatalogActionRef | ScreenReaderExtensionRawPerformActionRef;
+  TBackend extends ScreenReaderBackendsSupportingRawPerform
+    ? ScreenReaderExtensionCatalogActionRef | ScreenReaderExtensionRawPerformActionRef
+    : ScreenReaderExtensionCatalogActionRef;
 
 type BackendConfiguredScreenReaderAction<TBackend extends ScreenReaderBackendId> =
   | BackendConfiguredStableScreenReaderAction<TBackend>

@@ -140,8 +140,8 @@ defineConfig({
       timeoutMs: 180000,
       memory: "all",
       screenReaderBackend: "guidepup-virtual",
-      // @ts-expect-error raw object literals are not part of the public config API
       allowedScreenReaderActions: [{
+        // @ts-expect-error raw object literals are not part of the public config API
         unstable: "catalog",
         id: "commands.moveToNextHeading",
         hint: "Move to the next heading.",

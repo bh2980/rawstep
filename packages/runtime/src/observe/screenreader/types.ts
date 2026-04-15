@@ -6,17 +6,12 @@ import type {
   ScreenReaderCommandOptions,
   ScreenReaderKeyboardOptions,
 } from "@rawstep/action-catalog";
-import {
-  SCREEN_READER_BACKEND_IDS
-} from "@rawstep/action-catalog";
 import type {
+  ScreenReaderBackendId,
+  ScreenReaderBackendSpec,
   ScreenReaderObservation
 } from "@rawstep/definition";
 import type { Page } from "playwright";
-
-export { SCREEN_READER_BACKEND_IDS };
-
-export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
 export type ScreenReaderObserveProfileName = "initial" | "default" | "interactive";
 
 export type ScreenReaderObserveProfile = {
@@ -27,11 +22,6 @@ export type ScreenReaderObserveProfile = {
 };
 
 export type ScreenReaderObservePolicy = Record<ScreenReaderObserveProfileName, ScreenReaderObserveProfile>;
-
-export type ScreenReaderBrowserPolicy = {
-  defaultHeadless: boolean;
-  headlessAllowed: boolean;
-};
 
 export type ScreenReaderSession = {
   start(options?: ScreenReaderCommandOptions): Promise<void>;
@@ -54,14 +44,12 @@ export type ScreenReaderSession = {
 };
 
 export type ScreenReaderBackendImplementation = {
-  id: ScreenReaderBackendId;
   capabilities: ScreenReaderCapabilities;
-  supports(platform: NodeJS.Platform): boolean;
   createSession(page: Page): Promise<ScreenReaderSession>;
 };
 
-export type ScreenReaderBackend = ScreenReaderBackendImplementation & {
-  browserPolicy: ScreenReaderBrowserPolicy;
+export type ScreenReaderBackend = ScreenReaderBackendImplementation & ScreenReaderBackendSpec & {
+  id: ScreenReaderBackendId;
   observePolicy: ScreenReaderObservePolicy;
 };
 
@@ -99,7 +87,3 @@ export type AnnouncementState = Pick<
 export type AnnouncementReader = (
   profile?: ScreenReaderObserveProfileName
 ) => Promise<AnnouncementState>;
-
-export function isScreenReaderBackendId(value: string): value is ScreenReaderBackendId {
-  return (SCREEN_READER_BACKEND_IDS as readonly string[]).includes(value);
-}

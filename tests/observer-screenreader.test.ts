@@ -10,11 +10,14 @@ import {
   findScreenReaderBackendById,
   listScreenReaderBackends,
   resolveScreenReaderCapabilities,
-  SCREEN_READER_BACKEND_IDS,
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "@rawstep/runtime";
-import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/definition";
+import {
+  SCREEN_READER_BACKEND_IDS,
+  type ScreenReaderAction,
+  type ScreenReaderCapabilities
+} from "@rawstep/definition";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ORIGINAL_PLATFORM = process.platform;
@@ -232,7 +235,6 @@ describe("observer-screenreader", () => {
     const backend: ScreenReaderBackend = {
       ...findScreenReaderBackendById("guidepup-virtual"),
       capabilities: TEST_CAPABILITIES,
-      supports: vi.fn(() => true),
       createSession: vi.fn(async () => session)
     };
 
@@ -311,7 +313,6 @@ describe("observer-screenreader", () => {
         backend: {
           ...findScreenReaderBackendById("guidepup-virtual"),
           capabilities: TEST_CAPABILITIES,
-          supports: () => true,
           createSession: async () => createMockScreenReaderSession({
             lastSpokenPhrase: vi
               .fn<() => Promise<string>>()
@@ -419,7 +420,6 @@ describe("observer-screenreader", () => {
                 click: false
               }
             },
-            supports: () => true,
             createSession: async () => {
               throw new Error("should not be called");
             }

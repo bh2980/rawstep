@@ -1,8 +1,8 @@
 import type {
   KeyboardSupportedKey,
   ScreenReaderActionRef,
-  ScreenReaderBackendId,
 } from "@rawstep/action-catalog";
+import type { ScreenReaderBackendId } from "../backends";
 import type { UserModel } from "../modes";
 import type { ScreenshotPolicy } from "../trace";
 import type { VerifySpec } from "../verify";

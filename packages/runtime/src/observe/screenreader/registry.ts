@@ -3,16 +3,20 @@ import type {
   ScreenReaderCapabilities
 } from "@rawstep/action-catalog";
 import {
+  SCREEN_READER_BACKEND_IDS,
+  backendSupportsPlatform,
+  backendSupportsRawPerform,
+  findBackendSpecById,
+  formatQuotedScreenReaderBackendIdList,
+  getBackendBrowserPolicy,
   requiresScreenReaderBackend,
   supportsVisualObservation,
+  type ScreenReaderBackendId,
   type UserModel
 } from "@rawstep/definition";
 import {
-  SCREEN_READER_BACKEND_IDS,
   type ScreenReaderBackend,
-  type ScreenReaderBackendId,
   type ScreenReaderBackendImplementation,
-  type ScreenReaderBrowserPolicy,
   type ScreenReaderObservePolicy,
   type ScreenReaderObserveProfile,
   type ScreenReaderObserveProfileName,
@@ -20,9 +24,9 @@ import {
   type ScreenReaderRuntimeOptions
 } from "./types";
 import {
-  guidepupNvdaBackendImplementation,
-  guidepupVirtualBackendImplementation,
-  guidepupVoiceOverBackendImplementation
+  createGuidepupNvdaBackendImplementation,
+  createGuidepupVirtualBackendImplementation,
+  createGuidepupVoiceOverBackendImplementation
 } from "./backends/guidepup";
 
 export const DEFAULT_SCREEN_READER_OBSERVE_POLICY: ScreenReaderObservePolicy = {
@@ -48,37 +52,37 @@ export const DEFAULT_SCREEN_READER_OBSERVE_POLICY: ScreenReaderObservePolicy = {
 
 export const EMPTY_SCREEN_READER_CAPABILITIES: ScreenReaderCapabilities = createEmptyScreenReaderCapabilities();
 
-const BUILTIN_SCREEN_READER_BACKENDS_BY_ID = {
-  "guidepup-voiceover": createScreenReaderBackendEntry(
-    guidepupVoiceOverBackendImplementation,
-    {
-      defaultHeadless: false,
-      headlessAllowed: false
-    }
-  ),
-  "guidepup-nvda": createScreenReaderBackendEntry(
-    guidepupNvdaBackendImplementation,
-    {
-      defaultHeadless: false,
-      headlessAllowed: false
-    }
-  ),
-  "guidepup-virtual": createScreenReaderBackendEntry(
-    guidepupVirtualBackendImplementation,
-    {
-      defaultHeadless: true,
-      headlessAllowed: true
-    }
-  )
-} as const satisfies Record<ScreenReaderBackendId, ScreenReaderBackend>;
+const BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATION_FACTORIES = {
+  "guidepup-voiceover": createGuidepupVoiceOverBackendImplementation,
+  "guidepup-nvda": createGuidepupNvdaBackendImplementation,
+  "guidepup-virtual": createGuidepupVirtualBackendImplementation
+} as const satisfies Record<
+  ScreenReaderBackendId,
+  (options: { supportsRawPerform: boolean }) => ScreenReaderBackendImplementation
+>;
+
+const BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATIONS_BY_ID = Object.fromEntries(
+  SCREEN_READER_BACKEND_IDS.map((id) => [
+    id,
+    BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATION_FACTORIES[id]({
+      supportsRawPerform: backendSupportsRawPerform(id)
+    })
+  ])
+) as Record<ScreenReaderBackendId, ScreenReaderBackendImplementation>;
+
+const BUILTIN_SCREEN_READER_BACKENDS_BY_ID = Object.fromEntries(
+  SCREEN_READER_BACKEND_IDS.map((id) => [
+    id,
+    createScreenReaderBackendEntry(
+      id,
+      BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATIONS_BY_ID[id]
+    )
+  ])
+) as Record<ScreenReaderBackendId, ScreenReaderBackend>;
 
 export const BUILTIN_SCREEN_READER_BACKENDS: readonly ScreenReaderBackend[] = SCREEN_READER_BACKEND_IDS.map(
   (id) => BUILTIN_SCREEN_READER_BACKENDS_BY_ID[id]
 );
-
-export const guidepupVoiceOverBackend = BUILTIN_SCREEN_READER_BACKENDS_BY_ID["guidepup-voiceover"];
-export const guidepupNvdaBackend = BUILTIN_SCREEN_READER_BACKENDS_BY_ID["guidepup-nvda"];
-export const guidepupVirtualBackend = BUILTIN_SCREEN_READER_BACKENDS_BY_ID["guidepup-virtual"];
 
 export function listScreenReaderBackends(): readonly ScreenReaderBackend[] {
   return BUILTIN_SCREEN_READER_BACKENDS;
@@ -104,7 +108,7 @@ export function resolveScreenReaderBackend(
 
   if (!options.backendId) {
     throw new Error(
-      'screenreader mode requires an explicit screenReaderBackend. Set screenReaderBackend to "guidepup-voiceover", "guidepup-nvda", or "guidepup-virtual".'
+      `screenreader mode requires an explicit screenReaderBackend. Set screenReaderBackend to ${formatQuotedScreenReaderBackendIdList(" or ")}.`
     );
   }
 
@@ -120,8 +124,8 @@ export function resolveScreenReaderBrowserHeadless(
 ): boolean {
   if (configuredHeadless !== undefined) {
     if (requiresScreenReaderBackend(mode) && configuredHeadless && backendId) {
-      const backend = findScreenReaderBackendById(backendId);
-      if (!backend.browserPolicy.headlessAllowed) {
+      const browserPolicy = getBackendBrowserPolicy(backendId);
+      if (!browserPolicy.headlessAllowed) {
         throw new Error(
           `Screen reader backend "${backendId}" requires a headed browser. Use --headed or set headless: false.`
         );
@@ -139,7 +143,7 @@ export function resolveScreenReaderBrowserHeadless(
     return false;
   }
 
-  return findScreenReaderBackendById(backendId).browserPolicy.defaultHeadless;
+  return getBackendBrowserPolicy(backendId).defaultHeadless;
 }
 
 export function resolveScreenReaderObserveProfiles(
@@ -204,12 +208,15 @@ export function createEmptyScreenReaderCapabilities(): ScreenReaderCapabilities 
 }
 
 function createScreenReaderBackendEntry(
+  id: ScreenReaderBackendId,
   implementation: ScreenReaderBackendImplementation,
-  browserPolicy: ScreenReaderBrowserPolicy
 ): ScreenReaderBackend {
+  const spec = findBackendSpecById(id);
+
   return {
+    id,
     ...implementation,
-    browserPolicy,
+    ...spec,
     observePolicy: cloneObservePolicy(DEFAULT_SCREEN_READER_OBSERVE_POLICY)
   };
 }
@@ -226,7 +233,7 @@ function validateScreenReaderBackendPlatform(
   backend: ScreenReaderBackend,
   platform: NodeJS.Platform
 ): void {
-  if (!backend.supports(platform)) {
+  if (!backendSupportsPlatform(backend.id, platform)) {
     throw new Error(`Screen reader backend "${backend.id}" is not supported on platform "${platform}".`);
   }
 }

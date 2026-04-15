@@ -1,5 +1,4 @@
 import {
-  SCREEN_READER_BACKEND_IDS,
   SCREEN_READER_CLI_TOKEN_LABELS,
   SCREEN_READER_PROMPT_TOKEN_TO_SEMANTIC,
   SUPPORTED_KEY_LABELS,
@@ -7,9 +6,9 @@ import {
   isAllowedKey,
   type KeyboardSupportedKey,
   type ScreenReaderActionRef,
-  type ScreenReaderBackendId,
 } from "@rawstep/action-catalog";
 import { z } from "zod";
+import { parseScreenReaderBackendId } from "../backends";
 import { parseUserModel, USER_MODEL_VALUES } from "../modes";
 import { validateVerifySpec } from "../verify";
 import type { MemorySetting, TaskInput, TaskOverrideSource, TaskSource } from "./source";
@@ -242,12 +241,5 @@ function parseTaskScreenReaderActions(value: unknown, label: string): ScreenRead
   });
 }
 
-function parseScreenReaderBackendId(value: unknown, label: string): ScreenReaderBackendId {
-  if (typeof value === "string" && (SCREEN_READER_BACKEND_IDS as readonly string[]).includes(value)) {
-    return value as ScreenReaderBackendId;
-  }
-
-  throw new Error(`${label} must be one of ${SCREEN_READER_BACKEND_IDS.join(", ")}.`);
-}
 
 export type { MemorySetting };

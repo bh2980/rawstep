@@ -57,94 +57,94 @@ const voiceOverPerformCommands = [
 const nvdaPerformCommands = createKeyboardPerformCommands(nvdaKeyCodeCommands);
 const virtualPerformCommands = createVirtualPerformCommands(virtual.commands);
 
-const guidepupVoiceOverCapabilities: ScreenReaderCapabilities = {
-  invoke: {
-    next: true,
-    previous: true,
-    act: true,
-    interact: true,
-    stopInteracting: true,
-    press: true,
-    type: true,
-    click: true,
-    perform: true,
-    supportsRawPerform: true
-  },
-  read: {
-    itemText: true,
-    itemTextLog: true,
-    lastSpokenPhrase: true,
-    spokenPhraseLog: true
-  },
-  maintenance: {
-    clearItemTextLog: true,
-    clearSpokenPhraseLog: true
-  },
-  performCatalog: voiceOverPerformCommands
-};
-
-const guidepupNvdaCapabilities: ScreenReaderCapabilities = {
-  invoke: {
-    next: true,
-    previous: true,
-    act: true,
-    interact: true,
-    stopInteracting: true,
-    press: true,
-    type: true,
-    click: true,
-    perform: true,
-    supportsRawPerform: true
-  },
-  read: {
-    itemText: true,
-    itemTextLog: true,
-    lastSpokenPhrase: true,
-    spokenPhraseLog: true
-  },
-  maintenance: {
-    clearItemTextLog: true,
-    clearSpokenPhraseLog: true
-  },
-  performCatalog: nvdaPerformCommands
-};
-
-const guidepupVirtualCapabilities: ScreenReaderCapabilities = {
-  invoke: {
-    next: typeof virtual.next === "function",
-    previous: typeof virtual.previous === "function",
-    act: typeof virtual.act === "function",
-    interact: typeof virtual.interact === "function",
-    stopInteracting: typeof virtual.stopInteracting === "function",
-    press: typeof virtual.press === "function",
-    type: typeof virtual.type === "function",
-    click: typeof virtual.click === "function",
-    perform: typeof virtual.perform === "function",
-    supportsRawPerform: false
-  },
-  read: {
-    itemText: typeof virtual.itemText === "function",
-    itemTextLog: typeof virtual.itemTextLog === "function",
-    lastSpokenPhrase: typeof virtual.lastSpokenPhrase === "function",
-    spokenPhraseLog: typeof virtual.spokenPhraseLog === "function"
-  },
-  maintenance: {
-    clearItemTextLog: typeof virtual.clearItemTextLog === "function",
-    clearSpokenPhraseLog: typeof virtual.clearSpokenPhraseLog === "function"
-  },
-  performCatalog: virtualPerformCommands
-};
-
-export function getGuidepupVoiceOverCapabilities(): ScreenReaderCapabilities {
-  return guidepupVoiceOverCapabilities;
+export function getGuidepupVoiceOverCapabilities(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderCapabilities {
+  return {
+    invoke: {
+      next: true,
+      previous: true,
+      act: true,
+      interact: true,
+      stopInteracting: true,
+      press: true,
+      type: true,
+      click: true,
+      perform: true,
+      supportsRawPerform: options.supportsRawPerform
+    },
+    read: {
+      itemText: true,
+      itemTextLog: true,
+      lastSpokenPhrase: true,
+      spokenPhraseLog: true
+    },
+    maintenance: {
+      clearItemTextLog: true,
+      clearSpokenPhraseLog: true
+    },
+    performCatalog: voiceOverPerformCommands
+  };
 }
 
-export function getGuidepupNvdaCapabilities(): ScreenReaderCapabilities {
-  return guidepupNvdaCapabilities;
+export function getGuidepupNvdaCapabilities(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderCapabilities {
+  return {
+    invoke: {
+      next: true,
+      previous: true,
+      act: true,
+      interact: true,
+      stopInteracting: true,
+      press: true,
+      type: true,
+      click: true,
+      perform: true,
+      supportsRawPerform: options.supportsRawPerform
+    },
+    read: {
+      itemText: true,
+      itemTextLog: true,
+      lastSpokenPhrase: true,
+      spokenPhraseLog: true
+    },
+    maintenance: {
+      clearItemTextLog: true,
+      clearSpokenPhraseLog: true
+    },
+    performCatalog: nvdaPerformCommands
+  };
 }
 
-export function getGuidepupVirtualCapabilities(): ScreenReaderCapabilities {
-  return guidepupVirtualCapabilities;
+export function getGuidepupVirtualCapabilities(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderCapabilities {
+  return {
+    invoke: {
+      next: typeof virtual.next === "function",
+      previous: typeof virtual.previous === "function",
+      act: typeof virtual.act === "function",
+      interact: typeof virtual.interact === "function",
+      stopInteracting: typeof virtual.stopInteracting === "function",
+      press: typeof virtual.press === "function",
+      type: typeof virtual.type === "function",
+      click: typeof virtual.click === "function",
+      perform: typeof virtual.perform === "function",
+      supportsRawPerform: options.supportsRawPerform
+    },
+    read: {
+      itemText: typeof virtual.itemText === "function",
+      itemTextLog: typeof virtual.itemTextLog === "function",
+      lastSpokenPhrase: typeof virtual.lastSpokenPhrase === "function",
+      spokenPhraseLog: typeof virtual.spokenPhraseLog === "function"
+    },
+    maintenance: {
+      clearItemTextLog: typeof virtual.clearItemTextLog === "function",
+      clearSpokenPhraseLog: typeof virtual.clearSpokenPhraseLog === "function"
+    },
+    performCatalog: virtualPerformCommands
+  };
 }
 
 export function resolveGuidepupVoiceOverPerformCommand(

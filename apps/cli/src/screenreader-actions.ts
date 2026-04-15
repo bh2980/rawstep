@@ -21,7 +21,7 @@ import {
   type ScreenReaderSemanticAction,
   type ScreenReaderStableActionRef
 } from "@rawstep/action-catalog";
-import type { ScreenReaderBackendId } from "@rawstep/runtime";
+import type { ScreenReaderBackendId } from "@rawstep/definition";
 import { z } from "zod";
 import {
   buildNestedHelperTree,

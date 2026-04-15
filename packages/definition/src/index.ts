@@ -10,6 +10,26 @@ export {
   USER_MODEL_VALUES,
 } from "./modes";
 export type { ModeObservationKind, UserModel } from "./modes";
+export {
+  BACKEND_SPEC,
+  SCREEN_READER_BACKEND_IDS,
+  backendSupportsPlatform,
+  backendSupportsRawPerform,
+  findBackendSpecById,
+  formatQuotedScreenReaderBackendIdList,
+  formatScreenReaderBackendIdList,
+  getBackendBrowserPolicy,
+  isScreenReaderBackendId,
+  listBackendSpecs,
+  parseScreenReaderBackendId,
+} from "./backends";
+export type {
+  NamedScreenReaderBackendSpec,
+  ScreenReaderBackendId,
+  ScreenReaderBackendSpec,
+  ScreenReaderBackendsSupportingRawPerform,
+  ScreenReaderBrowserPolicy,
+} from "./backends";
 export { validateVerifySpec } from "./verify";
 export type {
   RequestVerificationRule,

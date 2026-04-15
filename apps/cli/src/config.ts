@@ -13,10 +13,12 @@ import {
 } from "@rawstep/action-catalog";
 import {
   allowsRawKeyActions,
+  findBackendSpecById,
   isUserModel,
   requiresScreenReaderBackend,
   supportsVisualObservation,
   USER_MODEL_VALUES,
+  type ScreenReaderBackendId,
   type UserModel
 } from "@rawstep/definition";
 import {
@@ -487,5 +489,6 @@ function resolveScreenReaderBackendId(
     );
   }
 
-  return findScreenReaderBackendById(configuredScreenReaderBackend).id;
+  findBackendSpecById(configuredScreenReaderBackend as ScreenReaderBackendId);
+  return configuredScreenReaderBackend;
 }

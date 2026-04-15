@@ -12,15 +12,15 @@ import {
 } from "@rawstep/action-catalog";
 import { z } from "zod";
 import {
+  formatScreenReaderBackendIdList,
+  isScreenReaderBackendId,
+  parseScreenReaderBackendId as parseDefinitionScreenReaderBackendId,
+  type ScreenReaderBackendId,
   type MemorySetting,
   type ResolvedTask,
   type ScreenshotPolicy,
   type UserModel
 } from "@rawstep/definition";
-import {
-  isScreenReaderBackendId,
-  type ScreenReaderBackendId
-} from "@rawstep/runtime";
 import {
   parseCommaSeparatedConfiguredScreenReaderActions,
   parseConfiguredScreenReaderActions
@@ -249,10 +249,10 @@ export function parsePromptOverride(
 export function parseScreenReaderBackendId(value: unknown, label: string): ScreenReaderBackendId {
   const result = screenReaderBackendIdSchema.safeParse(value);
   if (result.success) {
-    return result.data;
+    return parseDefinitionScreenReaderBackendId(result.data, label);
   }
 
-  throw new Error(`${label} must be one of guidepup-voiceover, guidepup-nvda, guidepup-virtual.`);
+  throw new Error(`${label} must be one of ${formatScreenReaderBackendIdList()}.`);
 }
 
 export function parseCommaSeparatedAllowedKeys(value: unknown, label: string): AllowedKey[] {

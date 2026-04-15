@@ -83,43 +83,52 @@ const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS = 10;
 
 let guidepupVirtualAdapterScriptPromise: Promise<string> | undefined;
 
-export const guidepupVoiceOverBackendImplementation: ScreenReaderBackendImplementation = {
-  id: "guidepup-voiceover",
-  capabilities: getGuidepupVoiceOverCapabilities(),
-  supports(platform) {
-    return platform === "darwin";
-  },
-  async createSession(_page: Page): Promise<ScreenReaderSession> {
-    const { voiceOver } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
-    return new GuidepupVoiceOverSession(voiceOver);
-  }
-};
+export function createGuidepupVoiceOverBackendImplementation(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderBackendImplementation {
+  return {
+    capabilities: getGuidepupVoiceOverCapabilities({
+      supportsRawPerform: options.supportsRawPerform
+    }),
+    async createSession(_page: Page): Promise<ScreenReaderSession> {
+      const { voiceOver } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
+      return new GuidepupVoiceOverSession(voiceOver, options.supportsRawPerform);
+    }
+  };
+}
 
-export const guidepupNvdaBackendImplementation: ScreenReaderBackendImplementation = {
-  id: "guidepup-nvda",
-  capabilities: getGuidepupNvdaCapabilities(),
-  supports(platform) {
-    return platform === "win32";
-  },
-  async createSession(_page: Page): Promise<ScreenReaderSession> {
-    const { nvda } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
-    return new GuidepupNVDASession(nvda);
-  }
-};
+export function createGuidepupNvdaBackendImplementation(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderBackendImplementation {
+  return {
+    capabilities: getGuidepupNvdaCapabilities({
+      supportsRawPerform: options.supportsRawPerform
+    }),
+    async createSession(_page: Page): Promise<ScreenReaderSession> {
+      const { nvda } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
+      return new GuidepupNVDASession(nvda, options.supportsRawPerform);
+    }
+  };
+}
 
-export const guidepupVirtualBackendImplementation: ScreenReaderBackendImplementation = {
-  id: "guidepup-virtual",
-  capabilities: getGuidepupVirtualCapabilities(),
-  supports() {
-    return true;
-  },
-  async createSession(page: Page): Promise<ScreenReaderSession> {
-    return new GuidepupVirtualSession(page);
-  }
-};
+export function createGuidepupVirtualBackendImplementation(options: {
+  supportsRawPerform: boolean;
+}): ScreenReaderBackendImplementation {
+  return {
+    capabilities: getGuidepupVirtualCapabilities({
+      supportsRawPerform: options.supportsRawPerform
+    }),
+    async createSession(page: Page): Promise<ScreenReaderSession> {
+      return new GuidepupVirtualSession(page);
+    }
+  };
+}
 
 class GuidepupVoiceOverSession implements ScreenReaderSession {
-  constructor(private readonly voiceOver: GuidepupVoiceOverApi) {}
+  constructor(
+    private readonly voiceOver: GuidepupVoiceOverApi,
+    private readonly supportsRawPerform: boolean
+  ) {}
 
   async start(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.start(options);
@@ -154,7 +163,7 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
       resolveGuidepupPerformPayload(command, {
         resolveCatalog: (id) => resolveGuidepupVoiceOverPerformCommand(id, this.voiceOver.keyboardCommands),
         backendLabel: "Guidepup VoiceOver",
-        supportsRawPerform: true
+        supportsRawPerform: this.supportsRawPerform
       }),
       options
     );
@@ -198,7 +207,10 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
 }
 
 class GuidepupNVDASession implements ScreenReaderSession {
-  constructor(private readonly nvda: GuidepupNVDAApi) {}
+  constructor(
+    private readonly nvda: GuidepupNVDAApi,
+    private readonly supportsRawPerform: boolean
+  ) {}
 
   async start(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.start(options);
@@ -233,7 +245,7 @@ class GuidepupNVDASession implements ScreenReaderSession {
       resolveGuidepupPerformPayload(command, {
         resolveCatalog: (id) => resolveGuidepupNvdaPerformCommand(id, this.nvda.keyboardCommands),
         backendLabel: "Guidepup NVDA",
-        supportsRawPerform: true
+        supportsRawPerform: this.supportsRawPerform
       }),
       options
     );

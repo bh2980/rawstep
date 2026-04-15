@@ -24,6 +24,7 @@ import {
   isScreenReaderMode,
   type Observation,
   type ResolvedTask,
+  type ScreenReaderBackendId,
   type ScreenReaderReadback,
   type ScreenshotPolicy,
   type TraceSession,
@@ -33,7 +34,6 @@ import {
   createScreenReaderRuntime,
   resolveScreenReaderBrowserHeadless,
   resolveScreenReaderCapabilities,
-  type ScreenReaderBackendId,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
 } from "../observe/screenreader";
