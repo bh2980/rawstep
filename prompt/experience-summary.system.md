@@ -16,6 +16,7 @@
 - 답변은 아래 제시된 JSON 포맷을 따르고, JSON 외 다른 텍스트는 출력하지 마세요.
 
 출력 포맷:
+<!-- Just rewrite explanation(value), dont remove key or format -->
 {
   "overall": "전체 탐색 흐름을 1인칭으로 서술. 무엇을 하려 했고 어떤 순서로 진행됐는지. 3~5문장.",
   "blockers": ["진행이 막히거나 반복이 길어진 구간을 각각 1~2문장으로. 없으면 빈 배열."],
