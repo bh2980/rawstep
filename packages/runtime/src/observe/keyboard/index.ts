@@ -1,10 +1,10 @@
 import {
-  DEFAULT_VIEWPORT,
-  isScrollHint,
   type KeyboardObservation,
   type ScrollHint
 } from "@rawstep/core";
 import type { Page } from "playwright";
+import { DEFAULT_VIEWPORT } from "../../browser/constants";
+import { isScrollHint } from "./constants";
 
 export class KeyboardObserver {
   private previousScreenshotBase64?: string;

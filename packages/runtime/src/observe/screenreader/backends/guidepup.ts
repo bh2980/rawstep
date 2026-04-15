@@ -3,19 +3,19 @@ import { createRequire } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ExecutableScreenReaderAction } from "@rawstep/action-catalog";
 import {
+  type ScreenReaderClickOptions,
+  type ScreenReaderCommandOptions,
+  type ScreenReaderKeyboardOptions
+} from "@rawstep/action-catalog";
+import type { Page } from "playwright";
+import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
+import {
   getGuidepupNvdaCapabilities,
   getGuidepupVirtualCapabilities,
   getGuidepupVoiceOverCapabilities,
   resolveGuidepupNvdaPerformCommand,
   resolveGuidepupVoiceOverPerformCommand
 } from "./guidepup-capabilities";
-import type {
-  ClickOptions,
-  CommandOptions,
-  KeyboardOptions
-} from "@rawstep/core";
-import type { Page } from "playwright";
-import type { ScreenReaderBackend, ScreenReaderSession } from "../types";
 
 type GuidepupClickOptions = {
   button?: "left" | "right";
@@ -23,17 +23,17 @@ type GuidepupClickOptions = {
 };
 
 type GuidepupScreenReaderApi = {
-  start(options?: CommandOptions): Promise<void>;
-  stop(options?: CommandOptions): Promise<void>;
-  next(options?: CommandOptions): Promise<void>;
-  previous(options?: CommandOptions): Promise<void>;
-  act(options?: CommandOptions): Promise<void>;
-  interact(options?: CommandOptions): Promise<void>;
-  stopInteracting(options?: CommandOptions): Promise<void>;
-  perform(command: unknown, options?: CommandOptions): Promise<void>;
-  press(key: string, options?: KeyboardOptions): Promise<void>;
-  type(text: string, options?: KeyboardOptions): Promise<void>;
-  click(options?: GuidepupClickOptions & CommandOptions): Promise<void>;
+  start(options?: ScreenReaderCommandOptions): Promise<void>;
+  stop(options?: ScreenReaderCommandOptions): Promise<void>;
+  next(options?: ScreenReaderCommandOptions): Promise<void>;
+  previous(options?: ScreenReaderCommandOptions): Promise<void>;
+  act(options?: ScreenReaderCommandOptions): Promise<void>;
+  interact(options?: ScreenReaderCommandOptions): Promise<void>;
+  stopInteracting(options?: ScreenReaderCommandOptions): Promise<void>;
+  perform(command: unknown, options?: ScreenReaderCommandOptions): Promise<void>;
+  press(key: string, options?: ScreenReaderKeyboardOptions): Promise<void>;
+  type(text: string, options?: ScreenReaderKeyboardOptions): Promise<void>;
+  click(options?: GuidepupClickOptions & ScreenReaderCommandOptions): Promise<void>;
   itemText(): Promise<string>;
   lastSpokenPhrase(): Promise<string>;
   itemTextLog(): Promise<string[]>;
@@ -56,17 +56,17 @@ type GuidepupModule = {
 };
 
 type GuidepupVirtualAdapter = {
-  start(options?: CommandOptions): Promise<void>;
-  stop(options?: CommandOptions): Promise<void>;
-  next(options?: CommandOptions): Promise<void>;
-  previous(options?: CommandOptions): Promise<void>;
-  act(options?: CommandOptions): Promise<void>;
-  interact(options?: CommandOptions): Promise<void>;
-  stopInteracting(options?: CommandOptions): Promise<void>;
+  start(options?: ScreenReaderCommandOptions): Promise<void>;
+  stop(options?: ScreenReaderCommandOptions): Promise<void>;
+  next(options?: ScreenReaderCommandOptions): Promise<void>;
+  previous(options?: ScreenReaderCommandOptions): Promise<void>;
+  act(options?: ScreenReaderCommandOptions): Promise<void>;
+  interact(options?: ScreenReaderCommandOptions): Promise<void>;
+  stopInteracting(options?: ScreenReaderCommandOptions): Promise<void>;
   perform(action: Extract<ExecutableScreenReaderAction, { kind: "invoke"; method: "perform" }>): Promise<void>;
-  press(input: { key: string; options?: KeyboardOptions }): Promise<void>;
-  type(input: { text: string; options?: KeyboardOptions }): Promise<void>;
-  click(options?: ClickOptions): Promise<void>;
+  press(input: { key: string; options?: ScreenReaderKeyboardOptions }): Promise<void>;
+  type(input: { text: string; options?: ScreenReaderKeyboardOptions }): Promise<void>;
+  click(options?: ScreenReaderClickOptions): Promise<void>;
   itemText(): Promise<string>;
   lastSpokenPhrase(): Promise<string>;
   itemTextLog(): Promise<string[]>;
@@ -121,35 +121,35 @@ export const guidepupVirtualBackend: ScreenReaderBackend = {
 class GuidepupVoiceOverSession implements ScreenReaderSession {
   constructor(private readonly voiceOver: GuidepupVoiceOverApi) {}
 
-  async start(options?: CommandOptions): Promise<void> {
+  async start(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.start(options);
   }
 
-  async stop(options?: CommandOptions): Promise<void> {
+  async stop(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.stop(options);
   }
 
-  async next(options?: CommandOptions): Promise<void> {
+  async next(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.next(options);
   }
 
-  async previous(options?: CommandOptions): Promise<void> {
+  async previous(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.previous(options);
   }
 
-  async act(options?: CommandOptions): Promise<void> {
+  async act(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.act(options);
   }
 
-  async interact(options?: CommandOptions): Promise<void> {
+  async interact(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.interact(options);
   }
 
-  async stopInteracting(options?: CommandOptions): Promise<void> {
+  async stopInteracting(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.stopInteracting(options);
   }
 
-  async perform(command: unknown, options?: CommandOptions): Promise<void> {
+  async perform(command: unknown, options?: ScreenReaderCommandOptions): Promise<void> {
     await this.voiceOver.perform(
       resolveGuidepupPerformPayload(command, {
         resolveCatalog: (id) => resolveGuidepupVoiceOverPerformCommand(id, this.voiceOver.keyboardCommands),
@@ -160,15 +160,15 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
     );
   }
 
-  async press(key: string, options?: KeyboardOptions): Promise<void> {
+  async press(key: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await this.voiceOver.press(key, options);
   }
 
-  async type(text: string, options?: KeyboardOptions): Promise<void> {
+  async type(text: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await this.voiceOver.type(text, options);
   }
 
-  async click(options?: ClickOptions): Promise<void> {
+  async click(options?: ScreenReaderClickOptions): Promise<void> {
     await this.voiceOver.click(normalizeGuidepupClickOptions(options, "Guidepup VoiceOver"));
   }
 
@@ -200,35 +200,35 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
 class GuidepupNVDASession implements ScreenReaderSession {
   constructor(private readonly nvda: GuidepupNVDAApi) {}
 
-  async start(options?: CommandOptions): Promise<void> {
+  async start(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.start(options);
   }
 
-  async stop(options?: CommandOptions): Promise<void> {
+  async stop(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.stop(options);
   }
 
-  async next(options?: CommandOptions): Promise<void> {
+  async next(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.next(options);
   }
 
-  async previous(options?: CommandOptions): Promise<void> {
+  async previous(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.previous(options);
   }
 
-  async act(options?: CommandOptions): Promise<void> {
+  async act(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.act(options);
   }
 
-  async interact(options?: CommandOptions): Promise<void> {
+  async interact(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.interact(options);
   }
 
-  async stopInteracting(options?: CommandOptions): Promise<void> {
+  async stopInteracting(options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.stopInteracting(options);
   }
 
-  async perform(command: unknown, options?: CommandOptions): Promise<void> {
+  async perform(command: unknown, options?: ScreenReaderCommandOptions): Promise<void> {
     await this.nvda.perform(
       resolveGuidepupPerformPayload(command, {
         resolveCatalog: (id) => resolveGuidepupNvdaPerformCommand(id, this.nvda.keyboardCommands),
@@ -239,15 +239,15 @@ class GuidepupNVDASession implements ScreenReaderSession {
     );
   }
 
-  async press(key: string, options?: KeyboardOptions): Promise<void> {
+  async press(key: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await this.nvda.press(key, options);
   }
 
-  async type(text: string, options?: KeyboardOptions): Promise<void> {
+  async type(text: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await this.nvda.type(text, options);
   }
 
-  async click(options?: ClickOptions): Promise<void> {
+  async click(options?: ScreenReaderClickOptions): Promise<void> {
     await this.nvda.click(normalizeGuidepupClickOptions(options, "Guidepup NVDA"));
   }
 
@@ -279,31 +279,31 @@ class GuidepupNVDASession implements ScreenReaderSession {
 class GuidepupVirtualSession implements ScreenReaderSession {
   constructor(private readonly page: Page) {}
 
-  async start(options?: CommandOptions): Promise<void> {
+  async start(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "start", options);
   }
 
-  async stop(options?: CommandOptions): Promise<void> {
+  async stop(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "stop", options);
   }
 
-  async next(options?: CommandOptions): Promise<void> {
+  async next(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "next", options);
   }
 
-  async previous(options?: CommandOptions): Promise<void> {
+  async previous(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "previous", options);
   }
 
-  async act(options?: CommandOptions): Promise<void> {
+  async act(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "act", options);
   }
 
-  async interact(options?: CommandOptions): Promise<void> {
+  async interact(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "interact", options);
   }
 
-  async stopInteracting(options?: CommandOptions): Promise<void> {
+  async stopInteracting(options?: ScreenReaderCommandOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "stopInteracting", options);
   }
 
@@ -312,15 +312,15 @@ class GuidepupVirtualSession implements ScreenReaderSession {
     await callGuidepupVirtualAdapter(this.page, "perform", action);
   }
 
-  async press(key: string, options?: KeyboardOptions): Promise<void> {
+  async press(key: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "press", { key, options });
   }
 
-  async type(text: string, options?: KeyboardOptions): Promise<void> {
+  async type(text: string, options?: ScreenReaderKeyboardOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "type", { text, options });
   }
 
-  async click(options?: ClickOptions): Promise<void> {
+  async click(options?: ScreenReaderClickOptions): Promise<void> {
     await callGuidepupVirtualAdapter(this.page, "click", options);
   }
 
@@ -566,7 +566,7 @@ if (!globalThis[rawstepGuidepupVirtualAdapterKey]) {
 }
 
 function normalizeGuidepupClickOptions(
-  options: ClickOptions | undefined,
+  options: ScreenReaderClickOptions | undefined,
   backendLabel: string
 ): GuidepupClickOptions | undefined {
   if (options?.clickCount !== undefined && (options.clickCount < 1 || options.clickCount > 3)) {

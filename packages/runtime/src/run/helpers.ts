@@ -1,4 +1,9 @@
-import { formatScreenReaderIntent, type ScreenReaderActionPlan } from "@rawstep/action-catalog";
+import {
+  formatDecisionAction,
+  formatScreenReaderIntent,
+  type ScreenReaderActionPlan,
+  type ScreenReaderCapabilities
+} from "@rawstep/action-catalog";
 import type { BrowserSession } from "../browser";
 import {
   Action,
@@ -6,8 +11,6 @@ import {
   Decision,
   EndedBy,
   Observation,
-  formatDecisionAction as formatCoreDecisionAction,
-  ScreenReaderCapabilities,
   ScreenshotPolicy,
   UserModel,
   VerdictAnalysis
@@ -253,7 +256,7 @@ function formatActionForMemory(action: Action): string {
     return formatScreenReaderIntent(action.srAction);
   }
 
-  return formatCoreDecisionAction(action);
+  return formatDecisionAction(action);
 }
 
 function formatMemoryAction(decision: Decision): string {

@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import type { ScreenReaderCapabilities, ScreenReaderPerformCommand } from "@rawstep/core";
+import type { ScreenReaderCapabilities, ScreenReaderPerformCommand } from "@rawstep/action-catalog";
 
 const requireFromHere = createRequire(__filename);
 const guidepupPackageRoot = dirname(requireFromHere.resolve("@guidepup/guidepup/package.json"));

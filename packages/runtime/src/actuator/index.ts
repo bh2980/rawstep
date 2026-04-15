@@ -1,12 +1,14 @@
 import {
-  createEmptyKeyCounts,
-  isAllowedKey,
   type Action,
-  type AllowedKey,
   type ExecutionRecord,
   type ScreenReaderAction,
   type TaskInput
 } from "@rawstep/core";
+import {
+  createEmptyKeyCounts,
+  isAllowedKey,
+  type AllowedKey
+} from "@rawstep/action-catalog";
 import type { Page } from "playwright";
 import { resolveKeyboardPressKey } from "./keys";
 

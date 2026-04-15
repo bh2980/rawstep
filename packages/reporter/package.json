@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@rawstep/action-catalog": "workspace:*",
     "@rawstep/core": "workspace:*"
   }
 }

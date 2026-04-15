@@ -2,7 +2,9 @@ import type { Page } from "playwright";
 import {
   buildScreenReaderActionPlan,
   resolveExecutableScreenReaderAction,
-  type ExecutableScreenReaderAction
+  type ExecutableScreenReaderAction,
+  type ScreenReaderMaintenanceMethod,
+  type ScreenReaderReadMethod
 } from "@rawstep/action-catalog";
 import { createAnnouncementReader } from "./announcement";
 import {
@@ -219,7 +221,7 @@ async function executeScreenReaderAction(
 
 async function readScreenReaderValue(
   session: ScreenReaderSession,
-  method: import("@rawstep/core").ScreenReaderReadMethod
+  method: ScreenReaderReadMethod
 ): Promise<string | string[]> {
   switch (method) {
     case "itemText":
@@ -235,7 +237,7 @@ async function readScreenReaderValue(
 
 async function runScreenReaderMaintenance(
   session: ScreenReaderSession,
-  method: import("@rawstep/core").ScreenReaderMaintenanceMethod
+  method: ScreenReaderMaintenanceMethod
 ): Promise<void> {
   switch (method) {
     case "clearItemTextLog":

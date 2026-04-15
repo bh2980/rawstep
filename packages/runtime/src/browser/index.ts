@@ -1,5 +1,5 @@
-import { DEFAULT_VIEWPORT, SETTLE_MS } from "@rawstep/core";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants";
 
 export type NetworkRequestRecord = {
   url: string;

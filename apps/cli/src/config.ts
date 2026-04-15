@@ -6,12 +6,12 @@ import { Script } from "node:vm";
 import { config as loadDotenv } from "dotenv";
 import ts from "typescript";
 import {
+  type AllowedKey,
   buildKeyboardActionPlan,
   type KeyboardActionPlan,
   type KeyboardActionRef
 } from "@rawstep/action-catalog";
 import {
-  type AllowedKey,
   type UserModel
 } from "@rawstep/core";
 import {

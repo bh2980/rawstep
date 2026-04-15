@@ -1,13 +1,17 @@
 import type { ScreenReaderController } from "../../actuator";
 import type {
-  ClickOptions,
-  CommandOptions,
-  KeyboardOptions,
   ScreenReaderActionPlan,
   ScreenReaderCapabilities,
+  ScreenReaderClickOptions,
+  ScreenReaderCommandOptions,
+  ScreenReaderKeyboardOptions,
+} from "@rawstep/action-catalog";
+import {
+  SCREEN_READER_BACKEND_IDS
+} from "@rawstep/action-catalog";
+import type {
   ScreenReaderObservation
 } from "@rawstep/core";
-import { SCREEN_READER_BACKEND_IDS } from "@rawstep/action-catalog";
 import type { Page } from "playwright";
 
 export { SCREEN_READER_BACKEND_IDS };
@@ -15,17 +19,17 @@ export { SCREEN_READER_BACKEND_IDS };
 export type ScreenReaderBackendId = (typeof SCREEN_READER_BACKEND_IDS)[number];
 
 export type ScreenReaderSession = {
-  start(options?: CommandOptions): Promise<void>;
-  stop(options?: CommandOptions): Promise<void>;
-  next(options?: CommandOptions): Promise<void>;
-  previous(options?: CommandOptions): Promise<void>;
-  act(options?: CommandOptions): Promise<void>;
-  interact(options?: CommandOptions): Promise<void>;
-  stopInteracting(options?: CommandOptions): Promise<void>;
-  perform(command: unknown, options?: CommandOptions): Promise<void>;
-  press(key: string, options?: KeyboardOptions): Promise<void>;
-  type(text: string, options?: KeyboardOptions): Promise<void>;
-  click(options?: ClickOptions): Promise<void>;
+  start(options?: ScreenReaderCommandOptions): Promise<void>;
+  stop(options?: ScreenReaderCommandOptions): Promise<void>;
+  next(options?: ScreenReaderCommandOptions): Promise<void>;
+  previous(options?: ScreenReaderCommandOptions): Promise<void>;
+  act(options?: ScreenReaderCommandOptions): Promise<void>;
+  interact(options?: ScreenReaderCommandOptions): Promise<void>;
+  stopInteracting(options?: ScreenReaderCommandOptions): Promise<void>;
+  perform(command: unknown, options?: ScreenReaderCommandOptions): Promise<void>;
+  press(key: string, options?: ScreenReaderKeyboardOptions): Promise<void>;
+  type(text: string, options?: ScreenReaderKeyboardOptions): Promise<void>;
+  click(options?: ScreenReaderClickOptions): Promise<void>;
   lastSpokenPhrase(): Promise<string>;
   itemText(): Promise<string>;
   spokenPhraseLog(): Promise<string[]>;

@@ -4,7 +4,14 @@ import {
   SUPPORTED_KEY_LABELS
 } from "./generated";
 
+export {
+  DEFAULT_ALLOWED_KEYS,
+  SUPPORTED_KEYS,
+  SUPPORTED_KEY_LABELS
+};
+
 export type KeyboardSupportedKey = (typeof SUPPORTED_KEYS)[number];
+export type AllowedKey = KeyboardSupportedKey;
 export type KeyboardPromptToken = `key.${KeyboardSupportedKey}`;
 
 type KeyboardActionRefShape = {
@@ -155,6 +162,14 @@ export function formatKeyboardPromptToken(key: KeyboardSupportedKey): KeyboardPr
 
 export function isKeyboardSupportedKey(value: string): value is KeyboardSupportedKey {
   return (SUPPORTED_KEYS as readonly string[]).includes(value);
+}
+
+export function isAllowedKey(value: string): value is AllowedKey {
+  return isKeyboardSupportedKey(value);
+}
+
+export function createEmptyKeyCounts(): Record<AllowedKey, number> {
+  return Object.fromEntries(SUPPORTED_KEYS.map((key) => [key, 0])) as Record<AllowedKey, number>;
 }
 
 function buildKeyboardActionDescriptor(

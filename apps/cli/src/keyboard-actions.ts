@@ -1,11 +1,11 @@
 import {
+  type AllowedKey,
   buildKeyboardActionPlan,
   createKeyboardActionRef,
   parseKeyboardActionRefs,
   type KeyboardActionPlan,
   type KeyboardActionRef
 } from "@rawstep/action-catalog";
-import type { AllowedKey } from "@rawstep/core";
 import { KEYBOARD_HELPER_PATH_TO_KEY } from "@rawstep/action-catalog";
 import { buildNestedHelperTree, type ExpandDeep, type PathToTree, type UnionToIntersection } from "./helper-tree";
 

@@ -1,6 +1,6 @@
 import {
   type KeyboardActionDescriptor,
-  formatScreenReaderIntent,
+  type KeyboardSupportedKey,
   type PromptObjectSchema,
   type ScreenReaderActionDescriptor,
   type ScreenReaderActionPlan,
@@ -15,43 +15,10 @@ import {
   type ScreenReaderReadMethod,
   type ScreenReaderSemanticAction
 } from "@rawstep/action-catalog";
-import type {
-  AllowedKey,
-  ScreenReaderActionKind,
-  ScreenReaderInvokeMethod,
-  ScrollHint
-} from "./constants";
-
-export {
-  ALLOWED_KEYS,
-  DEFAULT_ALLOWED_KEYS,
-  DEFAULT_VIEWPORT,
-  SCREEN_READER_ACTION_KINDS,
-  SCREEN_READER_INVOKE_METHODS,
-  SCREEN_READER_READ_METHODS,
-  SCREEN_READER_MAINTENANCE_METHODS,
-  SETTLE_MS,
-  SCROLL_HINTS,
-  SUPPORTED_KEYS,
-  SUPPORTED_KEY_LABELS,
-  createEmptyKeyCounts,
-  isAllowedKey,
-  isScreenReaderInvokeMethod,
-  isScreenReaderReadMethod,
-  isScreenReaderMaintenanceMethod,
-  isScreenReaderActionKind,
-  isScrollHint
-} from "./constants";
-export type {
-  AllowedKey,
-  ScreenReaderActionKind,
-  ScreenReaderInvokeMethod,
-  ScreenReaderReadMethod,
-  ScreenReaderMaintenanceMethod,
-  ScrollHint
-} from "./constants";
 
 export type UserModel = "keyboard" | "screenreader-strict" | "screenreader-hybrid";
+export type AllowedKey = KeyboardSupportedKey;
+export type ScrollHint = "top" | "middle" | "bottom";
 
 export type RequestVerificationRule = {
   requestSeen: {
@@ -289,15 +256,3 @@ export type ScreenReaderReadback = {
   value?: string | string[];
   status?: "cleared";
 };
-
-export function formatDecisionAction(action: Action): string {
-  if ("key" in action) {
-    return `key(${action.key})`;
-  }
-
-  if ("typeText" in action) {
-    return `typeText(${action.typeText})`;
-  }
-
-  return formatScreenReaderIntent(action.srAction);
-}

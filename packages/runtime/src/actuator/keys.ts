@@ -1,4 +1,4 @@
-import type { AllowedKey } from "@rawstep/core";
+import type { AllowedKey } from "@rawstep/action-catalog";
 
 export function resolveKeyboardPressKey(
   key: AllowedKey,

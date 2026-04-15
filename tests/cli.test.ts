@@ -1,7 +1,7 @@
 import { loadTask, parseRunArgs, resolveRunOptions, runCli } from "../apps/cli/src";
 import { resolveExecutionPolicy } from "../apps/cli/src/execution-policy";
 import { loadTaskSource } from "../apps/cli/src/task-file";
-import { DEFAULT_ALLOWED_KEYS } from "@rawstep/core";
+import { DEFAULT_ALLOWED_KEYS } from "@rawstep/action-catalog";
 import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";

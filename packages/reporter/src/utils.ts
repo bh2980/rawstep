@@ -1,7 +1,7 @@
-import { formatDecisionAction, type Action } from "@rawstep/core";
+import { formatDecisionAction, type FormattableAction } from "@rawstep/action-catalog";
 import { posix } from "node:path";
 
-export function formatAction(action: Action): string {
+export function formatAction(action: FormattableAction): string {
   if ("key" in action) {
     return action.key;
   }

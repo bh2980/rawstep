@@ -1,5 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
-import type {
+import {
+  isAllowedKey,
+  SUPPORTED_KEY_LABELS,
+  type AllowedKey,
   KeyboardActionDescriptor,
   KeyboardActionPlan,
   KeyboardActionRef,
@@ -9,9 +12,6 @@ import type {
 } from "@rawstep/action-catalog";
 import { z } from "zod";
 import {
-  isAllowedKey,
-  type AllowedKey,
-  SUPPORTED_KEY_LABELS,
   type ScreenshotPolicy,
   type Task,
   type UserModel

@@ -2,6 +2,7 @@ import {
   buildKeyboardActionPlan,
   buildKeyboardDescriptorExampleSnippet,
   buildScreenReaderDescriptorExampleSnippet,
+  formatDecisionAction,
   formatScreenReaderIntent,
   type KeyboardActionDescriptor,
   type ScreenReaderActionDescriptor
@@ -11,7 +12,6 @@ import {
   type AgentContext,
   type AgentMemoryEntry,
   type Decision,
-  formatDecisionAction,
   type Observation,
   type StepRecord,
   type Task,
