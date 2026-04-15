@@ -444,6 +444,12 @@ describe("reporter", () => {
     expect(rationaleIndex).toBeLessThan(timeIndex);
     expect(html).toContain('"hasTimingDetails":true');
     expect(html).toContain("detail-subhead\">Announcement</div>");
+    expect(html).toContain("<strong>Capture</strong>");
+    expect(html).toContain("Phrase log");
+    expect(html).toContain("<strong>Count</strong>");
+    expect(html).toContain("1 phrase");
+    expect(html).toContain("<strong>Reason</strong>");
+    expect(html).toContain("Stopped after quiet period");
     expect(html).toContain('<div class="detail-block"><div class="detail-copy">');
     expect(html).not.toContain('<details class="timing-details">');
   });

@@ -57,7 +57,6 @@ import {
   MAX_VERIFICATION_RETRIES,
   verifyTask
 } from "../verify";
-import { ScreenReaderDebugRecorder } from "./screenreader-debug";
 
 export type RunTaskOptions = {
   outDir: string;
@@ -84,15 +83,12 @@ type RunCleanupHandles = {
 
 type RunResources = {
   task: ResolvedTask;
-  outDir: string;
   trace: TraceRecorder;
   deadline: number;
   screenshotPolicy: ScreenshotPolicy;
   maxVerificationRetries: number;
   verifierAutoComplete: boolean;
   browser: BrowserSession;
-  screenReaderRuntime?: ScreenReaderRuntime;
-  screenReaderDebug?: ScreenReaderDebugRecorder;
   observer: RunnerObserver;
   actuator: Actuator;
   agent: Agent;
@@ -232,17 +228,12 @@ async function initializeRunResources(
 
   return {
     task,
-    outDir: options.outDir,
     trace,
     deadline,
     screenshotPolicy: options.screenshotPolicy ?? "all",
     maxVerificationRetries: options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES,
     verifierAutoComplete: Boolean(options.verifierAutoComplete),
     browser: cleanup.browser,
-    screenReaderRuntime: cleanup.screenReaderRuntime,
-    screenReaderDebug: isScreenReaderMode(task.mode)
-      ? new ScreenReaderDebugRecorder(options.outDir, options.screenReaderBackendId)
-      : undefined,
     observer,
     actuator,
     agent,
@@ -266,7 +257,7 @@ async function executeStep(
   resources: RunResources,
   state: RunState
 ): Promise<StepResult> {
-  const builtContext = await buildAgentStepContext(step, resources, state);
+  const builtContext = await buildAgentStepContext(resources, state);
   const decideStartedAt = Date.now();
   const decision = await resources.agent.decide(builtContext.context, builtContext.observation);
   const decideMs = Date.now() - decideStartedAt;
@@ -300,25 +291,11 @@ async function executeStep(
 }
 
 async function buildAgentStepContext(
-  step: number,
   resources: RunResources,
   state: RunState
 ): Promise<BuiltAgentStepContext> {
-  await resources.screenReaderDebug?.capture({
-    step,
-    phase: "before-observe",
-    controller: resources.screenReaderRuntime?.controller
-  });
   const observeStartedAt = Date.now();
   const baseObservation = await resources.observer.observe();
-  if (baseObservation.kind === "screenreader") {
-    await resources.screenReaderDebug?.capture({
-      step,
-      phase: "after-observe",
-      controller: resources.screenReaderRuntime?.controller,
-      observation: baseObservation
-    });
-  }
   const observation = applyPendingScreenReaderReadbacks(
     baseObservation,
     state.pendingScreenReaderReadbacks
@@ -465,13 +442,6 @@ async function handleActionDecision(
         ...createScreenReaderReadbacks(execution)
       ];
     }
-    await resources.screenReaderDebug?.capture({
-      step,
-      phase: "after-action",
-      controller: resources.screenReaderRuntime?.controller,
-      action: decision.action,
-      execution
-    });
 
     const shouldCheckVerifierAutoComplete = Boolean(
       resources.verifierAutoComplete
@@ -634,7 +604,7 @@ function recordAgentMemoryEntry(
 async function finalizeRun(
   task: ResolvedTask,
   trace: TraceRecorder,
-  resources: Pick<RunResources, "agent" | "screenReaderDebug"> | undefined,
+  resources: Pick<RunResources, "agent"> | undefined,
   cleanup: RunCleanupHandles,
   state: RunState
 ): Promise<TraceSession> {
@@ -646,7 +616,6 @@ async function finalizeRun(
   }
 
   const session = await trace.finalize(state.endedBy ?? "error", state.failureReasonOverride);
-  await resources?.screenReaderDebug?.persist();
   if (resources?.agent.summarizeExperience) {
     try {
       const experienceSummary = await resources.agent.summarizeExperience({

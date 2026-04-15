@@ -49,6 +49,9 @@ type StepViewModel = {
     | {
         kind: "screenreader";
         announcement: string | null;
+        capture: string;
+        count: string | null;
+        reason: string | null;
       };
 };
 
@@ -1324,6 +1327,15 @@ export function renderHtml(session: TraceSession): string {
         observation += '<div class="detail-subhead">Announcement</div>' + (step.observation.announcement
           ? '<div class="detail-announcement">' + esc(step.observation.announcement) + '</div>'
           : '<div class="detail-muted">No announcement</div>');
+        observation += '<div class="detail-kv">' +
+          '<div class="detail-kv-row"><strong>Capture</strong><div class="detail-copy">' + esc(step.observation.capture) + '</div></div>' +
+          (step.observation.count
+            ? '<div class="detail-kv-row"><strong>Count</strong><div class="detail-copy">' + esc(step.observation.count) + '</div></div>'
+            : '') +
+          (step.observation.reason
+            ? '<div class="detail-kv-row"><strong>Reason</strong><div class="detail-copy">' + esc(step.observation.reason) + '</div></div>'
+            : '') +
+        '</div>';
       } else if (!step.screenshotPath) {
         observation += '<div class="detail-muted">No screenshot</div>';
       }
@@ -1733,6 +1745,9 @@ function buildStepViewModel(
         : {
             kind: "screenreader",
             announcement: step.observation.announcement || null,
+            capture: formatAnnouncementCapture(step.observation.announcementCapture),
+            count: formatAnnouncementCount(step.observation.announcementCount),
+            reason: formatObserveReason(step.observation.observeReason),
           },
   };
 }
@@ -1818,6 +1833,40 @@ function firstFailure(step: StepRecord): string | null {
 
 function hasMeaningfulTimings(timings: StepRecord["timings"]): boolean {
   return timings.observeMs > 0 || timings.decideMs > 0 || timings.executeMs > 0 || timings.verifyMs > 0;
+}
+
+function formatAnnouncementCapture(capture: Extract<StepRecord["observation"], { kind: "screenreader" }>["announcementCapture"]): string {
+  switch (capture) {
+    case "log":
+      return "Phrase log";
+    case "fallback":
+      return "Last spoken phrase fallback";
+    case "none":
+      return "No capture";
+  }
+}
+
+function formatAnnouncementCount(count: number | undefined): string | null {
+  if (typeof count !== "number") {
+    return null;
+  }
+
+  return count === 1 ? "1 phrase" : `${count} phrases`;
+}
+
+function formatObserveReason(
+  reason: Extract<StepRecord["observation"], { kind: "screenreader" }>["observeReason"]
+): string | null {
+  switch (reason) {
+    case "silence":
+      return "Stopped after quiet period";
+    case "timeout":
+      return "Stopped at timeout";
+    case "fallback":
+      return "Used fallback value";
+    default:
+      return null;
+  }
 }
 
 function formatDuration(ms: number): string {
