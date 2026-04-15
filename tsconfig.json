@@ -10,5 +10,6 @@
       "@rawstep/runtime": ["./packages/runtime/src"],
       "@rawstep/reporter": ["./packages/reporter/src"]
     }
-  }
+  },
+  "include": ["./.env.d.ts", "./rawstep.config.ts"]
 }

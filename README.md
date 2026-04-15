@@ -28,32 +28,14 @@ axe-core, Lighthouse와 같은 기존 도구는 DOM을 스캔해 **규칙 위반
 ```bash
 pnpm install
 pnpm build
-
-cat > rawstep.config.ts <<'TS'
-import { defineConfig } from "@rawstep/config";
-
-export default defineConfig({
-  version: 1,
-  defaults: {
-    provider: "openai-compatible",
-    model: "openrouter/auto",
-    baseURL: "https://openrouter.ai/api/v1"
-  },
-  modes: {
-    keyboard: {
-      outDir: "./.rawstep/out/keyboard",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      memory: 5
-    }
-  }
-});
-TS
-
-export AI_API_KEY=your-key
+cp .env.sample .env
+# .env 에서 AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_BASE_URL 값을 채운다
 pnpm rawstep run examples/tasks/simple-cta.json
 open ./.rawstep/out/keyboard/report/index.html
 ```
+
+이 repo에는 바로 실행 가능한 기본 [rawstep.config.ts](/Users/bh2980/Desktop/a11y/rawstep.config.ts:1)가 포함되어 있습니다.
+처음에는 `rawstep.config.ts`를 새로 만들기보다 `.env.sample`을 복사해서 `.env`만 채우면 됩니다.
 
 screenreader 모드는 OS 접근성 권한이 필요합니다. backend에 따라 headed 브라우저가 필요할 수 있습니다.
 
@@ -320,13 +302,13 @@ pnpm rawstep run examples/tasks/simple-cta.json \
 # Anthropic
 export AI_PROVIDER=anthropic
 export AI_API_KEY=your-key
-export AI_MODEL=claude-3-5-sonnet-latest
+export AI_MODEL=your-model-id
 
 # OpenAI-compatible (OpenRouter, vLLM, LM Studio 등)
 export AI_PROVIDER=openai-compatible
 export AI_API_KEY=your-key
-export AI_MODEL=openrouter/auto
-export AI_BASE_URL=https://openrouter.ai/api/v1
+export AI_MODEL=your-model-id
+export AI_BASE_URL=https://your-openai-compatible-base-url
 ```
 
 provider 값 fallback 순서:
