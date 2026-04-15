@@ -30,6 +30,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { clearPromptTemplateCache, loadPromptTemplates } from "../packages/agent/src/prompt-loader";
+import { buildExperienceSummaryPromptText } from "../packages/agent/src/prompt";
 
 const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_CWD = process.cwd();
@@ -384,14 +385,63 @@ describe("agent helpers", () => {
 
   it("parses a valid experience summary JSON payload", () => {
     const summary = parseExperienceSummary(
-      '{"overall":"The run completed.","biggestFriction":"The initial guidance was weak.","nextChecks":["Check the initial guidance.","Check the post-action feedback.","Extra"]}'
+      '{"overall":"I completed the task after a short scan.","blockers":["I spent one extra step rechecking the main action.","I revisited the result area before finishing.","","  "],"surprise":"The confirmation appeared faster than I expected.","oneLineFeel":"Short run with one brief detour."}'
     );
 
     expect(summary).toEqual({
-      overall: "The run completed.",
-      biggestFriction: "The initial guidance was weak.",
-      nextChecks: ["Check the initial guidance.", "Check the post-action feedback."]
+      overall: "I completed the task after a short scan.",
+      blockers: [
+        "I spent one extra step rechecking the main action.",
+        "I revisited the result area before finishing."
+      ],
+      surprise: "The confirmation appeared faster than I expected.",
+      oneLineFeel: "Short run with one brief detour."
     });
+  });
+
+  it("builds experience summary prompts with the current summary contract only", () => {
+    const prompt = buildExperienceSummaryPromptText(
+      {
+        id: "summary-task",
+        url: "file:///summary-task.html",
+        goal: "Summarize the run.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 1000,
+        verify: {
+          all: [{ titleIncludes: "summary-task" }]
+        }
+      },
+      {
+        result: "success",
+        totalSteps: 1,
+        durationMs: 1000,
+        timings: {
+          setupMs: 1,
+          browserLaunchMs: 1,
+          pageLoadMs: 1,
+          screenReaderInitMs: 0,
+          firstAnnouncementWaitMs: 0,
+          reportMs: 0
+        },
+        actionCounts: {
+          srInvokeCount: 0,
+          srReadCount: 0,
+          srMaintenanceCount: 0,
+          rawKeyCount: 1,
+          typeTextCount: 0
+        },
+        terminatedAtStep: 1,
+        endedBy: "success"
+      },
+      []
+    );
+
+    expect(prompt).toContain("blockers:");
+    expect(prompt).toContain("surprise:");
+    expect(prompt).toContain("oneLineFeel:");
+    expect(prompt).not.toContain("biggestFriction");
+    expect(prompt).not.toContain("nextChecks");
   });
 
   it("treats malformed parameterized actions as malformed", () => {

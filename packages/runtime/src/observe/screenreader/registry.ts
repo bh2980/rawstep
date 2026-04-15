@@ -5,7 +5,6 @@ import type {
 import {
   SCREEN_READER_BACKEND_IDS,
   backendSupportsPlatform,
-  backendSupportsRawPerform,
   findBackendSpecById,
   formatQuotedScreenReaderBackendIdList,
   getBackendBrowserPolicy,
@@ -58,15 +57,13 @@ const BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATION_FACTORIES = {
   "guidepup-virtual": createGuidepupVirtualBackendImplementation
 } as const satisfies Record<
   ScreenReaderBackendId,
-  (options: { supportsRawPerform: boolean }) => ScreenReaderBackendImplementation
+  () => ScreenReaderBackendImplementation
 >;
 
 const BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATIONS_BY_ID = Object.fromEntries(
   SCREEN_READER_BACKEND_IDS.map((id) => [
     id,
-    BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATION_FACTORIES[id]({
-      supportsRawPerform: backendSupportsRawPerform(id)
-    })
+    BUILTIN_SCREEN_READER_BACKEND_IMPLEMENTATION_FACTORIES[id]()
   ])
 ) as Record<ScreenReaderBackendId, ScreenReaderBackendImplementation>;
 

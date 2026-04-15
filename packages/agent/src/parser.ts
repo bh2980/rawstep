@@ -171,27 +171,38 @@ function hasUnexpectedKeys(candidate: Record<string, unknown>, allowedKeys: read
 export function parseExperienceSummary(raw: string): ExperienceSummary {
   const candidate = JSON.parse(extractJsonObject(raw)) as {
     overall?: unknown;
-    biggestFriction?: unknown;
-    nextChecks?: unknown;
+    blockers?: unknown;
+    surprise?: unknown;
+    oneLineFeel?: unknown;
   };
 
   if (
     typeof candidate.overall !== "string"
-    || typeof candidate.biggestFriction !== "string"
-    || !Array.isArray(candidate.nextChecks)
+    || !Array.isArray(candidate.blockers)
+    || !(typeof candidate.surprise === "string" || candidate.surprise === null)
+    || typeof candidate.oneLineFeel !== "string"
   ) {
     throw new Error("agent returned malformed experience summary");
   }
 
-  const nextChecks = candidate.nextChecks
+  const overall = candidate.overall.trim();
+  const oneLineFeel = candidate.oneLineFeel.trim();
+  const blockers = candidate.blockers
     .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     .map((item) => item.trim())
-    .slice(0, 2);
+    .slice(0, 5);
+
+  const surprise = candidate.surprise === null ? null : candidate.surprise.trim();
+
+  if (!overall || !oneLineFeel || (surprise !== null && !surprise)) {
+    throw new Error("agent returned malformed experience summary");
+  }
 
   return {
-    overall: candidate.overall.trim(),
-    biggestFriction: candidate.biggestFriction.trim(),
-    nextChecks
+    overall,
+    blockers,
+    surprise,
+    oneLineFeel
   };
 }
 

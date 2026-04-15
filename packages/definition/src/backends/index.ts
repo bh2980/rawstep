@@ -12,13 +12,7 @@ export {
   parseScreenReaderBackendId,
 } from "./source";
 export {
-  getGuidepupNvdaCapabilities,
-  getGuidepupVirtualCapabilities,
-  getGuidepupVoiceOverCapabilities,
   getScreenReaderBackendCapabilities,
-  resolveGuidepupNvdaPerformCommand,
-  resolveGuidepupVirtualPerformCommand,
-  resolveGuidepupVoiceOverPerformCommand,
 } from "./capabilities";
 export type {
   NamedScreenReaderBackendSpec,

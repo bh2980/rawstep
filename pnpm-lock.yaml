@@ -85,12 +85,6 @@ importers:
 
   packages/definition:
     dependencies:
-      '@guidepup/guidepup':
-        specifier: ^0.24.1
-        version: 0.24.1
-      '@guidepup/virtual-screen-reader':
-        specifier: ^0.32.1
-        version: 0.32.1
       '@rawstep/action-catalog':
         specifier: workspace:*
         version: link:../action-catalog

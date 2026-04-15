@@ -124,4 +124,5 @@ export type TraceSession = {
   steps: StepRecord[];
   aggregate: TraceAggregate;
   experienceSummary?: import("../agent").ExperienceSummary;
+  experienceSummaryError?: string;
 };

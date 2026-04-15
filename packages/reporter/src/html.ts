@@ -8,6 +8,9 @@ export function renderHtml(session: TraceSession): string {
   const experienceSummaryHtml = session.experienceSummary
     ? renderExperienceSummary(session.experienceSummary)
     : "";
+  const experienceSummaryErrorHtml = !session.experienceSummary && session.experienceSummaryError
+    ? `<p class="failure">Experience summary unavailable: ${escapeHtml(session.experienceSummaryError)}</p>`
+    : "";
   const failureHtml = session.aggregate.failurePoint
     ? `<p class="failure">Failure point: step ${session.aggregate.failurePoint.stepIndex} - ${escapeHtml(session.aggregate.failurePoint.reason)}</p>`
     : "";
@@ -120,6 +123,7 @@ export function renderHtml(session: TraceSession): string {
         <p><strong>${escapeHtml(session.task.id)}</strong> - ${escapeHtml(session.task.goal)}</p>
         <p>Result: <code>${escapeHtml(session.aggregate.result)}</code>. Ended by <code>${escapeHtml(session.aggregate.endedBy)}</code>.</p>
         ${failureHtml}
+        ${experienceSummaryErrorHtml}
         ${experienceSummaryHtml}
         <div class="summary">
           <div class="summary-card">

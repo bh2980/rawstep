@@ -5,6 +5,7 @@ import {
   backendSupportsRawPerform,
   formatScreenReaderBackendIdList,
   getBackendBrowserPolicy,
+  getScreenReaderBackendCapabilities,
   parseScreenReaderBackendId,
 } from "@rawstep/definition";
 import { describe, expect, it } from "vitest";
@@ -57,5 +58,15 @@ describe("backend definitions", () => {
       defaultHeadless: true,
       headlessAllowed: true
     });
+  });
+
+  it("returns backend capability snapshots from the centralized definition layer", () => {
+    const voiceOver = getScreenReaderBackendCapabilities("guidepup-voiceover");
+    const virtual = getScreenReaderBackendCapabilities("guidepup-virtual");
+
+    expect(voiceOver.invoke.supportsRawPerform).toBe(true);
+    expect(voiceOver.performCatalog[0]?.id).toBeTruthy();
+    expect(virtual.invoke.supportsRawPerform).toBe(false);
+    expect(virtual.performCatalog.some((command) => command.id === "commands.moveToNextHeading")).toBe(true);
   });
 });

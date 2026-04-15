@@ -628,8 +628,12 @@ async function finalizeRun(
       });
       session.experienceSummary = experienceSummary;
       trace.setExperienceSummary(experienceSummary);
-    } catch {
-      // Summary generation is optional and should not fail the run.
+    } catch (error) {
+      trace.setExperienceSummaryError(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Experience summary generation failed."
+      );
     }
   }
 

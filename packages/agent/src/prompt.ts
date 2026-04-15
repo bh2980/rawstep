@@ -155,9 +155,10 @@ export function buildExperienceSummaryPromptText(
     `aggregate: ${JSON.stringify(aggregate)}`,
     `steps: ${JSON.stringify(buildSummaryStepsForPrompt(steps))}`,
     "Summarize the run in terms of experience only.",
-    "overall: what the run felt like end-to-end.",
-    "biggestFriction: the single biggest friction in the run.",
-    "nextChecks: up to 2 concrete things a developer should inspect next.",
+    "overall: what I tried and how the run progressed end-to-end in first person.",
+    "blockers: an array of moments where progress stalled or repeated. Use [] when none.",
+    "surprise: one moment that felt notably different from expectation. Use null when none.",
+    "oneLineFeel: a single-sentence description of the overall feel of the run.",
     "Do not infer DOM structure or accessibility violations."
   ].join("\n");
 }

@@ -52,8 +52,9 @@ export type AgentContext = {
 
 export type ExperienceSummary = {
   overall: string;
-  biggestFriction: string;
-  nextChecks: string[];
+  blockers: string[];
+  surprise: string | null;
+  oneLineFeel: string;
 };
 
 export interface Agent {

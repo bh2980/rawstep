@@ -132,6 +132,13 @@ export class TraceRecorder {
   setExperienceSummary(experienceSummary: ExperienceSummary): void {
     if (this.session) {
       this.session.experienceSummary = experienceSummary;
+      delete this.session.experienceSummaryError;
+    }
+  }
+
+  setExperienceSummaryError(error: string): void {
+    if (this.session) {
+      this.session.experienceSummaryError = error;
     }
   }
 

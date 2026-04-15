@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ExecutableScreenReaderAction } from "@rawstep/action-catalog";
 import {
@@ -8,11 +9,7 @@ import {
   type ScreenReaderKeyboardOptions
 } from "@rawstep/action-catalog";
 import {
-  getGuidepupNvdaCapabilities,
-  getGuidepupVirtualCapabilities,
-  getGuidepupVoiceOverCapabilities,
-  resolveGuidepupNvdaPerformCommand,
-  resolveGuidepupVoiceOverPerformCommand
+  getScreenReaderBackendCapabilities
 } from "@rawstep/definition";
 import type { Page } from "playwright";
 import type { ScreenReaderBackendImplementation, ScreenReaderSession } from "../types";
@@ -78,46 +75,40 @@ type GuidepupVirtualAdapter = {
 const GUIDEPUP_VIRTUAL_ADAPTER_GLOBAL = "__rawstepGuidepupVirtualAdapter";
 const requireFromHere = createRequire(__filename);
 const GUIDEPUP_VIRTUAL_BROWSER_BUNDLE_PATH = requireFromHere.resolve("@guidepup/virtual-screen-reader/browser.js");
+const guidepupPackageRoot = dirname(requireFromHere.resolve("@guidepup/guidepup/package.json"));
+const voiceOverCommanderCommands = requireFromHere(
+  join(guidepupPackageRoot, "lib/macOS/VoiceOver/CommanderCommands.js")
+).CommanderCommands as Record<string, string>;
 const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_TIMEOUT_MS = 1_000;
 const GUIDEPUP_VIRTUAL_ADAPTER_INSTALL_POLL_MS = 10;
 
 let guidepupVirtualAdapterScriptPromise: Promise<string> | undefined;
 
-export function createGuidepupVoiceOverBackendImplementation(options: {
-  supportsRawPerform: boolean;
-}): ScreenReaderBackendImplementation {
+export function createGuidepupVoiceOverBackendImplementation(): ScreenReaderBackendImplementation {
+  const capabilities = getScreenReaderBackendCapabilities("guidepup-voiceover");
   return {
-    capabilities: getGuidepupVoiceOverCapabilities({
-      supportsRawPerform: options.supportsRawPerform
-    }),
+    capabilities,
     async createSession(_page: Page): Promise<ScreenReaderSession> {
       const { voiceOver } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
-      return new GuidepupVoiceOverSession(voiceOver, options.supportsRawPerform);
+      return new GuidepupVoiceOverSession(voiceOver, capabilities.invoke.supportsRawPerform);
     }
   };
 }
 
-export function createGuidepupNvdaBackendImplementation(options: {
-  supportsRawPerform: boolean;
-}): ScreenReaderBackendImplementation {
+export function createGuidepupNvdaBackendImplementation(): ScreenReaderBackendImplementation {
+  const capabilities = getScreenReaderBackendCapabilities("guidepup-nvda");
   return {
-    capabilities: getGuidepupNvdaCapabilities({
-      supportsRawPerform: options.supportsRawPerform
-    }),
+    capabilities,
     async createSession(_page: Page): Promise<ScreenReaderSession> {
       const { nvda } = await import("@guidepup/guidepup") as unknown as GuidepupModule;
-      return new GuidepupNVDASession(nvda, options.supportsRawPerform);
+      return new GuidepupNVDASession(nvda, capabilities.invoke.supportsRawPerform);
     }
   };
 }
 
-export function createGuidepupVirtualBackendImplementation(options: {
-  supportsRawPerform: boolean;
-}): ScreenReaderBackendImplementation {
+export function createGuidepupVirtualBackendImplementation(): ScreenReaderBackendImplementation {
   return {
-    capabilities: getGuidepupVirtualCapabilities({
-      supportsRawPerform: options.supportsRawPerform
-    }),
+    capabilities: getScreenReaderBackendCapabilities("guidepup-virtual"),
     async createSession(page: Page): Promise<ScreenReaderSession> {
       return new GuidepupVirtualSession(page);
     }
@@ -593,6 +584,32 @@ function normalizeGuidepupClickOptions(
     button: options?.button,
     clickCount: options?.clickCount as 1 | 2 | 3 | undefined
   };
+}
+
+function resolveGuidepupVoiceOverPerformCommand(
+  id: string,
+  keyboardCommands: Record<string, unknown>
+): unknown {
+  if (id.startsWith("keyboard.")) {
+    return keyboardCommands[id.slice("keyboard.".length)];
+  }
+
+  if (id.startsWith("commander.")) {
+    return voiceOverCommanderCommands[id.slice("commander.".length)];
+  }
+
+  return undefined;
+}
+
+function resolveGuidepupNvdaPerformCommand(
+  id: string,
+  keyboardCommands: Record<string, unknown>
+): unknown {
+  if (!id.startsWith("keyboard.")) {
+    return undefined;
+  }
+
+  return keyboardCommands[id.slice("keyboard.".length)];
 }
 
 function resolveGuidepupPerformPayload(

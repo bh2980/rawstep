@@ -448,8 +448,9 @@ describe("runTask", () => {
         seenSummaryStepCounts.push(input.steps.length);
         return {
           overall: `Recorded ${recordedMemoryValues.length} steps.`,
-          biggestFriction: "Navigation took more than one step.",
-          nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
+          blockers: ["Navigation took more than one step."],
+          surprise: "The task needed one extra pass before stopping.",
+          oneLineFeel: "Short run with one repeated navigation step."
         };
       },
       decide: async (ctx: { memory: unknown[] }) => {
@@ -489,9 +490,44 @@ describe("runTask", () => {
     expect(seenSummaryStepCounts).toEqual([3]);
     expect(session.experienceSummary).toEqual({
       overall: "Recorded 3 steps.",
-      biggestFriction: "Navigation took more than one step.",
-      nextChecks: ["Check the initial guidance.", "Check the interaction feedback."]
+      blockers: ["Navigation took more than one step."],
+      surprise: "The task needed one extra pass before stopping.",
+      oneLineFeel: "Short run with one repeated navigation step."
     });
+  });
+
+  it("records a non-fatal experience summary error when summary generation fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-summary-error-"));
+    const session = await runTask(
+      {
+        id: "summary-error",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Trigger a summary failure without failing the run.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        agent: {
+          async decide() {
+            return {
+              verdict: "stuck",
+              rationale: "Stop after the first turn."
+            };
+          },
+          async summarizeExperience() {
+            throw new Error("summary parser mismatch");
+          }
+        }
+      }
+    );
+
+    expect(session.experienceSummary).toBeUndefined();
+    expect(session.experienceSummaryError).toBe("summary parser mismatch");
   });
 
   it("feeds verification failure back into the next agent turn", async () => {

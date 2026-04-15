@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Email Login Fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: sans-serif; padding: 32px; }
+      form { display: grid; gap: 12px; max-width: 420px; }
+      .status { margin-top: 16px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <a href="#help">Help</a>
+    <a href="#updates">Product updates</a>
+    <h1>Email Login Fixture</h1>
+    <form id="login-form">
+      <label>
+        Email
+        <input id="email" name="email" type="email" autocomplete="email" />
+      </label>
+      <label>
+        <input id="remember" name="remember" type="checkbox" />
+        Remember this device
+      </label>
+      <button id="submit" type="submit">Send magic link</button>
+    </form>
+    <div id="status" class="status" hidden aria-live="polite"></div>
+    <script>
+      const form = document.getElementById("login-form");
+      const email = document.getElementById("email");
+      const status = document.getElementById("status");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.title = "Completed - Email Login Fixture";
+        status.hidden = false;
+        status.textContent = "Magic link sent. " + email.value;
+      });
+    </script>
+  </body>
+</html>

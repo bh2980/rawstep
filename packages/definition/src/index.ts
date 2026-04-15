@@ -18,17 +18,11 @@ export {
   findBackendSpecById,
   formatQuotedScreenReaderBackendIdList,
   formatScreenReaderBackendIdList,
-  getGuidepupNvdaCapabilities,
-  getGuidepupVirtualCapabilities,
-  getGuidepupVoiceOverCapabilities,
   getScreenReaderBackendCapabilities,
   getBackendBrowserPolicy,
   isScreenReaderBackendId,
   listBackendSpecs,
   parseScreenReaderBackendId,
-  resolveGuidepupNvdaPerformCommand,
-  resolveGuidepupVirtualPerformCommand,
-  resolveGuidepupVoiceOverPerformCommand,
 } from "./backends";
 export type {
   NamedScreenReaderBackendSpec,

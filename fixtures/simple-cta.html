@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Simple CTA Fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: sans-serif; padding: 32px; }
+      .status { margin-top: 16px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <a href="#main">Skip to main content</a>
+    <main id="main">
+      <h1>Simple CTA Fixture</h1>
+      <p>Use the main call to action to continue.</p>
+      <button id="start">Get started</button>
+      <p id="result" class="status" hidden aria-live="polite"></p>
+    </main>
+    <script>
+      const button = document.getElementById("start");
+      const result = document.getElementById("result");
+      button.addEventListener("click", () => {
+        document.title = "Completed - Simple CTA Fixture";
+        result.hidden = false;
+        result.textContent = "Started!";
+      });
+    </script>
+  </body>
+</html>

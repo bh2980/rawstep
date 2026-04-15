@@ -404,8 +404,9 @@ describe("reporter", () => {
         },
         experienceSummary: {
           overall: "The run finished directly.",
-          biggestFriction: "The initial direction was slightly unclear.",
-          nextChecks: ["Check the initial guidance.", "Check the feedback after interaction."]
+          blockers: ["The initial direction was slightly unclear."],
+          surprise: "The feedback appeared immediately after the action.",
+          oneLineFeel: "Direct run with one small hesitation."
         }
       } satisfies TraceSession,
       outDir
@@ -414,7 +415,57 @@ describe("reporter", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("Experience summary");
     expect(html).toContain("The run finished directly.");
-    expect(html).toContain("Check the initial guidance.");
+    expect(html).toContain("The initial direction was slightly unclear.");
+    expect(html).toContain("Direct run with one small hesitation.");
+  });
+
+  it("renders an experience summary warning when summary generation fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-summary-error-"));
+    const reportPath = await renderReport(
+      {
+        task: {
+          id: "summary-error-task",
+          url: "file:///summary-error-task.html",
+          goal: "Render a summary warning.",
+          mode: "keyboard",
+          maxSteps: 1,
+          timeoutMs: 1000,
+          verify: {
+            all: [{ titleIncludes: "summary-error-task" }]
+          }
+        },
+        startedAt: "2026-04-12T00:00:00.000Z",
+        endedAt: "2026-04-12T00:00:01.000Z",
+        steps: [],
+        aggregate: {
+          result: "success",
+          totalSteps: 0,
+          durationMs: 1000,
+          timings: {
+            setupMs: 10,
+            browserLaunchMs: 1,
+            pageLoadMs: 2,
+            screenReaderInitMs: 0,
+            firstAnnouncementWaitMs: 0,
+            reportMs: 0
+          },
+          actionCounts: {
+            srInvokeCount: 0,
+            srReadCount: 0,
+            srMaintenanceCount: 0,
+            rawKeyCount: 0,
+            typeTextCount: 0
+          },
+          terminatedAtStep: null,
+          endedBy: "success"
+        },
+        experienceSummaryError: "summary parser mismatch"
+      } satisfies TraceSession,
+      outDir
+    );
+
+    const html = await readFile(reportPath, "utf8");
+    expect(html).toContain("Experience summary unavailable: summary parser mismatch");
   });
 
   it("publishes CLI-facing output files and summary text", async () => {

@@ -68,15 +68,19 @@ export function renderActionCounts(actionCounts: TraceSession["aggregate"]["acti
 }
 
 export function renderExperienceSummary(experienceSummary: NonNullable<TraceSession["experienceSummary"]>): string {
-  const nextChecks = experienceSummary.nextChecks.length > 0
-    ? `<ul>${experienceSummary.nextChecks.map((check) => `<li>${escapeHtml(check)}</li>`).join("")}</ul>`
-    : "<p>No follow-up checks suggested.</p>";
+  const blockers = experienceSummary.blockers.length > 0
+    ? `<ul>${experienceSummary.blockers.map((blocker) => `<li>${escapeHtml(blocker)}</li>`).join("")}</ul>`
+    : "<p>No blockers recorded.</p>";
+  const surprise = experienceSummary.surprise
+    ? `<p><strong>Surprise:</strong> ${escapeHtml(experienceSummary.surprise)}</p>`
+    : "<p><strong>Surprise:</strong> none recorded.</p>";
 
   return `<section>
     <h2>Experience summary</h2>
     <p>${escapeHtml(experienceSummary.overall)}</p>
-    <p><strong>Biggest friction:</strong> ${escapeHtml(experienceSummary.biggestFriction)}</p>
-    <div><strong>Next checks</strong>${nextChecks}</div>
+    <div><strong>Blockers</strong>${blockers}</div>
+    ${surprise}
+    <p><strong>One-line feel:</strong> ${escapeHtml(experienceSummary.oneLineFeel)}</p>
   </section>`;
 }
 
