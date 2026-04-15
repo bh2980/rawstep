@@ -164,13 +164,13 @@ describe("Actuator", () => {
       .fn()
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce({
-        expected: "traveler@example.com",
         observed: "traveler@example.com",
-        verified: true,
-        fieldLabel: "Email",
-        fieldRole: "email",
+        role: "email",
+        label: "Email",
+        labelledByText: "",
+        labelsText: "",
+        placeholder: undefined,
         isSensitive: false,
-        syntheticAnnouncement: "Email, traveler@example.com"
       });
     const actuator = new Actuator(
       {
