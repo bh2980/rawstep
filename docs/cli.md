@@ -1,47 +1,21 @@
-# CLI 문서
+# RawStep CLI
 
-RawStep CLI의 기본 명령은 아래와 같습니다.
+---
+
+## 빠른 시작
 
 ```bash
-rawstep run <task-file> [options...]
+# 1. LLM provider 설정
+export AI_PROVIDER=anthropic
+export AI_API_KEY=<your-key>
+export AI_MODEL=<your-model>
+# export AI_BASE_URL=<your-base-url> // when openai provider
+
+# 2. task 실행
+pnpm rawstep run examples/tasks/simple-cta.json
 ```
 
-쉽게 말하면:
-
-- task 파일이 기본 입력
-- config는 프로젝트 기본값
-- CLI 플래그는 이번 실행에서만 강제로 덮어쓰기
-
-관련 문서:
-
-- task 구조는 [task.md](./task.md)
-- config 우선순위와 mode preset은 [config.md](./config.md)
-
-## 옵션 전체 표
-
-| 옵션 | 설명 |
-|------|------|
-| `<task-file>` | 실행할 task JSON 파일 경로 |
-| `--config <rawstep.config.ts>` | 사용할 config 파일 경로 |
-| `--mode <keyboard\|screenreader>` | 실행 mode 강제 지정 |
-| `--out <dir>` | 결과 출력 디렉터리 강제 지정 |
-| `--headless` / `--headed` | 브라우저 창 표시 여부 |
-| `--screenshots <all\|important\|failure-only\|none>` | 개발자용 스크린샷 저장 정책 |
-| `--max-steps <n>` | 최대 step 수 |
-| `--timeout-ms <n>` | 전체 제한 시간(ms) |
-| `--screen-reader-backend <backend>` | screenreader backend 강제 지정 |
-| `--allowed-keys <key1,key2>` | 허용할 키 subset. keyboard 모드 전용 |
-| `--allowed-screen-reader-actions <sr.x,sr.y>` | 허용할 `sr.*` subset |
-| `--verifier-auto-complete` / `--no-verifier-auto-complete` | verifier 자동 확인 여부 |
-| `--agent-memory-window <n>` | 최근 step memory 개수 |
-| `--agent-memory-all` / `--no-agent-memory-all` | text memory 전체 사용 여부 |
-| `--include-experience-summary` / `--no-include-experience-summary` | experience summary 생성 여부 |
-| `--include-rationale` / `--no-include-rationale` | rationale 저장 여부 |
-| `--provider <anthropic\|openai-compatible>` | provider 강제 지정 |
-| `--model <id>` | 모델 ID 강제 지정 |
-| `--base-url <url>` | OpenAI-compatible provider base URL |
-
-## 대표 실행 예시
+전체 옵션을 사용한 예시:
 
 ```bash
 pnpm rawstep run examples/tasks/simple-cta.json \
@@ -57,94 +31,179 @@ pnpm rawstep run examples/tasks/simple-cta.json \
   --screenshots important \
   --include-rationale \
   --verifier-auto-complete \
-  --provider openai-compatible \
-  --model openrouter/auto \
-  --base-url https://openrouter.ai/api/v1
+  --provider <your-provider> \
+  --model <your-model>
+  # --base-url <your-api-url-when-openai-provider>
 ```
 
-## Provider 환경 변수
+---
+
+## 옵션 우선순위
+
+높은 것이 낮은 것을 덮어씁니다.
+
+```
+CLI 플래그
+  > task.config
+    > task top-level (mode, maxSteps, timeoutMs)
+      > rawstep.config.ts modes.<mode>
+        > 환경 변수 (provider 관련만)
+```
+
+---
+
+## 파라미터 레퍼런스
+
+### 기본
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `<task-file>` | 실행할 task JSON 파일 경로 **(필수)** | — |
+| `--config <path>` | `rawstep.config.ts` 경로 | 현재 디렉터리 탐색 |
+| `--mode <keyboard\|screenreader>` | 실행 모드 강제 지정 | task 설정값 |
+| `--out <dir>` | 결과 출력 디렉터리 | `./out` |
+| `--headless` / `--headed` | 브라우저 창 표시 여부 | `--headless` |
+
+### 실행 제어
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `--max-steps <n>` | 최대 step 수 | task 설정값 |
+| `--timeout-ms <n>` | 전체 실행 제한 시간(ms) | task 설정값 |
+| `--verifier-auto-complete` / `--no-verifier-auto-complete` | verifier 조건 만족 시 자동 종료 | `true` |
+
+### 스크린리더
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `--screen-reader-backend <backend>` | screenreader backend 강제 지정 | config 설정값 |
+| `--allowed-screen-reader-actions <sr.x,...>` | 허용할 sr action subset (쉼표 구분) | 전체 허용 |
+| `--screenshots <all\|important\|failure-only\|none>` | 리포트용 스크린샷 저장 정책 | `important` |
+
+### 키보드
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `--allowed-keys <key1,...>` | 허용할 키 subset (쉼표 구분) | 편집 계열 제외 기본 subset |
+
+### 에이전트 메모리
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `--agent-memory-window <n>` | 에이전트에게 보여줄 최근 step 수 | config 설정값 |
+| `--agent-memory-all` / `--no-agent-memory-all` | 누적 text memory 전체 표시 여부 | `false` |
+| `--include-experience-summary` / `--no-include-experience-summary` | experience summary 생성 여부 | `false` |
+| `--include-rationale` / `--no-include-rationale` | agent rationale 저장 여부 | `false` |
+
+### LLM Provider
+
+| 파라미터 | 설명 | 기본값 |
+|----------|------|--------|
+| `--provider <anthropic\|openai-compatible>` | LLM provider 강제 지정 | `AI_PROVIDER` 환경 변수 |
+| `--model <id>` | 모델 ID 강제 지정 | `AI_MODEL` 환경 변수 |
+| `--base-url <url>` | OpenAI-compatible provider base URL | `AI_BASE_URL` 환경 변수 |
+
+> **주의:** `--allowed-keys`와 `--allowed-screen-reader-actions`로 값을 override하면, `rawstep.config.ts`에 설정된 `hint`는 프롬프트에 전달되지 않습니다. `hint`는 CLI에서 설정할 수 없으며 `rawstep.config.ts`의 `kb.*` / `sr.*` helper를 통해서만 설정됩니다.
+
+---
+
+## LLM Provider 설정
+
+### 환경 변수
 
 ```bash
 # Anthropic
 export AI_PROVIDER=anthropic
-export AI_API_KEY=your-key
-export AI_MODEL=your-model-id
+export AI_API_KEY=<your-key>
+export AI_MODEL=<your-model>
 
 # OpenAI-compatible
 export AI_PROVIDER=openai-compatible
-export AI_API_KEY=your-key
-export AI_MODEL=your-model-id
+export AI_API_KEY=<your-key>
+export AI_MODEL=<your-model>
 export AI_BASE_URL=https://your-openai-compatible-base-url
 ```
 
-provider 관련 fallback 순서:
+CLI는 `rawstep.config.ts`와 같은 디렉터리의 `.env` 파일을 자동으로 읽습니다. 셸에 이미 설정된 환경 변수는 덮어쓰지 않습니다.
 
-- `provider`: `--provider` → `defaults.provider` → `AI_PROVIDER`
-- `apiKey`: `defaults.apiKey` → `AI_API_KEY`
-- `model`: `--model` → `defaults.model` → `AI_MODEL`
-- `baseURL`: `--base-url` → `defaults.baseURL` → `AI_BASE_URL`
+### provider 값 fallback 순서
 
-CLI는 `rawstep.config.ts` 옆의 `.env` 파일을 자동으로 읽고, 이미 셸에 있는 환경 변수는 덮어쓰지 않습니다.
+각 값은 다음 순서로 결정됩니다:
 
-## 허용 키보드 키 전체 목록
+| 값 | 순서 |
+|----|------|
+| `provider` | `--provider` → `defaults.provider` → `AI_PROVIDER` |
+| `apiKey` | `defaults.apiKey` → `AI_API_KEY` |
+| `model` | `--model` → `defaults.model` → `AI_MODEL` |
+| `baseURL` | `--base-url` → `defaults.baseURL` → `AI_BASE_URL` |
 
-`allowedKeys`, `--allowed-keys`에 넣을 수 있는 keyboard 키 목록입니다.
+---
 
-```text
+## 허용 키 전체 목록
+
+`keyboard` 모드의 `allowedKeys` / `--allowed-keys`에 사용할 수 있는 키 목록입니다.
+
+```
 Tab  Shift+Tab  Home  End
 ArrowUp  ArrowDown  ArrowLeft  ArrowRight
-Backspace  Delete
 Enter  Shift+Enter  Space  Escape
+Backspace  Delete
 Mod+A  Mod+Backspace  Mod+Delete  Mod+Z  Mod+Shift+Z
 ```
 
-기본 허용 subset:
+**기본 허용 subset** (편집 계열 키 제외):
 
-```text
+```
 Tab  Shift+Tab  Home  End
 ArrowUp  ArrowDown  ArrowLeft  ArrowRight
 Enter  Space  Escape
 ```
 
+---
+
 ## 허용 스크린리더 action 전체 목록
 
-`allowedScreenReaderActions`, `--allowed-screen-reader-actions`에 넣을 수 있는 stable public `sr.*` 목록입니다.
-backend별 실제 지원 범위는 다를 수 있습니다.
+`allowedScreenReaderActions` / `--allowed-screen-reader-actions`에 사용할 수 있는 stable `sr.*` 목록입니다. backend마다 실제 지원 subset이 다르며, 지원 여부는 `@rawstep/action-catalog` 기준으로 판정합니다.
 
-```text
+**기본 탐색**
+
+```
 sr.next  sr.previous  sr.act
-sr.interact  sr.stopInteracting  sr.type  sr.click
+sr.interact  sr.stopInteracting
+sr.type  sr.click
+```
 
+**키보드 입력**
+
+```
 sr.key.tab  sr.key.shiftTab  sr.key.home  sr.key.end
 sr.key.arrow.up  sr.key.arrow.down  sr.key.arrow.left  sr.key.arrow.right
 sr.key.enter  sr.key.shiftEnter  sr.key.space  sr.key.escape
 sr.key.backspace  sr.key.delete
 sr.key.mod.a  sr.key.mod.backspace  sr.key.mod.delete
 sr.key.mod.z  sr.key.mod.shiftZ
+```
 
+**요소 유형별 이동**
+
+```
 sr.heading.next  sr.heading.previous
 sr.heading.level.{1~6}.next  sr.heading.level.{1~6}.previous
 
-sr.form.next  sr.form.previous
-sr.link.next  sr.link.previous
-sr.button.next  sr.button.previous
+sr.form.next      sr.form.previous
+sr.link.next      sr.link.previous
+sr.button.next    sr.button.previous
 sr.landmark.next  sr.landmark.previous
-sr.list.next  sr.list.previous
-sr.table.next  sr.table.previous
-
-sr.read.itemText  sr.read.itemTextLog
-sr.read.lastSpokenPhrase  sr.read.spokenPhraseLog
-sr.clear.itemTextLog  sr.clear.spokenPhraseLog
+sr.list.next      sr.list.previous
+sr.table.next     sr.table.previous
 ```
 
-주의:
+**읽기 및 로그**
 
-- 실제로 어떤 action이 동작하는지는 backend capability에 따라 달라집니다.
-- 그래서 문법상 허용되는 것과, 현재 backend가 실제 지원하는 것은 다를 수 있습니다.
+```
+sr.read.itemText       sr.read.itemTextLog
+sr.read.lastSpokenPhrase  sr.read.spokenPhraseLog
+sr.clear.itemTextLog   sr.clear.spokenPhraseLog
+```
 
-## 자주 헷갈리는 점
-
-- `--allowed-keys`는 keyboard 모드 전용입니다.
-- `--screen-reader-backend`는 screenreader 모드에서만 의미가 있습니다.
-- `--headless`를 줘도 backend가 headed를 강제하면 오류가 납니다.
-- CLI 플래그가 가장 우선순위가 높습니다.
+> `srx.*` 확장 action은 위 stable 목록에 포함되지 않는 별도 extension입니다.
