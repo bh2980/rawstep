@@ -190,11 +190,13 @@ export function renderHtml(session: TraceSession): string {
       border-bottom: 1px solid rgba(216, 218, 210, 0.9);
     }
     .header-inner {
-      max-width: 1220px;
+      width: min(1180px, calc(100vw - 48px));
+      max-width: none;
       margin: 0 auto;
       padding: 18px 24px 16px;
       display: grid;
       gap: 10px;
+      transition: width 0.22s ease, margin 0.22s ease, padding 0.22s ease;
     }
     .header-row {
       display: flex;
@@ -304,6 +306,12 @@ export function renderHtml(session: TraceSession): string {
     }
     .report-main.panel-open {
       padding-right: calc(var(--panel-w) + 36px);
+    }
+    .report-header.panel-open .header-inner {
+      width: calc(100vw - var(--panel-w) - 24px);
+      margin-left: 16px;
+      margin-right: auto;
+      padding-right: 12px;
     }
     .card {
       background: rgba(255, 255, 255, 0.94);
@@ -951,6 +959,12 @@ export function renderHtml(session: TraceSession): string {
       margin-right: auto;
       padding-right: 12px;
     }
+    .report-header.panel-open .header-inner {
+      width: calc(100vw - var(--panel-w) - 24px);
+      margin-left: 16px;
+      margin-right: auto;
+      padding-right: 12px;
+    }
     .card-title,
     .section-label {
       letter-spacing: 0.08em;
@@ -1201,9 +1215,11 @@ export function renderHtml(session: TraceSession): string {
       font-weight: 600;
     }
     @media (max-width: 1180px) {
+      .report-header.panel-open .header-inner,
       .report-main.panel-open {
         width: min(1220px, calc(100vw - 48px));
         margin-left: auto;
+        margin-right: auto;
         padding-right: 24px;
       }
     }
@@ -1488,6 +1504,13 @@ export function renderHtml(session: TraceSession): string {
       next.onclick = function() { navigatePanel(1); };
     }
 
+    function setPanelLayoutState(isOpen) {
+      var header = document.getElementById('report-header');
+      var main = document.getElementById('report-main');
+      if (header) header.classList.toggle('panel-open', isOpen);
+      if (main) main.classList.toggle('panel-open', isOpen);
+    }
+
     function openPanel(index) {
       var step = ${REPORT_MODEL_VAR}.steps[index];
       if (!step) return;
@@ -1497,7 +1520,7 @@ export function renderHtml(session: TraceSession): string {
       document.getElementById('detail-panel-header').innerHTML = renderPanelHeader(step);
       document.getElementById('detail-panel-body').innerHTML = renderPanelBody(step);
       document.getElementById('detail-panel').classList.add('is-open');
-      document.getElementById('report-main').classList.add('panel-open');
+      setPanelLayoutState(true);
       document.getElementById('panel-close').onclick = closePanel;
       updatePanelButtons();
       syncSelectedState();
@@ -1506,7 +1529,7 @@ export function renderHtml(session: TraceSession): string {
     function closePanel() {
       selectedStepIndex = null;
       document.getElementById('detail-panel').classList.remove('is-open');
-      document.getElementById('report-main').classList.remove('panel-open');
+      setPanelLayoutState(false);
       syncSelectedState();
     }
 
@@ -1890,7 +1913,7 @@ function renderHeader(model: ReportModel): string {
     ? { label: "SUCCESS", tone: "success" as const }
     : { label: "FAILURE", tone: "failure" as const };
 
-  return `<header class="report-header">
+  return `<header class="report-header" id="report-header">
     <div class="header-inner">
       <div class="header-row primary">
         <div class="header-main">
