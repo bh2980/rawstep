@@ -3,7 +3,6 @@ import {
   buildKeyboardDescriptorExampleSnippet,
   buildScreenReaderDescriptorExampleSnippet,
   formatDecisionAction,
-  formatScreenReaderIntent,
   type KeyboardActionDescriptor,
   type ScreenReaderActionDescriptor
 } from "@rawstep/action-catalog";
@@ -138,89 +137,146 @@ export function buildExperienceSummarySystemPrompt(promptDir?: string): string {
 export function buildExperienceSummaryPromptText(
   task: ResolvedTask,
   aggregate: TraceAggregate,
-  steps: StepRecord[]
+  steps: StepRecord[],
+  promptDir?: string
 ): string {
-  return [
-    `task: ${JSON.stringify({ id: task.id, goal: task.goal, mode: task.mode })}`,
-    `aggregate: ${JSON.stringify(aggregate)}`,
-    `steps: ${JSON.stringify(buildSummaryStepsForPrompt(steps))}`,
-    "Summarize the run in terms of experience only.",
-    "overall: what I tried and how the run progressed end-to-end in first person.",
-    "blockers: an array of moments where progress stalled or repeated. Use [] when none.",
-    "surprise: one moment that felt notably different from expectation. Use null when none.",
-    "oneLineFeel: a single-sentence description of the overall feel of the run.",
-    "Do not infer DOM structure or accessibility violations."
-  ].join("\n");
+  const templates = loadPromptTemplates({ promptDir });
+
+  return renderPromptTemplate(templates.experienceSummaryUser, {
+    taskSummary: buildExperienceSummaryTaskValue(task),
+    aggregateSummary: buildExperienceSummaryAggregateValue(aggregate),
+    stepTimeline: buildExperienceSummaryStepTimelineValue(steps)
+  });
 }
 
-function buildSummaryStepsForPrompt(steps: StepRecord[]): Array<{
-  step: number;
-  observation: object;
-  decision: string;
-  execution: {
-    ok: boolean;
-    costDelta: number;
-    error?: string;
-  };
-  verification?: {
-    passed: boolean;
-    failures: string[];
-  };
-  result?: {
-    finalResult: "success" | "failure" | "continued";
-    completionSource: "agent" | "verifier-auto-complete";
-  };
-  timings: StepRecord["timings"];
-}> {
-  return steps.map((step) => ({
-    step: step.step,
-    observation: summarizeObservationForPrompt(step),
-    decision: summarizeDecisionForPrompt(step.decision),
-    execution: {
-      ok: step.execution.ok,
-      costDelta: step.execution.costDelta,
-      ...(step.execution.error ? { error: step.execution.error } : {})
-    },
-    verification: step.verification
-      ? {
-          passed: step.verification.passed,
-          failures: step.verification.failures
-        }
-      : undefined,
-    result: step.verdictAnalysis
-      ? {
-          finalResult: step.verdictAnalysis.finalResult,
-          completionSource: step.verdictAnalysis.completionSource
-        }
-      : undefined,
-    timings: step.timings
-  }));
-}
+function buildExperienceSummaryTaskValue(task: ResolvedTask): string {
+  const lines = [
+    `- id: ${task.id}`,
+    `- mode: ${task.mode}`,
+    `- goal: ${task.goal}`
+  ];
 
-function summarizeObservationForPrompt(step: StepRecord): object {
-  if (step.observation.kind === "keyboard") {
-    return {
-      kind: "keyboard",
-      title: step.observation.browserChrome.title,
-      urlPath: step.observation.browserChrome.urlPath,
-      focusHint: step.observation.focusHint,
-      scrollHint: step.observation.scrollHint
-    };
+  const inputKeys = task.input ? Object.keys(task.input) : [];
+  if (inputKeys.length > 0) {
+    lines.push(`- input keys: ${inputKeys.join(", ")}`);
   }
 
-  return {
-    kind: "screenreader",
-    announcement: step.observation.announcement,
-    announcementCapture: step.observation.announcementCapture,
-    announcementCount: step.observation.announcementCount,
-    observeReason: step.observation.observeReason
-  };
+  return lines.join("\n");
+}
+
+function buildExperienceSummaryAggregateValue(aggregate: TraceAggregate): string {
+  const lines = [
+    `- result: ${aggregate.result}`,
+    `- ended by: ${aggregate.endedBy}`,
+    `- total steps: ${aggregate.totalSteps}`,
+    `- duration: ${aggregate.durationMs} ms`,
+    `- action counts: rawKey=${aggregate.actionCounts.rawKeyCount}, typeText=${aggregate.actionCounts.typeTextCount}, srInvoke=${aggregate.actionCounts.srInvokeCount}, srRead=${aggregate.actionCounts.srReadCount}, srMaintenance=${aggregate.actionCounts.srMaintenanceCount}`
+  ];
+
+  if (aggregate.failurePoint) {
+    lines.push(
+      `- failure point: step ${aggregate.failurePoint.stepIndex} - ${aggregate.failurePoint.reason}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function buildExperienceSummaryStepTimelineValue(steps: StepRecord[]): string {
+  if (steps.length === 0) {
+    return "- No steps recorded.";
+  }
+
+  return steps.map((step) => buildExperienceSummaryStepValue(step)).join("\n\n");
+}
+
+function buildExperienceSummaryStepValue(step: StepRecord): string {
+  const lines = [
+    `${step.step}. ${summarizeObservationForPrompt(step)}`,
+    `Decision: ${summarizeDecisionForPrompt(step.decision)}`,
+    `Execution: ${summarizeExecutionForPrompt(step)}`
+  ];
+
+  if (step.verification) {
+    lines.push(`Verification: ${summarizeVerificationForPrompt(step)}`);
+  }
+
+  if (step.verdictAnalysis) {
+    lines.push(`Result: ${summarizeResultForPrompt(step)}`);
+  }
+
+  return lines.join("\n");
+}
+
+function summarizeObservationForPrompt(step: StepRecord): string {
+  if (step.observation.kind === "keyboard") {
+    const parts = [
+      `Keyboard observation on "${step.observation.browserChrome.title}" at ${step.observation.browserChrome.urlPath}.`
+    ];
+
+    if (step.observation.focusHint) {
+      parts.push(`Focus hint: ${step.observation.focusHint}.`);
+    }
+
+    if (step.observation.scrollHint) {
+      parts.push(`Scroll hint: ${step.observation.scrollHint}.`);
+    }
+
+    return parts.join(" ");
+  }
+
+  const parts = [
+    `Screen reader observation announced ${step.observation.announcement ? `"${step.observation.announcement}".` : "no captured announcement."}`,
+    `Capture: ${step.observation.announcementCapture}.`
+  ];
+
+  if (typeof step.observation.announcementCount === "number") {
+    parts.push(`Count: ${step.observation.announcementCount}.`);
+  }
+
+  if (step.observation.observeReason) {
+    parts.push(`Observe reason: ${step.observation.observeReason}.`);
+  }
+
+  return parts.join(" ");
 }
 
 function summarizeDecisionForPrompt(decision: Decision): string {
   return "action" in decision
     ? formatDecisionAction(decision.action)
     : `verdict(${decision.verdict})`;
+}
+
+function summarizeExecutionForPrompt(step: StepRecord): string {
+  if (!step.execution.ok) {
+    return `failed with ${step.execution.error ?? "unknown error"}.`;
+  }
+
+  return `ok with cost delta ${step.execution.costDelta}.`;
+}
+
+function summarizeVerificationForPrompt(step: StepRecord): string {
+  if (!step.verification) {
+    return "none.";
+  }
+
+  if (step.verification.passed) {
+    return "passed.";
+  }
+
+  if (step.verification.failures.length === 0) {
+    return "failed.";
+  }
+
+  return `failed with: ${step.verification.failures.join(" | ")}.`;
+}
+
+function summarizeResultForPrompt(step: StepRecord): string {
+  if (!step.verdictAnalysis) {
+    return "continued.";
+  }
+
+  return `${step.verdictAnalysis.finalResult} via ${step.verdictAnalysis.completionSource}.`;
 }
 
 function buildGoalValue(goal: string): string {

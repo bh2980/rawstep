@@ -186,7 +186,7 @@ export class LLMAgent implements Agent {
     const promptParts: PromptPart[] = [
       {
         type: "text",
-        text: buildExperienceSummaryPromptText(input.task, input.aggregate, input.steps)
+        text: buildExperienceSummaryPromptText(input.task, input.aggregate, input.steps, this.promptDir)
       }
     ];
     this.recordPromptLog("experience-summary", systemPrompt, promptParts);

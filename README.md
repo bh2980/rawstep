@@ -196,7 +196,7 @@ a11y/
 ├── apps/cli/                   # args 파싱 후 config/agent/runtime/reporter를 조립하는 CLI
 ├── examples/tasks/             # repo에 커밋된 실제 예시 task
 ├── fixtures/                   # 예시와 테스트가 같이 읽는 committed fixture
-└── prompt/                     # system prompt 템플릿
+└── prompt/                     # system/user prompt 템플릿
 ```
 
 ## 빠른 시작
@@ -322,43 +322,93 @@ export default defineConfig({
 
 실제 코드가 받는 설정 필드는 아래 범위로 고정되어 있습니다.
 
+구조를 먼저 아주 단순하게 보면 이렇습니다.
+
+- `rawstep.config.ts > defaults`: 모델 연결 공통값
+- `rawstep.config.ts > modes.<mode>`: mode별 실행 preset
+- `task` top-level: 과업 본문
+- `task.config`: 그 task에서만 덮어쓰는 실행 옵션
+- CLI 플래그: 이번 한 번만 덮어쓰는 최종 override
+
 **`rawstep.config.ts > defaults`**
 
 - `provider`: `anthropic` 또는 `openai-compatible`
 - `apiKey`: provider API 키
 - `model`: 모델 ID
 - `baseURL`: OpenAI-compatible provider일 때만 쓰는 base URL
+- `prompt.dir`: prompt 디렉터리 경로. 기본은 `rawstep.config.ts` 와 같은 디렉터리 아래 `./prompt`
 
-`defaults` 는 **AI provider 관련 값만** 받습니다. `outDir`, `timeoutMs`, `memory` 같은 실행 옵션을 넣으면 에러가 납니다.
+`defaults` 는 **AI provider 관련 값과 prompt 디렉터리만** 받습니다. `outDir`, `timeoutMs`, `memory` 같은 실행 옵션을 넣으면 에러가 납니다.
 
 **`rawstep.config.ts > modes.<mode>`**
 
-- `outDir`: 결과 출력 디렉터리
-- `headless`: 브라우저 창 표시 여부
+- `outDir`: 결과 출력 디렉터리. 상대 경로면 `rawstep.config.ts` 기준으로 resolve
+- `headless`: 브라우저 창 표시 여부. 생략하면 mode/backend 기본 정책 사용
 - `maxSteps`: 최대 step 수
-- `timeoutMs`: 전체 실행 제한 시간
+- `timeoutMs`: 전체 실행 제한 시간(ms)
+- `maxVerificationRetries`: verifier가 실패했을 때 success 선언을 몇 번까지 되돌릴지
 - `screenshots`: `all | important | failure-only | none`
-- `verifierAutoComplete`: verifier 자동 종료 실험 옵션
+- `verifierAutoComplete`: 성공 가능성이 있는 action 뒤에도 verifier를 돌릴지
 - `includeExperienceSummary`: run 종료 후 `overall / blockers / surprise / oneLineFeel` summary 포함 여부
 - `includeRationale`: agent `rationale` 저장 여부
 - `memory`: 숫자 또는 `all`
-- `allowedKeys`: keyboard / hybrid 모드 키 subset
-- `allowedScreenReaderActions`: screenreader action subset
+- `allowedKeys`: `keyboard` 또는 `screenreader`에서 허용할 키 subset
+- `allowedScreenReaderActions`: `screenreader`에서 허용할 `sr.*` / `srx.*` subset
 - `screenReaderBackend`: `guidepup-voiceover | guidepup-nvda | guidepup-virtual`
+
+여기서 사실상 필수로 봐야 하는 값은 `outDir`, `maxSteps`, `timeoutMs`, `memory` 입니다.  
+`screenreader` preset에는 `screenReaderBackend` 도 사실상 필수입니다.
 
 **task 파일 top-level**
 
-- `id`, `url`, `goal`, `mode`, `maxSteps`, `timeoutMs`, `verify`, `input`
-- 여기 들어가는 값은 과업 본문입니다. 예를 들어 `input.email`, `input.password` 는 이 task에서만 쓰는 고정 입력값입니다.
+- `id?`: 생략하면 보통 파일명 기반 ID를 씁니다.
+- `url`: 실행할 페이지 URL. 상대 경로면 task 파일 기준으로 resolve
+- `goal`: 자연어 과업 목표
+- `mode?`: `keyboard | screenreader`
+- `maxSteps?`: task 자체가 요구하는 최대 step 수
+- `timeoutMs?`: task 자체가 요구하는 제한 시간(ms)
+- `verify`: 성공 판정 규칙. 필수
+- `input?`: named string map. 예: `email`, `password`, `otp`
+
+여기 들어가는 값은 **과업 본문**입니다. 예를 들어 `input.email`, `input.password` 는 이 task에서만 쓰는 고정 입력값입니다.
 
 **task 파일 `config`**
 
 - `mode`, `outDir`, `headless`, `maxSteps`, `timeoutMs`
+- `maxVerificationRetries`
 - `screenshots`, `verifierAutoComplete`
 - `includeExperienceSummary`, `includeRationale`
 - `memory`
 - `allowedKeys`, `allowedScreenReaderActions`
 - `screenReaderBackend`
+
+task `config` 는 **실행 override만** 받습니다.  
+여기에는 `provider`, `apiKey`, `model`, `baseURL`, `prompt.dir` 를 넣을 수 없습니다.
+
+**CLI override**
+
+CLI는 아래 최종 override를 가집니다.
+
+- `--config`
+- `--mode`
+- `--out`
+- `--headless` / `--headed`
+- `--screenshots`
+- `--max-steps`
+- `--timeout-ms`
+- `--screen-reader-backend`
+- `--allowed-keys`
+- `--allowed-screen-reader-actions`
+- `--verifier-auto-complete` / `--no-verifier-auto-complete`
+- `--agent-memory-window`
+- `--agent-memory-all` / `--no-agent-memory-all`
+- `--include-experience-summary` / `--no-include-experience-summary`
+- `--include-rationale` / `--no-include-rationale`
+- `--provider`
+- `--model`
+- `--base-url`
+
+쉽게 말하면 CLI는 "이번 한 번만 덮어쓰는 마지막 값" 입니다.
 
 쉽게 말하면:
 
@@ -366,6 +416,7 @@ export default defineConfig({
 - `modes.<mode>` 는 실행 preset
 - task top-level 은 과업 본문
 - task `config` 는 그 task에서만 쓰는 실행 override
+- CLI는 최종 강제 override
 
 task 파일에도 필요한 경우 override를 둘 수 있습니다.
 
@@ -558,6 +609,102 @@ config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있�
 - `--allowed-keys Tab,Shift+Tab,Enter,Space`
 - `--allowed-screen-reader-actions sr.next,sr.previous,sr.act`
 
+### 전체 지원 키보드 키
+
+`allowedKeys` 나 `--allowed-keys` 에 넣을 수 있는 키는 현재 아래 전체 목록으로 고정되어 있습니다.
+
+```text
+Tab
+Shift+Tab
+Home
+End
+ArrowUp
+ArrowDown
+ArrowLeft
+ArrowRight
+Backspace
+Delete
+Enter
+Shift+Enter
+Space
+Escape
+Mod+A
+Mod+Backspace
+Mod+Delete
+Mod+Z
+Mod+Shift+Z
+```
+
+이 중 기본 허용 subset은 더 작습니다.
+
+```text
+Tab
+Shift+Tab
+Home
+End
+ArrowUp
+ArrowDown
+ArrowLeft
+ArrowRight
+Enter
+Space
+Escape
+```
+
+쉽게 말하면, `Backspace`, `Delete`, `Mod+A`, `Mod+Z` 같은 편집 계열 키는 "지원은 하지만 기본으로는 안 켜져 있는 키" 입니다.
+
+### 전체 지원 `sr.*` 명령어
+
+`allowedScreenReaderActions` 나 `--allowed-screen-reader-actions` 에 넣을 수 있는 stable `sr.*` 명령은 현재 아래 전체 목록으로 고정되어 있습니다.
+
+```text
+sr.next
+sr.previous
+sr.act
+sr.interact
+sr.stopInteracting
+sr.press
+sr.type
+sr.click
+sr.heading.next
+sr.heading.previous
+sr.heading.level.1.next
+sr.heading.level.1.previous
+sr.heading.level.2.next
+sr.heading.level.2.previous
+sr.heading.level.3.next
+sr.heading.level.3.previous
+sr.heading.level.4.next
+sr.heading.level.4.previous
+sr.heading.level.5.next
+sr.heading.level.5.previous
+sr.heading.level.6.next
+sr.heading.level.6.previous
+sr.form.next
+sr.form.previous
+sr.link.next
+sr.link.previous
+sr.button.next
+sr.button.previous
+sr.landmark.next
+sr.landmark.previous
+sr.list.next
+sr.list.previous
+sr.table.next
+sr.table.previous
+sr.read.itemText
+sr.read.itemTextLog
+sr.read.lastSpokenPhrase
+sr.read.spokenPhraseLog
+sr.clear.itemTextLog
+sr.clear.spokenPhraseLog
+```
+
+주의할 점은 두 가지입니다.
+
+- 이 목록이 전부 "항상 다 되는 것"은 아닙니다. backend마다 실제 지원 subset이 다릅니다.
+- `srx.*` 확장 action은 별도 extension action이고, 위의 stable `sr.*` 목록에는 포함되지 않습니다.
+
 `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이
 이미지 입력을 지원해야 합니다.
 
@@ -684,14 +831,20 @@ verify:
 
 ### 프롬프트 편집
 
-system prompt는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터리에서 직접 편집합니다.
+프롬프트는 루트의 [prompt](/Users/bh2980/Desktop/a11y/prompt) 디렉터리에서 직접 편집합니다.
 
 - [keyboard.system.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.system.md)
+- [keyboard.user.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.user.md)
 - [screenreader.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader.system.md)
+- [screenreader.user.md](/Users/bh2980/Desktop/a11y/prompt/screenreader.user.md)
 - [experience-summary.system.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.system.md)
+- [experience-summary.user.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.user.md)
+
+`*.system.md` 는 규칙을 적는 파일이고, `*.user.md` 는 실제 실행 데이터가 들어가는 템플릿입니다.
 
 이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.  
-`{{goal}}`, `{{agentMemory}}`, `{{announcement}}`, `{{readbacks}}`, `{{availableActions}}`, `{{outputExamples}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
+`{{goal}}`, `{{agentMemory}}`, `{{announcement}}`, `{{readbacks}}`, `{{availableActions}}`, `{{outputExamples}}`, `{{taskSummary}}`, `{{aggregateSummary}}`, `{{stepTimeline}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
+프롬프트 파일 안에서 `<!-- ... -->` 로 감싼 Markdown 주석은 로딩할 때 제거되므로, 내부 메모를 남겨도 모델 입력에는 들어가지 않습니다.
 
 `--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
 

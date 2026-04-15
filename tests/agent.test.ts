@@ -108,7 +108,8 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   | "keyboard.user.md"
   | "screenreader.system.md"
   | "screenreader.user.md"
-  | "experience-summary.system.md",
+  | "experience-summary.system.md"
+  | "experience-summary.user.md",
   string
 >>): Promise<string> {
   const rootDir = await mkdtemp(join(tmpdir(), "a11y-prompt-fixture-"));
@@ -120,7 +121,8 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
     "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
     "screenreader.system.md": "system-screenreader\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
     "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\navailable actions:\n{{availableActions}}",
-    "experience-summary.system.md": "summary-template"
+    "experience-summary.system.md": "summary-template",
+    "experience-summary.user.md": "summary-user-template\nTask\n{{taskSummary}}\nAggregate\n{{aggregateSummary}}\nStep Timeline\n{{stepTimeline}}"
   } satisfies Record<string, string>;
 
   for (const [filename, content] of Object.entries({ ...files, ...contents })) {
@@ -432,9 +434,15 @@ describe("agent helpers", () => {
       []
     );
 
-    expect(prompt).toContain("blockers:");
-    expect(prompt).toContain("surprise:");
-    expect(prompt).toContain("oneLineFeel:");
+    expect(prompt).toContain("Task");
+    expect(prompt).toContain("- id: summary-task");
+    expect(prompt).toContain("Aggregate");
+    expect(prompt).toContain("- result: success");
+    expect(prompt).toContain("Step Timeline");
+    expect(prompt).toContain("- No steps recorded.");
+    expect(prompt).not.toMatch(/task:\s*\{/);
+    expect(prompt).not.toMatch(/aggregate:\s*\{/);
+    expect(prompt).not.toMatch(/steps:\s*\[/);
     expect(prompt).not.toContain("biggestFriction");
     expect(prompt).not.toContain("nextChecks");
   });
@@ -589,7 +597,9 @@ describe("agent helpers", () => {
     expect(() => resolveAgentConfig()).toThrow("requires a base URL");
   });
 
-  it("builds provider-neutral prompt parts for keyboard observations", () => {
+  it("builds provider-neutral prompt parts for keyboard observations", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
     const promptParts = buildPromptParts(
       "keyboard",
       makeKeyboardContext(),
@@ -625,7 +635,9 @@ describe("agent helpers", () => {
     });
   });
 
-  it("renders raw focus hint values without extra explanatory text", () => {
+  it("renders raw focus hint values without extra explanatory text", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
     const promptParts = buildPromptParts(
       "keyboard",
       {
@@ -867,6 +879,30 @@ describe("agent helpers", () => {
     expect(templates.keyboardSystem).toContain("{{outputExamples}}");
     expect(templates.keyboardUser).toContain("{{availableActions}}");
     expect(templates.experienceSummarySystem).toBe("summary-template");
+    expect(templates.experienceSummaryUser).toContain("{{taskSummary}}");
+  });
+
+  it("strips HTML comments from prompt templates before rendering", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.system.md": "system-keyboard\n<!-- 내부 메모: 이 줄은 모델에 보내지지 않아야 함 -->\n출력 규칙:\n```json\n{{outputExamples}}\n```",
+      "keyboard.user.md": "goal:\n{{goal}}\n<!-- 숨김 규칙 -->\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+    });
+    process.chdir(rootDir);
+
+    const templates = loadPromptTemplates(rootDir);
+    const prompt = buildSystemPrompt("keyboard");
+
+    expect(templates.keyboardSystem).not.toContain("내부 메모");
+    expect(templates.keyboardUser).not.toContain("숨김 규칙");
+    expect(prompt).not.toContain("내부 메모");
+  });
+
+  it("does not count placeholders inside HTML comments", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n<!-- {{agentMemory}} -->\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+    });
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{agentMemory}}");
   });
 
   it("fails when a required prompt file is missing", async () => {
@@ -891,6 +927,14 @@ describe("agent helpers", () => {
     });
 
     expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{agentMemory}}");
+  });
+
+  it("fails when the experience summary user template is missing a required placeholder", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "experience-summary.user.md": "{{taskSummary}}"
+    });
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{aggregateSummary}}");
   });
 
   it("renders keyboard system prompts from prompt files with code-generated JSON format", async () => {
@@ -1048,10 +1092,47 @@ describe("agent helpers", () => {
 
   it("renders experience summary prompts from prompt files", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "experience-summary.system.md": "custom-summary-template"
+      "experience-summary.system.md": "custom-summary-template",
+      "experience-summary.user.md": "custom-summary-user\n{{taskSummary}}\n{{aggregateSummary}}\n{{stepTimeline}}"
     });
     process.chdir(rootDir);
 
     expect(buildExperienceSummarySystemPrompt()).toBe("custom-summary-template");
+    expect(buildExperienceSummaryPromptText(
+      {
+        id: "custom-summary-task",
+        url: "file:///custom-summary-task.html",
+        goal: "Use the custom template.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 1000,
+        verify: {
+          all: [{ titleIncludes: "custom-summary-task" }]
+        }
+      },
+      {
+        result: "success",
+        totalSteps: 0,
+        durationMs: 1000,
+        timings: {
+          setupMs: 0,
+          browserLaunchMs: 0,
+          pageLoadMs: 0,
+          screenReaderInitMs: 0,
+          firstAnnouncementWaitMs: 0,
+          reportMs: 0
+        },
+        actionCounts: {
+          srInvokeCount: 0,
+          srReadCount: 0,
+          srMaintenanceCount: 0,
+          rawKeyCount: 0,
+          typeTextCount: 0
+        },
+        terminatedAtStep: null,
+        endedBy: "success"
+      },
+      []
+    )).toContain("custom-summary-user");
   });
 });
