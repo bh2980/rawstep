@@ -33,15 +33,6 @@ type SharedModeConfigSource = {
   memory: MemorySetting;
 };
 
-type ModeSpecMap = typeof import("@rawstep/definition").MODE_SPEC;
-type ModeAllowsRawKeys<Mode extends UserModel> = ModeSpecMap[Mode]["allowsRawKeys"];
-type ModeRequiresScreenReaderBackend<Mode extends UserModel> =
-  ModeSpecMap[Mode]["requiresScreenReaderBackend"];
-
-type ModeAllowedKeysField<AllowsRawKeys extends boolean> = AllowsRawKeys extends true
-  ? { allowedKeys?: readonly KeyboardActionRef[] }
-  : { allowedKeys?: never };
-
 type StableScreenReaderActionRefFor<TSemantic extends ScreenReaderSemanticAction> =
   ScreenReaderStableActionRef & { semantic: TSemantic };
 
@@ -57,28 +48,22 @@ type BackendConfiguredScreenReaderAction<TBackend extends ScreenReaderBackendId>
   | BackendConfiguredStableScreenReaderAction<TBackend>
   | BackendConfiguredUnstableScreenReaderAction<TBackend>;
 
-type ModeWithoutScreenReaderBackendConfig<AllowsRawKeys extends boolean> =
-  SharedModeConfigSource
-  & ModeAllowedKeysField<AllowsRawKeys>
-  & {
-    allowedScreenReaderActions?: never;
-    screenReaderBackend?: never;
-    observe?: never;
-  };
+type KeyboardModeConfigSource = SharedModeConfigSource & {
+  allowedKeys?: readonly KeyboardActionRef[];
+};
 
-type ModeWithScreenReaderBackendConfig<AllowsRawKeys extends boolean> = {
+type ScreenReaderModeConfigSource = {
   [TBackend in ScreenReaderBackendId]: SharedModeConfigSource & {
     screenReaderBackend: TBackend;
-    allowedKeys?: ModeAllowedKeysField<AllowsRawKeys>["allowedKeys"];
     allowedScreenReaderActions?: readonly BackendConfiguredScreenReaderAction<TBackend>[];
     observe?: ScreenReaderObserveConfig;
   };
 }[ScreenReaderBackendId];
 
 type ModeConfigFor<Mode extends UserModel> =
-  ModeRequiresScreenReaderBackend<Mode> extends true
-    ? ModeWithScreenReaderBackendConfig<ModeAllowsRawKeys<Mode>>
-    : ModeWithoutScreenReaderBackendConfig<ModeAllowsRawKeys<Mode>>;
+  Mode extends "keyboard"
+    ? KeyboardModeConfigSource
+    : ScreenReaderModeConfigSource;
 
 export type ProjectPromptSource = {
   dir?: string;
@@ -104,7 +89,7 @@ export type ProjectConfigSource = {
   }>;
 };
 
-export function defineConfig<const TConfig extends ProjectConfigSource>(config: TConfig): ProjectConfigSource {
+export function defineConfig(config: ProjectConfigSource): ProjectConfigSource {
   return config;
 }
 
