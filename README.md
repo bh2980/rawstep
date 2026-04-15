@@ -305,7 +305,7 @@ export default defineConfig({
 - `screenReaderBackend` 는 screenreader mode preset이나 task `config` override에 반드시 있어야 합니다.
 - `allowedKeys`, `allowedScreenReaderActions` 는 프로그램이 공식 지원하는 전체 목록 중 이번 모드에서 실제 허용할 subset 입니다.
 - `allowedKeys` 는 키만 제어합니다. `typeText("email")` 같은 named input 액션은 여기에 포함되지 않고, task에 `input` 이 있을 때만 자동으로 허용됩니다.
-- task 파일(`.json`, `.yml`)은 과업 본문이고, `config` 블록은 task 단위 실행 override 입니다.
+- task 파일(`.json`)은 과업 본문이고, `config` 블록은 task 단위 실행 override 입니다.
 - CLI 플래그는 이번 한 번만 덮어쓸 값입니다.
 - `rawstep.config.ts` 가 없거나, 선택한 mode preset에 `outDir`, `maxSteps`, `timeoutMs`, `memory` 가 비어 있으면 실행하지 않습니다.
 - task `config` 에는 `provider`, `apiKey`, `model`, `baseURL` 를 넣을 수 없습니다. provider 설정은 `rawstep.config.ts defaults`, env, CLI override만 사용합니다.
@@ -359,7 +359,41 @@ export default defineConfig({
 여기서 사실상 필수로 봐야 하는 값은 `outDir`, `maxSteps`, `timeoutMs`, `memory` 입니다.  
 `screenreader` preset에는 `screenReaderBackend` 도 사실상 필수입니다.
 
-**task 파일 top-level**
+task 본문과 task `config` 작성법은 바로 아래 [Task 작성 가이드](#task-작성-가이드)에서 따로 설명합니다.
+
+CLI 파라미터는 아래 [rawstep run 파라미터](#rawstep-run-파라미터)에서 따로 설명합니다.
+
+## Task 작성 가이드
+
+task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과업 본문입니다.
+
+실제로는 아래 committed 예시를 그대로 실행합니다.
+
+- [examples/tasks/simple-cta.json](/Users/bh2980/Desktop/a11y/examples/tasks/simple-cta.json:1)
+- [examples/tasks/email-login.json](/Users/bh2980/Desktop/a11y/examples/tasks/email-login.json:1)
+
+가장 작은 task는 아래처럼 생각하면 됩니다.
+
+```json
+{
+  "url": "../../fixtures/simple-cta.html",
+  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
+  "verify": {
+    "all": [
+      { "textVisible": "Started!" },
+      { "titleIncludes": "Completed" }
+    ]
+  }
+}
+```
+
+쉽게 말하면:
+
+- `url`: 어디서 실행할지
+- `goal`: 무엇을 해야 하는지
+- `verify`: 진짜 성공인지 어떻게 다시 확인할지
+
+### task top-level 키
 
 - `id?`: 생략하면 보통 파일명 기반 ID를 씁니다.
 - `url`: 실행할 페이지 URL. 상대 경로면 task 파일 기준으로 resolve
@@ -372,7 +406,32 @@ export default defineConfig({
 
 여기 들어가는 값은 **과업 본문**입니다. 예를 들어 `input.email`, `input.password` 는 이 task에서만 쓰는 고정 입력값입니다.
 
-**task 파일 `config`**
+예를 들어 `input` 이 있는 task는 이렇게 씁니다.
+
+```json
+{
+  "id": "email-login",
+  "url": "../../fixtures/email-login.html",
+  "goal": "이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.",
+  "mode": "keyboard",
+  "maxSteps": 24,
+  "timeoutMs": 180000,
+  "input": {
+    "email": "traveler@example.com"
+  },
+  "verify": {
+    "all": [
+      { "textVisible": "Magic link sent." },
+      { "textVisible": "traveler@example.com" },
+      { "titleIncludes": "Completed" }
+    ]
+  }
+}
+```
+
+`input` 은 task가 제공하는 named string map 입니다. 예를 들어 `email`, `password`, `otp` 같은 키를 둘 수 있습니다. agent는 임의 텍스트를 만들지 않고, 필요할 때만 `{"action":{"typeText":"email"}}` 같이 키를 골라 그 값을 입력합니다.
+
+### task `config` override
 
 - `mode`, `outDir`, `headless`, `maxSteps`, `timeoutMs`
 - `maxVerificationRetries`
@@ -385,79 +444,45 @@ export default defineConfig({
 task `config` 는 **실행 override만** 받습니다.  
 여기에는 `provider`, `apiKey`, `model`, `baseURL`, `prompt.dir` 를 넣을 수 없습니다.
 
-**CLI override**
-
-CLI는 아래 최종 override를 가집니다.
-
-- `--config`
-- `--mode`
-- `--out`
-- `--headless` / `--headed`
-- `--screenshots`
-- `--max-steps`
-- `--timeout-ms`
-- `--screen-reader-backend`
-- `--allowed-keys`
-- `--allowed-screen-reader-actions`
-- `--verifier-auto-complete` / `--no-verifier-auto-complete`
-- `--agent-memory-window`
-- `--agent-memory-all` / `--no-agent-memory-all`
-- `--include-experience-summary` / `--no-include-experience-summary`
-- `--include-rationale` / `--no-include-rationale`
-- `--provider`
-- `--model`
-- `--base-url`
-
-쉽게 말하면 CLI는 "이번 한 번만 덮어쓰는 마지막 값" 입니다.
-
-쉽게 말하면:
-
-- `defaults` 는 모델 연결 설정
-- `modes.<mode>` 는 실행 preset
-- task top-level 은 과업 본문
-- task `config` 는 그 task에서만 쓰는 실행 override
-- CLI는 최종 강제 override
+쉽게 말하면 task `config` 는 mode preset보다 강하고, CLI 플래그보다는 약한 중간 override 입니다.
 
 task 파일에도 필요한 경우 override를 둘 수 있습니다.
 
-```yaml
-id: simple-cta
-url: ../../fixtures/simple-cta.html
-goal: Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.
-verify:
-  all:
-    - textVisible: Started!
-    - titleIncludes: Completed
-config:
-  mode: screenreader
-  timeoutMs: 600000
-  memory: all
-  headless: true
-  screenReaderBackend: guidepup-virtual
-  allowedScreenReaderActions:
-    - sr.next
-    - sr.act
+```json
+{
+  "id": "simple-cta",
+  "url": "../../fixtures/simple-cta.html",
+  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
+  "verify": {
+    "all": [
+      { "textVisible": "Started!" },
+      { "titleIncludes": "Completed" }
+    ]
+  },
+  "config": {
+    "mode": "screenreader",
+    "timeoutMs": 600000,
+    "memory": "all",
+    "headless": true,
+    "screenReaderBackend": "guidepup-virtual",
+    "allowedScreenReaderActions": [
+      "sr.next",
+      "sr.act"
+    ]
+  }
+}
 ```
 
-반대로 top-level task 본문에는 과업 자체만 둡니다.
+쉽게 말하면 `config` 는 "이 task만 mode나 timeout, 허용 action subset을 살짝 다르게 돌리고 싶을 때" 쓰는 블록입니다.
 
-```yaml
-id: email-login
-url: ../../fixtures/email-login.html
-goal: 이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.
-mode: keyboard
-maxSteps: 24
-timeoutMs: 180000
-input:
-  email: traveler@example.com
-verify:
-  all:
-    - textVisible: Magic link sent.
-    - textVisible: traveler@example.com
-    - titleIncludes: Completed
-```
+### task 작성할 때 기억할 점
 
-`input` 은 task가 제공하는 named string map 입니다. 예를 들어 `email`, `password`, `otp` 같은 키를 둘 수 있습니다. agent는 임의 텍스트를 만들지 않고, 필요할 때만 `{"action":{"typeText":"email"}}` 같이 키를 골라 그 값을 입력합니다.
+- task 파일은 현재 JSON만 받습니다.
+- `url`, `goal`, `verify` 는 사실상 필수라고 생각하면 됩니다.
+- 공통 실행값은 `rawstep.config.ts > modes.<mode>` 로 올리고, task에는 과업 본문만 두는 편이 읽기 쉽습니다.
+- task `config` 는 예외적인 override가 있을 때만 쓰는 편이 좋습니다.
+- CLI에서 한 번만 강제로 바꾸고 싶으면 아래 [rawstep run 파라미터](#rawstep-run-파라미터)를 씁니다.
+- `verify` 는 아래 [verify 레퍼런스](#verify-레퍼런스)를 기준으로 씁니다.
 
 실제로 많이 쓰는 예시는 아래 둘입니다.
 
@@ -569,26 +594,113 @@ pnpm rawstep run examples/tasks/simple-cta.json \
 
 ## CLI 옵션
 
-`rawstep run` 이 지원하는 대표 플래그는 아래와 같습니다.
+현재 CLI는 사실상 `rawstep run` 하나를 중심으로 동작합니다.
 
-- `--config <rawstep.config.ts>`: 명시적 config 파일 경로
-- `--mode <keyboard|screenreader>`: 사용자 모델 선택
-- `--out <dir>`: 결과 출력 디렉터리
-- `--headless` / `--headed`: 브라우저 표시 여부 강제
-- `--screenshots <all|important|failure-only|none>`: screenreader 리포트용 개발자 스크린샷 저장 정책
-- `--max-steps <n>`: 최대 step 수
-- `--timeout-ms <n>`: 전체 실행 제한 시간
-- `--screen-reader-backend <guidepup-voiceover|guidepup-nvda|guidepup-virtual>`: screenreader backend 선택
-- `--allowed-keys Tab,Shift+Tab,Enter`: keyboard / screenreader 모드 키 subset 제한
-- `--allowed-screen-reader-actions sr.next,sr.act`: screenreader action subset 제한
-- `--verifier-auto-complete` / `--no-verifier-auto-complete`: verifier 자동 종료 실험 옵션
-- `--agent-memory-window <n>`: 최근 N개 step archive만 agent에게 재주입
-- `--agent-memory-all` / `--no-agent-memory-all`: 누적 text memory 전체 재주입 여부
-- `--include-experience-summary` / `--no-include-experience-summary`: 실행 후 `overall / blockers / surprise / oneLineFeel` summary 포함 여부
-- `--include-rationale` / `--no-include-rationale`: agent가 `rationale` 필드를 생성할지 여부
-- `--provider <anthropic|openai-compatible>`: provider 선택
-- `--model <id>`: 모델 ID
-- `--base-url <url>`: OpenAI-compatible base URL
+```bash
+rawstep run <task-file> [options...]
+```
+
+쉽게 말하면:
+
+- `<task-file>` 는 필수 위치 인자입니다.
+- 나머지는 모두 이번 한 번만 덮어쓰는 실행 파라미터입니다.
+
+### rawstep run 파라미터
+
+**`<task-file>`**
+
+- 실행할 task JSON 파일 경로입니다.
+- 상대 경로를 줄 수 있습니다.
+
+**`--config <rawstep.config.ts>`**
+
+- 사용할 config 파일 경로입니다.
+- 자동 config discovery 대신 이 파일을 강제로 씁니다.
+- `.ts` 파일만 받습니다.
+
+**`--mode <keyboard|screenreader>`**
+
+- 이번 실행의 mode를 강제로 지정합니다.
+- task 파일이나 `rawstep.config.ts` preset보다 우선합니다.
+
+**`--out <dir>`**
+
+- 결과 출력 디렉터리를 강제로 지정합니다.
+- `trace.jsonl`, `trace.json`, `metrics.json`, `prompts.json`, `report/`가 여기로 나갑니다.
+
+**`--headless` / `--headed`**
+
+- 브라우저 창 표시 여부를 강제로 정합니다.
+- backend 기본값이나 mode preset보다 우선합니다.
+
+**`--screenshots <all|important|failure-only|none>`**
+
+- screenreader 리포트용 개발자 스크린샷 저장 정책입니다.
+- keyboard 모드의 agent 입력 screenshot 자체를 끄는 옵션은 아닙니다.
+
+**`--max-steps <n>`**
+
+- 최대 step 수를 강제로 지정합니다.
+- 숫자는 0 이상의 정수여야 합니다.
+
+**`--timeout-ms <n>`**
+
+- 전체 실행 제한 시간을 밀리초 단위로 지정합니다.
+- 숫자는 0 이상의 정수여야 합니다.
+
+**`--screen-reader-backend <guidepup-voiceover|guidepup-nvda|guidepup-virtual>`**
+
+- screenreader 모드에서 사용할 backend를 강제로 지정합니다.
+- keyboard 모드에서는 보통 필요 없습니다.
+
+**`--allowed-keys <key1,key2>`**
+
+- 허용할 keyboard action subset만 남깁니다.
+- 쉼표 구분 한 줄로 받습니다.
+- 예: `--allowed-keys Tab,Shift+Tab,Enter`
+
+**`--allowed-screen-reader-actions <sr.token1,sr.token2>`**
+
+- 허용할 screen reader action subset만 남깁니다.
+- 쉼표 구분 한 줄로 받습니다.
+- 예: `--allowed-screen-reader-actions sr.next,sr.act,sr.read.itemText`
+
+**`--verifier-auto-complete` / `--no-verifier-auto-complete`**
+
+- verifier가 조건 만족을 확인하면 agent가 직접 `success`를 말하지 않아도 자동 종료할지 정합니다.
+- 기본은 꺼져 있다고 생각하면 됩니다.
+
+**`--agent-memory-window <n>`**
+
+- agent에게 다시 보여줄 최근 step memory 개수를 정합니다.
+- `0` 이면 사실상 memory를 안 보여줍니다.
+
+**`--agent-memory-all` / `--no-agent-memory-all`**
+
+- 최근 일부가 아니라 누적된 text memory 전체를 다시 보여줄지 정합니다.
+- 켜면 `--agent-memory-window` 보다 넓은 범위를 씁니다.
+
+**`--include-experience-summary` / `--no-include-experience-summary`**
+
+- run 종료 후 `overall / blockers / surprise / oneLineFeel` summary를 만들지 정합니다.
+
+**`--include-rationale` / `--no-include-rationale`**
+
+- agent가 decision JSON 안에 `rationale` 필드를 넣을지 정합니다.
+- 디버깅용이라고 생각하면 쉽습니다.
+
+**`--provider <anthropic|openai-compatible>`**
+
+- 이번 실행에서 쓸 LLM provider를 강제로 지정합니다.
+- `defaults.provider` 나 환경 변수보다 우선합니다.
+
+**`--model <id>`**
+
+- 이번 실행에서 쓸 모델 ID를 강제로 지정합니다.
+
+**`--base-url <url>`**
+
+- OpenAI-compatible provider일 때 쓸 base URL을 강제로 지정합니다.
 
 config 필드와 대응하는 대표 CLI override는 아래처럼 맞춰져 있습니다.
 
@@ -845,6 +957,234 @@ verify:
 이 파일들은 반드시 존재해야 하고 비어 있으면 안 됩니다.  
 `{{goal}}`, `{{agentMemory}}`, `{{announcement}}`, `{{readbacks}}`, `{{availableActions}}`, `{{outputExamples}}`, `{{taskSummary}}`, `{{aggregateSummary}}`, `{{stepTimeline}}` 같은 자리표시자는 코드가 런타임에 채웁니다.
 프롬프트 파일 안에서 `<!-- ... -->` 로 감싼 Markdown 주석은 로딩할 때 제거되므로, 내부 메모를 남겨도 모델 입력에는 들어가지 않습니다.
+값이 비어 있을 수 있는 블록은 그냥 빈 문자열로 지우지 않고, `status: empty` 또는 `status: present` 와 `value/items` 구조로 명시해서 채웁니다. 반대로 템플릿에 있는 placeholder를 코드가 아예 공급하지 못하면 렌더링 에러로 바로 실패합니다.
+
+#### 파일별 역할
+
+- [keyboard.system.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.system.md)
+  - keyboard agent의 규칙서입니다.
+  - 어떤 근거를 우선할지, 언제 `success`/`stuck` 을 선택할지, 출력 JSON 모양이 어떤지 적습니다.
+- [keyboard.user.md](/Users/bh2980/Desktop/a11y/prompt/keyboard.user.md)
+  - keyboard agent에게 이번 턴의 실제 입력 데이터를 주는 템플릿입니다.
+  - goal, action history, focus hint, available actions 같은 실행 중 데이터가 들어갑니다.
+- [screenreader.system.md](/Users/bh2980/Desktop/a11y/prompt/screenreader.system.md)
+  - screenreader agent의 규칙서입니다.
+  - announcement 기반으로 어떻게 판단할지, raw key를 언제 써도 되는지, 출력 JSON 모양이 어떤지 적습니다.
+- [screenreader.user.md](/Users/bh2980/Desktop/a11y/prompt/screenreader.user.md)
+  - screenreader agent에게 이번 턴의 실제 입력 데이터를 주는 템플릿입니다.
+  - goal, agent memory, 현재 announcement, readbacks, available actions가 들어갑니다.
+- [experience-summary.system.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.system.md)
+  - run이 끝난 뒤 summary를 만들 때 쓰는 규칙서입니다.
+  - 어떤 사실만 써야 하는지, 어떤 추측을 하면 안 되는지, 최종 JSON 필드가 무엇인지 적습니다.
+- [experience-summary.user.md](/Users/bh2980/Desktop/a11y/prompt/experience-summary.user.md)
+  - run 종료 후 summary에 넣을 실제 데이터 템플릿입니다.
+  - task 요약, aggregate 요약, step timeline이 들어갑니다.
+
+#### 파일별 변수
+
+**`keyboard.system.md`**
+
+- `{{outputExamples}}`: 지금 허용된 keyboard action, `typeText.<key>`, verdict 예시 JSON 묶음
+
+**`keyboard.user.md`**
+
+- `{{goal}}`: 현재 task 목표 문장
+- `{{agentMemory}}`: 최근 action/outcome 요약. `status: present|empty` 와 `items` 구조로 들어갑니다.
+- `{{focusHint}}`: 현재 focus hint. `status: present|empty` 와 `value` 구조로 들어갑니다.
+- `{{availableActions}}`: 지금 턴에서 허용된 `key.*`, `typeText.*` 목록. `status: present|empty` 와 `items` 구조로 들어갑니다.
+
+**`screenreader.system.md`**
+
+- `{{outputExamples}}`: 지금 허용된 `sr.*`, `srx.*`, `key.*`, `typeText.*`, verdict 예시 JSON 묶음
+
+**`screenreader.user.md`**
+
+- `{{goal}}`: 현재 task 목표 문장
+- `{{agentMemory}}`: 최근 action/outcome 요약. `status: present|empty` 와 `items` 구조로 들어갑니다.
+- `{{announcement}}`: 현재 step에서 잡힌 announcement. `status: present|empty` 와 `value` 구조로 들어갑니다.
+- `{{readbacks}}`: read/clear 결과를 사람이 읽기 쉬운 `items` 목록으로 정리한 값
+- `{{availableActions}}`: 지금 턴에서 허용된 `sr.*`, `srx.*`, `key.*`, `typeText.*` 목록. `status: present|empty` 와 `items` 구조로 들어갑니다.
+
+**`experience-summary.system.md`**
+
+- 변수 없음
+- 이 파일은 규칙만 적는 정적 system prompt입니다.
+
+**`experience-summary.user.md`**
+
+- `{{taskSummary}}`: task id, mode, goal, input key 같은 task 단위 요약
+- `{{aggregateSummary}}`: result, endedBy, totalSteps, duration, action count, failure point 요약
+- `{{stepTimeline}}`: 각 step의 observation, decision, execution, verification/result를 짧게 풀어쓴 timeline
+- 이 세 블록 안의 optional 값도 같은 방식으로 `empty` 상태를 명시합니다.
+
+#### 렌더링 예시
+
+**`keyboard.user.md` 예시**
+
+템플릿:
+
+```md
+goal:
+{{goal}}
+
+action history:
+{{agentMemory}}
+
+focus hint:
+{{focusHint}}
+
+available actions:
+{{availableActions}}
+```
+
+렌더링 후 예시:
+
+```text
+goal:
+Finish the task.
+
+action history:
+- status: present
+- items:
+  - step 0: action="key(Tab)", outcome="continued"
+
+focus hint:
+- status: present
+- value: "input[type=email] \"Work email\""
+
+available actions:
+- status: present
+- items:
+  - key.Tab
+  - key.Enter
+  - typeText.email
+```
+
+**`screenreader.user.md` 예시**
+
+템플릿:
+
+```md
+goal:
+{{goal}}
+
+announcement:
+{{announcement}}
+
+readbacks:
+{{readbacks}}
+```
+
+렌더링 후 예시:
+
+```text
+goal:
+Finish the task.
+
+announcement:
+- status: present
+- value: "Submit button"
+
+readbacks:
+- status: present
+- items:
+  - method=itemText, value="Email"
+  - method=clearItemTextLog, status=cleared
+```
+
+**`experience-summary.user.md` 예시**
+
+템플릿:
+
+```md
+Task
+{{taskSummary}}
+
+Aggregate
+{{aggregateSummary}}
+
+Step Timeline
+{{stepTimeline}}
+```
+
+렌더링 후 예시:
+
+```text
+Task
+- id: simple-cta
+- mode: keyboard
+- goal: Activate the CTA.
+- input keys status: empty
+
+Aggregate
+- result: success
+- ended by: success
+- total steps: 2
+- duration: 1432 ms
+- failure point status: empty
+
+Step Timeline
+- status: present
+- items:
+  - step 0 | observation=Keyboard observation on "Simple CTA Fixture" at /fixture. | decision=key.Tab | execution=ok with cost delta 0.
+  - step 1 | observation=Keyboard observation on "Simple CTA Fixture" at /fixture. | decision=key.Enter | execution=ok with cost delta 1. | result=success via agent.
+```
+
+### 수정 포인트 가이드
+
+무엇을 바꾸려는지에 따라 먼저 봐야 할 파일이 다릅니다.  
+쉽게 말하면 "진짜 원본 1곳"을 먼저 고치고, 나머지는 그 결과를 따라가게 만드는 구조입니다.
+
+- **새 키보드 키를 추가하거나 기본 허용 키를 바꾸려면**
+  - 원본은 [packages/action-catalog/src/source.ts](/Users/bh2980/Desktop/a11y/packages/action-catalog/src/source.ts:1) 의 `keyboardActionSource` 입니다.
+  - `cliToken`, `helperPath`, `defaultAllowed` 를 여기서 정합니다.
+  - generated 결과물은 직접 고치지 않습니다.
+
+- **새 stable `sr.*` 명령을 추가하거나 backend별 지원 범위를 바꾸려면**
+  - 원본은 [packages/action-catalog/src/source.ts](/Users/bh2980/Desktop/a11y/packages/action-catalog/src/source.ts:1) 의 `screenReaderActionSource` 입니다.
+  - `semantic`, `kind`, `argumentKind`, `backendSupport`, `catalogIdsByBackend` 를 여기서 정합니다.
+  - 쉽게 말하면 `sr.heading.next` 같은 명령은 여기서 시작합니다.
+
+- **mode 이름이나 mode 정책을 바꾸려면**
+  - 원본은 [packages/definition/src/modes/source.ts](/Users/bh2980/Desktop/a11y/packages/definition/src/modes/source.ts:1) 의 `MODE_SPEC` 입니다.
+  - `keyboard` / `screenreader` 가 어떤 관측을 쓰는지, raw key를 허용하는지, backend가 필요한지 여기서 정합니다.
+
+- **backend id, 플랫폼 지원, headless 정책을 바꾸려면**
+  - 원본은 [packages/definition/src/backends/source.ts](/Users/bh2980/Desktop/a11y/packages/definition/src/backends/source.ts:1) 의 `BACKEND_SPEC` 입니다.
+  - backend 이름, 지원 OS, browser 정책, `supportsRawPerform` 를 여기서 정합니다.
+
+- **backend capability snapshot을 갱신하려면**
+  - checked-in snapshot은 [packages/definition/src/backends/generated-capabilities.ts](/Users/bh2980/Desktop/a11y/packages/definition/src/backends/generated-capabilities.ts:1) 입니다.
+  - 생성 스크립트는 [packages/runtime/scripts/generate-backend-capabilities.ts](/Users/bh2980/Desktop/a11y/packages/runtime/scripts/generate-backend-capabilities.ts:1) 입니다.
+  - 쉽게 말하면 snapshot은 결과물이고, 실제 생성 로직은 runtime 쪽 스크립트가 가집니다.
+
+- **`rawstep.config.ts` 에 쓸 수 있는 필드 모양을 바꾸려면**
+  - authoring 타입 원본은 [packages/config/src/project/source.ts](/Users/bh2980/Desktop/a11y/packages/config/src/project/source.ts:1) 입니다.
+  - `defineConfig`, `defaults`, `modes.<mode>` shape가 여기서 시작합니다.
+
+- **config 필드 검증 규칙을 바꾸려면**
+  - 원본은 [packages/config/src/project/schema.ts](/Users/bh2980/Desktop/a11y/packages/config/src/project/schema.ts:1) 입니다.
+  - 어떤 필드를 허용할지, 어떤 값이 에러인지, parser가 무엇을 받아들이는지 여기서 정합니다.
+
+- **override 우선순위를 바꾸려면**
+  - 원본은 [packages/config/src/run-plan/precedence.ts](/Users/bh2980/Desktop/a11y/packages/config/src/run-plan/precedence.ts:1) 입니다.
+  - CLI, task `config`, task top-level, mode preset, defaults 중 누가 이기는지 여기서 정합니다.
+
+- **최종 실행 계획이 어떻게 조립되는지 바꾸려면**
+  - 원본은 [packages/config/src/run-plan/resolve.ts](/Users/bh2980/Desktop/a11y/packages/config/src/run-plan/resolve.ts:1) 입니다.
+  - task 읽기, config 읽기, mode 선택, action plan 계산, `ResolvedRunPlan` 생성이 여기서 끝납니다.
+
+- **CLI 플래그나 help/usage 문구를 바꾸려면**
+  - 원본은 [packages/config/src/run-plan/cli-manifest.ts](/Users/bh2980/Desktop/a11y/packages/config/src/run-plan/cli-manifest.ts:1) 입니다.
+  - 쉽게 말하면 CLI 옵션의 진짜 원본은 `args.ts` 가 아니라 manifest 입니다.
+
+- **프롬프트 문구를 바꾸려면**
+  - 원본은 [prompt](/Users/bh2980/Desktop/a11y/prompt) 아래 `*.system.md`, `*.user.md` 파일들입니다.
+  - 규칙을 바꾸려면 `*.system.md`, 실제 입력 모양을 바꾸려면 `*.user.md` 를 봅니다.
+
+- **예시 task나 fixture를 바꾸려면**
+  - 원본은 [examples/tasks](/Users/bh2980/Desktop/a11y/examples/tasks) 와 [fixtures](/Users/bh2980/Desktop/a11y/fixtures) 입니다.
+  - 테스트가 이 파일들을 다시 생성하지는 않습니다. repo에 커밋된 파일이 원본입니다.
 
 `--screenshots` 는 screenreader 리포트용 개발자 스크린샷 저장 정책을 고릅니다.
 

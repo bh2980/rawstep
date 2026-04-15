@@ -5,10 +5,15 @@ import {
   type ProjectConfigSource,
 } from "@rawstep/config";
 
+const providerFromEnv = process.env.AI_PROVIDER;
+
 const config: ProjectConfigSource = defineConfig({
   version: 1,
   defaults: {
-    provider: "openai-compatible",
+    provider:
+      providerFromEnv === "anthropic" || providerFromEnv === "openai-compatible"
+        ? providerFromEnv
+        : undefined,
     model: process.env.AI_MODEL,
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY,

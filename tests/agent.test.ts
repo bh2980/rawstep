@@ -436,10 +436,13 @@ describe("agent helpers", () => {
 
     expect(prompt).toContain("Task");
     expect(prompt).toContain("- id: summary-task");
+    expect(prompt).toContain("- input keys status: empty");
     expect(prompt).toContain("Aggregate");
     expect(prompt).toContain("- result: success");
+    expect(prompt).toContain("- failure point status: empty");
     expect(prompt).toContain("Step Timeline");
-    expect(prompt).toContain("- No steps recorded.");
+    expect(prompt).toContain("- status: empty");
+    expect(prompt).toContain("- items: []");
     expect(prompt).not.toMatch(/task:\s*\{/);
     expect(prompt).not.toMatch(/aggregate:\s*\{/);
     expect(prompt).not.toMatch(/steps:\s*\[/);
@@ -615,11 +618,12 @@ describe("agent helpers", () => {
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("goal:\nFinish the task.");
       expect(promptParts[0].text).toContain("available actions:");
+      expect(promptParts[0].text).toContain("- status: present");
       expect(promptParts[0].text).toContain("- typeText.email");
       expect(promptParts[0].text).toContain("- typeText.password");
       expect(promptParts[0].text).toContain("- key.Tab");
       expect(promptParts[0].text).toContain("- key.Enter");
-      expect(promptParts[0].text).toContain('focus hint:\ninput[type=email] "Work email"');
+      expect(promptParts[0].text).toContain('focus hint:\n- status: present\n- value: "input[type=email] \\"Work email\\""');
       expect(promptParts[0].text).not.toContain("traveler@example.com");
       expect(promptParts[0].text).not.toContain("super-secret");
     }
@@ -662,9 +666,38 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("focus hint:\nnone");
+      expect(promptParts[0].text).toContain('focus hint:\n- status: present\n- value: "none"');
       expect(promptParts[0].text).not.toContain("현재 focus된 인터랙티브 요소가 감지되지 않았다.");
       expect(promptParts[0].text).not.toContain("(empty)");
+    }
+  });
+
+  it("renders empty blocks for missing keyboard prompt values", () => {
+    const promptParts = buildPromptParts(
+      "keyboard",
+      {
+        goal: "Finish the task.",
+        keyboardActions: [],
+        memory: []
+      },
+      {
+        kind: "keyboard",
+        screenshot: {
+          pngBase64: "current-image",
+          viewport: { w: 1280, h: 720 }
+        },
+        browserChrome: {
+          title: "Simple CTA Fixture",
+          urlPath: "/fixture"
+        }
+      }
+    );
+
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("action history:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("focus hint:\n- status: empty");
+      expect(promptParts[0].text).toContain("available actions:\n- status: empty\n- items: []");
     }
   });
 
@@ -682,12 +715,38 @@ describe("agent helpers", () => {
     expect(promptParts).toHaveLength(1);
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("announcement:\nSubmit button");
+      expect(promptParts[0].text).toContain('announcement:\n- status: present\n- value: "Submit button"');
       expect(promptParts[0].text).toContain("available actions:");
     }
   });
 
-  it("renders readbacks as structured JSON lines", () => {
+  it("renders empty blocks for missing screenreader prompt values", () => {
+    const promptParts = buildPromptParts(
+      "screenreader",
+      {
+        goal: "Finish the task.",
+        keyboardActions: [],
+        screenReaderActions: [],
+        memory: []
+      },
+      {
+        kind: "screenreader",
+        announcement: "",
+        announcementCapture: "none",
+        readbacks: []
+      }
+    );
+
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("agent memory:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("announcement:\n- status: empty");
+      expect(promptParts[0].text).toContain("readbacks:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("available actions:\n- status: empty\n- items: []");
+    }
+  });
+
+  it("renders readbacks as structured list items", () => {
     const promptParts = buildPromptParts(
       "screenreader",
       makeKeyboardContext(),
@@ -704,10 +763,10 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain('{"method":"itemText","value":"Email"}');
-      expect(promptParts[0].text).toContain('{"method":"clearItemTextLog","status":"cleared"}');
-      expect(promptParts[0].text).not.toContain("- itemText: Email");
-      expect(promptParts[0].text).not.toContain("- clearItemTextLog: cleared");
+      expect(promptParts[0].text).toContain("- status: present");
+      expect(promptParts[0].text).toContain('- method=itemText, value="Email"');
+      expect(promptParts[0].text).toContain("- method=clearItemTextLog, status=cleared");
+      expect(promptParts[0].text).not.toContain('{"method":"itemText","value":"Email"}');
     }
   });
 
@@ -927,6 +986,19 @@ describe("agent helpers", () => {
     });
 
     expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{agentMemory}}");
+  });
+
+  it("fails when a prompt template references a placeholder with no provided replacement", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.user.md": "goal:\n{{goal}}\nmissing:\n{{unknownPlaceholder}}\navailable actions:\n{{availableActions}}\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}"
+    });
+    process.chdir(rootDir);
+
+    expect(() => buildPromptParts(
+      "keyboard",
+      makeKeyboardContext(),
+      makeKeyboardObservation()
+    )).toThrow("Missing prompt replacement for {{unknownPlaceholder}}.");
   });
 
   it("fails when the experience summary user template is missing a required placeholder", async () => {

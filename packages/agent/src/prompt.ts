@@ -157,6 +157,12 @@ function buildExperienceSummaryTaskValue(task: ResolvedTask): string {
   ];
 
   const inputKeys = task.input ? Object.keys(task.input) : [];
+  lines.push(
+    inputKeys.length === 0
+      ? "- input keys status: empty"
+      : "- input keys status: present",
+  );
+
   if (inputKeys.length > 0) {
     lines.push(`- input keys: ${inputKeys.join(", ")}`);
   }
@@ -174,9 +180,12 @@ function buildExperienceSummaryAggregateValue(aggregate: TraceAggregate): string
   ];
 
   if (aggregate.failurePoint) {
+    lines.push("- failure point status: present");
     lines.push(
-      `- failure point: step ${aggregate.failurePoint.stepIndex} - ${aggregate.failurePoint.reason}`
+      `- failure point value: step ${aggregate.failurePoint.stepIndex} - ${aggregate.failurePoint.reason}`
     );
+  } else {
+    lines.push("- failure point status: empty");
   }
 
   return lines.join("\n");
@@ -184,28 +193,29 @@ function buildExperienceSummaryAggregateValue(aggregate: TraceAggregate): string
 
 function buildExperienceSummaryStepTimelineValue(steps: StepRecord[]): string {
   if (steps.length === 0) {
-    return "- No steps recorded.";
+    return buildEmptyListBlock();
   }
 
-  return steps.map((step) => buildExperienceSummaryStepValue(step)).join("\n\n");
+  return buildPresentListBlock(steps.map((step) => buildExperienceSummaryStepValue(step)));
 }
 
 function buildExperienceSummaryStepValue(step: StepRecord): string {
-  const lines = [
-    `${step.step}. ${summarizeObservationForPrompt(step)}`,
-    `Decision: ${summarizeDecisionForPrompt(step.decision)}`,
-    `Execution: ${summarizeExecutionForPrompt(step)}`
+  const parts = [
+    `step ${step.step}`,
+    `observation=${summarizeObservationForPrompt(step)}`,
+    `decision=${summarizeDecisionForPrompt(step.decision)}`,
+    `execution=${summarizeExecutionForPrompt(step)}`
   ];
 
   if (step.verification) {
-    lines.push(`Verification: ${summarizeVerificationForPrompt(step)}`);
+    parts.push(`verification=${summarizeVerificationForPrompt(step)}`);
   }
 
   if (step.verdictAnalysis) {
-    lines.push(`Result: ${summarizeResultForPrompt(step)}`);
+    parts.push(`result=${summarizeResultForPrompt(step)}`);
   }
 
-  return lines.join("\n");
+  return parts.join(" | ");
 }
 
 function summarizeObservationForPrompt(step: StepRecord): string {
@@ -285,15 +295,14 @@ function buildGoalValue(goal: string): string {
 
 function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
   if (memory.length === 0) {
-    return "";
+    return buildEmptyListBlock();
   }
 
-  return memory.map((entry) =>
-    [
-      `- step ${entry.step}: action="${entry.action}", outcome="${entry.outcome}"`,
-      entry.note ? `, note="${entry.note}"` : ""
-    ].join("")
-  ).join("\n");
+  return buildPresentListBlock(memory.map((entry) => [
+    `step ${entry.step}: action=${JSON.stringify(entry.action)}`,
+    `outcome=${JSON.stringify(entry.outcome)}`,
+    entry.note ? `note=${JSON.stringify(entry.note)}` : undefined
+  ].filter(Boolean).join(", ")));
 }
 
 function buildKeyboardOutputExamples(
@@ -379,43 +388,42 @@ function buildOutputExamples(snippets: readonly string[]): string {
 
 function buildKeyboardActionsBlock(
   keyboardActions: readonly KeyboardActionDescriptor[] | undefined
-): string {
+): string[] {
   if (!keyboardActions || keyboardActions.length === 0) {
-    return "";
+    return [];
   }
 
   return keyboardActions
     .map((action) => action.hint ? `- ${action.token}: ${action.hint}` : `- ${action.token}`)
-    .join("\n");
+    .map((line) => line.replace(/^- /, ""));
 }
 
 function buildScreenReaderActionsBlock(
   promptActions: readonly ScreenReaderActionDescriptor[] | undefined
-): string {
+): string[] {
   if (!promptActions || promptActions.length === 0) {
-    return "";
+    return [];
   }
 
   return promptActions
     .map((action) => {
       return action.hint ? `- ${action.token}: ${action.hint}` : `- ${action.token}`;
     })
-    .join("\n");
+    .map((line) => line.replace(/^- /, ""));
 }
 
-function buildTaskInputActionsBlock(taskInput?: TaskInput): string {
+function buildTaskInputActionsBlock(taskInput?: TaskInput): string[] {
   if (!taskInput) {
-    return "";
+    return [];
   }
 
   const keys = Object.keys(taskInput);
   if (keys.length === 0) {
-    return "";
+    return [];
   }
 
   return keys
-    .map((key) => `- typeText.${key}`)
-    .join("\n");
+    .map((key) => `typeText.${key}`);
 }
 
 function buildAvailableActionsValue(
@@ -424,57 +432,75 @@ function buildAvailableActionsValue(
   screenReaderActions: readonly ScreenReaderActionDescriptor[],
   taskInput?: TaskInput
 ): string {
-  const sections: string[] = [];
+  const items: string[] = [];
 
   if (userModel === "keyboard" || keyboardActions.length > 0) {
-    const keyboardActionsBlock = buildKeyboardActionsBlock(keyboardActions);
-    if (keyboardActionsBlock) {
-      sections.push(keyboardActionsBlock);
-    }
+    items.push(...buildKeyboardActionsBlock(keyboardActions));
   }
 
   if (userModel === "screenreader") {
-    const screenReaderActionsBlock = buildScreenReaderActionsBlock(screenReaderActions);
-    if (screenReaderActionsBlock) {
-      sections.push(screenReaderActionsBlock);
-    }
+    items.push(...buildScreenReaderActionsBlock(screenReaderActions));
   }
 
-  const taskInputActionsBlock = buildTaskInputActionsBlock(taskInput);
-  if (taskInputActionsBlock) {
-    sections.push(taskInputActionsBlock);
-  }
+  items.push(...buildTaskInputActionsBlock(taskInput));
 
-  return sections.join("\n\n");
+  return items.length === 0 ? buildEmptyListBlock() : buildPresentListBlock(items);
 }
 
 function buildFocusHintValue(obs: Observation): string {
   if (obs.kind !== "keyboard" || !obs.focusHint) {
-    return "";
+    return buildEmptyValueBlock();
   }
 
-  return obs.focusHint;
+  return buildPresentValueBlock(obs.focusHint);
 }
 
 function buildAnnouncementValue(obs: Observation): string {
-  if (obs.kind !== "screenreader") {
-    return "";
+  if (obs.kind !== "screenreader" || !obs.announcement) {
+    return buildEmptyValueBlock();
   }
 
-  return obs.announcement;
+  return buildPresentValueBlock(obs.announcement);
 }
 
 function buildReadbacksValue(obs: Observation): string {
   if (obs.kind !== "screenreader" || !obs.readbacks || obs.readbacks.length === 0) {
-    return "";
+    return buildEmptyListBlock();
   }
 
-  return obs.readbacks.map((readback) =>
-    JSON.stringify(readback.status === "cleared"
-      ? { method: readback.method, status: readback.status }
-      : { method: readback.method, value: readback.value ?? "" })
-  ).join("\n");
+  return buildPresentListBlock(obs.readbacks.map((readback) =>
+    readback.status === "cleared"
+      ? `method=${readback.method}, status=cleared`
+      : `method=${readback.method}, value=${JSON.stringify(readback.value ?? "")}`
+  ));
 }
+
+function buildEmptyValueBlock(): string {
+  return "- status: empty";
+}
+
+function buildPresentValueBlock(value: string): string {
+  return [
+    "- status: present",
+    `- value: ${JSON.stringify(value)}`
+  ].join("\n");
+}
+
+function buildEmptyListBlock(): string {
+  return [
+    "- status: empty",
+    "- items: []"
+  ].join("\n");
+}
+
+function buildPresentListBlock(items: readonly string[]): string {
+  return [
+    "- status: present",
+    "- items:",
+    ...items.map((item) => `  - ${item}`)
+  ].join("\n");
+}
+
 function dedupe<T>(items: T[]): T[] {
   return [...new Set(items)];
 }

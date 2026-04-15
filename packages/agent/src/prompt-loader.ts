@@ -80,7 +80,13 @@ export function renderPromptTemplate(
   template: string,
   replacements: Record<string, string>
 ): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => replacements[key] ?? "");
+  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    if (!(key in replacements)) {
+      throw new Error(`Missing prompt replacement for {{${key}}}.`);
+    }
+
+    return replacements[key];
+  });
 }
 
 function resolvePromptDir(startDirOrOptions: string | { startDir?: string; promptDir?: string }): string {
