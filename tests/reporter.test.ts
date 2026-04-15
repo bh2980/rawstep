@@ -1,6 +1,6 @@
-import { renderReport } from "@rawstep/reporter";
+import { publishRunOutputs, renderReport } from "@rawstep/reporter";
 import type { TraceSession } from "@rawstep/definition";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -415,5 +415,66 @@ describe("reporter", () => {
     expect(html).toContain("Experience summary");
     expect(html).toContain("The run finished directly.");
     expect(html).toContain("Check the initial guidance.");
+  });
+
+  it("publishes CLI-facing output files and summary text", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-publish-"));
+    const session = {
+      task: {
+        id: "publish-task",
+        url: "file:///publish-task.html",
+        goal: "Write report artifacts.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 1000,
+        verify: {
+          all: [{ titleIncludes: "publish-task" }]
+        }
+      },
+      startedAt: "2026-04-12T00:00:00.000Z",
+      endedAt: "2026-04-12T00:00:01.000Z",
+      steps: [],
+      aggregate: {
+        result: "success",
+        totalSteps: 0,
+        durationMs: 1000,
+        timings: {
+          setupMs: 10,
+          browserLaunchMs: 1,
+          pageLoadMs: 2,
+          screenReaderInitMs: 0,
+          firstAnnouncementWaitMs: 0,
+          reportMs: 0
+        },
+        actionCounts: {
+          srInvokeCount: 0,
+          srReadCount: 0,
+          srMaintenanceCount: 0,
+          rawKeyCount: 0,
+          typeTextCount: 0
+        },
+        terminatedAtStep: null,
+        endedBy: "success"
+      }
+    } satisfies TraceSession;
+
+    const published = await publishRunOutputs(session, outDir, [{
+      kind: "decision",
+      systemPrompt: "system",
+      userPromptText: "user"
+    }]);
+
+    await expect(access(join(outDir, "trace.json"))).resolves.toBeUndefined();
+    await expect(access(join(outDir, "metrics.json"))).resolves.toBeUndefined();
+    await expect(access(join(outDir, "prompts.json"))).resolves.toBeUndefined();
+    await expect(access(join(outDir, "report", "index.html"))).resolves.toBeUndefined();
+    expect(published.summaryText).toContain("Task publish-task finished with success.");
+    expect(published.summaryText).toContain(join(outDir, "metrics.json"));
+    expect(published.outputPaths.traceJson).toBe(join(outDir, "trace.json"));
+    expect(published.outputPaths.reportHtml).toBe(join(outDir, "report", "index.html"));
+    expect(session.aggregate.timings.reportMs).toBeGreaterThanOrEqual(0);
+
+    const prompts = JSON.parse(await readFile(join(outDir, "prompts.json"), "utf8")) as Array<{ kind: string }>;
+    expect(prompts).toEqual([{ kind: "decision", systemPrompt: "system", userPromptText: "user" }]);
   });
 });

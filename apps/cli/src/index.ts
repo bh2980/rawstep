@@ -8,12 +8,9 @@ import {
   type TaskInput,
   type UserModel
 } from "@rawstep/definition";
-import { renderReport } from "@rawstep/reporter";
+import { publishRunOutputs } from "@rawstep/reporter";
 import { runTask } from "@rawstep/runtime";
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import { parseRunArgs, printUsage } from "./args";
-import { persistSessionArtifacts } from "./artifacts";
 
 type RunCliDependencies = {
   createAgent?: (
@@ -40,7 +37,6 @@ export async function runCli(
     const agentFactory = dependencies.createAgent ?? createAgent;
     const agent = agentFactory(task.mode, task.input, plan);
 
-    await mkdir(plan.paths.outDir, { recursive: true });
     const session = await runTask(task, {
       outDir: plan.paths.outDir,
       headless: plan.execution.headless,
@@ -52,23 +48,8 @@ export async function runCli(
       screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
       screenReaderBackendId: plan.interaction.screenReaderBackendId
     });
-    const reportStartedAt = Date.now();
-    let reportPath = await renderReport(session, plan.paths.outDir);
-    session.aggregate.timings.reportMs = Date.now() - reportStartedAt;
-    await persistSessionArtifacts(session, plan.paths.outDir, agent.getPromptLog?.());
-    reportPath = await renderReport(session, plan.paths.outDir);
-
-    process.stdout.write(
-      [
-        `Task ${session.task.id} finished with ${session.aggregate.endedBy}.`,
-        `Result: ${session.aggregate.result}.`,
-        `Outputs:`,
-        `- ${resolve(plan.paths.outDir, "trace.jsonl")}`,
-        `- ${resolve(plan.paths.outDir, "metrics.json")}`,
-        `- ${resolve(plan.paths.outDir, "prompts.json")}`,
-        `- ${reportPath}`
-      ].join("\n") + "\n"
-    );
+    const published = await publishRunOutputs(session, plan.paths.outDir, agent.getPromptLog?.());
+    process.stdout.write(`${published.summaryText}\n`);
 
     return 0;
   } catch (error) {

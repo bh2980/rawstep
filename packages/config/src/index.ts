@@ -7,6 +7,10 @@ export {
 export { defineConfig } from "./project/source";
 export type { ProjectConfigSource } from "./project/source";
 export {
+  formatRunCommandUsage,
+  RUN_COMMAND_ARG_MANIFEST,
+} from "./run-plan/cli-manifest";
+export {
   parseAgentProvider,
   parseAllowedKeyNames,
   parseConfiguredAllowedKeys,

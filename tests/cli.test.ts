@@ -1,4 +1,8 @@
-import { type RunPlanCliOverrides, resolveRunPlan } from "@rawstep/config";
+import {
+  formatRunCommandUsage,
+  type RunPlanCliOverrides,
+  resolveRunPlan
+} from "@rawstep/config";
 import { parseRunArgs, runCli } from "../apps/cli/src";
 import { loadTask, loadTaskSource } from "../packages/config/src/run-plan/resolve";
 import { resolveRunPlanPrecedence } from "../packages/config/src/run-plan/precedence";
@@ -320,6 +324,27 @@ describe.sequential("CLI", () => {
       "--out",
       "./tmp/out"
     ])).toThrow("Unsupported mode");
+  });
+
+  it("generates usage text from config-owned CLI manifest", () => {
+    expect(formatRunCommandUsage()).toContain(
+      "--mode keyboard|screenreader-strict|screenreader-hybrid"
+    );
+    expect(formatRunCommandUsage()).toContain(
+      "--screen-reader-backend guidepup-voiceover|guidepup-nvda|guidepup-virtual"
+    );
+    expect(formatRunCommandUsage()).toContain(
+      "--screenshots all|important|failure-only|none"
+    );
+    expect(formatRunCommandUsage()).toContain(
+      "--provider anthropic|openai-compatible"
+    );
+    expect(formatRunCommandUsage()).toContain(
+      "--allowed-keys <key1,key2>"
+    );
+    expect(formatRunCommandUsage()).toContain(
+      "--allowed-screen-reader-actions <sr.token1,sr.token2>"
+    );
   });
 
   it("parses provider and run override CLI flags", () => {

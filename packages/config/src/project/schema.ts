@@ -50,8 +50,8 @@ export type ValidatedProjectConfig = {
   modes?: Partial<Record<UserModel, ProjectModePreset>>;
 };
 
-const AGENT_PROVIDER_VALUES = ["anthropic", "openai-compatible"] as const;
-const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
+export const AGENT_PROVIDER_VALUES = ["anthropic", "openai-compatible"] as const;
+export const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
 const userModelSchema = z.enum(USER_MODEL_VALUES);
 const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
