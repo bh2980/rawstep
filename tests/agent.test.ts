@@ -370,6 +370,63 @@ describe("agent helpers", () => {
     });
   });
 
+  it("retries transient provider response failures before succeeding", async () => {
+    let callCount = 0;
+
+    const agent = new LLMAgent("keyboard", {
+      provider: "openai-compatible",
+      apiKey: "test-key",
+      model: "test-model",
+      baseURL: "https://example.test/v1",
+      completionClient: {
+        async complete() {
+          callCount += 1;
+
+          if (callCount < 3) {
+            throw Object.assign(new Error("Invalid JSON response"), {
+              statusCode: 502,
+              responseBody: "<html>temporary upstream error</html>"
+            });
+          }
+
+          return '{"action":"key.Tab"}';
+        }
+      }
+    });
+
+    const decision = await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
+
+    expect(callCount).toBe(3);
+    expect(decision).toEqual({
+      action: { key: "Tab" }
+    });
+  });
+
+  it("fails after exhausting provider retries", async () => {
+    let callCount = 0;
+
+    const agent = new LLMAgent("keyboard", {
+      provider: "openai-compatible",
+      apiKey: "test-key",
+      model: "test-model",
+      baseURL: "https://example.test/v1",
+      completionClient: {
+        async complete() {
+          callCount += 1;
+          throw Object.assign(new Error("Invalid JSON response"), {
+            statusCode: 502,
+            responseBody: "<html>still broken</html>"
+          });
+        }
+      }
+    });
+
+    await expect(agent.decide(makeKeyboardContext(), makeKeyboardObservation()))
+      .rejects
+      .toThrow("Invalid JSON response");
+    expect(callCount).toBe(3);
+  });
+
   it("turns malformed output into stuck verdict", () => {
     const decision = parseDecision("not valid json");
 

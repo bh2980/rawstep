@@ -17,6 +17,7 @@ import {
 import { toLanguageModelContent } from "./provider-content";
 import {
   createCompletionClient,
+  isRetryableProviderError,
   normalizeProviderError
 } from "./providers";
 import {
@@ -41,6 +42,8 @@ export type {
 
 export class LLMAgent implements Agent {
   readonly config: ResolvedAgentConfig;
+
+  private static readonly MAX_PROVIDER_RETRIES = 2;
 
   private readonly client: AgentCompletionClient;
   private readonly includeRationale: boolean;
@@ -106,7 +109,7 @@ export class LLMAgent implements Agent {
     this.recordPromptLog("decision", systemPrompt, promptParts);
 
     try {
-      const rawText = await this.client.complete({
+      const rawText = await this.completeWithRetries({
         systemPrompt,
         promptParts,
         ctx,
@@ -126,7 +129,7 @@ export class LLMAgent implements Agent {
       if (firstPass.status === "missing-stuck-rationale") {
         const retryPromptParts = buildStuckRationaleRetryPromptParts(promptParts, rawText);
         this.recordPromptLog("decision", systemPrompt, retryPromptParts);
-        const retriedRawText = await this.client.complete({
+        const retriedRawText = await this.completeWithRetries({
           systemPrompt,
           promptParts: retryPromptParts,
           ctx,
@@ -191,7 +194,7 @@ export class LLMAgent implements Agent {
     ];
     this.recordPromptLog("experience-summary", systemPrompt, promptParts);
 
-    const rawText = await this.client.complete({
+    const rawText = await this.completeWithRetries({
       systemPrompt,
       promptParts
     });
@@ -216,6 +219,29 @@ export class LLMAgent implements Agent {
         .join("\n\n"),
       imageCount: promptParts.filter((part) => part.type === "image").length
     });
+  }
+
+  private async completeWithRetries(input: ProviderDecisionInput): Promise<string> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= LLMAgent.MAX_PROVIDER_RETRIES; attempt += 1) {
+      try {
+        return await this.client.complete(input);
+      } catch (error) {
+        lastError = error;
+
+        if (
+          !isRetryableProviderError(error)
+          || attempt === LLMAgent.MAX_PROVIDER_RETRIES
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(String(lastError));
   }
 }
 

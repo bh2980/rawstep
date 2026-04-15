@@ -34,6 +34,26 @@ export function normalizeProviderError(error: unknown, obs: Observation): Error 
   return error instanceof Error ? error : new Error(message);
 }
 
+export function isRetryableProviderError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const statusCode = typeof (error as { statusCode?: unknown })?.statusCode === "number"
+    ? (error as { statusCode: number }).statusCode
+    : undefined;
+
+  if (
+    message === "Invalid JSON response"
+    || message === "Response body is empty"
+  ) {
+    return true;
+  }
+
+  if (statusCode === 408 || statusCode === 429) {
+    return true;
+  }
+
+  return typeof statusCode === "number" && statusCode >= 500;
+}
+
 class AISDKCompletionClient implements AgentCompletionClient {
   constructor(
     private readonly model: unknown,
