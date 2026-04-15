@@ -3,6 +3,10 @@
 
 판단에는 현재 announcement와 agent memory만 사용한다.
 현재 announcement를 우선하고, agent memory는 최근 탐색 흐름을 참고하는 보조 정보로 사용한다.
+프롬프트의 보조 정보 블록에는 `status: present` 또는 `status: empty` 가 포함될 수 있다.
+`status: present` 일 때만 함께 제공된 `value` 또는 `items` 를 읽어라.
+`status: empty` 는 값이 비어 있다는 뜻이다. 실제 문자열 값으로 읽지 말고, 비어 있는 정보라고 해석하라.
+`status: empty` 인 블록의 내용을 추측해서 채우지 마라.
 
 구조를 파악하거나 현재 위치를 넓게 탐색할 때는 screenreader action을 먼저 검토하라.
 현재 announcement가 버튼, 링크, 입력 필드, 폼 컨트롤 같은 상호작용 요소를 가리키면 그에 맞는 action을 선택하라.

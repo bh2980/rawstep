@@ -8,29 +8,27 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
   const provider = resolveProvider(options);
 
   const apiKey = options.apiKey
-    ?? process.env.A11Y_TASK_AGENT_API_KEY
-    ?? (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : undefined);
+    ?? process.env.AI_API_KEY;
 
   if (!apiKey) {
     if (provider === "anthropic") {
       throw new Error(
-        "Anthropic provider requires an API key. Set A11Y_TASK_AGENT_API_KEY or ANTHROPIC_API_KEY."
+        "Anthropic provider requires an API key. Set AI_API_KEY."
       );
     }
 
     throw new Error(
-      "OpenAI-compatible provider requires an API key. Set A11Y_TASK_AGENT_API_KEY."
+      "OpenAI-compatible provider requires an API key. Set AI_API_KEY."
     );
   }
 
   if (provider === "anthropic") {
     const model =
       options.model
-      ?? process.env.A11Y_TASK_AGENT_MODEL
-      ?? process.env.A11Y_TASK_ANTHROPIC_MODEL;
+      ?? process.env.AI_MODEL;
     if (!model) {
       throw new Error(
-        "Anthropic provider requires a model. Set A11Y_TASK_AGENT_MODEL, A11Y_TASK_ANTHROPIC_MODEL, or rawstep.config.ts defaults.model."
+        "Anthropic provider requires a model. Set AI_MODEL or rawstep.config.ts defaults.model."
       );
     }
 
@@ -41,10 +39,10 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
     };
   }
 
-  const model = options.model ?? process.env.A11Y_TASK_AGENT_MODEL;
+  const model = options.model ?? process.env.AI_MODEL;
   if (!model) {
     throw new Error(
-      "OpenAI-compatible provider requires a model. Set A11Y_TASK_AGENT_MODEL or pass --model."
+      "OpenAI-compatible provider requires a model. Set AI_MODEL or pass --model."
     );
   }
 
@@ -60,11 +58,11 @@ function resolveProvider(options: LLMAgentOptions): AgentProvider {
   const rawProvider =
     options.provider
     ?? options.backend
-    ?? process.env.A11Y_TASK_AGENT_PROVIDER;
+    ?? process.env.AI_PROVIDER;
 
   if (!rawProvider) {
     throw new Error(
-      "Missing agent provider. Set rawstep.config.ts defaults.provider, A11Y_TASK_AGENT_PROVIDER, or pass --provider."
+      "Missing agent provider. Set rawstep.config.ts defaults.provider, AI_PROVIDER, or pass --provider."
     );
   }
 
@@ -81,10 +79,10 @@ function resolveProvider(options: LLMAgentOptions): AgentProvider {
 }
 
 function resolveOpenAICompatibleBaseURL(options: LLMAgentOptions): string {
-  const baseURL = options.baseURL ?? process.env.A11Y_TASK_AGENT_BASE_URL;
+  const baseURL = options.baseURL ?? process.env.AI_BASE_URL;
   if (!baseURL) {
     throw new Error(
-      "OpenAI-compatible provider requires a base URL. Set A11Y_TASK_AGENT_BASE_URL or rawstep.config.ts defaults.baseURL."
+      "OpenAI-compatible provider requires a base URL. Set AI_BASE_URL or rawstep.config.ts defaults.baseURL."
     );
   }
 

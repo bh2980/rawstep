@@ -603,7 +603,7 @@ describe.sequential("CLI", () => {
   });
 
   it("fails fast when openai-compatible is missing a model", async () => {
-    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
+    process.env.AI_API_KEY = "shared-key";
 
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-openai-config-"));
     const outDir = await mkdtemp(join(tmpdir(), "a11y-cli-openai-compatible-"));
@@ -765,9 +765,9 @@ describe.sequential("CLI", () => {
     const configPath = join(tempDir, "rawstep.config.ts");
     const taskPath = join(tempDir, "precedence-task.json");
 
-    process.env.A11Y_TASK_AGENT_PROVIDER = "openai-compatible";
-    process.env.A11Y_TASK_AGENT_MODEL = "env-model";
-    process.env.A11Y_TASK_AGENT_BASE_URL = "https://env.example/v1";
+    process.env.AI_PROVIDER = "openai-compatible";
+    process.env.AI_MODEL = "env-model";
+    process.env.AI_BASE_URL = "https://env.example/v1";
 
     await writeConfigModule(
       configPath,
@@ -1059,7 +1059,7 @@ describe.sequential("CLI", () => {
   it("prefers apiKey from rawstep.config.ts defaults over the shared environment variable", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-config-api-key-"));
     const configPath = join(tempDir, "rawstep.config.ts");
-    process.env.A11Y_TASK_AGENT_API_KEY = "env-key";
+    process.env.AI_API_KEY = "env-key";
 
     await writeConfigModule(
       configPath,

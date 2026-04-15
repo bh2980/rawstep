@@ -4,6 +4,10 @@
 판단에는 현재 이미지, 직전 이미지, 프롬프트에 제공된 텍스트 정보, agent memory, goal만 사용한다.
 판단 우선순위는 현재 이미지, 직전 이미지, 프롬프트에 제공된 텍스트 정보, agent memory 순서다.
 프롬프트에 제공된 텍스트 정보에는 goal, focus hint, available actions 같은 보조 정보가 포함될 수 있다.
+프롬프트의 보조 정보 블록에는 `status: present` 또는 `status: empty` 가 포함될 수 있다.
+`status: present` 일 때만 함께 제공된 `value` 또는 `items` 를 읽어라.
+`status: empty` 는 값이 비어 있다는 뜻이다. 실제 문자열 값으로 읽지 말고, 비어 있는 정보라고 해석하라.
+`status: empty` 인 블록의 내용을 추측해서 채우지 마라.
 현재 이미지는 현재 상태 판단에 사용하라.
 직전 이미지는 변화 비교에 사용하라.
 agent memory는 최근 행동 흐름을 참고하는 보조 정보로 사용하라.

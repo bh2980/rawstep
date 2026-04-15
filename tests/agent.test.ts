@@ -557,9 +557,9 @@ describe("agent helpers", () => {
   });
 
   it("resolves anthropic config from the shared env vars", () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "anthropic";
-    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
-    process.env.A11Y_TASK_AGENT_MODEL = "claude-custom";
+    process.env.AI_PROVIDER = "anthropic";
+    process.env.AI_API_KEY = "shared-key";
+    process.env.AI_MODEL = "claude-custom";
 
     expect(resolveAgentConfig()).toEqual({
       provider: "anthropic",
@@ -573,29 +573,29 @@ describe("agent helpers", () => {
   });
 
   it("requires a model for the anthropic provider", () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "anthropic";
-    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
+    process.env.AI_PROVIDER = "anthropic";
+    process.env.AI_API_KEY = "shared-key";
 
     expect(() => resolveAgentConfig()).toThrow("Anthropic provider requires a model");
   });
 
   it("rejects an unsupported stub provider from env", () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "stub";
+    process.env.AI_PROVIDER = "stub";
 
     expect(() => resolveAgentConfig()).toThrow("Unsupported agent provider");
   });
 
   it("requires a model for the openai-compatible provider", () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "openai-compatible";
-    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
+    process.env.AI_PROVIDER = "openai-compatible";
+    process.env.AI_API_KEY = "shared-key";
 
     expect(() => resolveAgentConfig()).toThrow("requires a model");
   });
 
   it("requires a base URL for the openai-compatible provider", () => {
-    process.env.A11Y_TASK_AGENT_PROVIDER = "openai-compatible";
-    process.env.A11Y_TASK_AGENT_API_KEY = "shared-key";
-    process.env.A11Y_TASK_AGENT_MODEL = "openrouter/auto";
+    process.env.AI_PROVIDER = "openai-compatible";
+    process.env.AI_API_KEY = "shared-key";
+    process.env.AI_MODEL = "openrouter/auto";
 
     expect(() => resolveAgentConfig()).toThrow("requires a base URL");
   });
