@@ -5,6 +5,7 @@ import {
 import type { BrowserSession } from "../browser";
 import {
   Action,
+  type Agent,
   AgentMemoryEntry,
   Decision,
   EndedBy,
@@ -48,20 +49,12 @@ export function createObserver(
   return screenReaderRuntime.observer;
 }
 
-export function selectAgentMemoryExcerpt(
-  memory: AgentMemoryEntry[],
-  useAll: boolean,
-  windowSize: number
+export function resolveAgentContextMemory(
+  agent: Agent,
+  fallbackMemory: AgentMemoryEntry[]
 ): AgentMemoryEntry[] {
-  if (useAll) {
-    return [...memory];
-  }
-
-  if (windowSize <= 0) {
-    return [];
-  }
-
-  return memory.slice(-windowSize);
+  const excerpt = agent.getMemoryExcerpt?.();
+  return excerpt ? [...excerpt] : [...fallbackMemory];
 }
 
 export function createAgentMemoryEntry(

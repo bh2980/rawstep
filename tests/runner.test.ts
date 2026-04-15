@@ -46,6 +46,14 @@ function createFixtureAgent(fixture: "simple-cta" | "bad-focus") {
   };
 }
 
+function createStuckAgent() {
+  return {
+    async decide() {
+      return { verdict: "stuck" as const };
+    }
+  };
+}
+
 const MOCK_SCREEN_READER_CAPABILITIES: ScreenReaderCapabilities = {
   invoke: {
     next: true,
@@ -215,7 +223,8 @@ describe("runTask", () => {
       {
         outDir,
         screenReaderBackendId: "guidepup-virtual",
-        browserSessionFactory
+        browserSessionFactory,
+        agent: createStuckAgent()
       }
     )).rejects.toThrow("headless:true");
 
@@ -247,7 +256,8 @@ describe("runTask", () => {
         outDir,
         headless: true,
         screenReaderBackendId: "guidepup-voiceover",
-        browserSessionFactory
+        browserSessionFactory,
+        agent: createStuckAgent()
       }
     )).rejects.toThrow('Screen reader backend "guidepup-voiceover" requires a headed browser');
 
@@ -309,7 +319,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         agent: createFixtureAgent("simple-cta")
       }
     );
@@ -355,7 +364,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         agent: createFixtureAgent("bad-focus")
       }
     );
@@ -417,15 +425,20 @@ describe("runTask", () => {
     expect(session.aggregate.totalSteps).toBe(0);
   });
 
-  it("uses the configured agent memory window and can attach an experience summary", async () => {
+  it("uses agent-provided memory excerpts and can attach an experience summary", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-memory-summary-"));
     const seenMemoryLengths: number[] = [];
     const recordedMemoryValues: string[] = [];
     const seenSummaryStepCounts: number[] = [];
+    const recordedEntries: Array<{ action: string }> = [];
 
     const agent = {
       recordStepOutcome: (entry: { action: string }) => {
         recordedMemoryValues.push(entry.action);
+        recordedEntries.push(entry);
+      },
+      getMemoryExcerpt: () => {
+        return recordedEntries.slice(-1);
       },
       summarizeExperience: async (input: { steps: Array<unknown> }) => {
         seenSummaryStepCounts.push(input.steps.length);
@@ -464,8 +477,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 1,
-        includeExperienceSummary: true,
         agent
       }
     );
@@ -498,7 +509,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         agent: {
           decide: async (ctx) => {
             observedMemoryActions.push(ctx.memory.map((entry) => entry.action));
@@ -597,7 +607,6 @@ describe("runTask", () => {
       {
         outDir,
         maxVerificationRetries: 3,
-        agentMemoryWindow: 5,
         agent: {
           decide: async (ctx) => {
             callCount += 1;
@@ -675,7 +684,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         agent: {
           decide: async (ctx) => {
             callCount += 1;
@@ -912,7 +920,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1055,7 +1062,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1110,7 +1116,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1396,7 +1401,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
@@ -1464,7 +1468,6 @@ describe("runTask", () => {
       },
       {
         outDir,
-        agentMemoryWindow: 5,
         browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
         screenReaderBackendId: "guidepup-virtual",
         screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({

@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@rawstep/action-catalog": "workspace:*",
-    "@rawstep/agent": "workspace:*",
     "@rawstep/definition": "workspace:*",
     "@guidepup/guidepup": "^0.24.1",
     "@guidepup/virtual-screen-reader": "^0.32.1",

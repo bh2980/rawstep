@@ -2,9 +2,14 @@
 
 import { LLMAgent } from "@rawstep/agent";
 import { resolveRunPlan, type ResolvedRunPlan } from "@rawstep/config";
-import type { Agent, ResolvedTask, TaskInput, UserModel } from "@rawstep/definition";
+import {
+  getScreenReaderBackendCapabilities,
+  type Agent,
+  type TaskInput,
+  type UserModel
+} from "@rawstep/definition";
 import { renderReport } from "@rawstep/reporter";
-import { findScreenReaderBackendById, runTask } from "@rawstep/runtime";
+import { runTask } from "@rawstep/runtime";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseRunArgs, printUsage } from "./args";
@@ -43,11 +48,6 @@ export async function runCli(
       screenshotPolicy: plan.execution.screenshotPolicy,
       verifierAutoComplete: plan.execution.verifierAutoComplete,
       maxVerificationRetries: plan.execution.maxVerificationRetries,
-      agentMemoryWindow: plan.agent.memory.mode === "window"
-        ? plan.agent.memory.window
-        : undefined,
-      agentMemoryAll: plan.agent.memory.mode === "all",
-      includeExperienceSummary: plan.agent.includeExperienceSummary,
       keyboardActionPlan: plan.interaction.keyboardActionPlan,
       screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
       screenReaderBackendId: plan.interaction.screenReaderBackendId
@@ -100,7 +100,7 @@ function createAgent(
     keyboardActions: plan.prompt.keyboardActions,
     screenReaderActions: plan.prompt.screenReaderActions,
     screenReaderCapabilities: plan.interaction.screenReaderBackendId
-      ? findScreenReaderBackendById(plan.interaction.screenReaderBackendId).capabilities
+      ? getScreenReaderBackendCapabilities(plan.interaction.screenReaderBackendId)
       : undefined
   });
 }

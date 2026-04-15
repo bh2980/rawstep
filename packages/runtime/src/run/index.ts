@@ -5,7 +5,6 @@ import {
   type ScreenReaderActionPlan
 } from "@rawstep/action-catalog";
 import { Actuator, NotAllowedActionError } from "../actuator";
-import { LLMAgent, type LLMAgentOptions } from "@rawstep/agent";
 import {
   closeBrowserSession,
   createBrowserSession,
@@ -43,9 +42,9 @@ import {
   createObserver,
   createVerdictAnalysis,
   getErrorMessage,
+  resolveAgentContextMemory,
   resolveVerificationOutcome,
   shouldUseInteractiveObservation,
-  selectAgentMemoryExcerpt,
   type ResolvedVerificationOutcome,
   type RunnerObserver
 } from "./helpers";
@@ -64,15 +63,11 @@ export type RunTaskOptions = {
   screenshotPolicy?: ScreenshotPolicy;
   verifierAutoComplete?: boolean;
   maxVerificationRetries?: number;
-  agentMemoryWindow?: number;
-  agentMemoryAll?: boolean;
-  includeExperienceSummary?: boolean;
   headless?: boolean;
   keyboardActionPlan?: KeyboardActionPlan;
   screenReaderActionPlan?: ScreenReaderActionPlan;
   screenReaderBackendId?: ScreenReaderBackendId;
-  agent?: Agent;
-  agentOptions?: LLMAgentOptions;
+  agent: Agent;
   browserSessionFactory?: (
     url: string,
     options?: CreateBrowserSessionOptions
@@ -94,8 +89,6 @@ type RunResources = {
   screenshotPolicy: ScreenshotPolicy;
   maxVerificationRetries: number;
   verifierAutoComplete: boolean;
-  agentMemoryAll: boolean;
-  agentMemoryWindow: number;
   browser: BrowserSession;
   observer: RunnerObserver;
   actuator: Actuator;
@@ -176,7 +169,7 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
     state.endedBy = state.endedBy ?? "error";
   }
 
-  const session = await finalizeRun(task, options, trace, resources, cleanup, state);
+  const session = await finalizeRun(task, trace, resources, cleanup, state);
 
   if (unexpectedError) {
     throw unexpectedError;
@@ -222,14 +215,7 @@ async function initializeRunResources(
       backendId: options.screenReaderBackendId
     })
     : undefined;
-  const agent = options.agent ?? new LLMAgent(task.mode, {
-    ...options.agentOptions,
-    agentMemoryWindow: options.agentMemoryWindow,
-    agentMemoryAll: options.agentMemoryAll,
-    includeExperienceSummary: options.includeExperienceSummary,
-    screenReaderCapabilities,
-    taskInput: task.input
-  });
+  const agent = options.agent;
 
   trace.setSetupTimings({
     setupMs: Date.now() - setupStartedAt,
@@ -246,8 +232,6 @@ async function initializeRunResources(
     screenshotPolicy: options.screenshotPolicy ?? "all",
     maxVerificationRetries: options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES,
     verifierAutoComplete: Boolean(options.verifierAutoComplete),
-    agentMemoryAll: options.agentMemoryAll ?? false,
-    agentMemoryWindow: options.agentMemoryWindow ?? 0,
     browser: cleanup.browser,
     observer,
     actuator,
@@ -326,11 +310,7 @@ async function buildAgentStepContext(
       goal: resources.task.goal,
       keyboardActions: resources.keyboardActionPlan.descriptors,
       screenReaderActions: resources.screenReaderActionPlan?.descriptors,
-      memory: selectAgentMemoryExcerpt(
-        state.agentMemory,
-        resources.agentMemoryAll,
-        resources.agentMemoryWindow
-      )
+      memory: resolveAgentContextMemory(resources.agent, state.agentMemory)
     }
   };
 }
@@ -626,7 +606,6 @@ function recordAgentMemoryEntry(
 
 async function finalizeRun(
   task: ResolvedTask,
-  options: RunTaskOptions,
   trace: TraceRecorder,
   resources: Pick<RunResources, "agent"> | undefined,
   cleanup: RunCleanupHandles,
@@ -640,7 +619,7 @@ async function finalizeRun(
   }
 
   const session = await trace.finalize(state.endedBy ?? "error", state.failureReasonOverride);
-  if (options.includeExperienceSummary && resources?.agent.summarizeExperience) {
+  if (resources?.agent.summarizeExperience) {
     try {
       const experienceSummary = await resources.agent.summarizeExperience({
         task,
