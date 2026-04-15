@@ -1,17 +1,18 @@
 # RawStep
-> 과업 기반 접근성 사용성 테스트
+> 과업 기반 접근성 진단 도구
 
 ## 왜 이 프로젝트가 필요한가
 
-axe-core, Lighthouse와 같은 기존 도구는 DOM을 스캔해 **규칙 위반**을 찾습니다.
-하지만 실제 사용자가 겪는 사용성은 측정할 수 없습니다.
+axe-core, Lighthouse와 같은 기존 도구는 DOM을 스캔해 **규칙 위반**을 찾는 데 강합니다.  
+하지만 이런 방식만으로는 실제 사용자가 과업을 수행하는 과정에서 겪는 문제를 충분히 드러내기 어렵습니다.
 
-- 키보드만 쓰는 사용자가 실제로 "장바구니 담기" 버튼에 도달할 수 있는가?
-- 도달하려면 키를 몇 번이나 눌러야 하는가?
-- 스크린리더 사용자는 Enter를 누른 뒤 무슨 일이 일어났는지 이해할 수 있는가?
-- 구체적으로 **어디서** 사용자가 막히는가?
+- 키보드만 사용하는 사용자가 실제로 **장바구니 담기** 버튼까지 도달할 수 있는가?
+- 도달하기까지 몇 번의 입력이 필요한가?
+- 스크린리더 사용자는 Enter를 누른 뒤 어떤 변화가 일어났는지 이해할 수 있는가?
+- 사용자는 구체적으로 **어디서** 막히는가?
 
-`rawstep`은 AI를 활용해 **주어진 과업의 수행 과정**을 추적합니다. 이를 통해 서비스가 제한된 환경에서 사용할 수 있는지, 사용할 수 있더라도 불편함은 없는지 확인할 수 있습니다.
+`RawStep`은 AI를 활용해 제한된 행동 집합과 관측 채널 안에서 **주어진 과업의 수행 과정**을 추적하는 도구입니다.  
+정적 규칙 검사만으로는 드러나지 않는 실제 사용 흐름의 병목을 확인하고, 서비스가 제한된 조건에서도 과업을 수행할 수 있는지, 또 수행 가능하더라도 어떤 불편이 발생하는지 진단하는 데 목적이 있습니다.
 
 |                  | axe / Lighthouse / Pa11y | rawstep                        |
 |------------------|--------------------------|--------------------------------|
@@ -37,7 +38,8 @@ open ./.rawstep/out/keyboard/report/index.html
 이 repo에는 바로 실행 가능한 기본 [rawstep.config.ts](/Users/bh2980/Desktop/a11y/rawstep.config.ts:1)가 포함되어 있습니다.
 처음에는 `rawstep.config.ts`를 새로 만들기보다 `.env.sample`을 복사해서 `.env`만 채우면 됩니다.
 
-screenreader 모드는 OS 접근성 권한이 필요합니다. backend에 따라 headed 브라우저가 필요할 수 있습니다.
+screenreader 모드에서 guidepup-voiceover, guidepup-nvda를 사용할 경우 실제 OS의 스크린리더를 사용하므로 OS 접근성 권한 설정이 필요할 수 있습니다. 
+설정된 screenreader backend에 따라 headed 브라우저가 필요할 수 있습니다.
 
 ---
 
@@ -51,7 +53,7 @@ screenreader 모드는 OS 접근성 권한이 필요합니다. backend에 따라
 ### `screenreader` — 스크린리더 사용자
 
 - **관측**: 스크린리더가 실제로 말한 announcement 텍스트. screenshot, DOM, accessibility tree 없음.
-- **행동**: 스크린리더 canonical action + `Tab`, `Shift+Tab`, Arrow keys, `Enter`, `Space`, `Escape` 등 지정된 키 값 + task input이 있을 때만 `typeText`.
+- **행동**: 스크린리더 canonical action + `sr.key.*` 기반 이동/조작 + task input이 있을 때만 `typeText`.
 - 개발자 디버깅용 screenshot은 별도로 저장할 수 있지만 에이전트 입력에는 들어가지 않습니다.
 
 ### 의도적으로 주지 않는 정보
@@ -133,7 +135,11 @@ task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `
     "memory": "all",
     "headless": true,
     "screenReaderBackend": "guidepup-virtual",
-    "allowedScreenReaderActions": ["sr.next", "sr.act"]
+    "allowedScreenReaderActions": ["sr.next", "sr.act"],
+    "observe": {
+      "silenceWindowMs": 1500,
+      "maxObserveMs": 12000
+    }
   }
 }
 ```
@@ -177,12 +183,14 @@ export default defineConfig({
       verifierAutoComplete: true,
       includeRationale: true,
       includeExperienceSummary: true,
-      allowedKeys: [
-        kb.tab(), kb.shiftTab(), kb.enter(), kb.escape(),
-        kb.arrow.up(), kb.arrow.down(), kb.arrow.left(), kb.arrow.right(),
-        kb.home(), kb.end()
-      ],
+      observe: {
+        silenceWindowMs: 1500,
+        maxObserveMs: 12000
+      },
       allowedScreenReaderActions: [
+        sr.key.tab(), sr.key.shiftTab(), sr.key.enter(), sr.key.escape(),
+        sr.key.arrow.up(), sr.key.arrow.down(), sr.key.arrow.left(), sr.key.arrow.right(),
+        sr.key.home(), sr.key.end(),
         sr.next(), sr.previous(),
         sr.landmark.next(), sr.landmark.previous(),
         sr.heading.next(), sr.heading.previous(),
@@ -226,9 +234,42 @@ export default defineConfig({
 | `includeExperienceSummary`   | run 종료 후 experience summary 포함 여부 |
 | `includeRationale`           | agent `rationale` 저장 여부 |
 | `memory`                     | 숫자 또는 `"all"` |
-| `allowedKeys`                | 허용할 키 subset |
+| `allowedKeys`                | 허용할 키 subset (`keyboard` 모드 전용) |
 | `allowedScreenReaderActions` | 허용할 `sr.*` action subset |
 | `screenReaderBackend`        | `guidepup-voiceover \| guidepup-nvda \| guidepup-virtual` |
+| `observe`                    | screenreader 모드용 관찰 타이밍 override |
+
+### `observe` 필드
+
+`observe`는 screenreader 모드에서만 쓸 수 있습니다. keyboard 모드에 넣으면 타입 에러가 납니다.
+
+자주 만지는 값은 보통 두 개입니다.
+
+- `silenceWindowMs`: 이 시간 동안 새 announcement가 없으면 "다 읽었다"고 판단
+- `maxObserveMs`: 아무리 길어도 최대 이 시간까지만 기다림
+
+필요하면 아래 4개를 모두 쓸 수 있습니다.
+
+| 필드              | 설명 |
+|-------------------|------|
+| `pollIntervalMs`  | 몇 ms 간격으로 새 announcement를 확인할지 |
+| `silenceWindowMs` | 조용한 시간 기준 |
+| `maxObserveMs`    | 최대 관찰 시간 |
+| `allowFallback`   | 로그가 비었을 때 fallback 문장을 허용할지 |
+
+기본값은 다음과 같습니다.
+
+```ts
+observe: {
+  pollIntervalMs: 100,
+  silenceWindowMs: 500,
+  maxObserveMs: 3000,
+  allowFallback: false
+}
+```
+
+task `config.observe`는 `rawstep.config.ts > modes.screenreader.observe`를 부분적으로 덮어씁니다.  
+예를 들어 config에 `silenceWindowMs`가 있고 task에는 `maxObserveMs`만 있으면, 실행 시 두 값이 합쳐집니다.
 
 ---
 
@@ -262,7 +303,7 @@ CLI 플래그
 | `--max-steps <n>` | 최대 step 수 |
 | `--timeout-ms <n>` | 전체 실행 제한 시간(ms) |
 | `--screen-reader-backend <backend>` | screenreader backend 강제 지정 |
-| `--allowed-keys <key1,key2>` | 허용할 키 subset (쉼표 구분) |
+| `--allowed-keys <key1,key2>` | 허용할 키 subset (쉼표 구분, keyboard 모드 전용) |
 | `--allowed-screen-reader-actions <sr.x,sr.y>` | 허용할 sr action subset (쉼표 구분) |
 | `--screenshots <all\|important\|failure-only\|none>` | screenreader 리포트용 개발자 스크린샷 저장 정책 |
 | `--verifier-auto-complete` / `--no-verifier-auto-complete` | verifier 조건 만족 시 자동 종료 여부 |
@@ -284,8 +325,7 @@ pnpm rawstep run examples/tasks/simple-cta.json \
   --max-steps 40 \
   --timeout-ms 240000 \
   --screen-reader-backend guidepup-virtual \
-  --allowed-keys Tab,Enter \
-  --allowed-screen-reader-actions sr.next,sr.act \
+  --allowed-screen-reader-actions sr.key.tab,sr.key.enter,sr.next,sr.act \
   --agent-memory-window 5 \
   --include-experience-summary \
   --screenshots important \
@@ -322,7 +362,7 @@ CLI은 `rawstep.config.ts` 옆의 `.env` 파일을 자동으로 읽고, 이미 �
 
 ### 허용 키보드 키 전체 목록
 
-`allowedKeys` / `--allowed-keys`에 넣을 수 있는 키 전체 목록입니다.
+`keyboard` 모드에서 `allowedKeys` / `--allowed-keys`에 넣을 수 있는 키 전체 목록입니다.
 
 ```
 Tab  Shift+Tab  Home  End
@@ -346,8 +386,14 @@ backend마다 실제 지원 subset이 다르고, 지원 여부는 `@rawstep/acti
 
 ```
 sr.next  sr.previous  sr.act
-sr.interact  sr.stopInteracting
-sr.press  sr.type  sr.click
+sr.interact  sr.stopInteracting  sr.type  sr.click
+
+sr.key.tab  sr.key.shiftTab  sr.key.home  sr.key.end
+sr.key.arrow.up  sr.key.arrow.down  sr.key.arrow.left  sr.key.arrow.right
+sr.key.enter  sr.key.shiftEnter  sr.key.space  sr.key.escape
+sr.key.backspace  sr.key.delete
+sr.key.mod.a  sr.key.mod.backspace  sr.key.mod.delete
+sr.key.mod.z  sr.key.mod.shiftZ
 
 sr.heading.next  sr.heading.previous
 sr.heading.level.{1~6}.next  sr.heading.level.{1~6}.previous
@@ -492,9 +538,12 @@ generated 결과물은 직접 고치지 않습니다. 항상 원본 파일을 �
 
 ---
 
-## 상태와 한계
+## 한계
 
-- 임의 자유 텍스트 입력은 금지합니다. task가 고정 문자열을 제공한 경우에만 제한된 text input action을 허용합니다.
-- backend마다 지원하는 stable `sr.*` action 범위가 다릅니다. 지원 여부는 `@rawstep/action-catalog` registry 기준으로 판정합니다.
-- `keyboard` 모드는 screenshot 이미지를 같이 보내므로, 선택한 provider/model이 이미지 입력을 지원해야 합니다.
-- 에이전트의 성공/실패 판정은 관측 채널과 verifier 결과만으로 결정합니다. 별도의 ground-truth oracle 경로는 현재 내장되어 있지 않습니다.
+- 에이전트의 판단은 제한된 행동 집합과 관측 채널에 의존하므로, 실제 사용자 행동을 완전히 대체하지는 않습니다. 따라서 결과는 과업 수행 가능성과 병목을 파악하기 위한 참고 신호로 해석해야 합니다.
+- 이 도구는 LLM 기반 에이전트를 사용하므로, 동일한 과업과 환경에서도 실행 결과가 달라질 수 있습니다.
+- 성공 여부는 에이전트가 실제로 관측한 결과를 바탕으로 판단합니다. 정답 경로를 미리 정의해 비교하는 방식은 현재 지원하지 않습니다.
+- 스크린리더 모드는 Guidepup을 통해 음성 출력을 수집합니다. 이 과정에서 일부 발화가 캡처되지 않거나 누락될 수 있으므로, 관측 결과가 실제 스크린리더 출력과 완전히 일치하지 않을 수 있습니다.
+- `keyboard` 모드는 screenshot 이미지를 함께 전송하므로, 선택한 provider/model이 이미지 입력을 지원해야 합니다.
+- 안정적으로 지원되는 `sr.*` action 범위는 backend마다 다릅니다. 각 action의 지원 여부는 Guidepup 설정을 기준으로 판정하며, 이 기준은 `@rawstep/action-catalog` registry에 정의되어 있습니다.
+- 자유로운 텍스트 입력은 지원하지 않습니다. task가 고정 문자열을 제공한 경우에만 제한된 text input action을 허용합니다.
