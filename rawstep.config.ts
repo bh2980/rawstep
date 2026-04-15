@@ -2,9 +2,10 @@ import {
   defineConfig,
   kb,
   sr,
+  type ProjectConfigSource
 } from "@rawstep/config";
 
-const config = defineConfig({
+const config: ProjectConfigSource = defineConfig({
   version: 1,
   defaults: {
     provider: "openai-compatible",

@@ -1,8 +1,8 @@
 import {
   buildScreenReaderActionPlan,
   createStableScreenReaderActionRef
-} from "../packages/action-catalog/src";
-import type { ExecutableScreenReaderAction } from "../packages/action-catalog/src";
+} from "@rawstep/action-catalog";
+import type { ExecutableScreenReaderAction } from "@rawstep/action-catalog";
 import {
   createEmptyScreenReaderCapabilities,
   createAnnouncementReader,

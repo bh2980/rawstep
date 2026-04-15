@@ -18,12 +18,12 @@ import {
   createStableScreenReaderActionRef,
   type KeyboardActionDescriptor,
   type ScreenReaderActionDescriptor
-} from "../packages/action-catalog/src";
+} from "@rawstep/action-catalog";
 import type {
   AgentContext,
   Observation
 } from "@rawstep/definition";
-import { findScreenReaderBackendById } from "../packages/runtime/src";
+import { findScreenReaderBackendById } from "@rawstep/runtime";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

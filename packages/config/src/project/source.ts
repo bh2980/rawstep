@@ -103,7 +103,7 @@ export type ProjectConfigSource = {
   }>;
 };
 
-export function defineConfig<const TConfig extends ProjectConfigSource>(config: TConfig): TConfig {
+export function defineConfig<const TConfig extends ProjectConfigSource>(config: TConfig): ProjectConfigSource {
   return config;
 }
 

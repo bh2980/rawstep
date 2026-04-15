@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { beforeAll } from "vitest";
 
-const testsDir = dirname(fileURLToPath(import.meta.url));
+const testsDir = __dirname;
 const repoRoot = resolve(testsDir, "..");
 const fixturesDir = resolve(repoRoot, "fixtures");
 const examplesTasksDir = resolve(repoRoot, "examples", "tasks");
@@ -12,8 +12,9 @@ async function writeGeneratedFile(filePath: string, content: string): Promise<vo
   await writeFile(filePath, content, "utf8");
 }
 
-await Promise.all([
-  writeGeneratedFile(resolve(fixturesDir, "simple-cta.html"), `<!doctype html>
+beforeAll(async () => {
+  await Promise.all([
+    writeGeneratedFile(resolve(fixturesDir, "simple-cta.html"), `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -44,7 +45,7 @@ await Promise.all([
   </body>
 </html>
 `),
-  writeGeneratedFile(resolve(fixturesDir, "bad-focus.html"), `<!doctype html>
+    writeGeneratedFile(resolve(fixturesDir, "bad-focus.html"), `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -60,7 +61,7 @@ await Promise.all([
   </body>
 </html>
 `),
-  writeGeneratedFile(resolve(fixturesDir, "email-login.html"), `<!doctype html>
+    writeGeneratedFile(resolve(fixturesDir, "email-login.html"), `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -102,7 +103,7 @@ await Promise.all([
   </body>
 </html>
 `),
-  writeGeneratedFile(resolve(fixturesDir, "credential-login.html"), `<!doctype html>
+    writeGeneratedFile(resolve(fixturesDir, "credential-login.html"), `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -141,7 +142,7 @@ await Promise.all([
   </body>
 </html>
 `),
-  writeGeneratedFile(resolve(fixturesDir, "search.html"), `<!doctype html>
+    writeGeneratedFile(resolve(fixturesDir, "search.html"), `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -158,7 +159,7 @@ await Promise.all([
   </body>
 </html>
 `),
-  writeGeneratedFile(resolve(examplesTasksDir, "simple-cta.json"), JSON.stringify({
+    writeGeneratedFile(resolve(examplesTasksDir, "simple-cta.json"), JSON.stringify({
     id: "simple-cta",
     url: "../../fixtures/simple-cta.html",
     goal: "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
@@ -172,7 +173,7 @@ await Promise.all([
       ]
     }
   }, null, 2) + "\n"),
-  writeGeneratedFile(resolve(examplesTasksDir, "email-login.json"), JSON.stringify({
+    writeGeneratedFile(resolve(examplesTasksDir, "email-login.json"), JSON.stringify({
     id: "email-login",
     url: "../../fixtures/email-login.html",
     goal: "이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.",
@@ -190,4 +191,5 @@ await Promise.all([
       ]
     }
   }, null, 2) + "\n")
-]);
+  ]);
+});

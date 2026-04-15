@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "paths": {
+      "@rawstep/action-catalog": ["./packages/action-catalog/src"],
       "@rawstep/definition": ["./packages/definition/src"],
       "@rawstep/config": ["./packages/config/src"],
       "@rawstep/agent": ["./packages/agent/src"],

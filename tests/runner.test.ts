@@ -1,8 +1,12 @@
 import {
   buildKeyboardActionPlan,
   createKeyboardActionRef
-} from "../packages/action-catalog/src";
-import type { ScreenReaderAction, ScreenReaderCapabilities } from "@rawstep/definition";
+} from "@rawstep/action-catalog";
+import type {
+  AgentMemoryEntry,
+  ScreenReaderAction,
+  ScreenReaderCapabilities
+} from "@rawstep/definition";
 import { createBrowserSession, runTask, resolveBrowserHeadless } from "@rawstep/runtime";
 import { resolveVerificationOutcome } from "../packages/runtime/src/run/helpers";
 import { mkdtemp, writeFile } from "node:fs/promises";
@@ -430,10 +434,10 @@ describe("runTask", () => {
     const seenMemoryLengths: number[] = [];
     const recordedMemoryValues: string[] = [];
     const seenSummaryStepCounts: number[] = [];
-    const recordedEntries: Array<{ action: string }> = [];
+    const recordedEntries: AgentMemoryEntry[] = [];
 
     const agent = {
-      recordStepOutcome: (entry: { action: string }) => {
+      recordStepOutcome: (entry: AgentMemoryEntry) => {
         recordedMemoryValues.push(entry.action);
         recordedEntries.push(entry);
       },

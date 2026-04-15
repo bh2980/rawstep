@@ -9,7 +9,7 @@ import {
   SCREEN_READER_SEMANTICS,
   SCREEN_READER_SEMANTICS_BY_BACKEND,
   SUPPORTED_KEYS
-} from "../packages/action-catalog/src";
+} from "@rawstep/action-catalog";
 import {
   keyboardActionSource,
   screenReaderActionSource,
@@ -59,7 +59,8 @@ describe("action catalog", () => {
     );
 
     for (const entry of screenReaderActionSource) {
-      expect(SCREEN_READER_ACTION_DEFINITIONS[entry.semantic]).toMatchObject({
+      const semantic = entry.semantic as keyof typeof SCREEN_READER_ACTION_DEFINITIONS;
+      expect(SCREEN_READER_ACTION_DEFINITIONS[semantic]).toMatchObject({
         helperPath: entry.helperPath,
         kind: entry.kind,
         backendSupport: entry.backendSupport
@@ -69,10 +70,12 @@ describe("action catalog", () => {
         continue;
       }
 
-      expect(SCREEN_READER_CATALOG_IDS_BY_SEMANTIC[entry.semantic]).toEqual(entry.catalogIdsByBackend);
+      const catalogSemantic = entry.semantic as keyof typeof SCREEN_READER_CATALOG_IDS_BY_SEMANTIC;
+      expect(SCREEN_READER_CATALOG_IDS_BY_SEMANTIC[catalogSemantic]).toEqual(entry.catalogIdsByBackend);
 
       for (const catalogId of Object.values(entry.catalogIdsByBackend ?? {})) {
-        expect(SCREEN_READER_SEMANTIC_BY_CATALOG_ID[catalogId]).toBe(entry.semantic);
+        const typedCatalogId = catalogId as keyof typeof SCREEN_READER_SEMANTIC_BY_CATALOG_ID;
+        expect(SCREEN_READER_SEMANTIC_BY_CATALOG_ID[typedCatalogId]).toBe(entry.semantic);
       }
     }
   });
