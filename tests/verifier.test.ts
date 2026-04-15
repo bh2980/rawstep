@@ -139,6 +139,82 @@ describe("verifier", () => {
     }
   });
 
+  it("blocks empty email submission and shows an inline validation message", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/email-login.html")).toString());
+
+    try {
+      await session.page.getByRole("button", { name: "Send magic link" }).click();
+
+      expect(await session.page.title()).toBe("Email Login Fixture");
+      expect(await session.page.locator("#status").isHidden()).toBe(true);
+      expect(await session.page.locator("#email-error").textContent()).toContain(
+        "Enter your email address before requesting a magic link."
+      );
+      expect(await session.page.locator("#email").getAttribute("aria-invalid")).toBe("true");
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("blocks malformed email submission and keeps the success state hidden", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/email-login.html")).toString());
+
+    try {
+      await session.page.locator("#email").fill("not-an-email");
+      await session.page.getByRole("button", { name: "Send magic link" }).click();
+
+      expect(await session.page.title()).toBe("Email Login Fixture");
+      expect(await session.page.locator("#status").isHidden()).toBe(true);
+      expect(await session.page.locator("#email-error").textContent()).toContain(
+        "Enter a valid email address like name@example.com."
+      );
+      expect(await session.page.locator("#email").getAttribute("aria-invalid")).toBe("true");
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("blocks empty credential submission and shows field-level feedback", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/credential-login.html")).toString());
+
+    try {
+      await session.page.getByRole("button", { name: "Sign in" }).click();
+
+      expect(await session.page.title()).toBe("Credential Login Fixture");
+      expect(await session.page.locator("#status").isHidden()).toBe(true);
+      expect(await session.page.locator("#credential-email-error").textContent()).toContain(
+        "Enter your email address before signing in."
+      );
+      expect(await session.page.locator("#credential-password-error").textContent()).toContain(
+        "Enter your password before signing in."
+      );
+      expect(await session.page.locator("#email").getAttribute("aria-invalid")).toBe("true");
+      expect(await session.page.locator("#password").getAttribute("aria-invalid")).toBe("true");
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("blocks malformed credential email and keeps the success state hidden", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/credential-login.html")).toString());
+
+    try {
+      await session.page.locator("#email").fill("not-an-email");
+      await session.page.locator("#password").fill("super-secret");
+      await session.page.getByRole("button", { name: "Sign in" }).click();
+
+      expect(await session.page.title()).toBe("Credential Login Fixture");
+      expect(await session.page.locator("#status").isHidden()).toBe(true);
+      expect(await session.page.locator("#credential-email-error").textContent()).toContain(
+        "Enter a valid email address like name@example.com."
+      );
+      expect(await session.page.locator("#email").getAttribute("aria-invalid")).toBe("true");
+      expect(await session.page.locator("#credential-password-error").isHidden()).toBe(true);
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
   it("returns helpful failure messages", async () => {
     const session = await createBrowserSession(pathToFileURL(resolve("fixtures/simple-cta.html")).toString());
 
