@@ -2,7 +2,11 @@ import type {
   ScreenReaderActionPlan,
   ScreenReaderCapabilities
 } from "@rawstep/action-catalog";
-import type { UserModel } from "@rawstep/definition";
+import {
+  requiresScreenReaderBackend,
+  supportsVisualObservation,
+  type UserModel
+} from "@rawstep/definition";
 import {
   SCREEN_READER_BACKEND_IDS,
   type ScreenReaderBackend,
@@ -115,7 +119,7 @@ export function resolveScreenReaderBrowserHeadless(
   backendId?: ScreenReaderBackendId
 ): boolean {
   if (configuredHeadless !== undefined) {
-    if (mode !== "keyboard" && configuredHeadless && backendId) {
+    if (requiresScreenReaderBackend(mode) && configuredHeadless && backendId) {
       const backend = findScreenReaderBackendById(backendId);
       if (!backend.browserPolicy.headlessAllowed) {
         throw new Error(
@@ -127,7 +131,7 @@ export function resolveScreenReaderBrowserHeadless(
     return configuredHeadless;
   }
 
-  if (mode === "keyboard") {
+  if (supportsVisualObservation(mode)) {
     return true;
   }
 

@@ -1,3 +1,4 @@
+import { USER_MODEL_VALUES } from "@rawstep/definition";
 import { z } from "zod";
 import {
   allowedKeysSchema,
@@ -6,9 +7,10 @@ import {
   memorySettingSchema,
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
-  screenshotPolicySchema,
-  userModelSchema
+  screenshotPolicySchema
 } from "./shared";
+
+const userModelSchema = z.enum(USER_MODEL_VALUES);
 
 const taskConfigObjectSchema = z.object({
   mode: userModelSchema.optional(),

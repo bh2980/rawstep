@@ -1,4 +1,5 @@
 import {
+  parseUserModel,
   resolveTaskSource,
   type ResolvedTask,
   type TaskOverrideSource,
@@ -10,7 +11,6 @@ import { basename } from "node:path";
 import { readTaskFile, resolveTaskUrl } from "./task-file";
 import {
   type TaskExecutionDefaults,
-  parseUserModel,
 } from "./shared";
 
 export type LoadedTaskFile = {

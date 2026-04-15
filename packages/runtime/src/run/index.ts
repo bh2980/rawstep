@@ -14,12 +14,14 @@ import {
   type CreateBrowserSessionOptions
 } from "../browser";
 import {
+  allowsRawKeyActions,
   type Decision,
   type ExecutionRecord,
   type AgentMemoryEntry,
   type Agent,
   type Action,
   type EndedBy,
+  isScreenReaderMode,
   type Observation,
   type ResolvedTask,
   type ScreenReaderReadback,
@@ -37,12 +39,10 @@ import {
 } from "../observe/screenreader";
 import { TraceRecorder } from "../trace";
 import {
-  allowsRawKeyActions,
   createAgentMemoryEntry,
   createObserver,
   createVerdictAnalysis,
   getErrorMessage,
-  isScreenReaderMode,
   resolveVerificationOutcome,
   shouldUseInteractiveObservation,
   selectAgentMemoryExcerpt,

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { parseUserModel } from "@rawstep/definition";
 import {
   type CliRunOptions,
   parseAgentProvider,
@@ -6,8 +7,7 @@ import {
   parseCommaSeparatedScreenReaderActions,
   parseOptionalNonNegativeInteger,
   parseScreenReaderBackendId,
-  parseScreenshotPolicy,
-  parseUserModel
+  parseScreenshotPolicy
 } from "./shared";
 
 export function parseRunArgs(argv: string[]): CliRunOptions {

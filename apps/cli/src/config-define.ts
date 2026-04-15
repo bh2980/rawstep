@@ -1,7 +1,8 @@
 import type { AgentProvider } from "@rawstep/agent";
 import type {
   MemorySetting,
-  ScreenshotPolicy
+  ScreenshotPolicy,
+  UserModel
 } from "@rawstep/definition";
 import {
   type KeyboardActionRef,
@@ -81,11 +82,14 @@ type ProjectPromptConfig = {
 export type RawstepConfig = {
   version: 1;
   defaults?: ProjectDefaultsConfig;
-  modes: {
-    keyboard?: KeyboardModeConfig;
-    "screenreader-strict"?: ScreenReaderStrictModeConfig;
-    "screenreader-hybrid"?: ScreenReaderHybridModeConfig;
-  };
+  modes: Partial<{
+    [Mode in UserModel]:
+      Mode extends "keyboard"
+        ? KeyboardModeConfig
+        : Mode extends "screenreader-strict"
+          ? ScreenReaderStrictModeConfig
+          : ScreenReaderHybridModeConfig;
+  }>;
 };
 
 export function screenReaderActionsFor<const TBackend extends ScreenReaderBackendId>(

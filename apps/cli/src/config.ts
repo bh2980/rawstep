@@ -12,6 +12,11 @@ import {
   type KeyboardActionRef
 } from "@rawstep/action-catalog";
 import {
+  allowsRawKeyActions,
+  isUserModel,
+  requiresScreenReaderBackend,
+  supportsVisualObservation,
+  USER_MODEL_VALUES,
   type UserModel
 } from "@rawstep/definition";
 import {
@@ -129,19 +134,19 @@ export async function resolveRunOptions(cliOptions: CliRunOptions): Promise<Reso
     taskSource.taskConfig?.screenReaderBackend
     ?? modePreset?.screenReaderBackend;
 
-  if (selectedMode === "keyboard" && configuredAllowedScreenReaderActions) {
-    throw new Error("allowedScreenReaderActions is not allowed in keyboard mode.");
+  if (supportsVisualObservation(selectedMode) && configuredAllowedScreenReaderActions) {
+    throw new Error(`allowedScreenReaderActions is not allowed in ${selectedMode} mode.`);
   }
 
-  if (selectedMode === "keyboard" && configuredModeScreenReaderBackend) {
-    throw new Error("screenReaderBackend is not allowed in keyboard mode.");
+  if (supportsVisualObservation(selectedMode) && configuredModeScreenReaderBackend) {
+    throw new Error(`screenReaderBackend is not allowed in ${selectedMode} mode.`);
   }
 
   if (
-    selectedMode === "screenreader-strict"
+    !allowsRawKeyActions(selectedMode)
     && (overrideAllowedKeys !== undefined || configuredAllowedKeys !== undefined)
   ) {
-    throw new Error("allowedKeys is not allowed in screenreader-strict mode.");
+    throw new Error(`allowedKeys is not allowed in ${selectedMode} mode.`);
   }
 
   const screenReaderBackendId = resolveScreenReaderBackendId(selectedMode, configuredModeScreenReaderBackend);
@@ -312,7 +317,13 @@ function validateModePresets(
   const result: Partial<Record<UserModel, ModeConfigShape>> = {};
 
   for (const [modeKey, rawPreset] of Object.entries(rawModes as Record<string, unknown>)) {
-    const mode = validateProjectMode(modeKey, configPath);
+    if (!isUserModel(modeKey)) {
+      throw new Error(
+        `Config file ${configPath} has unsupported mode preset: ${modeKey}. Expected one of ${USER_MODEL_VALUES.join(", ")}.`
+      );
+    }
+
+    const mode = modeKey;
     result[mode] = validateModePreset(rawPreset, configPath, mode);
   }
 
@@ -325,14 +336,14 @@ function validateModePreset(
   mode: UserModel
 ): ModeConfigShape {
   const preset = validateModePresetOverride(rawPreset, `Config file ${configPath} modes.${mode}`);
-  if (mode === "keyboard" && preset?.allowedScreenReaderActions) {
-    throw new Error(`Config file ${configPath} modes.${mode}.allowedScreenReaderActions is not allowed in keyboard mode.`);
+  if (supportsVisualObservation(mode) && preset?.allowedScreenReaderActions) {
+    throw new Error(`Config file ${configPath} modes.${mode}.allowedScreenReaderActions is not allowed in ${mode} mode.`);
   }
-  if (mode === "keyboard" && preset?.screenReaderBackend) {
-    throw new Error(`Config file ${configPath} modes.${mode}.screenReaderBackend is not allowed in keyboard mode.`);
+  if (supportsVisualObservation(mode) && preset?.screenReaderBackend) {
+    throw new Error(`Config file ${configPath} modes.${mode}.screenReaderBackend is not allowed in ${mode} mode.`);
   }
-  if (mode === "screenreader-strict" && preset?.allowedKeys) {
-    throw new Error(`Config file ${configPath} modes.${mode}.allowedKeys is not allowed in screenreader-strict mode.`);
+  if (!allowsRawKeyActions(mode) && preset?.allowedKeys) {
+    throw new Error(`Config file ${configPath} modes.${mode}.allowedKeys is not allowed in ${mode} mode.`);
   }
   return {
     outDir: preset?.outDir,
@@ -407,7 +418,7 @@ function resolveKeyboardActionPlan(
   overrideAllowedKeys: readonly AllowedKey[] | undefined,
   configuredAllowedKeys: readonly KeyboardActionRef[] | undefined
 ): KeyboardActionPlan {
-  if (selectedMode === "screenreader-strict") {
+  if (!allowsRawKeyActions(selectedMode)) {
     return buildKeyboardActionPlan([]);
   }
 
@@ -430,7 +441,7 @@ function resolveAllowedScreenReaderActions(
   plan: ResolvedRunOptions["screenReaderActionPlan"];
   promptActions: ResolvedRunOptions["prompt"]["screenReaderActions"];
 } {
-  if (selectedMode === "keyboard") {
+  if (supportsVisualObservation(selectedMode)) {
     return {
       plan: undefined,
       promptActions: []
@@ -466,7 +477,7 @@ function resolveScreenReaderBackendId(
   selectedMode: UserModel,
   configuredScreenReaderBackend: ResolvedRunOptions["screenReaderBackendId"]
 ): ResolvedRunOptions["screenReaderBackendId"] {
-  if (selectedMode === "keyboard") {
+  if (!requiresScreenReaderBackend(selectedMode)) {
     return undefined;
   }
 
@@ -477,21 +488,4 @@ function resolveScreenReaderBackendId(
   }
 
   return findScreenReaderBackendById(configuredScreenReaderBackend).id;
-}
-
-function validateProjectMode(
-  value: string,
-  configPath: string
-): UserModel {
-  if (
-    value === "keyboard"
-    || value === "screenreader-strict"
-    || value === "screenreader-hybrid"
-  ) {
-    return value;
-  }
-
-  throw new Error(
-    `Config file ${configPath} has unsupported mode preset: ${value}. Expected one of keyboard, screenreader-strict, screenreader-hybrid.`
-  );
 }

@@ -131,7 +131,6 @@ export type ResolvedPromptOptions = {
   screenReaderActions: readonly ScreenReaderActionDescriptor[];
 };
 
-export const userModelSchema = z.enum(["keyboard", "screenreader-strict", "screenreader-hybrid"]);
 export const agentProviderSchema = z.enum(["anthropic", "openai-compatible"]);
 export const screenshotPolicySchema = z.enum(["all", "important", "failure-only", "none"]);
 export const nonNegativeIntegerSchema = z.number().int().min(0);
@@ -144,17 +143,6 @@ export const allowedScreenReaderActionsSchema = z.array(z.unknown());
 export const screenReaderBackendIdSchema = z.custom<ScreenReaderBackendId>(
   (value) => typeof value === "string" && isScreenReaderBackendId(value)
 );
-
-export function parseUserModel(value: unknown): UserModel {
-  const result = userModelSchema.safeParse(value);
-  if (result.success) {
-    return result.data;
-  }
-
-  throw new Error(
-    `Unsupported mode: ${String(value)}. Expected one of keyboard, screenreader-strict, screenreader-hybrid.`
-  );
-}
 
 export function parseAgentProvider(value: unknown): AgentProvider {
   const result = agentProviderSchema.safeParse(value);

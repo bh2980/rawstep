@@ -10,7 +10,8 @@ import {
   EndedBy,
   Observation,
   ScreenshotPolicy,
-  UserModel,
+  supportsVisualObservation,
+  type UserModel,
   VerdictAnalysis
 } from "@rawstep/definition";
 import { KeyboardObserver } from "../observe/keyboard";
@@ -36,15 +37,15 @@ export function createObserver(
   browser: BrowserSession,
   screenReaderRuntime?: ScreenReaderRuntime
 ): RunnerObserver {
-  if (isScreenReaderMode(mode)) {
-    if (!screenReaderRuntime) {
-      throw new Error("Screen reader runtime was not initialized.");
-    }
-
-    return screenReaderRuntime.observer;
+  if (supportsVisualObservation(mode)) {
+    return new KeyboardObserver(browser.page);
   }
 
-  return new KeyboardObserver(browser.page);
+  if (!screenReaderRuntime) {
+    throw new Error("Screen reader runtime was not initialized.");
+  }
+
+  return screenReaderRuntime.observer;
 }
 
 export function selectAgentMemoryExcerpt(
@@ -88,14 +89,6 @@ export function shouldUseInteractiveObservation(decision: Extract<Decision, { ac
 
   return !decision.action.srAction.semantic.startsWith("read.")
     && !decision.action.srAction.semantic.startsWith("clear.");
-}
-
-export function isScreenReaderMode(mode: UserModel): boolean {
-  return mode === "screenreader-strict" || mode === "screenreader-hybrid";
-}
-
-export function allowsRawKeyActions(mode: UserModel): boolean {
-  return mode === "keyboard" || mode === "screenreader-hybrid";
 }
 
 export function createVerdictAnalysis(

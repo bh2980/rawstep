@@ -1,4 +1,15 @@
-export type { UserModel } from "./modes";
+export {
+  allowsRawKeyActions,
+  isScreenReaderMode,
+  isUserModel,
+  MODE_SPEC,
+  parseUserModel,
+  requiresScreenReaderBackend,
+  supportsScreenReaderObservation,
+  supportsVisualObservation,
+  USER_MODEL_VALUES,
+} from "./modes";
+export type { ModeObservationKind, UserModel } from "./modes";
 export { validateVerifySpec } from "./verify";
 export type {
   RequestVerificationRule,

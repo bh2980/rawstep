@@ -10,14 +10,13 @@ import {
   type ScreenReaderBackendId,
 } from "@rawstep/action-catalog";
 import { z } from "zod";
-import type { UserModel } from "../modes";
+import { parseUserModel, USER_MODEL_VALUES } from "../modes";
 import { validateVerifySpec } from "../verify";
 import type { MemorySetting, TaskInput, TaskOverrideSource, TaskSource } from "./source";
 
-const USER_MODE_VALUES = ["keyboard", "screenreader-strict", "screenreader-hybrid"] as const;
 const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
 
-const userModelSchema = z.enum(USER_MODE_VALUES);
+const userModelSchema = z.enum(USER_MODEL_VALUES);
 const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const nonEmptyStringSchema = z.string().trim().min(1);
@@ -183,17 +182,6 @@ function parseTaskConfigObject(raw: unknown, label: string) {
   }
 
   return result.data;
-}
-
-function parseUserModel(value: unknown): UserModel {
-  const result = userModelSchema.safeParse(value);
-  if (result.success) {
-    return result.data;
-  }
-
-  throw new Error(
-    `Unsupported mode: ${String(value)}. Expected one of ${USER_MODE_VALUES.join(", ")}.`
-  );
 }
 
 function parseOptionalString(value: unknown, label: string): string {
