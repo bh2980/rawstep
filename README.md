@@ -1,142 +1,119 @@
 # RawStep
-> 과업 기반 접근성 진단 도구
 
-## 개요
+English | [한국어](./README.ko.md)
 
-axe-core, Lighthouse 같은 도구는 DOM과 규칙 위반을 잘 찾습니다.  
-하지만 실제 사용자가 과업을 수행할 때 어디서 막히는지는 잘 보여주지 못합니다.
+> An experimental runner for recording keyboard and screen reader task bottlenecks under limited observation
 
-RawStep은 제한된 관측 채널과 제한된 행동 집합 안에서 에이전트가 직접 과업을 시도하게 하고, 그 과정을 trace와 리포트로 남깁니다.
+> [!WARNING]
+> RawStep is not a stable accessibility diagnostic tool intended for real production use.
+> It is a prototype for observing where an agent fails while attempting a task under a limited observation channel.
+> At the moment, actual task success rates and reproducibility are low, and results can vary significantly depending on the model, backend, and environment state.
 
-- 키보드 사용자처럼 실제로 이동하며 목표에 도달하는지
-- 스크린리더 사용자가 읽히는 정보만으로 다음 행동을 고를 수 있는지
-- 성공까지 몇 step이 걸렸는지
-- 어느 시점부터 헤매기 시작했는지
-- verifier 기준으로 실제 성공이 확인됐는지
+## Overview
 
-| 항목 | 규칙 기반 도구 | RawStep |
-|------|----------------|---------|
-| 평가 단위 | 규칙 위반 | 과업 수행 |
-| 입력 | DOM / ARIA | 스크린샷 또는 스크린리더 announcement |
-| 출력 | 규칙별 통과/실패 | trace, metrics, prompts, HTML report |
-| 병목 위치 추적 | 약함 | 강함 |
-| 실제 사용 흐름 재현 | 간접적 | 직접적 |
+Tools like axe-core and Lighthouse are good at finding DOM issues and rule violations.  
+But they do not show very well where real users get stuck while trying to complete a task.
 
----
+RawStep lets an agent attempt the task directly within a limited observation channel and a limited action set,
+then records the process as traces and reports so you can review the bottleneck points afterward.
 
-## 빠른 시작
+What RawStep is mainly meant to help you inspect:
+
+- Whether it gets closer to the goal when moving like a keyboard user
+- Whether a screen reader user could choose the next action using only the information that is actually read out
+- How many steps it took before success or failure
+- At which point it started wandering
+- Whether success was actually confirmed by the verifier
+
+| Item | Rule-based tools | RawStep |
+|------|------------------|---------|
+| Evaluation unit | Rule violations | Task completion |
+| Input | DOM / ARIA | Screenshot or screen reader announcement |
+| Output | Pass/fail by rule | Trace, metrics, prompts, HTML report |
+| Bottleneck localization | Relatively weak | Experimental attempt to trace bottlenecks |
+| Real user flow reproduction | Indirect | Direct attempt under limited conditions |
+
+The table above is not meant as a performance ranking. It is closer to a simplified picture of the kind of experiment RawStep is trying to run.
+
+## Better Fit For
+
+- Experimenting with accessibility tasks through an agent
+- Inspecting failure traces and bottleneck points more than success rates
+- Exploring prompt, observer, verifier, and report structure
+- Building an internal harness for idea validation
+
+## Not Yet A Good Fit For
+
+- Pass/fail decisions for real production accessibility quality
+- Automation that replaces human testing
+- Stable regression-testing infrastructure
+- Highly reproducible operational diagnostics
+
+## What You Get
+
+Run output usually leaves the following files behind.
+
+- `trace.jsonl`: replay log for each step
+- `trace.json`: final merged trace
+- `metrics.json`: total step count, exit reason, action count, timing
+- `prompts.json`: prompts recorded per step
+- `report/index.html`: human-readable report
+- `diagnostics.jsonl`: created only when runtime warnings or errors exist
+
+These artifacts are closer to records for reviewing the experiment process and failure points than to a final verdict document.
+
+## Quick Start
 
 ```bash
 pnpm install
-pnpm build
 cp .env.sample .env
-# .env 에서 AI_PROVIDER, AI_API_KEY, AI_MODEL 값을 채운다
-# openai-compatible provider면 AI_BASE_URL도 함께 채운다
+# Fill in AI_PROVIDER, AI_API_KEY, and AI_MODEL in .env
+# If you use an openai-compatible provider, also fill in AI_BASE_URL
 pnpm rawstep run examples/tasks/simple-cta.json
 ```
 
-기본 출력 경로는 `./.rawstep/out/<mode>/<taskId>/<runId>/` 입니다.  
-실행이 끝나면 CLI가 `report/index.html` 경로를 출력합니다.
+The default output path is `./.rawstep/out/<mode>/<taskId>/<runId>/`.  
+When the run finishes, the CLI prints the `report/index.html` path.
 
-이 repo에는 바로 실행 가능한 기본 [rawstep.config.ts](./rawstep.config.ts)가 이미 들어 있습니다.  
-처음에는 설정 파일을 새로 만들기보다 `.env`만 채우고 `examples/tasks/` 아래 예시 task부터 실행하면 됩니다.
+If you need provider-specific request options, put them in `rawstep.config.ts > defaults.providerOptions`.
+For example, OpenAI-compatible reasoning settings now live under `providerOptions.openaiCompatible.*` instead of a dedicated `reasoningEffort` top-level field.
 
-### 현재 기본 설정
+This repo already includes a working default [rawstep.config.ts](./rawstep.config.ts).  
+At the beginning, it is easier to fill in `.env` and run the example tasks under `examples/tasks/` instead of creating a new config file from scratch.
 
-- `keyboard`
-  - `headless: true`
-  - `maxSteps: 30`
-  - `timeoutMs: 240000`
-  - `memory: "all"`
-  - `verifierAutoComplete: true`
-- `screenreader`
-  - `headless: false`
-  - `screenReaderBackend: "guidepup-virtual"`
-  - `maxSteps: 1000`
-  - `timeoutMs: 600000`
-  - `screenshots: "all"`
-  - `memory: "all"`
-  - `verifierAutoComplete: true`
+This example is mainly for checking the basic flow.  
+Even if it runs, that does not mean it can perform real-site tasks reliably.
 
-> 기본 screenreader backend는 `guidepup-virtual`입니다.  
-> `guidepup-voiceover`, `guidepup-nvda` 같은 실제 OS 스크린리더로 바꾸면 OS 권한과 환경 준비가 추가로 필요할 수 있습니다.
-
----
-
-## 실행 흐름
-
-한 번 실행하면 대략 아래 순서로 진행됩니다.
-
-1. task 파일을 읽고 실행 계획을 만듭니다.
-2. 브라우저와 관측기(observer)를 초기화합니다.
-3. step마다 관측, 판단, 실행, 검증을 반복합니다.
-4. planning / reflection이 켜져 있으면 중간 전략 갱신도 수행합니다.
-5. 종료 후 trace, metrics, prompts, report를 저장합니다.
-
-쉽게 말하면, RawStep은 "성공했는지"만 찍는 도구가 아니라 "어떻게 실패했는지"까지 남기는 도구입니다.
-
----
-
-## 사용자 모델
+## Execution Models
 
 ### `keyboard`
 
-- 관측: 현재 viewport screenshot, 이전 screenshot, focus hint, scroll hint
-- 행동: `Tab`, `Shift+Tab`, 화살표, `Enter`, `Space`, `Escape`, `Home`, `End` 등 허용된 키
-- 특징: 이미지 입력이 가능한 모델이 필요합니다
+- Observation: current viewport screenshot, previous screenshot, focus hint, scroll hint
+- Actions: allowed keys such as `Tab`, `Shift+Tab`, arrows, `Enter`, `Space`, `Escape`, `Home`, `End`
+- Note: requires a model that can accept image input
 
 ### `screenreader`
 
-- 관측: announcement 텍스트, capture 방식, observe reason, readbacks
-- 행동: `sr.next`, `sr.form.next`, `sr.heading.next`, `sr.act`, `sr.key.*` 등 허용된 screenreader action
-- 특징: 개발자용 스크린샷은 저장될 수 있지만 에이전트 입력에는 들어가지 않습니다
+- Observation: announcement text, capture method, observe reason, readbacks
+- Actions: allowed screen reader actions such as `sr.next`, `sr.form.next`, `sr.heading.next`, `sr.act`, `sr.key.*`
+- Note: developer screenshots may be saved, but they are not included in agent input
 
-### 에이전트에게 주지 않는 정보
+### Information Hidden from the Agent
 
-- DOM selector
-- accessibility tree
-- ARIA role/label 전체
-- 요소 존재 여부에 대한 정답
-- 정밀한 시각 위치 정보
+- DOM selectors
+- Accessibility tree
+- Full ARIA role/label information
+- Ground-truth answers about whether an element exists
+- Precise visual location data
 
----
+## Task Example
 
-## 산출물
-
-실행 결과는 보통 아래 파일들로 남습니다.
-
-- `trace.jsonl`: step별 리플레이 로그
-- `trace.json`: 최종 합본 trace
-- `metrics.json`: 총 step 수, 종료 이유, action count, timing
-- `prompts.json`: step별 prompt 기록
-- `report/index.html`: 사람이 보기 좋은 리포트
-- `diagnostics.jsonl`: 런타임 경고/에러가 있을 때만 생성
-
-리포트에는 아래 정보가 함께 정리됩니다.
-
-- 최종 성공/실패
-- failure point
-- action breakdown
-- timing overview
-- step detail
-- screenreader announcement 근거
-- experience summary
-- planning / reflection 결과
-
-리포트 구조는 [docs/report.md](./docs/report.md)에서 자세히 볼 수 있습니다.
-
----
-
-## Task 작성
-
-task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 실행 단위입니다.
-
-### 최소 예시
+A task file is the execution unit that says what should be done on which page.
 
 ```json
 {
   "url": "../../fixtures/simple-cta.html",
-  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
+  "goal": "Find and activate the Get started button, then leave the page in a state where the result message is visible.",
   "verify": {
     "all": [
       { "textVisible": "Started!" },
@@ -146,7 +123,7 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 실
 }
 ```
 
-추가로 넣을 수 있는 대표 필드는 아래입니다.
+Common additional fields are listed below.
 
 - `id`
 - `mode`
@@ -157,46 +134,47 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 실
 - `config`
 - `verify`
 
-자세한 스펙은 [docs/task.md](./docs/task.md)를 보면 됩니다.
+See [docs/task.md](./docs/task.md) for the full spec.
 
----
+## What You Can Inspect In The Report
 
-## 프롬프트 구조
+The report usually organizes the following information.
 
-프롬프트는 루트 `prompt/` 디렉터리에서 읽습니다.
+- Final success/failure
+- Failure point
+- Action breakdown
+- Timing overview
+- Step detail
+- Screen reader announcement evidence
+- Experience summary
+- Planning / reflection results
 
-현재는 단순히 `keyboard.system.md`, `screenreader.system.md`만 쓰는 구조가 아닙니다.  
-아래 단계별 템플릿이 함께 사용됩니다.
+See [docs/report.md](./docs/report.md) for the report structure in detail.
 
-- browse 단계용 prompt
-- execute 단계용 prompt
-- planning prompt
-- reflection prompt
-- experience summary prompt
+### Report Preview
 
-즉, 실행 중에 같은 프롬프트를 계속 재사용하는 게 아니라, 단계에 따라 다른 템플릿을 렌더링합니다.
+![RawStep report overview](./docs/assets/report-overview.png)
 
-프롬프트 파일과 placeholder 설명은 [docs/prompts.md](./docs/prompts.md)에서 확인할 수 있습니다.
+## Detailed Docs
 
----
+- [docs/task.md](./docs/task.md): task spec, `input`, `verify`, override rules
+- [docs/config.md](./docs/config.md): `rawstep.config.ts`, defaults, modes, planning, observe, precedence
+- [docs/cli.md](./docs/cli.md): CLI options, provider environment variables, allowed keys/actions
+- [docs/report.md](./docs/report.md): report structure and section descriptions
+- [docs/prompts.md](./docs/prompts.md): prompt file structure and template variables
+- [docs/editing-map.md](./docs/editing-map.md): editing entry points and post-change checks
 
-## 세부 문서
+## Current Limits
 
-- [docs/task.md](./docs/task.md): task 스펙, `input`, `verify`, override 규칙
-- [docs/config.md](./docs/config.md): `rawstep.config.ts`, defaults, modes, planning, observe, 우선순위
-- [docs/cli.md](./docs/cli.md): CLI 옵션, provider 환경 변수, 허용 키/action 목록
-- [docs/report.md](./docs/report.md): 리포트 구조와 각 항목 설명
-- [docs/prompts.md](./docs/prompts.md): 프롬프트 파일 구조와 템플릿 변수 설명
-- [docs/editing-map.md](./docs/editing-map.md): 수정 포인트와 변경 후 확인 항목
+- This project is still in the prototype stage.
+- Actual task success rates are low, and even the same task can produce different results from run to run.
+- The agent only receives limited observation channels, so it does not know the full context the way a real user might.
+- `screenreader` mode is heavily affected by backend quality and environment state.
+- In the `screenreader + guidepup-voiceover` combination, a synthetic announcement may be used after `typeText`.
+- Free-form text generation for inputs is not allowed. The agent can only input values that the task provides.
+- It is still too unstable to use as a definitive pass/fail judgment tool for real accessibility quality.
 
----
+## License
 
-## 한계
-
-- 에이전트는 제한된 관측 채널만 받습니다. 실제 사용자처럼 모든 문맥을 알 수는 없습니다.
-- 같은 task라도 실행마다 결과가 달라질 수 있습니다.
-- `screenreader` 모드는 backend 품질과 환경 상태에 크게 영향을 받습니다.
-- `screenreader + guidepup-voiceover` 조합에서는 `typeText` 후 synthetic announcement가 쓰일 수 있습니다.
-- 자유로운 텍스트 생성 입력은 허용하지 않고, task가 제공한 값만 입력합니다.
-
-쉽게 말하면, RawStep은 "정답 판정기"보다는 "과업 수행 병목을 드러내는 실험 도구"에 가깝습니다.
+This project is licensed under the MIT License.  
+See [LICENSE](./LICENSE) for the full text.
