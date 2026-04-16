@@ -7,10 +7,79 @@
   </head>
   <body>
     <h1>Search</h1>
-    <label>
-      Query
-      <input type="search" name="q" />
-    </label>
-    <button type="button">Search</button>
+    <form id="search-form">
+      <label>
+        Query
+        <input id="query" type="search" name="q" />
+      </label>
+      <button id="submit" type="submit">Search</button>
+    </form>
+    <section id="results" hidden aria-live="polite">
+      <h2 id="results-heading"></h2>
+      <ul id="results-list"></ul>
+    </section>
+    <p id="status" hidden aria-live="polite"></p>
+    <script>
+      const form = document.getElementById("search-form");
+      const query = document.getElementById("query");
+      const results = document.getElementById("results");
+      const resultsHeading = document.getElementById("results-heading");
+      const resultsList = document.getElementById("results-list");
+      const status = document.getElementById("status");
+      const defaultTitle = document.title;
+
+      function clearResults() {
+        results.hidden = true;
+        resultsHeading.textContent = "";
+        resultsList.innerHTML = "";
+      }
+
+      function renderResults(value) {
+        results.hidden = false;
+        resultsHeading.textContent = `Results for ${value}`;
+        resultsList.innerHTML = "";
+
+        ["Passport1", "Passport2", "Passport3"].forEach((label) => {
+          const item = document.createElement("li");
+          const text = document.createElement("span");
+          text.textContent = label;
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Open";
+          button.setAttribute("aria-label", `Open ${label}`);
+          button.addEventListener("click", () => {
+            status.hidden = false;
+            status.textContent = `Selected ${label}`;
+            if (label === "Passport2") {
+              document.title = "Completed - Search";
+            } else {
+              document.title = defaultTitle;
+            }
+          });
+
+          item.append(text, document.createTextNode(" "), button);
+          resultsList.append(item);
+        });
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = query.value.trim();
+        if (!value) {
+          clearResults();
+          status.hidden = false;
+          status.textContent = "Enter a search query.";
+          document.title = defaultTitle;
+          query.focus();
+          return;
+        }
+
+        status.hidden = false;
+        status.textContent = `Showing results for ${value}`;
+        document.title = defaultTitle;
+        renderResults(value);
+      });
+    </script>
   </body>
 </html>

@@ -11,5 +11,16 @@
     <a href="#one">Noise link one</a>
     <a href="#two">Noise link two</a>
     <div tabindex="0">Focusable container with no useful action.</div>
+    <button id="buy-now" type="button">Buy now</button>
+    <p id="status" hidden aria-live="polite"></p>
+    <script>
+      const button = document.getElementById("buy-now");
+      const status = document.getElementById("status");
+      button.addEventListener("click", () => {
+        document.title = "Completed - Bad Focus Fixture";
+        status.hidden = false;
+        status.textContent = "Purchased!";
+      });
+    </script>
   </body>
 </html>

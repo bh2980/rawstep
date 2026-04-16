@@ -25,20 +25,20 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 
 ```json
 {
-  "id": "email-login",
-  "url": "../../fixtures/email-login.html",
-  "goal": "이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.",
-  "mode": "keyboard",
+  "id": "login",
+  "url": "../../fixtures/credential-login.html",
+  "goal": "이메일과 비밀번호 입력칸에 각각 email, password input 값을 넣고, Sign in 버튼을 눌러 로그인 성공 메시지가 보이게 만들어라.",
+  "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,
   "input": {
-    "email": "traveler@example.com"
+    "email": "traveler@example.com",
+    "password": "super-secret"
   },
   "verify": {
     "all": [
-      { "textVisible": "Magic link sent." },
-      { "textVisible": "traveler@example.com" },
-      { "titleIncludes": "Completed" }
+      { "textVisible": "Signed in." },
+      { "titleIncludes": "Credential Login Completed" }
     ]
   }
 }
@@ -64,10 +64,10 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 
 ### `input`
 
-에이전트가 임의 텍스트를 만들지 않고, 필요할 때 `{"action":{"typeText":"email"}}` 같이 키를 골라 그 값을 입력하도록 합니다.
+에이전트가 임의 텍스트를 만들지 않고, task에 선언된 실제 값만 직접 입력하도록 합니다. 예를 들어 프롬프트에는 `email="traveler@example.com"` 같이 라벨과 값이 함께 보이고, 응답은 `{"action":"typeText","value":"traveler@example.com"}` 형태로 반환합니다.
 
 > **`screenreader` + `guidepup-voiceover` 조합 주의사항**  
-> 이 조합에서는 `typeText`를 특별 취급합니다. 실제 텍스트 입력은 브라우저 쪽 입력 경로로 수행하고, 입력 후 값이 기대값과 일치하면 다음 step 관측으로 `Email, traveler@example.com` 같은 synthetic announcement를 제공합니다.  
+> 이 조합에서는 `typeText`를 특별 취급합니다. 실제 텍스트 입력은 브라우저 쪽 입력 경로로 수행하고, 입력 후 값이 기대값과 일치하면 다음 step 관측으로 `Email, current value traveler@example.com` 같은 synthetic announcement를 제공합니다.  
 > 이 값은 실제 VoiceOver 발화의 직접 캡처가 아니라, text entry / 발화 수집의 불안정을 줄이기 위한 안정화된 대체 관측입니다. `guidepup-virtual`, `guidepup-nvda`는 기존 입력/관측 경로를 유지합니다.
 
 ### `config` override
@@ -110,6 +110,7 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 | rule | 설명 |
 |------|------|
 | `textVisible` | 페이지에 해당 텍스트가 실제로 보이면 통과. 부분 포함 검사 |
+| `textVisibleExact` | 페이지에 해당 텍스트가 정확히 같은 visible text로 보이면 통과 |
 | `titleIncludes` | `document.title`에 지정한 문자열이 포함되면 통과 |
 | `urlIncludes` | 현재 페이지 전체 URL에 지정한 값이 포함되면 통과 |
 | `requestSeen` | 실행 중 관측된 네트워크 요청 중 조건에 맞는 것이 하나라도 있으면 통과 |
@@ -132,5 +133,8 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 { "all": [{ "urlIncludes": "/checkout" }] }
 
 // 폼 제출
-{ "all": [{ "textVisible": "Magic link sent." }, { "responseSeen": { "urlIncludes": "/api/login", "status": 200 } }] }
+{ "all": [{ "textVisible": "Signed in." }, { "responseSeen": { "urlIncludes": "/api/login", "status": 200 } }] }
+
+// 값이 정확히 일치해야 하는 성공 문구 확인
+{ "all": [{ "textVisibleExact": "Signed in." }] }
 ```

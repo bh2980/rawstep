@@ -342,15 +342,55 @@ describe.sequential("CLI", () => {
     expect(task.mode).toBe("screenreader");
   });
 
+  it("loads the login example with named inputs", async () => {
+    const task = await loadResolvedTask(resolve("examples/tasks/login.json"));
+
+    expect(task.id).toBe("login");
+    expect(task.input).toEqual({
+      email: "traveler@example.com",
+      password: "super-secret"
+    });
+    expect(task.verify.all).toEqual([
+      { textVisible: "Signed in." },
+      { titleIncludes: "Credential Login Completed" }
+    ]);
+  });
+
   it("loads the email login example with named inputs", async () => {
     const task = await loadResolvedTask(resolve("examples/tasks/email-login.json"));
 
     expect(task.id).toBe("email-login");
-    expect(task.input).toEqual({ email: "traveler@example.com" });
+    expect(task.input).toEqual({
+      email: "traveler@example.com"
+    });
     expect(task.verify.all).toEqual([
       { textVisible: "Magic link sent." },
-      { textVisible: "traveler@example.com" },
-      { titleIncludes: "Completed" }
+      { textVisibleExact: "Magic link sent. traveler@example.com" },
+      { titleIncludes: "Completed - Email Login Fixture" }
+    ]);
+  });
+
+  it("loads the search example with named inputs", async () => {
+    const task = await loadResolvedTask(resolve("examples/tasks/search.json"));
+
+    expect(task.id).toBe("search");
+    expect(task.input).toEqual({
+      query: "passport"
+    });
+    expect(task.verify.all).toEqual([
+      { textVisibleExact: "Selected Passport2" },
+      { titleIncludes: "Completed - Search" }
+    ]);
+  });
+
+  it("loads the bad focus example", async () => {
+    const task = await loadResolvedTask(resolve("examples/tasks/bad-focus.json"));
+
+    expect(task.id).toBe("bad-focus");
+    expect(task.input).toBeUndefined();
+    expect(task.verify.all).toEqual([
+      { textVisibleExact: "Purchased!" },
+      { titleIncludes: "Completed - Bad Focus Fixture" }
     ]);
   });
 
@@ -1221,7 +1261,7 @@ describe.sequential("CLI", () => {
     );
 
     const options = await resolvePlan(parseRunArgs([
-      resolve("examples/tasks/email-login.json"),
+      resolve("examples/tasks/login.json"),
       "--config",
       configPath
     ]));
@@ -1229,7 +1269,7 @@ describe.sequential("CLI", () => {
     expectResolvedOutDir(
       options.execution.outDir,
       join(tempDir, ".rawstep", "out", "screenreader"),
-      "email-login"
+      "login"
     );
   });
 
@@ -1749,7 +1789,7 @@ describe.sequential("CLI", () => {
     });
 
     await expect(loadResolvedTask(taskPath)).rejects.toThrow(
-      "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, requestSeen, responseSeen."
+      "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, requestSeen, responseSeen."
     );
   });
 
@@ -2143,11 +2183,6 @@ describe.sequential("CLI", () => {
 
     expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
-      semantic: "key.tab",
-      token: "sr.key.tab"
-    }));
-    expect(options.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
-      kind: "stable",
       semantic: "button.next",
       token: "sr.button.next"
     }));
@@ -2161,6 +2196,8 @@ describe.sequential("CLI", () => {
       semantic: "form.next",
       token: "sr.form.next"
     }));
+    expect(options.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "key.tab")).toBeUndefined();
+    expect(options.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "key.shiftTab")).toBeUndefined();
     expect(options.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "table.next")).toBeUndefined();
   });
 
@@ -2252,11 +2289,6 @@ describe.sequential("CLI", () => {
 
     expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
       kind: "stable",
-      semantic: "key.tab",
-      token: "sr.key.tab"
-    }));
-    expect(virtualOptions.prompt.screenReaderActions).toContainEqual(expect.objectContaining({
-      kind: "stable",
       semantic: "link.next",
       token: "sr.link.next"
     }));
@@ -2270,6 +2302,8 @@ describe.sequential("CLI", () => {
       semantic: "heading.level.2.next",
       token: "sr.heading.level.2.next"
     }));
+    expect(virtualOptions.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "key.tab")).toBeUndefined();
+    expect(virtualOptions.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "key.shiftTab")).toBeUndefined();
     expect(virtualOptions.prompt.screenReaderActions.find((action) => "semantic" in action && action.semantic === "button.next")).toBeUndefined();
   });
 

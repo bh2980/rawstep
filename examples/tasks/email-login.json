@@ -14,10 +14,10 @@
         "textVisible": "Magic link sent."
       },
       {
-        "textVisible": "traveler@example.com"
+        "textVisibleExact": "Magic link sent. traveler@example.com"
       },
       {
-        "titleIncludes": "Completed"
+        "titleIncludes": "Completed - Email Login Fixture"
       }
     ]
   }

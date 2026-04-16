@@ -1,103 +1,116 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Email Login Fixture</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: sans-serif; padding: 32px; }
-      form { display: grid; gap: 12px; max-width: 420px; }
-      .error { margin-top: 4px; color: #b42318; font-weight: 700; }
-      .status { margin-top: 16px; font-weight: 700; }
-    </style>
-  </head>
-  <body>
-    <a href="#help">Help</a>
-    <a href="#updates">Product updates</a>
-    <h1>Email Login Fixture</h1>
-    <form id="login-form" novalidate>
-      <label>
-        Email
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          aria-errormessage="email-error"
-          required
-        />
-      </label>
-      <div id="email-error" class="error" role="alert" aria-atomic="true" hidden></div>
-      <label>
-        <input id="remember" name="remember" type="checkbox" />
-        Remember this device
-      </label>
-      <button id="submit" type="submit">Send magic link</button>
-    </form>
-    <div id="status" class="status" hidden aria-live="polite"></div>
-    <script>
-      const form = document.getElementById("login-form");
-      const email = document.getElementById("email");
-      const emailError = document.getElementById("email-error");
-      const status = document.getElementById("status");
-      const defaultTitle = document.title;
 
-      function clearSuccess() {
-        status.hidden = true;
-        status.textContent = "";
+<head>
+  <meta charset="utf-8" />
+  <title>Hello</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 32px;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+      max-width: 420px;
+    }
+
+    .error {
+      margin-top: 4px;
+      color: #b42318;
+      font-weight: 700;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+
+<body>
+  <a href="#help">Help</a>
+  <a href="#updates">Product updates</a>
+  <h1>Email Login Fixture</h1>
+  <form id="login-form" novalidate>
+    <label>
+      Email
+      <input id="email" name="email" type="email" autocomplete="email" aria-errormessage="email-error" required />
+    </label>
+    <div id="email-error" class="error" role="alert" aria-atomic="true" hidden></div>
+    <label>
+      <input id="remember" name="remember" type="checkbox" />
+      Remember this device
+    </label>
+    <button id="submit" type="submit">Send magic link</button>
+  </form>
+  <div id="status" class="status" hidden aria-live="polite"></div>
+  <script>
+    const form = document.getElementById("login-form");
+    const email = document.getElementById("email");
+    const emailError = document.getElementById("email-error");
+    const status = document.getElementById("status");
+    const defaultTitle = document.title;
+
+    function clearSuccess() {
+      status.hidden = true;
+      status.textContent = "";
+    }
+
+    function clearError() {
+      email.removeAttribute("aria-invalid");
+      emailError.hidden = true;
+      emailError.textContent = "";
+    }
+
+    function showError(message) {
+      email.setAttribute("aria-invalid", "true");
+      emailError.hidden = false;
+      emailError.textContent = message;
+      clearSuccess();
+      document.title = defaultTitle;
+    }
+
+    function getEmailValidationMessage() {
+      if (email.validity.valueMissing) {
+        return "Enter your email address before requesting a magic link.";
       }
 
-      function clearError() {
-        email.removeAttribute("aria-invalid");
-        emailError.hidden = true;
-        emailError.textContent = "";
-      }
+      return "Enter a valid email address like name@example.com.";
+    }
 
-      function showError(message) {
-        email.setAttribute("aria-invalid", "true");
-        emailError.hidden = false;
-        emailError.textContent = message;
-        clearSuccess();
-        document.title = defaultTitle;
-      }
+    function validateEmail() {
+      email.value = email.value.trim();
 
-      function getEmailValidationMessage() {
-        if (email.validity.valueMissing) {
-          return "Enter your email address before requesting a magic link.";
-        }
-
-        return "Enter a valid email address like name@example.com.";
-      }
-
-      function validateEmail() {
-        email.value = email.value.trim();
-
-        if (email.checkValidity()) {
-          clearError();
-          return true;
-        }
-
-        showError(getEmailValidationMessage());
-        return false;
-      }
-
-      email.addEventListener("input", () => {
+      if (email.checkValidity()) {
         clearError();
-        clearSuccess();
-        document.title = defaultTitle;
-      });
+        return true;
+      }
 
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!validateEmail()) {
-          email.focus();
-          return;
-        }
+      showError(getEmailValidationMessage());
+      return false;
+    }
 
-        document.title = "Completed - Email Login Fixture";
-        status.hidden = false;
-        status.textContent = "Magic link sent. " + email.value;
-      });
-    </script>
-  </body>
+    email.addEventListener("input", () => {
+      clearError();
+      clearSuccess();
+      document.title = defaultTitle;
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!validateEmail()) {
+        email.focus();
+        return;
+      }
+
+      document.title = "Completed - Email Login Fixture";
+      status.hidden = false;
+      status.textContent = "Magic link sent. " + email.value;
+    });
+  </script>
+</body>
+
 </html>
