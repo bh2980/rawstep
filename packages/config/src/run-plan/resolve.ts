@@ -12,8 +12,8 @@ import {
   resolveTaskSource,
   supportsVisualObservation,
   type PlanningConfig,
+  type ProviderOptions,
   type ResolvedTask,
-  type ReasoningEffort,
   type ScreenReaderBackendId,
   type ScreenReaderObserveConfig,
   type TaskOverrideSource,
@@ -42,7 +42,7 @@ export type ResolvedRunPlan = {
     apiKey?: string;
     model?: string;
     baseURL?: string;
-    reasoningEffort?: ReasoningEffort;
+    providerOptions?: ProviderOptions;
     includeExperienceSummary: boolean;
     includeRationale: boolean;
     memory: {
@@ -146,7 +146,7 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       apiKey: merged.apiKey,
       model: merged.model,
       baseURL: merged.baseURL,
-      reasoningEffort: merged.reasoningEffort,
+      providerOptions: merged.providerOptions,
       includeExperienceSummary: merged.includeExperienceSummary,
       includeRationale: merged.includeRationale,
       memory: merged.memory,

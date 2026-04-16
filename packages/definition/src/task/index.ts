@@ -4,13 +4,13 @@ export {
   validateTaskOverrideSource,
   validateTaskSource,
 } from "./schema";
-export { NAVIGATION_STRATEGY_VALUES, REASONING_EFFORT_VALUES } from "./source";
+export { NAVIGATION_STRATEGY_VALUES } from "./source";
 export type {
   MemorySetting,
   NavigationPolicy,
   NavigationStrategy,
   PlanningConfig,
-  ReasoningEffort,
+  ProviderOptions,
   ResolvedNavigationPolicy,
   ScreenReaderObserveConfig,
   TaskInput,

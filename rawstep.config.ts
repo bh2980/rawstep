@@ -6,27 +6,25 @@ import {
 } from "@rawstep/config";
 
 const providerFromEnv = process.env.AI_PROVIDER;
-const reasoningEffortFromEnv = process.env.AI_REASONING_EFFORT;
-const resolvedReasoningEffort =
-  reasoningEffortFromEnv === "none" ||
-  reasoningEffortFromEnv === "low" ||
-  reasoningEffortFromEnv === "medium" ||
-  reasoningEffortFromEnv === "high" ||
-  reasoningEffortFromEnv === "xhigh"
-    ? reasoningEffortFromEnv
+const resolvedProvider =
+  providerFromEnv === "anthropic" || providerFromEnv === "openai-compatible"
+    ? providerFromEnv
     : undefined;
 
 const config: ProjectConfigSource = defineConfig({
   version: 1,
   defaults: {
-    provider:
-      providerFromEnv === "anthropic" || providerFromEnv === "openai-compatible"
-        ? providerFromEnv
-        : undefined,
+    provider: resolvedProvider,
     model: process.env.AI_MODEL,
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY,
-    reasoningEffort: "medium",
+    providerOptions: resolvedProvider === "openai-compatible"
+      ? {
+          openaiCompatible: {
+            reasoningEffort: "high",
+          },
+        }
+      : undefined,
   },
   modes: {
     keyboard: {

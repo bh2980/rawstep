@@ -42,7 +42,6 @@ export type {
 } from "./verify";
 export {
   NAVIGATION_STRATEGY_VALUES,
-  REASONING_EFFORT_VALUES,
   resolveTaskSource,
   validateTaskInput,
   validateTaskOverrideSource,
@@ -53,7 +52,7 @@ export type {
   NavigationPolicy,
   NavigationStrategy,
   PlanningConfig,
-  ReasoningEffort,
+  ProviderOptions,
   ResolvedNavigationPolicy,
   ScreenReaderObserveConfig,
   VoiceOverConfig,

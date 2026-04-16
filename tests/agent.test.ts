@@ -729,19 +729,29 @@ describe("agent helpers", () => {
     expect(() => resolveAgentConfig()).toThrow("requires a base URL");
   });
 
-  it("preserves reasoning effort for openai-compatible configs", () => {
+  it("preserves provider options for openai-compatible configs", () => {
     expect(resolveAgentConfig({
       provider: "openai-compatible",
       apiKey: "shared-key",
       model: "openai/gpt-5.4-mini",
       baseURL: "https://openrouter.ai/api/v1",
-      reasoningEffort: "high"
+      providerOptions: {
+        openaiCompatible: {
+          reasoningEffort: "high",
+          reasoningSummary: "detailed"
+        }
+      }
     })).toEqual({
       provider: "openai-compatible",
       apiKey: "shared-key",
       model: "openai/gpt-5.4-mini",
       baseURL: "https://openrouter.ai/api/v1",
-      reasoningEffort: "high"
+      providerOptions: {
+        openaiCompatible: {
+          reasoningEffort: "high",
+          reasoningSummary: "detailed"
+        }
+      }
     });
   });
 

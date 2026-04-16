@@ -12,12 +12,12 @@ import {
   isUserModel,
   NAVIGATION_STRATEGY_VALUES,
   parseScreenReaderBackendId,
-  REASONING_EFFORT_VALUES,
   supportsVisualObservation,
   USER_MODEL_VALUES,
   type MemorySetting,
   type NavigationPolicy,
   type PlanningConfig,
+  type ProviderOptions,
   type ScreenReaderBackendId,
   type ScreenReaderObserveConfig,
   type ScreenshotPolicy,
@@ -70,8 +70,11 @@ const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const booleanSchema = z.boolean();
 const nonEmptyStringSchema = z.string().trim().min(1);
-const reasoningEffortSchema = z.enum(REASONING_EFFORT_VALUES);
 const navigationStrategySchema = z.enum(NAVIGATION_STRATEGY_VALUES);
+const providerOptionsSchema = z.record(
+  nonEmptyStringSchema,
+  z.record(nonEmptyStringSchema, z.unknown())
+) satisfies z.ZodType<ProviderOptions>;
 const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
 const screenReaderObserveConfigSchema = z.object({
   pollIntervalMs: nonNegativeIntegerSchema.optional(),
@@ -118,7 +121,7 @@ const projectDefaultsObjectSchema = z.object({
   apiKey: nonEmptyStringSchema.optional(),
   model: nonEmptyStringSchema.optional(),
   baseURL: nonEmptyStringSchema.optional(),
-  reasoningEffort: reasoningEffortSchema.optional(),
+  providerOptions: providerOptionsSchema.optional(),
   prompt: z.unknown().optional(),
 }).passthrough();
 const configRootSchema = z.object({
@@ -220,7 +223,7 @@ export function parseProjectDefaultsSource(
   if (candidate.provider !== undefined) {
     parseAgentProvider(candidate.provider);
   }
-  const allowedKeys = new Set(["provider", "apiKey", "model", "baseURL", "reasoningEffort", "prompt"]);
+  const allowedKeys = new Set(["provider", "apiKey", "model", "baseURL", "providerOptions", "prompt"]);
   for (const key of Object.keys(candidate)) {
     if (!allowedKeys.has(key)) {
       throw new Error(`Config file ${configPath} defaults.${key} is not allowed.`);
@@ -237,7 +240,7 @@ export function parseProjectDefaultsSource(
     apiKey: result.data.apiKey,
     model: result.data.model,
     baseURL: result.data.baseURL,
-    reasoningEffort: result.data.reasoningEffort,
+    providerOptions: result.data.providerOptions,
     prompt: result.data.prompt === undefined
       ? undefined
       : parseProjectPromptSource(result.data.prompt, `Config file ${configPath} defaults.prompt`)

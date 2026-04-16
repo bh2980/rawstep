@@ -11,10 +11,11 @@ import { z } from "zod";
 import { parseScreenReaderBackendId } from "../backends";
 import { parseUserModel, USER_MODEL_VALUES } from "../modes";
 import { validateVerifySpec } from "../verify";
-import { NAVIGATION_STRATEGY_VALUES, REASONING_EFFORT_VALUES } from "./source";
+import { NAVIGATION_STRATEGY_VALUES } from "./source";
 import type {
   MemorySetting,
   NavigationPolicy,
+  ProviderOptions,
   ScreenReaderObserveConfig,
   TaskPrompt,
   TaskInput,
@@ -29,8 +30,11 @@ const userModelSchema = z.enum(USER_MODEL_VALUES);
 const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const nonEmptyStringSchema = z.string().trim().min(1);
-const reasoningEffortSchema = z.enum(REASONING_EFFORT_VALUES);
 const navigationStrategySchema = z.enum(NAVIGATION_STRATEGY_VALUES);
+const providerOptionsSchema = z.record(
+  nonEmptyStringSchema,
+  z.record(nonEmptyStringSchema, z.unknown())
+) satisfies z.ZodType<ProviderOptions>;
 const taskPromptSchema = z.object({
   system: nonEmptyStringSchema.optional(),
   user: nonEmptyStringSchema.optional()
@@ -70,7 +74,7 @@ const taskConfigObjectSchema = z.object({
   verifierAutoComplete: z.boolean().optional(),
   includeExperienceSummary: z.boolean().optional(),
   includeRationale: z.boolean().optional(),
-  reasoningEffort: reasoningEffortSchema.optional(),
+  providerOptions: providerOptionsSchema.optional(),
   memory: memorySettingSchema.optional(),
   allowedKeys: z.array(z.unknown()).optional(),
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
@@ -141,7 +145,7 @@ export function validateTaskOverrideSource(raw: unknown, label: string): TaskOve
     verifierAutoComplete: candidate.verifierAutoComplete,
     includeExperienceSummary: candidate.includeExperienceSummary,
     includeRationale: candidate.includeRationale,
-    reasoningEffort: candidate.reasoningEffort,
+    providerOptions: candidate.providerOptions,
     memory: candidate.memory,
     allowedKeys: candidate.allowedKeys === undefined
       ? undefined
@@ -233,7 +237,7 @@ function parseTaskConfigObject(raw: unknown, label: string) {
     "verifierAutoComplete",
     "includeExperienceSummary",
     "includeRationale",
-    "reasoningEffort",
+    "providerOptions",
     "memory",
     "allowedKeys",
     "allowedScreenReaderActions",

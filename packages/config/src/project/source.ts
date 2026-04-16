@@ -2,7 +2,7 @@ import type {
   MemorySetting,
   NavigationPolicy,
   PlanningConfig,
-  ReasoningEffort,
+  ProviderOptions,
   ScreenReaderObserveConfig,
   ScreenReaderBackendId,
   ScreenReaderBackendsSupportingRawPerform,
@@ -81,7 +81,7 @@ export type ProjectDefaultsSource = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
   prompt?: ProjectPromptSource;
 };
 

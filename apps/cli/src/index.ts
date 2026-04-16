@@ -80,7 +80,7 @@ function createAgent(
     apiKey: plan.agent.apiKey,
     model: plan.agent.model,
     baseURL: plan.agent.baseURL,
-    reasoningEffort: plan.agent.reasoningEffort,
+    providerOptions: plan.agent.providerOptions,
     agentMemoryWindow: plan.agent.memory.mode === "window"
       ? plan.agent.memory.window
       : undefined,

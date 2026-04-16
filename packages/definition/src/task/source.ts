@@ -8,10 +8,9 @@ import type { ScreenshotPolicy } from "../trace";
 import type { VerifySpec } from "../verify";
 
 export type MemorySetting = number | "all";
-export const REASONING_EFFORT_VALUES = ["none", "low", "medium", "high", "xhigh"] as const;
-export type ReasoningEffort = typeof REASONING_EFFORT_VALUES[number];
 export const NAVIGATION_STRATEGY_VALUES = ["same-origin", "start-url-prefix", "allow-url-list"] as const;
 export type NavigationStrategy = typeof NAVIGATION_STRATEGY_VALUES[number];
+export type ProviderOptions = Record<string, Record<string, unknown>>;
 export type TaskInput = Record<string, string>;
 export type ScreenReaderObserveConfig = {
   pollIntervalMs?: number;
@@ -71,7 +70,7 @@ export type TaskOverrideSource = {
   verifierAutoComplete?: boolean;
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
   memory?: MemorySetting;
   allowedKeys?: KeyboardSupportedKey[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];

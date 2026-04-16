@@ -8,7 +8,7 @@ import type {
   MemorySetting,
   NavigationPolicy,
   PlanningConfig,
-  ReasoningEffort,
+  ProviderOptions,
   ResolvedNavigationPolicy,
   ScreenReaderBackendId,
   ScreenReaderObserveConfig,
@@ -42,7 +42,6 @@ export type RunPlanCliOverrides = {
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
-  reasoningEffort?: ReasoningEffort;
   allowedKeys?: AllowedKey[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackendId?: ScreenReaderBackendId;
@@ -66,7 +65,7 @@ export type ResolvedRunPlanPrecedence = {
   };
   includeExperienceSummary: boolean;
   includeRationale: boolean;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
   provider?: AgentProvider;
   apiKey?: string;
   model?: string;
@@ -185,9 +184,10 @@ export function resolveRunPlanPrecedence({
       ?? taskConfig?.includeRationale
       ?? modePreset.includeRationale
       ?? false,
-    reasoningEffort: cliOverrides.reasoningEffort
-      ?? taskConfig?.reasoningEffort
-      ?? projectConfig.config.defaults?.reasoningEffort,
+    providerOptions: mergeProviderOptions(
+      projectConfig.config.defaults?.providerOptions,
+      taskConfig?.providerOptions,
+    ),
     provider: cliOverrides.provider
       ?? projectConfig.config.defaults?.provider,
     apiKey: projectConfig.config.defaults?.apiKey,
@@ -219,6 +219,34 @@ export function resolveRunPlanPrecedence({
     configuredNavigation: resolveNavigationPolicy(taskConfig?.navigation, modePreset.navigation),
     planning: resolvePlanningConfig(selectedMode, taskConfig?.planning, modePreset.planning),
   };
+}
+
+function mergeProviderOptions(
+  defaults: ProviderOptions | undefined,
+  override: ProviderOptions | undefined,
+): ProviderOptions | undefined {
+  if (!defaults) {
+    return override;
+  }
+
+  if (!override) {
+    return defaults;
+  }
+
+  const mergedEntries = new Set([
+    ...Object.keys(defaults),
+    ...Object.keys(override),
+  ]);
+
+  return Object.fromEntries(
+    Array.from(mergedEntries, (providerName) => [
+      providerName,
+      {
+        ...(defaults[providerName] ?? {}),
+        ...(override[providerName] ?? {}),
+      },
+    ]),
+  );
 }
 
 function resolveOutputRootDir(rawOutDir: string | undefined, baseDir: string | undefined): string | undefined {

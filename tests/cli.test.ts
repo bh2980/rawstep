@@ -114,7 +114,7 @@ async function resolvePlan(cliOptions: RunPlanCliOverrides) {
     apiKey: plan.agent.apiKey,
     model: plan.agent.model,
     baseURL: plan.agent.baseURL,
-    reasoningEffort: plan.agent.reasoningEffort,
+    providerOptions: plan.agent.providerOptions,
     keyboardActionPlan: plan.interaction.keyboardActionPlan,
     screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
     screenReaderBackendId: plan.interaction.screenReaderBackendId,
@@ -492,16 +492,13 @@ describe.sequential("CLI", () => {
       "--model",
       "openrouter/model",
       "--base-url",
-      "https://openrouter.ai/api/v1",
-      "--reasoning-effort",
-      "high"
+      "https://openrouter.ai/api/v1"
     ]);
 
     expect(parsed.configFile).toBe(resolve("rawstep.config.ts"));
     expect(parsed.provider).toBe("openai-compatible");
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
-    expect(parsed.reasoningEffort).toBe("high");
     expect(parsed.headless).toBe(false);
     expect(parsed.screenshotPolicy).toBe("failure-only");
     expect(parsed.maxSteps).toBe(12);
@@ -874,7 +871,12 @@ describe.sequential("CLI", () => {
     provider: "anthropic",
     model: "config-model",
     baseURL: "https://config.example/v1",
-    reasoningEffort: "medium"
+    providerOptions: {
+      openaiCompatible: {
+        reasoningEffort: "medium",
+        reasoningSummary: "concise"
+      }
+    }
   },
   modes: {
     keyboard: {
@@ -927,7 +929,14 @@ describe.sequential("CLI", () => {
         verifierAutoComplete: true,
         includeExperienceSummary: true,
         includeRationale: true,
-        reasoningEffort: "high",
+        providerOptions: {
+          openaiCompatible: {
+            reasoningEffort: "high"
+          },
+          gateway: {
+            caching: "auto"
+          }
+        },
         memory: "all"
       }
     });
@@ -946,8 +955,6 @@ describe.sequential("CLI", () => {
       "cli-model",
       "--base-url",
       "https://cli.example/v1",
-      "--reasoning-effort",
-      "xhigh",
       "--agent-memory-window",
       "3",
       "--include-rationale"
@@ -969,7 +976,15 @@ describe.sequential("CLI", () => {
     expect(options.provider).toBe("anthropic");
     expect(options.model).toBe("cli-model");
     expect(options.baseURL).toBe("https://cli.example/v1");
-    expect(options.reasoningEffort).toBe("xhigh");
+    expect(options.providerOptions).toEqual({
+      openaiCompatible: {
+        reasoningEffort: "high",
+        reasoningSummary: "concise"
+      },
+      gateway: {
+        caching: "auto"
+      }
+    });
     expect(options.execution.memory).toEqual({ mode: "window", window: 3 });
     expect(options.execution.includeExperienceSummary).toBe(true);
     expect(options.execution.includeRationale).toBe(true);

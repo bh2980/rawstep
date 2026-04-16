@@ -104,15 +104,11 @@ function createOpenAICompatibleModel(config: OpenAICompatibleAgentConfig): unkno
 export function buildProviderOptions(
   config: ResolvedAgentConfig
 ): Record<string, Record<string, unknown>> | undefined {
-  if (config.provider !== "openai-compatible" || !config.reasoningEffort) {
+  if (!config.providerOptions || Object.keys(config.providerOptions).length === 0) {
     return undefined;
   }
 
-  return {
-    openaiCompatible: {
-      reasoningEffort: config.reasoningEffort
-    }
-  };
+  return config.providerOptions;
 }
 
 function looksLikeImageCapabilityError(message: string): boolean {

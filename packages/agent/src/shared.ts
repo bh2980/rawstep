@@ -7,7 +7,7 @@ import type {
   AgentContext,
   AgentMemoryEntry,
   Observation,
-  ReasoningEffort,
+  ProviderOptions,
   TaskInput,
   TaskPrompt
 } from "@rawstep/definition";
@@ -38,7 +38,7 @@ export type LLMAgentOptions = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
   agentMemoryWindow?: number;
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
@@ -57,7 +57,7 @@ export type AnthropicAgentConfig = {
   provider: "anthropic";
   apiKey: string;
   model: string;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
 };
 
 export type OpenAICompatibleAgentConfig = {
@@ -65,7 +65,7 @@ export type OpenAICompatibleAgentConfig = {
   apiKey: string;
   model: string;
   baseURL: string;
-  reasoningEffort?: ReasoningEffort;
+  providerOptions?: ProviderOptions;
 };
 
 export type ResolvedAgentConfig =
