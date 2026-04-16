@@ -16,6 +16,10 @@ export type ScreenReaderObserveConfig = {
   allowFallback?: boolean;
 };
 
+export type VoiceOverConfig = {
+  cursorScreenshot?: boolean;
+};
+
 export type TaskOverrideSource = {
   mode?: UserModel;
   outDir?: string;
@@ -32,6 +36,7 @@ export type TaskOverrideSource = {
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
   observe?: ScreenReaderObserveConfig;
+  voiceOver?: VoiceOverConfig;
 };
 
 export type TaskSource = {

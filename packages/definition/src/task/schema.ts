@@ -16,7 +16,8 @@ import type {
   ScreenReaderObserveConfig,
   TaskInput,
   TaskOverrideSource,
-  TaskSource
+  TaskSource,
+  VoiceOverConfig,
 } from "./source";
 
 const SCREENSHOT_POLICY_VALUES = ["all", "important", "failure-only", "none"] as const;
@@ -31,6 +32,9 @@ const screenReaderObserveConfigSchema = z.object({
   silenceWindowMs: nonNegativeIntegerSchema.optional(),
   maxObserveMs: nonNegativeIntegerSchema.optional(),
   allowFallback: z.boolean().optional()
+}).strict();
+const voiceOverConfigSchema = z.object({
+  cursorScreenshot: z.boolean().optional()
 }).strict();
 
 const taskConfigObjectSchema = z.object({
@@ -49,6 +53,7 @@ const taskConfigObjectSchema = z.object({
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
   screenReaderBackend: z.unknown().optional(),
   observe: z.unknown().optional(),
+  voiceOver: z.unknown().optional(),
   prompt: z.unknown().optional()
 }).passthrough();
 
@@ -126,7 +131,10 @@ export function validateTaskOverrideSource(raw: unknown, label: string): TaskOve
       : parseScreenReaderBackendId(candidate.screenReaderBackend, `${label} config.screenReaderBackend`),
     observe: candidate.observe === undefined
       ? undefined
-      : parseScreenReaderObserveConfig(candidate.observe, `${label} config.observe`)
+      : parseScreenReaderObserveConfig(candidate.observe, `${label} config.observe`),
+    voiceOver: candidate.voiceOver === undefined
+      ? undefined
+      : parseVoiceOverConfig(candidate.voiceOver, `${label} config.voiceOver`)
   };
 }
 
@@ -188,6 +196,7 @@ function parseTaskConfigObject(raw: unknown, label: string) {
     "allowedScreenReaderActions",
     "screenReaderBackend",
     "observe",
+    "voiceOver",
     "prompt"
   ]);
 
@@ -260,6 +269,15 @@ function parseTaskScreenReaderActions(value: unknown, label: string): ScreenRead
 
 function parseScreenReaderObserveConfig(value: unknown, label: string): ScreenReaderObserveConfig {
   const result = screenReaderObserveConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return result.data;
+}
+
+function parseVoiceOverConfig(value: unknown, label: string): VoiceOverConfig {
+  const result = voiceOverConfigSchema.safeParse(value);
   if (!result.success) {
     throw new Error(`${label} is invalid.`);
   }

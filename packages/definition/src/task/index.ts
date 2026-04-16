@@ -4,5 +4,12 @@ export {
   validateTaskOverrideSource,
   validateTaskSource,
 } from "./schema";
-export type { MemorySetting, ScreenReaderObserveConfig, TaskInput, TaskOverrideSource, TaskSource } from "./source";
+export type {
+  MemorySetting,
+  ScreenReaderObserveConfig,
+  TaskInput,
+  TaskOverrideSource,
+  TaskSource,
+  VoiceOverConfig,
+} from "./source";
 export type { ResolvedTask } from "./resolved";

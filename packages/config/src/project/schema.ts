@@ -18,6 +18,7 @@ import {
   type ScreenReaderObserveConfig,
   type ScreenshotPolicy,
   type UserModel,
+  type VoiceOverConfig,
 } from "@rawstep/definition";
 import { z } from "zod";
 import { parseConfiguredKeyboardActions } from "../keyboard-actions";
@@ -48,6 +49,7 @@ export type ProjectModePreset = {
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackend?: ScreenReaderBackendId;
   observe?: ScreenReaderObserveConfig;
+  voiceOver?: VoiceOverConfig;
 };
 
 export type ValidatedProjectConfig = {
@@ -69,6 +71,9 @@ const screenReaderObserveConfigSchema = z.object({
   maxObserveMs: nonNegativeIntegerSchema.optional(),
   allowFallback: booleanSchema.optional()
 }).strict();
+const voiceOverConfigSchema = z.object({
+  cursorScreenshot: booleanSchema.optional()
+}).strict();
 const modePresetObjectSchema = z.object({
   mode: userModelSchema.optional(),
   outDir: nonEmptyStringSchema.optional(),
@@ -85,6 +90,7 @@ const modePresetObjectSchema = z.object({
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
   screenReaderBackend: z.unknown().optional(),
   observe: z.unknown().optional(),
+  voiceOver: z.unknown().optional(),
   prompt: z.unknown().optional(),
 }).passthrough();
 const projectDefaultsObjectSchema = z.object({
@@ -259,6 +265,7 @@ export function parseModePresetSource(
     "allowedScreenReaderActions",
     "screenReaderBackend",
     "observe",
+    "voiceOver",
     "prompt",
   ]);
 
@@ -294,6 +301,9 @@ export function parseModePresetSource(
     observe: result.data.observe === undefined
       ? undefined
       : parseScreenReaderObserveConfig(result.data.observe, `${label}.observe`),
+    voiceOver: result.data.voiceOver === undefined
+      ? undefined
+      : parseVoiceOverConfig(result.data.voiceOver, `${label}.voiceOver`),
   };
 
   if (supportsVisualObservation(mode) && parsed.allowedScreenReaderActions) {
@@ -305,8 +315,14 @@ export function parseModePresetSource(
   if (supportsVisualObservation(mode) && parsed.observe) {
     throw new Error(`${label}.observe is not allowed in ${mode} mode.`);
   }
+  if (supportsVisualObservation(mode) && parsed.voiceOver) {
+    throw new Error(`${label}.voiceOver is not allowed in ${mode} mode.`);
+  }
   if (!allowsRawKeyActions(mode) && parsed.allowedKeys) {
     throw new Error(`${label}.allowedKeys is not allowed in ${mode} mode.`);
+  }
+  if (parsed.voiceOver && parsed.screenReaderBackend && parsed.screenReaderBackend !== "guidepup-voiceover") {
+    throw new Error(`${label}.voiceOver is only allowed when screenReaderBackend is "guidepup-voiceover".`);
   }
 
   return parsed;
@@ -364,6 +380,15 @@ export function parseProjectConfigSource(raw: unknown, configPath: string): Vali
 
 function parseScreenReaderObserveConfig(value: unknown, label: string): ScreenReaderObserveConfig {
   const result = screenReaderObserveConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return result.data;
+}
+
+function parseVoiceOverConfig(value: unknown, label: string): VoiceOverConfig {
+  const result = voiceOverConfigSchema.safeParse(value);
   if (!result.success) {
     throw new Error(`${label} is invalid.`);
   }
