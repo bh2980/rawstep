@@ -1,57 +1,57 @@
-# 프롬프트 템플릿
+# Prompt Templates
 
-프롬프트 파일은 기본적으로 루트 `prompt/` 디렉터리에서 읽습니다.  
-다른 디렉터리를 쓰려면 `rawstep.config.ts > defaults.prompt.dir`를 설정합니다.
-
----
-
-## 파일 구조
-
-현재 RawStep은 단계별로 서로 다른 프롬프트를 씁니다.  
-선택한 prompt 디렉터리에는 아래 파일이 모두 있어야 하며, 빈 파일은 허용되지 않습니다.
-
-| 파일 | 설명 |
-|------|------|
-| `keyboard.browse.system.md` | keyboard browse 단계 규칙 |
-| `keyboard.browse.user.md` | keyboard browse 단계 입력 템플릿 |
-| `keyboard.system.md` | keyboard execute 단계 규칙 |
-| `keyboard.user.md` | keyboard execute 단계 입력 템플릿 |
-| `screenreader.browse.system.md` | screenreader browse 단계 규칙 |
-| `screenreader.browse.user.md` | screenreader browse 단계 입력 템플릿 |
-| `screenreader.system.md` | screenreader execute 단계 규칙 |
-| `screenreader.user.md` | screenreader execute 단계 입력 템플릿 |
-| `planning.system.md` | planning 규칙 |
-| `planning.user.md` | planning 입력 템플릿 |
-| `reflection.system.md` | reflection 규칙 |
-| `reflection.user.md` | reflection 입력 템플릿 |
-| `experience-summary.system.md` | experience summary 규칙 |
-| `experience-summary.user.md` | experience summary 입력 템플릿 |
-
-`*.system.md`는 고정 규칙, `*.user.md`는 실행 시점 데이터가 채워지는 템플릿입니다.  
-Markdown 주석(`<!-- ... -->`)은 로딩 시 제거되며 모델 입력에 포함되지 않습니다.
+Prompt files are loaded from the root `prompt/` directory by default.  
+If you want to use a different directory, set `rawstep.config.ts > defaults.prompt.dir`.
 
 ---
 
-## 사용 시점
+## File Structure
 
-| 파일 | 사용 시점 |
-|------|-----------|
-| `*.browse.*` | planning 전 초기 문맥 수집 단계 |
-| `keyboard.system.md`, `keyboard.user.md` | keyboard execute 단계 |
-| `screenreader.system.md`, `screenreader.user.md` | screenreader execute 단계 |
-| `planning.*` | 초기 계획 생성 시 |
-| `reflection.*` | 중간 전략 점검 시 |
-| `experience-summary.*` | run 종료 후 요약 생성 시 |
+RawStep now uses different prompts for different stages.  
+The selected prompt directory must contain all of the files below, and empty files are not allowed.
 
-쉽게 말하면, 한 번의 실행 동안 같은 프롬프트 하나만 쓰는 게 아니라 단계에 따라 템플릿을 갈아 끼웁니다.
+| File | Description |
+|------|-------------|
+| `keyboard.browse.system.md` | Rules for the keyboard browse stage |
+| `keyboard.browse.user.md` | Input template for the keyboard browse stage |
+| `keyboard.system.md` | Rules for the keyboard execute stage |
+| `keyboard.user.md` | Input template for the keyboard execute stage |
+| `screenreader.browse.system.md` | Rules for the screenreader browse stage |
+| `screenreader.browse.user.md` | Input template for the screenreader browse stage |
+| `screenreader.system.md` | Rules for the screenreader execute stage |
+| `screenreader.user.md` | Input template for the screenreader execute stage |
+| `planning.system.md` | Planning rules |
+| `planning.user.md` | Planning input template |
+| `reflection.system.md` | Reflection rules |
+| `reflection.user.md` | Reflection input template |
+| `experience-summary.system.md` | Experience summary rules |
+| `experience-summary.user.md` | Experience summary input template |
+
+`*.system.md` files contain fixed rules, and `*.user.md` files are templates filled with runtime data.  
+Markdown comments (`<!-- ... -->`) are removed during loading and are not included in model input.
 
 ---
 
-## placeholder 목록
+## When Each File Is Used
 
-실행 시점에 RawStep이 현재 상태를 문자열 블록으로 렌더링해 placeholder를 채웁니다.
+| File | When it is used |
+|------|-----------------|
+| `*.browse.*` | Initial context gathering before planning |
+| `keyboard.system.md`, `keyboard.user.md` | Keyboard execute stage |
+| `screenreader.system.md`, `screenreader.user.md` | Screenreader execute stage |
+| `planning.*` | Initial plan generation |
+| `reflection.*` | Mid-run strategy checks |
+| `experience-summary.*` | Summary generation after the run ends |
 
-| 파일 | placeholder |
+In plain words, a run does not use just one prompt all the way through. It swaps templates based on the current stage.
+
+---
+
+## Placeholder List
+
+At runtime, RawStep renders the current state into string blocks and fills the placeholders.
+
+| File | Placeholder |
 |------|-------------|
 | `keyboard.browse.system.md` | `{{customSystemPrompt}}`, `{{outputExamples}}` |
 | `keyboard.browse.user.md` | `{{customUserPrompt}}`, `{{goal}}`, `{{agentMemory}}`, `{{taskInputs}}`, `{{availableActions}}`, `{{currentObservation}}` |
@@ -69,12 +69,12 @@ Markdown 주석(`<!-- ... -->`)은 로딩 시 제거되며 모델 입력에 포�
 
 ---
 
-## 필수 placeholder
+## Required Placeholders
 
-아래 값은 누락되면 로딩 시 에러가 납니다.
+If any of the values below are missing, loading fails immediately.
 
-| 파일 | 필수 placeholder |
-|------|-----------------|
+| File | Required placeholders |
+|------|-----------------------|
 | `keyboard.browse.system.md` | `{{outputExamples}}` |
 | `keyboard.browse.user.md` | `{{goal}}`, `{{agentMemory}}`, `{{taskInputs}}`, `{{availableActions}}`, `{{currentObservation}}` |
 | `keyboard.system.md` | `{{outputExamples}}` |
@@ -89,39 +89,39 @@ Markdown 주석(`<!-- ... -->`)은 로딩 시 제거되며 모델 입력에 포�
 | `reflection.user.md` | `{{goal}}`, `{{currentPlan}}`, `{{currentFocus}}`, `{{strategyNote}}`, `{{recentSteps}}`, `{{recentMemory}}` |
 | `experience-summary.user.md` | `{{taskSummary}}`, `{{aggregateSummary}}`, `{{stepTimeline}}` |
 
-`{{customSystemPrompt}}`, `{{customUserPrompt}}`, `{{focusHint}}`, `{{currentPlan}}` 같은 값은 선택 사항입니다.  
-task 파일이나 실행 상태에 값이 없으면 빈 블록 또는 empty 블록으로 렌더링됩니다.
+Values such as `{{customSystemPrompt}}`, `{{customUserPrompt}}`, `{{focusHint}}`, and `{{currentPlan}}` are optional.  
+If the task file or runtime state does not provide them, they are rendered as an empty block or an empty-state block.
 
 ---
 
-## action hint
+## Action Hints
 
-`rawstep.config.ts`에서 `allowedKeys` 또는 `allowedScreenReaderActions`에 `hint`를 지정하면, 해당 값은 `{{availableActions}}`에 함께 포함됩니다.
+If you set `hint` on `allowedKeys` or `allowedScreenReaderActions` in `rawstep.config.ts`, that value is also included in `{{availableActions}}`.
 
 ```ts
 allowedKeys: [
-  kb.tab({ hint: "다음 포커스로 이동할 때 사용하라." }),
-  kb.enter({ hint: "현재 포커스된 요소를 활성화할 때 사용하라." })
+  kb.tab({ hint: "Use this to move to the next focus target." }),
+  kb.enter({ hint: "Use this to activate the currently focused element." })
 ]
 ```
 
-렌더링 결과:
+Rendered result:
 
 ```text
 - status: present
 - items:
-  - key.Tab: 다음 포커스로 이동할 때 사용하라.
-  - key.Enter: 현재 포커스된 요소를 활성화할 때 사용하라.
+  - key.Tab: Use this to move to the next focus target.
+  - key.Enter: Use this to activate the currently focused element.
 ```
 
-CLI의 `--allowed-keys`, `--allowed-screen-reader-actions`로 값을 강제로 바꾸면 config에 적어 둔 `hint`는 전달되지 않습니다.
+If you override values with `--allowed-keys` or `--allowed-screen-reader-actions` from the CLI, the hints written in config are not passed through.
 
 ---
 
-## 주의할 점
+## Things to Watch Out For
 
-- placeholder 이름을 바꾸면 코드도 함께 수정해야 합니다.
-- prompt 파일 하나라도 빠지면 로더가 즉시 실패합니다.
-- browse/execute/planning/reflection은 서로 다른 템플릿이므로, 한 단계만 수정하고 전체 구조를 잊으면 프롬프트 동작이 어색해질 수 있습니다.
+- If you change a placeholder name, you also need to change the code.
+- If even one prompt file is missing, the loader fails immediately.
+- Browse, execute, planning, and reflection use different templates, so if you only change one stage and forget the overall structure, prompt behavior can become awkward.
 
-쉽게 말하면, prompt 디렉터리는 이제 단순 4파일 구조가 아니라 실행 단계 전체를 나누는 템플릿 묶음입니다.
+In plain words, the prompt directory is no longer a simple 4-file layout. It is now a template bundle that covers the whole run flow.

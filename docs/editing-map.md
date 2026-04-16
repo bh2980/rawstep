@@ -1,76 +1,76 @@
-# 수정 포인트 맵
+# Editing Map
 
-이 문서는 "무엇을 바꾸려는지"에 따라 **어느 파일부터 열어봐야 하는지**를 빠르게 찾기 위한 레퍼런스입니다.
+This document is a reference for quickly finding **which file to open first** based on what you want to change.
 
-설치 방법과 전체 사용 흐름은 `README.md`, 세부 스펙은 `docs/task.md`, `docs/config.md`, `docs/cli.md`에서 확인합니다.  
-여기서는 주로 "이 변경은 어디를 고쳐야 하는가?"만 다룹니다.
-
----
-
-## 보는 법
-
-수정 목적과 가장 가까운 항목을 먼저 찾고, 표에 적힌 **원본 파일**부터 확인합니다.  
-generated 파일은 직접 수정하지 않고, 원본이나 생성 스크립트를 수정한 뒤 다시 생성합니다.
+For installation and the overall usage flow, start with `README.md`. For detailed specs, see `docs/task.md`, `docs/config.md`, and `docs/cli.md`.  
+This file mainly answers one question: "Which file should I edit for this kind of change?"
 
 ---
 
-## 수정 목적별 시작점
+## How to Use This
 
-| 수정 목적 | 원본 파일 | 같이 볼 가능성이 큰 파일 |
-|-----------|-----------|---------------------------|
-| 새 키보드 키 추가 / 기본 허용 키 변경 | `packages/action-catalog/src/source.ts` → `keyboardActionSource` | `packages/action-catalog/scripts/generate.ts` |
-| 새 `sr.*` 명령 추가 / backend별 지원 범위 변경 | `packages/action-catalog/src/source.ts` → `screenReaderActionSource` | `packages/definition/src/backends/`, `packages/runtime/` |
-| mode 이름 / mode 정책 변경 | `packages/definition/src/modes/source.ts` → `MODE_SPEC` | `packages/config/src/run-plan/precedence.ts`, `docs/config.md` |
-| backend id / 플랫폼 지원 / headless 정책 변경 | `packages/definition/src/backends/source.ts` → `BACKEND_SPEC` | `packages/runtime/`, `docs/config.md` |
-| backend capability snapshot 갱신 | `packages/runtime/scripts/generate-backend-capabilities.ts` | `packages/definition/src/backends/generated-capabilities.ts` |
-| `rawstep.config.ts` 허용 필드 변경 | `packages/config/src/project/source.ts` | `packages/config/src/project/schema.ts`, `docs/config.md` |
-| config 필드 검증 규칙 변경 | `packages/config/src/project/schema.ts` | `packages/config/src/project/source.ts`, `docs/config.md` |
-| override 우선순위 변경 | `packages/config/src/run-plan/precedence.ts` | `packages/config/src/run-plan/resolve.ts`, `docs/config.md`, `docs/cli.md` |
-| 실행 계획 조립 방식 변경 | `packages/config/src/run-plan/resolve.ts` | `packages/config/src/run-plan/precedence.ts`, `apps/cli/src/index.ts` |
-| CLI 플래그 / help 문구 변경 | `packages/config/src/run-plan/cli-manifest.ts` | `apps/cli/src/args.ts`, `docs/cli.md` |
-| CLI 인자 파싱 흐름 확인 | `apps/cli/src/args.ts` | `packages/config/src/run-plan/cli-manifest.ts`, `apps/cli/src/index.ts` |
-| provider / model / apiKey 결정 흐름 확인 | `packages/config/src/run-plan/precedence.ts` | `apps/cli/src/index.ts`, `packages/agent/src/config.ts`, `docs/cli.md` |
-| task 스펙 변경 | `packages/definition/src/task/schema.ts` | `docs/task.md`, 예시 task |
-| verifier 규칙 변경 | `packages/definition/src/verify/` | `docs/task.md`, 예시 task |
-| 프롬프트 문구 변경 | `prompt/*.system.md`, `prompt/*.user.md` | `docs/prompts.md`, 실행 후 `prompts.json` |
-| 예시 task / fixture 변경 | `examples/tasks/`, `fixtures/` | `README.md`, 관련 문서 |
-| 리포트 구조 / 출력 변경 | `packages/reporter/` | `docs/report.md` |
+First, find the row that is closest to your change goal, then open the **source file** listed in the table.  
+Do not edit generated files directly. Change the source or generation script first, then regenerate.
 
 ---
 
-## 자주 있는 수정 흐름
+## Starting Points by Change Type
 
-### CLI 옵션 추가
+| Change goal | Source file | Other files you will likely check |
+|-------------|-------------|-----------------------------------|
+| Add a new keyboard key / change the default allowed key set | `packages/action-catalog/src/source.ts` → `keyboardActionSource` | `packages/action-catalog/scripts/generate.ts` |
+| Add a new `sr.*` command / change backend support coverage | `packages/action-catalog/src/source.ts` → `screenReaderActionSource` | `packages/definition/src/backends/`, `packages/runtime/` |
+| Change mode names / mode policy | `packages/definition/src/modes/source.ts` → `MODE_SPEC` | `packages/config/src/run-plan/precedence.ts`, `docs/config.md` |
+| Change backend id / platform support / headless policy | `packages/definition/src/backends/source.ts` → `BACKEND_SPEC` | `packages/runtime/`, `docs/config.md` |
+| Refresh backend capability snapshots | `packages/runtime/scripts/generate-backend-capabilities.ts` | `packages/definition/src/backends/generated-capabilities.ts` |
+| Change allowed fields in `rawstep.config.ts` | `packages/config/src/project/source.ts` | `packages/config/src/project/schema.ts`, `docs/config.md` |
+| Change config field validation rules | `packages/config/src/project/schema.ts` | `packages/config/src/project/source.ts`, `docs/config.md` |
+| Change override precedence | `packages/config/src/run-plan/precedence.ts` | `packages/config/src/run-plan/resolve.ts`, `docs/config.md`, `docs/cli.md` |
+| Change how the run plan is assembled | `packages/config/src/run-plan/resolve.ts` | `packages/config/src/run-plan/precedence.ts`, `apps/cli/src/index.ts` |
+| Change CLI flags / help text | `packages/config/src/run-plan/cli-manifest.ts` | `apps/cli/src/args.ts`, `docs/cli.md` |
+| Inspect CLI argument parsing flow | `apps/cli/src/args.ts` | `packages/config/src/run-plan/cli-manifest.ts`, `apps/cli/src/index.ts` |
+| Inspect provider / model / apiKey resolution flow | `packages/config/src/run-plan/precedence.ts` | `apps/cli/src/index.ts`, `packages/agent/src/config.ts`, `docs/cli.md` |
+| Change the task spec | `packages/definition/src/task/schema.ts` | `docs/task.md`, example tasks |
+| Change verifier rules | `packages/definition/src/verify/` | `docs/task.md`, example tasks |
+| Change prompt wording | `prompt/*.system.md`, `prompt/*.user.md` | `docs/prompts.md`, `prompts.json` after running |
+| Change example tasks / fixtures | `examples/tasks/`, `fixtures/` | `README.md`, related docs |
+| Change report structure / output | `packages/reporter/` | `docs/report.md` |
 
-보통 아래 순서로 함께 수정합니다.
+---
+
+## Common Edit Flows
+
+### Add a CLI Option
+
+In most cases, edit these in this order:
 
 1. `packages/config/src/run-plan/cli-manifest.ts`
 2. `apps/cli/src/args.ts`
-3. `packages/config/src/run-plan/precedence.ts` 또는 `packages/config/src/run-plan/resolve.ts`
+3. `packages/config/src/run-plan/precedence.ts` or `packages/config/src/run-plan/resolve.ts`
 4. `docs/cli.md`
 
-CLI 플래그를 추가하면 help 문구, 실제 파싱, run plan 반영, 문서까지 같이 맞춰야 합니다.
+When you add a CLI flag, the help text, actual parsing, run plan application, and documentation should all be updated together.
 
-### config 필드 추가
+### Add a Config Field
 
-보통 아래를 함께 봅니다.
+In most cases, check these together:
 
 1. `packages/config/src/project/source.ts`
 2. `packages/config/src/project/schema.ts`
 3. `packages/config/src/run-plan/precedence.ts`
 4. `docs/config.md`
 
-타입만 추가하고 schema나 precedence를 놓치면 실제 실행에서는 값이 반영되지 않을 수 있습니다.
+If you only add the type and forget the schema or precedence, the value may not actually take effect at runtime.
 
-### action 정의 변경
+### Change Action Definitions
 
-action 자체를 바꾸려면 `packages/action-catalog/src/source.ts`를 수정한 뒤 다시 생성합니다.
+If you want to change the actions themselves, edit `packages/action-catalog/src/source.ts` and regenerate.
 
 ```bash
 pnpm generate:actions
 ```
 
-또는 전체 빌드를 다시 돌려도 됩니다.
+Or you can rebuild everything:
 
 ```bash
 pnpm build
@@ -78,9 +78,9 @@ pnpm build
 
 ---
 
-## generated 파일 규칙
+## Generated File Rules
 
-아래 파일들은 대표적인 generated 결과물입니다.
+These are representative generated outputs:
 
 - `packages/action-catalog/dist/*`
 - `packages/definition/dist/*`
@@ -88,31 +88,31 @@ pnpm build
 - `packages/runtime/dist/*`
 - `packages/definition/src/backends/generated-capabilities.ts`
 
-이 파일들은 직접 수정하지 않습니다.  
-먼저 원본 파일이나 생성 스크립트를 수정한 뒤 명령으로 다시 만듭니다.
+Do not edit these files directly.  
+Change the source file or generation script first, then regenerate them with a command.
 
-### 자주 쓰는 명령
+### Frequently Used Commands
 
-| 목적 | 명령 |
-|------|------|
-| action catalog 재생성 | `pnpm generate:actions` |
-| 전체 빌드 | `pnpm build` |
-| 테스트 실행 | `pnpm test` |
-| backend capability snapshot 재생성 | `pnpm --filter @rawstep/runtime generate:backend-capabilities` |
-| 예시 task 실행 | `pnpm rawstep run examples/tasks/simple-cta.json` |
+| Goal | Command |
+|------|---------|
+| Regenerate action catalog | `pnpm generate:actions` |
+| Full build | `pnpm build` |
+| Run tests | `pnpm test` |
+| Regenerate backend capability snapshots | `pnpm --filter @rawstep/runtime generate:backend-capabilities` |
+| Run an example task | `pnpm rawstep run examples/tasks/simple-cta.json` |
 
 ---
 
-## 변경 후 같이 볼 문서
+## Docs to Recheck After a Change
 
-코드 변경이 끝났다면 관련 문서도 함께 확인하는 편이 좋습니다.
+After code changes, it is a good habit to recheck the related documents too.
 
-| 변경 내용 | 같이 볼 문서 |
-|----------|--------------|
-| CLI 옵션 변경 | `docs/cli.md` |
-| config 스키마 / 우선순위 변경 | `docs/config.md` |
-| task 스펙 변경 | `docs/task.md` |
-| 리포트 출력 변경 | `docs/report.md` |
-| 프롬프트 구조 변경 | `docs/prompts.md` |
+| Change | Docs to recheck |
+|--------|-----------------|
+| CLI option changes | `docs/cli.md` |
+| Config schema / precedence changes | `docs/config.md` |
+| Task spec changes | `docs/task.md` |
+| Report output changes | `docs/report.md` |
+| Prompt structure changes | `docs/prompts.md` |
 
-코드만 맞고 문서가 이전 상태로 남아 있으면 다음 수정자가 가장 오래 헤맵니다.
+If the code is correct but the docs are left behind, the next person touching the code usually wastes the most time.

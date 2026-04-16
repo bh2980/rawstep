@@ -1,17 +1,17 @@
 # Task
 
-task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과업 본문입니다.
+A task file is the main task body that says what should be done on which page.
 
 ---
 
-## 빠른 시작
+## Quick Start
 
-### 최소 예시
+### Minimal Example
 
 ```json
 {
   "url": "../../fixtures/simple-cta.html",
-  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
+  "goal": "Find and activate the Get started button, then leave the page in a state where the result message is visible.",
   "verify": {
     "all": [
       { "textVisible": "Started!" },
@@ -21,13 +21,13 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 }
 ```
 
-### `input`이 있는 예시
+### Example with `input`
 
 ```json
 {
   "id": "login",
   "url": "../../fixtures/credential-login.html",
-  "goal": "이메일과 비밀번호 입력칸에 각각 email, password input 값을 넣고, Sign in 버튼을 눌러 로그인 성공 메시지가 보이게 만들어라.",
+  "goal": "Enter the `email` and `password` input values into the email and password fields, press the Sign in button, and make the success message visible.",
   "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,
@@ -46,55 +46,55 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 
 ---
 
-## 필드 레퍼런스
+## Field Reference
 
-### task top-level 키
+### Task Top-Level Keys
 
-| 키 | 필수 | 설명 |
-|----|------|------|
-| `url` | ✓ | 실행할 페이지 URL. 상대 경로면 task 파일 기준으로 resolve |
-| `goal` | ✓ | 자연어 과업 목표 |
-| `verify` | ✓ | 성공 판정 규칙 |
-| `id` | | 생략하면 파일명 기반 ID 사용 |
-| `prompt` | | task 전용 추가 프롬프트. `system`, `user`를 각각 넣을 수 있음 |
+| Key | Required | Description |
+|-----|----------|-------------|
+| `url` | ✓ | URL of the page to run. Relative paths are resolved from the task file |
+| `goal` | ✓ | Natural-language task goal |
+| `verify` | ✓ | Success verification rules |
+| `id` | | If omitted, RawStep uses a file-name-based ID |
+| `prompt` | | Task-specific extra prompt. Can include `system` and `user` |
 | `mode` | | `keyboard \| screenreader` |
-| `maxSteps` | | 최대 step 수 override |
-| `timeoutMs` | | 제한 시간(ms) override |
-| `input` | | named string map. 예: `email`, `password`, `otp` |
-| `config` | | task 단위 실행 override (아래 참고) |
+| `maxSteps` | | Override for maximum steps |
+| `timeoutMs` | | Override for timeout in ms |
+| `input` | | Named string map, for example `email`, `password`, `otp` |
+| `config` | | Task-level execution override (see below) |
 
 ### `prompt`
 
-task마다 공통 템플릿 위에 짧은 추가 지시를 얹고 싶을 때 씁니다.
+Use this when you want to add a short extra instruction on top of the shared templates for a specific task.
 
 ```json
 {
   "prompt": {
-    "system": "결제나 로그인과 무관한 배너는 더 강하게 무시하라.",
-    "user": "이번 task에서는 상품명 검색보다 장바구니 버튼 탐색을 우선하라."
+    "system": "Ignore banners unrelated to checkout or login more aggressively.",
+    "user": "For this task, prioritize finding the cart button over searching by product name."
   }
 }
 ```
 
-- `prompt.system`: system prompt 템플릿에서 `{{customSystemPrompt}}`로 치환됩니다.
-- `prompt.user`: user prompt 템플릿에서 `{{customUserPrompt}}`로 치환됩니다.
-- 둘 중 하나만 넣어도 됩니다.
-- 값을 안 넣으면 빈 문자열로 치환됩니다.
+- `prompt.system`: injected into the system prompt template as `{{customSystemPrompt}}`
+- `prompt.user`: injected into the user prompt template as `{{customUserPrompt}}`
+- You can provide only one of them if needed
+- If omitted, the value is replaced with an empty string
 
 ### `input`
 
-에이전트가 임의 텍스트를 만들지 않고, task에 선언된 실제 값만 직접 입력하도록 합니다. 예를 들어 프롬프트에는 `email="traveler@example.com"` 같이 라벨과 값이 함께 보이고, 응답은 `{"action":"typeText","value":"traveler@example.com"}` 형태로 반환합니다.
+This makes the agent type only real values declared by the task instead of inventing text. For example, the prompt can show `email="traveler@example.com"` with both label and value, and the response can return `{"action":"typeText","value":"traveler@example.com"}`.
 
-> **`screenreader` + `guidepup-voiceover` 조합 주의사항**  
-> 이 조합에서는 `typeText`를 특별 취급합니다. 실제 텍스트 입력은 브라우저 쪽 입력 경로로 수행하고, 입력 후 값이 기대값과 일치하면 다음 step 관측으로 `Email, current value traveler@example.com` 같은 synthetic announcement를 제공합니다.  
-> 이 값은 실제 VoiceOver 발화의 직접 캡처가 아니라, text entry / 발화 수집의 불안정을 줄이기 위한 안정화된 대체 관측입니다. `guidepup-virtual`, `guidepup-nvda`는 기존 입력/관측 경로를 유지합니다.
+> **Notes for the `screenreader` + `guidepup-voiceover` combination**  
+> In this combination, `typeText` is handled specially. Actual text entry is performed through the browser-side input path, and if the value matches the expected value after input, the next observation provides a synthetic announcement such as `Email, current value traveler@example.com`.  
+> This value is not a direct capture of the real VoiceOver speech. It is a stabilized replacement observation meant to reduce instability around text entry and speech collection. `guidepup-virtual` and `guidepup-nvda` keep the existing input/observation path.
 
-### `config` override
+### `config` Override
 
-task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `baseURL`은 넣을 수 없습니다.
+Task `config` accepts execution overrides. You still cannot put `provider`, `apiKey`, `model`, or `baseURL` inside it, but you can provide `providerOptions` when a specific task needs provider-specific request parameters.
 
-`config.outDir`를 쓰면 그 값은 최종 폴더가 아니라 **출력 루트 디렉터리**로 해석됩니다.  
-실제 저장 위치는 `config.outDir/<taskId>/<runId>`이며, 상대 경로면 task 파일 기준으로 resolve됩니다.
+If you use `config.outDir`, it is treated as the **output root directory**, not the final folder.  
+The actual save location is `config.outDir/<taskId>/<runId>`, and if the path is relative, it is resolved from the task file.
 
 ```json
 {
@@ -104,6 +104,11 @@ task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `
     "timeoutMs": 600000,
     "memory": "all",
     "headless": true,
+    "providerOptions": {
+      "openaiCompatible": {
+        "reasoningEffort": "high"
+      }
+    },
     "screenReaderBackend": "guidepup-virtual",
     "allowedScreenReaderActions": ["sr.next", "sr.act"],
     "observe": {
@@ -114,59 +119,86 @@ task `config`는 실행 옵션만 받습니다. `provider`, `apiKey`, `model`, `
 }
 ```
 
-> 공통 실행값은 `rawstep.config.ts > modes.<mode>`로 올리고, task에는 과업 본문만 두는 편이 읽기 쉽습니다. `config`는 예외적인 override가 있을 때만 쓰세요.
+> It is easier to read if shared execution values live in `rawstep.config.ts > modes.<mode>` and the task file only contains the task body. Use `config` only for exceptional overrides.
+
+### `config.providerOptions`
+
+Use this when one task needs provider-specific request fields that differ from the shared defaults.
+
+Example:
+
+```json
+{
+  "config": {
+    "providerOptions": {
+      "openaiCompatible": {
+        "reasoningEffort": "high",
+        "reasoningSummary": "detailed"
+      }
+    }
+  }
+}
+```
+
+RawStep merges `task.config.providerOptions` on top of `rawstep.config.ts > defaults.providerOptions` by provider name and option key.
+
+That means:
+
+- shared defaults stay in `rawstep.config.ts`
+- task-specific differences can be added in the task file
+- you do not need to repeat the entire `providerOptions` object just to override one field
 
 ---
 
-## verify 레퍼런스
+## `verify` Reference
 
-`verify`는 task 성공 판정 규칙입니다. 반드시 `all` 배열이어야 하고, 배열 안의 rule이 **전부 통과**해야 성공입니다. 각 rule object는 키를 **정확히 하나만** 가져야 합니다.
+`verify` defines the task success rules. It must always be an `all` array, and the task succeeds only when **every** rule in that array passes. Each rule object must have **exactly one** key.
 
-verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니다. `--verifier-auto-complete`를 켜면 성공 가능성이 있는 action 뒤에도 추가로 확인합니다.
+By default, the verifier runs when the agent declares `success`. If you enable `--verifier-auto-complete`, RawStep also checks after actions that may have succeeded.
 
-### rule 종류
+### Rule Types
 
-| rule | 설명 |
-|------|------|
-| `textVisible` | 페이지에 해당 텍스트가 실제로 보이면 통과. 부분 포함 검사 |
-| `textVisibleExact` | 페이지에 해당 텍스트가 정확히 같은 visible text로 보이면 통과 |
-| `activatedAnnouncementIncludes` | 최근 성공한 activation action 직전의 screenreader announcement에 지정한 문자열이 포함되면 통과 |
-| `titleIncludes` | `document.title`에 지정한 문자열이 포함되면 통과 |
-| `urlIncludes` | 현재 페이지 전체 URL에 지정한 값이 포함되면 통과 |
-| `domEventSeen` | 특정 selector에서 특정 DOM event가 관측되면 통과 |
-| `requestSeen` | 실행 중 관측된 네트워크 요청 중 조건에 맞는 것이 하나라도 있으면 통과 |
-| `responseSeen` | 실행 중 관측된 네트워크 응답 중 조건에 맞는 것이 하나라도 있으면 통과 |
+| Rule | Description |
+|------|-------------|
+| `textVisible` | Passes if the text is visibly present on the page. Partial match |
+| `textVisibleExact` | Passes if the text appears as exactly matching visible text |
+| `activatedAnnouncementIncludes` | Passes if the screenreader announcement right before the most recent successful activation action contains the given string |
+| `titleIncludes` | Passes if `document.title` contains the given string |
+| `urlIncludes` | Passes if the full current page URL contains the given string |
+| `domEventSeen` | Passes if a specific DOM event was observed on a specific selector |
+| `requestSeen` | Passes if any observed network request during the run matches the condition |
+| `responseSeen` | Passes if any observed network response during the run matches the condition |
 
-`requestSeen`, `responseSeen`은 `urlIncludes`, `method`, `status`를 받으며 `method`와 `status`는 선택 사항입니다.  
-`domEventSeen`은 `selector`, `event`를 받습니다.
+`requestSeen` and `responseSeen` accept `urlIncludes`, `method`, and `status`, where `method` and `status` are optional.  
+`domEventSeen` accepts `selector` and `event`.
 
-`activatedAnnouncementIncludes`는 주로 `screenreader` 모드에서 "무슨 결과 페이지로 갔는가"가 아니라 "무슨 항목을 눌렀는가"를 확인할 때 씁니다. 예를 들어 `좋아요`와 `장바구니`가 모두 로그인 페이지로 가는 사이트라면, 로그인 URL verifier와 함께 걸어 두면 오탐을 줄일 수 있습니다.
+`activatedAnnouncementIncludes` is mainly useful in `screenreader` mode when you want to verify not "which result page did it reach?" but "which item did it activate?". For example, if both Like and Add to cart lead to a login page on a site, adding this together with a login URL verifier reduces false positives.
 
 ```json
-{ "activatedAnnouncementIncludes": "장바구니" }
+{ "activatedAnnouncementIncludes": "Add to cart" }
 { "domEventSeen": { "selector": "button.add-to-cart", "event": "click" } }
 { "requestSeen":  { "urlIncludes": "/api/cart", "method": "POST" } }
 { "responseSeen": { "urlIncludes": "/api/cart", "method": "POST", "status": 200 } }
 ```
 
-### 자주 쓰는 패턴
+### Common Patterns
 
 ```jsonc
-// 화면 상태 변화
+// Screen state change
 { "all": [{ "textVisible": "Started!" }, { "titleIncludes": "Completed" }] }
 
-// 라우팅 이동
+// Route change
 { "all": [{ "urlIncludes": "/checkout" }] }
 
-// 폼 제출
+// Form submission
 { "all": [{ "textVisible": "Signed in." }, { "responseSeen": { "urlIncludes": "/api/login", "status": 200 } }] }
 
-// 로그인 유도 페이지로 가더라도, 실제로 장바구니 항목을 눌렀는지 확인
-{ "all": [{ "activatedAnnouncementIncludes": "장바구니" }, { "urlIncludes": "/store/login/loginForm.do" }] }
+// Even if it goes to a login page, confirm that it actually activated the cart item
+{ "all": [{ "activatedAnnouncementIncludes": "Add to cart" }, { "urlIncludes": "/store/login/loginForm.do" }] }
 
-// UI 텍스트보다 실제 클릭 이벤트가 더 믿을 만한 경우
+// When an actual click event is more trustworthy than UI text
 { "all": [{ "domEventSeen": { "selector": "button.add-to-cart", "event": "click" } }] }
 
-// 값이 정확히 일치해야 하는 성공 문구 확인
+// When the success message must match exactly
 { "all": [{ "textVisibleExact": "Signed in." }] }
 ```

@@ -2,9 +2,9 @@
 
 ---
 
-## 기본 구조
+## Basic Structure
 
-`rawstep.config.ts`는 실행의 기준이 되는 설정 파일입니다. 이 repo에는 기본 파일이 포함되어 있습니다.
+`rawstep.config.ts` is the main configuration file that controls execution. This repo already includes a default file.
 
 ```ts
 import { defineConfig, kb, sr } from "@rawstep/config";
@@ -15,7 +15,12 @@ export default defineConfig({
     provider: "<anthropic|openai-compatible>",
     model: "<your-model>",
     apiKey: "<your-key>",
-    reasoningEffort: "medium"
+    providerOptions: {
+      openaiCompatible: {
+        reasoningEffort: "medium",
+        reasoningSummary: "concise"
+      }
+    }
   },
   modes: {
     keyboard: {
@@ -55,128 +60,163 @@ export default defineConfig({
 
 ---
 
-## 실행 우선순위
+## Execution Precedence
 
-높은 것이 낮은 것을 덮어씁니다.
+Higher priority overrides lower priority.
 
 ```
-CLI 플래그
+CLI flags
   > task.config
     > task top-level (mode, maxSteps, timeoutMs)
       > rawstep.config.ts modes.<mode>
-        > 환경 변수 (provider 관련만)
+        > environment variables (provider values only)
 ```
 
 ---
 
-## 필드 레퍼런스
+## Field Reference
 
 ### `defaults`
 
-AI provider 관련 값과 prompt 디렉터리만 받습니다.  
-`outDir`, `timeoutMs`, `memory` 같은 실행 옵션을 넣으면 에러가 납니다.
+It only accepts AI provider-related values and the prompt directory.  
+If you put execution options such as `outDir`, `timeoutMs`, or `memory` here, RawStep throws an error.
 
-| 필드 | 설명 |
-|------|------|
-| `provider` | `anthropic` 또는 `openai-compatible` |
-| `apiKey` | provider API 키 |
-| `model` | 모델 ID |
-| `baseURL` | OpenAI-compatible provider일 때만 사용 |
-| `prompt.dir` | prompt 디렉터리 경로. 기본은 config 파일 옆 `./prompt` |
+| Field | Description |
+|------|-------------|
+| `provider` | `anthropic` or `openai-compatible` |
+| `apiKey` | Provider API key |
+| `model` | Model ID |
+| `baseURL` | Used only for an OpenAI-compatible provider |
+| `providerOptions` | Vercel AI SDK `providerOptions` object. Example: `openaiCompatible.reasoningEffort` |
+| `prompt.dir` | Path to the prompt directory. Default is `./prompt` next to the config file |
+
+### `defaults.providerOptions`
+
+This is the place for provider-specific request parameters.
+
+RawStep passes this object through to the Vercel AI SDK `providerOptions` field when it calls the model.  
+In other words, this is the general mechanism for model-provider extras such as OpenAI-compatible reasoning controls.
+
+```ts
+defaults: {
+  provider: "openai-compatible",
+  model: "openai/gpt-5.4-mini",
+  baseURL: "https://openrouter.ai/api/v1",
+  providerOptions: {
+    openaiCompatible: {
+      reasoningEffort: "high",
+      reasoningSummary: "detailed"
+    }
+  }
+}
+```
+
+Why this changed:
+
+- The old `reasoningEffort` field was too provider-specific
+- Different providers expose different extra request fields
+- `providerOptions` keeps RawStep aligned with the Vercel AI SDK surface instead of inventing a special-case config field
+
+Practical rule:
+
+- Put shared provider-specific options in `defaults.providerOptions`
+- Use `task.config.providerOptions` only when one task really needs an override
+- Keep credentials and provider selection in `provider`, `apiKey`, `model`, and `baseURL`
 
 ### `modes.<mode>`
 
-이 repo의 기본 설정은 `keyboard`, `screenreader` 둘 다 `memory: "all"`과 `verifierAutoComplete: true`를 사용합니다.
+In this repo, both `keyboard` and `screenreader` use `memory: "all"` and `verifierAutoComplete: true` by default.
 
-`outDir`를 생략하면 모드별 기본 출력 루트를 사용합니다.
+If `outDir` is omitted, RawStep uses the mode-specific default output root:
 - `keyboard`: `./.rawstep/out/keyboard`
 - `screenreader`: `./.rawstep/out/screenreader`
 
-| 필드 | 설명 | 기본값 |
-|------|------|--------|
-| `outDir` | 출력 루트 디렉터리. 실제 저장 위치는 `<outDir>/<taskId>/<runId>` | `keyboard`: `./.rawstep/out/keyboard`, `screenreader`: `./.rawstep/out/screenreader` |
-| `headless` | 브라우저 창 표시 여부 | mode/backend 기본 정책 |
-| `maxSteps` | 최대 step 수 | — |
-| `timeoutMs` | 전체 실행 제한 시간(ms) | — |
-| `maxVerificationRetries` | verifier 실패 시 success 선언을 되돌릴 최대 횟수 | — |
+| Field | Description | Default |
+|------|-------------|---------|
+| `outDir` | Output root directory. Actual saved path is `<outDir>/<taskId>/<runId>` | `keyboard`: `./.rawstep/out/keyboard`, `screenreader`: `./.rawstep/out/screenreader` |
+| `headless` | Whether to show the browser window | Mode/backend default policy |
+| `maxSteps` | Maximum step count | — |
+| `timeoutMs` | Total execution timeout in ms | — |
+| `maxVerificationRetries` | Maximum number of times success can be rolled back after verifier failure | — |
 | `screenshots` | `all \| important \| failure-only \| none` | `important` |
-| `verifierAutoComplete` | 성공 가능성이 있는 action 뒤에도 verifier를 돌릴지 | — |
-| `includeExperienceSummary` | run 종료 후 경험 요약(`experience summary`) 포함 여부 | `false` |
-| `includeRationale` | agent step 별 행동 근거(`rationale`) 저장 여부 | `false` |
-| `reasoningEffort` | `none \| low \| medium \| high \| xhigh` | `defaults.reasoningEffort` |
-| `memory` | 숫자 또는 `"all"` | — |
-| `allowedKeys` | 허용할 키 subset (`keyboard` 모드 전용) | 기본 subset |
-| `allowedScreenReaderActions` | 허용할 `sr.*` action subset | 전체 허용 |
+| `verifierAutoComplete` | Whether to run the verifier even after actions that might have succeeded | — |
+| `includeExperienceSummary` | Whether to include the post-run experience summary | `false` |
+| `includeRationale` | Whether to save action rationale for each agent step | `false` |
+| `memory` | Number or `"all"` | — |
+| `allowedKeys` | Allowed key subset (`keyboard` mode only) | Default subset |
+| `allowedScreenReaderActions` | Allowed `sr.*` action subset | All allowed |
 | `screenReaderBackend` | `guidepup-voiceover \| guidepup-nvda \| guidepup-virtual` | — |
-| `observe` | screenreader 모드용 관찰 타이밍 override | 아래 참고 |
-| `voiceOver` | VoiceOver 전용 옵션 | — |
-| `planning` | planning / reflection 제어 | 모드별 기본값 |
-| `navigation` | navigation guard 정책 | `same-origin` |
+| `observe` | Observation timing override for screenreader mode | See below |
+| `voiceOver` | VoiceOver-specific options | — |
+| `planning` | Planning / reflection control | Mode-specific defaults |
+| `navigation` | Navigation guard policy | `same-origin` |
 
 ### `observe`
 
-`screenreader` 모드에서만 사용할 수 있습니다.
+This can only be used in `screenreader` mode.
  
-| 필드 | 설명 | 기본값 |
-|------|------|--------|
-| `pollIntervalMs` | 새 announcement를 확인하는 간격(ms) | `100` |
-| `silenceWindowMs` | 조용한 시간으로 판정하는 기준(ms) | `500` |
-| `maxObserveMs` | 최대 관찰 시간(ms) | `3000` |
-| `allowFallback` | 로그가 비었을 때 fallback 문장을 허용할지 | `false` |
+| Field | Description | Default |
+|------|-------------|---------|
+| `pollIntervalMs` | Interval for checking new announcements in ms | `100` |
+| `silenceWindowMs` | How long silence must last to count as silence | `500` |
+| `maxObserveMs` | Maximum observation time in ms | `3000` |
+| `allowFallback` | Whether to allow a fallback sentence when the log is empty | `false` |
 
-`task.config.observe`는 `rawstep.config.ts > modes.screenreader.observe`를 부분적으로 덮어씁니다.  
-예를 들어 config에 `silenceWindowMs`가 있고 task에는 `maxObserveMs`만 있으면, 실행 시 두 값이 합쳐집니다.
+`task.config.observe` partially overrides `rawstep.config.ts > modes.screenreader.observe`.  
+For example, if the config has `silenceWindowMs` and the task only provides `maxObserveMs`, the runtime merges the two values.
+
+The same idea applies to `providerOptions`: task-level values are merged on top of `defaults.providerOptions` by provider name and option key, instead of replacing the whole object.
 
 ### `planning`
 
-planning은 초기 계획과 중간 reflection cadence를 조정합니다.
+Planning controls the initial plan and the reflection cadence during the run.
 
-| 필드 | 설명 |
-|------|------|
-| `enabled` | planning / reflection 사용 여부 |
-| `reflectionCadence` | 몇 step마다 reflection을 돌릴지 |
-| `initialDelaySteps` | planning을 시작하기 전 대기 step 수 |
-| `firstReflectionDelaySteps` | 첫 reflection까지의 지연 step 수 |
+| Field | Description |
+|------|-------------|
+| `enabled` | Whether planning / reflection is used |
+| `reflectionCadence` | How many steps between reflections |
+| `initialDelaySteps` | How many steps to wait before starting planning |
+| `firstReflectionDelaySteps` | Delay before the first reflection |
 
-기본값은 mode마다 다릅니다.
+Defaults vary by mode.
 
-- `keyboard`: planning 즉시 시작, reflection cadence 10
-- `screenreader`: planning은 3 step 뒤 시작, reflection cadence 10
+- `keyboard`: planning starts immediately, reflection cadence 10
+- `screenreader`: planning starts after 3 steps, reflection cadence 10
 
 ### `navigation`
 
-navigation guard는 task 범위를 벗어나는 이동을 막는 정책입니다.
+The navigation guard is the policy that prevents movement outside the task boundary.
 
-| 필드 | 설명 |
-|------|------|
-| `strategy: "same-origin"` | 같은 origin만 허용 |
-| `strategy: "start-url-prefix"` | 시작 URL prefix만 허용 |
-| `strategy: "allow-url-list"` | `allowUrlList`에 적은 prefix만 허용 |
+| Field | Description |
+|------|-------------|
+| `strategy: "same-origin"` | Allow only the same origin |
+| `strategy: "start-url-prefix"` | Allow only the start URL prefix |
+| `strategy: "allow-url-list"` | Allow only prefixes listed in `allowUrlList` |
 
-쉽게 말하면, 실수로 외부 페이지나 과업 범위 밖으로 튀는 걸 막는 장치입니다.
+In plain words, this is the safety device that prevents the run from jumping to an external page or outside the task scope by mistake.
 
 ---
 
-## action `hint`
+## Action `hint`
 
-`allowedKeys`, `allowedScreenReaderActions`의 각 항목에 `hint`를 붙일 수 있습니다.
+You can attach a `hint` to each item in `allowedKeys` or `allowedScreenReaderActions`.
 
 ```ts
 keyboard: {
   allowedKeys: [
-    kb.tab({ hint: "다음 포커스로 이동할 때 사용하라." }),
-    kb.enter({ hint: "현재 포커스된 요소를 활성화할 때 사용하라." })
+    kb.tab({ hint: "Use this to move to the next focus target." }),
+    kb.enter({ hint: "Use this to activate the currently focused element." })
   ]
 },
 screenreader: {
   allowedScreenReaderActions: [
-    sr.next({ hint: "다음 항목으로 이동할 때 사용하라." }),
-    sr.act({ hint: "현재 항목의 기본 동작을 실행할 때 사용하라." })
+    sr.next({ hint: "Use this to move to the next item." }),
+    sr.act({ hint: "Use this to run the default action on the current item." })
   ]
 }
 ```
 
-설정한 `hint`는 매 step user prompt의 `availableActions` 목록에 함께 렌더링됩니다.  
-예: `sr.act: 현재 항목의 기본 동작을 실행할 때 사용하라.`
+The configured `hint` is rendered into the `availableActions` list in the user prompt for each step.  
+Example: `sr.act: Use this to run the default action on the current item.`
 
-> **주의:** CLI의 `--allowed-keys` / `--allowed-screen-reader-actions`로 값을 override하면 config에 설정한 `hint`는 프롬프트에 전달되지 않습니다. `hint`는 `rawstep.config.ts`의 `kb.*` / `sr.*` helper를 통해서만 설정할 수 있습니다.
+> **Note:** If values are overridden with CLI flags such as `--allowed-keys` or `--allowed-screen-reader-actions`, the `hint` configured in the file is not passed into prompts. `hint` can only be configured through the `kb.*` / `sr.*` helpers in `rawstep.config.ts`.
