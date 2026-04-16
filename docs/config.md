@@ -4,7 +4,7 @@
 
 ## 기본 구조
 
-`rawstep.config.ts`는 선택 사항이 아닌 **실행 계약 파일**입니다. 없으면 CLI가 바로 실패합니다.
+`rawstep.config.ts`는 실행의 기준이 되는 설정 파일입니다. 이 repo에는 기본 파일이 포함되어 있습니다.
 
 ```ts
 import { defineConfig, kb, sr } from "@rawstep/config";
@@ -14,36 +14,32 @@ export default defineConfig({
   defaults: {
     provider: "<anthropic|openai-compatible>",
     model: "<your-model>",
-    apiKey: "<your-key>"
+    apiKey: "<your-key>",
+    reasoningEffort: "medium"
   },
   modes: {
     keyboard: {
-      outDir: "./.rawstep/out/keyboard",
-      maxSteps: 20,
-      timeoutMs: 180000,
-      memory: 5,
-      screenshots: "important",
-      verifierAutoComplete: false
+      maxSteps: 30,
+      timeoutMs: 240000,
+      headless: true,
+      verifierAutoComplete: true,
+      includeRationale: true,
+      includeExperienceSummary: true,
+      memory: "all"
     },
     screenreader: {
-      outDir: "./.rawstep/out/screenreader",
-      maxSteps: 240,
-      timeoutMs: 420000,
+      maxSteps: 1000,
+      timeoutMs: 600000,
       memory: "all",
       headless: false,
-      screenReaderBackend: "guidepup-voiceover",
+      screenReaderBackend: "guidepup-virtual",
       screenshots: "all",
       verifierAutoComplete: true,
       includeRationale: true,
       includeExperienceSummary: true,
-      observe: {
-        silenceWindowMs: 1500,
-        maxObserveMs: 12000
-      },
       allowedScreenReaderActions: [
-        sr.key.tab(), sr.key.shiftTab(), sr.key.enter(), sr.key.escape(),
         sr.key.arrow.up(), sr.key.arrow.down(), sr.key.arrow.left(), sr.key.arrow.right(),
-        sr.key.home(), sr.key.end(),
+        sr.key.enter(), sr.key.space(), sr.key.escape(),
         sr.next(), sr.previous(),
         sr.landmark.next(), sr.landmark.previous(),
         sr.heading.next(), sr.heading.previous(),
@@ -90,8 +86,7 @@ AI provider 관련 값과 prompt 디렉터리만 받습니다.
 
 ### `modes.<mode>`
 
-`maxSteps`, `timeoutMs`, `memory`는 사실상 필수입니다.  
-`screenreader` 모드에는 `screenReaderBackend`도 필수입니다.
+이 repo의 기본 설정은 `keyboard`, `screenreader` 둘 다 `memory: "all"`과 `verifierAutoComplete: true`를 사용합니다.
 
 `outDir`를 생략하면 모드별 기본 출력 루트를 사용합니다.
 - `keyboard`: `./.rawstep/out/keyboard`
@@ -108,11 +103,15 @@ AI provider 관련 값과 prompt 디렉터리만 받습니다.
 | `verifierAutoComplete` | 성공 가능성이 있는 action 뒤에도 verifier를 돌릴지 | — |
 | `includeExperienceSummary` | run 종료 후 경험 요약(`experience summary`) 포함 여부 | `false` |
 | `includeRationale` | agent step 별 행동 근거(`rationale`) 저장 여부 | `false` |
+| `reasoningEffort` | `none \| low \| medium \| high \| xhigh` | `defaults.reasoningEffort` |
 | `memory` | 숫자 또는 `"all"` | — |
 | `allowedKeys` | 허용할 키 subset (`keyboard` 모드 전용) | 기본 subset |
 | `allowedScreenReaderActions` | 허용할 `sr.*` action subset | 전체 허용 |
 | `screenReaderBackend` | `guidepup-voiceover \| guidepup-nvda \| guidepup-virtual` | — |
 | `observe` | screenreader 모드용 관찰 타이밍 override | 아래 참고 |
+| `voiceOver` | VoiceOver 전용 옵션 | — |
+| `planning` | planning / reflection 제어 | 모드별 기본값 |
+| `navigation` | navigation guard 정책 | `same-origin` |
 
 ### `observe`
 
@@ -127,6 +126,34 @@ AI provider 관련 값과 prompt 디렉터리만 받습니다.
 
 `task.config.observe`는 `rawstep.config.ts > modes.screenreader.observe`를 부분적으로 덮어씁니다.  
 예를 들어 config에 `silenceWindowMs`가 있고 task에는 `maxObserveMs`만 있으면, 실행 시 두 값이 합쳐집니다.
+
+### `planning`
+
+planning은 초기 계획과 중간 reflection cadence를 조정합니다.
+
+| 필드 | 설명 |
+|------|------|
+| `enabled` | planning / reflection 사용 여부 |
+| `reflectionCadence` | 몇 step마다 reflection을 돌릴지 |
+| `initialDelaySteps` | planning을 시작하기 전 대기 step 수 |
+| `firstReflectionDelaySteps` | 첫 reflection까지의 지연 step 수 |
+
+기본값은 mode마다 다릅니다.
+
+- `keyboard`: planning 즉시 시작, reflection cadence 10
+- `screenreader`: planning은 3 step 뒤 시작, reflection cadence 10
+
+### `navigation`
+
+navigation guard는 task 범위를 벗어나는 이동을 막는 정책입니다.
+
+| 필드 | 설명 |
+|------|------|
+| `strategy: "same-origin"` | 같은 origin만 허용 |
+| `strategy: "start-url-prefix"` | 시작 URL prefix만 허용 |
+| `strategy: "allow-url-list"` | `allowUrlList`에 적은 prefix만 허용 |
+
+쉽게 말하면, 실수로 외부 페이지나 과업 범위 밖으로 튀는 걸 막는 장치입니다.
 
 ---
 

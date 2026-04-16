@@ -56,11 +56,30 @@ task 파일은 "어느 페이지에서 무엇을 해야 하는지"를 적는 과
 | `goal` | ✓ | 자연어 과업 목표 |
 | `verify` | ✓ | 성공 판정 규칙 |
 | `id` | | 생략하면 파일명 기반 ID 사용 |
+| `prompt` | | task 전용 추가 프롬프트. `system`, `user`를 각각 넣을 수 있음 |
 | `mode` | | `keyboard \| screenreader` |
 | `maxSteps` | | 최대 step 수 override |
 | `timeoutMs` | | 제한 시간(ms) override |
 | `input` | | named string map. 예: `email`, `password`, `otp` |
 | `config` | | task 단위 실행 override (아래 참고) |
+
+### `prompt`
+
+task마다 공통 템플릿 위에 짧은 추가 지시를 얹고 싶을 때 씁니다.
+
+```json
+{
+  "prompt": {
+    "system": "결제나 로그인과 무관한 배너는 더 강하게 무시하라.",
+    "user": "이번 task에서는 상품명 검색보다 장바구니 버튼 탐색을 우선하라."
+  }
+}
+```
+
+- `prompt.system`: system prompt 템플릿에서 `{{customSystemPrompt}}`로 치환됩니다.
+- `prompt.user`: user prompt 템플릿에서 `{{customUserPrompt}}`로 치환됩니다.
+- 둘 중 하나만 넣어도 됩니다.
+- 값을 안 넣으면 빈 문자열로 치환됩니다.
 
 ### `input`
 
@@ -111,14 +130,21 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 |------|------|
 | `textVisible` | 페이지에 해당 텍스트가 실제로 보이면 통과. 부분 포함 검사 |
 | `textVisibleExact` | 페이지에 해당 텍스트가 정확히 같은 visible text로 보이면 통과 |
+| `activatedAnnouncementIncludes` | 최근 성공한 activation action 직전의 screenreader announcement에 지정한 문자열이 포함되면 통과 |
 | `titleIncludes` | `document.title`에 지정한 문자열이 포함되면 통과 |
 | `urlIncludes` | 현재 페이지 전체 URL에 지정한 값이 포함되면 통과 |
+| `domEventSeen` | 특정 selector에서 특정 DOM event가 관측되면 통과 |
 | `requestSeen` | 실행 중 관측된 네트워크 요청 중 조건에 맞는 것이 하나라도 있으면 통과 |
 | `responseSeen` | 실행 중 관측된 네트워크 응답 중 조건에 맞는 것이 하나라도 있으면 통과 |
 
-`requestSeen`, `responseSeen`은 `urlIncludes`, `method`, `status`를 받으며 `method`와 `status`는 선택 사항입니다.
+`requestSeen`, `responseSeen`은 `urlIncludes`, `method`, `status`를 받으며 `method`와 `status`는 선택 사항입니다.  
+`domEventSeen`은 `selector`, `event`를 받습니다.
+
+`activatedAnnouncementIncludes`는 주로 `screenreader` 모드에서 "무슨 결과 페이지로 갔는가"가 아니라 "무슨 항목을 눌렀는가"를 확인할 때 씁니다. 예를 들어 `좋아요`와 `장바구니`가 모두 로그인 페이지로 가는 사이트라면, 로그인 URL verifier와 함께 걸어 두면 오탐을 줄일 수 있습니다.
 
 ```json
+{ "activatedAnnouncementIncludes": "장바구니" }
+{ "domEventSeen": { "selector": "button.add-to-cart", "event": "click" } }
 { "requestSeen":  { "urlIncludes": "/api/cart", "method": "POST" } }
 { "responseSeen": { "urlIncludes": "/api/cart", "method": "POST", "status": 200 } }
 ```
@@ -134,6 +160,12 @@ verifier는 기본적으로 agent가 `success`를 선언했을 때 실행됩니�
 
 // 폼 제출
 { "all": [{ "textVisible": "Signed in." }, { "responseSeen": { "urlIncludes": "/api/login", "status": 200 } }] }
+
+// 로그인 유도 페이지로 가더라도, 실제로 장바구니 항목을 눌렀는지 확인
+{ "all": [{ "activatedAnnouncementIncludes": "장바구니" }, { "urlIncludes": "/store/login/loginForm.do" }] }
+
+// UI 텍스트보다 실제 클릭 이벤트가 더 믿을 만한 경우
+{ "all": [{ "domEventSeen": { "selector": "button.add-to-cart", "event": "click" } }] }
 
 // 값이 정확히 일치해야 하는 성공 문구 확인
 { "all": [{ "textVisibleExact": "Signed in." }] }

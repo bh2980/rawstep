@@ -16,7 +16,7 @@ pnpm rawstep run examples/tasks/simple-cta.json
 ```
 
 실행이 끝나면 CLI가 실제 `report/index.html` 경로를 출력합니다.  
-산출물은 `--out/<taskId>/<runId>/` 또는 `modes.<mode>.outDir/<taskId>/<runId>/` 아래에 저장됩니다.
+산출물은 출력 루트 아래 `/<taskId>/<runId>/` 구조로 저장됩니다. `--out`을 주면 그 디렉터리가 출력 루트가 되고, 없으면 `modes.<mode>.outDir` 또는 모드별 기본 출력 루트를 사용합니다.
 런타임 내부 경고/에러가 있었던 실행만 `diagnostics.jsonl`이 추가로 생기고, CLI 출력 목록에도 그 경로가 함께 표시됩니다.
 
 전체 옵션을 사용한 예시:
@@ -29,8 +29,8 @@ pnpm rawstep run examples/tasks/simple-cta.json \
   --max-steps 40 \
   --timeout-ms 240000 \
   --screen-reader-backend guidepup-virtual \
-  --allowed-screen-reader-actions sr.key.tab,sr.key.enter,sr.next,sr.act \
-  --agent-memory-window 5 \
+  --allowed-screen-reader-actions sr.next,sr.form.next,sr.heading.next,sr.act \
+  --agent-memory-all \
   --include-experience-summary \
   --screenshots important \
   --include-rationale \
@@ -66,7 +66,7 @@ CLI 플래그
 | `--config <path>` | `rawstep.config.ts` 경로 | 현재 디렉터리 탐색 |
 | `--mode <keyboard\|screenreader>` | 실행 모드 강제 지정 | task 설정값 |
 | `--out <dir>` | 출력 루트 디렉터리. 실제 저장 위치는 `<dir>/<taskId>/<runId>` | `modes.<mode>.outDir` 또는 모드별 기본값 |
-| `--headless` / `--headed` | 브라우저 창 표시 여부 | `--headless` |
+| `--headless` / `--headed` | 브라우저 창 표시 여부 | config 또는 backend 정책 |
 
 ### 실행 제어
 
@@ -82,7 +82,7 @@ CLI 플래그
 |----------|------|--------|
 | `--screen-reader-backend <backend>` | screenreader backend 강제 지정 | config 설정값 |
 | `--allowed-screen-reader-actions <sr.x,...>` | 허용할 sr action subset (쉼표 구분) | 전체 허용 |
-| `--screenshots <all\|important\|failure-only\|none>` | 리포트용 스크린샷 저장 정책 | `important` |
+| `--screenshots <all\|important\|failure-only\|none>` | 리포트용 스크린샷 저장 정책 | config 설정값 |
 
 ### 키보드
 
@@ -95,9 +95,10 @@ CLI 플래그
 | 파라미터 | 설명 | 기본값 |
 |----------|------|--------|
 | `--agent-memory-window <n>` | 에이전트에게 보여줄 최근 step 수 | config 설정값 |
-| `--agent-memory-all` / `--no-agent-memory-all` | 누적 text memory 전체 표시 여부 | `false` |
-| `--include-experience-summary` / `--no-include-experience-summary` | experience summary 생성 여부 | `false` |
-| `--include-rationale` / `--no-include-rationale` | agent rationale 저장 여부 | `false` |
+| `--agent-memory-all` / `--no-agent-memory-all` | 누적 text memory 전체 표시 여부 | config 설정값 |
+| `--include-experience-summary` / `--no-include-experience-summary` | experience summary 생성 여부 | config 설정값 |
+| `--include-rationale` / `--no-include-rationale` | agent rationale 저장 여부 | config 설정값 |
+| `--reasoning-effort <none\|low\|medium\|high\|xhigh>` | reasoning effort override | config 설정값 |
 
 ### LLM Provider
 
@@ -174,40 +175,23 @@ Enter  Space  Escape
 ```
 sr.next  sr.previous  sr.act
 sr.interact  sr.stopInteracting
-sr.type  sr.click
 ```
 
 **키보드 입력**
 
 ```
-sr.key.tab  sr.key.shiftTab  sr.key.home  sr.key.end
 sr.key.arrow.up  sr.key.arrow.down  sr.key.arrow.left  sr.key.arrow.right
-sr.key.enter  sr.key.shiftEnter  sr.key.space  sr.key.escape
-sr.key.backspace  sr.key.delete
-sr.key.mod.a  sr.key.mod.backspace  sr.key.mod.delete
-sr.key.mod.z  sr.key.mod.shiftZ
+sr.key.enter  sr.key.space  sr.key.escape
 ```
 
 **요소 유형별 이동**
 
 ```
 sr.heading.next  sr.heading.previous
-sr.heading.level.{1~6}.next  sr.heading.level.{1~6}.previous
-
 sr.form.next      sr.form.previous
-sr.link.next      sr.link.previous
 sr.button.next    sr.button.previous
 sr.landmark.next  sr.landmark.previous
-sr.list.next      sr.list.previous
-sr.table.next     sr.table.previous
 ```
 
-**읽기 및 로그**
-
-```
-sr.read.itemText       sr.read.itemTextLog
-sr.read.lastSpokenPhrase  sr.read.spokenPhraseLog
-sr.clear.itemTextLog   sr.clear.spokenPhraseLog
-```
-
-> `srx.*` 확장 action은 위 stable 목록에 포함되지 않는 별도 extension입니다.
+실제로 어떤 액션을 허용할지는 `rawstep.config.ts`와 task override가 결정합니다.  
+현재 repo 기본 설정은 [rawstep.config.ts](/Users/bh2980/Desktop/a11y/rawstep.config.ts:74) 기준으로 더 좁은 subset만 씁니다.
