@@ -3,6 +3,7 @@ import { formatScreenReaderIntent, type ScreenReaderIntent } from "./screen-read
 export type FormattableAction =
   | { key: string }
   | { typeText: string }
+  | { replaceText: string }
   | { srAction: ScreenReaderIntent };
 
 export function formatDecisionAction(action: FormattableAction): string {
@@ -11,7 +12,11 @@ export function formatDecisionAction(action: FormattableAction): string {
   }
 
   if ("typeText" in action) {
-    return `typeText(${action.typeText})`;
+    return `typeText(${JSON.stringify(action.typeText)})`;
+  }
+
+  if ("replaceText" in action) {
+    return `replaceText(${JSON.stringify(action.replaceText)})`;
   }
 
   return formatScreenReaderIntent(action.srAction);

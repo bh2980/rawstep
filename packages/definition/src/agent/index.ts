@@ -28,6 +28,7 @@ export type { ScreenReaderActionRef, ScreenReaderActionDescriptor, ScreenReaderA
 export type Action =
   | { key: AllowedKey }
   | { typeText: string }
+  | { replaceText: string }
   | { srAction: ScreenReaderAction };
 
 export type Verdict = "success" | "stuck";

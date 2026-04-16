@@ -54,6 +54,10 @@ export function shouldCaptureDeveloperScreenshot(
           return true;
         }
 
+        if ("replaceText" in decision.action) {
+          return true;
+        }
+
         if ("srAction" in decision.action) {
           if ("extension" in decision.action.srAction) {
             return false;

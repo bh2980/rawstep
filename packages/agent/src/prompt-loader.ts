@@ -27,6 +27,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
   keyboardUser: [
     "{{goal}}",
     "{{agentMemory}}",
+    "{{taskInputs}}",
     "{{availableActions}}"
   ],
   screenreaderSystem: [
@@ -37,6 +38,7 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
     "{{agentMemory}}",
     "{{announcement}}",
     "{{readbacks}}",
+    "{{taskInputs}}",
     "{{availableActions}}"
   ],
   experienceSummaryUser: [

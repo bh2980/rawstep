@@ -1,8 +1,8 @@
-Task
+## Task
 {{taskSummary}}
 
-Aggregate
+## Aggregate
 {{aggregateSummary}}
 
-Step Timeline
+## Step Timeline
 {{stepTimeline}}

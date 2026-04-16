@@ -90,7 +90,7 @@ describe("Actuator", () => {
     );
   });
 
-  it("types named task input into a focused input", async () => {
+  it("types a direct task input value into a focused input", async () => {
     const type = vi.fn(async () => undefined);
     const evaluate = vi.fn(async () => true);
     const actuator = new Actuator({
@@ -98,7 +98,7 @@ describe("Actuator", () => {
       evaluate
     } as never);
 
-    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
 
     expect(evaluate).toHaveBeenCalled();
     expect(type).toHaveBeenCalledWith("passport");
@@ -106,7 +106,25 @@ describe("Actuator", () => {
     expect(actuator.cost).toBe(1);
   });
 
-  it("routes named task input through the screen reader controller when configured", async () => {
+  it("replaces existing text before typing a direct task input value", async () => {
+    const press = vi.fn(async () => undefined);
+    const type = vi.fn(async () => undefined);
+    const evaluate = vi.fn(async () => true);
+    const actuator = new Actuator({
+      keyboard: { press, type },
+      evaluate
+    } as never);
+
+    const result = await actuator.execute({ replaceText: "passport" }, { email: "passport" });
+
+    expect(press).toHaveBeenNthCalledWith(1, resolveKeyboardPressKey("Mod+A"));
+    expect(press).toHaveBeenNthCalledWith(2, resolveKeyboardPressKey("Backspace"));
+    expect(type).toHaveBeenCalledWith("passport");
+    expect(result).toEqual({ ok: true, costDelta: 1 });
+    expect(actuator.cost).toBe(1);
+  });
+
+  it("routes direct task input values through the screen reader controller when configured", async () => {
     const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
     const evaluate = vi.fn(async () => true);
     const actuator = new Actuator(
@@ -120,7 +138,7 @@ describe("Actuator", () => {
       }
     );
 
-    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
 
     expect(evaluate).toHaveBeenCalled();
     expect(execute).toHaveBeenCalledWith({
@@ -131,7 +149,7 @@ describe("Actuator", () => {
     expect(actuator.cost).toBe(1);
   });
 
-  it("prefers the screen reader controller internal path for named task input when available", async () => {
+  it("prefers the screen reader controller internal path for direct task input values when available", async () => {
     const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
     const executeInternal = vi.fn(async () => ({ ok: true, costDelta: 1 }));
     const evaluate = vi.fn(async () => true);
@@ -146,7 +164,7 @@ describe("Actuator", () => {
       }
     );
 
-    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
 
     expect(evaluate).toHaveBeenCalled();
     expect(executeInternal).toHaveBeenCalledWith({
@@ -184,7 +202,7 @@ describe("Actuator", () => {
       }
     );
 
-    const result = await actuator.execute({ typeText: "email" }, { email: "traveler@example.com" });
+    const result = await actuator.execute({ typeText: "traveler@example.com" }, { email: "traveler@example.com" });
 
     expect(type).toHaveBeenCalledWith("traveler@example.com");
     expect(result).toEqual({
@@ -197,9 +215,149 @@ describe("Actuator", () => {
         fieldLabel: "Email",
         fieldRole: "email",
         isSensitive: false,
-        syntheticAnnouncement: "Email, traveler@example.com"
+        syntheticAnnouncement: "Email, current value traveler@example.com"
       }
     });
+  });
+
+  it("uses a synthetic VoiceOver text-entry path for replaceText when configured", async () => {
+    const press = vi.fn(async () => undefined);
+    const type = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({
+        observed: "traveler@example.com",
+        role: "email",
+        label: "Email",
+        labelledByText: "",
+        labelsText: "",
+        placeholder: undefined,
+        isSensitive: false,
+      });
+    const actuator = new Actuator(
+      {
+        keyboard: { press, type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: { execute }
+      }
+    );
+
+    const result = await actuator.execute({ replaceText: "traveler@example.com" }, { email: "traveler@example.com" });
+
+    expect(execute).toHaveBeenNthCalledWith(1, { semantic: "key.mod.a" });
+    expect(execute).toHaveBeenNthCalledWith(2, { semantic: "key.backspace" });
+    expect(press).not.toHaveBeenCalled();
+    expect(type).toHaveBeenCalledWith("traveler@example.com");
+    expect(result).toEqual({
+      ok: true,
+      costDelta: 1,
+      textEntryResult: {
+        expected: "traveler@example.com",
+        observed: "traveler@example.com",
+        verified: true,
+        fieldLabel: "Email",
+        fieldRole: "email",
+        isSensitive: false,
+        syntheticAnnouncement: "Email, current value traveler@example.com"
+      }
+    });
+  });
+
+  it("synchronizes keyboard focus to the VoiceOver cursor before text entry when needed", async () => {
+    const type = vi.fn(async () => undefined);
+    const executeInternal = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({
+        observed: "traveler@example.com",
+        role: "email",
+        label: "Email",
+        labelledByText: "",
+        labelsText: "",
+        placeholder: undefined,
+        isSensitive: false,
+      });
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: {
+          execute: vi.fn(async () => ({ ok: true, costDelta: 1 })),
+          executeInternal
+        }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "traveler@example.com" }, { email: "traveler@example.com" });
+
+    expect(executeInternal).toHaveBeenCalledWith({
+      extension: "catalog",
+      id: "keyboard.moveKeyboardFocusToCursor"
+    });
+    expect(type).toHaveBeenCalledWith("traveler@example.com");
+    expect(result).toEqual({
+      ok: true,
+      costDelta: 1,
+      textEntryResult: {
+        expected: "traveler@example.com",
+        observed: "traveler@example.com",
+        verified: true,
+        fieldLabel: "Email",
+        fieldRole: "email",
+        isSensitive: false,
+        syntheticAnnouncement: "Email, current value traveler@example.com"
+      }
+    });
+  });
+
+  it("falls back to execute when internal VoiceOver focus sync is unavailable", async () => {
+    const type = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({
+        observed: "traveler@example.com",
+        role: "email",
+        label: "Email",
+        labelledByText: "",
+        labelsText: "",
+        placeholder: undefined,
+        isSensitive: false,
+      });
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: { execute }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "traveler@example.com" }, { email: "traveler@example.com" });
+
+    expect(execute).toHaveBeenCalledWith({
+      extension: "catalog",
+      id: "keyboard.moveKeyboardFocusToCursor"
+    });
+    expect(type).toHaveBeenCalledWith("traveler@example.com");
+    expect(result.ok).toBe(true);
   });
 
   it("returns a low-info failure when text entry is not allowed by the gate", async () => {
@@ -210,11 +368,115 @@ describe("Actuator", () => {
       evaluate
     } as never);
 
-    const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
 
     expect(type).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Action did not produce an observable text-entry state change.");
+  });
+
+  it("does not try VoiceOver focus sync outside the VoiceOver text-entry path", async () => {
+    const type = vi.fn(async () => undefined);
+    const executeInternal = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi.fn(async () => false);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-nvda",
+        screenReaderController: {
+          execute: vi.fn(async () => ({ ok: true, costDelta: 1 })),
+          executeInternal
+        }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
+
+    expect(executeInternal).not.toHaveBeenCalled();
+    expect(type).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      costDelta: 0,
+      error: "Action did not produce an observable text-entry state change."
+    });
+  });
+
+  it("falls back to the existing gate failure when VoiceOver focus sync does not help", async () => {
+    const type = vi.fn(async () => undefined);
+    const executeInternal = vi.fn(async () => ({ ok: true, costDelta: 1 }));
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: {
+          execute: vi.fn(async () => ({ ok: true, costDelta: 1 })),
+          executeInternal
+        }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
+
+    expect(executeInternal).toHaveBeenCalledWith({
+      extension: "catalog",
+      id: "keyboard.moveKeyboardFocusToCursor"
+    });
+    expect(type).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      costDelta: 0,
+      error: "Action did not produce an observable text-entry state change."
+    });
+  });
+
+  it("swallows VoiceOver focus sync failures and preserves the existing gate failure", async () => {
+    const type = vi.fn(async () => undefined);
+    const executeInternal = vi.fn(async () => {
+      throw new Error("sync unavailable");
+    });
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
+    const actuator = new Actuator(
+      {
+        keyboard: { press: vi.fn(async () => undefined), type },
+        evaluate
+      } as never,
+      {
+        useScreenReaderTextEntry: true,
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderController: {
+          execute: vi.fn(async () => ({ ok: true, costDelta: 1 })),
+          executeInternal
+        }
+      }
+    );
+
+    const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
+
+    expect(executeInternal).toHaveBeenCalledWith({
+      extension: "catalog",
+      id: "keyboard.moveKeyboardFocusToCursor"
+    });
+    expect(type).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      costDelta: 0,
+      error: "Action did not produce an observable text-entry state change."
+    });
   });
 
   it("rejects task text input when the task did not opt in", async () => {
@@ -223,21 +485,21 @@ describe("Actuator", () => {
       evaluate: vi.fn(async () => true)
     } as never);
 
-    await expect(actuator.execute({ typeText: "email" })).rejects.toBeInstanceOf(NotAllowedActionError);
+    await expect(actuator.execute({ typeText: "passport" })).rejects.toBeInstanceOf(NotAllowedActionError);
   });
 
-  it("returns a distinct failure when the named input key is missing", async () => {
+  it("returns a distinct failure when the direct input value is not allowed", async () => {
     const actuator = new Actuator({
       keyboard: { press: vi.fn(async () => undefined), type: vi.fn(async () => undefined) },
       evaluate: vi.fn(async () => true)
     } as never);
 
-    const result = await actuator.execute({ typeText: "password" }, { email: "passport" });
+    const result = await actuator.execute({ typeText: "super-secret" }, { email: "passport" });
 
     expect(result).toEqual({
       ok: false,
       costDelta: 0,
-      error: 'Task input key "password" is not available for this task.'
+      error: 'Task input value "super-secret" is not available for this task.'
     });
   });
 
@@ -252,7 +514,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+      const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLTextAreaElement).value);
 
       expect(result).toEqual({ ok: true, costDelta: 1 });
@@ -273,7 +535,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+      const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
       const value = await session.page.evaluate(() => document.getElementById("box")?.textContent);
 
       expect(result).toEqual({ ok: true, costDelta: 1 });
@@ -294,7 +556,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+      const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLInputElement).value);
 
       expect(result).toEqual({
@@ -319,7 +581,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+      const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
       const value = await session.page.evaluate(() => (document.getElementById("box") as HTMLTextAreaElement).value);
 
       expect(result).toEqual({
@@ -344,7 +606,7 @@ describe("Actuator", () => {
 
     try {
       const actuator = new Actuator(session.page);
-      const result = await actuator.execute({ typeText: "email" }, { email: "passport" });
+      const result = await actuator.execute({ typeText: "passport" }, { email: "passport" });
       const buttonText = await session.page.evaluate(() => document.getElementById("box")?.textContent);
 
       expect(result).toEqual({

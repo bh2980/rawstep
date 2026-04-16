@@ -8,24 +8,25 @@ import {
 import {
   type Action,
   type Decision,
-  type ExperienceSummary
+  type ExperienceSummary,
+  type TaskInput
 } from "@rawstep/definition";
 import type { PromptPart } from "./shared";
 
 export function parseDecision(
   raw: string,
-  taskInputKeys?: string[],
+  taskInput?: TaskInput,
   keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): Decision {
-  const result = parseDecisionResult(raw, taskInputKeys, keyboardActions, screenReaderActions);
+  const result = parseDecisionResult(raw, taskInput, keyboardActions, screenReaderActions);
 
   if (result.status === "ok") {
     return result.decision;
   }
 
-  if (result.status === "invalid-typeText-key") {
-    return invalidTypeTextKeyDecision(result.snippet, result.key, result.allowedKeys);
+  if (result.status === "invalid-input-value") {
+    return invalidInputValueDecision(result.snippet, result.actionKind, result.value, result.allowedValues);
   }
 
   return malformedDecision(result.snippet);
@@ -34,12 +35,18 @@ export function parseDecision(
 export type ParseDecisionResult =
   | { status: "ok"; decision: Decision }
   | { status: "missing-stuck-rationale"; snippet: string }
-  | { status: "invalid-typeText-key"; snippet: string; key: string; allowedKeys: string[] }
+  | {
+      status: "invalid-input-value";
+      snippet: string;
+      actionKind: "typeText" | "replaceText";
+      value: string;
+      allowedValues: string[];
+    }
   | { status: "malformed"; snippet: string };
 
 export function parseDecisionResult(
   raw: string,
-  taskInputKeys?: string[],
+  taskInput?: TaskInput,
   keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ): ParseDecisionResult {
@@ -66,16 +73,17 @@ export function parseDecisionResult(
 
       const parsedAction = parseStringActionCandidate(
         candidate,
-        taskInputKeys,
+        taskInput,
         keyboardActions,
         screenReaderActions
       );
-      if (parsedAction.status === "invalid-typeText-key") {
+      if (parsedAction.status === "invalid-input-value") {
         return {
-          status: "invalid-typeText-key",
+          status: "invalid-input-value",
           snippet,
-          key: parsedAction.key,
-          allowedKeys: parsedAction.allowedKeys
+          actionKind: parsedAction.actionKind,
+          value: parsedAction.value,
+          allowedValues: parsedAction.allowedValues
         };
       }
 
@@ -114,12 +122,17 @@ export function parseDecisionResult(
 
 function parseStringActionCandidate(
   candidate: Record<string, unknown>,
-  taskInputKeys?: string[],
+  taskInput?: TaskInput,
   keyboardActions?: readonly KeyboardActionDescriptor[] | KeyboardActionPlan,
   screenReaderActions?: readonly ScreenReaderActionDescriptor[]
 ):
   | { status: "ok"; action: Action }
-  | { status: "invalid-typeText-key"; key: string; allowedKeys: string[] }
+  | {
+      status: "invalid-input-value";
+      actionKind: "typeText" | "replaceText";
+      value: string;
+      allowedValues: string[];
+    }
   | { status: "malformed" } {
   const value = typeof candidate.action === "string" ? candidate.action.trim() : "";
   if (!value) {
@@ -134,21 +147,34 @@ function parseStringActionCandidate(
     return { status: "malformed" };
   }
 
-  if (value.startsWith("typeText.")) {
-    if (hasUnexpectedKeys(candidate, ["action", "rationale"])) {
+  if (value === "typeText" || value === "replaceText") {
+    if (hasUnexpectedKeys(candidate, ["action", "value", "rationale"])) {
       return { status: "malformed" };
     }
 
-    const key = value.slice("typeText.".length);
-    if (!taskInputKeys || taskInputKeys.length === 0) {
-      return { status: "invalid-typeText-key", key, allowedKeys: [] };
+    const actionKind = value === "typeText"
+      ? "typeText" as const
+      : "replaceText" as const;
+    if (typeof candidate.value !== "string" || !candidate.value.trim()) {
+      return { status: "malformed" };
     }
 
-    if (!taskInputKeys.includes(key)) {
-      return { status: "invalid-typeText-key", key, allowedKeys: [...taskInputKeys] };
+    const inputValue = candidate.value;
+    const allowedValues = dedupe(Object.values(taskInput ?? {}));
+    if (allowedValues.length === 0) {
+      return { status: "invalid-input-value", actionKind, value: inputValue, allowedValues: [] };
     }
 
-    return { status: "ok", action: { typeText: key } };
+    if (!allowedValues.includes(inputValue)) {
+      return { status: "invalid-input-value", actionKind, value: inputValue, allowedValues };
+    }
+
+    return {
+      status: "ok",
+      action: actionKind === "typeText"
+        ? { typeText: inputValue }
+        : { replaceText: inputValue }
+    };
   }
 
   const parsedScreenReaderIntent = parseScreenReaderIntentCandidate(candidate, screenReaderActions);
@@ -236,16 +262,23 @@ function malformedDecision(snippet: string): Decision {
   };
 }
 
-function invalidTypeTextKeyDecision(
+function invalidInputValueDecision(
   snippet: string,
-  key: string,
-  allowedKeys: string[]
+  actionKind: "typeText" | "replaceText",
+  value: string,
+  allowedValues: string[]
 ): Decision {
-  const allowed = allowedKeys.length > 0 ? allowedKeys.join(", ") : "(none)";
+  const allowed = allowedValues.length > 0
+    ? allowedValues.map((item) => JSON.stringify(item)).join(", ")
+    : "(none)";
   return {
     verdict: "stuck",
-    rationale: `agent returned invalid typeText key "${key}". Allowed input keys: ${allowed}. Raw response: ${snippet || "<empty response>"}`
+    rationale: `agent returned invalid ${actionKind} value ${JSON.stringify(value)}. Allowed input values: ${allowed}. Raw response: ${snippet || "<empty response>"}`
   };
+}
+
+function dedupe<T>(items: T[]): T[] {
+  return [...new Set(items)];
 }
 
 function extractJsonObject(raw: string): string {

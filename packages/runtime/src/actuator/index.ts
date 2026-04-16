@@ -76,49 +76,24 @@ export class Actuator {
     }
 
     if (!taskInput) {
-      throw new NotAllowedActionError("Named task inputs are not enabled for this task.");
+      throw new NotAllowedActionError("Task text inputs are not enabled for this task.");
     }
 
-    const inputValue = taskInput[action.typeText];
-    if (typeof inputValue !== "string") {
+    const inputValue = "typeText" in action ? action.typeText : action.replaceText;
+    const allowedValues = [...new Set(Object.values(taskInput))];
+    if (!allowedValues.includes(inputValue)) {
       return {
         ok: false,
         costDelta: 0,
-        error: `Task input key "${action.typeText}" is not available for this task.`
+        error: `Task input value ${JSON.stringify(inputValue)} is not available for this task.`
       };
     }
 
-    const isTextInputTarget = await this.page.evaluate(() => {
-      const active = document.activeElement;
-      if (!active || !(active instanceof HTMLElement)) {
-        return false;
-      }
-
-      if (active instanceof HTMLInputElement) {
-        const textLikeTypes = new Set([
-          "text",
-          "search",
-          "email",
-          "url",
-          "tel",
-          "password",
-          "number",
-          "date",
-          "datetime-local",
-          "month",
-          "time",
-          "week"
-        ]);
-        const type = (active.type || "text").toLowerCase();
-        return !active.disabled && !active.readOnly && textLikeTypes.has(type);
-      }
-
-      if (active instanceof HTMLTextAreaElement) {
-        return !active.disabled && !active.readOnly;
-      }
-
-      return active.isContentEditable;
-    });
+    let isTextInputTarget = await this.isTextInputTarget();
+    if (!isTextInputTarget) {
+      await this.trySynchronizeVoiceOverKeyboardFocusToCursor();
+      isTextInputTarget = await this.isTextInputTarget();
+    }
 
     if (!isTextInputTarget) {
       return {
@@ -126,6 +101,10 @@ export class Actuator {
         costDelta: 0,
         error: "Action did not produce an observable text-entry state change."
       };
+    }
+
+    if ("replaceText" in action) {
+      await this.replaceCurrentTextFieldValue();
     }
 
     if (this.options.useScreenReaderTextEntry) {
@@ -169,6 +148,84 @@ export class Actuator {
     await this.page.keyboard.type(inputValue);
     this.cost += 1;
     return { ok: true, costDelta: 1 };
+  }
+
+  private async isTextInputTarget(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const active = document.activeElement;
+      if (!active || !(active instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (active instanceof HTMLInputElement) {
+        const textLikeTypes = new Set([
+          "text",
+          "search",
+          "email",
+          "url",
+          "tel",
+          "password",
+          "number",
+          "date",
+          "datetime-local",
+          "month",
+          "time",
+          "week"
+        ]);
+        const type = (active.type || "text").toLowerCase();
+        return !active.disabled && !active.readOnly && textLikeTypes.has(type);
+      }
+
+      if (active instanceof HTMLTextAreaElement) {
+        return !active.disabled && !active.readOnly;
+      }
+
+      return active.isContentEditable;
+    });
+  }
+
+  private async trySynchronizeVoiceOverKeyboardFocusToCursor(): Promise<void> {
+    if (!this.options.useScreenReaderTextEntry) {
+      return;
+    }
+
+    if (this.options.screenReaderBackendId !== "guidepup-voiceover") {
+      return;
+    }
+
+    if (!this.options.screenReaderController) {
+      return;
+    }
+
+    const executeInternal = this.options.screenReaderController.executeInternal
+      ?? this.options.screenReaderController.execute.bind(this.options.screenReaderController);
+
+    try {
+      await executeInternal({
+        extension: "catalog",
+        id: "keyboard.moveKeyboardFocusToCursor"
+      });
+    } catch {
+      // Best effort only. If sync is unavailable, fall through to the existing gate failure.
+    }
+  }
+
+  private async replaceCurrentTextFieldValue(): Promise<void> {
+    if (this.options.useScreenReaderTextEntry && this.options.screenReaderController) {
+      const executeInternal = this.options.screenReaderController.executeInternal
+        ?? this.options.screenReaderController.execute.bind(this.options.screenReaderController);
+
+      try {
+        await executeInternal({ semantic: "key.mod.a" });
+        await executeInternal({ semantic: "key.backspace" });
+        return;
+      } catch {
+        // Fall back to browser keyboard input when the screen reader key path is unavailable.
+      }
+    }
+
+    await this.page.keyboard.press(resolveKeyboardPressKey("Mod+A"));
+    await this.page.keyboard.press(resolveKeyboardPressKey("Backspace"));
   }
 
   private async readTextEntryResult(expected: string): Promise<NonNullable<ExecutionRecord["textEntryResult"]>> {
@@ -260,7 +317,7 @@ function buildSyntheticAnnouncement(input: {
     return field ? `${field}, updated` : "Field updated";
   }
 
-  return field ? `${field}, ${input.value}` : `Field updated, ${input.value}`;
+  return field ? `${field}, current value ${input.value}` : `Current value ${input.value}`;
 }
 
 function humanizeFieldRole(role: string | undefined): string | undefined {

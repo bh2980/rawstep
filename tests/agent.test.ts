@@ -118,9 +118,9 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
 
   const files = {
     "keyboard.system.md": "system-keyboard\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
-    "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
+    "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
     "screenreader.system.md": "system-screenreader\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
-    "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\navailable actions:\n{{availableActions}}",
+    "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
     "experience-summary.system.md": "summary-template",
     "experience-summary.user.md": "summary-user-template\nTask\n{{taskSummary}}\nAggregate\n{{aggregateSummary}}\nStep Timeline\n{{stepTimeline}}"
   } satisfies Record<string, string>;
@@ -169,32 +169,61 @@ describe("agent helpers", () => {
     }
   });
 
-  it("parses valid named input JSON", () => {
+  it("parses valid direct-value typeText JSON", () => {
     const decision = parseDecision(
-      '{"action":"typeText.email","rationale":"Type the email input."}',
-      ["email", "password"]
+      '{"action":"typeText","value":"traveler@example.com","rationale":"Type the email input."}',
+      { email: "traveler@example.com", password: "super-secret" }
     );
 
     expect("action" in decision).toBe(true);
     if ("action" in decision) {
       expect("typeText" in decision.action).toBe(true);
       if ("typeText" in decision.action) {
-        expect(decision.action.typeText).toBe("email");
+        expect(decision.action.typeText).toBe("traveler@example.com");
       }
     }
   });
 
-  it("rejects literal input values in typeText", () => {
+  it("parses valid direct-value replaceText JSON", () => {
     const decision = parseDecision(
-      '{"action":"typeText.traveler@example.com","rationale":"Type the provided email."}',
-      ["email"]
+      '{"action":"replaceText","value":"traveler@example.com","rationale":"Replace the current email input."}',
+      { email: "traveler@example.com", password: "super-secret" }
+    );
+
+    expect("action" in decision).toBe(true);
+    if ("action" in decision) {
+      expect("replaceText" in decision.action).toBe(true);
+      if ("replaceText" in decision.action) {
+        expect(decision.action.replaceText).toBe("traveler@example.com");
+      }
+    }
+  });
+
+  it("rejects typeText values that are not in task input", () => {
+    const decision = parseDecision(
+      '{"action":"typeText","value":"person@example.com","rationale":"Type the provided email."}',
+      { email: "traveler@example.com" }
     );
 
     expect("verdict" in decision).toBe(true);
     if ("verdict" in decision) {
       expect(decision.verdict).toBe("stuck");
-      expect(decision.rationale).toContain('invalid typeText key "traveler@example.com"');
-      expect(decision.rationale).toContain("Allowed input keys: email");
+      expect(decision.rationale).toContain('invalid typeText value "person@example.com"');
+      expect(decision.rationale).toContain('Allowed input values: "traveler@example.com"');
+    }
+  });
+
+  it("rejects replaceText values that are not in task input", () => {
+    const decision = parseDecision(
+      '{"action":"replaceText","value":"person@example.com","rationale":"Replace the provided email."}',
+      { email: "traveler@example.com" }
+    );
+
+    expect("verdict" in decision).toBe(true);
+    if ("verdict" in decision) {
+      expect(decision.verdict).toBe("stuck");
+      expect(decision.rationale).toContain('invalid replaceText value "person@example.com"');
+      expect(decision.rationale).toContain('Allowed input values: "traveler@example.com"');
     }
   });
 
@@ -493,7 +522,7 @@ describe("agent helpers", () => {
 
     expect(prompt).toContain("Task");
     expect(prompt).toContain("- id: summary-task");
-    expect(prompt).toContain("- input keys status: empty");
+    expect(prompt).toContain("- inputs status: empty");
     expect(prompt).toContain("Aggregate");
     expect(prompt).toContain("- result: success");
     expect(prompt).toContain("- failure point status: empty");
@@ -688,15 +717,16 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("goal:\nFinish the task.");
+      expect(promptParts[0].text).toContain("task inputs:");
+      expect(promptParts[0].text).toContain('email="traveler@example.com"');
+      expect(promptParts[0].text).toContain('password="super-secret"');
       expect(promptParts[0].text).toContain("available actions:");
       expect(promptParts[0].text).toContain("- status: present");
-      expect(promptParts[0].text).toContain("- typeText.email");
-      expect(promptParts[0].text).toContain("- typeText.password");
+      expect(promptParts[0].text).toContain('- typeText("traveler@example.com")');
+      expect(promptParts[0].text).toContain('- typeText("super-secret")');
       expect(promptParts[0].text).toContain("- key.Tab");
       expect(promptParts[0].text).toContain("- key.Enter");
       expect(promptParts[0].text).toContain('focus hint:\n- status: present\n- value: "input[type=email] \\"Work email\\""');
-      expect(promptParts[0].text).not.toContain("traveler@example.com");
-      expect(promptParts[0].text).not.toContain("super-secret");
     }
     expect(promptParts[1]).toEqual({
       type: "image",
@@ -766,9 +796,9 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("action history:\n- status: empty\n- items: []");
-      expect(promptParts[0].text).toContain("focus hint:\n- status: empty");
-      expect(promptParts[0].text).toContain("available actions:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Recent History\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Task inputs\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Available actions\n- status: empty\n- items: []");
     }
   });
 
@@ -786,8 +816,8 @@ describe("agent helpers", () => {
     expect(promptParts).toHaveLength(1);
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain('announcement:\n- status: present\n- value: "Submit button"');
-      expect(promptParts[0].text).toContain("available actions:");
+      expect(promptParts[0].text).toContain('## Announcement:\n- status: present\n- value: "Submit button"');
+      expect(promptParts[0].text).toContain("## Available actions:");
     }
   });
 
@@ -810,10 +840,10 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("agent memory:\n- status: empty\n- items: []");
-      expect(promptParts[0].text).toContain("announcement:\n- status: empty");
-      expect(promptParts[0].text).toContain("readbacks:\n- status: empty\n- items: []");
-      expect(promptParts[0].text).toContain("available actions:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Recent History\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Announcement:\n- status: empty");
+      expect(promptParts[0].text).toContain("## Readbacks:\n- status: empty\n- items: []");
+      expect(promptParts[0].text).toContain("## Available actions:\n- status: empty\n- items: []");
     }
   });
 
@@ -922,7 +952,7 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain("- sr.click: 현재 항목을 클릭할 때 사용");
-      expect(promptParts[0].text).toContain("- typeText.email");
+      expect(promptParts[0].text).toContain('- typeText("traveler@example.com")');
     }
   });
 
@@ -986,7 +1016,7 @@ describe("agent helpers", () => {
       model: "claude-custom",
       taskInput: { email: "traveler@example.com" },
       completionClient: createCompletionClient([
-        '{"action":"typeText.traveler@example.com","rationale":"Type the provided email."}'
+        '{"action":"typeText","value":"person@example.com","rationale":"Type the provided email."}'
       ])
     });
 
@@ -994,7 +1024,7 @@ describe("agent helpers", () => {
 
     expect(decision).toEqual({
       verdict: "stuck",
-      rationale: expect.stringContaining('invalid typeText key "traveler@example.com"')
+      rationale: expect.stringContaining('invalid typeText value "person@example.com"')
     });
   });
 
@@ -1013,7 +1043,7 @@ describe("agent helpers", () => {
   it("strips HTML comments from prompt templates before rendering", async () => {
     const rootDir = await createPromptFixtureRoot({
       "keyboard.system.md": "system-keyboard\n<!-- 내부 메모: 이 줄은 모델에 보내지지 않아야 함 -->\n출력 규칙:\n```json\n{{outputExamples}}\n```",
-      "keyboard.user.md": "goal:\n{{goal}}\n<!-- 숨김 규칙 -->\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+      "keyboard.user.md": "goal:\n{{goal}}\n<!-- 숨김 규칙 -->\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
     });
     process.chdir(rootDir);
 
@@ -1027,7 +1057,7 @@ describe("agent helpers", () => {
 
   it("does not count placeholders inside HTML comments", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n<!-- {{agentMemory}} -->\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+      "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n<!-- {{agentMemory}} -->\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
     });
 
     expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{agentMemory}}");
@@ -1059,7 +1089,7 @@ describe("agent helpers", () => {
 
   it("fails when a prompt template references a placeholder with no provided replacement", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.user.md": "goal:\n{{goal}}\nmissing:\n{{unknownPlaceholder}}\navailable actions:\n{{availableActions}}\nagent memory:\n{{agentMemory}}\nfocus hint:\n{{focusHint}}"
+      "keyboard.user.md": "goal:\n{{goal}}\nmissing:\n{{unknownPlaceholder}}\navailable actions:\n{{availableActions}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}"
     });
     process.chdir(rootDir);
 
@@ -1096,11 +1126,9 @@ describe("agent helpers", () => {
     expect(prompt).toContain("system-keyboard");
     expect(prompt).not.toContain("- Tab");
     expect(prompt).not.toContain("- Enter");
-    expect(prompt).not.toContain("traveler@example.com");
-    expect(prompt).not.toContain("super-secret");
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
-    expect(prompt).toContain('{"action":"typeText.email","rationale":"..."}');
+    expect(prompt).toContain('{"action":"typeText","value":"traveler@example.com","rationale":"..."}');
   });
 
   it("prefers configured keyboard action hints over default key guidance", async () => {
@@ -1160,24 +1188,6 @@ describe("agent helpers", () => {
     expect(prompt).toContain("```json");
     expect(prompt).toContain('{"action":"sr.heading.next"}');
     expect(prompt).toContain('{"action":"sr.click","button":"left","clickCount":1}');
-  });
-
-  it("includes conservative text-entry guidance in the default screenreader system prompt", () => {
-    const prompt = buildSystemPrompt(
-      "screenreader",
-      undefined,
-      undefined,
-      undefined,
-      false,
-      {
-        promptDir: join(ORIGINAL_CWD, "prompt")
-      }
-    );
-
-    expect(prompt).toContain("라벨이나 필드 이름만 들렸다고 입력 가능한 필드라고 단정하지 마라.");
-    expect(prompt).toContain("편집 가능한 텍스트 입력 상태가 직접 읽히면 typeText를 우선 검토하라.");
-    expect(prompt).toContain("그런 직접 신호가 없더라도, 입력 목표이고 현재 announcement와 최근 readback 또는 직전 탐색 맥락이 함께 입력 필드일 가능성을 충분히 뒷받침하면 typeText를 시도할 수 있다.");
-    expect(prompt).toContain("typeText가 텍스트 입력 상태 변화 없이 실패하면, 같은 위치에서 interact를 반복하지 말고 sr.key.tab, sr.key.shiftTab, form 이동처럼 전략을 바꾸어라.");
   });
 
   it("uses neutral placeholder values in screenreader output examples", async () => {

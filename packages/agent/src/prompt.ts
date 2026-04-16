@@ -112,6 +112,7 @@ export function buildUserPromptText(
   const commonReplacements = {
     goal: buildGoalValue(ctx.goal),
     agentMemory: buildAgentMemoryValue(ctx.memory),
+    taskInputs: buildTaskInputsValue(taskInput),
     focusHint: buildFocusHintValue(obs),
     announcement: buildAnnouncementValue(obs),
     readbacks: buildReadbacksValue(obs),
@@ -159,12 +160,12 @@ function buildExperienceSummaryTaskValue(task: ResolvedTask): string {
   const inputKeys = task.input ? Object.keys(task.input) : [];
   lines.push(
     inputKeys.length === 0
-      ? "- input keys status: empty"
-      : "- input keys status: present",
+      ? "- inputs status: empty"
+      : "- inputs status: present",
   );
 
   if (inputKeys.length > 0) {
-    lines.push(`- input keys: ${inputKeys.join(", ")}`);
+    lines.push(`- inputs: ${buildLabeledTaskInputs(task.input!).join(", ")}`);
   }
 
   return lines.join("\n");
@@ -312,11 +313,14 @@ function buildKeyboardOutputExamples(
 ): string {
   const snippets = buildKeyboardActionExampleSnippets(keyboardActions, includeRationale);
 
-  if (taskInput) {
-    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
+  const exampleValue = getTaskInputExampleValue(taskInput);
+  if (exampleValue) {
     snippets.push(includeRationale
-      ? JSON.stringify({ action: exampleKey, rationale: "..." })
-      : JSON.stringify({ action: exampleKey }));
+      ? JSON.stringify({ action: "typeText", value: exampleValue, rationale: "..." })
+      : JSON.stringify({ action: "typeText", value: exampleValue }));
+    snippets.push(includeRationale
+      ? JSON.stringify({ action: "replaceText", value: exampleValue, rationale: "..." })
+      : JSON.stringify({ action: "replaceText", value: exampleValue }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
@@ -331,11 +335,14 @@ function buildScreenReaderOutputExamples(
 ): string {
   const snippets = buildScreenReaderActionExampleSnippets(promptActions, includeRationale);
 
-  if (taskInput) {
-    const exampleKey = `typeText.${Object.keys(taskInput)[0] ?? "<input-key>"}`;
+  const exampleValue = getTaskInputExampleValue(taskInput);
+  if (exampleValue) {
     snippets.push(includeRationale
-      ? JSON.stringify({ action: exampleKey, rationale: "..." })
-      : JSON.stringify({ action: exampleKey }));
+      ? JSON.stringify({ action: "typeText", value: exampleValue, rationale: "..." })
+      : JSON.stringify({ action: "typeText", value: exampleValue }));
+    snippets.push(includeRationale
+      ? JSON.stringify({ action: "replaceText", value: exampleValue, rationale: "..." })
+      : JSON.stringify({ action: "replaceText", value: exampleValue }));
   }
 
   snippets.push(...buildVerdictSnippets(includeRationale));
@@ -416,13 +423,15 @@ function buildTaskInputActionsBlock(taskInput?: TaskInput): string[] {
     return [];
   }
 
-  const keys = Object.keys(taskInput);
-  if (keys.length === 0) {
+  const values = dedupe(Object.values(taskInput));
+  if (values.length === 0) {
     return [];
   }
 
-  return keys
-    .map((key) => `typeText.${key}`);
+  return values.flatMap((value) => [
+    `typeText(${JSON.stringify(value)})`,
+    `replaceText(${JSON.stringify(value)})`
+  ]);
 }
 
 function buildAvailableActionsValue(
@@ -472,6 +481,26 @@ function buildReadbacksValue(obs: Observation): string {
       ? `method=${readback.method}, status=cleared`
       : `method=${readback.method}, value=${JSON.stringify(readback.value ?? "")}`
   ));
+}
+
+function buildTaskInputsValue(taskInput?: TaskInput): string {
+  if (!taskInput || Object.keys(taskInput).length === 0) {
+    return buildEmptyListBlock();
+  }
+
+  return buildPresentListBlock(buildLabeledTaskInputs(taskInput));
+}
+
+function buildLabeledTaskInputs(taskInput: TaskInput): string[] {
+  return Object.entries(taskInput).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
+}
+
+function getTaskInputExampleValue(taskInput?: TaskInput): string | undefined {
+  if (!taskInput) {
+    return undefined;
+  }
+
+  return dedupe(Object.values(taskInput))[0];
 }
 
 function buildEmptyValueBlock(): string {

@@ -78,7 +78,6 @@ export class LLMAgent implements Agent {
   }
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
-    const taskInputKeys = this.taskInput ? Object.keys(this.taskInput) : undefined;
     const resolvedPromptKeyboardActions = this.keyboardActions
       ?? ctx.keyboardActions
       ?? buildKeyboardActionPlan().descriptors;
@@ -120,7 +119,7 @@ export class LLMAgent implements Agent {
       });
       const firstPass = parseDecisionResult(
         rawText,
-        taskInputKeys,
+        this.taskInput,
         resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions
       );
@@ -141,7 +140,7 @@ export class LLMAgent implements Agent {
 
         return parseDecision(
           retriedRawText,
-          taskInputKeys,
+          this.taskInput,
           resolvedPromptKeyboardActions,
           resolvedPromptScreenReaderActions
         );
@@ -149,7 +148,7 @@ export class LLMAgent implements Agent {
 
       return parseDecision(
         rawText,
-        taskInputKeys,
+        this.taskInput,
         resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions
       );

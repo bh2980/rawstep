@@ -1,14 +1,17 @@
-goal:
+## Goal
 {{goal}}
 
-agent memory:
+## Recent History
 {{agentMemory}}
 
-announcement:
+## Announcement:
 {{announcement}}
 
-readbacks:
+## Readbacks:
 {{readbacks}}
 
-available actions:
+## Task inputs:
+{{taskInputs}}
+
+## Available actions:
 {{availableActions}}
