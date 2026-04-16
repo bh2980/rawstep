@@ -23,7 +23,7 @@ export function createCompletionClient(
 }
 
 export function normalizeProviderError(error: unknown, obs: Observation): Error {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = buildProviderErrorMessage(error);
 
   if (obs.kind === "keyboard" && looksLikeImageCapabilityError(message)) {
     return new Error(
@@ -31,7 +31,13 @@ export function normalizeProviderError(error: unknown, obs: Observation): Error 
     );
   }
 
-  return error instanceof Error ? error : new Error(message);
+  if (error instanceof Error) {
+    const normalized = new Error(message);
+    normalized.name = error.name;
+    return normalized;
+  }
+
+  return new Error(message);
 }
 
 export function isRetryableProviderError(error: unknown): boolean {
@@ -102,4 +108,76 @@ function looksLikeImageCapabilityError(message: string): boolean {
     /input_image/i,
     /image_url/i
   ].some((pattern) => pattern.test(message));
+}
+
+function buildProviderErrorMessage(error: unknown): string {
+  const fallback = error instanceof Error ? error.message : String(error);
+  const statusCode = typeof (error as { statusCode?: unknown })?.statusCode === "number"
+    ? (error as { statusCode: number }).statusCode
+    : undefined;
+  const responseBody = typeof (error as { responseBody?: unknown })?.responseBody === "string"
+    ? (error as { responseBody: string }).responseBody
+    : undefined;
+
+  if (!responseBody) {
+    return withStatusSuffix(fallback, statusCode);
+  }
+
+  const parsedBody = tryParseJson(responseBody);
+  const providerName = getNestedString(parsedBody, ["error", "metadata", "provider_name"]);
+  const rawMetadata = getNestedString(parsedBody, ["error", "metadata", "raw"]);
+  const parsedRawMetadata = rawMetadata ? tryParseJson(rawMetadata) : undefined;
+  const rawMessage =
+    getNestedString(parsedRawMetadata, ["error", "message"])
+    ?? rawMetadata;
+  const bodyMessage = getNestedString(parsedBody, ["error", "message"]);
+  const resolvedMessage = rawMessage && rawMessage !== bodyMessage
+    ? rawMessage
+    : bodyMessage;
+
+  if (!resolvedMessage || resolvedMessage === fallback) {
+    return withStatusSuffix(fallback, statusCode, providerName);
+  }
+
+  return withStatusSuffix(resolvedMessage, statusCode, providerName);
+}
+
+function withStatusSuffix(
+  message: string,
+  statusCode?: number,
+  providerName?: string
+): string {
+  const suffixParts = [
+    providerName ? `provider ${providerName}` : undefined,
+    typeof statusCode === "number" ? `status ${statusCode}` : undefined
+  ].filter((part): part is string => Boolean(part));
+
+  if (suffixParts.length === 0) {
+    return message;
+  }
+
+  return `${message} (${suffixParts.join(", ")})`;
+}
+
+function tryParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function getNestedString(value: unknown, path: string[]): string | undefined {
+  let current: unknown = value;
+  for (const key of path) {
+    if (!current || typeof current !== "object" || !(key in current)) {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return typeof current === "string" && current.trim().length > 0
+    ? current.trim()
+    : undefined;
 }
