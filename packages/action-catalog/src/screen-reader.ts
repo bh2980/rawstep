@@ -33,7 +33,7 @@ type ScreenReaderActionDefinition = {
   backendSupport: readonly ScreenReaderBackendId[];
   catalogIdsByBackend: Partial<Record<ScreenReaderBackendId, string>>;
   fixedKey?: string;
-  defaultAllowed: boolean;
+  defaultAllowedIn: readonly ScreenReaderBackendId[];
   public: boolean;
 };
 
@@ -366,7 +366,7 @@ export function buildDefaultScreenReaderActionRefs(
 
   for (const semantic of SCREEN_READER_PUBLIC_SEMANTICS) {
     if (
-      getScreenReaderActionDefinition(semantic).defaultAllowed
+      getScreenReaderActionDefinition(semantic).defaultAllowedIn.includes(backendId)
       && isStableSemanticSupported(semantic, backendId, capabilities)
     ) {
       refs.push(createStableScreenReaderActionRef(semantic));

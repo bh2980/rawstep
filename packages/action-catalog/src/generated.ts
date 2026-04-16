@@ -173,7 +173,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "previous": {
@@ -187,7 +191,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "act": {
@@ -201,7 +209,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "interact": {
@@ -215,7 +227,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "stopInteracting": {
@@ -229,7 +245,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "press": {
@@ -243,7 +263,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": false
   },
   "type": {
@@ -257,7 +281,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "click": {
@@ -271,7 +299,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.tab": {
@@ -286,7 +318,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Tab",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.shiftTab": {
@@ -301,7 +333,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Shift+Tab",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.home": {
@@ -316,7 +348,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Home",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.end": {
@@ -331,7 +367,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "End",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.arrow.up": {
@@ -346,7 +386,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "ArrowUp",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.arrow.down": {
@@ -361,7 +405,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "ArrowDown",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.arrow.left": {
@@ -376,7 +424,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "ArrowLeft",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.arrow.right": {
@@ -391,7 +443,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "ArrowRight",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.backspace": {
@@ -406,7 +462,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Backspace",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.delete": {
@@ -421,7 +477,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Delete",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.enter": {
@@ -436,7 +492,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Enter",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.shiftEnter": {
@@ -451,7 +511,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Shift+Enter",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.space": {
@@ -466,7 +526,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Space",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.escape": {
@@ -481,7 +545,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Escape",
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "key.mod.a": {
@@ -496,7 +564,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Mod+A",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.mod.backspace": {
@@ -511,7 +579,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Mod+Backspace",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.mod.delete": {
@@ -526,7 +594,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Mod+Delete",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.mod.z": {
@@ -541,7 +609,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Mod+Z",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "key.mod.shiftZ": {
@@ -556,7 +624,7 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     ],
     "catalogIdsByBackend": {},
     "fixedKey": "Mod+Shift+Z",
-    "defaultAllowed": false,
+    "defaultAllowedIn": [],
     "public": true
   },
   "heading.next": {
@@ -574,7 +642,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeading",
       "guidepup-virtual": "commands.moveToNextHeading"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.previous": {
@@ -592,7 +664,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeading",
       "guidepup-virtual": "commands.moveToPreviousHeading"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.1.next": {
@@ -608,7 +684,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel1",
       "guidepup-virtual": "commands.moveToNextHeadingLevel1"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.1.previous": {
@@ -624,7 +703,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel1",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel1"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.2.next": {
@@ -640,7 +722,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel2",
       "guidepup-virtual": "commands.moveToNextHeadingLevel2"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.2.previous": {
@@ -656,7 +741,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel2",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel2"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.3.next": {
@@ -672,7 +760,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel3",
       "guidepup-virtual": "commands.moveToNextHeadingLevel3"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.3.previous": {
@@ -688,7 +779,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel3",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel3"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.4.next": {
@@ -704,7 +798,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel4",
       "guidepup-virtual": "commands.moveToNextHeadingLevel4"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.4.previous": {
@@ -720,7 +817,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel4",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel4"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.5.next": {
@@ -736,7 +836,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel5",
       "guidepup-virtual": "commands.moveToNextHeadingLevel5"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.5.previous": {
@@ -752,7 +855,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel5",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel5"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.6.next": {
@@ -768,7 +874,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextHeadingLevel6",
       "guidepup-virtual": "commands.moveToNextHeadingLevel6"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "heading.level.6.previous": {
@@ -784,7 +893,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousHeadingLevel6",
       "guidepup-virtual": "commands.moveToPreviousHeadingLevel6"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "form.next": {
@@ -802,7 +914,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextFormField",
       "guidepup-virtual": "commands.moveToNextForm"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "form.previous": {
@@ -820,7 +936,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousFormField",
       "guidepup-virtual": "commands.moveToPreviousForm"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "link.next": {
@@ -836,7 +956,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextLink",
       "guidepup-virtual": "commands.moveToNextLink"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "link.previous": {
@@ -852,7 +975,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousLink",
       "guidepup-virtual": "commands.moveToPreviousLink"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "button.next": {
@@ -868,7 +994,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "commander.FIND_NEXT_BUTTON",
       "guidepup-nvda": "keyboard.moveToNextButton"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "button.previous": {
@@ -884,7 +1013,10 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-voiceover": "commander.FIND_PREVIOUS_BUTTON",
       "guidepup-nvda": "keyboard.moveToPreviousButton"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "landmark.next": {
@@ -902,7 +1034,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToNextLandmark",
       "guidepup-virtual": "commands.moveToNextLandmark"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "landmark.previous": {
@@ -920,7 +1056,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-nvda": "keyboard.moveToPreviousLandmark",
       "guidepup-virtual": "commands.moveToPreviousLandmark"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "list.next": {
@@ -934,7 +1074,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextList"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "list.previous": {
@@ -948,7 +1090,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousList"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "table.next": {
@@ -962,7 +1106,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToNextTable"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "table.previous": {
@@ -976,7 +1122,9 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
     "catalogIdsByBackend": {
       "guidepup-nvda": "keyboard.moveToPreviousTable"
     },
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-nvda"
+    ],
     "public": true
   },
   "read.itemText": {
@@ -990,7 +1138,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "read.itemTextLog": {
@@ -1004,7 +1156,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "read.lastSpokenPhrase": {
@@ -1018,7 +1174,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "read.spokenPhraseLog": {
@@ -1032,7 +1192,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "clear.itemTextLog": {
@@ -1046,7 +1210,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   },
   "clear.spokenPhraseLog": {
@@ -1060,7 +1228,11 @@ export const SCREEN_READER_ACTION_DEFINITIONS = {
       "guidepup-virtual"
     ],
     "catalogIdsByBackend": {},
-    "defaultAllowed": true,
+    "defaultAllowedIn": [
+      "guidepup-voiceover",
+      "guidepup-nvda",
+      "guidepup-virtual"
+    ],
     "public": true
   }
 } as const;

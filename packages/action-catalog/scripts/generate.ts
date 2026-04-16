@@ -111,7 +111,7 @@ function buildGeneratedModule(): string {
         backendSupport: entry.backendSupport,
         catalogIdsByBackend: entry.catalogIdsByBackend ?? {},
         ...(entry.fixedKey ? { fixedKey: entry.fixedKey } : {}),
-        defaultAllowed: entry.defaultAllowed ?? true,
+        defaultAllowedIn: entry.defaultAllowedIn ?? entry.backendSupport,
         public: entry.public ?? true
       }
     ])

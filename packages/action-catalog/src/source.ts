@@ -21,7 +21,7 @@ export type ScreenReaderActionSource = {
   backendSupport: readonly ScreenReaderBackendId[];
   catalogIdsByBackend?: Partial<Record<ScreenReaderBackendId, string>>;
   fixedKey?: string;
-  defaultAllowed?: boolean;
+  defaultAllowedIn?: readonly ScreenReaderBackendId[];
   public?: boolean;
 };
 
@@ -30,6 +30,23 @@ const voiceOverAndNvda = ["guidepup-voiceover", "guidepup-nvda"] as const;
 const nvdaAndVirtual = ["guidepup-nvda", "guidepup-virtual"] as const;
 const voiceOverNvdaAndVirtual = ["guidepup-voiceover", "guidepup-nvda", "guidepup-virtual"] as const;
 const nvdaOnly = ["guidepup-nvda"] as const;
+
+function resolveDefaultAllowedScreenReaderKeyBackends(
+  helperPath: KeyboardActionSource["helperPath"],
+  defaultAllowed: boolean
+): readonly ScreenReaderBackendId[] {
+  if (!defaultAllowed) {
+    return [];
+  }
+
+  switch (helperPath) {
+    case "tab":
+    case "shiftTab":
+      return [];
+    default:
+      return allBackends;
+  }
+}
 
 export const keyboardActionSource: readonly KeyboardActionSource[] = [
   { key: "Tab", helperPath: "tab", cliToken: "Tab", defaultAllowed: true },
@@ -59,7 +76,7 @@ const screenReaderKeyActionSource: readonly ScreenReaderActionSource[] = keyboar
   kind: "invoke",
   backendSupport: allBackends,
   fixedKey: entry.key,
-  defaultAllowed: entry.defaultAllowed
+  defaultAllowedIn: resolveDefaultAllowedScreenReaderKeyBackends(entry.helperPath, entry.defaultAllowed)
 })) as readonly ScreenReaderActionSource[];
 
 export const screenReaderActionSource: readonly ScreenReaderActionSource[] = [
