@@ -62,13 +62,28 @@ export function createAgentMemoryEntry(
   step: number,
   decision: Decision,
   outcome: AgentMemoryEntry["outcome"],
-  note?: string
+  options: {
+    note?: string;
+    observation?: Observation;
+    previousEntry?: AgentMemoryEntry;
+  } = {}
 ): AgentMemoryEntry {
+  const action = formatMemoryAction(decision);
+  const sameActionCount = options.previousEntry?.action === action
+    ? (options.previousEntry.sameActionCount ?? 1) + 1
+    : 1;
+  const screenReaderFields = buildScreenReaderMemoryFields(
+    options.observation,
+    options.previousEntry
+  );
+
   return {
     step,
-    action: formatMemoryAction(decision),
+    action,
     outcome,
-    ...(note ? { note } : {})
+    sameActionCount,
+    ...screenReaderFields,
+    ...(options.note ? { note: options.note } : {})
   };
 }
 
@@ -162,6 +177,36 @@ function formatMemoryAction(decision: Decision): string {
   return "action" in decision
     ? formatActionForMemory(decision.action)
     : `verdict(${decision.verdict})`;
+}
+
+function buildScreenReaderMemoryFields(
+  observation: Observation | undefined,
+  previousEntry: AgentMemoryEntry | undefined
+): Partial<AgentMemoryEntry> {
+  if (!observation || observation.kind !== "screenreader") {
+    return {};
+  }
+
+  const announcementExcerpt = summarizeAnnouncement(observation.announcement);
+  const sameAnnouncementCount = previousEntry?.announcementExcerpt === announcementExcerpt
+    ? (previousEntry.sameAnnouncementCount ?? 1) + 1
+    : 1;
+
+  return {
+    announcementExcerpt,
+    announcementCapture: observation.announcementCapture,
+    ...(typeof observation.announcementCount === "number"
+      ? { announcementCount: observation.announcementCount }
+      : {}),
+    ...(observation.observeReason
+      ? { observeReason: observation.observeReason }
+      : {}),
+    sameAnnouncementCount
+  };
+}
+
+function summarizeAnnouncement(value: string): string {
+  return value.trim().replace(/\s+/g, " ").slice(0, 160);
 }
 
 export async function captureScreenReaderDomFocus(page: BrowserSession["page"]): Promise<ScreenReaderDomFocusCapture> {

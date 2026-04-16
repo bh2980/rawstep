@@ -4,6 +4,8 @@ export {
   createBrowserSession,
   settlePage,
   type BlockedNavigationRecord,
+  type DomEventRecord,
+  type NavigationGuardWarningRecord,
   type BrowserSession,
   type CreateBrowserSessionOptions,
   type NetworkLog,
@@ -36,5 +38,6 @@ export {
   evaluateVerifyRule,
   formatVerificationFeedback,
   MAX_VERIFICATION_RETRIES,
-  verifyTask
+  verifyTask,
+  type VerificationContext
 } from "./verify";

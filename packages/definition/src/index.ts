@@ -33,6 +33,8 @@ export type {
 } from "./backends";
 export { validateVerifySpec } from "./verify";
 export type {
+  ActivatedAnnouncementVerificationRule,
+  DomEventVerificationRule,
   RequestVerificationRule,
   ResponseVerificationRule,
   VerifyRule,
@@ -110,5 +112,6 @@ export type {
   ActionCounts,
   ScreenshotPolicy,
   TraceAggregate,
+  ReflectionEvent,
   TraceSession,
 } from "./trace";

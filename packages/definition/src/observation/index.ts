@@ -5,11 +5,18 @@ import type {
 
 export type ScrollHint = "top" | "middle" | "bottom";
 
-export type ScreenReaderReadback = {
-  method: ScreenReaderReadMethod | ScreenReaderMaintenanceMethod;
-  value?: string | string[];
-  status?: "cleared";
-};
+export type ScreenReaderReadback =
+  | {
+      kind: "read" | "maintenance";
+      method: ScreenReaderReadMethod | ScreenReaderMaintenanceMethod;
+      value?: string | string[];
+      status?: "cleared";
+    }
+  | {
+      kind: "note";
+      source: "runtime-recovery";
+      value: string;
+    };
 
 export type ScreenReaderDomFocusSnapshot = {
   hasDocumentFocus: boolean;
@@ -34,6 +41,11 @@ export type KeyboardObservation = {
     viewport: { w: number; h: number };
   };
   previousScreenshot?: { pngBase64: string };
+  diffScreenshot?: {
+    pngBase64: string;
+    viewport: { w: number; h: number };
+    changeRatio?: number;
+  };
   browserChrome: {
     title: string;
     urlPath: string;

@@ -1,5 +1,9 @@
 import type { BrowserSession } from "../browser";
 import type {
+  Action,
+  ActivatedAnnouncementVerificationRule,
+  DomEventVerificationRule,
+  Observation,
   RequestVerificationRule,
   ResolvedTask,
   ResponseVerificationRule,
@@ -9,13 +13,22 @@ import type {
 
 export const MAX_VERIFICATION_RETRIES = 2;
 
+export type VerificationContext = {
+  latestActivation?: {
+    step: number;
+    action: Action;
+    observation: Observation;
+  };
+};
+
 export async function verifyTask(
   task: ResolvedTask,
-  browser: BrowserSession
+  browser: BrowserSession,
+  context?: VerificationContext
 ): Promise<VerificationRecord> {
   const failures: string[] = [];
   for (const rule of task.verify.all) {
-    const failure = await evaluateVerifyRule(rule, browser);
+    const failure = await evaluateVerifyRule(rule, browser, context);
     if (failure) {
       failures.push(failure);
     }
@@ -29,7 +42,8 @@ export async function verifyTask(
 
 export async function evaluateVerifyRule(
   rule: VerifyRule,
-  browser: BrowserSession
+  browser: BrowserSession,
+  context?: VerificationContext
 ): Promise<string | undefined> {
   if ("titleIncludes" in rule) {
     const title = await browser.page.title();
@@ -71,6 +85,14 @@ export async function evaluateVerifyRule(
     return undefined;
   }
 
+  if ("activatedAnnouncementIncludes" in rule) {
+    return matchActivatedAnnouncementRule(rule, context);
+  }
+
+  if ("domEventSeen" in rule) {
+    return matchDomEventRule(rule, browser);
+  }
+
   if ("requestSeen" in rule) {
     return matchRequestRule(rule, browser);
   }
@@ -86,6 +108,28 @@ export function formatVerificationFeedback(result: VerificationRecord): string {
   return result.failures[0];
 }
 
+function matchActivatedAnnouncementRule(
+  rule: ActivatedAnnouncementVerificationRule,
+  context?: VerificationContext
+): string | undefined {
+  const latestActivation = context?.latestActivation;
+
+  if (!latestActivation) {
+    return formatActivatedAnnouncementMissingFailure(rule.activatedAnnouncementIncludes);
+  }
+
+  if (latestActivation.observation.kind !== "screenreader") {
+    return formatActivatedAnnouncementMissingFailure(rule.activatedAnnouncementIncludes);
+  }
+
+  const observedAnnouncement = latestActivation.observation.announcement.trim();
+  if (observedAnnouncement.includes(rule.activatedAnnouncementIncludes)) {
+    return undefined;
+  }
+
+  return `Verification failed: expected latest activation announcement to include "${rule.activatedAnnouncementIncludes}", observed "${observedAnnouncement || "(empty)"}".`;
+}
+
 function matchRequestRule(
   rule: RequestVerificationRule,
   browser: BrowserSession
@@ -97,6 +141,22 @@ function matchRequestRule(
 
   if (!matched) {
     return formatRequestFailure(rule.requestSeen.urlIncludes, rule.requestSeen.method);
+  }
+
+  return undefined;
+}
+
+function matchDomEventRule(
+  rule: DomEventVerificationRule,
+  browser: BrowserSession
+): string | undefined {
+  const matched = browser.domEvents.some((event) =>
+    event.selector === rule.domEventSeen.selector
+    && event.event === rule.domEventSeen.event
+  );
+
+  if (!matched) {
+    return `Verification failed: expected event "${rule.domEventSeen.event}" on selector "${rule.domEventSeen.selector}" was not observed.`;
   }
 
   return undefined;
@@ -137,4 +197,8 @@ function formatResponseFailure(urlIncludes: string, method?: string, status?: nu
   const methodPart = method ? `${method.toUpperCase()} ` : "";
   const statusPart = status !== undefined ? ` with status ${status}` : "";
   return `Verification failed: no matching ${methodPart}response for "${urlIncludes}"${statusPart} was observed.`;
+}
+
+function formatActivatedAnnouncementMissingFailure(expected: string): string {
+  return `Verification failed: no screenreader activation announcement including "${expected}" was recorded.`;
 }

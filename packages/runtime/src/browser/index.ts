@@ -1,10 +1,6 @@
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Browser, BrowserContext, Page } from "playwright";
-import type { ResolvedNavigationPolicy } from "@rawstep/definition";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import type { ResolvedNavigationPolicy, VerifySpec } from "@rawstep/definition";
 import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants";
-
-chromium.use(StealthPlugin());
 
 export type NetworkRequestRecord = {
   url: string;
@@ -32,28 +28,48 @@ export type BlockedNavigationRecord = {
   timestamp: string;
 };
 
+export type NavigationGuardWarningRecord = {
+  scope: "navigationGuard";
+  level: "warn";
+  code: "NAVIGATION_GUARD_INSTALL_WARNING";
+  message: string;
+  error?: string;
+  stack?: string;
+};
+
+export type DomEventRecord = {
+  selector: string;
+  event: string;
+  timestamp: string;
+  url: string;
+};
+
 export type BrowserSession = {
   browser: Browser;
   context: BrowserContext;
   page: Page;
   network: NetworkLog;
+  domEvents: DomEventRecord[];
   navigation: {
     policy: ResolvedNavigationPolicy;
     allowedOrigin: string;
     startUrlPrefix: string;
     blocked: BlockedNavigationRecord[];
+    warnings: NavigationGuardWarningRecord[];
   };
   setupTimings?: {
     browserLaunchMs: number;
     pageLoadMs: number;
   };
   takeBlockedNavigations(): BlockedNavigationRecord[];
+  takeNavigationGuardWarnings(): NavigationGuardWarningRecord[];
   close(): Promise<void>;
 };
 
 export type CreateBrowserSessionOptions = {
   headless?: boolean;
   navigation?: ResolvedNavigationPolicy;
+  verify?: VerifySpec;
 };
 
 export async function createBrowserSession(
@@ -65,6 +81,7 @@ export async function createBrowserSession(
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
   const pageLoadStartedAt = Date.now();
   const context = await browser.newContext({
+    serviceWorkers: "block",
     viewport: {
       width: DEFAULT_VIEWPORT.w,
       height: DEFAULT_VIEWPORT.h
@@ -75,6 +92,7 @@ export async function createBrowserSession(
     requests: [],
     responses: []
   };
+  const domEvents: DomEventRecord[] = [];
 
   page.on("request", (request) => {
     network.requests.push({
@@ -94,6 +112,13 @@ export async function createBrowserSession(
     });
   });
 
+  await installDomEventRecorder(page, {
+    verify: options.verify,
+    onDomEvent: (event) => {
+      domEvents.push(event);
+    }
+  });
+
   await page.goto(url, { waitUntil: "load" });
   await waitForNetworkIdleBestEffort(page);
   const pageLoadMs = Date.now() - pageLoadStartedAt;
@@ -101,6 +126,7 @@ export async function createBrowserSession(
   const allowedOrigin = getAllowedOrigin(page.url());
   const startUrlPrefix = stripHash(url);
   const blockedNavigations: BlockedNavigationRecord[] = [];
+  const navigationGuardWarnings: NavigationGuardWarningRecord[] = [];
   const shouldInstallNavigationGuard = isNetworkNavigationGuardUrl(page.url());
 
   const recordBlockedNavigation = (targetUrl: string, reason: string) => {
@@ -110,6 +136,10 @@ export async function createBrowserSession(
       reason,
       timestamp: new Date().toISOString()
     });
+  };
+
+  const recordNavigationGuardWarning = (warning: NavigationGuardWarningRecord) => {
+    navigationGuardWarnings.push(warning);
   };
 
   if (shouldInstallNavigationGuard) {
@@ -138,7 +168,8 @@ export async function createBrowserSession(
       allowedOrigin,
       startUrlPrefix,
       policy: navigationPolicy,
-      onBlockedNavigation: recordBlockedNavigation
+      onBlockedNavigation: recordBlockedNavigation,
+      onInstallWarning: recordNavigationGuardWarning
     });
   }
 
@@ -147,17 +178,20 @@ export async function createBrowserSession(
     context,
     page,
     network,
+    domEvents,
     navigation: {
       policy: navigationPolicy,
       allowedOrigin,
       startUrlPrefix,
-      blocked: blockedNavigations
+      blocked: blockedNavigations,
+      warnings: navigationGuardWarnings
     },
     setupTimings: {
       browserLaunchMs,
       pageLoadMs
     },
     takeBlockedNavigations: () => blockedNavigations.splice(0, blockedNavigations.length),
+    takeNavigationGuardWarnings: () => navigationGuardWarnings.splice(0, navigationGuardWarnings.length),
     close: async () => {
       await context.close();
       await browser.close();
@@ -174,6 +208,17 @@ export async function settlePage(page: Page): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 }
 
+type DomEventRecorderConfig = {
+  selector: string;
+  event: string;
+};
+
+type DomEventBindingPayload = {
+  selector?: unknown;
+  event?: unknown;
+  url?: unknown;
+};
+
 async function waitForNetworkIdleBestEffort(page: Page): Promise<void> {
   try {
     await page.waitForLoadState("networkidle", { timeout: 1000 });
@@ -182,9 +227,131 @@ async function waitForNetworkIdleBestEffort(page: Page): Promise<void> {
   }
 }
 
+async function installDomEventRecorder(
+  page: Page,
+  context: {
+    verify?: VerifySpec;
+    onDomEvent: (event: DomEventRecord) => void;
+  }
+): Promise<void> {
+  const configs = resolveDomEventRecorderConfigs(context.verify);
+  if (configs.length === 0) {
+    return;
+  }
+
+  const bindingName = "__rawstepReportDomEvent";
+  await page.exposeBinding(bindingName, async (_source, payload: unknown) => {
+    const candidate = payload as DomEventBindingPayload | undefined;
+    if (typeof candidate?.selector !== "string" || candidate.selector.trim().length === 0) {
+      return;
+    }
+    if (typeof candidate?.event !== "string" || candidate.event.trim().length === 0) {
+      return;
+    }
+
+    context.onDomEvent({
+      selector: candidate.selector.trim(),
+      event: candidate.event.trim(),
+      timestamp: new Date().toISOString(),
+      url: typeof candidate.url === "string" && candidate.url.length > 0 ? candidate.url : page.url()
+    });
+  });
+
+  const initScript = createDomEventRecorderScript({
+    bindingName,
+    configs
+  });
+  await page.addInitScript({ content: initScript });
+  try {
+    await page.evaluate(initScript);
+  } catch {
+    // The page may still be initializing. The init script will run on subsequent documents.
+  }
+}
+
+function resolveDomEventRecorderConfigs(verify?: VerifySpec): DomEventRecorderConfig[] {
+  if (!verify) {
+    return [];
+  }
+
+  const deduped = new Map<string, DomEventRecorderConfig>();
+  for (const rule of verify.all) {
+    if (!("domEventSeen" in rule)) {
+      continue;
+    }
+
+    const config = {
+      selector: rule.domEventSeen.selector,
+      event: rule.domEventSeen.event
+    };
+    deduped.set(`${config.selector}::${config.event}`, config);
+  }
+
+  return [...deduped.values()];
+}
+
+function createDomEventRecorderScript(config: {
+  bindingName: string;
+  configs: DomEventRecorderConfig[];
+}): string {
+  return `(${DOM_EVENT_RECORDER_INSTALLER_SOURCE})(${JSON.stringify(config)})`;
+}
+
 const DEFAULT_NAVIGATION_POLICY: ResolvedNavigationPolicy = {
   strategy: "same-origin"
 };
+
+const DOM_EVENT_RECORDER_INSTALLER_SOURCE = String.raw`function(config) {
+  const globalWindow = window;
+  const root = globalWindow.__rawstepDomEventRecorder = globalWindow.__rawstepDomEventRecorder || {};
+  root.listenerKeys = root.listenerKeys || {};
+
+  const binding = globalWindow[config.bindingName];
+  if (typeof binding !== "function") {
+    return;
+  }
+
+  const report = function(selector, eventName) {
+    Promise.resolve(binding({
+      selector,
+      event: eventName,
+      url: window.location.href
+    })).catch(function() {
+      return undefined;
+    });
+  };
+
+  const attachDelegatedListener = function(selector, eventName) {
+    const listenerKey = selector + "::" + eventName;
+    if (root.listenerKeys[listenerKey]) {
+      return;
+    }
+
+    document.addEventListener(eventName, function(event) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      let matched;
+      try {
+        matched = target.closest(selector);
+      } catch {
+        return;
+      }
+
+      if (matched) {
+        report(selector, eventName);
+      }
+    }, true);
+    root.listenerKeys[listenerKey] = true;
+  };
+
+  for (let index = 0; index < config.configs.length; index += 1) {
+    const entry = config.configs[index];
+    attachDelegatedListener(entry.selector, entry.event);
+  }
+}`;
 
 function getAllowedOrigin(rawUrl: string): string {
   try {
@@ -232,48 +399,60 @@ async function installDocumentNavigationGuard(
   context: {
     policy: ResolvedNavigationPolicy;
     onBlockedNavigation: (targetUrl: string, reason: string) => void;
+    onInstallWarning: (warning: NavigationGuardWarningRecord) => void;
     allowedOrigin: string;
     startUrlPrefix: string;
   }
 ): Promise<void> {
-  const bindingName = "__rawstepReportBlockedNavigation";
+  const bindingName = "__rawstepReportNavigationGuardEvent";
   await page.exposeBinding(bindingName, async (_source, payload: unknown) => {
-    const candidate = payload as { targetUrl?: unknown; source?: unknown } | undefined;
-    const targetUrl = normalizeTargetUrl(candidate?.targetUrl, page.url());
-    const source = typeof candidate?.source === "string" ? candidate.source : "navigation";
-    if (source !== "popup") {
-      const reason = getNavigationBlockReason(targetUrl, context);
-      if (!reason) {
-        return;
-      }
-
-      context.onBlockedNavigation(targetUrl, reason);
+    const candidate = payload as NavigationGuardBindingPayload | undefined;
+    if (candidate?.kind === "install-warning") {
+      context.onInstallWarning(candidate.warning);
       return;
     }
 
-    context.onBlockedNavigation(targetUrl, getPopupBlockReason(targetUrl));
-  });
+    const targetUrl = normalizeTargetUrl(candidate?.targetUrl, page.url());
+    const source = candidate?.source === "popup" ? "popup" : "navigation";
+    if (source === "popup") {
+      context.onBlockedNavigation(targetUrl, getPopupBlockReason(targetUrl));
+      return;
+    }
 
-  await page.addInitScript(installDocumentNavigationGuardScript, {
+    const reason = getNavigationBlockReason(targetUrl, context);
+    if (!reason) {
+      return;
+    }
+
+    context.onBlockedNavigation(targetUrl, reason);
+  });
+  const initScript = createDocumentNavigationGuardScript({
     bindingName,
     policy: serializeNavigationPolicy(context.policy),
     allowedOrigin: context.allowedOrigin,
-    startUrlPrefix: context.startUrlPrefix
+    startUrlPrefix: context.startUrlPrefix,
+    reportViaBinding: true
   });
+  await page.addInitScript({ content: initScript });
   try {
-    await page.evaluate(installDocumentNavigationGuardScript, {
+    await page.evaluate(createDocumentNavigationGuardScript({
       bindingName,
       policy: serializeNavigationPolicy(context.policy),
       allowedOrigin: context.allowedOrigin,
-      startUrlPrefix: context.startUrlPrefix
-    });
-  } catch {
-    // Best effort only. The init script still covers future allowed navigations.
+      startUrlPrefix: context.startUrlPrefix,
+      reportViaBinding: true
+    }));
+  } catch (error) {
+    context.onInstallWarning(createNavigationGuardInstallWarning(
+      "script",
+      "Navigation guard setup failed before all hooks were installed.",
+      error
+    ));
   }
 
 }
 
-function installDocumentNavigationGuardScript(config: {
+function createDocumentNavigationGuardScript(config: {
   bindingName: string;
   policy:
     | { strategy: "same-origin" }
@@ -281,27 +460,57 @@ function installDocumentNavigationGuardScript(config: {
     | { strategy: "allow-url-list"; allowUrlList: string[] };
   allowedOrigin: string;
   startUrlPrefix: string;
-}): void {
-  const globalWindow = window as Window & {
-    __rawstepNavigationGuardInstalled?: boolean;
-    [key: string]: unknown;
+  reportViaBinding: boolean;
+}): string {
+  return `(${DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE})(${JSON.stringify(config)})`;
+}
+
+const DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE = String.raw`function(config) {
+  const globalWindow = window;
+  const warnings = [];
+  const buildInstallWarning = function(hook, message, error) {
+    return {
+      scope: "navigationGuard",
+      level: "warn",
+      code: "NAVIGATION_GUARD_INSTALL_WARNING",
+      message,
+      ...(error instanceof Error
+        ? {
+            error: error.message,
+            ...(error.stack ? { stack: error.stack } : {})
+          }
+        : {})
+    };
   };
   if (globalWindow.__rawstepNavigationGuardInstalled) {
-    return;
+    return { warnings };
   }
   globalWindow.__rawstepNavigationGuardInstalled = true;
 
-  const reportBlockedNavigation = (targetUrl: string, source: "navigation" | "popup") => {
-    const binding = globalWindow[config.bindingName] as ((payload: {
-      targetUrl: string;
-      source: "navigation" | "popup";
-    }) => unknown) | undefined;
+  const reportEvent = function(payload) {
+    if (!config.reportViaBinding) {
+      return;
+    }
+
+    const binding = globalWindow[config.bindingName];
     if (typeof binding === "function") {
-      binding({ targetUrl, source });
+      Promise.resolve(binding(payload)).catch(function() {
+        return undefined;
+      });
     }
   };
 
-  const normalizeTargetUrlInPage = (targetUrl: string) => {
+  const reportBlockedNavigation = function(targetUrl, source) {
+    reportEvent({ kind: "blocked", targetUrl, source });
+  };
+
+  const reportInstallWarning = function(hook, message, error) {
+    const warning = buildInstallWarning(hook, message, error);
+    warnings.push(warning);
+    reportEvent({ kind: "install-warning", warning });
+  };
+
+  const normalizeTargetUrlInPage = function(targetUrl) {
     try {
       return new URL(targetUrl, window.location.href).toString();
     } catch {
@@ -309,7 +518,7 @@ function installDocumentNavigationGuardScript(config: {
     }
   };
 
-  const isAllowedNavigation = (targetUrl: string) => {
+  const isAllowedNavigation = function(targetUrl) {
     const normalizedTargetUrl = normalizeTargetUrlInPage(targetUrl);
     if (config.policy.strategy === "same-origin") {
       try {
@@ -323,13 +532,12 @@ function installDocumentNavigationGuardScript(config: {
       return normalizedTargetUrl.startsWith(config.startUrlPrefix);
     }
 
-    return config.policy.allowUrlList.some((prefix) => normalizedTargetUrl.startsWith(prefix));
+    return config.policy.allowUrlList.some(function(prefix) {
+      return normalizedTargetUrl.startsWith(prefix);
+    });
   };
 
-  const maybeBlockNavigation = (
-    targetUrl: string,
-    source: "navigation" | "popup"
-  ): boolean => {
+  const maybeBlockNavigation = function(targetUrl, source) {
     const normalizedTargetUrl = normalizeTargetUrlInPage(targetUrl);
     const shouldBlock = source === "popup" || !isAllowedNavigation(normalizedTargetUrl);
     if (shouldBlock) {
@@ -339,121 +547,212 @@ function installDocumentNavigationGuardScript(config: {
     return shouldBlock;
   };
 
-  window.open = ((url?: string | URL) => {
-    maybeBlockNavigation(String(url ?? ""), "popup");
-    return null;
-  }) as typeof window.open;
-
-  const originalAssign = window.location.assign.bind(window.location);
-  window.location.assign = ((url: string | URL) => {
-    if (maybeBlockNavigation(String(url), "navigation")) {
-      return;
+  const installHook = function(hook, install, validate) {
+    try {
+      install();
+      if (validate && !validate()) {
+        reportInstallWarning(hook, 'Navigation guard hook "' + hook + '" did not stick after installation.');
+      }
+    } catch (error) {
+      reportInstallWarning(hook, 'Navigation guard hook "' + hook + '" failed during installation.', error);
     }
+  };
 
-    originalAssign(url);
-  }) as typeof window.location.assign;
-
-  const originalReplace = window.location.replace.bind(window.location);
-  window.location.replace = ((url: string | URL) => {
-    if (maybeBlockNavigation(String(url), "navigation")) {
-      return;
+  const originalOpen = window.open;
+  installHook(
+    "window.open",
+    function() {
+      window.open = function(url) {
+        maybeBlockNavigation(String(url ?? ""), "popup");
+        return null;
+      };
+    },
+    function() {
+      return window.open !== originalOpen;
     }
+  );
 
-    originalReplace(url);
-  }) as typeof window.location.replace;
+  const originalAssignFn = window.location.assign;
+  const originalAssign = originalAssignFn.bind(window.location);
+  installHook(
+    "window.location.assign",
+    function() {
+      window.location.assign = function(url) {
+        if (maybeBlockNavigation(String(url), "navigation")) {
+          return;
+        }
+
+        originalAssign(url);
+      };
+    }
+  );
+
+  const originalReplaceFn = window.location.replace;
+  const originalReplace = originalReplaceFn.bind(window.location);
+  installHook(
+    "window.location.replace",
+    function() {
+      window.location.replace = function(url) {
+        if (maybeBlockNavigation(String(url), "navigation")) {
+          return;
+        }
+
+        originalReplace(url);
+      };
+    }
+  );
 
   const originalAnchorClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function patchedAnchorClick() {
-    const source = this.target === "_blank" ? "popup" : "navigation";
-    if (maybeBlockNavigation(this.href, source)) {
-      return;
-    }
+  installHook(
+    "HTMLAnchorElement.prototype.click",
+    function() {
+      HTMLAnchorElement.prototype.click = function() {
+        const source = this.target === "_blank" ? "popup" : "navigation";
+        if (maybeBlockNavigation(this.href, source)) {
+          return;
+        }
 
-    originalAnchorClick.call(this);
-  };
+        originalAnchorClick.call(this);
+      };
+    },
+    function() {
+      return HTMLAnchorElement.prototype.click !== originalAnchorClick;
+    }
+  );
 
   const originalRequestSubmit = HTMLFormElement.prototype.requestSubmit;
   if (typeof originalRequestSubmit === "function") {
-    HTMLFormElement.prototype.requestSubmit = function patchedRequestSubmit(
-      submitter?: HTMLElement | null
-    ) {
-      const source = this.target === "_blank" ? "popup" : "navigation";
-      const targetUrl = this.action || window.location.href;
-      if (maybeBlockNavigation(targetUrl, source)) {
-        return;
-      }
+    installHook(
+      "HTMLFormElement.prototype.requestSubmit",
+      function() {
+        HTMLFormElement.prototype.requestSubmit = function(submitter) {
+          const source = this.target === "_blank" ? "popup" : "navigation";
+          const targetUrl = this.action || window.location.href;
+          if (maybeBlockNavigation(targetUrl, source)) {
+            return;
+          }
 
-      originalRequestSubmit.call(this, submitter);
-    };
+          originalRequestSubmit.call(this, submitter);
+        };
+      },
+      function() {
+        return HTMLFormElement.prototype.requestSubmit !== originalRequestSubmit;
+      }
+    );
   }
 
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return;
+  installHook(
+    "document keydown capture listener",
+    function() {
+      document.addEventListener("keydown", function(event) {
+        if (event.key !== "Enter") {
+          return;
+        }
+
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLAnchorElement && activeElement.href) {
+          const source = activeElement.target === "_blank" ? "popup" : "navigation";
+          if (maybeBlockNavigation(activeElement.href, source)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+          return;
+        }
+
+        const isSubmitInput = activeElement instanceof HTMLInputElement
+          && ["submit", "image"].includes(activeElement.type);
+        if (!(activeElement instanceof HTMLButtonElement) && !isSubmitInput) {
+          return;
+        }
+
+        const form = activeElement.form;
+        if (!form) {
+          return;
+        }
+
+        const source = form.target === "_blank" ? "popup" : "navigation";
+        const targetUrl = form.action || window.location.href;
+        if (maybeBlockNavigation(targetUrl, source)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
     }
+  );
 
-    const anchor = target.closest("a[href]");
-    if (!(anchor instanceof HTMLAnchorElement)) {
-      return;
+  installHook(
+    "document click capture listener",
+    function() {
+      document.addEventListener("click", function(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const anchor = target.closest("a[href]");
+        if (!(anchor instanceof HTMLAnchorElement)) {
+          return;
+        }
+
+        const source = anchor.target === "_blank" ? "popup" : "navigation";
+        if (maybeBlockNavigation(anchor.href, source)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
     }
+  );
 
-    const source = anchor.target === "_blank" ? "popup" : "navigation";
-    if (maybeBlockNavigation(anchor.href, source)) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
+  installHook(
+    "document submit capture listener",
+    function() {
+      document.addEventListener("submit", function(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLFormElement)) {
+          return;
+        }
+
+        const source = target.target === "_blank" ? "popup" : "navigation";
+        const targetUrl = target.action || window.location.href;
+        if (maybeBlockNavigation(targetUrl, source)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
     }
-  }, true);
+  );
 
-  document.addEventListener("submit", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLFormElement)) {
-      return;
+  return { warnings };
+}`;
+
+type NavigationGuardBindingPayload =
+  | {
+      kind: "blocked";
+      targetUrl: string;
+      source: "navigation" | "popup";
     }
+  | {
+      kind: "install-warning";
+      warning: NavigationGuardWarningRecord;
+    };
 
-    const source = target.target === "_blank" ? "popup" : "navigation";
-    const targetUrl = target.action || window.location.href;
-    if (maybeBlockNavigation(targetUrl, source)) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-  }, true);
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return;
-    }
-
-    const anchor = target.closest('a[target="_blank"]');
-    if (!(anchor instanceof HTMLAnchorElement)) {
-      return;
-    }
-
-    const source = anchor.target === "_blank" ? "popup" : "navigation";
-    if (!maybeBlockNavigation(anchor.href, source)) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }, true);
-
-  document.addEventListener("submit", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLFormElement)) {
-      return;
-    }
-
-    const source = target.target === "_blank" ? "popup" : "navigation";
-    const targetUrl = target.action || window.location.href;
-    if (!maybeBlockNavigation(targetUrl, source)) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }, true);
+function createNavigationGuardInstallWarning(
+  hook: string,
+  message: string,
+  error?: unknown
+): NavigationGuardWarningRecord {
+  return {
+    scope: "navigationGuard",
+    level: "warn",
+    code: "NAVIGATION_GUARD_INSTALL_WARNING",
+    message,
+    ...(error instanceof Error
+      ? {
+          error: error.message,
+          ...(error.stack ? { stack: error.stack } : {})
+        }
+      : {})
+  };
 }
 
 function normalizeTargetUrl(targetUrl: unknown, baseUrl: string): string {

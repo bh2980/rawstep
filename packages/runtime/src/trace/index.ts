@@ -7,10 +7,13 @@ import {
   type ExecutionRecord,
   type KeyboardObservation,
   type Observation,
+  type PlanState,
   type RecordedKeyboardObservation,
   type RecordedScreenReaderCursorScreenshot,
   type RecordedScreenReaderDomFocus,
   type RecordedObservation,
+  type ReflectionEvent,
+  type ReflectionState,
   type ResolvedTask,
   type StepRecord,
   type TraceAggregate,
@@ -33,6 +36,9 @@ export class TraceRecorder {
   private readonly steps: StepRecord[] = [];
   private session?: TraceSession;
   private diagnosticsInitialized = false;
+  private plan?: PlanState;
+  private planningError?: string;
+  private readonly reflections: ReflectionEvent[] = [];
   private setupTimings: Omit<TraceAggregate["timings"], "reportMs"> = {
     setupMs: 0,
     browserLaunchMs: 0,
@@ -126,7 +132,10 @@ export class TraceRecorder {
       startedAt: this.startedAt,
       endedAt,
       steps: [...this.steps],
-      aggregate
+      aggregate,
+      ...(this.plan ? { plan: this.plan } : {}),
+      ...(this.planningError ? { planningError: this.planningError } : {}),
+      ...(this.reflections.length > 0 ? { reflections: [...this.reflections] } : {})
     };
 
     this.session = session;
@@ -140,6 +149,10 @@ export class TraceRecorder {
     }
 
     return this.session;
+  }
+
+  getSteps(): StepRecord[] {
+    return [...this.steps];
   }
 
   setSetupTimings(timings: Omit<TraceAggregate["timings"], "reportMs">): void {
@@ -170,6 +183,36 @@ export class TraceRecorder {
   setExperienceSummaryError(error: string): void {
     if (this.session) {
       this.session.experienceSummaryError = error;
+    }
+  }
+
+  setPlan(plan: PlanState): void {
+    this.plan = plan;
+
+    if (this.session) {
+      this.session.plan = plan;
+      delete this.session.planningError;
+    }
+  }
+
+  setPlanningError(error: string): void {
+    this.planningError = error;
+
+    if (this.session) {
+      this.session.planningError = error;
+    }
+  }
+
+  appendReflection(step: number, reflection: ReflectionState): void {
+    const event: ReflectionEvent = {
+      step,
+      timestamp: new Date().toISOString(),
+      reflection
+    };
+    this.reflections.push(event);
+
+    if (this.session) {
+      this.session.reflections = [...this.reflections];
     }
   }
 
@@ -283,12 +326,49 @@ async function serializeKeyboardObservation(
   observation: KeyboardObservation,
   screenshotsDir: string
 ): Promise<RecordedKeyboardObservation> {
-  return {
+  const recorded: RecordedKeyboardObservation = {
     kind: "keyboard",
     screenshot: await serializeScreenshot(step, observation.screenshot, screenshotsDir),
     browserChrome: observation.browserChrome,
     focusHint: observation.focusHint,
     scrollHint: observation.scrollHint
+  };
+
+  if (observation.previousScreenshot && step > 0) {
+    recorded.previousScreenshot = {
+      path: `screenshots/step-${String(step - 1).padStart(3, "0")}.png`
+    };
+  }
+
+  if (observation.diffScreenshot) {
+    recorded.diffScreenshot = await serializeDiffScreenshot(
+      step,
+      observation.diffScreenshot,
+      screenshotsDir
+    );
+  }
+
+  return recorded;
+}
+
+async function serializeDiffScreenshot(
+  step: number,
+  screenshot: {
+    pngBase64: string;
+    viewport: { w: number; h: number };
+    changeRatio?: number;
+  },
+  screenshotsDir: string
+): Promise<{ path: string; changeRatio?: number }> {
+  const filename = `step-${String(step).padStart(3, "0")}-diff.png`;
+  const relativePath = `screenshots/${filename}`;
+  const absolutePath = join(screenshotsDir, filename);
+
+  await writeFile(absolutePath, Buffer.from(screenshot.pngBase64, "base64"));
+
+  return {
+    path: relativePath,
+    ...(screenshot.changeRatio !== undefined ? { changeRatio: screenshot.changeRatio } : {})
   };
 }
 

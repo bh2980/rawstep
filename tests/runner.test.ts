@@ -5,7 +5,9 @@ import {
 import type {
   AgentMemoryEntry,
   ScreenReaderAction,
-  ScreenReaderCapabilities
+  ScreenReaderCapabilities,
+  ScreenReaderObservation,
+  ScreenReaderReadback
 } from "@rawstep/definition";
 import { publishRunOutputs } from "@rawstep/reporter";
 import {
@@ -138,6 +140,49 @@ function createScreenreaderPlanningAgent(successMemoryThreshold = 3) {
   };
 }
 
+function createScreenreaderEventReflectionAgent() {
+  const planTask = vi.fn(async () => ({
+    steps: ["문맥 파악", "핵심 항목 찾기", "핵심 동작 실행"],
+    currentFocus: "핵심 항목 찾기",
+    successSignals: ["목표 관련 announcement가 읽힘"]
+  }));
+  const reflectProgress = vi.fn(async (input: {
+    ctx: { memory: AgentMemoryEntry[] };
+  }) => ({
+    status: "flat" as const,
+    assessment: "같은 발화가 반복되고 있다.",
+    strategyNote: `반복 감지 ${(input.ctx.memory.at(-1)?.sameAnnouncementCount ?? 0)}회`,
+    updatedFocus: "탐색 전략 전환"
+  }));
+  const decide = vi.fn(async (ctx: {
+    currentFocus?: string;
+    strategyNote?: string;
+    memory?: AgentMemoryEntry[];
+  }) => {
+    if ((ctx.memory?.length ?? 0) >= 6) {
+      return {
+        verdict: "stuck" as const,
+        rationale: "Enough repeated exploration."
+      };
+    }
+
+    return {
+      action: {
+        srAction: {
+          semantic: "next"
+        }
+      },
+      rationale: ctx.strategyNote ?? ctx.currentFocus ?? "Keep exploring."
+    };
+  });
+
+  return {
+    decide,
+    planTask,
+    reflectProgress
+  };
+}
+
 const MOCK_SCREEN_READER_CAPABILITIES: ScreenReaderCapabilities = {
   invoke: {
     next: true,
@@ -178,6 +223,22 @@ function createMockScreenReaderRuntime(overrides: {
       announcementCapture: "log" | "fallback" | "none" | "synthetic";
     }>;
   };
+  recoverFromUnexpectedBrowserUi?: (args: {
+    observation: ScreenReaderObservation;
+    domFocus?: import("@rawstep/definition").ScreenReaderDomFocusSnapshot;
+  }) => Promise<{
+    observation: ScreenReaderObservation;
+    recovered: boolean;
+    feedbackNote: string;
+    diagnostics: Array<{
+      scope: "screenReaderInit" | "navigationGuard";
+      level: "warn" | "error";
+      code: string;
+      message: string;
+      error?: string;
+      stack?: string;
+    }>;
+  }>;
   controller?: {
     execute: (action: ScreenReaderAction) => Promise<{ ok: boolean; costDelta: number }>;
   };
@@ -212,6 +273,13 @@ function createMockScreenReaderRuntime(overrides: {
       screenReaderInitMs: 12,
       firstAnnouncementWaitMs: 34
     },
+    recoverFromUnexpectedBrowserUi: overrides.recoverFromUnexpectedBrowserUi
+      ?? (async ({ observation }: { observation: ScreenReaderObservation }) => ({
+        observation,
+        recovered: false,
+        feedbackNote: "",
+        diagnostics: []
+      })),
     captureCursorScreenshot: overrides.captureCursorScreenshot ?? (async () => ({ status: "disabled" as const })),
     close: overrides.close ?? (async () => undefined)
   };
@@ -269,7 +337,11 @@ async function createNavigationFixtureServers(): Promise<{
       return;
     }
 
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.writeHead(200, {
+      "content-type": requestUrl.pathname.endsWith(".js")
+        ? "application/javascript; charset=utf-8"
+        : "text/html; charset=utf-8"
+    });
     res.end(html);
   });
   await listenServer(mainServer);
@@ -325,12 +397,175 @@ function renderNavigationFixturePage(pathname: string, baseUrl: string, external
     "/allow-unlisted": `<!doctype html>
       <html><head><title>Allow Unlisted</title></head>
       <body><h1>Allow Unlisted</h1></body></html>`,
+    "/assign-start": `<!doctype html>
+      <html><head><title>Assign Start</title></head>
+      <body>
+        <button type="button" id="assign-blocked-button" onclick="window.location.assign('${externalUrl}/assign-outside')">Assign blocked</button>
+        <a href="${baseUrl}/same-origin-target?from=assign#done" id="assign-fallback-link">Fallback same-origin link</a>
+      </body></html>`,
+    "/assign-allowed-start": `<!doctype html>
+      <html><head><title>Assign Allowed Start</title></head>
+      <body>
+        <button type="button" id="assign-allowed-button" onclick="window.location.assign('${baseUrl}/same-origin-target?from=assign-allowed#done')">Assign allowed</button>
+      </body></html>`,
+    "/replace-start": `<!doctype html>
+      <html><head><title>Replace Start</title></head>
+      <body>
+        <button type="button" id="replace-blocked-button" onclick="window.location.replace('${externalUrl}/replace-outside')">Replace blocked</button>
+        <a href="${baseUrl}/same-origin-target?from=replace#done" id="replace-fallback-link">Fallback same-origin link</a>
+      </body></html>`,
+    "/form-start": `<!doctype html>
+      <html><head><title>Form Start</title></head>
+      <body>
+        <form action="${externalUrl}/form-outside" method="get">
+          <button type="submit" id="form-blocked-button">Submit blocked form</button>
+        </form>
+        <a href="${baseUrl}/same-origin-target?from=form#done" id="form-fallback-link">Fallback same-origin link</a>
+      </body></html>`,
+    "/form-popup-start": `<!doctype html>
+      <html><head><title>Form Popup Start</title></head>
+      <body>
+        <form action="${externalUrl}/form-popup" method="get" target="_blank">
+          <button type="submit" id="form-popup-button">Submit popup form</button>
+        </form>
+        <a href="${baseUrl}/same-origin-target?from=form-popup#done" id="form-popup-fallback-link">Fallback same-origin link</a>
+      </body></html>`,
+    "/relative-allow-list/start": `<!doctype html>
+      <html><head><title>Relative Allow List Start</title></head>
+      <body>
+        <a href="./blocked" id="relative-allow-list-blocked-link">Relative blocked link</a>
+        <a href="./allowed/next" id="relative-allow-list-allowed-link">Relative allowed link</a>
+      </body></html>`,
+    "/relative-allow-list/allowed/next": `<!doctype html>
+      <html><head><title>Relative Allow Listed</title></head>
+      <body><h1>Relative Allow Listed</h1></body></html>`,
+    "/relative-allow-list/blocked": `<!doctype html>
+      <html><head><title>Relative Allow Blocked</title></head>
+      <body><h1>Relative Allow Blocked</h1></body></html>`,
+    "/relative-form-allow-list/start": `<!doctype html>
+      <html><head><title>Relative Form Allow List Start</title></head>
+      <body>
+        <form action="./blocked" method="get">
+          <button type="submit" id="relative-form-blocked-button">Submit relative blocked form</button>
+        </form>
+        <a href="./allowed/next" id="relative-form-allowed-link">Relative allowed link</a>
+      </body></html>`,
+    "/relative-form-allow-list/allowed/next": `<!doctype html>
+      <html><head><title>Relative Form Allow Listed</title></head>
+      <body><h1>Relative Form Allow Listed</h1></body></html>`,
+    "/relative-form-allow-list/blocked": `<!doctype html>
+      <html><head><title>Relative Form Allow Blocked</title></head>
+      <body><h1>Relative Form Allow Blocked</h1></body></html>`,
     "/popup-start": `<!doctype html>
       <html><head><title>Popup Start</title></head>
       <body>
         <a href="${externalUrl}/popup" target="_blank" rel="noopener" id="popup-link">Popup link</a>
         <a href="${baseUrl}/same-origin-target" id="popup-fallback-link">Fallback same-origin link</a>
-      </body></html>`
+      </body></html>`,
+    "/guard-warning-start": `<!doctype html>
+      <html><head><title>Guard Warning Start</title></head>
+      <body>
+        <script>
+          const originalOpen = window.open;
+          Object.defineProperty(window, "open", {
+            configurable: true,
+            get() {
+              return originalOpen;
+            },
+            set() {
+              throw new Error("window.open is locked by the page");
+            }
+          });
+        </script>
+        <a href="${externalUrl}/guard-warning-popup" target="_blank" rel="noopener" id="guard-warning-popup-link">Blocked popup link</a>
+        <a href="${baseUrl}/guard-warning-allowed" id="guard-warning-allowed-link">Guard warning allowed</a>
+      </body></html>`,
+    "/guard-warning-allowed": `<!doctype html>
+      <html><head><title>Guard Warning Allowed</title></head>
+      <body><h1>Guard Warning Allowed</h1></body></html>`,
+    "/sw-allow-list-start": `<!doctype html>
+      <html>
+        <head><title>SW Allow List Start</title></head>
+        <body>
+          <p id="sw-status">Preparing service worker fixture...</p>
+          <div id="sw-links" hidden>
+            <a href="${baseUrl}/sw-allow-list-blocked" id="sw-blocked-link">SW blocked link</a>
+            <a href="${baseUrl}/sw-allow-list-allowed/next" id="sw-allowed-link">SW allowed link</a>
+          </div>
+          <script>
+            async function initServiceWorkerFixture() {
+              const status = document.getElementById("sw-status");
+              const links = document.getElementById("sw-links");
+              const revealLinks = (message) => {
+                status.textContent = message;
+                links.hidden = false;
+              };
+              const waitWithTimeout = async (promise, timeoutMs, label) => {
+                const timeout = new Promise((_, reject) => {
+                  setTimeout(() => reject(new Error(label)), timeoutMs);
+                });
+                return await Promise.race([promise, timeout]);
+              };
+
+              if (!("serviceWorker" in navigator)) {
+                revealLinks("Service worker unsupported");
+                return;
+              }
+
+              try {
+                await waitWithTimeout(
+                  navigator.serviceWorker.register("/sw-allow-list-sw.js", { scope: "/" }),
+                  250,
+                  "service worker registration timed out"
+                );
+                await waitWithTimeout(
+                  navigator.serviceWorker.ready,
+                  250,
+                  "service worker ready timed out"
+                );
+
+                if (navigator.serviceWorker.controller) {
+                  revealLinks("Service worker controlled");
+                  return;
+                }
+
+                const controllerChanged = new Promise((resolve) => {
+                  navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), { once: true });
+                });
+                const timeout = new Promise((resolve) => setTimeout(resolve, 200));
+                await Promise.race([controllerChanged, timeout]);
+                revealLinks(navigator.serviceWorker.controller
+                  ? "Service worker controlled"
+                  : "Service worker blocked");
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                revealLinks("Service worker blocked: " + message);
+              }
+            }
+
+            void initServiceWorkerFixture();
+          </script>
+        </body>
+      </html>`,
+    "/sw-allow-list-sw.js": `
+      self.addEventListener("install", (event) => {
+        event.waitUntil(self.skipWaiting());
+      });
+      self.addEventListener("activate", (event) => {
+        event.waitUntil(self.clients.claim());
+      });
+      self.addEventListener("fetch", (event) => {
+        if (event.request.mode === "navigate") {
+          event.respondWith(fetch(event.request));
+        }
+      });
+    `,
+    "/sw-allow-list-blocked": `<!doctype html>
+      <html><head><title>SW Allow List Blocked</title></head>
+      <body><h1>SW Allow List Blocked</h1></body></html>`,
+    "/sw-allow-list-allowed/next": `<!doctype html>
+      <html><head><title>SW Allow Listed</title></head>
+      <body><h1>SW Allow Listed</h1></body></html>`
   };
 
   return pages[pathname];
@@ -771,6 +1006,350 @@ describe("runTask", () => {
     }
   });
 
+  it("blocks window.location.assign navigations outside the allowed scope and records feedback", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-assign-block-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-assign-block",
+          url: `${servers.baseUrl}/assign-start`,
+          goal: "Detect blocked assign navigation.",
+          mode: "keyboard",
+          maxSteps: 3,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Never matches" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter"], "Never matches")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("stuck");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`Blocked navigation to ${servers.externalUrl}/assign-outside`);
+      expect(blockedStep?.execution.error).toContain('Strategy "same-origin"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.externalUrl}/assign-outside`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("allows same-origin window.location.assign without recording blocked navigation diagnostics", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-assign-allow-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-assign-allow",
+          url: `${servers.baseUrl}/assign-allowed-start`,
+          goal: "Use allowed assign navigation to reach the target.",
+          mode: "keyboard",
+          maxSteps: 4,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      expect(session.steps[0]?.execution.ok).toBe(true);
+      await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks window.location.replace navigations outside the allowed scope and records feedback", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-replace-block-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-replace-block",
+          url: `${servers.baseUrl}/replace-start`,
+          goal: "Detect blocked replace navigation.",
+          mode: "keyboard",
+          maxSteps: 3,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Never matches" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter"], "Never matches")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("stuck");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`Blocked navigation to ${servers.externalUrl}/replace-outside`);
+      expect(blockedStep?.execution.error).toContain('Strategy "same-origin"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.externalUrl}/replace-outside`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks form submissions outside the allowed scope and continues", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-form-block-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-form-block",
+          url: `${servers.baseUrl}/form-start`,
+          goal: "Avoid blocked form navigation and reach the fallback target.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`Blocked navigation to ${servers.externalUrl}/form-outside`);
+      expect(blockedStep?.execution.error).toContain('Strategy "same-origin"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.externalUrl}/form-outside`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks popup form submissions, records diagnostics, and keeps the run in the current tab", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-form-popup-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-form-popup-block",
+          url: `${servers.baseUrl}/form-popup-start`,
+          goal: "Avoid popup form navigation and finish in the current tab.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain("Blocked popup/new-tab navigation");
+      expect(blockedStep?.execution.error).toContain(`${servers.externalUrl}/form-popup`);
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain("popup/new-tab");
+      expect(diagnostics).toContain(`${servers.externalUrl}/form-popup`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("normalizes relative link targets before enforcing allow-url-list policies", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-relative-link-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-relative-link-allow-list",
+          url: `${servers.baseUrl}/relative-allow-list/start`,
+          goal: "Use only allow-listed relative destinations.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Relative Allow Listed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: {
+            strategy: "allow-url-list",
+            allowUrlList: [`${servers.baseUrl}/relative-allow-list/allowed/`]
+          },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Relative Allow Listed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/relative-allow-list/blocked`);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/relative-allow-list/allowed/`);
+      expect(blockedStep?.execution.error).toContain('Strategy "allow-url-list"');
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("normalizes relative form actions before enforcing allow-url-list policies", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-relative-form-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-relative-form-allow-list",
+          url: `${servers.baseUrl}/relative-form-allow-list/start`,
+          goal: "Use only allow-listed relative form destinations.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Relative Form Allow Listed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: {
+            strategy: "allow-url-list",
+            allowUrlList: [`${servers.baseUrl}/relative-form-allow-list/allowed/`]
+          },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Relative Form Allow Listed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/relative-form-allow-list/blocked`);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/relative-form-allow-list/allowed/`);
+      expect(blockedStep?.execution.error).toContain('Strategy "allow-url-list"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.baseUrl}/relative-form-allow-list/blocked`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks allow-list escapes even when the page tries to register a navigation-forwarding service worker", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-service-worker-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-service-worker-allow-list",
+          url: `${servers.baseUrl}/sw-allow-list-start`,
+          goal: "Keep blocked service-worker routes from escaping the allow list.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "SW Allow Listed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: {
+            strategy: "allow-url-list",
+            allowUrlList: [`${servers.baseUrl}/sw-allow-list-allowed/`]
+          },
+          browserSessionFactory: async (url, options) => {
+            const session = await createBrowserSession(url, { headless: true, ...options });
+            await session.page.waitForSelector("#sw-links", { state: "visible" });
+            return session;
+          },
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "SW Allow Listed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/sw-allow-list-blocked`);
+      expect(blockedStep?.execution.error).toContain('Strategy "allow-url-list"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.baseUrl}/sw-allow-list-blocked`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("records a guard-install warning without losing popup blocking from later hooks", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-guard-warning-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-guard-warning",
+          url: `${servers.baseUrl}/guard-warning-start`,
+          goal: "Keep popup blocking active even if one navigation guard hook fails to install.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Guard Warning Allowed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Guard Warning Allowed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain("Blocked popup/new-tab navigation");
+      expect(blockedStep?.execution.error).toContain(`${servers.externalUrl}/guard-warning-popup`);
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_GUARD_INSTALL_WARNING");
+      expect(diagnostics).toContain("window.open");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.externalUrl}/guard-warning-popup`);
+    } finally {
+      await servers.close();
+    }
+  });
+
   it("runs planning once and feeds reflection updates into later decisions", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-planning-loop-"));
     const agent = createPlanningLoopAgent();
@@ -815,6 +1394,58 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("success");
   });
 
+  it("does not run reflection after a terminal verdict step", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-terminal-no-reflection-"));
+    const planTask = vi.fn(async () => ({
+      steps: ["상태 확인", "종료 판단"],
+      currentFocus: "상태 확인",
+      successSignals: ["종료 verdict가 기록됨"]
+    }));
+    const reflectProgress = vi.fn(async () => ({
+      status: "flat" as const,
+      assessment: "이미 끝난 step이라 reflection이 돌면 안 된다.",
+      strategyNote: "이 값은 사용되면 안 된다."
+    }));
+    const decide = vi.fn(async () => ({
+      verdict: "stuck" as const,
+      rationale: "Terminate immediately."
+    }));
+
+    const session = await runTask(
+      {
+        id: "terminal-no-reflection",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "첫 step에서 바로 종료하라.",
+        mode: "keyboard",
+        maxSteps: 3,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        planning: {
+          enabled: true,
+          reflectionCadence: 1,
+          initialDelaySteps: 0,
+          firstReflectionDelaySteps: 1
+        },
+        agent: {
+          decide,
+          planTask,
+          reflectProgress
+        }
+      }
+    );
+
+    expect(planTask).toHaveBeenCalledTimes(1);
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(reflectProgress).not.toHaveBeenCalled();
+    expect(session.reflections ?? []).toHaveLength(0);
+    expect(session.aggregate.endedBy).toBe("stuck");
+  });
+
   it("uses keyboard planning defaults to start planning before the first decision", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-keyboard-planning-default-"));
     const agent = createPlanningLoopAgent();
@@ -842,6 +1473,64 @@ describe("runTask", () => {
 
     expect(agent.planTask).toHaveBeenCalledTimes(1);
     expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("CTA 영역 찾기");
+  });
+
+  it("preserves natural keyboard focus without mutating page-root tabindex on startup", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-keyboard-natural-focus-"));
+    let page: Awaited<ReturnType<typeof createBrowserSession>>["page"] | undefined;
+
+    const session = await runTask(
+      {
+        id: "keyboard-natural-focus",
+        url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+        goal: "기존 포커스를 덮어쓰지 말고 그대로 관찰하라.",
+        mode: "keyboard",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Email Login Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: async (url, options) => {
+          const session = await createBrowserSession(url, { headless: true, ...options });
+          page = session.page;
+          await session.page.evaluate(() => {
+            (document.getElementById("email") as HTMLInputElement | null)?.focus();
+          });
+          return session;
+        },
+        agent: {
+          decide: async (_ctx, observation) => {
+            if (observation.kind !== "keyboard") {
+              throw new Error("Expected keyboard observation.");
+            }
+            if (!page) {
+              throw new Error("Browser page was not initialized.");
+            }
+
+            expect(observation.focusHint).toBe("input[type=email]");
+            await expect(page.evaluate(() => ({
+              activeId: document.activeElement instanceof HTMLElement ? document.activeElement.id : "",
+              bodyHasTabindex: document.body.hasAttribute("tabindex"),
+              htmlHasTabindex: document.documentElement.hasAttribute("tabindex")
+            }))).resolves.toEqual({
+              activeId: "email",
+              bodyHasTabindex: false,
+              htmlHasTabindex: false
+            });
+
+            return {
+              verdict: "stuck" as const,
+              rationale: "Startup assertions completed."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
   });
 
   it("ends by maxSteps when the agent never returns a verdict", async () => {
@@ -1526,9 +2215,60 @@ describe("runTask", () => {
     expect(agent.decide.mock.calls[1]?.[0].plan).toBeUndefined();
     expect(agent.decide.mock.calls[2]?.[0].plan).toBeUndefined();
     expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("핵심 항목 찾기");
-    expect(agent.reflectProgress).toHaveBeenCalledTimes(1);
+    expect(agent.reflectProgress).toHaveBeenCalled();
     expect(session.plan?.currentFocus).toBe("핵심 항목 찾기");
     expect(session.aggregate.endedBy).toBe("success");
+  });
+
+  it("triggers early reflection on repeated announcements and respects the cooldown", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-early-reflection-"));
+    const agent = createScreenreaderEventReflectionAgent();
+
+    const session = await runTask(
+      {
+        id: "screenreader-early-reflection",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Find the main action by screen reader exploration.",
+        mode: "screenreader",
+        maxSteps: 6,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Never matches" }]
+        }
+      },
+      {
+        outDir,
+        planning: {
+          enabled: true,
+          reflectionCadence: 10,
+          initialDelaySteps: 0,
+          firstReflectionDelaySteps: 10
+        },
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "반복되는 항목",
+              announcementCapture: "log"
+            })
+          }
+        }),
+        agent
+      }
+    );
+
+    expect(agent.planTask).toHaveBeenCalledTimes(1);
+    expect(agent.reflectProgress).toHaveBeenCalledTimes(2);
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("핵심 항목 찾기");
+    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("탐색 전략 전환");
+    expect(agent.decide.mock.calls[3]?.[0].strategyNote).toBe("반복 감지 3회");
+    expect(agent.decide.mock.calls[4]?.[0].strategyNote).toBe("반복 감지 3회");
+    expect(agent.decide.mock.calls[5]?.[0].strategyNote).toBe("반복 감지 3회");
+    expect(agent.decide.mock.calls[5]?.[0].currentFocus).toBe("탐색 전략 전환");
+    expect(session.reflections?.map((entry) => entry.step)).toEqual([2, 5]);
+    expect(session.aggregate.endedBy).toBe("maxSteps");
   });
 
   it("leaves plan unset when the run ends before planning delay is reached", async () => {
@@ -2117,6 +2857,66 @@ describe("runTask", () => {
     });
   });
 
+  it("can auto-complete using the latest activation announcement in screenreader mode", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-verifier-auto-activation-"));
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "verifier-auto-activation",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Activate the cart control.",
+        mode: "screenreader",
+        maxSteps: 4,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ activatedAnnouncementIncludes: "장바구니" }]
+        }
+      },
+      {
+        outDir,
+        verifierAutoComplete: true,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: observeCalls++ === 0 ? "장바구니 버튼" : "로그인 페이지",
+              announcementCapture: "log"
+            })
+          }
+        }),
+        agent: {
+          decide: async (ctx, obs) => {
+            expect(ctx.memory).toHaveLength(0);
+            expect(obs.kind).toBe("screenreader");
+            return {
+              action: {
+                srAction: {
+                  semantic: "act"
+                }
+              },
+              rationale: "Activate the announced cart control."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(session.steps).toHaveLength(1);
+    expect(session.steps[0].verification).toEqual({
+      passed: true,
+      failures: []
+    });
+    expect(session.steps[0].verdictAnalysis).toEqual({
+      verificationResult: "passed",
+      finalResult: "success",
+      completionSource: "verifier-auto-complete"
+    });
+  });
+
   it("continues with the same screenreader observation flow after a successful srAction", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-interactive-"));
     let observeCalls = 0;
@@ -2177,6 +2977,217 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("success");
+  });
+
+  it("replaces a browser-ui screenreader observation with a recovered observation before agent input", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-runtime-recovery-"));
+    let observeCalls = 0;
+    const recoverFromUnexpectedBrowserUi = vi.fn(async () => ({
+      observation: {
+        kind: "screenreader" as const,
+        announcement: "Recovered in-page button",
+        announcementCapture: "log" as const
+      },
+      recovered: true,
+      feedbackNote: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다.",
+      diagnostics: [{
+        scope: "screenReaderInit" as const,
+        level: "warn" as const,
+        code: "SCREENREADER_RUNTIME_RECOVERY_SUCCEEDED",
+        message: "Recovered before agent observation."
+      }]
+    }));
+    const seenAnnouncements: string[] = [];
+    const seenReadbacks: Array<ScreenReaderReadback[] | undefined> = [];
+
+    const session = await runTask(
+      {
+        id: "screenreader-runtime-recovery",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Read the recovered in-page control.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+              return observeCalls === 1
+                ? {
+                    kind: "screenreader",
+                    announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+                    announcementCapture: "log"
+                  }
+                : {
+                    kind: "screenreader",
+                    announcement: "Recovered in-page button",
+                    announcementCapture: "log"
+                  };
+            }
+          },
+          recoverFromUnexpectedBrowserUi
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            if (obs.kind === "screenreader") {
+              seenAnnouncements.push(obs.announcement);
+              seenReadbacks.push(obs.readbacks);
+            }
+            return {
+              verdict: "success" as const,
+              rationale: "Recovered observation reached the agent."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(recoverFromUnexpectedBrowserUi).toHaveBeenCalledTimes(1);
+    expect(seenAnnouncements).toEqual(["Recovered in-page button"]);
+    expect(seenReadbacks[0]).toContainEqual({
+      kind: "note",
+      source: "runtime-recovery",
+      value: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다."
+    });
+    const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+    expect(diagnostics).toContain("SCREENREADER_RUNTIME_RECOVERY_SUCCEEDED");
+  });
+
+  it("passes through the original browser-ui observation with a recovery failure note when runtime recovery fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-runtime-recovery-fail-"));
+    const recoverFromUnexpectedBrowserUi = vi.fn(async ({ observation }: { observation: ScreenReaderObservation }) => ({
+      observation,
+      recovered: false,
+      feedbackNote: "브라우저 UI를 감지했지만 자동 복구에 실패했습니다. 현재 observation은 웹 본문 밖일 수 있습니다.",
+      diagnostics: [{
+        scope: "screenReaderInit" as const,
+        level: "warn" as const,
+        code: "SCREENREADER_RUNTIME_RECOVERY_FAILED",
+        message: "Recovery failed before agent observation."
+      }]
+    }));
+    const seenAnnouncements: string[] = [];
+    const seenReadbacks: Array<ScreenReaderReadback[] | undefined> = [];
+
+    const session = await runTask(
+      {
+        id: "screenreader-runtime-recovery-fail",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Surface recovery failure context.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Never matches" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+              announcementCapture: "log"
+            })
+          },
+          recoverFromUnexpectedBrowserUi
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            if (obs.kind === "screenreader") {
+              seenAnnouncements.push(obs.announcement);
+              seenReadbacks.push(obs.readbacks);
+            }
+            return {
+              verdict: "stuck" as const,
+              rationale: "Recovery failure should be visible."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("stuck");
+    expect(recoverFromUnexpectedBrowserUi).toHaveBeenCalledTimes(1);
+    expect(seenAnnouncements).toEqual(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."]);
+    expect(seenReadbacks[0]).toContainEqual({
+      kind: "note",
+      source: "runtime-recovery",
+      value: "브라우저 UI를 감지했지만 자동 복구에 실패했습니다. 현재 observation은 웹 본문 밖일 수 있습니다."
+    });
+    const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+    expect(diagnostics).toContain("SCREENREADER_RUNTIME_RECOVERY_FAILED");
+  });
+
+  it("skips runtime recovery for non-browser-ui announcements and does not add recovery readbacks", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-runtime-recovery-skip-"));
+    const recoverFromUnexpectedBrowserUi = vi.fn(async ({ observation }: { observation: ScreenReaderObservation }) => ({
+      observation,
+      recovered: false,
+      feedbackNote: "",
+      diagnostics: []
+    }));
+    const seenAnnouncements: string[] = [];
+    const seenReadbacks: Array<ScreenReaderReadback[] | undefined> = [];
+
+    const session = await runTask(
+      {
+        id: "screenreader-runtime-recovery-skip",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Pass through in-page announcements without recovery.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Simple CTA Fixture 웹 콘텐츠. Get started 버튼.",
+              announcementCapture: "log"
+            })
+          },
+          recoverFromUnexpectedBrowserUi
+        }),
+        agent: {
+          decide: async (_ctx, obs) => {
+            if (obs.kind === "screenreader") {
+              seenAnnouncements.push(obs.announcement);
+              seenReadbacks.push(obs.readbacks);
+            }
+            return {
+              verdict: "success" as const,
+              rationale: "Recovery should not run for in-page announcements."
+            };
+          }
+        }
+      }
+    );
+
+    expect(session.aggregate.endedBy).toBe("success");
+    expect(recoverFromUnexpectedBrowserUi).not.toHaveBeenCalled();
+    expect(seenAnnouncements).toEqual(["Simple CTA Fixture 웹 콘텐츠. Get started 버튼."]);
+    expect(seenReadbacks[0]).toBeUndefined();
+    await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
   });
 
   it("feeds verifier feedback back into the screenreader path", async () => {

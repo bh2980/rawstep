@@ -13,11 +13,24 @@ export type ResponseVerificationRule = {
   };
 };
 
+export type ActivatedAnnouncementVerificationRule = {
+  activatedAnnouncementIncludes: string;
+};
+
+export type DomEventVerificationRule = {
+  domEventSeen: {
+    selector: string;
+    event: string;
+  };
+};
+
 export type VerifyRule =
   | { titleIncludes: string }
   | { urlIncludes: string }
   | { textVisible: string }
   | { textVisibleExact: string }
+  | ActivatedAnnouncementVerificationRule
+  | DomEventVerificationRule
   | RequestVerificationRule
   | ResponseVerificationRule;
 

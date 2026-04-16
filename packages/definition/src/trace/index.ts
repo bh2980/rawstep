@@ -42,6 +42,13 @@ export type RecordedKeyboardObservation = {
     path: string;
     viewport: { w: number; h: number };
   };
+  previousScreenshot?: {
+    path: string;
+  };
+  diffScreenshot?: {
+    path: string;
+    changeRatio?: number;
+  };
   browserChrome: {
     title: string;
     urlPath: string;

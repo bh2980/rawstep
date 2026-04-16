@@ -12,13 +12,19 @@ export {
   resolveScreenReaderCapabilities,
   resolveScreenReaderObserveProfile
 } from "./registry";
-export { createScreenReaderRuntime, ScreenReaderInitializationError } from "./runtime";
+export {
+  createScreenReaderRuntime,
+  ScreenReaderInitializationError,
+  classifyScreenReaderAnnouncementContext,
+  isHighConfidenceBrowserUi
+} from "./runtime";
 export type {
   ScreenReaderBackend,
   ScreenReaderBackendImplementation,
-  ScreenReaderObserveProfile,
-  ScreenReaderRuntimeOptions,
-  ScreenReaderRuntime,
-  ScreenReaderRuntimeFactory,
-  ScreenReaderSession
-} from "./types";
+    ScreenReaderObserveProfile,
+    ScreenReaderRuntimeOptions,
+    ScreenReaderRuntime,
+    ScreenReaderRuntimeRecoveryResult,
+    ScreenReaderRuntimeFactory,
+    ScreenReaderSession
+  } from "./types";

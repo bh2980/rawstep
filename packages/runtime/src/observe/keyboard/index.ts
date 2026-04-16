@@ -4,6 +4,7 @@ import {
 } from "@rawstep/definition";
 import type { Page } from "playwright";
 import { DEFAULT_VIEWPORT } from "../../browser/constants";
+import { createDiffScreenshot } from "./diff";
 import { isScrollHint } from "./constants";
 
 export class KeyboardObserver {
@@ -38,6 +39,18 @@ export class KeyboardObserver {
       observation.previousScreenshot = {
         pngBase64: this.previousScreenshotBase64
       };
+
+      try {
+        observation.diffScreenshot = createDiffScreenshot(
+          {
+            pngBase64: this.previousScreenshotBase64,
+            viewport: observation.screenshot.viewport
+          },
+          observation.screenshot
+        );
+      } catch {
+        // Best effort only. Skip diff generation when the screenshots cannot be decoded or compared.
+      }
     }
 
     this.previousScreenshotBase64 = currentBase64;

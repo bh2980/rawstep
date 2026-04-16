@@ -47,7 +47,17 @@ describe("TraceRecorder", () => {
 
     await recorder.append(
       1,
-      observation,
+      {
+        ...observation,
+        previousScreenshot: {
+          pngBase64: observation.screenshot.pngBase64
+        },
+        diffScreenshot: {
+          pngBase64: Buffer.from("fake-diff-png").toString("base64"),
+          viewport: { w: 1280, h: 800 },
+          changeRatio: 0.125
+        }
+      },
       { action: { typeText: "traveler@example.com" }, rationale: "Type the email input." },
       { ok: true, costDelta: 1 },
       { observeMs: 11, decideMs: 21, executeMs: 31, verifyMs: 0 }
@@ -87,12 +97,24 @@ describe("TraceRecorder", () => {
     expect(session.aggregate.terminatedAtStep).toBe(1);
     expect(session.aggregate.durationMs).toBeGreaterThanOrEqual(0);
     expect(session.aggregate.failurePoint?.stepIndex).toBe(1);
+    expect(session.steps[0]?.observation.kind).toBe("keyboard");
+    expect(session.steps[1]?.observation.kind).toBe("keyboard");
+    if (session.steps[1]?.observation.kind === "keyboard") {
+      expect(session.steps[1].observation.previousScreenshot).toEqual({
+        path: "screenshots/step-000.png"
+      });
+      expect(session.steps[1].observation.diffScreenshot).toEqual({
+        path: "screenshots/step-001-diff.png",
+        changeRatio: 0.125
+      });
+    }
 
     const jsonl = await readFile(join(outDir, "trace.jsonl"), "utf8");
     expect(jsonl.trim().split("\n")).toHaveLength(2);
     await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
 
     await expect(stat(join(outDir, "screenshots", "step-000.png"))).resolves.toBeTruthy();
+    await expect(stat(join(outDir, "screenshots", "step-001-diff.png"))).resolves.toBeTruthy();
     const metrics = JSON.parse(await readFile(join(outDir, "metrics.json"), "utf8")) as { endedBy: string };
     expect(metrics.endedBy).toBe("stuck");
   });

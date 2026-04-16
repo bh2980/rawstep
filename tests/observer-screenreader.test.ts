@@ -295,7 +295,7 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
-    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(evaluate).toHaveBeenCalledTimes(1);
     expect(firstObservation.kind).toBe("screenreader");
     expect(firstObservation.announcement).toContain("Initial announcement web content");
     expect(firstObservation.announcementCapture).toBe("log");
@@ -319,13 +319,14 @@ describe("observer-screenreader", () => {
     expect(stop).toHaveBeenCalled();
   });
 
-  it("uses an initial screen reader cursor sync during startup when the backend supports it", async () => {
+  it("uses backend-native startup positioning during startup when the backend supports it", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
     });
 
     const perform = vi.fn(async () => undefined);
+    const press = vi.fn(async () => undefined);
     const runtime = await createScreenReaderRuntime(
       {
         bringToFront: vi.fn(async () => undefined),
@@ -336,6 +337,7 @@ describe("observer-screenreader", () => {
           ...findScreenReaderBackendById("guidepup-voiceover"),
           createSession: async () => createMockScreenReaderSession({
             perform,
+            press,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
@@ -353,9 +355,10 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(perform).toHaveBeenCalledWith(
-      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
       { capture: "initial" }
     );
+    expect(press).not.toHaveBeenCalledWith("Escape", { capture: "initial" });
   });
 
   it("fails startup when non-page speech never resolves to web content", async () => {
@@ -442,6 +445,208 @@ describe("observer-screenreader", () => {
     expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
   });
 
+  it("accepts a mixed startup announcement after an unknown first announcement without another sync command", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => ({
+          title: "Email Login Fixture",
+          heading: "Email Login Fixture"
+        }))
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["랜드마크를 찾을 수 없음"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Chrome for Testing");
+    expect(firstObservation.announcement).toContain("웹 콘텐츠");
+    expect(perform).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers when a mixed startup announcement downgrades to pure browser UI", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => ({
+          title: "Email Login Fixture",
+          heading: "Email Login Fixture"
+        }))
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(perform).toHaveBeenNthCalledWith(
+      1,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      2,
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      3,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+  });
+
+  it("stabilizes repeated unknown startup speech before accepting web content", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => ({
+          title: "Email Login Fixture",
+          heading: "Email Login Fixture"
+        }))
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["랜드마크를 찾을 수 없음"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(perform).toHaveBeenCalledTimes(1);
+  });
+
+  it("records mixed and stabilized diagnostics when a mixed startup announcement still ends in browser UI failure", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    let error: unknown;
+    try {
+      await createScreenReaderRuntime(
+        {
+          bringToFront: vi.fn(async () => undefined),
+          evaluate: vi.fn(async () => ({
+            title: "Email Login Fixture",
+            heading: "Email Login Fixture"
+          }))
+        } as never,
+        {
+          backend: {
+            ...findScreenReaderBackendById("guidepup-voiceover"),
+            createSession: async () => createMockScreenReaderSession({
+              spokenPhraseLog: vi
+                .fn<() => Promise<string[]>>()
+                .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+            })
+          },
+          observe: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 3
+          }
+        }
+      );
+    } catch (candidate) {
+      error = candidate;
+    }
+
+    expect(error).toBeInstanceOf(ScreenReaderInitializationError);
+    expect((error as ScreenReaderInitializationError).diagnostics).toContainEqual(expect.objectContaining({
+      code: "SCREENREADER_INIT_MIXED_ANNOUNCEMENT"
+    }));
+    expect((error as ScreenReaderInitializationError).diagnostics).toContainEqual(expect.objectContaining({
+      code: "SCREENREADER_INIT_STABILIZED_AFTER_RETRY"
+    }));
+  });
+
   it("recovers from an empty first announcement by retrying screen reader focus sync", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
@@ -480,7 +685,10 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(firstObservation.announcement).toContain("Email 필수 사항 이메일");
-    expect(perform).toHaveBeenCalled();
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
   });
 
   it("recovers from browser UI focus during startup with Escape and a sync retry", async () => {
@@ -525,12 +733,24 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
-    expect(press).toHaveBeenCalledWith("Escape", { capture: "initial" });
-    expect(perform).toHaveBeenCalledTimes(2);
+    expect(press).not.toHaveBeenCalledWith("Escape", { capture: "initial" });
+    expect(perform).toHaveBeenNthCalledWith(
+      1,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      2,
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      3,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
     expect(page.bringToFront).toHaveBeenCalledTimes(3);
-    expect(body.focusCalls).toBe(2);
     expect(body.hasAttribute("tabindex")).toBe(false);
-    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
   });
 
   it("fails startup when browser UI focus persists after recovery", async () => {
@@ -572,13 +792,26 @@ describe("observer-screenreader", () => {
       }
     )).rejects.toThrow("Screen reader initialization failed because focus remained in browser UI instead of web content.");
 
-    expect(press).toHaveBeenCalledWith("Escape", { capture: "initial" });
-    expect(perform).toHaveBeenCalledTimes(2);
+    expect(press).not.toHaveBeenCalledWith("Escape", { capture: "initial" });
+    expect(perform).toHaveBeenNthCalledWith(
+      1,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      2,
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenNthCalledWith(
+      3,
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
     expect(body.hasAttribute("tabindex")).toBe(false);
-    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
   });
 
-  it("cleans the temporary page-root focus marker after successful initialization", async () => {
+  it("does not mutate page-root tabindex during successful initialization", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -611,7 +844,392 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(body.hasAttribute("tabindex")).toBe(false);
-    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
+  });
+
+  it("recovers an unexpected browser-ui observation during runtime before returning it to the agent path", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation: {
+        kind: "screenreader",
+        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcementCapture: "log"
+      },
+      domFocus: {
+        hasDocumentFocus: false
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(true);
+    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(recovery.feedbackNote).toContain("자동 복구");
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+  });
+
+  it("returns the original observation without recovery work when the announcement is already in web content", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const observation = {
+      kind: "screenreader" as const,
+      announcement: "Email Login Fixture 웹 콘텐츠",
+      announcementCapture: "log" as const
+    };
+    perform.mockClear();
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation,
+      domFocus: {
+        hasDocumentFocus: true
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(false);
+    expect(recovery.observation).toEqual(observation);
+    expect(recovery.feedbackNote).toBe("");
+    expect(recovery.diagnostics).toEqual([]);
+    expect(perform).not.toHaveBeenCalled();
+  });
+
+  it("uses focus-based realignment first when document focus is still in the page", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const voiceOverBackend = findScreenReaderBackendById("guidepup-voiceover");
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...voiceOverBackend,
+          capabilities: {
+            ...voiceOverBackend.capabilities,
+            performCatalog: [
+              ...voiceOverBackend.capabilities.performCatalog,
+              {
+                id: "keyboard.moveCursorToKeyboardFocus",
+                label: "moveCursorToKeyboardFocus",
+                description: "Move the screen reader cursor to the keyboard focus."
+              }
+            ]
+          },
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation: {
+        kind: "screenreader",
+        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcementCapture: "log"
+      },
+      domFocus: {
+        hasDocumentFocus: true
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(true);
+    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(recovery.feedbackNote).toContain("자동 복구");
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { capture: "initial" }
+    );
+    expect(perform).not.toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(recovery.diagnostics.some((event) => event.message.includes("focus-based screen reader realignment"))).toBe(true);
+  });
+
+  it("falls back to browser-ui escape and document re-entry when focus-based recovery does not return web content", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const voiceOverBackend = findScreenReaderBackendById("guidepup-voiceover");
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...voiceOverBackend,
+          capabilities: {
+            ...voiceOverBackend.capabilities,
+            performCatalog: [
+              ...voiceOverBackend.capabilities.performCatalog,
+              {
+                id: "keyboard.moveCursorToKeyboardFocus",
+                label: "moveCursorToKeyboardFocus",
+                description: "Move the screen reader cursor to the keyboard focus."
+              }
+            ]
+          },
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation: {
+        kind: "screenreader",
+        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcementCapture: "log"
+      },
+      domFocus: {
+        hasDocumentFocus: true
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(true);
+    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+    expect(recovery.diagnostics.some((event) => event.message.includes("browser-ui escape and document re-entry"))).toBe(true);
+  });
+
+  it("keeps the original observation when both focus-based and fallback runtime recovery paths fail", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const voiceOverBackend = findScreenReaderBackendById("guidepup-voiceover");
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...voiceOverBackend,
+          capabilities: {
+            ...voiceOverBackend.capabilities,
+            performCatalog: [
+              ...voiceOverBackend.capabilities.performCatalog,
+              {
+                id: "keyboard.moveCursorToKeyboardFocus",
+                label: "moveCursorToKeyboardFocus",
+                description: "Move the screen reader cursor to the keyboard focus."
+              }
+            ]
+          },
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation: {
+        kind: "screenreader",
+        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcementCapture: "log"
+      },
+      domFocus: {
+        hasDocumentFocus: true
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(false);
+    expect(recovery.observation.announcement).toContain("새 탭 버튼");
+    expect(recovery.feedbackNote).toContain("자동 복구에 실패");
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.stopAction" },
+      { capture: "initial" }
+    );
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
+      { capture: "initial" }
+    );
+    expect(recovery.diagnostics.some((event) => event.code === "SCREENREADER_RUNTIME_RECOVERY_FAILED")).toBe(true);
+  });
+
+  it("keeps the original runtime observation when browser-ui recovery fails", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const recovery = await runtime.recoverFromUnexpectedBrowserUi({
+      observation: {
+        kind: "screenreader",
+        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcementCapture: "log"
+      },
+      domFocus: {
+        hasDocumentFocus: false
+      }
+    });
+    await runtime.close();
+
+    expect(recovery.recovered).toBe(false);
+    expect(recovery.observation.announcement).toContain("새 탭 버튼");
+    expect(recovery.feedbackNote).toContain("자동 복구에 실패");
+    expect(recovery.diagnostics.some((event) => event.code === "SCREENREADER_RUNTIME_RECOVERY_FAILED")).toBe(true);
   });
 
   it("captures VoiceOver cursor screenshots only when the voiceOver option is enabled", async () => {
@@ -855,7 +1473,7 @@ describe("observer-screenreader", () => {
       announcementCount: 1,
       observeReason: "fallback"
     });
-    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(evaluate).toHaveBeenCalledTimes(1);
   });
 
   it("rejects explicitly configured backends that do not support the current platform", async () => {
@@ -1141,21 +1759,15 @@ function createDomBackedScreenReaderPage(options?: {
     evaluate: ReturnType<typeof vi.fn>;
   };
   body: {
-    focusCalls: number;
     hasAttribute(name: string): boolean;
   };
 } {
   class HTMLElementMock {
     private readonly attributes = new Map<string, string>();
     readonly textContent: string;
-    focusCalls = 0;
 
     constructor(textContent = "") {
       this.textContent = textContent;
-    }
-
-    focus(): void {
-      this.focusCalls += 1;
     }
 
     hasAttribute(name: string): boolean {
@@ -1183,9 +1795,7 @@ function createDomBackedScreenReaderPage(options?: {
         return heading.textContent ? heading : null;
       }
 
-      return selector === "[data-a11y-bootstrap-tabindex='true']" && body.hasAttribute("data-a11y-bootstrap-tabindex")
-        ? body
-        : null;
+      return null;
     }
   };
 

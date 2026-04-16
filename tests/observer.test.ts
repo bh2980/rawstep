@@ -17,6 +17,8 @@ describe("KeyboardObserver", () => {
       expect(first.screenshot.pngBase64.length).toBeGreaterThan(0);
       expect(typeof first.focusHint).toBe("string");
       expect(second.previousScreenshot?.pngBase64).toBe(first.screenshot.pngBase64);
+      expect(second.diffScreenshot?.pngBase64.length ?? 0).toBeGreaterThan(0);
+      expect(second.diffScreenshot?.changeRatio).toBeGreaterThanOrEqual(0);
       expect(["top", "middle", "bottom"]).toContain(second.scrollHint);
     } finally {
       await closeBrowserSession(session);

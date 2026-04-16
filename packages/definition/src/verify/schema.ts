@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type {
+  ActivatedAnnouncementVerificationRule,
+  DomEventVerificationRule,
   RequestVerificationRule,
   ResponseVerificationRule,
   VerifyRule,
@@ -13,6 +15,15 @@ const verifyRuleSchemas = {
   urlIncludes: z.object({ urlIncludes: nonEmptyString }).strict(),
   textVisible: z.object({ textVisible: nonEmptyString }).strict(),
   textVisibleExact: z.object({ textVisibleExact: nonEmptyString }).strict(),
+  activatedAnnouncementIncludes: z.object({
+    activatedAnnouncementIncludes: nonEmptyString
+  }).strict() as z.ZodType<ActivatedAnnouncementVerificationRule>,
+  domEventSeen: z.object({
+    domEventSeen: z.object({
+      selector: nonEmptyString,
+      event: nonEmptyString
+    }).strict()
+  }).strict() as z.ZodType<DomEventVerificationRule>,
   requestSeen: z.object({
     requestSeen: z.object({
       urlIncludes: nonEmptyString,

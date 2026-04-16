@@ -38,6 +38,7 @@ import {
 } from "@rawstep/definition";
 import {
   createScreenReaderRuntime,
+  isHighConfidenceBrowserUi,
   resolveScreenReaderBrowserHeadless,
   resolveScreenReaderCapabilities,
   ScreenReaderInitializationError,
@@ -64,7 +65,8 @@ import {
 import {
   formatVerificationFeedback,
   MAX_VERIFICATION_RETRIES,
-  verifyTask
+  verifyTask,
+  type VerificationContext
 } from "../verify";
 
 export type RunTaskOptions = {
@@ -114,6 +116,7 @@ type RunState = {
   verificationFailures: number;
   successfulActionCount: number;
   agentMemory: AgentMemoryEntry[];
+  latestActivation?: VerificationContext["latestActivation"];
   pendingScreenReaderReadbacks: ScreenReaderReadback[];
   pendingSyntheticAnnouncement?: string;
   pendingObservationOptions?: Parameters<RunnerObserver["observe"]>[0];
@@ -121,6 +124,7 @@ type RunState = {
   planningAttempted: boolean;
   planningStartedAtStep?: number;
   nextReflectionStep?: number;
+  lastReflectionStep?: number;
   plan?: PlanState;
   currentFocus?: string;
   strategyNote?: string;
@@ -192,10 +196,10 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
 
       await maybeStartPlanning(step, resources, state);
       const stepResult = await executeStep(step, resources, state);
-      await runReflectionIfNeeded(step, resources, state);
       if (!stepResult.continueLoop) {
         break;
       }
+      await runReflectionIfNeeded(step, resources, state);
 
       if (stepResult.settleAfterStep) {
         await settlePage(resources.browser.page);
@@ -231,10 +235,12 @@ async function initializeRunResources(
   const browserFactory = options.browserSessionFactory ?? createBrowserSession;
   cleanup.browser = await browserFactory(task.url, {
     headless: resolveScreenReaderBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId),
-    navigation: options.navigation
+    navigation: options.navigation,
+    verify: task.verify
   });
+  await flushNavigationGuardWarnings(trace, cleanup.browser, -1);
   if (!isScreenReaderMode(task.mode)) {
-    await bootstrapKeyboardFocus(cleanup.browser.page);
+    await cleanup.browser.page.bringToFront();
   }
 
   cleanup.screenReaderRuntime = isScreenReaderMode(task.mode)
@@ -377,7 +383,35 @@ async function buildAgentStepContext(
   const observeStartedAt = Date.now();
   const observationOptions = state.pendingObservationOptions;
   state.pendingObservationOptions = undefined;
-  const baseObservation = await resources.observer.observe(observationOptions);
+  let baseObservation = await resources.observer.observe(observationOptions);
+
+  if (
+    baseObservation.kind === "screenreader"
+    && resources.screenReaderRuntime
+    && isHighConfidenceBrowserUi(baseObservation.announcement)
+  ) {
+    const domFocus = await captureScreenReaderDomFocus(resources.browser.page);
+    const recovery = await resources.screenReaderRuntime.recoverFromUnexpectedBrowserUi({
+      observation: baseObservation,
+      ...(domFocus.status === "captured" ? { domFocus: domFocus.snapshot } : {})
+    });
+    const recoveryStep = resources.trace.getSteps().length;
+    for (const diagnostic of recovery.diagnostics) {
+      await resources.trace.appendDiagnostic(recoveryStep, diagnostic);
+    }
+    if (recovery.feedbackNote) {
+      baseObservation = {
+        ...recovery.observation,
+        readbacks: [
+          ...(recovery.observation.readbacks ?? []),
+          createRuntimeRecoveryReadback(recovery.feedbackNote)
+        ]
+      };
+    } else {
+      baseObservation = recovery.observation;
+    }
+  }
+
   const agentObservation = applyPendingSyntheticAnnouncement(
     applyPendingScreenReaderReadbacks(
       baseObservation,
@@ -514,9 +548,12 @@ async function runReflectionIfNeeded(
     !resources.planning.enabled
     || !resources.agent.reflectProgress
     || !state.plan
-    || state.nextReflectionStep === undefined
-    || step < state.nextReflectionStep
   ) {
+    return;
+  }
+
+  const reflectionTrigger = resolveReflectionTrigger(step, state);
+  if (!reflectionTrigger) {
     return;
   }
 
@@ -531,13 +568,58 @@ async function runReflectionIfNeeded(
       steps: recentSteps
     });
     state.lastReflection = reflection;
+    state.lastReflectionStep = step;
     state.strategyNote = reflection.strategyNote;
     state.currentFocus = reflection.updatedFocus ?? state.currentFocus;
-    state.nextReflectionStep = step + resources.planning.reflectionCadence;
+    if (reflectionTrigger === "cadence") {
+      state.nextReflectionStep = step + resources.planning.reflectionCadence;
+    }
     resources.trace.appendReflection(step, reflection);
   } catch {
     return;
   }
+}
+
+function resolveReflectionTrigger(
+  step: number,
+  state: Pick<RunState, "agentMemory" | "nextReflectionStep" | "lastReflectionStep">
+): "cadence" | "event" | undefined {
+  const cadenceDue = state.nextReflectionStep !== undefined && step >= state.nextReflectionStep;
+  if (cadenceDue) {
+    return "cadence";
+  }
+
+  const latestEntry = state.agentMemory.at(-1);
+  if (!latestEntry) {
+    return undefined;
+  }
+
+  if (
+    state.lastReflectionStep !== undefined
+    && step - state.lastReflectionStep < 3
+  ) {
+    return undefined;
+  }
+
+  if ((latestEntry.sameAnnouncementCount ?? 0) >= 3) {
+    return "event";
+  }
+
+  if ((latestEntry.sameActionCount ?? 0) >= 4) {
+    return "event";
+  }
+
+  const previousEntry = state.agentMemory.at(-2);
+  if (
+    latestEntry.announcementCapture === "none"
+    && latestEntry.observeReason === "timeout"
+    && previousEntry?.announcementCapture === "none"
+    && previousEntry.observeReason === "timeout"
+  ) {
+    return "event";
+  }
+
+  return undefined;
 }
 
 function resolveKeyboardActionPlan(
@@ -560,7 +642,9 @@ async function handleVerdictDecision(
 
   if (decision.verdict === "success") {
     const verifyStartedAt = Date.now();
-    const verification = await verifyTask(resources.task, resources.browser);
+    const verification = await verifyTask(resources.task, resources.browser, {
+      latestActivation: state.latestActivation
+    });
     const verifyMs = Date.now() - verifyStartedAt;
     const verificationFeedback = verification.passed
       ? undefined
@@ -603,7 +687,15 @@ async function handleVerdictDecision(
       developerScreenshot,
       stepContext.screenReaderArtifacts
     );
-    recordAgentMemoryEntry(resources, state, step, decision, verificationOutcome.finalResult, verificationFeedback);
+    recordAgentMemoryEntry(
+      resources,
+      state,
+      step,
+      decision,
+      verificationOutcome.finalResult,
+      observation,
+      verificationFeedback
+    );
     applyVerificationOutcome(state, verificationOutcome);
 
     return {
@@ -635,7 +727,7 @@ async function handleVerdictDecision(
       : undefined,
     stepContext.screenReaderArtifacts
   );
-  recordAgentMemoryEntry(resources, state, step, decision, "failure");
+  recordAgentMemoryEntry(resources, state, step, decision, "failure", observation);
   state.endedBy = decision.verdict;
 
   return {
@@ -659,7 +751,8 @@ async function handleActionDecision(
 
     const execution = await resources.actuator.execute(decision.action, resources.task.input);
     const executeMs = Date.now() - executeStartedAt;
-    await waitForBlockedNavigationSignal();
+    await waitForNavigationGuardSignal();
+    await flushNavigationGuardWarnings(resources.trace, resources.browser, step);
     const blockedNavigations = resources.browser.takeBlockedNavigations();
     if (blockedNavigations.length > 0) {
       return handleBlockedNavigationAttempt(
@@ -681,6 +774,13 @@ async function handleActionDecision(
 
     if (execution.ok && execution.costDelta > 0 && actionCanChangeTaskState(decision.action)) {
       state.successfulActionCount += 1;
+    }
+    if (execution.ok && isActivationAction(decision.action)) {
+      state.latestActivation = {
+        step,
+        action: decision.action,
+        observation
+      };
     }
     if (execution.ok) {
       state.pendingScreenReaderReadbacks = [
@@ -704,7 +804,9 @@ async function handleActionDecision(
     );
     const verifyStartedAt = shouldCheckVerifierAutoComplete ? Date.now() : 0;
     const verification = shouldCheckVerifierAutoComplete
-      ? await verifyTask(resources.task, resources.browser)
+      ? await verifyTask(resources.task, resources.browser, {
+        latestActivation: state.latestActivation
+      })
       : undefined;
     const verifyMs = shouldCheckVerifierAutoComplete
       ? Date.now() - verifyStartedAt
@@ -759,6 +861,7 @@ async function handleActionDecision(
       step,
       decision,
       verificationOutcome?.finalResult ?? "continued",
+      observation,
       execution.error
     );
 
@@ -815,7 +918,7 @@ async function handleActionDecision(
         : undefined,
       stepContext.screenReaderArtifacts
     );
-    recordAgentMemoryEntry(resources, state, step, decision, "continued", message);
+    recordAgentMemoryEntry(resources, state, step, decision, "continued", observation, message);
 
     if (error instanceof NotAllowedActionError) {
       state.endedBy = "error";
@@ -829,8 +932,19 @@ async function handleActionDecision(
   }
 }
 
-async function waitForBlockedNavigationSignal(): Promise<void> {
+async function waitForNavigationGuardSignal(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+async function flushNavigationGuardWarnings(
+  trace: TraceRecorder,
+  browser: BrowserSession,
+  step: number
+): Promise<void> {
+  const warnings = browser.takeNavigationGuardWarnings();
+  for (const warning of warnings) {
+    await trace.appendDiagnostic(step, warning);
+  }
 }
 
 async function handleBlockedNavigationAttempt(
@@ -888,7 +1002,15 @@ async function handleBlockedNavigationAttempt(
       : undefined,
     stepContext.screenReaderArtifacts
   );
-  recordAgentMemoryEntry(resources, state, stepContext.step, stepContext.decision, "continued", errorMessage);
+  recordAgentMemoryEntry(
+    resources,
+    state,
+    stepContext.step,
+    stepContext.decision,
+    "continued",
+    stepContext.observation,
+    errorMessage
+  );
 
   return {
     continueLoop: true,
@@ -915,9 +1037,14 @@ function recordAgentMemoryEntry(
   step: number,
   decision: Decision,
   outcome: AgentMemoryEntry["outcome"],
+  observation: Observation,
   note?: string
 ): void {
-  const memoryEntry = createAgentMemoryEntry(step, decision, outcome, note);
+  const memoryEntry = createAgentMemoryEntry(step, decision, outcome, {
+    note,
+    observation,
+    previousEntry: state.agentMemory.at(-1)
+  });
   state.agentMemory.push(memoryEntry);
   resources.agent.recordStepOutcome?.(memoryEntry);
 }
@@ -998,6 +1125,7 @@ function createScreenReaderReadbacks(
   const readbacks: ScreenReaderReadback[] = [];
   if (execution.readResult) {
     readbacks.push({
+      kind: "read",
       method: execution.readResult.method,
       value: execution.readResult.value
     });
@@ -1005,12 +1133,23 @@ function createScreenReaderReadbacks(
 
   if (execution.maintenanceResult) {
     readbacks.push({
+      kind: "maintenance",
       method: execution.maintenanceResult.method,
       status: execution.maintenanceResult.status
     });
   }
 
   return readbacks;
+}
+
+function createRuntimeRecoveryReadback(
+  note: string
+): ScreenReaderReadback {
+  return {
+    kind: "note",
+    source: "runtime-recovery",
+    value: note
+  };
 }
 
 function actionCanChangeTaskState(action: Action): boolean {
@@ -1032,21 +1171,21 @@ function shouldCaptureAlertFollowUp(action: Action): boolean {
     && action.srAction.semantic === "act";
 }
 
-async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {
-  await page.bringToFront();
-  await page.evaluate(() => {
-    window.focus();
-    const target = document.body ?? document.documentElement;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
+function isActivationAction(action: Action): boolean {
+  if ("key" in action) {
+    return action.key === "Enter" || action.key === "Space";
+  }
 
-    const hadTabIndex = target.hasAttribute("tabindex");
-    if (!hadTabIndex) {
-      target.setAttribute("tabindex", "-1");
-      target.setAttribute("data-rawstep-keyboard-bootstrap", "true");
-    }
+  if (!("srAction" in action)) {
+    return false;
+  }
 
-    target.focus({ preventScroll: true });
-  });
+  if ("extension" in action.srAction) {
+    return false;
+  }
+
+  return action.srAction.semantic === "act"
+    || action.srAction.semantic === "click"
+    || action.srAction.semantic === "key.enter"
+    || action.srAction.semantic === "key.space";
 }

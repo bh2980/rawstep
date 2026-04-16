@@ -18,6 +18,8 @@ describe("verifier", () => {
           { urlIncludes: "simple-cta.html" },
           { textVisible: "Started!" },
           { textVisibleExact: "Started!" },
+          { activatedAnnouncementIncludes: "Add to cart" },
+          { domEventSeen: { selector: "button", event: "click" } },
           { requestSeen: { urlIncludes: "/api/cart", method: "POST" } },
           { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
         ]
@@ -27,6 +29,8 @@ describe("verifier", () => {
           { urlIncludes: "simple-cta.html" },
           { textVisible: "Started!" },
           { textVisibleExact: "Started!" },
+          { activatedAnnouncementIncludes: "Add to cart" },
+          { domEventSeen: { selector: "button", event: "click" } },
           { requestSeen: { urlIncludes: "/api/cart", method: "POST" } },
           { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
         ]
@@ -47,7 +51,7 @@ describe("verifier", () => {
           { unknownRule: "x" }
         ]
       })).toThrow(
-        "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, requestSeen, responseSeen."
+        "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, activatedAnnouncementIncludes, domEventSeen, requestSeen, responseSeen."
       );
     });
 
@@ -102,6 +106,27 @@ describe("verifier", () => {
       expect(await evaluateVerifyRule({ urlIncludes: "simple-cta.html" }, session)).toBeUndefined();
       expect(await evaluateVerifyRule({ textVisible: "Started!" }, session)).toBeUndefined();
       expect(await evaluateVerifyRule({ textVisibleExact: "Started!" }, session)).toBeUndefined();
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("checks domEventSeen against recorded DOM events", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/simple-cta.html")).toString(), {
+      verify: {
+        all: [{ domEventSeen: { selector: "button", event: "click" } }]
+      }
+    });
+
+    try {
+      await session.page.getByRole("button", { name: "Get started" }).click();
+
+      expect(
+        await evaluateVerifyRule(
+          { domEventSeen: { selector: "button", event: "click" } },
+          session
+        )
+      ).toBeUndefined();
     } finally {
       await closeBrowserSession(session);
     }
@@ -165,6 +190,58 @@ describe("verifier", () => {
           session
         )
       ).toBeUndefined();
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("checks activatedAnnouncementIncludes against the latest screenreader activation context", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/simple-cta.html")).toString());
+
+    try {
+      expect(
+        await evaluateVerifyRule(
+          { activatedAnnouncementIncludes: "장바구니" },
+          session,
+          {
+            latestActivation: {
+              step: 3,
+              action: {
+                srAction: {
+                  semantic: "act"
+                }
+              },
+              observation: {
+                kind: "screenreader",
+                announcement: "장바구니 버튼",
+                announcementCapture: "log"
+              }
+            }
+          }
+        )
+      ).toBeUndefined();
+
+      expect(
+        await evaluateVerifyRule(
+          { activatedAnnouncementIncludes: "장바구니" },
+          session,
+          {
+            latestActivation: {
+              step: 4,
+              action: {
+                srAction: {
+                  semantic: "act"
+                }
+              },
+              observation: {
+                kind: "screenreader",
+                announcement: "좋아요 버튼",
+                announcementCapture: "log"
+              }
+            }
+          }
+        )
+      ).toBe('Verification failed: expected latest activation announcement to include "장바구니", observed "좋아요 버튼".');
     } finally {
       await closeBrowserSession(session);
     }
@@ -285,6 +362,26 @@ describe("verifier", () => {
       expect(result.passed).toBe(false);
       expect(result.failures[0]).toContain('expected visible text containing "Started!"');
       expect(formatVerificationFeedback(result)).toBe(result.failures[0]);
+
+      const activationResult = await verifyTask(
+        {
+          id: "verify-activation-failure",
+          url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+          goal: "Need the latest activation context.",
+          mode: "screenreader",
+          maxSteps: 2,
+          timeoutMs: 1000,
+          verify: {
+            all: [{ activatedAnnouncementIncludes: "장바구니" }]
+          }
+        } satisfies ResolvedTask,
+        session
+      );
+
+      expect(activationResult.passed).toBe(false);
+      expect(activationResult.failures[0]).toBe(
+        'Verification failed: no screenreader activation announcement including "장바구니" was recorded.'
+      );
     } finally {
       await closeBrowserSession(session);
     }

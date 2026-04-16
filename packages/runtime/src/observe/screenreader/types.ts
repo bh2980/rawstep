@@ -15,6 +15,7 @@ import type {
 } from "@rawstep/definition";
 import type { Page } from "playwright";
 import type { ScreenReaderCursorScreenshotCapture } from "../../trace/artifacts";
+import type { PendingDiagnosticEvent } from "../../trace/artifacts";
 
 export type ScreenReaderObserveProfile = {
   pollIntervalMs: number;
@@ -62,6 +63,10 @@ export type ScreenReaderRuntime = {
     screenReaderInitMs: number;
     firstAnnouncementWaitMs: number;
   };
+  recoverFromUnexpectedBrowserUi(args: {
+    observation: ScreenReaderObservation;
+    domFocus?: ScreenReaderDomFocusSnapshot;
+  }): Promise<ScreenReaderRuntimeRecoveryResult>;
   captureCursorScreenshot(): Promise<ScreenReaderCursorScreenshotCapture>;
   close(): Promise<void>;
 };
@@ -92,4 +97,11 @@ export type AnnouncementReader = (
 
 export type ScreenReaderRuntimeObserver = {
   observe(options?: AnnouncementReadOptions): Promise<ScreenReaderObservation>;
+};
+
+export type ScreenReaderRuntimeRecoveryResult = {
+  observation: ScreenReaderObservation;
+  recovered: boolean;
+  feedbackNote: string;
+  diagnostics: PendingDiagnosticEvent[];
 };
