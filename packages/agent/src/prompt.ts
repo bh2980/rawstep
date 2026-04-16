@@ -180,9 +180,9 @@ export function buildPlanningSystemPrompt(
   return renderPromptTemplate(templates.planningSystem, {
     outputExamples: [
       JSON.stringify({
-        steps: ["관련 영역 찾기", "필요한 입력이나 옵션 처리", "핵심 동작 실행"],
-        currentFocus: "관련 영역 찾기",
-        successSignals: ["목표와 직접 관련된 상태 변화가 읽힘"]
+        steps: ["Find the relevant area", "Handle required inputs or options", "Perform the key action"],
+        currentFocus: "Find the relevant area",
+        successSignals: ["A state change directly related to the goal is observed"]
       })
     ].join("\n")
   });
@@ -235,9 +235,9 @@ export function buildReflectionSystemPrompt(promptDir?: string): string {
     outputExamples: [
       JSON.stringify({
         status: "flat",
-        assessment: "최근 step에서 문맥 변화가 크지 않다.",
-        strategyNote: "같은 이동 반복보다 다른 탐색 전략을 검토한다.",
-        updatedFocus: "관련 영역 다시 찾기"
+        assessment: "The recent steps do not show much contextual change.",
+        strategyNote: "Consider a different exploration strategy instead of repeating the same movement.",
+        updatedFocus: "Find the relevant area again"
       })
     ].join("\n")
   });

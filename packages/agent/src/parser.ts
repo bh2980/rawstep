@@ -318,10 +318,10 @@ export function buildStuckRationaleRetryPromptParts(
     {
       type: "text",
       text: [
-        "이전 응답은 verdict=\"stuck\" 이었지만 rationale이 없었다.",
-        "같은 판단을 유지해도 좋다.",
-        "다시 JSON만 반환하라.",
-        "stuck을 유지한다면 rationale에 종료가 타당한 이유를 한 문장으로 반드시 포함하라.",
+        "The previous response had verdict=\"stuck\" but no rationale.",
+        "You may keep the same judgment.",
+        "Return JSON only again.",
+        "If you keep `stuck`, the rationale must include one sentence explaining why ending here is justified.",
         `previous response: ${JSON.stringify(previousRawText.trim())}`
       ].join("\n")
     }

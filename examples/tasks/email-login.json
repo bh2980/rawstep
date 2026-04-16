@@ -1,7 +1,7 @@
 {
   "id": "email-login",
   "url": "../../fixtures/email-login.html",
-  "goal": "이메일 입력칸에 email input 값을 넣고, Send magic link 버튼을 눌러 성공 메시지가 보이게 만들어라.",
+  "goal": "Enter the email input value into the email field, press the Send magic link button, and leave the page in a state where the success message is visible.",
   "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,

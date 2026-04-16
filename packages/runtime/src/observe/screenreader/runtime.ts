@@ -687,7 +687,7 @@ async function recoverFromUnexpectedBrowserUi(
       return {
         observation: toRuntimeScreenReaderObservation(focusRecovered.announcement, observation),
         recovered: true,
-        feedbackNote: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다.",
+        feedbackNote: "Browser UI was detected, automatic recovery was completed, and alignment was restored to the web content.",
         diagnostics
       };
     }
@@ -726,7 +726,7 @@ async function recoverFromUnexpectedBrowserUi(
     return {
       observation: toRuntimeScreenReaderObservation(recovered.announcement, observation),
       recovered: true,
-      feedbackNote: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다.",
+      feedbackNote: "Browser UI was detected, automatic recovery was completed, and alignment was restored to the web content.",
       diagnostics
     };
   }
@@ -740,7 +740,7 @@ async function recoverFromUnexpectedBrowserUi(
   return {
     observation,
     recovered: false,
-    feedbackNote: "브라우저 UI를 감지했지만 자동 복구에 실패했습니다. 현재 observation은 웹 본문 밖일 수 있습니다.",
+    feedbackNote: "Browser UI was detected, but automatic recovery failed. The current observation may still be outside the web content.",
     diagnostics
   };
 }
@@ -1242,41 +1242,41 @@ async function captureAttachAnnouncement(
 }
 
 const BROWSER_UI_PATTERNS = [
-  /닫기 버튼/,
-  /새 탭 버튼/,
-  /탭 검색/,
-  /최소화 버튼/,
-  /전체 화면 버튼/,
-  /선택됨 탭/,
-  /탭 그룹/,
+  /close button/,
+  /new tab button/,
+  /search tabs/,
+  /minimize button/,
+  /full screen button/,
+  /selected tab/,
+  /tab group/,
   /google chrome/,
   /chrome for testing/,
-  /현재 윈도우/,
-  /윈도우/,
+  /current window/,
+  /window/,
   /toolbar/,
   /title bar/
 ];
 
 const WEB_CONTEXT_PATTERNS = [
-  /웹 콘텐츠/,
-  /웹 영역/,
+  /web content/,
+  /web area/,
   /web content/,
   /web area/
 ];
 
 const ANNOUNCEMENT_CONTROL_PATTERNS = [
-  /텍스트 필드/,
-  /입력/,
+  /text field/,
+  /input/,
   /edit text/,
   /text field/,
   /textbox/,
   /button/,
-  /버튼/,
+  /button/,
   /checkbox/,
-  /체크박스/,
+  /checkbox/,
   /link/,
-  /링크/,
+  /link/,
   /form/,
-  /랜드마크/,
+  /landmark/,
   /landmark/
 ];

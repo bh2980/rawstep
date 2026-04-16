@@ -226,7 +226,7 @@ describe("reporter", () => {
       makeKeyboardStep(2, {
         decision: {
           verdict: "stuck",
-          rationale: "더 이상 진행할 수 없다.",
+          rationale: "I can no longer make progress.",
         },
         execution: {
           ok: true,
@@ -245,10 +245,10 @@ describe("reporter", () => {
           },
         },
         experienceSummary: {
-          overall: "로그인 버튼까지 가지 못했다.",
-          blockers: ["submit 버튼 접근 불가"],
-          surprise: "첫 입력 전부터 focus 흐름이 깨졌다.",
-          oneLineFeel: "첫 진입부터 막히는 화면이었다.",
+          overall: "I could not reach the sign-in button.",
+          blockers: ["Could not access the submit button"],
+          surprise: "The focus flow broke before the first input.",
+          oneLineFeel: "The screen was blocked from the very first entry.",
         },
       })
     );
@@ -259,7 +259,7 @@ describe("reporter", () => {
     expect(html).toContain('data-filter-tab="all"');
     expect(html).toContain('class="failure-marker-halo"');
     expect(html).toContain('id="detail-panel"');
-    expect(html).toContain("첫 진입부터 막히는 화면이었다.");
+    expect(html).toContain("The screen was blocked from the very first entry.");
     const initialMarkup = html.split("<script>")[0]!;
     const start = initialMarkup.indexOf('id="experience-summary"');
     const end = initialMarkup.indexOf("</section>", start);
@@ -279,10 +279,10 @@ describe("reporter", () => {
           terminatedAtStep: null,
         },
         experienceSummary: {
-          overall: "바로 성공 메시지까지 도달했다.",
+          overall: "I reached the success message immediately.",
           blockers: [],
           surprise: null,
-          oneLineFeel: "막힘 없이 끝났다.",
+          oneLineFeel: "It finished without getting stuck.",
         },
       })
     );
@@ -293,7 +293,7 @@ describe("reporter", () => {
 
     expect(initialMarkup).toContain('class="card summary-card is-compact"');
     expect(summarySection).not.toContain('<div class="summary-grid">');
-    expect(summarySection).toContain("막힘 없이 끝났다.");
+    expect(summarySection).toContain("It finished without getting stuck.");
   });
 
   it("defaults to the all filter, paginates 10 rows, and surfaces failure summaries in the list", async () => {
@@ -308,7 +308,7 @@ describe("reporter", () => {
       makeKeyboardStep(2, {
         decision: {
           verdict: "success",
-          rationale: "완료로 보인다.",
+          rationale: "It looks complete.",
         },
         execution: {
           ok: true,
@@ -373,7 +373,7 @@ describe("reporter", () => {
         },
         decision: {
           verdict: "success",
-          rationale: "완료 상태로 보인다.",
+          rationale: "It looks like a completed state.",
         },
         execution: {
           ok: true,
@@ -462,7 +462,7 @@ describe("reporter", () => {
       makeKeyboardStep(2, {
         decision: {
           verdict: "stuck",
-          rationale: "같은 시도를 멈춘다.",
+          rationale: "Stop repeating the same attempt.",
         },
         execution: {
           ok: true,
@@ -479,9 +479,9 @@ describe("reporter", () => {
             timestamp: "2026-04-12T00:00:01.500Z",
             reflection: {
               status: "flat",
-              assessment: "첫 진입 뒤에도 유의미한 변화가 없다.",
-              strategyNote: "폼 대신 landmarks 먼저 훑는다.",
-              updatedFocus: "landmark 구조 확인",
+              assessment: "There is no meaningful change even after the initial entry.",
+              strategyNote: "Scan landmarks first instead of the form.",
+              updatedFocus: "Check the landmark structure",
             },
           },
           {
@@ -489,9 +489,9 @@ describe("reporter", () => {
             timestamp: "2026-04-12T00:00:02.500Z",
             reflection: {
               status: "drifting",
-              assessment: "같은 Tab 탐색이 반복된다.",
-              strategyNote: "버튼 재시도는 멈추고 heading 기준으로 재탐색한다.",
-              updatedFocus: "heading 기준 재탐색",
+              assessment: "The same Tab exploration is repeating.",
+              strategyNote: "Stop retrying the button and re-explore by heading.",
+              updatedFocus: "Re-explore by heading",
             },
           },
         ],
@@ -501,12 +501,12 @@ describe("reporter", () => {
 
     expect((initialMarkup.match(/class="reflection-row"/g) ?? []).length).toBe(2);
     expect(initialMarkup).toContain("Strategy Checkpoint");
-    expect(initialMarkup).toContain("폼 대신 landmarks 먼저 훑는다.");
-    expect(initialMarkup).toContain("버튼 재시도는 멈추고 heading 기준으로 재탐색한다.");
+    expect(initialMarkup).toContain("Scan landmarks first instead of the form.");
+    expect(initialMarkup).toContain("Stop retrying the button and re-explore by heading.");
     expect(initialMarkup).toContain("Next Focus");
-    expect(initialMarkup.indexOf("폼 대신 landmarks 먼저 훑는다.")).toBeGreaterThan(initialMarkup.indexOf("Step 1"));
-    expect(initialMarkup.indexOf("폼 대신 landmarks 먼저 훑는다.")).toBeLessThan(initialMarkup.indexOf("Step 2"));
-    expect(initialMarkup).toContain("2회 기록됨 · Drifting");
+    expect(initialMarkup.indexOf("Scan landmarks first instead of the form.")).toBeGreaterThan(initialMarkup.indexOf("Step 1"));
+    expect(initialMarkup.indexOf("Scan landmarks first instead of the form.")).toBeLessThan(initialMarkup.indexOf("Step 2"));
+    expect(initialMarkup).toContain("2 recorded · Drifting");
   });
 
   it("renders action breakdown and timing sparkline for overview navigation", async () => {
@@ -514,14 +514,14 @@ describe("reporter", () => {
       makeKeyboardStep(0, {
         decision: {
           action: { key: "Enter" },
-          rationale: "CTA를 눌러 본다.",
+          rationale: "Try pressing the CTA.",
         },
       }),
       makeScreenReaderStep(1),
       makeKeyboardStep(2, {
         decision: {
           action: { typeText: "traveler@example.com" },
-          rationale: "이메일을 입력한다.",
+          rationale: "Enter the email.",
         },
       }),
     ];
@@ -719,7 +719,7 @@ describe("reporter", () => {
         return makeKeyboardStep(index, {
           decision: {
             verdict: "stuck",
-            rationale: "더 이상 진행 불가",
+            rationale: "No further progress possible",
           },
           execution: {
             ok: true,
@@ -738,7 +738,7 @@ describe("reporter", () => {
           endedBy: "stuck",
           failurePoint: {
             stepIndex: 312,
-            reason: "더 이상 진행 불가",
+            reason: "No further progress possible",
           },
         },
       })
@@ -830,7 +830,7 @@ describe("reporter", () => {
       makeKeyboardStep(0, {
         decision: {
           action: { key: "Enter" },
-          rationale: "검색 결과 페이지로 이동을 시도한다.",
+          rationale: "Try moving to the search results page.",
         },
         execution: {
           ok: false,

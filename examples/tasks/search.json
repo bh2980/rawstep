@@ -1,7 +1,7 @@
 {
   "id": "search",
   "url": "../../fixtures/search.html",
-  "goal": "Query 입력칸에 query input 값을 넣고 Search 버튼을 눌러 결과 리스트를 연 뒤, Passport2 아이템 안의 버튼을 눌러 선택 완료 상태를 만들어라.",
+  "goal": "Enter the query input value into the Query field, press the Search button to open the results list, then press the button inside the Passport2 item and leave the page in a selected-complete state.",
   "mode": "screenreader",
   "maxSteps": 20,
   "timeoutMs": 180000,

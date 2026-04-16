@@ -142,9 +142,9 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
     "keyboard.browse.user.md": "browse goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ncurrent observation:\n{{currentObservation}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
     "screenreader.browse.system.md": "browse-system-screenreader\n{{outputExamples}}",
     "screenreader.browse.user.md": "browse goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ncurrent observation:\n{{currentObservation}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
-    "keyboard.system.md": "system-keyboard\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
-    "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
-    "screenreader.system.md": "system-screenreader\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
+    "keyboard.system.md": "system-keyboard\nOutput rules:\n- Return exactly one JSON object.\n- Return either action or verdict for a single turn.\n- Example:\n```json\n{{outputExamples}}\n```",
+    "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\nImage note\navailable actions:\n{{availableActions}}",
+    "screenreader.system.md": "system-screenreader\nOutput rules:\n- Return exactly one JSON object.\n- Return either action or verdict for a single turn.\n- Example:\n```json\n{{outputExamples}}\n```",
     "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
     "planning.system.md": "planning-template\n{{outputExamples}}",
     "planning.user.md": "goal:\n{{goal}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}\ncurrent observation:\n{{currentObservation}}",
@@ -803,11 +803,11 @@ describe("agent helpers", () => {
       {
         ...makeKeyboardContext(),
         plan: {
-          steps: ["영역 찾기", "핵심 동작"],
-          currentFocus: "영역 찾기",
-          successSignals: ["관련 변화 읽힘"]
+          steps: ["Find area", "Key action"],
+          currentFocus: "Find area",
+          successSignals: ["A relevant change is announced"]
         },
-        currentFocus: "영역 찾기"
+        currentFocus: "Find area"
       },
       makeKeyboardObservation(),
       undefined,
@@ -843,11 +843,11 @@ describe("agent helpers", () => {
       {
         ...makeKeyboardContext(),
         plan: {
-          steps: ["영역 찾기", "핵심 동작"],
-          currentFocus: "영역 찾기",
-          successSignals: ["관련 변화 읽힘"]
+          steps: ["Find area", "Key action"],
+          currentFocus: "Find area",
+          successSignals: ["A relevant change is announced"]
         },
-        currentFocus: "영역 찾기"
+        currentFocus: "Find area"
       },
       observation,
       undefined,
@@ -892,7 +892,7 @@ describe("agent helpers", () => {
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
       expect(promptParts[0].text).toContain('focus hint:\n- status: present\n- value: "none"');
-      expect(promptParts[0].text).not.toContain("현재 focus된 인터랙티브 요소가 감지되지 않았다.");
+      expect(promptParts[0].text).not.toContain("No currently focused interactive element was detected.");
       expect(promptParts[0].text).not.toContain("(empty)");
     }
   });
@@ -982,7 +982,7 @@ describe("agent helpers", () => {
         readbacks: [
           { kind: "read", method: "itemText", value: "Email" },
           { kind: "maintenance", method: "clearItemTextLog", status: "cleared" },
-          { kind: "note", source: "runtime-recovery", value: "브라우저 UI 감지 후 자동 복구를 수행했습니다." }
+          { kind: "note", source: "runtime-recovery", value: "Browser UI was detected and automatic recovery was completed." }
         ]
       }
     );
@@ -992,7 +992,7 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- status: present");
       expect(promptParts[0].text).toContain('- method=itemText, value="Email"');
       expect(promptParts[0].text).toContain("- method=clearItemTextLog, status=cleared");
-      expect(promptParts[0].text).toContain('note(runtime-recovery)="브라우저 UI 감지 후 자동 복구를 수행했습니다."');
+      expect(promptParts[0].text).toContain('note(runtime-recovery)="Browser UI was detected and automatic recovery was completed."');
       expect(promptParts[0].text).not.toContain('{"method":"itemText","value":"Email"}');
     }
   });
@@ -1061,14 +1061,14 @@ describe("agent helpers", () => {
       },
       {
         keyboardActions: makeKeyboardDescriptors(["Tab"], {
-          Tab: "다음 포커스로 이동"
+          Tab: "Move to the next focus target"
         }),
         screenReaderActions: [
           {
             kind: "stable",
             token: "sr.click",
             semantic: "click",
-            hint: "현재 항목을 클릭할 때 사용",
+            hint: "Use this to click the current item",
             argumentKind: "click"
           }
         ]
@@ -1077,7 +1077,7 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("- sr.click: 현재 항목을 클릭할 때 사용");
+      expect(promptParts[0].text).toContain("- sr.click: Use this to click the current item");
       expect(promptParts[0].text).toContain('- typeText("traveler@example.com")');
     }
   });
@@ -1203,32 +1203,32 @@ describe("agent helpers", () => {
   });
 
   it("parses planning and reflection JSON payloads", () => {
-    expect(parsePlanState('{"steps":["영역 찾기","핵심 동작"],"currentFocus":"영역 찾기","successSignals":["관련 변화 읽힘"]}')).toEqual({
-      steps: ["영역 찾기", "핵심 동작"],
-      currentFocus: "영역 찾기",
-      successSignals: ["관련 변화 읽힘"]
+    expect(parsePlanState('{"steps":["Find area","Key action"],"currentFocus":"Find area","successSignals":["A relevant change is announced"]}')).toEqual({
+      steps: ["Find area", "Key action"],
+      currentFocus: "Find area",
+      successSignals: ["A relevant change is announced"]
     });
-    expect(parseReflectionState('{"status":"flat","assessment":"최근 변화가 작다.","strategyNote":"다른 전략을 검토한다.","updatedFocus":"영역 다시 찾기"}')).toEqual({
+    expect(parseReflectionState('{"status":"flat","assessment":"Recent changes are small.","strategyNote":"Consider a different strategy.","updatedFocus":"Find the area again"}')).toEqual({
       status: "flat",
-      assessment: "최근 변화가 작다.",
-      strategyNote: "다른 전략을 검토한다.",
-      updatedFocus: "영역 다시 찾기"
+      assessment: "Recent changes are small.",
+      strategyNote: "Consider a different strategy.",
+      updatedFocus: "Find the area again"
     });
   });
 
   it("strips HTML comments from prompt templates before rendering", async () => {
     const rootDir = await createPromptFixtureRoot({
-      "keyboard.system.md": "system-keyboard\n<!-- 내부 메모: 이 줄은 모델에 보내지지 않아야 함 -->\n출력 규칙:\n```json\n{{outputExamples}}\n```",
-      "keyboard.user.md": "goal:\n{{goal}}\n<!-- 숨김 규칙 -->\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+      "keyboard.system.md": "system-keyboard\n<!-- Internal note: this line must not be sent to the model -->\nOutput rules:\n```json\n{{outputExamples}}\n```",
+      "keyboard.user.md": "goal:\n{{goal}}\n<!-- Hidden rule -->\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
     });
     process.chdir(rootDir);
 
     const templates = loadPromptTemplates(rootDir);
     const prompt = buildSystemPrompt("keyboard");
 
-    expect(templates.keyboardSystem).not.toContain("내부 메모");
-    expect(templates.keyboardUser).not.toContain("숨김 규칙");
-    expect(prompt).not.toContain("내부 메모");
+    expect(templates.keyboardSystem).not.toContain("Internal note");
+    expect(templates.keyboardUser).not.toContain("Hidden rule");
+    expect(prompt).not.toContain("Internal note");
   });
 
   it("does not count placeholders inside HTML comments", async () => {
@@ -1328,12 +1328,12 @@ describe("agent helpers", () => {
           }
         ],
         plan: {
-          steps: ["영역 찾기", "핵심 동작"],
-          currentFocus: "영역 찾기",
-          successSignals: ["관련 변화 읽힘"]
+          steps: ["Find area", "Key action"],
+          currentFocus: "Find area",
+          successSignals: ["A relevant change is announced"]
         },
-        currentFocus: "영역 찾기",
-        strategyNote: "같은 이동 반복을 줄인다."
+        currentFocus: "Find area",
+        strategyNote: "Reduce repeated movement of the same kind."
       },
       [{
         step: 1,
@@ -1423,14 +1423,14 @@ describe("agent helpers", () => {
     const promptParts = buildPromptParts(
       "screenreader",
       {
-        goal: "장바구니 버튼을 찾는다.",
+        goal: "Find the Add to cart button.",
         screenReaderActions: makeScreenReaderDescriptors(["next"]),
         memory: [
           {
             step: 3,
             action: "sr.next",
             outcome: "continued",
-            announcementExcerpt: "장바구니 버튼",
+            announcementExcerpt: "Add to cart button",
             announcementCapture: "log",
             announcementCount: 2,
             observeReason: "silence",
@@ -1447,7 +1447,7 @@ describe("agent helpers", () => {
       },
       {
         kind: "screenreader",
-        announcement: "장바구니 버튼",
+        announcement: "Add to cart button",
         announcementCapture: "log",
         announcementCount: 2,
         observeReason: "silence"
@@ -1456,7 +1456,7 @@ describe("agent helpers", () => {
 
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain('announcement="장바구니 버튼"');
+      expect(promptParts[0].text).toContain('announcement="Add to cart button"');
       expect(promptParts[0].text).toContain('capture="log"');
       expect(promptParts[0].text).toContain("announcementCount=2");
       expect(promptParts[0].text).toContain('observeReason="silence"');
@@ -1475,8 +1475,8 @@ describe("agent helpers", () => {
       model: "claude-custom",
       promptDir: join(rootDir, "prompt"),
       completionClient: createCompletionClient([
-        '{"steps":["영역 찾기","핵심 동작"],"currentFocus":"영역 찾기","successSignals":["관련 변화 읽힘"]}',
-        '{"status":"progressing","assessment":"새로운 문맥이 계속 나온다.","strategyNote":"현재 전략을 유지한다."}'
+        '{"steps":["Find area","Key action"],"currentFocus":"Find area","successSignals":["A relevant change is announced"]}',
+        '{"status":"progressing","assessment":"New context keeps appearing.","strategyNote":"Keep the current strategy."}'
       ])
     });
 
@@ -1485,11 +1485,11 @@ describe("agent helpers", () => {
       ctx: {
         ...makeKeyboardContext(),
         plan: {
-          steps: ["영역 찾기", "핵심 동작"],
-          currentFocus: "영역 찾기",
-          successSignals: ["관련 변화 읽힘"]
+          steps: ["Find area", "Key action"],
+          currentFocus: "Find area",
+          successSignals: ["A relevant change is announced"]
         },
-        currentFocus: "영역 찾기"
+        currentFocus: "Find area"
       },
       steps: []
     });
@@ -1507,7 +1507,7 @@ describe("agent helpers", () => {
       model: "claude-custom",
       promptDir: join(rootDir, "prompt"),
       completionClient: createCompletionClient([
-        '{"action":{"key":"Enter"},"rationale":"핵심 동작을 시도한다."}'
+        '{"action":{"key":"Enter"},"rationale":"Try the key action."}'
       ])
     });
 
@@ -1515,11 +1515,11 @@ describe("agent helpers", () => {
       {
         ...makeKeyboardContext(),
         plan: {
-          steps: ["영역 찾기", "핵심 동작"],
-          currentFocus: "영역 찾기",
-          successSignals: ["관련 변화 읽힘"]
+          steps: ["Find area", "Key action"],
+          currentFocus: "Find area",
+          successSignals: ["A relevant change is announced"]
         },
-        currentFocus: "영역 찾기"
+        currentFocus: "Find area"
       },
       makeKeyboardObservation()
     );
@@ -1538,8 +1538,8 @@ describe("agent helpers", () => {
       promptDir: join(rootDir, "prompt"),
       promptLogJsonlPath,
       completionClient: createCompletionClient([
-        '{"action":{"key":"Tab"},"rationale":"다음 요소로 이동한다."}',
-        '{"status":"progressing","assessment":"새 안내가 나온다.","strategyNote":"현재 탐색을 유지한다."}'
+        '{"action":{"key":"Tab"},"rationale":"Move to the next element."}',
+        '{"status":"progressing","assessment":"A new announcement appears.","strategyNote":"Keep the current exploration."}'
       ])
     });
 
@@ -1580,7 +1580,7 @@ describe("agent helpers", () => {
     expect(prompt).toContain("system-keyboard");
     expect(prompt).not.toContain("- Tab");
     expect(prompt).not.toContain("- Enter");
-    expect(prompt).toContain("출력 규칙:");
+    expect(prompt).toContain("Output rules:");
     expect(prompt).toContain("```json");
     expect(prompt).toContain('{"action":"typeText","value":"traveler@example.com","rationale":"..."}');
   });
@@ -1600,8 +1600,8 @@ describe("agent helpers", () => {
       {
         promptDir: join(rootDir, "prompt"),
         taskPrompt: {
-          system: "추가 system 규칙",
-          user: "추가 user 규칙"
+          system: "Additional system rule",
+          user: "Additional user rule"
         }
       }
     );
@@ -1613,16 +1613,16 @@ describe("agent helpers", () => {
       {
         promptDir: join(rootDir, "prompt"),
         taskPrompt: {
-          system: "추가 system 규칙",
-          user: "추가 user 규칙"
+          system: "Additional system rule",
+          user: "Additional user rule"
         }
       }
     );
 
-    expect(systemPrompt).toContain("추가 system 규칙");
+    expect(systemPrompt).toContain("Additional system rule");
     expect(promptParts[0]).toMatchObject({ type: "text" });
     if (promptParts[0]?.type === "text") {
-      expect(promptParts[0].text).toContain("custom:\n추가 user 규칙");
+      expect(promptParts[0].text).toContain("custom:\nAdditional user rule");
     }
   });
 
@@ -1664,7 +1664,7 @@ describe("agent helpers", () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
     const keyboardActions = makeKeyboardDescriptors(["Tab"], {
-      Tab: "커스텀 Tab 설명"
+      Tab: "Custom Tab description"
     });
 
     const prompt = buildSystemPrompt(
@@ -1678,8 +1678,8 @@ describe("agent helpers", () => {
       }
     );
 
-    expect(prompt).not.toContain("커스텀 Tab 설명");
-    expect(prompt).not.toContain("Tab은 포커스 가능한 요소를 다음으로 이동할 때 사용하라.");
+    expect(prompt).not.toContain("Custom Tab description");
+    expect(prompt).not.toContain("Use Tab to move to the next focusable element.");
   });
 
   it("renders screenreader prompts from prompt files with action placeholders", async () => {
@@ -1690,7 +1690,7 @@ describe("agent helpers", () => {
         kind: "stable",
         token: "sr.heading.next",
         semantic: "heading.next",
-        hint: "다음 제목으로 크게 이동할 때 사용하라.",
+        hint: "Use this to move broadly to the next heading.",
         argumentKind: "none"
       },
       {
@@ -1713,7 +1713,7 @@ describe("agent helpers", () => {
     );
 
     expect(prompt).toContain("system-screenreader");
-    expect(prompt).toContain("출력 규칙:");
+    expect(prompt).toContain("Output rules:");
     expect(prompt).toContain("```json");
     expect(prompt).toContain('{"action":"sr.heading.next"}');
     expect(prompt).toContain('{"action":"sr.click","button":"left","clickCount":1}');
@@ -1764,7 +1764,7 @@ describe("agent helpers", () => {
     expect(prompt).not.toContain("- Tab");
     expect(prompt).not.toContain("- Escape");
     expect(prompt).not.toContain("- click");
-    expect(prompt).toContain("출력 규칙:");
+    expect(prompt).toContain("Output rules:");
     expect(prompt).toContain("```json");
   });
 

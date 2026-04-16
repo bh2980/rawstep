@@ -16,7 +16,7 @@ describe("createAgentMemoryEntry", () => {
       {
         observation: {
           kind: "screenreader",
-          announcement: "  장바구니   버튼 \n 바로가기  ",
+          announcement: "  Add to cart button \n link  ",
           announcementCapture: "log",
           announcementCount: 2,
           observeReason: "silence"
@@ -28,7 +28,7 @@ describe("createAgentMemoryEntry", () => {
       step: 0,
       action: "sr.next",
       outcome: "continued",
-      announcementExcerpt: "장바구니 버튼 바로가기",
+      announcementExcerpt: "Add to cart button link",
       announcementCapture: "log",
       announcementCount: 2,
       observeReason: "silence",
@@ -49,7 +49,7 @@ describe("createAgentMemoryEntry", () => {
       {
         observation: {
           kind: "screenreader",
-          announcement: "장바구니 버튼 바로가기",
+          announcement: "Add to cart button link",
           announcementCapture: "fallback",
           announcementCount: 1,
           observeReason: "fallback"

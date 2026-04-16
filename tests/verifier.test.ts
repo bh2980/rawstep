@@ -201,7 +201,7 @@ describe("verifier", () => {
     try {
       expect(
         await evaluateVerifyRule(
-          { activatedAnnouncementIncludes: "장바구니" },
+          { activatedAnnouncementIncludes: "Add to cart" },
           session,
           {
             latestActivation: {
@@ -213,7 +213,7 @@ describe("verifier", () => {
               },
               observation: {
                 kind: "screenreader",
-                announcement: "장바구니 버튼",
+                announcement: "Add to cart button",
                 announcementCapture: "log"
               }
             }
@@ -223,7 +223,7 @@ describe("verifier", () => {
 
       expect(
         await evaluateVerifyRule(
-          { activatedAnnouncementIncludes: "장바구니" },
+          { activatedAnnouncementIncludes: "Add to cart" },
           session,
           {
             latestActivation: {
@@ -235,13 +235,13 @@ describe("verifier", () => {
               },
               observation: {
                 kind: "screenreader",
-                announcement: "좋아요 버튼",
+                announcement: "Like button",
                 announcementCapture: "log"
               }
             }
           }
         )
-      ).toBe('Verification failed: expected latest activation announcement to include "장바구니", observed "좋아요 버튼".');
+      ).toBe('Verification failed: expected latest activation announcement to include "Add to cart", observed "Like button".');
     } finally {
       await closeBrowserSession(session);
     }
@@ -372,7 +372,7 @@ describe("verifier", () => {
           maxSteps: 2,
           timeoutMs: 1000,
           verify: {
-            all: [{ activatedAnnouncementIncludes: "장바구니" }]
+            all: [{ activatedAnnouncementIncludes: "Add to cart" }]
           }
         } satisfies ResolvedTask,
         session
@@ -380,7 +380,7 @@ describe("verifier", () => {
 
       expect(activationResult.passed).toBe(false);
       expect(activationResult.failures[0]).toBe(
-        'Verification failed: no screenreader activation announcement including "장바구니" was recorded.'
+        'Verification failed: no screenreader activation announcement including "Add to cart" was recorded.'
       );
     } finally {
       await closeBrowserSession(session);

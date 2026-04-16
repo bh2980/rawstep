@@ -192,7 +192,7 @@ describe("observer-screenreader", () => {
         .mockResolvedValueOnce(["Enter a valid email address like name@example.com."])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([
-          "traveler@example.comtraveler@example.com 텍스트 끝부분에 삽입합니다. Email 필수 사항 유효하지 않은 데이터 이메일"
+          "traveler@example.comtraveler@example.com inserted at end of text. Email required invalid email data"
         ])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]),
@@ -207,7 +207,7 @@ describe("observer-screenreader", () => {
     await expect(reader({ followUpAfterAlert: true })).resolves.toEqual({
       announcement: [
         "Enter a valid email address like name@example.com.",
-        "traveler@example.comtraveler@example.com 텍스트 끝부분에 삽입합니다. Email 필수 사항 유효하지 않은 데이터 이메일"
+        "traveler@example.comtraveler@example.com inserted at end of text. Email required invalid email data"
       ].join("\n"),
       announcementCapture: "log",
       announcementCount: 2,
@@ -340,7 +340,7 @@ describe("observer-screenreader", () => {
             press,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValue([])
           })
         },
@@ -380,9 +380,9 @@ describe("observer-screenreader", () => {
             createSession: async () => createMockScreenReaderSession({
               spokenPhraseLog: vi
                 .fn<() => Promise<string[]>>()
-                .mockResolvedValueOnce(["macOS 사용을 환영합니다. VoiceOver가 켜져 있습니다."])
+                .mockResolvedValueOnce(["Welcome to macOS. VoiceOver is on."])
                 .mockResolvedValueOnce([])
-                .mockResolvedValueOnce(["VoiceOver가 계속 켜져 있습니다."])
+                .mockResolvedValueOnce(["VoiceOver remains on."])
                 .mockResolvedValueOnce([])
                 .mockResolvedValue([])
             })
@@ -426,7 +426,7 @@ describe("observer-screenreader", () => {
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce(["Email"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValueOnce([])
               .mockResolvedValue([])
           })
@@ -442,7 +442,7 @@ describe("observer-screenreader", () => {
     const firstObservation = await runtime.observer.observe();
     await runtime.close();
 
-    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(firstObservation.announcement).toContain("Email Login Fixture web content");
   });
 
   it("accepts a mixed startup announcement after an unknown first announcement without another sync command", async () => {
@@ -467,9 +467,9 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["랜드마크를 찾을 수 없음"])
+              .mockResolvedValueOnce(["No landmarks found"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+              .mockResolvedValueOnce(["Outside Email Login Fixture - Chrome for Testing group", "web content"])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
           })
@@ -486,7 +486,7 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(firstObservation.announcement).toContain("Chrome for Testing");
-    expect(firstObservation.announcement).toContain("웹 콘텐츠");
+    expect(firstObservation.announcement).toContain("web content");
     expect(perform).toHaveBeenCalledTimes(1);
   });
 
@@ -512,11 +512,11 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+              .mockResolvedValueOnce(["Outside Email Login Fixture - Chrome for Testing group", "web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
           })
@@ -532,7 +532,7 @@ describe("observer-screenreader", () => {
     const firstObservation = await runtime.observer.observe();
     await runtime.close();
 
-    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(firstObservation.announcement).toContain("Email Login Fixture web content");
     expect(perform).toHaveBeenNthCalledWith(
       1,
       { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
@@ -574,9 +574,9 @@ describe("observer-screenreader", () => {
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce(["Email"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["랜드마크를 찾을 수 없음"])
+              .mockResolvedValueOnce(["No landmarks found"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
           })
@@ -592,7 +592,7 @@ describe("observer-screenreader", () => {
     const firstObservation = await runtime.observer.observe();
     await runtime.close();
 
-    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(firstObservation.announcement).toContain("Email Login Fixture web content");
     expect(perform).toHaveBeenCalledTimes(1);
   });
 
@@ -618,11 +618,11 @@ describe("observer-screenreader", () => {
             createSession: async () => createMockScreenReaderSession({
               spokenPhraseLog: vi
                 .fn<() => Promise<string[]>>()
-                .mockResolvedValueOnce(["외부 Email Login Fixture - Chrome for Testing 그룹", "웹 콘텐츠"])
+                .mockResolvedValueOnce(["Outside Email Login Fixture - Chrome for Testing group", "web content"])
                 .mockResolvedValueOnce([])
-                .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+                .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
                 .mockResolvedValueOnce([])
-                .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+                .mockResolvedValueOnce(["Minimize button. You are on the current button."])
                 .mockResolvedValueOnce([])
                 .mockResolvedValueOnce([])
             })
@@ -668,7 +668,7 @@ describe("observer-screenreader", () => {
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email 필수 사항 이메일. 현재 웹 콘텐츠 안에 있는 텍스트 필드에 있습니다."])
+              .mockResolvedValueOnce(["Email required email. You are on a text field in web content."])
               .mockResolvedValueOnce([])
               .mockResolvedValue([])
           })
@@ -684,7 +684,7 @@ describe("observer-screenreader", () => {
     const firstObservation = await runtime.observer.observe();
     await runtime.close();
 
-    expect(firstObservation.announcement).toContain("Email 필수 사항 이메일");
+    expect(firstObservation.announcement).toContain("Email required email");
     expect(perform).toHaveBeenCalledWith(
       { source: "catalog", id: "keyboard.moveToNextAutoWebSpot" },
       { capture: "initial" }
@@ -713,10 +713,10 @@ describe("observer-screenreader", () => {
             press,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValueOnce([])
               .mockResolvedValue([])
           })
@@ -732,7 +732,7 @@ describe("observer-screenreader", () => {
     const firstObservation = await runtime.observer.observe();
     await runtime.close();
 
-    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(firstObservation.announcement).toContain("Email Login Fixture web content");
     expect(press).not.toHaveBeenCalledWith("Escape", { capture: "initial" });
     expect(perform).toHaveBeenNthCalledWith(
       1,
@@ -776,10 +776,10 @@ describe("observer-screenreader", () => {
             press,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
               .mockResolvedValueOnce([])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValueOnce(["Minimize button. You are on the current button."])
               .mockResolvedValueOnce([])
               .mockResolvedValue([])
           })
@@ -829,7 +829,7 @@ describe("observer-screenreader", () => {
           createSession: async () => createMockScreenReaderSession({
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValue([])
           })
         },
@@ -865,9 +865,9 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValue([])
           })
         },
@@ -882,7 +882,7 @@ describe("observer-screenreader", () => {
     const recovery = await runtime.recoverFromUnexpectedBrowserUi({
       observation: {
         kind: "screenreader",
-        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcement: "New tab button. You are on a button in the current group.",
         announcementCapture: "log"
       },
       domFocus: {
@@ -892,8 +892,8 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(recovery.recovered).toBe(true);
-    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
-    expect(recovery.feedbackNote).toContain("자동 복구");
+    expect(recovery.observation.announcement).toContain("Email Login Fixture web content");
+    expect(recovery.feedbackNote).toContain("automatic recovery");
     expect(perform).toHaveBeenCalledWith(
       { source: "catalog", id: "keyboard.stopAction" },
       { capture: "initial" }
@@ -923,7 +923,7 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
           })
         },
@@ -937,7 +937,7 @@ describe("observer-screenreader", () => {
 
     const observation = {
       kind: "screenreader" as const,
-      announcement: "Email Login Fixture 웹 콘텐츠",
+      announcement: "Email Login Fixture web content",
       announcementCapture: "log" as const
     };
     perform.mockClear();
@@ -987,9 +987,9 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValue([])
           })
         },
@@ -1004,7 +1004,7 @@ describe("observer-screenreader", () => {
     const recovery = await runtime.recoverFromUnexpectedBrowserUi({
       observation: {
         kind: "screenreader",
-        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcement: "New tab button. You are on a button in the current group.",
         announcementCapture: "log"
       },
       domFocus: {
@@ -1014,8 +1014,8 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(recovery.recovered).toBe(true);
-    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
-    expect(recovery.feedbackNote).toContain("자동 복구");
+    expect(recovery.observation.announcement).toContain("Email Login Fixture web content");
+    expect(recovery.feedbackNote).toContain("automatic recovery");
     expect(perform).toHaveBeenCalledWith(
       { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
       { capture: "initial" }
@@ -1058,11 +1058,11 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce(["Email Login Fixture web content. Email required email."])
               .mockResolvedValue([])
           })
         },
@@ -1077,7 +1077,7 @@ describe("observer-screenreader", () => {
     const recovery = await runtime.recoverFromUnexpectedBrowserUi({
       observation: {
         kind: "screenreader",
-        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcement: "New tab button. You are on a button in the current group.",
         announcementCapture: "log"
       },
       domFocus: {
@@ -1087,7 +1087,7 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(recovery.recovered).toBe(true);
-    expect(recovery.observation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(recovery.observation.announcement).toContain("Email Login Fixture web content");
     expect(perform).toHaveBeenCalledWith(
       { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
       { capture: "initial" }
@@ -1134,11 +1134,11 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValueOnce(["Minimize button. You are on the current button."])
               .mockResolvedValue([])
           })
         },
@@ -1153,7 +1153,7 @@ describe("observer-screenreader", () => {
     const recovery = await runtime.recoverFromUnexpectedBrowserUi({
       observation: {
         kind: "screenreader",
-        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcement: "New tab button. You are on a button in the current group.",
         announcementCapture: "log"
       },
       domFocus: {
@@ -1163,8 +1163,8 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(recovery.recovered).toBe(false);
-    expect(recovery.observation.announcement).toContain("새 탭 버튼");
-    expect(recovery.feedbackNote).toContain("자동 복구에 실패");
+    expect(recovery.observation.announcement).toContain("New tab button");
+    expect(recovery.feedbackNote).toContain("automatic recovery failed");
     expect(perform).toHaveBeenCalledWith(
       { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
       { capture: "initial" }
@@ -1199,10 +1199,11 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
+              .mockResolvedValueOnce(["Email Login Fixture web content"])
               .mockResolvedValueOnce([])
-              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
-              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValueOnce(["New tab button. You are on a button in the current group."])
+              .mockResolvedValueOnce(["Minimize button. You are on the current button."])
               .mockResolvedValue([])
           })
         },
@@ -1217,7 +1218,7 @@ describe("observer-screenreader", () => {
     const recovery = await runtime.recoverFromUnexpectedBrowserUi({
       observation: {
         kind: "screenreader",
-        announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+        announcement: "New tab button. You are on a button in the current group.",
         announcementCapture: "log"
       },
       domFocus: {
@@ -1227,8 +1228,8 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(recovery.recovered).toBe(false);
-    expect(recovery.observation.announcement).toContain("새 탭 버튼");
-    expect(recovery.feedbackNote).toContain("자동 복구에 실패");
+    expect(recovery.observation.announcement).toContain("New tab button");
+    expect(recovery.feedbackNote).toContain("automatic recovery failed");
     expect(recovery.diagnostics.some((event) => event.code === "SCREENREADER_RUNTIME_RECOVERY_FAILED")).toBe(true);
   });
 

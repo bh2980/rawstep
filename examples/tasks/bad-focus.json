@@ -1,7 +1,7 @@
 {
   "id": "bad-focus",
   "url": "../../fixtures/bad-focus.html",
-  "goal": "Buy now 버튼을 찾아서 활성화하고, 구매 완료 메시지가 보이게 만들어라.",
+  "goal": "Find the Buy now button, activate it, and leave the page in a state where the purchase completion message is visible.",
   "mode": "keyboard",
   "maxSteps": 20,
   "timeoutMs": 180000,

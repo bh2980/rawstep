@@ -134,8 +134,7 @@ function containsValidationAlert(collected: readonly string[]): boolean {
       || normalized.includes("before requesting")
       || normalized.includes("invalid")
       || normalized.includes("error")
-      || normalized.includes("유효하지 않은")
-      || normalized.includes("필수 사항");
+      || normalized.includes("required");
   });
 }
 
@@ -146,12 +145,8 @@ function containsFieldContext(collected: readonly string[]): boolean {
       || normalized.includes("security text field")
       || normalized.includes("checkbox")
       || normalized.includes("button")
-      || normalized.includes("텍스트 필드")
-      || normalized.includes("보안 텍스트 필드")
-      || normalized.includes("체크박스")
-      || normalized.includes("버튼")
-      || normalized.includes("텍스트 끝부분에 삽입")
-      || normalized.includes("형식 요소");
+      || normalized.includes("inserted at end of text")
+      || normalized.includes("form control");
   });
 }
 

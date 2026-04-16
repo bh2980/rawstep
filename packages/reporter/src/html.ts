@@ -2538,7 +2538,7 @@ function renderPlanningSummary(model: ReportModel): string {
 
   if (model.reflections.length > 0) {
     const lastReflection = model.reflections[model.reflections.length - 1]!;
-    parts.push(`<div><div class="section-label">Reflection</div><div class="summary-note tone-neutral">${h(`${model.reflections.length}회 기록됨 · ${lastReflection.statusLabel}`)}</div><div class="summary-note tone-neutral">${h(lastReflection.strategyNote)}</div></div>`);
+    parts.push(`<div><div class="section-label">Reflection</div><div class="summary-note tone-neutral">${h(`${model.reflections.length} recorded · ${lastReflection.statusLabel}`)}</div><div class="summary-note tone-neutral">${h(lastReflection.strategyNote)}</div></div>`);
   }
 
   if (parts.length === 0) {

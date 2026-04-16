@@ -70,15 +70,15 @@ function createStuckAgent() {
 
 function createPlanningLoopAgent() {
   const planTask = vi.fn(async () => ({
-    steps: ["CTA 영역 찾기", "CTA 활성화", "완료 확인"],
-    currentFocus: "CTA 영역 찾기",
-    successSignals: ["완료 상태가 읽힘"]
+    steps: ["Find CTA area", "Activate CTA", "Confirm completion"],
+    currentFocus: "Find CTA area",
+    successSignals: ["A completed state is announced"]
   }));
   const reflectProgress = vi.fn(async () => ({
     status: "flat" as const,
-    assessment: "CTA를 찾았으니 이제 활성화를 시도한다.",
-    strategyNote: "다음에는 활성화 행동으로 전환한다.",
-    updatedFocus: "CTA 활성화"
+    assessment: "The CTA has been found, so now try activating it.",
+    strategyNote: "Switch to an activation action next.",
+    updatedFocus: "Activate CTA"
   }));
   const decide = vi.fn(async (ctx: { currentFocus?: string; memory?: Array<{ step: number }> }, obs: { kind: string; browserChrome?: { title: string } }) => {
     if (obs.kind !== "keyboard" || !obs.browserChrome) {
@@ -89,7 +89,7 @@ function createPlanningLoopAgent() {
       return { verdict: "success" as const, rationale: "Completion state is visible." };
     }
 
-    if (ctx.currentFocus === "CTA 활성화" && (ctx.memory?.length ?? 0) >= 2) {
+    if (ctx.currentFocus === "Activate CTA" && (ctx.memory?.length ?? 0) >= 2) {
       return { action: { key: "Enter" as const }, rationale: "Activate the CTA." };
     }
 
@@ -105,14 +105,14 @@ function createPlanningLoopAgent() {
 
 function createScreenreaderPlanningAgent(successMemoryThreshold = 3) {
   const planTask = vi.fn(async () => ({
-    steps: ["문맥 파악", "핵심 항목 찾기", "핵심 동작 실행"],
-    currentFocus: "핵심 항목 찾기",
-    successSignals: ["목표 관련 announcement가 읽힘"]
+    steps: ["Understand context", "Find the key item", "Perform the key action"],
+    currentFocus: "Find the key item",
+    successSignals: ["A goal-related announcement is read"]
   }));
   const reflectProgress = vi.fn(async () => ({
     status: "progressing" as const,
-    assessment: "핵심 항목에 가까워지고 있다.",
-    strategyNote: "현재 탐색을 유지한다."
+    assessment: "It is getting closer to the key item.",
+    strategyNote: "Keep the current exploration."
   }));
   const decide = vi.fn(async (ctx: { plan?: unknown; currentFocus?: string; memory?: Array<{ step: number }> }, obs: { kind: string }) => {
     expect(obs.kind).toBe("screenreader");
@@ -142,17 +142,17 @@ function createScreenreaderPlanningAgent(successMemoryThreshold = 3) {
 
 function createScreenreaderEventReflectionAgent() {
   const planTask = vi.fn(async () => ({
-    steps: ["문맥 파악", "핵심 항목 찾기", "핵심 동작 실행"],
-    currentFocus: "핵심 항목 찾기",
-    successSignals: ["목표 관련 announcement가 읽힘"]
+    steps: ["Understand context", "Find the key item", "Perform the key action"],
+    currentFocus: "Find the key item",
+    successSignals: ["A goal-related announcement is read"]
   }));
   const reflectProgress = vi.fn(async (input: {
     ctx: { memory: AgentMemoryEntry[] };
   }) => ({
     status: "flat" as const,
-    assessment: "같은 발화가 반복되고 있다.",
-    strategyNote: `반복 감지 ${(input.ctx.memory.at(-1)?.sameAnnouncementCount ?? 0)}회`,
-    updatedFocus: "탐색 전략 전환"
+    assessment: "The same announcement is repeating.",
+    strategyNote: `Repeat detected ${(input.ctx.memory.at(-1)?.sameAnnouncementCount ?? 0)} times`,
+    updatedFocus: "Switch exploration strategy"
   }));
   const decide = vi.fn(async (ctx: {
     currentFocus?: string;
@@ -761,7 +761,7 @@ describe("runTask", () => {
       {
         id: "simple-cta",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
-        goal: "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
+        goal: "Find the Get started button, activate it, and leave the page in a state where the result message is visible.",
         mode: "keyboard",
         maxSteps: 20,
         timeoutMs: 60_000,
@@ -809,7 +809,7 @@ describe("runTask", () => {
       {
         id: "bad-focus",
         url: pathToFileURL(resolve("fixtures/bad-focus.html")).toString(),
-        goal: "Buy now 버튼을 찾아서 활성화하라.",
+        goal: "Find and activate the Buy now button.",
         mode: "keyboard",
         maxSteps: 8,
         timeoutMs: 60_000,
@@ -1358,7 +1358,7 @@ describe("runTask", () => {
       {
         id: "planning-loop",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
-        goal: "Get started 버튼을 활성화하라.",
+        goal: "Activate the Get started button.",
         mode: "keyboard",
         maxSteps: 10,
         timeoutMs: 60_000,
@@ -1383,28 +1383,28 @@ describe("runTask", () => {
 
     expect(agent.planTask).toHaveBeenCalledTimes(1);
     expect(agent.reflectProgress).toHaveBeenCalled();
-    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("CTA 영역 찾기");
-    expect(agent.decide.mock.calls[1]?.[0].currentFocus).toBe("CTA 활성화");
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("Find CTA area");
+    expect(agent.decide.mock.calls[1]?.[0].currentFocus).toBe("Activate CTA");
     expect(session.plan).toEqual({
-      steps: ["CTA 영역 찾기", "CTA 활성화", "완료 확인"],
-      currentFocus: "CTA 영역 찾기",
-      successSignals: ["완료 상태가 읽힘"]
+      steps: ["Find CTA area", "Activate CTA", "Confirm completion"],
+      currentFocus: "Find CTA area",
+      successSignals: ["A completed state is announced"]
     });
-    expect(session.reflections?.[0]?.reflection.updatedFocus).toBe("CTA 활성화");
+    expect(session.reflections?.[0]?.reflection.updatedFocus).toBe("Activate CTA");
     expect(session.aggregate.endedBy).toBe("success");
   });
 
   it("does not run reflection after a terminal verdict step", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-terminal-no-reflection-"));
     const planTask = vi.fn(async () => ({
-      steps: ["상태 확인", "종료 판단"],
-      currentFocus: "상태 확인",
-      successSignals: ["종료 verdict가 기록됨"]
+      steps: ["Check status", "Decide whether to end"],
+      currentFocus: "Check status",
+      successSignals: ["An ending verdict is recorded"]
     }));
     const reflectProgress = vi.fn(async () => ({
       status: "flat" as const,
-      assessment: "이미 끝난 step이라 reflection이 돌면 안 된다.",
-      strategyNote: "이 값은 사용되면 안 된다."
+      assessment: "Reflection should not run because the step is already finished.",
+      strategyNote: "This value should not be used."
     }));
     const decide = vi.fn(async () => ({
       verdict: "stuck" as const,
@@ -1415,7 +1415,7 @@ describe("runTask", () => {
       {
         id: "terminal-no-reflection",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
-        goal: "첫 step에서 바로 종료하라.",
+        goal: "End immediately on the first step.",
         mode: "keyboard",
         maxSteps: 3,
         timeoutMs: 60_000,
@@ -1454,7 +1454,7 @@ describe("runTask", () => {
       {
         id: "keyboard-planning-default",
         url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
-        goal: "Get started 버튼을 활성화하라.",
+        goal: "Activate the Get started button.",
         mode: "keyboard",
         maxSteps: 10,
         timeoutMs: 60_000,
@@ -1472,7 +1472,7 @@ describe("runTask", () => {
     );
 
     expect(agent.planTask).toHaveBeenCalledTimes(1);
-    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("CTA 영역 찾기");
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("Find CTA area");
   });
 
   it("preserves natural keyboard focus without mutating page-root tabindex on startup", async () => {
@@ -1483,7 +1483,7 @@ describe("runTask", () => {
       {
         id: "keyboard-natural-focus",
         url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
-        goal: "기존 포커스를 덮어쓰지 말고 그대로 관찰하라.",
+        goal: "Observe the existing focus without overwriting it.",
         mode: "keyboard",
         maxSteps: 1,
         timeoutMs: 60_000,
@@ -1995,7 +1995,7 @@ describe("runTask", () => {
       {
         id: "credential-login",
         url: pathToFileURL(resolve("fixtures/credential-login.html")).toString(),
-        goal: "이메일과 비밀번호 입력칸에 각각 named input 값을 넣고 Sign in 버튼을 눌러라.",
+        goal: "Enter the named input values into the email and password fields, then press the Sign in button.",
         mode: "keyboard",
         maxSteps: 10,
         timeoutMs: 60_000,
@@ -2214,9 +2214,9 @@ describe("runTask", () => {
     expect(agent.decide.mock.calls[0]?.[0].plan).toBeUndefined();
     expect(agent.decide.mock.calls[1]?.[0].plan).toBeUndefined();
     expect(agent.decide.mock.calls[2]?.[0].plan).toBeUndefined();
-    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("핵심 항목 찾기");
+    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("Find the key item");
     expect(agent.reflectProgress).toHaveBeenCalled();
-    expect(session.plan?.currentFocus).toBe("핵심 항목 찾기");
+    expect(session.plan?.currentFocus).toBe("Find the key item");
     expect(session.aggregate.endedBy).toBe("success");
   });
 
@@ -2250,7 +2250,7 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: "반복되는 항목",
+              announcement: "Repeating item",
               announcementCapture: "log"
             })
           }
@@ -2261,12 +2261,12 @@ describe("runTask", () => {
 
     expect(agent.planTask).toHaveBeenCalledTimes(1);
     expect(agent.reflectProgress).toHaveBeenCalledTimes(2);
-    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("핵심 항목 찾기");
-    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("탐색 전략 전환");
-    expect(agent.decide.mock.calls[3]?.[0].strategyNote).toBe("반복 감지 3회");
-    expect(agent.decide.mock.calls[4]?.[0].strategyNote).toBe("반복 감지 3회");
-    expect(agent.decide.mock.calls[5]?.[0].strategyNote).toBe("반복 감지 3회");
-    expect(agent.decide.mock.calls[5]?.[0].currentFocus).toBe("탐색 전략 전환");
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("Find the key item");
+    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("Switch exploration strategy");
+    expect(agent.decide.mock.calls[3]?.[0].strategyNote).toBe("Repeat detected 3 times");
+    expect(agent.decide.mock.calls[4]?.[0].strategyNote).toBe("Repeat detected 3 times");
+    expect(agent.decide.mock.calls[5]?.[0].strategyNote).toBe("Repeat detected 3 times");
+    expect(agent.decide.mock.calls[5]?.[0].currentFocus).toBe("Switch exploration strategy");
     expect(session.reflections?.map((entry) => entry.step)).toEqual([2, 5]);
     expect(session.aggregate.endedBy).toBe("maxSteps");
   });
@@ -2870,7 +2870,7 @@ describe("runTask", () => {
         maxSteps: 4,
         timeoutMs: 60_000,
         verify: {
-          all: [{ activatedAnnouncementIncludes: "장바구니" }]
+          all: [{ activatedAnnouncementIncludes: "Add to cart" }]
         }
       },
       {
@@ -2882,7 +2882,7 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: observeCalls++ === 0 ? "장바구니 버튼" : "로그인 페이지",
+              announcement: observeCalls++ === 0 ? "Add to cart button" : "Login page",
               announcementCapture: "log"
             })
           }
@@ -2989,7 +2989,7 @@ describe("runTask", () => {
         announcementCapture: "log" as const
       },
       recovered: true,
-      feedbackNote: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다.",
+      feedbackNote: "Browser UI was detected, automatic recovery was completed, and alignment was restored to the web content.",
       diagnostics: [{
         scope: "screenReaderInit" as const,
         level: "warn" as const,
@@ -3023,7 +3023,7 @@ describe("runTask", () => {
               return observeCalls === 1
                 ? {
                     kind: "screenreader",
-                    announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+                    announcement: "New tab button. You are on a button in the current group.",
                     announcementCapture: "log"
                   }
                 : {
@@ -3056,7 +3056,7 @@ describe("runTask", () => {
     expect(seenReadbacks[0]).toContainEqual({
       kind: "note",
       source: "runtime-recovery",
-      value: "브라우저 UI 감지 후 자동 복구를 수행했고, 웹 본문으로 다시 정렬했습니다."
+      value: "Browser UI was detected, automatic recovery was completed, and alignment was restored to the web content."
     });
     const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
     expect(diagnostics).toContain("SCREENREADER_RUNTIME_RECOVERY_SUCCEEDED");
@@ -3067,7 +3067,7 @@ describe("runTask", () => {
     const recoverFromUnexpectedBrowserUi = vi.fn(async ({ observation }: { observation: ScreenReaderObservation }) => ({
       observation,
       recovered: false,
-      feedbackNote: "브라우저 UI를 감지했지만 자동 복구에 실패했습니다. 현재 observation은 웹 본문 밖일 수 있습니다.",
+      feedbackNote: "Browser UI was detected, but automatic recovery failed. The current observation may still be outside the web content.",
       diagnostics: [{
         scope: "screenReaderInit" as const,
         level: "warn" as const,
@@ -3098,7 +3098,7 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: "새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다.",
+              announcement: "New tab button. You are on a button in the current group.",
               announcementCapture: "log"
             })
           },
@@ -3121,11 +3121,11 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(recoverFromUnexpectedBrowserUi).toHaveBeenCalledTimes(1);
-    expect(seenAnnouncements).toEqual(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."]);
+    expect(seenAnnouncements).toEqual(["New tab button. You are on a button in the current group."]);
     expect(seenReadbacks[0]).toContainEqual({
       kind: "note",
       source: "runtime-recovery",
-      value: "브라우저 UI를 감지했지만 자동 복구에 실패했습니다. 현재 observation은 웹 본문 밖일 수 있습니다."
+      value: "Browser UI was detected, but automatic recovery failed. The current observation may still be outside the web content."
     });
     const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
     expect(diagnostics).toContain("SCREENREADER_RUNTIME_RECOVERY_FAILED");
@@ -3162,7 +3162,7 @@ describe("runTask", () => {
           observer: {
             observe: async () => ({
               kind: "screenreader",
-              announcement: "Simple CTA Fixture 웹 콘텐츠. Get started 버튼.",
+              announcement: "Simple CTA Fixture web content. Get started button.",
               announcementCapture: "log"
             })
           },
@@ -3185,7 +3185,7 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("success");
     expect(recoverFromUnexpectedBrowserUi).not.toHaveBeenCalled();
-    expect(seenAnnouncements).toEqual(["Simple CTA Fixture 웹 콘텐츠. Get started 버튼."]);
+    expect(seenAnnouncements).toEqual(["Simple CTA Fixture web content. Get started button."]);
     expect(seenReadbacks[0]).toBeUndefined();
     await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
   });

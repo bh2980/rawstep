@@ -1,7 +1,7 @@
 {
   "id": "login",
   "url": "../../fixtures/credential-login.html",
-  "goal": "이메일과 비밀번호 입력칸에 각각 email, password input 값을 넣고, Sign in 버튼을 눌러 로그인 성공 메시지가 보이게 만들어라.",
+  "goal": "Enter the email and password input values into their respective fields, press the Sign in button, and leave the page in a state where the login success message is visible.",
   "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,
