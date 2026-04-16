@@ -1,6 +1,7 @@
 import type { ScreenReaderObservation } from "@rawstep/definition";
 import type {
   AnnouncementReader,
+  AnnouncementReadOptions,
   AnnouncementState
 } from "./types";
 
@@ -15,8 +16,8 @@ export class ScreenReaderObserver {
     this.pendingObservation = prefetchedObservation;
   }
 
-  async observe(): Promise<ScreenReaderObservation> {
-    const announcementState = this.pendingObservation ?? await this.readAnnouncement();
+  async observe(options?: AnnouncementReadOptions): Promise<ScreenReaderObservation> {
+    const announcementState = this.pendingObservation ?? await this.readAnnouncement(options);
     this.pendingObservation = undefined;
     const observation: ScreenReaderObservation = {
       kind: "screenreader",

@@ -328,7 +328,7 @@ describe("reporter", () => {
       makeScreenReaderStep(1),
       makeKeyboardStep(2, {
         decision: {
-          action: { typeText: "email" },
+          action: { typeText: "traveler@example.com" },
           rationale: "이메일을 입력한다.",
         },
       }),

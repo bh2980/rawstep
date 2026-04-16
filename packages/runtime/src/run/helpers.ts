@@ -19,10 +19,11 @@ import { KeyboardObserver } from "../observe/keyboard";
 import {
   type ScreenReaderRuntime
 } from "../observe/screenreader";
+import type { AnnouncementReadOptions } from "../observe/screenreader/types";
 import type { ScreenReaderDomFocusCapture } from "../trace/artifacts";
 
 export type RunnerObserver = {
-  observe(): Promise<Observation>;
+  observe(options?: AnnouncementReadOptions): Promise<Observation>;
 };
 
 export function getErrorMessage(error: unknown): string {
@@ -168,12 +169,27 @@ export async function captureScreenReaderDomFocus(page: BrowserSession["page"]):
     return await page.evaluate(() => {
       const active = document.activeElement;
 
-      function normalize(value: string | null | undefined): string | undefined {
-        const trimmed = value?.trim();
-        return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+      if (!(active instanceof HTMLElement)) {
+        return {
+          status: "captured" as const,
+          snapshot: {
+            hasDocumentFocus: document.hasFocus()
+          }
+        };
       }
 
-      function buildSelector(element: Element | null): string | undefined {
+      const label = ((value: string | null | undefined): string | undefined => {
+        const trimmed = value?.trim();
+        return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+      })(
+        active.getAttribute("aria-label")
+          ?? (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+            ? Array.from(active.labels ?? [])
+              .map((node) => node.textContent ?? "")
+              .join(" ")
+            : undefined)
+      );
+      const targetSelector = ((element: Element | null): string | undefined => {
         if (!element) {
           return undefined;
         }
@@ -198,38 +214,37 @@ export async function captureScreenReaderDomFocus(page: BrowserSession["page"]):
         }
 
         return parts.join(" > ") || undefined;
-      }
-
-      if (!(active instanceof HTMLElement)) {
-        return {
-          status: "captured" as const,
-          snapshot: {
-            hasDocumentFocus: document.hasFocus()
-          }
-        };
-      }
-
-      const label = normalize(
-        active.getAttribute("aria-label")
-          ?? (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
-            ? Array.from(active.labels ?? [])
-              .map((node) => node.textContent ?? "")
-              .join(" ")
-            : undefined)
-      );
+      })(active);
 
       return {
         status: "captured" as const,
         snapshot: {
           hasDocumentFocus: document.hasFocus(),
           targetTagName: active.tagName.toLowerCase(),
-          targetId: normalize(active.id),
-          targetType: active instanceof HTMLInputElement ? normalize(active.type) : undefined,
-          targetName: normalize(active.getAttribute("name")),
-          targetRole: normalize(active.getAttribute("role")),
+          targetId: ((value: string | null | undefined): string | undefined => {
+            const trimmed = value?.trim();
+            return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+          })(active.id),
+          targetType: active instanceof HTMLInputElement
+            ? ((value: string | null | undefined): string | undefined => {
+                const trimmed = value?.trim();
+                return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+              })(active.type)
+            : undefined,
+          targetName: ((value: string | null | undefined): string | undefined => {
+            const trimmed = value?.trim();
+            return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+          })(active.getAttribute("name")),
+          targetRole: ((value: string | null | undefined): string | undefined => {
+            const trimmed = value?.trim();
+            return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+          })(active.getAttribute("role")),
           targetLabel: label,
-          targetText: normalize(active.textContent),
-          targetSelector: buildSelector(active)
+          targetText: ((value: string | null | undefined): string | undefined => {
+            const trimmed = value?.trim();
+            return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 160) : undefined;
+          })(active.textContent),
+          targetSelector
         }
       };
     });

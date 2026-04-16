@@ -48,7 +48,7 @@ describe("TraceRecorder", () => {
     await recorder.append(
       1,
       observation,
-      { action: { typeText: "email" }, rationale: "Type the email input." },
+      { action: { typeText: "traveler@example.com" }, rationale: "Type the email input." },
       { ok: true, costDelta: 1 },
       { observeMs: 11, decideMs: 21, executeMs: 31, verifyMs: 0 }
     );
@@ -241,7 +241,7 @@ describe("TraceRecorder", () => {
       },
       {
         action: {
-          typeText: "email"
+          typeText: "traveler@example.com"
         },
         rationale: "Try typing."
       },

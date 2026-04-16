@@ -93,6 +93,20 @@ export class TraceRecorder {
     await this.appendDiagnostics(step, screenReaderArtifacts);
   }
 
+  async appendDiagnostic(step: number, diagnostic: PendingDiagnosticEvent): Promise<void> {
+    if (!this.diagnosticsInitialized) {
+      await writeFile(this.diagnosticsJsonlPath, "");
+      this.diagnosticsInitialized = true;
+    }
+
+    const event: DiagnosticEvent = {
+      ts: new Date().toISOString(),
+      step,
+      ...diagnostic
+    };
+    await appendFile(this.diagnosticsJsonlPath, `${JSON.stringify(event)}\n`, "utf8");
+  }
+
   async finalize(
     endedBy: EndedBy,
     failureReasonOverride?: string
@@ -219,18 +233,8 @@ export class TraceRecorder {
       return;
     }
 
-    if (!this.diagnosticsInitialized) {
-      await writeFile(this.diagnosticsJsonlPath, "");
-      this.diagnosticsInitialized = true;
-    }
-
     for (const diagnostic of diagnostics) {
-      const event: DiagnosticEvent = {
-        ts: new Date().toISOString(),
-        step,
-        ...diagnostic
-      };
-      await appendFile(this.diagnosticsJsonlPath, `${JSON.stringify(event)}\n`, "utf8");
+      await this.appendDiagnostic(step, diagnostic);
     }
   }
 }
@@ -335,10 +339,10 @@ function buildAggregate(
     endedBy
   };
 
-  if (endedBy !== "success" && steps.length > 0) {
+  if (endedBy !== "success" && (steps.length > 0 || failureReasonOverride)) {
     aggregate.failurePoint = {
-      stepIndex: steps[steps.length - 1].step,
-      reason: failureReasonOverride ?? failureReason(endedBy, steps[steps.length - 1])
+      stepIndex: steps.length > 0 ? steps[steps.length - 1].step : -1,
+      reason: failureReasonOverride ?? failureReason(endedBy, steps[steps.length - 1]!)
     };
   }
 

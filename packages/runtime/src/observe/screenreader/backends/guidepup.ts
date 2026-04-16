@@ -41,6 +41,7 @@ type GuidepupScreenReaderApi = {
 
 type GuidepupVoiceOverApi = GuidepupScreenReaderApi & {
   keyboardCommands: Record<string, unknown>;
+  takeCursorScreenshot(options?: ScreenReaderCommandOptions): Promise<string>;
 };
 
 type GuidepupNVDAApi = GuidepupScreenReaderApi & {
@@ -194,6 +195,10 @@ class GuidepupVoiceOverSession implements ScreenReaderSession {
 
   async clearSpokenPhraseLog(): Promise<void> {
     await this.voiceOver.clearSpokenPhraseLog();
+  }
+
+  async takeCursorScreenshot(): Promise<string> {
+    return this.voiceOver.takeCursorScreenshot();
   }
 }
 

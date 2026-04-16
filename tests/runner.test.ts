@@ -7,7 +7,13 @@ import type {
   ScreenReaderAction,
   ScreenReaderCapabilities
 } from "@rawstep/definition";
-import { createBrowserSession, runTask } from "@rawstep/runtime";
+import { publishRunOutputs } from "@rawstep/reporter";
+import {
+  createBrowserSession,
+  runTask,
+  RunTaskFailedError,
+  ScreenReaderInitializationError
+} from "@rawstep/runtime";
 import { captureScreenReaderDomFocus } from "../packages/runtime/src/run/helpers";
 import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -555,7 +561,7 @@ describe("runTask", () => {
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.steps[0].verification).toEqual({
       passed: false,
-      failures: ['Verification failed: expected visible text "Never appears" was not observed.']
+      failures: ['Verification failed: expected visible text containing "Never appears" was not observed.']
     });
     expect(session.steps[0].verdictAnalysis).toEqual({
       agentVerdict: "success",
@@ -675,7 +681,7 @@ describe("runTask", () => {
         outDir,
         agent: {
           decide: async () => ({
-            action: { typeText: "email" },
+            action: { typeText: "passport" },
             rationale: "Attempt named input."
           })
         }
@@ -683,7 +689,7 @@ describe("runTask", () => {
     );
 
     expect(session.aggregate.endedBy).toBe("error");
-    expect(session.steps[0].execution.error).toContain("Named task inputs are not enabled");
+    expect(session.steps[0].execution.error).toContain("Task text inputs are not enabled");
   });
 
   it("does not feed gated named input failures back into agent history", async () => {
@@ -713,7 +719,7 @@ describe("runTask", () => {
 
             if (callCount === 1) {
               return {
-                action: { typeText: "email" },
+                action: { typeText: "passport" },
                 rationale: "Try the email input."
               };
             }
@@ -733,7 +739,7 @@ describe("runTask", () => {
       costDelta: 0,
       error: "Action did not produce an observable text-entry state change."
     });
-    expect(seenHistory.join(" ")).toContain("typeText(email)");
+    expect(seenHistory.join(" ")).toContain('typeText("passport")');
   });
 
   it("completes the email login fixture with a named email input", async () => {
@@ -752,7 +758,7 @@ describe("runTask", () => {
           all: [
             { titleIncludes: "Completed" },
             { textVisible: "Magic link sent." },
-            { textVisible: "traveler@example.com" }
+            { textVisibleExact: "Magic link sent. traveler@example.com" }
           ]
         }
       },
@@ -784,7 +790,7 @@ describe("runTask", () => {
 
             if (callCount === 4) {
               return {
-                action: { typeText: "email" },
+                action: { typeText: "traveler@example.com" },
                 rationale: "Type the provided email address."
               };
             }
@@ -870,7 +876,7 @@ describe("runTask", () => {
 
             if (callCount === 2) {
               return {
-                action: { typeText: "email" },
+                action: { typeText: "traveler@example.com" },
                 rationale: "Fill the email field."
               };
             }
@@ -884,7 +890,7 @@ describe("runTask", () => {
 
             if (callCount === 4) {
               return {
-                action: { typeText: "password" },
+                action: { typeText: "super-secret" },
                 rationale: "Fill the password field."
               };
             }
@@ -1079,7 +1085,7 @@ describe("runTask", () => {
           decide: async (_ctx, _obs) => {
             if (observeCalls === 1) {
               return {
-                action: { typeText: "email" as const },
+                action: { typeText: "traveler@example.com" as const },
                 rationale: "Type the provided email."
               };
             }
@@ -1160,14 +1166,14 @@ describe("runTask", () => {
           decide: async (_ctx, obs) => {
             if (observeCalls === 1) {
               return {
-                action: { typeText: "email" as const },
+                action: { typeText: "traveler@example.com" as const },
                 rationale: "Type the provided email."
               };
             }
 
             expect(obs.kind).toBe("screenreader");
             if (obs.kind === "screenreader") {
-              expect(obs.announcement).toBe("Email, traveler@example.com");
+              expect(obs.announcement).toBe("Email, current value traveler@example.com");
               expect(obs.announcementCapture).toBe("synthetic");
             }
 
@@ -1185,7 +1191,7 @@ describe("runTask", () => {
     ).toEqual([]);
     expect(session.steps[1]?.observation.kind).toBe("screenreader");
     if (session.steps[1]?.observation.kind === "screenreader") {
-      expect(session.steps[1].observation.announcement).toBe("Email, traveler@example.com");
+      expect(session.steps[1].observation.announcement).toBe("Email, current value traveler@example.com");
       expect(session.steps[1].observation.announcementCapture).toBe("synthetic");
       expect(session.steps[1].observation.observeReason).toBe("synthetic");
     }
@@ -1950,5 +1956,115 @@ describe("runTask", () => {
 
   it("keeps the domFocus page.evaluate callback free of tsx helper wrappers", () => {
     expect(String(captureScreenReaderDomFocus)).not.toContain("__name(");
+  });
+
+  it("finalizes and publishes outputs when screenreader initialization fails before step 0", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-init-failure-"));
+
+    await expect(runTask(
+      {
+        id: "screenreader-init-failure",
+        url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+        goal: "Initialize screenreader mode.",
+        mode: "screenreader",
+        maxSteps: 1,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Email Login Fixture" }]
+        }
+      },
+      {
+        outDir,
+        screenshotPolicy: "none",
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-voiceover",
+        screenReaderRuntimeFactory: async () => {
+          throw new ScreenReaderInitializationError(
+            "Screen reader initialization failed because focus remained in browser UI instead of web content.",
+            [
+              {
+                scope: "screenReaderInit",
+                level: "warn",
+                code: "SCREENREADER_INIT_BROWSER_UI_DETECTED",
+                message: "Screen reader focus started in browser UI instead of web content."
+              },
+              {
+                scope: "screenReaderInit",
+                level: "error",
+                code: "SCREENREADER_INIT_RECOVERY_FAILED",
+                message: "Screen reader initialization could not recover from browser UI focus."
+              }
+            ],
+            {
+              screenReaderInitMs: 12,
+              firstAnnouncementWaitMs: 34
+            }
+          );
+        },
+        agent: createStuckAgent()
+      }
+    )).rejects.toBeInstanceOf(RunTaskFailedError);
+
+    let failedSession: RunTaskFailedError | undefined;
+    try {
+      await runTask(
+        {
+          id: "screenreader-init-failure",
+          url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
+          goal: "Initialize screenreader mode.",
+          mode: "screenreader",
+          maxSteps: 1,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Email Login Fixture" }]
+          }
+        },
+        {
+          outDir,
+          screenshotPolicy: "none",
+          browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+          screenReaderBackendId: "guidepup-voiceover",
+          screenReaderRuntimeFactory: async () => {
+            throw new ScreenReaderInitializationError(
+              "Screen reader initialization failed because focus remained in browser UI instead of web content.",
+              [
+                {
+                  scope: "screenReaderInit",
+                  level: "warn",
+                  code: "SCREENREADER_INIT_BROWSER_UI_DETECTED",
+                  message: "Screen reader focus started in browser UI instead of web content."
+                },
+                {
+                  scope: "screenReaderInit",
+                  level: "error",
+                  code: "SCREENREADER_INIT_RECOVERY_FAILED",
+                  message: "Screen reader initialization could not recover from browser UI focus."
+                }
+              ],
+              {
+                screenReaderInitMs: 12,
+                firstAnnouncementWaitMs: 34
+              }
+            );
+          },
+          agent: createStuckAgent()
+        }
+      );
+    } catch (error) {
+      failedSession = error as RunTaskFailedError;
+    }
+
+    expect(failedSession).toBeInstanceOf(RunTaskFailedError);
+    expect(failedSession?.session.aggregate.totalSteps).toBe(0);
+    expect(failedSession?.session.aggregate.failurePoint).toEqual({
+      stepIndex: -1,
+      reason: "Screen reader initialization failed: Screen reader initialization failed because focus remained in browser UI instead of web content."
+    });
+
+    const published = await publishRunOutputs(failedSession!.session, outDir, []);
+    expect(await readFile(join(outDir, "diagnostics.jsonl"), "utf8")).toContain("SCREENREADER_INIT_RECOVERY_FAILED");
+    await expect(access(published.outputPaths.metricsJson)).resolves.toBeUndefined();
+    await expect(access(published.outputPaths.traceJson)).resolves.toBeUndefined();
+    await expect(access(published.outputPaths.reportHtml)).resolves.toBeUndefined();
   });
 });

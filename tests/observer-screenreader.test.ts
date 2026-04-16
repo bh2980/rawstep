@@ -10,6 +10,7 @@ import {
   findScreenReaderBackendById,
   listScreenReaderBackends,
   resolveScreenReaderCapabilities,
+  ScreenReaderInitializationError,
   type ScreenReaderBackend,
   type ScreenReaderSession
 } from "@rawstep/runtime";
@@ -184,6 +185,36 @@ describe("observer-screenreader", () => {
     });
   });
 
+  it("keeps listening for a field follow-up after a validation alert when requested", async () => {
+    const reader = createAnnouncementReader({
+      spokenPhraseLog: vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce(["Enter a valid email address like name@example.com."])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          "traveler@example.comtraveler@example.com 텍스트 끝부분에 삽입합니다. Email 필수 사항 유효하지 않은 데이터 이메일"
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
+      clearSpokenPhraseLog: vi.fn(async () => undefined),
+      lastSpokenPhrase: vi.fn(async () => "")
+    }, {
+      pollIntervalMs: 1,
+      silenceWindowMs: 1,
+      maxObserveMs: 3
+    });
+
+    await expect(reader({ followUpAfterAlert: true })).resolves.toEqual({
+      announcement: [
+        "Enter a valid email address like name@example.com.",
+        "traveler@example.comtraveler@example.com 텍스트 끝부분에 삽입합니다. Email 필수 사항 유효하지 않은 데이터 이메일"
+      ].join("\n"),
+      announcementCapture: "log",
+      announcementCount: 2,
+      observeReason: "silence"
+    });
+  });
+
   it("rejects screenreader runtime creation when screenReaderBackend is missing", async () => {
     await expect(
       createScreenReaderRuntime(
@@ -211,7 +242,7 @@ describe("observer-screenreader", () => {
     const clearSpokenPhraseLog = vi.fn(async () => undefined);
     const spokenPhraseLog = vi
       .fn<() => Promise<string[]>>()
-      .mockResolvedValueOnce(["Initial announcement"])
+      .mockResolvedValueOnce(["Initial announcement web content"])
       .mockResolvedValueOnce([])
       .mockResolvedValue(["After next item"]);
 
@@ -256,6 +287,7 @@ describe("observer-screenreader", () => {
     });
     const secondObservation = await runtime.observer.observe();
     await runtime.controller.execute({ semantic: "press", key: "ArrowDown" });
+    await runtime.controller.execute({ semantic: "key.mod.a" });
     await runtime.controller.execute({ semantic: "type", text: "hello" });
     await runtime.controller.execute({ semantic: "interact" });
     await runtime.controller.execute({ semantic: "stopInteracting" });
@@ -263,9 +295,9 @@ describe("observer-screenreader", () => {
     await runtime.close();
 
     expect(start).toHaveBeenCalled();
-    expect(evaluate).not.toHaveBeenCalled();
+    expect(evaluate).toHaveBeenCalledTimes(3);
     expect(firstObservation.kind).toBe("screenreader");
-    expect(firstObservation.announcement).toContain("Initial announcement");
+    expect(firstObservation.announcement).toContain("Initial announcement web content");
     expect(firstObservation.announcementCapture).toBe("log");
     expect(firstObservation.announcementCount).toBeGreaterThanOrEqual(1);
     expect(["silence", "timeout"]).toContain(firstObservation.observeReason);
@@ -279,6 +311,7 @@ describe("observer-screenreader", () => {
     expect(backend.createSession).toHaveBeenCalled();
     expect(perform).toHaveBeenCalledWith({ source: "catalog", id: "commands.moveToNextHeading" }, undefined);
     expect(press).toHaveBeenCalledWith("ArrowDown", undefined);
+    expect(press).toHaveBeenCalledWith("Meta+A", undefined);
     expect(type).toHaveBeenCalledWith("hello", undefined);
     expect(interact).toHaveBeenCalledWith(undefined);
     expect(stopInteracting).toHaveBeenCalledWith(undefined);
@@ -286,7 +319,7 @@ describe("observer-screenreader", () => {
     expect(stop).toHaveBeenCalled();
   });
 
-  it("does not force an initial screen reader cursor sync during startup", async () => {
+  it("uses an initial screen reader cursor sync during startup when the backend supports it", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -305,7 +338,7 @@ describe("observer-screenreader", () => {
             perform,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
               .mockResolvedValue([])
           })
         },
@@ -319,7 +352,266 @@ describe("observer-screenreader", () => {
 
     await runtime.close();
 
-    expect(perform).not.toHaveBeenCalled();
+    expect(perform).toHaveBeenCalledWith(
+      { source: "catalog", id: "keyboard.moveCursorToKeyboardFocus" },
+      { capture: "initial" }
+    );
+  });
+
+  it("fails startup when non-page speech never resolves to web content", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    let error: unknown;
+    try {
+      await createScreenReaderRuntime(
+        {
+          bringToFront: vi.fn(async () => undefined),
+          evaluate: vi.fn(async () => undefined)
+        } as never,
+        {
+          backend: {
+            ...findScreenReaderBackendById("guidepup-voiceover"),
+            createSession: async () => createMockScreenReaderSession({
+              spokenPhraseLog: vi
+                .fn<() => Promise<string[]>>()
+                .mockResolvedValueOnce(["macOS 사용을 환영합니다. VoiceOver가 켜져 있습니다."])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce(["VoiceOver가 계속 켜져 있습니다."])
+                .mockResolvedValueOnce([])
+                .mockResolvedValue([])
+            })
+          },
+          observe: {
+            pollIntervalMs: 1,
+            silenceWindowMs: 1,
+            maxObserveMs: 3
+          }
+        }
+      );
+    } catch (candidate) {
+      error = candidate;
+    }
+
+    expect(error).toBeInstanceOf(ScreenReaderInitializationError);
+    expect((error as ScreenReaderInitializationError).message).toContain(
+      "did not provide enough evidence of web content"
+    );
+    expect((error as ScreenReaderInitializationError).diagnostics).toContainEqual(expect.objectContaining({
+      code: "SCREENREADER_INIT_UNKNOWN_ANNOUNCEMENT"
+    }));
+  });
+
+  it("retries an unknown first announcement and succeeds when web content appears", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email"])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+  });
+
+  it("recovers from an empty first announcement by retrying screen reader focus sync", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const perform = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      {
+        bringToFront: vi.fn(async () => undefined),
+        evaluate: vi.fn(async () => undefined)
+      } as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email 필수 사항 이메일. 현재 웹 콘텐츠 안에 있는 텍스트 필드에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Email 필수 사항 이메일");
+    expect(perform).toHaveBeenCalled();
+  });
+
+  it("recovers from browser UI focus during startup with Escape and a sync retry", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const { page, body } = createDomBackedScreenReaderPage({
+      title: "Email Login Fixture",
+      heading: "Email Login Fixture"
+    });
+    const perform = vi.fn(async () => undefined);
+    const press = vi.fn(async () => undefined);
+    const runtime = await createScreenReaderRuntime(
+      page as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            press,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠. Email 필수 사항 이메일."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 6
+        }
+      }
+    );
+
+    const firstObservation = await runtime.observer.observe();
+    await runtime.close();
+
+    expect(firstObservation.announcement).toContain("Email Login Fixture 웹 콘텐츠");
+    expect(press).toHaveBeenCalledWith("Escape", { capture: "initial" });
+    expect(perform).toHaveBeenCalledTimes(2);
+    expect(page.bringToFront).toHaveBeenCalledTimes(3);
+    expect(body.focusCalls).toBe(2);
+    expect(body.hasAttribute("tabindex")).toBe(false);
+    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
+  });
+
+  it("fails startup when browser UI focus persists after recovery", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const { page, body } = createDomBackedScreenReaderPage({
+      title: "Email Login Fixture",
+      heading: "Email Login Fixture"
+    });
+    const perform = vi.fn(async () => undefined);
+    const press = vi.fn(async () => undefined);
+
+    await expect(createScreenReaderRuntime(
+      page as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            perform,
+            press,
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["새 탭 버튼. 현재 그룹 안에 있는 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce([])
+              .mockResolvedValueOnce(["최소화 버튼. 현재 버튼에 있습니다."])
+              .mockResolvedValueOnce([])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 6
+        }
+      }
+    )).rejects.toThrow("Screen reader initialization failed because focus remained in browser UI instead of web content.");
+
+    expect(press).toHaveBeenCalledWith("Escape", { capture: "initial" });
+    expect(perform).toHaveBeenCalledTimes(2);
+    expect(body.hasAttribute("tabindex")).toBe(false);
+    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
+  });
+
+  it("cleans the temporary page-root focus marker after successful initialization", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    const { page, body } = createDomBackedScreenReaderPage({
+      title: "Email Login Fixture",
+      heading: "Email Login Fixture"
+    });
+    const runtime = await createScreenReaderRuntime(
+      page as never,
+      {
+        backend: {
+          ...findScreenReaderBackendById("guidepup-voiceover"),
+          createSession: async () => createMockScreenReaderSession({
+            spokenPhraseLog: vi
+              .fn<() => Promise<string[]>>()
+              .mockResolvedValueOnce(["Email Login Fixture 웹 콘텐츠"])
+              .mockResolvedValue([])
+          })
+        },
+        observe: {
+          pollIntervalMs: 1,
+          silenceWindowMs: 1,
+          maxObserveMs: 3
+        }
+      }
+    );
+
+    await runtime.close();
+
+    expect(body.hasAttribute("tabindex")).toBe(false);
+    expect(body.hasAttribute("data-a11y-bootstrap-tabindex")).toBe(false);
   });
 
   it("captures VoiceOver cursor screenshots only when the voiceOver option is enabled", async () => {
@@ -341,7 +633,7 @@ describe("observer-screenreader", () => {
             takeCursorScreenshot,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValueOnce(["Initial announcement web content"])
               .mockResolvedValue([])
           })
         },
@@ -384,7 +676,7 @@ describe("observer-screenreader", () => {
             takeCursorScreenshot,
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValueOnce(["Initial announcement web content"])
               .mockResolvedValue([])
           })
         },
@@ -424,7 +716,7 @@ describe("observer-screenreader", () => {
             }),
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
-              .mockResolvedValueOnce(["Initial announcement"])
+              .mockResolvedValueOnce(["Initial announcement web content"])
               .mockResolvedValue([])
           })
         },
@@ -465,7 +757,7 @@ describe("observer-screenreader", () => {
       type,
       spokenPhraseLog: vi
         .fn<() => Promise<string[]>>()
-        .mockResolvedValueOnce(["Initial announcement"])
+        .mockResolvedValueOnce(["Initial announcement web content"])
         .mockResolvedValue([])
     });
     const backend: ScreenReaderBackend = {
@@ -535,7 +827,7 @@ describe("observer-screenreader", () => {
           createSession: async () => createMockScreenReaderSession({
             lastSpokenPhrase: vi
               .fn<() => Promise<string>>()
-              .mockResolvedValueOnce("Recovered initial announcement"),
+              .mockResolvedValueOnce("Recovered initial announcement web content"),
             spokenPhraseLog: vi
               .fn<() => Promise<string[]>>()
               .mockResolvedValueOnce([])
@@ -558,12 +850,12 @@ describe("observer-screenreader", () => {
 
     expect(firstObservation).toEqual({
       kind: "screenreader",
-      announcement: "Recovered initial announcement",
+      announcement: "Recovered initial announcement web content",
       announcementCapture: "fallback",
       announcementCount: 1,
       observeReason: "fallback"
     });
-    expect(evaluate).not.toHaveBeenCalled();
+    expect(evaluate).toHaveBeenCalledTimes(3);
   });
 
   it("rejects explicitly configured backends that do not support the current platform", async () => {
@@ -837,5 +1129,105 @@ function createGuidepupVirtualTestPage(options?: {
     },
     addScriptTag,
     adapterState
+  };
+}
+
+function createDomBackedScreenReaderPage(options?: {
+  title?: string;
+  heading?: string;
+}): {
+  page: {
+    bringToFront: ReturnType<typeof vi.fn>;
+    evaluate: ReturnType<typeof vi.fn>;
+  };
+  body: {
+    focusCalls: number;
+    hasAttribute(name: string): boolean;
+  };
+} {
+  class HTMLElementMock {
+    private readonly attributes = new Map<string, string>();
+    readonly textContent: string;
+    focusCalls = 0;
+
+    constructor(textContent = "") {
+      this.textContent = textContent;
+    }
+
+    focus(): void {
+      this.focusCalls += 1;
+    }
+
+    hasAttribute(name: string): boolean {
+      return this.attributes.has(name);
+    }
+
+    setAttribute(name: string, value: string): void {
+      this.attributes.set(name, value);
+    }
+
+    removeAttribute(name: string): void {
+      this.attributes.delete(name);
+    }
+  }
+
+  const body = new HTMLElementMock();
+  const heading = new HTMLElementMock(options?.heading ?? "");
+  const focusWindow = vi.fn(() => undefined);
+  const documentMock = {
+    title: options?.title ?? "",
+    body,
+    documentElement: body,
+    querySelector(selector: string): HTMLElementMock | null {
+      if (selector === "h1, h2, h3, h4, h5, h6") {
+        return heading.textContent ? heading : null;
+      }
+
+      return selector === "[data-a11y-bootstrap-tabindex='true']" && body.hasAttribute("data-a11y-bootstrap-tabindex")
+        ? body
+        : null;
+    }
+  };
+
+  const evaluate = vi.fn(async (fn: (arg?: unknown) => unknown, arg?: unknown) => {
+    const globals = globalThis as Record<string, unknown>;
+    const previousDocument = globals.document;
+    const previousHTMLElement = globals.HTMLElement;
+    const previousFocus = globals.focus;
+
+    globals.document = documentMock;
+    globals.HTMLElement = HTMLElementMock;
+    globals.focus = focusWindow;
+
+    try {
+      const isolated = (0, eval)(`(${fn.toString()})`) as (input?: unknown) => unknown;
+      return await isolated(arg);
+    } finally {
+      if (previousDocument === undefined) {
+        delete globals.document;
+      } else {
+        globals.document = previousDocument;
+      }
+
+      if (previousHTMLElement === undefined) {
+        delete globals.HTMLElement;
+      } else {
+        globals.HTMLElement = previousHTMLElement;
+      }
+
+      if (previousFocus === undefined) {
+        delete globals.focus;
+      } else {
+        globals.focus = previousFocus;
+      }
+    }
+  });
+
+  return {
+    page: {
+      bringToFront: vi.fn(async () => undefined),
+      evaluate
+    },
+    body
   };
 }

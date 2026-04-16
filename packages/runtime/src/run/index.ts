@@ -35,6 +35,7 @@ import {
   createScreenReaderRuntime,
   resolveScreenReaderBrowserHeadless,
   resolveScreenReaderCapabilities,
+  ScreenReaderInitializationError,
   type ScreenReaderRuntime,
   type ScreenReaderRuntimeFactory
 } from "../observe/screenreader";
@@ -107,6 +108,7 @@ type RunState = {
   agentMemory: AgentMemoryEntry[];
   pendingScreenReaderReadbacks: ScreenReaderReadback[];
   pendingSyntheticAnnouncement?: string;
+  pendingObservationOptions?: Parameters<RunnerObserver["observe"]>[0];
   endedBy?: EndedBy;
   failureReasonOverride?: string;
 };
@@ -133,6 +135,16 @@ type StepResult = {
   continueLoop: boolean;
   settleAfterStep: boolean;
 };
+
+export class RunTaskFailedError extends Error {
+  constructor(
+    message: string,
+    readonly session: TraceSession
+  ) {
+    super(message);
+    this.name = "RunTaskFailedError";
+  }
+}
 
 export async function runTask(task: ResolvedTask, options: RunTaskOptions): Promise<TraceSession> {
   const trace = new TraceRecorder(task, options.outDir);
@@ -173,12 +185,15 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
   } catch (error) {
     unexpectedError = error;
     state.endedBy = state.endedBy ?? "error";
+    if (error instanceof ScreenReaderInitializationError) {
+      state.failureReasonOverride = error.message;
+    }
   }
 
   const session = await finalizeRun(task, trace, resources, cleanup, state);
 
   if (unexpectedError) {
-    throw unexpectedError;
+    throw new RunTaskFailedError(getErrorMessage(unexpectedError), session);
   }
 
   return session;
@@ -201,13 +216,7 @@ async function initializeRunResources(
   }
 
   cleanup.screenReaderRuntime = isScreenReaderMode(task.mode)
-    ? await (options.screenReaderRuntimeFactory
-      ?? ((page) => createScreenReaderRuntime(page, {
-        backendId: options.screenReaderBackendId,
-        actionPlan: options.screenReaderActionPlan,
-        observe: options.screenReaderObserve,
-        voiceOver: options.voiceOver
-      })))(cleanup.browser.page)
+    ? await createConfiguredScreenReaderRuntime(options, trace, setupStartedAt, cleanup.browser)
     : undefined;
 
   const keyboardActionPlan = resolveKeyboardActionPlan(task.mode, options.keyboardActionPlan);
@@ -262,6 +271,41 @@ async function initializeRunResources(
   };
 }
 
+async function createConfiguredScreenReaderRuntime(
+  options: RunTaskOptions,
+  trace: TraceRecorder,
+  setupStartedAt: number,
+  browser: BrowserSession
+): Promise<ScreenReaderRuntime> {
+  try {
+    return await (options.screenReaderRuntimeFactory
+      ?? ((page) => createScreenReaderRuntime(page, {
+        backendId: options.screenReaderBackendId,
+        actionPlan: options.screenReaderActionPlan,
+        observe: options.screenReaderObserve,
+        voiceOver: options.voiceOver
+      })))(browser.page);
+  } catch (error) {
+    if (error instanceof ScreenReaderInitializationError) {
+      trace.setSetupTimings({
+        setupMs: Date.now() - setupStartedAt,
+        browserLaunchMs: browser.setupTimings?.browserLaunchMs ?? 0,
+        pageLoadMs: browser.setupTimings?.pageLoadMs ?? 0,
+        screenReaderInitMs: error.setupTimings.screenReaderInitMs,
+        firstAnnouncementWaitMs: error.setupTimings.firstAnnouncementWaitMs
+      });
+      for (const diagnostic of error.diagnostics) {
+        await trace.appendDiagnostic(-1, diagnostic);
+      }
+
+      const reason = `Screen reader initialization failed: ${error.message}`;
+      throw new ScreenReaderInitializationError(reason, error.diagnostics, error.setupTimings);
+    }
+
+    throw error;
+  }
+}
+
 async function executeStep(
   step: number,
   resources: RunResources,
@@ -306,7 +350,9 @@ async function buildAgentStepContext(
   state: RunState
 ): Promise<BuiltAgentStepContext> {
   const observeStartedAt = Date.now();
-  const baseObservation = await resources.observer.observe();
+  const observationOptions = state.pendingObservationOptions;
+  state.pendingObservationOptions = undefined;
+  const baseObservation = await resources.observer.observe(observationOptions);
   const agentObservation = applyPendingSyntheticAnnouncement(
     applyPendingScreenReaderReadbacks(
       baseObservation,
@@ -470,6 +516,9 @@ async function handleActionDecision(
       ];
       if (execution.textEntryResult?.syntheticAnnouncement) {
         state.pendingSyntheticAnnouncement = execution.textEntryResult.syntheticAnnouncement;
+      }
+      if (shouldCaptureAlertFollowUp(decision.action)) {
+        state.pendingObservationOptions = { followUpAfterAlert: true };
       }
     }
 
@@ -735,6 +784,12 @@ function actionCanChangeTaskState(action: Action): boolean {
 
   return !action.srAction.semantic.startsWith("read.")
     && !action.srAction.semantic.startsWith("clear.");
+}
+
+function shouldCaptureAlertFollowUp(action: Action): boolean {
+  return "srAction" in action
+    && !("extension" in action.srAction)
+    && action.srAction.semantic === "act";
 }
 
 async function bootstrapKeyboardFocus(page: BrowserSession["page"]): Promise<void> {

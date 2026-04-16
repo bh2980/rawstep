@@ -86,7 +86,7 @@ export type RecordedScreenReaderCursorScreenshot =
 export type DiagnosticEvent = {
   ts: string;
   step: number;
-  scope: "domFocus" | "cursorScreenshot";
+  scope: "domFocus" | "cursorScreenshot" | "screenReaderInit";
   level: "warn" | "error";
   code: string;
   message: string;

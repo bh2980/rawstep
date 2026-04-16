@@ -9,7 +9,7 @@ import {
   type UserModel
 } from "@rawstep/definition";
 import { publishRunOutputs } from "@rawstep/reporter";
-import { runTask } from "@rawstep/runtime";
+import { runTask, RunTaskFailedError } from "@rawstep/runtime";
 import { parseRunArgs, printUsage } from "./args";
 
 type RunCliDependencies = {
@@ -24,6 +24,8 @@ export async function runCli(
   argv = process.argv.slice(2),
   dependencies: RunCliDependencies = {}
 ): Promise<number> {
+  let plan: ResolvedRunPlan | undefined;
+  let agent: (Agent & { getPromptLog?(): unknown[] }) | undefined;
   try {
     const command = argv[0];
     if (command !== "run") {
@@ -32,10 +34,10 @@ export async function runCli(
     }
 
     const cliOptions = parseRunArgs(argv.slice(1));
-    const plan = await resolveRunPlan(cliOptions);
+    plan = await resolveRunPlan(cliOptions);
     const task = plan.task;
     const agentFactory = dependencies.createAgent ?? createAgent;
-    const agent = agentFactory(task.mode, task.input, plan);
+    agent = agentFactory(task.mode, task.input, plan);
 
     const session = await runTask(task, {
       outDir: plan.paths.outDir,
@@ -47,13 +49,18 @@ export async function runCli(
       keyboardActionPlan: plan.interaction.keyboardActionPlan,
       screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
       screenReaderBackendId: plan.interaction.screenReaderBackendId,
-      screenReaderObserve: plan.interaction.screenReaderObserve
+      screenReaderObserve: plan.interaction.screenReaderObserve,
+      voiceOver: plan.interaction.voiceOver
     });
     const published = await publishRunOutputs(session, plan.paths.outDir, agent.getPromptLog?.());
     process.stdout.write(`${published.summaryText}\n`);
 
     return 0;
   } catch (error) {
+    if (error instanceof RunTaskFailedError && plan) {
+      const published = await publishRunOutputs(error.session, plan.paths.outDir, agent?.getPromptLog?.());
+      process.stdout.write(`${published.summaryText}\n`);
+    }
     process.stderr.write(`${getErrorMessage(error)}\n`);
     return 1;
   }

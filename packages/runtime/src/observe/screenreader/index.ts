@@ -12,7 +12,7 @@ export {
   resolveScreenReaderCapabilities,
   resolveScreenReaderObserveProfile
 } from "./registry";
-export { createScreenReaderRuntime } from "./runtime";
+export { createScreenReaderRuntime, ScreenReaderInitializationError } from "./runtime";
 export type {
   ScreenReaderBackend,
   ScreenReaderBackendImplementation,

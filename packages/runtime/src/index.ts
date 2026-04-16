@@ -14,6 +14,7 @@ export {
   createAnnouncementReader,
   createEmptyScreenReaderCapabilities,
   createScreenReaderRuntime,
+  ScreenReaderInitializationError,
   DEFAULT_SCREEN_READER_OBSERVE_PROFILE,
   EMPTY_SCREEN_READER_CAPABILITIES,
   findScreenReaderBackendById,
@@ -28,7 +29,7 @@ export {
   type ScreenReaderRuntimeOptions,
   type ScreenReaderSession
 } from "./observe/screenreader";
-export { runTask, type RunTaskOptions } from "./run";
+export { runTask, RunTaskFailedError, type RunTaskOptions } from "./run";
 export { TraceRecorder, persistFinalizedTraceSession } from "./trace";
 export {
   evaluateVerifyRule,

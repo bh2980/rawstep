@@ -54,10 +54,6 @@ export type ScreenReaderBackend = ScreenReaderBackendImplementation & ScreenRead
   observeProfile: ScreenReaderObserveProfile;
 };
 
-export type ScreenReaderRuntimeObserver = {
-  observe(): Promise<ScreenReaderObservation>;
-};
-
 export type ScreenReaderRuntime = {
   observer: ScreenReaderRuntimeObserver;
   controller: ScreenReaderController;
@@ -86,5 +82,14 @@ export type AnnouncementState = Pick<
   "announcement" | "announcementCapture" | "announcementCount" | "observeReason"
 >;
 
+export type AnnouncementReadOptions = {
+  followUpAfterAlert?: boolean;
+};
+
 export type AnnouncementReader = (
+  options?: AnnouncementReadOptions
 ) => Promise<AnnouncementState>;
+
+export type ScreenReaderRuntimeObserver = {
+  observe(options?: AnnouncementReadOptions): Promise<ScreenReaderObservation>;
+};
