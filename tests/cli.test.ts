@@ -67,7 +67,6 @@ async function writeConfigModule(configPath: string, body: string): Promise<void
     configPath,
     [
       'import { defineConfig, kb, sr, srx } from "@rawstep/config";',
-      'import { z } from "zod";',
       "",
       "export default defineConfig(",
       body,
@@ -3081,7 +3080,11 @@ describe.sequential("CLI", () => {
         sr.heading.next(),
         srx.catalog("commands.notReal", {
           hint: "Attempt an unsupported command.",
-          argsSchema: z.object({ index: z.number().int() }),
+          argsSchema: {
+            safeParse(value) {
+              return { success: true, data: value ?? {} };
+            }
+          },
           argsExample: { index: 1 }
         })
       ]
