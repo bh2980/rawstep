@@ -17,6 +17,7 @@ export type VerifyRule =
   | { titleIncludes: string }
   | { urlIncludes: string }
   | { textVisible: string }
+  | { textVisibleExact: string }
   | RequestVerificationRule
   | ResponseVerificationRule;
 

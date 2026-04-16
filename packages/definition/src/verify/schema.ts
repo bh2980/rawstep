@@ -12,6 +12,7 @@ const verifyRuleSchemas = {
   titleIncludes: z.object({ titleIncludes: nonEmptyString }).strict(),
   urlIncludes: z.object({ urlIncludes: nonEmptyString }).strict(),
   textVisible: z.object({ textVisible: nonEmptyString }).strict(),
+  textVisibleExact: z.object({ textVisibleExact: nonEmptyString }).strict(),
   requestSeen: z.object({
     requestSeen: z.object({
       urlIncludes: nonEmptyString,

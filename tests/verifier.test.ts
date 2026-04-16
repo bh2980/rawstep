@@ -17,6 +17,7 @@ describe("verifier", () => {
           { titleIncludes: "Completed" },
           { urlIncludes: "simple-cta.html" },
           { textVisible: "Started!" },
+          { textVisibleExact: "Started!" },
           { requestSeen: { urlIncludes: "/api/cart", method: "POST" } },
           { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
         ]
@@ -25,6 +26,7 @@ describe("verifier", () => {
           { titleIncludes: "Completed" },
           { urlIncludes: "simple-cta.html" },
           { textVisible: "Started!" },
+          { textVisibleExact: "Started!" },
           { requestSeen: { urlIncludes: "/api/cart", method: "POST" } },
           { responseSeen: { urlIncludes: "/api/cart", method: "POST", status: 200 } }
         ]
@@ -45,7 +47,7 @@ describe("verifier", () => {
           { unknownRule: "x" }
         ]
       })).toThrow(
-        "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, requestSeen, responseSeen."
+        "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, requestSeen, responseSeen."
       );
     });
 
@@ -99,6 +101,35 @@ describe("verifier", () => {
       expect(await evaluateVerifyRule({ titleIncludes: "Completed" }, session)).toBeUndefined();
       expect(await evaluateVerifyRule({ urlIncludes: "simple-cta.html" }, session)).toBeUndefined();
       expect(await evaluateVerifyRule({ textVisible: "Started!" }, session)).toBeUndefined();
+      expect(await evaluateVerifyRule({ textVisibleExact: "Started!" }, session)).toBeUndefined();
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("verifies the completed search fixture state", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/search.html")).toString());
+
+    try {
+      await session.page.locator("#query").fill("passport");
+      await session.page.getByRole("button", { name: "Search" }).click();
+      await session.page.getByRole("button", { name: "Open Passport2" }).click();
+
+      expect(await evaluateVerifyRule({ titleIncludes: "Completed - Search" }, session)).toBeUndefined();
+      expect(await evaluateVerifyRule({ textVisibleExact: "Selected Passport2" }, session)).toBeUndefined();
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
+  it("verifies the completed bad focus fixture state", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/bad-focus.html")).toString());
+
+    try {
+      await session.page.getByRole("button", { name: "Buy now" }).click();
+
+      expect(await evaluateVerifyRule({ titleIncludes: "Completed - Bad Focus Fixture" }, session)).toBeUndefined();
+      expect(await evaluateVerifyRule({ textVisibleExact: "Purchased!" }, session)).toBeUndefined();
     } finally {
       await closeBrowserSession(session);
     }
@@ -145,7 +176,7 @@ describe("verifier", () => {
     try {
       await session.page.getByRole("button", { name: "Send magic link" }).click();
 
-      expect(await session.page.title()).toBe("Email Login Fixture");
+      expect(await session.page.title()).toBe("Hello");
       expect(await session.page.locator("#status").isHidden()).toBe(true);
       expect(await session.page.locator("#email-error").textContent()).toContain(
         "Enter your email address before requesting a magic link."
@@ -163,7 +194,7 @@ describe("verifier", () => {
       await session.page.locator("#email").fill("not-an-email");
       await session.page.getByRole("button", { name: "Send magic link" }).click();
 
-      expect(await session.page.title()).toBe("Email Login Fixture");
+      expect(await session.page.title()).toBe("Hello");
       expect(await session.page.locator("#status").isHidden()).toBe(true);
       expect(await session.page.locator("#email-error").textContent()).toContain(
         "Enter a valid email address like name@example.com."
@@ -215,6 +246,23 @@ describe("verifier", () => {
     }
   });
 
+  it("allows partial matches for textVisible but not for textVisibleExact", async () => {
+    const session = await createBrowserSession(pathToFileURL(resolve("fixtures/simple-cta.html")).toString());
+
+    try {
+      await session.page.getByRole("button", { name: "Get started" }).click();
+
+      expect(
+        await evaluateVerifyRule({ textVisible: "Started" }, session)
+      ).toBeUndefined();
+      expect(
+        await evaluateVerifyRule({ textVisibleExact: "Started" }, session)
+      ).toBe('Verification failed: expected exact visible text "Started" was not observed.');
+    } finally {
+      await closeBrowserSession(session);
+    }
+  });
+
   it("returns helpful failure messages", async () => {
     const session = await createBrowserSession(pathToFileURL(resolve("fixtures/simple-cta.html")).toString());
 
@@ -235,7 +283,7 @@ describe("verifier", () => {
       );
 
       expect(result.passed).toBe(false);
-      expect(result.failures[0]).toContain('expected visible text "Started!"');
+      expect(result.failures[0]).toContain('expected visible text containing "Started!"');
       expect(formatVerificationFeedback(result)).toBe(result.failures[0]);
     } finally {
       await closeBrowserSession(session);

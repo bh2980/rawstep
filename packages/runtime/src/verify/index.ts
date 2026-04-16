@@ -53,7 +53,19 @@ export async function evaluateVerifyRule(
     const isVisible = count > 0 ? await locator.isVisible() : false;
 
     if (!isVisible) {
-      return `Verification failed: expected visible text "${rule.textVisible}" was not observed.`;
+      return `Verification failed: expected visible text containing "${rule.textVisible}" was not observed.`;
+    }
+
+    return undefined;
+  }
+
+  if ("textVisibleExact" in rule) {
+    const locator = browser.page.getByText(rule.textVisibleExact, { exact: true }).first();
+    const count = await locator.count();
+    const isVisible = count > 0 ? await locator.isVisible() : false;
+
+    if (!isVisible) {
+      return `Verification failed: expected exact visible text "${rule.textVisibleExact}" was not observed.`;
     }
 
     return undefined;
