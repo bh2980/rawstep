@@ -11,6 +11,18 @@ async function render(session: TraceSession): Promise<string> {
   return readFile(reportPath, "utf8");
 }
 
+function extractReportModel(html: string): { steps: Array<Record<string, unknown>> } {
+  const prefix = "var REPORT_MODEL = ";
+  const start = html.indexOf(prefix);
+  const end = html.indexOf(";\n    var activeFilter", start);
+
+  if (start === -1 || end === -1) {
+    throw new Error("Failed to extract report model from HTML.");
+  }
+
+  return JSON.parse(html.slice(start + prefix.length, end)) as { steps: Array<Record<string, unknown>> };
+}
+
 function makeKeyboardStep(step: number, overrides: Partial<StepRecord> = {}): StepRecord {
   const base: StepRecord = {
     step,
@@ -21,6 +33,21 @@ function makeKeyboardStep(step: number, overrides: Partial<StepRecord> = {}): St
         path: `screenshots/step-${String(step).padStart(3, "0")}.png`,
         viewport: { w: 1280, h: 800 },
       },
+      ...(step > 0
+        ? {
+            previousScreenshot: {
+              path: `screenshots/step-${String(step - 1).padStart(3, "0")}.png`,
+            },
+          }
+        : {}),
+      ...(step > 0
+        ? {
+            diffScreenshot: {
+              path: `screenshots/step-${String(step).padStart(3, "0")}-diff.png`,
+              changeRatio: 0.0625,
+            },
+          }
+        : {}),
       browserChrome: {
         title: `Fixture ${step}`,
         urlPath: `/fixture/${step}`,
@@ -304,8 +331,8 @@ describe("reporter", () => {
     const initialMarkup = html.split("<script>")[0]!;
 
     expect(initialMarkup).toMatch(/class="step-row is-status-normal"[\s\S]*?data-step-index="0"/);
-    expect(initialMarkup).toMatch(/class="step-row is-status-failure-point is-failure-point"[\s\S]*?data-step-index="1"/);
-    expect(initialMarkup).toMatch(/class="step-row is-status-success is-verdict-success"[\s\S]*?data-step-index="2"/);
+    expect(initialMarkup).toMatch(/class="step-row is-status-normal"[\s\S]*?data-step-index="1"/);
+    expect(initialMarkup).toMatch(/class="step-row is-status-failure-point is-failure-point"[\s\S]*?data-step-index="2"/);
     expect(html).toContain('id="step-pagination"');
     expect(html).toContain("Page 1 / 1");
     expect(html).toContain('aria-label="step 1 Initial');
@@ -315,6 +342,171 @@ describe("reporter", () => {
     expect(html).toContain("submit button not reachable");
     expect(html).toContain('loading="lazy"');
     expect(initialMarkup).not.toContain('<img class="detail-screenshot"');
+  });
+
+  it("shifts screenreader screenshots forward and adds a final result row", async () => {
+    const steps = [
+      makeScreenReaderStep(0, {
+        observation: {
+          kind: "screenreader",
+          announcement: "initial announcement",
+          announcementCapture: "log",
+          announcementCount: 1,
+          observeReason: "silence",
+          screenshot: {
+            path: "screenshots/step-000.png",
+            viewport: { w: 1280, h: 800 },
+          },
+        },
+      }),
+      makeScreenReaderStep(1, {
+        observation: {
+          kind: "screenreader",
+          announcement: "after tab announcement",
+          announcementCapture: "log",
+          announcementCount: 1,
+          observeReason: "silence",
+          screenshot: {
+            path: "screenshots/step-001.png",
+            viewport: { w: 1280, h: 800 },
+          },
+        },
+        decision: {
+          verdict: "success",
+          rationale: "완료 상태로 보인다.",
+        },
+        execution: {
+          ok: true,
+          costDelta: 0,
+        },
+      }),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
+        task: {
+          mode: "screenreader",
+        },
+        aggregate: {
+          result: "success",
+          endedBy: "success",
+          totalSteps: 2,
+          terminatedAtStep: 1,
+        },
+      })
+    );
+    const model = extractReportModel(html);
+
+    expect(model.steps).toHaveLength(3);
+    expect(model.steps[0]?.stepLabel).toBe("Step 1");
+    expect(model.steps[0]?.screenshotPath).toBe("../screenshots/step-000.png");
+    expect(model.steps[1]?.screenshotPath).toBe("../screenshots/step-001.png");
+    expect(model.steps[2]?.stepLabel).toBe("Result");
+    expect(model.steps[2]?.transitionLabel).toBe("Final state");
+    expect(model.steps[2]?.decisionLabel).toBe("success");
+    expect(model.steps[2]?.screenshotPath).toBe("../screenshots/step-001.png");
+    expect(html).toContain('aria-label="result Final state"');
+  });
+
+  it("keeps keyboard screenshots on the same step and adds a final result row", async () => {
+    const steps = [
+      makeKeyboardStep(0),
+      makeKeyboardStep(1),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
+        aggregate: {
+          result: "success",
+          endedBy: "success",
+          totalSteps: 2,
+          terminatedAtStep: 1,
+        },
+      })
+    );
+    const model = extractReportModel(html);
+
+    expect(model.steps).toHaveLength(3);
+    expect(model.steps[0]?.stepLabel).toBe("Step 1");
+    expect(model.steps[0]?.screenshotPath).toBe("../screenshots/step-000.png");
+    expect(model.steps[1]?.screenshotPath).toBe("../screenshots/step-001.png");
+    expect(model.steps[2]?.stepLabel).toBe("Result");
+    expect(model.steps[2]?.screenshotPath).toBe("../screenshots/step-001.png");
+  });
+
+  it("renders keyboard diff toggle when a diff screenshot is available", async () => {
+    const steps = [
+      makeKeyboardStep(0, {
+        observation: {
+          diffScreenshot: undefined,
+        },
+      }),
+      makeKeyboardStep(1),
+    ];
+
+    const html = await render(makeSession(steps));
+    const model = extractReportModel(html);
+
+    expect(model.steps[1]?.diffScreenshotPath).toBe("../screenshots/step-001-diff.png");
+    expect((model.steps[1]?.observation as { diffChangeRatio?: string } | undefined)?.diffChangeRatio).toBe("6.3%");
+    expect(html).toContain("Keyboard screenshot mode");
+    expect(html).toContain(">Current</button>");
+    expect(html).toContain(">Diff</button>");
+    expect(html).toContain('data-panel-media-mode="diff"');
+  });
+
+  it("renders reflection rows between steps without counting them as steps", async () => {
+    const steps = [
+      makeKeyboardStep(0),
+      makeKeyboardStep(1),
+      makeKeyboardStep(2, {
+        decision: {
+          verdict: "stuck",
+          rationale: "같은 시도를 멈춘다.",
+        },
+        execution: {
+          ok: true,
+          costDelta: 0,
+        },
+      }),
+    ];
+
+    const html = await render(
+      makeSession(steps, {
+        reflections: [
+          {
+            step: 0,
+            timestamp: "2026-04-12T00:00:01.500Z",
+            reflection: {
+              status: "flat",
+              assessment: "첫 진입 뒤에도 유의미한 변화가 없다.",
+              strategyNote: "폼 대신 landmarks 먼저 훑는다.",
+              updatedFocus: "landmark 구조 확인",
+            },
+          },
+          {
+            step: 1,
+            timestamp: "2026-04-12T00:00:02.500Z",
+            reflection: {
+              status: "drifting",
+              assessment: "같은 Tab 탐색이 반복된다.",
+              strategyNote: "버튼 재시도는 멈추고 heading 기준으로 재탐색한다.",
+              updatedFocus: "heading 기준 재탐색",
+            },
+          },
+        ],
+      })
+    );
+    const initialMarkup = html.split("<script>")[0]!;
+
+    expect((initialMarkup.match(/class="reflection-row"/g) ?? []).length).toBe(2);
+    expect(initialMarkup).toContain("Strategy Checkpoint");
+    expect(initialMarkup).toContain("폼 대신 landmarks 먼저 훑는다.");
+    expect(initialMarkup).toContain("버튼 재시도는 멈추고 heading 기준으로 재탐색한다.");
+    expect(initialMarkup).toContain("Next Focus");
+    expect(initialMarkup.indexOf("폼 대신 landmarks 먼저 훑는다.")).toBeGreaterThan(initialMarkup.indexOf("Step 1"));
+    expect(initialMarkup.indexOf("폼 대신 landmarks 먼저 훑는다.")).toBeLessThan(initialMarkup.indexOf("Step 2"));
+    expect(initialMarkup).toContain("2회 기록됨 · Drifting");
   });
 
   it("renders action breakdown and timing sparkline for overview navigation", async () => {
@@ -439,10 +631,13 @@ describe("reporter", () => {
     );
 
     const observationIndex = html.indexOf("panelSection('Observation',");
+    const resultIndex = html.indexOf("panelSection(step.kind === 'result' ? 'Final Result' : 'Latest Outcome',");
     const verificationIndex = html.indexOf("panelSection('Verification',");
     const decisionIndex = html.indexOf("panelSection('Decision',");
     const timeIndex = html.indexOf("panelSection('Time', renderTimingGrid(step))");
 
+    expect(observationIndex).toBeLessThan(resultIndex);
+    expect(resultIndex).toBeLessThan(verificationIndex);
     expect(observationIndex).toBeLessThan(verificationIndex);
     expect(verificationIndex).toBeLessThan(decisionIndex);
     expect(decisionIndex).toBeLessThan(timeIndex);
@@ -554,10 +749,10 @@ describe("reporter", () => {
     const rowCount = html.match(/class="step-row/g)?.length ?? 0;
     const hiddenCount = html.match(/class="step-row is-hidden/g)?.length ?? 0;
 
-    expect(minimapSegments).toBe(400);
-    expect(rowCount).toBe(400);
-    expect(hiddenCount).toBe(390);
-    expect(html).toContain("Page 1 / 40");
+    expect(minimapSegments).toBe(401);
+    expect(rowCount).toBe(401);
+    expect(hiddenCount).toBe(391);
+    expect(html).toContain("Page 1 / 41");
     expect(initialMarkup).not.toContain('<img class="detail-screenshot"');
   });
 
@@ -574,6 +769,7 @@ describe("reporter", () => {
 
     const published = await publishRunOutputs(session, outDir, [{
       kind: "decision",
+      timestamp: "2026-04-12T00:00:01.000Z",
       systemPrompt: "system",
       userPromptText: "user",
     }]);
@@ -608,5 +804,49 @@ describe("reporter", () => {
 
     expect(published.outputPaths.diagnosticsJsonl).toBe(join(outDir, "diagnostics.jsonl"));
     expect(published.summaryText).toContain(join(outDir, "diagnostics.jsonl"));
+  });
+
+  it("includes prompts jsonl output in the summary only when the file exists", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-reporter-prompts-jsonl-"));
+    const session = makeSession([], {
+      aggregate: {
+        result: "success",
+        endedBy: "success",
+        totalSteps: 0,
+        terminatedAtStep: null,
+      },
+    });
+
+    await writeFile(join(outDir, "prompts.jsonl"), '{"kind":"decision"}\n', "utf8");
+
+    const published = await publishRunOutputs(session, outDir, []);
+
+    expect(published.outputPaths.promptsJsonl).toBe(join(outDir, "prompts.jsonl"));
+    expect(published.summaryText).toContain(join(outDir, "prompts.jsonl"));
+  });
+
+  it("shows execution errors on the next observed step", async () => {
+    const steps = [
+      makeKeyboardStep(0, {
+        decision: {
+          action: { key: "Enter" },
+          rationale: "검색 결과 페이지로 이동을 시도한다.",
+        },
+        execution: {
+          ok: false,
+          costDelta: 0,
+          error: "Blocked navigation to https://www.amazon.com/s/ref=nb_sb_noss_1.",
+        },
+      }),
+      makeKeyboardStep(1),
+    ];
+
+    const html = await render(makeSession(steps));
+    const model = extractReportModel(html);
+
+    expect(model.steps[0]?.failureSummary).toBeNull();
+    expect(model.steps[1]?.transitionLabel).toBe("After Enter");
+    expect(model.steps[1]?.failureSummary).toBe("Blocked navigation to https://www.amazon.com/s/ref=nb_sb_noss_1.");
+    expect(model.steps[1]?.statusLabel).toBe("Error");
   });
 });

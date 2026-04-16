@@ -15,7 +15,10 @@ type FilterKey = "all" | "important" | "verify-fail" | "failure-point" | "verdic
 
 type StepViewModel = {
   index: number;
-  stepNumber: number;
+  kind: "step" | "result";
+  stepNumber: number | null;
+  stepLabel: string;
+  stepAriaLabel: string;
   transitionLabel: string;
   decisionLabel: string;
   decisionKindLabel: string;
@@ -32,6 +35,7 @@ type StepViewModel = {
   verificationPassed: boolean | null;
   verificationFailures: string[];
   screenshotPath: string | null;
+  diffScreenshotPath: string | null;
   hasTimingDetails: boolean;
   timings: {
     observe: string;
@@ -47,6 +51,7 @@ type StepViewModel = {
         urlPath: string;
         focusHint: string | null;
         scrollHint: string | null;
+        diffChangeRatio: string | null;
       }
     | {
         kind: "screenreader";
@@ -65,7 +70,21 @@ type StepViewModel = {
           label: string | null;
           selector: string | null;
         } | null;
+      }
+    | {
+        kind: "result";
+        note: string;
       };
+};
+
+type ReflectionViewModel = {
+  anchorStepIndex: number;
+  relativeLabel: string | null;
+  statusLabel: string;
+  tone: "success" | "failure" | "warning" | "neutral";
+  assessment: string;
+  strategyNote: string;
+  updatedFocus: string | null;
 };
 
 type ReportModel = {
@@ -84,6 +103,9 @@ type ReportModel = {
   };
   summary?: TraceSession["experienceSummary"];
   summaryError?: string;
+  plan?: TraceSession["plan"];
+  planningError?: string;
+  reflections: ReflectionViewModel[];
   steps: StepViewModel[];
   filters: Record<FilterKey, number>;
   actionBreakdown: Array<{
@@ -533,6 +555,9 @@ export function renderHtml(session: TraceSession): string {
     .step-row:last-child {
       border-bottom: 0;
     }
+    .step-list > :last-child {
+      border-bottom: 0;
+    }
     .step-row:hover {
       background: rgba(249, 250, 247, 0.92);
     }
@@ -541,6 +566,74 @@ export function renderHtml(session: TraceSession): string {
     }
     .step-row.is-hidden {
       display: none;
+    }
+    .reflection-row {
+      width: 100%;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 16px;
+      border-bottom: 1px solid rgba(230, 231, 226, 0.95);
+      background: linear-gradient(180deg, rgba(242, 247, 255, 0.98), rgba(250, 252, 255, 0.96));
+    }
+    .reflection-row.is-hidden {
+      display: none;
+    }
+    .reflection-label {
+      color: #496175;
+      padding-top: 8px;
+    }
+    .reflection-card {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px 14px 18px;
+      border: 1px solid #d8e4f4;
+      border-left: 4px solid #7aa2ff;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.94));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+    .reflection-topline {
+      gap: 10px;
+    }
+    .reflection-chip {
+      color: #1e3a5f;
+      background: #e8f0ff;
+      border-color: #bfd2f6;
+      font-weight: 700;
+    }
+    .reflection-stack {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .reflection-block {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .reflection-block-label {
+      color: #60758c;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .reflection-copy,
+    .reflection-meta {
+      min-width: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .reflection-copy strong,
+    .reflection-meta strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .reflection-meta {
+      color: #42566b;
     }
     .step-row.is-failure-point::before {
       content: "";
@@ -858,8 +951,8 @@ export function renderHtml(session: TraceSession): string {
     }
     .detail-kv-row {
       display: grid;
-      grid-template-columns: 52px 1fr;
-      gap: 10px;
+      grid-template-columns: minmax(96px, 132px) minmax(0, 1fr);
+      gap: 12px;
       align-items: start;
       font-size: 13px;
     }
@@ -1144,6 +1237,10 @@ export function renderHtml(session: TraceSession): string {
       box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.24), 0 10px 22px rgba(37, 99, 235, 0.08);
       z-index: 1;
     }
+    .reflection-row {
+      border-left: 1px solid transparent;
+      border-right: 1px solid transparent;
+    }
     .step-row.is-failure-point::before {
       width: 4px;
     }
@@ -1236,6 +1333,37 @@ export function renderHtml(session: TraceSession): string {
       border-radius: 18px;
       background: linear-gradient(180deg, rgba(250, 250, 247, 0.96), rgba(246, 246, 242, 0.98));
     }
+    .detail-media-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .detail-media-toggle {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+    }
+    .media-toggle-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: transparent;
+      color: var(--text-muted);
+      font: 600 12px/1 var(--font-ui);
+    }
+    .media-toggle-btn.is-active {
+      background: var(--text);
+      color: #fff;
+    }
+    .detail-media-meta {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
     .detail-screenshot {
       max-height: 420px;
       width: 100%;
@@ -1298,6 +1426,10 @@ export function renderHtml(session: TraceSession): string {
         grid-template-columns: 1fr;
         gap: 8px;
       }
+      .reflection-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
       .step-number {
         padding-top: 0;
       }
@@ -1335,6 +1467,7 @@ export function renderHtml(session: TraceSession): string {
     var currentPage = 1;
     var pageSize = ${STEP_PAGE_SIZE};
     var selectedStepIndex = null;
+    var currentKeyboardImageMode = 'current';
 
     function esc(value) {
       return String(value == null ? '' : value)
@@ -1373,9 +1506,27 @@ export function renderHtml(session: TraceSession): string {
 
       var observation = '';
       if (step.screenshotPath) {
+        var selectedImagePath = step.screenshotPath;
+        var screenshotAlt = step.stepAriaLabel + ' screenshot';
+        if (step.observation.kind === 'keyboard' && step.diffScreenshotPath && currentKeyboardImageMode === 'diff') {
+          selectedImagePath = step.diffScreenshotPath;
+          screenshotAlt = step.stepAriaLabel + ' diff screenshot';
+        }
+
         observation += '<div class="detail-subhead">Screenshot</div>' +
+          (step.observation.kind === 'keyboard' && step.diffScreenshotPath
+            ? '<div class="detail-media-toolbar">' +
+                '<div class="detail-media-toggle" role="tablist" aria-label="Keyboard screenshot mode">' +
+                  '<button type="button" class="media-toggle-btn' + (currentKeyboardImageMode === 'current' ? ' is-active' : '') + '" aria-pressed="' + (currentKeyboardImageMode === 'current' ? 'true' : 'false') + '" data-panel-media-mode="current">Current</button>' +
+                  '<button type="button" class="media-toggle-btn' + (currentKeyboardImageMode === 'diff' ? ' is-active' : '') + '" aria-pressed="' + (currentKeyboardImageMode === 'diff' ? 'true' : 'false') + '" data-panel-media-mode="diff">Diff</button>' +
+                '</div>' +
+                (step.observation.diffChangeRatio
+                  ? '<div class="detail-media-meta">Changed ' + esc(step.observation.diffChangeRatio) + '</div>'
+                  : '') +
+              '</div>'
+            : '') +
           '<div class="detail-media-frame">' +
-          '<img class="detail-screenshot" src="' + esc(step.screenshotPath) + '" loading="lazy" alt="step ' + esc(step.stepNumber) + ' screenshot" />' +
+          '<img class="detail-screenshot" src="' + esc(selectedImagePath) + '" loading="lazy" alt="' + esc(screenshotAlt) + '" />' +
         '</div>';
       }
 
@@ -1386,7 +1537,7 @@ export function renderHtml(session: TraceSession): string {
       ) {
         observation += '<div class="detail-subhead">VoiceOver Cursor</div>' +
           '<div class="detail-media-frame">' +
-          '<img class="detail-screenshot" src="' + esc(step.observation.cursorScreenshot.path) + '" loading="lazy" alt="step ' + esc(step.stepNumber) + ' voiceover cursor screenshot" />' +
+          '<img class="detail-screenshot" src="' + esc(step.observation.cursorScreenshot.path) + '" loading="lazy" alt="' + esc(step.stepAriaLabel) + ' voiceover cursor screenshot" />' +
         '</div>';
       }
 
@@ -1421,11 +1572,27 @@ export function renderHtml(session: TraceSession): string {
                 : '')
             : '') +
         '</div>';
+      } else if (step.observation.kind === 'result') {
+        observation += '<div class="detail-muted">' + esc(step.observation.note) + '</div>';
       } else if (!step.screenshotPath) {
         observation += '<div class="detail-muted">No screenshot</div>';
       }
 
       chunks.push(panelSection('Observation', observation));
+
+      if (step.kind === 'result' || step.status !== 'normal' || step.failureSummary) {
+        chunks.push(panelSection(step.kind === 'result' ? 'Final Result' : 'Latest Outcome',
+          '<div class="detail-decision">' +
+            '<div class="detail-decision-topline">' +
+              '<span class="detail-inline-label">Status</span>' +
+              '<span class="status-chip tone-' + esc(step.tone) + '">' + esc(step.statusLabel) + '</span>' +
+            '</div>' +
+            (step.failureSummary
+              ? '<div class="detail-block"><div class="detail-copy">' + esc(step.failureSummary) + '</div></div>'
+              : '') +
+          '</div>'
+        ));
+      }
 
       if (step.verificationPassed !== null) {
         if (step.verificationPassed) {
@@ -1442,10 +1609,6 @@ export function renderHtml(session: TraceSession): string {
             (failureItems ? '<ul class="verify-list">' + failureItems + '</ul>' : '')
           ));
         }
-      }
-
-      if (step.isFailurePoint && step.failureSummary) {
-        chunks.push('<section class="detail-section"><div class="failure-box">' + esc(step.failureSummary) + '</div></section>');
       }
 
       chunks.push(panelSection('Decision',
@@ -1471,6 +1634,9 @@ export function renderHtml(session: TraceSession): string {
             (step.observation.scrollHint
               ? '<div class="detail-kv-row"><strong>Scroll</strong><div class="detail-copy">' + esc(step.observation.scrollHint) + '</div></div>'
               : '') +
+            (step.observation.diffChangeRatio
+              ? '<div class="detail-kv-row"><strong>Diff Change</strong><div class="detail-copy">' + esc(step.observation.diffChangeRatio) + '</div></div>'
+              : '') +
           '</div>'
         ));
       }
@@ -1483,11 +1649,10 @@ export function renderHtml(session: TraceSession): string {
     }
 
     function renderPanelHeader(step) {
-      var current = step.stepNumber;
       var total = ${REPORT_MODEL_VAR}.steps.length;
       return '' +
         '<div class="detail-panel-title">' +
-          '<div class="detail-step-line">Step ' + esc(current) + ' / ' + esc(total) + '</div>' +
+          '<div class="detail-step-line">' + esc(step.stepLabel) + ' / ' + esc(total) + '</div>' +
           '<div class="panel-hero">' +
             '<span class="action-chip panel-action-chip panel-transition-chip">' + esc(step.transitionLabel) + '</span>' +
             '<span class="status-chip panel-status-chip tone-' + esc(step.tone) + '">' + esc(step.statusLabel) + '</span>' +
@@ -1523,7 +1688,7 @@ export function renderHtml(session: TraceSession): string {
       if (!step) return;
       var total = ${REPORT_MODEL_VAR}.steps.length;
       var position = total === 1 ? 50 : (selectedStepIndex / (total - 1)) * 100;
-      label.textContent = 'Step ' + step.stepNumber;
+      label.textContent = step.stepLabel;
       label.style.left = position + '%';
       label.classList.add('is-visible');
     }
@@ -1592,20 +1757,44 @@ export function renderHtml(session: TraceSession): string {
       ensureStepVisible(index);
       applyFilter(activeFilter, true);
       selectedStepIndex = index;
+      currentKeyboardImageMode = 'current';
       document.getElementById('detail-panel-header').innerHTML = renderPanelHeader(step);
       document.getElementById('detail-panel-body').innerHTML = renderPanelBody(step);
       document.getElementById('detail-panel').classList.add('is-open');
       setPanelLayoutState(true);
       document.getElementById('panel-close').onclick = closePanel;
+      bindPanelMediaToggle();
       updatePanelButtons();
       syncSelectedState();
     }
 
     function closePanel() {
       selectedStepIndex = null;
+      currentKeyboardImageMode = 'current';
       document.getElementById('detail-panel').classList.remove('is-open');
       setPanelLayoutState(false);
       syncSelectedState();
+    }
+
+    function setPanelKeyboardImageMode(mode) {
+      if (selectedStepIndex == null) return;
+      if (mode !== 'current' && mode !== 'diff') return;
+      currentKeyboardImageMode = mode;
+      var step = ${REPORT_MODEL_VAR}.steps[selectedStepIndex];
+      if (!step) return;
+      document.getElementById('detail-panel-body').innerHTML = renderPanelBody(step);
+      bindPanelMediaToggle();
+    }
+
+    function bindPanelMediaToggle() {
+      var toggles = document.querySelectorAll('[data-panel-media-mode]');
+      for (var i = 0; i < toggles.length; i++) {
+        toggles[i].onclick = function() {
+          var mode = this.getAttribute('data-panel-media-mode');
+          if (!mode) return;
+          setPanelKeyboardImageMode(mode);
+        };
+      }
     }
 
     function navigatePanel(direction) {
@@ -1634,6 +1823,14 @@ export function renderHtml(session: TraceSession): string {
         var visible = filteredPosition >= pageStart && filteredPosition < pageEnd;
         row.classList.toggle('is-hidden', !visible);
         if (visible) visibleCount += 1;
+      }
+      var reflectionRows = document.querySelectorAll('.reflection-row');
+      for (var k = 0; k < reflectionRows.length; k++) {
+        var reflectionRow = reflectionRows[k];
+        var anchorStepIndex = Number(reflectionRow.getAttribute('data-anchor-step-index'));
+        var anchorPosition = filtered.indexOf(anchorStepIndex);
+        var reflectionVisible = anchorPosition >= pageStart && anchorPosition < pageEnd;
+        reflectionRow.classList.toggle('is-hidden', !reflectionVisible);
       }
       var tabs = document.querySelectorAll('[data-filter-tab]');
       for (var j = 0; j < tabs.length; j++) {
@@ -1743,8 +1940,9 @@ export function renderHtml(session: TraceSession): string {
 function buildReportModel(session: TraceSession): ReportModel {
   const startedAtMs = Date.parse(session.startedAt);
   const failurePointStep = session.aggregate.failurePoint?.stepIndex;
+  const reflections = buildReflectionViewModels(session.reflections ?? [], startedAtMs);
 
-  const steps = session.steps.map((step, index) =>
+  const timelineSteps = session.steps.map((step, index) =>
     buildStepViewModel(
       step,
       index,
@@ -1754,6 +1952,8 @@ function buildReportModel(session: TraceSession): ReportModel {
       session.aggregate.failurePoint?.reason
     )
   );
+  const resultStep = buildTerminalResultStep(session, startedAtMs);
+  const steps = resultStep ? [...timelineSteps, resultStep] : timelineSteps;
 
   const filters: Record<FilterKey, number> = {
     important: steps.filter((step) => step.isImportant).length,
@@ -1779,10 +1979,13 @@ function buildReportModel(session: TraceSession): ReportModel {
     },
     summary: session.experienceSummary,
     summaryError: session.experienceSummaryError,
+    plan: session.plan,
+    planningError: session.planningError,
+    reflections,
     steps,
     filters,
-    actionBreakdown: buildActionBreakdown(steps),
-    sparkline: buildSparkline(steps),
+    actionBreakdown: buildActionBreakdown(timelineSteps),
+    sparkline: buildSparkline(timelineSteps),
   };
 }
 
@@ -1794,28 +1997,30 @@ function buildStepViewModel(
   failurePointStep: number | undefined,
   failurePointReason: string | undefined
 ): StepViewModel {
-  const status = getStepStatus(step, failurePointStep);
+  const status = getStepStatus(previousStep, failurePointStep);
   const meta = STATUS_META[status];
   const isVerdict = "verdict" in step.decision;
-  const isVerifyFail = Boolean(step.verification && !step.verification.passed);
-  const isFailurePoint = step.step === failurePointStep;
-  const isExecutionError = step.execution.ok === false;
+  const isVerifyFail = Boolean(previousStep?.verification && !previousStep.verification.passed);
+  const isFailurePoint = typeof failurePointStep === "number" && previousStep?.step === failurePointStep;
+  const isExecutionError = previousStep ? previousStep.execution.ok === false : false;
   const isImportant = isVerifyFail || isFailurePoint || isVerdict || isExecutionError;
-  const screenshotPath = step.observation.screenshot
-    ? toReportImagePath(step.observation.screenshot.path)
-    : null;
+  const screenshotPath = resolveStepScreenshotPath(step);
+  const diffScreenshotPath = resolveStepDiffScreenshotPath(step);
   let failureSummary: string | null = null;
   if (isFailurePoint) {
-    failureSummary = failurePointReason ?? firstFailure(step) ?? step.execution.error ?? "Failure point";
+    failureSummary = failurePointReason ?? firstFailure(previousStep) ?? previousStep?.execution.error ?? "Failure point";
   } else if (isVerifyFail) {
-    failureSummary = firstFailure(step);
+    failureSummary = firstFailure(previousStep);
   } else if (isExecutionError) {
-    failureSummary = step.execution.error ?? "Execution error";
+    failureSummary = previousStep?.execution.error ?? "Execution error";
   }
 
   return {
     index,
+    kind: "step",
     stepNumber: step.step + 1,
+    stepLabel: `Step ${step.step + 1}`,
+    stepAriaLabel: `step ${step.step + 1}`,
     transitionLabel: formatTransitionLabel(previousStep),
     decisionLabel: formatDecisionLabel(step),
     decisionKindLabel: "verdict" in step.decision ? "Verdict" : "Next action",
@@ -1829,9 +2034,10 @@ function buildStepViewModel(
     isImportant,
     isVerifyFail,
     isFailurePoint,
-    verificationPassed: step.verification ? step.verification.passed : null,
-    verificationFailures: step.verification?.failures ?? [],
+    verificationPassed: previousStep ? previousStep.verification?.passed ?? null : null,
+    verificationFailures: previousStep?.verification?.failures ?? [],
     screenshotPath,
+    diffScreenshotPath,
     hasTimingDetails: hasMeaningfulTimings(step.timings),
     timings: {
       observe: formatDuration(step.timings.observeMs),
@@ -1848,6 +2054,7 @@ function buildStepViewModel(
             urlPath: step.observation.browserChrome.urlPath,
             focusHint: step.observation.focusHint ?? null,
             scrollHint: step.observation.scrollHint ?? null,
+            diffChangeRatio: formatKeyboardDiffChangeRatio(step.observation.diffScreenshot?.changeRatio),
           }
         : {
             kind: "screenreader",
@@ -1880,6 +2087,166 @@ function buildStepViewModel(
               : null,
           },
   };
+}
+
+function resolveStepScreenshotPath(
+  step: StepRecord
+): string | null {
+  if (step.observation.kind === "keyboard") {
+    return toReportImagePath(step.observation.screenshot.path);
+  }
+
+  return step.observation.screenshot
+    ? toReportImagePath(step.observation.screenshot.path)
+    : null;
+}
+
+function resolveStepDiffScreenshotPath(
+  step: StepRecord
+): string | null {
+  if (step.observation.kind !== "keyboard") {
+    return null;
+  }
+
+  return step.observation.diffScreenshot
+    ? toReportImagePath(step.observation.diffScreenshot.path)
+    : null;
+}
+
+function buildTerminalResultStep(
+  session: TraceSession,
+  startedAtMs: number
+): StepViewModel | null {
+  const lastStep = session.steps[session.steps.length - 1];
+  const finalScreenshotPath = lastStep
+    ? resolveCurrentObservationScreenshotPath(lastStep)
+    : null;
+  if (!lastStep || !finalScreenshotPath) {
+    return null;
+  }
+
+  const status = resolveTerminalResultStatus(session);
+  const meta = STATUS_META[status];
+  const resultNote = "Final result reuses the latest captured screenshot.";
+
+  return {
+    index: session.steps.length,
+    kind: "result",
+    stepNumber: null,
+    stepLabel: "Result",
+    stepAriaLabel: "result",
+    transitionLabel: "Final state",
+    decisionLabel: formatTerminalDecisionLabel(session),
+    decisionKindLabel: "Final status",
+    status,
+    statusLabel: meta.label,
+    tone: meta.tone,
+    rationale: "",
+    failureSummary: session.aggregate.failurePoint?.reason ?? null,
+    relativeLabel: formatRelativeLabel(startedAtMs, session.endedAt),
+    isVerdict: false,
+    isImportant: true,
+    isVerifyFail: false,
+    isFailurePoint: false,
+    verificationPassed: null,
+    verificationFailures: [],
+    screenshotPath: finalScreenshotPath,
+    diffScreenshotPath: null,
+    hasTimingDetails: false,
+    timings: {
+      observe: formatDuration(0),
+      decide: formatDuration(0),
+      execute: formatDuration(0),
+      verify: formatDuration(0),
+      decideMs: 0,
+    },
+    observation: {
+      kind: "result",
+      note: resultNote,
+    },
+  };
+}
+
+function formatKeyboardDiffChangeRatio(changeRatio: number | undefined): string | null {
+  if (changeRatio === undefined) {
+    return null;
+  }
+
+  return `${(changeRatio * 100).toFixed(changeRatio < 0.01 ? 2 : 1)}%`;
+}
+
+function resolveCurrentObservationScreenshotPath(step: StepRecord): string | null {
+  if (step.observation.kind === "keyboard") {
+    return toReportImagePath(step.observation.screenshot.path);
+  }
+
+  return step.observation.screenshot
+    ? toReportImagePath(step.observation.screenshot.path)
+    : null;
+}
+
+function buildReflectionViewModels(
+  reflections: NonNullable<TraceSession["reflections"]>,
+  startedAtMs: number
+): ReflectionViewModel[] {
+  return reflections.map((entry) => ({
+    anchorStepIndex: entry.step,
+    relativeLabel: formatRelativeLabel(startedAtMs, entry.timestamp),
+    statusLabel: formatReflectionStatusLabel(entry.reflection.status),
+    tone: resolveReflectionTone(entry.reflection.status),
+    assessment: entry.reflection.assessment,
+    strategyNote: entry.reflection.strategyNote,
+    updatedFocus: entry.reflection.updatedFocus ?? null,
+  }));
+}
+
+function resolveTerminalResultStatus(session: TraceSession): StepStatus {
+  switch (session.aggregate.endedBy) {
+    case "success":
+      return "success";
+    case "stuck":
+      return "stuck";
+    case "error":
+      return "error";
+    case "timeout":
+    case "maxSteps":
+      return "failure";
+    default:
+      return session.aggregate.failurePoint ? "failure-point" : "failure";
+  }
+}
+
+function formatTerminalDecisionLabel(session: TraceSession): string {
+  switch (session.aggregate.endedBy) {
+    case "maxSteps":
+      return "max steps";
+    default:
+      return session.aggregate.endedBy;
+  }
+}
+
+function formatReflectionStatusLabel(status: "progressing" | "flat" | "drifting"): string {
+  switch (status) {
+    case "progressing":
+      return "Progressing";
+    case "flat":
+      return "Flat";
+    case "drifting":
+      return "Drifting";
+  }
+}
+
+function resolveReflectionTone(
+  status: "progressing" | "flat" | "drifting"
+): "success" | "failure" | "warning" | "neutral" {
+  switch (status) {
+    case "progressing":
+      return "success";
+    case "flat":
+      return "warning";
+    case "drifting":
+      return "failure";
+  }
 }
 
 function buildActionBreakdown(steps: StepViewModel[]): ReportModel["actionBreakdown"] {
@@ -1936,12 +2303,13 @@ function buildSparkline(steps: StepViewModel[]): ReportModel["sparkline"] {
                 ? point.x - points[index - 1]!.x
                 : points[Math.min(index + 1, points.length - 1)]!.x - point.x
             ),
-      tooltip: `step ${steps[index]!.stepNumber} · ${formatDuration(point.decideMs)}`,
+      tooltip: `${steps[index]!.stepAriaLabel} · ${formatDuration(point.decideMs)}`,
     })),
   };
 }
 
-function getStepStatus(step: StepRecord, failurePointStep: number | undefined): StepStatus {
+function getStepStatus(step: StepRecord | undefined, failurePointStep: number | undefined): StepStatus {
+  if (!step) return "normal";
   if (step.step === failurePointStep) return "failure-point";
   if (!step.execution.ok) return "error";
   if (step.verification) return step.verification.passed ? "verified" : "verify-fail";
@@ -1965,8 +2333,8 @@ function formatTransitionLabel(previousStep: StepRecord | undefined): string {
   return `After ${formatDecisionLabel(previousStep)}`;
 }
 
-function firstFailure(step: StepRecord): string | null {
-  return step.verification?.failures[0] ?? null;
+function firstFailure(step: StepRecord | undefined): string | null {
+  return step?.verification?.failures[0] ?? null;
 }
 
 function hasMeaningfulTimings(timings: StepRecord["timings"]): boolean {
@@ -2106,6 +2474,7 @@ function renderHeader(model: ReportModel): string {
 function renderSummary(model: ReportModel): string {
   let body = "";
   let cardClass = "card summary-card";
+  const planningBody = renderPlanningSummary(model);
 
   if (model.summary) {
     const isCompact = model.summary.blockers.length === 0 && !model.summary.surprise;
@@ -2114,6 +2483,7 @@ function renderSummary(model: ReportModel): string {
       body = `<div class="card-body">
         <div class="summary-lead">${h(model.summary.oneLineFeel)}</div>
         <div class="summary-overall">${h(model.summary.overall)}</div>
+        ${planningBody}
       </div>`;
     } else {
       const blockers = model.summary.blockers.length > 0
@@ -2138,6 +2508,7 @@ function renderSummary(model: ReportModel): string {
             ${surprise}
           </div>
         </div>
+        ${planningBody}
       </div>`;
     }
   } else {
@@ -2145,13 +2516,36 @@ function renderSummary(model: ReportModel): string {
       ? `Summary unavailable. ${model.summaryError}`
       : "No summary available.";
 
-    body = `<div class="card-body"><div class="summary-warning">${h(quietMessage)}</div></div>`;
+    body = `<div class="card-body"><div class="summary-warning">${h(quietMessage)}</div>${planningBody}</div>`;
   }
 
   return `<section class="${cardClass}" id="experience-summary">
     <div class="card-header"><div class="card-title">Experience Summary</div></div>
     ${body}
   </section>`;
+}
+
+function renderPlanningSummary(model: ReportModel): string {
+  const parts: string[] = [];
+
+  if (model.plan) {
+    parts.push(`<div><div class="section-label">Initial Plan</div><div class="summary-notes">${model.plan.steps.map((step, index) =>
+      `<div class="summary-note tone-neutral">${h(`${index + 1}. ${step}`)}</div>`).join("")}</div></div>`);
+    parts.push(`<div><div class="section-label">Current Focus</div><div class="summary-note tone-neutral">${h(model.plan.currentFocus)}</div></div>`);
+  } else if (model.planningError) {
+    parts.push(`<div><div class="section-label">Planning</div><div class="summary-note tone-failure">${h(model.planningError)}</div></div>`);
+  }
+
+  if (model.reflections.length > 0) {
+    const lastReflection = model.reflections[model.reflections.length - 1]!;
+    parts.push(`<div><div class="section-label">Reflection</div><div class="summary-note tone-neutral">${h(`${model.reflections.length}회 기록됨 · ${lastReflection.statusLabel}`)}</div><div class="summary-note tone-neutral">${h(lastReflection.strategyNote)}</div></div>`);
+  }
+
+  if (parts.length === 0) {
+    return "";
+  }
+
+  return `<div class="summary-grid">${parts.join("")}</div>`;
 }
 
 function renderFlowCard(model: ReportModel): string {
@@ -2186,10 +2580,10 @@ function renderMinimap(model: ReportModel): string {
     return `<rect
       class="minimap-segment"
       data-step-index="${index}"
-      data-tooltip="${h(`step ${step.stepNumber} · ${step.transitionLabel} · ${step.statusLabel}`)}"
+      data-tooltip="${h(`${step.stepAriaLabel} · ${step.transitionLabel} · ${step.statusLabel}`)}"
       tabindex="0"
       role="button"
-      aria-label="${h(`step ${step.stepNumber} ${step.transitionLabel} ${step.statusLabel}`)}"
+      aria-label="${h(`${step.stepAriaLabel} ${step.transitionLabel} ${step.statusLabel}`)}"
       x="${x}"
       y="${MINIMAP_BAR_Y}"
       width="${width}"
@@ -2265,25 +2659,21 @@ function renderStepList(model: ReportModel): string {
       hidden.trim(),
       `is-status-${step.status}`,
       step.isFailurePoint ? "is-failure-point" : "",
-      step.isVerdict && step.status === "success" ? "is-verdict-success" : "",
-      step.isVerdict && step.status === "stuck" ? "is-verdict-stuck" : "",
     ].filter(Boolean).join(" ");
-    const chipClass = step.isVerdict
-      ? (step.status === "success" ? " is-verdict-success" : " is-verdict-stuck")
-      : step.tone === "failure"
-        ? " is-failure"
-        : step.status === "normal"
-          ? " is-muted"
-          : "";
+    const chipClass = step.tone === "failure"
+      ? " is-failure"
+      : step.status === "normal"
+        ? " is-muted"
+        : "";
 
-    return `<button
+    const stepRow = `<button
       class="${rowClasses}"
       type="button"
       data-step-index="${step.index}"
       data-filters="${filters.join(" ")}"
-      aria-label="${h(`step ${step.stepNumber} ${step.transitionLabel}`)}"
+      aria-label="${h(`${step.stepAriaLabel} ${step.transitionLabel}`)}"
     >
-      <span class="step-number">step ${step.stepNumber}</span>
+      <span class="step-number">${h(step.stepLabel)}</span>
       <span class="step-content">
         <span class="step-topline">
           <span class="action-chip${chipClass}">${h(step.transitionLabel)}</span>
@@ -2295,6 +2685,12 @@ function renderStepList(model: ReportModel): string {
         ${step.failureSummary ? `<span class="step-failure">${h(step.failureSummary)}</span>` : ""}
       </span>
     </button>`;
+    const reflectionRows = model.reflections
+      .filter((reflection) => reflection.anchorStepIndex === step.index)
+      .map((reflection) => renderReflectionRow(reflection, hidden))
+      .join("");
+
+    return `${stepRow}${reflectionRows}`;
   }).join("");
 
   const emptyHidden = model.filters.all === 0 ? "" : " is-hidden";
@@ -2309,6 +2705,37 @@ function renderStepList(model: ReportModel): string {
     <div class="pagination-meta" id="page-meta">Page 1 / ${totalPages}</div>
     <button class="pagination-btn" type="button" id="page-next" aria-label="Next page"${totalPages > 1 ? "" : " disabled"}>Next</button>
   </div>`;
+}
+
+function renderReflectionRow(reflection: ReflectionViewModel, hidden: string): string {
+  return `<div
+      class="reflection-row${hidden}"
+      data-anchor-step-index="${reflection.anchorStepIndex}"
+      aria-label="${h(`strategy checkpoint after step ${reflection.anchorStepIndex + 1}`)}"
+    >
+      <span class="step-number reflection-label">Checkpoint</span>
+      <span class="reflection-card">
+        <span class="step-topline reflection-topline">
+          <span class="action-chip reflection-chip">Strategy Checkpoint</span>
+          <span class="status-chip tone-${reflection.tone}">${h(reflection.statusLabel)}</span>
+          ${reflection.relativeLabel ? `<span class="summary-muted">${h(reflection.relativeLabel)}</span>` : ""}
+        </span>
+        <span class="reflection-stack">
+          <span class="reflection-block">
+            <span class="reflection-block-label">Why It Changed</span>
+            <span class="reflection-copy">${h(reflection.assessment)}</span>
+          </span>
+          <span class="reflection-block">
+            <span class="reflection-block-label">New Strategy</span>
+            <span class="reflection-copy">${h(reflection.strategyNote)}</span>
+          </span>
+          ${reflection.updatedFocus ? `<span class="reflection-block">
+            <span class="reflection-block-label">Next Focus</span>
+            <span class="reflection-meta">${h(reflection.updatedFocus)}</span>
+          </span>` : ""}
+        </span>
+      </span>
+    </div>`;
 }
 
 function renderActionCard(model: ReportModel): string {

@@ -7,6 +7,7 @@ export type PublishedRunOutputs = {
   outputPaths: {
     traceJsonl: string;
     diagnosticsJsonl?: string;
+    promptsJsonl?: string;
     traceJson: string;
     metricsJson: string;
     promptsJson: string;
@@ -37,7 +38,7 @@ export async function publishRunOutputs(
   let reportPath = await renderReport(session, outDir);
   session.aggregate.timings.reportMs = Date.now() - reportStartedAt;
 
-  const outputPaths = {
+  const outputPaths: PublishedRunOutputs["outputPaths"] = {
     traceJsonl: resolve(outDir, "trace.jsonl"),
     traceJson: resolve(outDir, "trace.json"),
     metricsJson: resolve(outDir, "metrics.json"),
@@ -50,6 +51,13 @@ export async function publishRunOutputs(
     outputPaths.diagnosticsJsonl = diagnosticsJsonlPath;
   } catch {
     // Diagnostics are written lazily and may not exist for a clean run.
+  }
+  const promptsJsonlPath = resolve(outDir, "prompts.jsonl");
+  try {
+    await access(promptsJsonlPath);
+    outputPaths.promptsJsonl = promptsJsonlPath;
+  } catch {
+    // Prompt JSONL is written lazily and may not exist for synthetic tests.
   }
 
   await writeFile(outputPaths.traceJson, JSON.stringify(session, null, 2), "utf8");
@@ -68,6 +76,7 @@ export async function publishRunOutputs(
       "Outputs:",
       `- ${outputPaths.traceJsonl}`,
       ...(outputPaths.diagnosticsJsonl ? [`- ${outputPaths.diagnosticsJsonl}`] : []),
+      ...(outputPaths.promptsJsonl ? [`- ${outputPaths.promptsJsonl}`] : []),
       `- ${outputPaths.metricsJson}`,
       `- ${outputPaths.promptsJson}`,
       `- ${outputPaths.reportHtml}`

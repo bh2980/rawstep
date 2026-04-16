@@ -39,6 +39,8 @@
 
 **step detail panel** — 선택한 step의 observation, action, rationale, verification 결과, timing, 스크린샷.
 
+screenreader 모드에서는 스크린샷이 "관찰 시점"이 아니라 "직전 행동 이후 상태"를 보여주므로, `Initial` 행에는 스크린샷이 없고 마지막 남는 이미지는 별도 `Result` 행에 표시됩니다.
+
 ---
 
 ## step detail 읽는 법
