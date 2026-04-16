@@ -44,8 +44,10 @@ export async function runCli(
       headless: plan.execution.headless,
       agent,
       screenshotPolicy: plan.execution.screenshotPolicy,
+      navigation: plan.execution.navigation,
       verifierAutoComplete: plan.execution.verifierAutoComplete,
       maxVerificationRetries: plan.execution.maxVerificationRetries,
+      planning: plan.execution.planning,
       keyboardActionPlan: plan.interaction.keyboardActionPlan,
       screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
       screenReaderBackendId: plan.interaction.screenReaderBackendId,
@@ -75,6 +77,7 @@ function createAgent(
     apiKey: plan.agent.apiKey,
     model: plan.agent.model,
     baseURL: plan.agent.baseURL,
+    reasoningEffort: plan.agent.reasoningEffort,
     agentMemoryWindow: plan.agent.memory.mode === "window"
       ? plan.agent.memory.window
       : undefined,
@@ -82,6 +85,7 @@ function createAgent(
     includeExperienceSummary: plan.agent.includeExperienceSummary,
     includeRationale: plan.agent.includeRationale,
     taskInput,
+    taskPrompt: plan.task.prompt,
     promptDir: plan.paths.promptDir,
     keyboardActions: plan.prompt.keyboardActions,
     screenReaderActions: plan.prompt.screenReaderActions,

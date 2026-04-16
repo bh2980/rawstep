@@ -14,6 +14,7 @@ import {
 } from "../browser";
 import {
   allowsRawKeyActions,
+  type AgentContext,
   type Decision,
   type ExecutionRecord,
   type AgentMemoryEntry,
@@ -22,6 +23,9 @@ import {
   type EndedBy,
   isScreenReaderMode,
   type Observation,
+  type PlanningConfig,
+  type PlanState,
+  type ReflectionState,
   type ResolvedTask,
   type ScreenReaderBackendId,
   type ScreenReaderObserveConfig,
@@ -30,6 +34,7 @@ import {
   type TraceSession,
   type UserModel,
   type VoiceOverConfig,
+  type ResolvedNavigationPolicy,
 } from "@rawstep/definition";
 import {
   createScreenReaderRuntime,
@@ -65,8 +70,10 @@ import {
 export type RunTaskOptions = {
   outDir: string;
   screenshotPolicy?: ScreenshotPolicy;
+  navigation?: ResolvedNavigationPolicy;
   verifierAutoComplete?: boolean;
   maxVerificationRetries?: number;
+  planning?: PlanningConfig;
   headless?: boolean;
   keyboardActionPlan?: KeyboardActionPlan;
   screenReaderActionPlan?: ScreenReaderActionPlan;
@@ -93,6 +100,7 @@ type RunResources = {
   screenshotPolicy: ScreenshotPolicy;
   maxVerificationRetries: number;
   verifierAutoComplete: boolean;
+  planning: Required<PlanningConfig>;
   browser: BrowserSession;
   screenReaderRuntime?: ScreenReaderRuntime;
   observer: RunnerObserver;
@@ -109,6 +117,14 @@ type RunState = {
   pendingScreenReaderReadbacks: ScreenReaderReadback[];
   pendingSyntheticAnnouncement?: string;
   pendingObservationOptions?: Parameters<RunnerObserver["observe"]>[0];
+  pendingBuiltAgentStepContext?: BuiltAgentStepContext;
+  planningAttempted: boolean;
+  planningStartedAtStep?: number;
+  nextReflectionStep?: number;
+  plan?: PlanState;
+  currentFocus?: string;
+  strategyNote?: string;
+  lastReflection?: ReflectionState;
   endedBy?: EndedBy;
   failureReasonOverride?: string;
 };
@@ -120,6 +136,10 @@ type BuiltAgentStepContext = {
     keyboardActions?: KeyboardActionPlan["descriptors"];
     screenReaderActions?: ScreenReaderActionPlan["descriptors"];
     memory: AgentMemoryEntry[];
+    plan?: PlanState;
+    currentFocus?: string;
+    strategyNote?: string;
+    lastReflection?: ReflectionState;
   };
   observeMs: number;
   screenReaderArtifacts?: ScreenReaderTraceArtifacts;
@@ -156,7 +176,8 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
     verificationFailures: 0,
     successfulActionCount: 0,
     agentMemory: [],
-    pendingScreenReaderReadbacks: []
+    pendingScreenReaderReadbacks: [],
+    planningAttempted: false
   };
   let resources: RunResources | undefined;
   let unexpectedError: unknown;
@@ -169,7 +190,9 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
         break;
       }
 
+      await maybeStartPlanning(step, resources, state);
       const stepResult = await executeStep(step, resources, state);
+      await runReflectionIfNeeded(step, resources, state);
       if (!stepResult.continueLoop) {
         break;
       }
@@ -185,9 +208,7 @@ export async function runTask(task: ResolvedTask, options: RunTaskOptions): Prom
   } catch (error) {
     unexpectedError = error;
     state.endedBy = state.endedBy ?? "error";
-    if (error instanceof ScreenReaderInitializationError) {
-      state.failureReasonOverride = error.message;
-    }
+    state.failureReasonOverride = getErrorMessage(error);
   }
 
   const session = await finalizeRun(task, trace, resources, cleanup, state);
@@ -209,7 +230,8 @@ async function initializeRunResources(
 ): Promise<RunResources> {
   const browserFactory = options.browserSessionFactory ?? createBrowserSession;
   cleanup.browser = await browserFactory(task.url, {
-    headless: resolveScreenReaderBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId)
+    headless: resolveScreenReaderBrowserHeadless(task.mode, options.headless, options.screenReaderBackendId),
+    navigation: options.navigation
   });
   if (!isScreenReaderMode(task.mode)) {
     await bootstrapKeyboardFocus(cleanup.browser.page);
@@ -251,6 +273,7 @@ async function initializeRunResources(
     screenshotPolicy: options.screenshotPolicy ?? "all",
     maxVerificationRetries: options.maxVerificationRetries ?? MAX_VERIFICATION_RETRIES,
     verifierAutoComplete: Boolean(options.verifierAutoComplete),
+    planning: resolveRuntimePlanningConfig(task.mode, options.planning),
     browser: cleanup.browser,
     screenReaderRuntime: cleanup.screenReaderRuntime,
     observer,
@@ -311,7 +334,9 @@ async function executeStep(
   resources: RunResources,
   state: RunState
 ): Promise<StepResult> {
-  const builtContext = await buildAgentStepContext(resources, state);
+  const builtContext = state.pendingBuiltAgentStepContext
+    ?? await buildAgentStepContext(resources, state);
+  state.pendingBuiltAgentStepContext = undefined;
   const decideStartedAt = Date.now();
   const decision = await resources.agent.decide(builtContext.context, builtContext.observation);
   const decideMs = Date.now() - decideStartedAt;
@@ -378,13 +403,141 @@ async function buildAgentStepContext(
     observation: agentObservation,
     observeMs: Date.now() - observeStartedAt,
     screenReaderArtifacts,
-    context: {
-      goal: resources.task.goal,
-      keyboardActions: resources.keyboardActionPlan.descriptors,
-      screenReaderActions: resources.screenReaderActionPlan?.descriptors,
-      memory: resolveAgentContextMemory(resources.agent, state.agentMemory)
-    }
+    context: buildAgentContext(resources, state)
   };
+}
+
+function buildAgentContext(
+  resources: RunResources,
+  state: RunState
+): BuiltAgentStepContext["context"] {
+  return {
+    goal: resources.task.goal,
+    keyboardActions: resources.keyboardActionPlan.descriptors,
+    screenReaderActions: resources.screenReaderActionPlan?.descriptors,
+    memory: resolveAgentContextMemory(resources.agent, state.agentMemory),
+    plan: state.plan,
+    currentFocus: state.currentFocus,
+    strategyNote: state.strategyNote,
+    lastReflection: state.lastReflection
+  };
+}
+
+function resolveRuntimePlanningDefaults(
+  mode: UserModel
+): Required<PlanningConfig> {
+  if (mode === "screenreader") {
+    return {
+      enabled: true,
+      reflectionCadence: 10,
+      initialDelaySteps: 3,
+      firstReflectionDelaySteps: 3
+    };
+  }
+
+  return {
+    enabled: true,
+    reflectionCadence: 10,
+    initialDelaySteps: 0,
+    firstReflectionDelaySteps: 10
+  };
+}
+
+function resolveRuntimePlanningConfig(
+  mode: UserModel,
+  planning: PlanningConfig | undefined
+): Required<PlanningConfig> {
+  const defaults = resolveRuntimePlanningDefaults(mode);
+
+  return {
+    enabled: planning?.enabled ?? defaults.enabled,
+    reflectionCadence: planning?.reflectionCadence ?? defaults.reflectionCadence,
+    initialDelaySteps: planning?.initialDelaySteps ?? defaults.initialDelaySteps,
+    firstReflectionDelaySteps: planning?.firstReflectionDelaySteps ?? defaults.firstReflectionDelaySteps
+  };
+}
+
+async function maybeStartPlanning(
+  step: number,
+  resources: RunResources,
+  state: RunState
+): Promise<void> {
+  if (
+    !resources.planning.enabled
+    || !resources.agent.planTask
+    || state.planningAttempted
+    || step < resources.planning.initialDelaySteps
+  ) {
+    return;
+  }
+
+  state.planningAttempted = true;
+  const initialStepContext = await buildAgentStepContext(resources, state);
+
+  try {
+    const plan = await resources.agent.planTask(
+      initialStepContext.context,
+      initialStepContext.observation
+    );
+    state.plan = plan;
+    state.currentFocus = plan.currentFocus;
+    state.planningStartedAtStep = step;
+    state.nextReflectionStep = resolveInitialReflectionStep(
+      step,
+      resources.planning.firstReflectionDelaySteps
+    );
+    resources.trace.setPlan(plan);
+  } catch (error) {
+    const message = getErrorMessage(error);
+    resources.trace.setPlanningError(message);
+  }
+
+  state.pendingBuiltAgentStepContext = {
+    ...initialStepContext,
+    context: buildAgentContext(resources, state)
+  };
+}
+
+function resolveInitialReflectionStep(
+  planningStartedAtStep: number,
+  firstReflectionDelaySteps: number
+): number {
+  return planningStartedAtStep + Math.max(firstReflectionDelaySteps - 1, 0);
+}
+
+async function runReflectionIfNeeded(
+  step: number,
+  resources: RunResources,
+  state: RunState
+): Promise<void> {
+  if (
+    !resources.planning.enabled
+    || !resources.agent.reflectProgress
+    || !state.plan
+    || state.nextReflectionStep === undefined
+    || step < state.nextReflectionStep
+  ) {
+    return;
+  }
+
+  const recentSteps = resources.trace.getSteps().slice(-resources.planning.reflectionCadence);
+  if (recentSteps.length === 0) {
+    return;
+  }
+
+  try {
+    const reflection = await resources.agent.reflectProgress({
+      ctx: buildAgentContext(resources, state) as AgentContext,
+      steps: recentSteps
+    });
+    state.lastReflection = reflection;
+    state.strategyNote = reflection.strategyNote;
+    state.currentFocus = reflection.updatedFocus ?? state.currentFocus;
+    state.nextReflectionStep = step + resources.planning.reflectionCadence;
+    resources.trace.appendReflection(step, reflection);
+  } catch {
+    return;
+  }
 }
 
 function resolveKeyboardActionPlan(
@@ -506,6 +659,26 @@ async function handleActionDecision(
 
     const execution = await resources.actuator.execute(decision.action, resources.task.input);
     const executeMs = Date.now() - executeStartedAt;
+    await waitForBlockedNavigationSignal();
+    const blockedNavigations = resources.browser.takeBlockedNavigations();
+    if (blockedNavigations.length > 0) {
+      return handleBlockedNavigationAttempt(
+        {
+          step,
+          observation,
+          decision,
+          observeMs,
+          decideMs,
+          executeMs,
+          screenReaderArtifacts: stepContext.screenReaderArtifacts
+        },
+        resources,
+        state,
+        execution,
+        blockedNavigations
+      );
+    }
+
     if (execution.ok && execution.costDelta > 0 && actionCanChangeTaskState(decision.action)) {
       state.successfulActionCount += 1;
     }
@@ -654,6 +827,73 @@ async function handleActionDecision(
 
     throw error;
   }
+}
+
+async function waitForBlockedNavigationSignal(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+async function handleBlockedNavigationAttempt(
+  stepContext: {
+    step: number;
+    observation: Observation;
+    decision: Extract<Decision, { action: unknown }>;
+    observeMs: number;
+    decideMs: number;
+    executeMs: number;
+    screenReaderArtifacts?: ScreenReaderTraceArtifacts;
+  },
+  resources: RunResources,
+  state: RunState,
+  execution: ExecutionRecord,
+  blockedNavigations: BrowserSession["navigation"]["blocked"]
+): Promise<StepResult> {
+  const primaryBlock = blockedNavigations[0];
+  const errorMessage = primaryBlock?.reason ?? "Blocked navigation outside the allowed scope.";
+  const blockedExecution: ExecutionRecord = {
+    ...execution,
+    ok: false,
+    error: errorMessage
+  };
+
+  for (const blocked of blockedNavigations) {
+    await resources.trace.appendDiagnostic(stepContext.step, {
+      scope: "navigationGuard",
+      level: "warn",
+      code: "NAVIGATION_BLOCKED",
+      message: blocked.reason
+    });
+  }
+
+  await resources.trace.append(
+    stepContext.step,
+    stepContext.observation,
+    stepContext.decision,
+    blockedExecution,
+    {
+      observeMs: stepContext.observeMs,
+      decideMs: stepContext.decideMs,
+      executeMs: stepContext.executeMs,
+      verifyMs: 0
+    },
+    undefined,
+    undefined,
+    shouldCaptureDeveloperScreenshot(
+      resources.screenshotPolicy,
+      stepContext.observation,
+      stepContext.decision,
+      blockedExecution
+    )
+      ? await captureDeveloperScreenshot(resources.browser.page)
+      : undefined,
+    stepContext.screenReaderArtifacts
+  );
+  recordAgentMemoryEntry(resources, state, stepContext.step, stepContext.decision, "continued", errorMessage);
+
+  return {
+    continueLoop: true,
+    settleAfterStep: false
+  };
 }
 
 function applyVerificationOutcome(

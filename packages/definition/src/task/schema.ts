@@ -11,9 +11,12 @@ import { z } from "zod";
 import { parseScreenReaderBackendId } from "../backends";
 import { parseUserModel, USER_MODEL_VALUES } from "../modes";
 import { validateVerifySpec } from "../verify";
+import { NAVIGATION_STRATEGY_VALUES, REASONING_EFFORT_VALUES } from "./source";
 import type {
   MemorySetting,
+  NavigationPolicy,
   ScreenReaderObserveConfig,
+  TaskPrompt,
   TaskInput,
   TaskOverrideSource,
   TaskSource,
@@ -26,6 +29,15 @@ const userModelSchema = z.enum(USER_MODEL_VALUES);
 const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const nonEmptyStringSchema = z.string().trim().min(1);
+const reasoningEffortSchema = z.enum(REASONING_EFFORT_VALUES);
+const navigationStrategySchema = z.enum(NAVIGATION_STRATEGY_VALUES);
+const taskPromptSchema = z.object({
+  system: nonEmptyStringSchema.optional(),
+  user: nonEmptyStringSchema.optional()
+}).strict().refine(
+  (value) => value.system !== undefined || value.user !== undefined,
+  "Task prompt must include at least one of system or user."
+);
 const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
 const screenReaderObserveConfigSchema = z.object({
   pollIntervalMs: nonNegativeIntegerSchema.optional(),
@@ -35,6 +47,16 @@ const screenReaderObserveConfigSchema = z.object({
 }).strict();
 const voiceOverConfigSchema = z.object({
   cursorScreenshot: z.boolean().optional()
+}).strict();
+const planningConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  reflectionCadence: nonNegativeIntegerSchema.optional(),
+  initialDelaySteps: nonNegativeIntegerSchema.optional(),
+  firstReflectionDelaySteps: nonNegativeIntegerSchema.optional()
+}).strict();
+const navigationPolicySchema = z.object({
+  strategy: navigationStrategySchema.optional(),
+  allowUrlList: z.array(nonEmptyStringSchema).optional()
 }).strict();
 
 const taskConfigObjectSchema = z.object({
@@ -48,12 +70,15 @@ const taskConfigObjectSchema = z.object({
   verifierAutoComplete: z.boolean().optional(),
   includeExperienceSummary: z.boolean().optional(),
   includeRationale: z.boolean().optional(),
+  reasoningEffort: reasoningEffortSchema.optional(),
   memory: memorySettingSchema.optional(),
   allowedKeys: z.array(z.unknown()).optional(),
   allowedScreenReaderActions: z.array(z.unknown()).optional(),
   screenReaderBackend: z.unknown().optional(),
   observe: z.unknown().optional(),
   voiceOver: z.unknown().optional(),
+  planning: planningConfigSchema.optional(),
+  navigation: z.unknown().optional(),
   prompt: z.unknown().optional()
 }).passthrough();
 
@@ -116,6 +141,7 @@ export function validateTaskOverrideSource(raw: unknown, label: string): TaskOve
     verifierAutoComplete: candidate.verifierAutoComplete,
     includeExperienceSummary: candidate.includeExperienceSummary,
     includeRationale: candidate.includeRationale,
+    reasoningEffort: candidate.reasoningEffort,
     memory: candidate.memory,
     allowedKeys: candidate.allowedKeys === undefined
       ? undefined
@@ -134,7 +160,13 @@ export function validateTaskOverrideSource(raw: unknown, label: string): TaskOve
       : parseScreenReaderObserveConfig(candidate.observe, `${label} config.observe`),
     voiceOver: candidate.voiceOver === undefined
       ? undefined
-      : parseVoiceOverConfig(candidate.voiceOver, `${label} config.voiceOver`)
+      : parseVoiceOverConfig(candidate.voiceOver, `${label} config.voiceOver`),
+    planning: candidate.planning === undefined
+      ? undefined
+      : parsePlanningConfig(candidate.planning, `${label} config.planning`),
+    navigation: candidate.navigation === undefined
+      ? undefined
+      : parseNavigationPolicy(candidate.navigation, `${label} config.navigation`)
   };
 }
 
@@ -152,6 +184,7 @@ export function validateTaskSource(raw: unknown, label: string): TaskSource {
     id: candidate.id === undefined ? undefined : parseOptionalString(candidate.id, `${label} id`),
     url: parseOptionalString(candidate.url, `${label} url`),
     goal: parseOptionalString(candidate.goal, `${label} goal`),
+    prompt: candidate.prompt === undefined ? undefined : parseTaskPrompt(candidate.prompt, `${label} prompt`),
     mode: candidate.mode === undefined ? undefined : parseUserModel(candidate.mode),
     maxSteps: candidate.maxSteps === undefined
       ? undefined
@@ -163,6 +196,15 @@ export function validateTaskSource(raw: unknown, label: string): TaskSource {
     input: validateTaskInput(candidate.input),
     config: validateTaskOverrideSource(candidate.config, label)
   };
+}
+
+function parseTaskPrompt(value: unknown, label: string): TaskPrompt {
+  const result = taskPromptSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be an object with non-empty system and/or user strings.`);
+  }
+
+  return result.data;
 }
 
 function parseTaskConfigObject(raw: unknown, label: string) {
@@ -191,12 +233,15 @@ function parseTaskConfigObject(raw: unknown, label: string) {
     "verifierAutoComplete",
     "includeExperienceSummary",
     "includeRationale",
+    "reasoningEffort",
     "memory",
     "allowedKeys",
     "allowedScreenReaderActions",
     "screenReaderBackend",
     "observe",
     "voiceOver",
+    "planning",
+    "navigation",
     "prompt"
   ]);
 
@@ -283,6 +328,54 @@ function parseVoiceOverConfig(value: unknown, label: string): VoiceOverConfig {
   }
 
   return result.data;
+}
+
+function parsePlanningConfig(value: unknown, label: string) {
+  const result = planningConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return result.data;
+}
+
+function parseNavigationPolicy(value: unknown, label: string): NavigationPolicy {
+  const result = navigationPolicySchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  const strategy = result.data.strategy ?? "same-origin";
+  const allowUrlList = result.data.allowUrlList?.map((entry, index) =>
+    parseAbsoluteUrlPrefix(entry, `${label}.allowUrlList[${index}]`)
+  );
+
+  if (strategy === "allow-url-list") {
+    if (!allowUrlList || allowUrlList.length === 0) {
+      throw new Error(`${label}.allowUrlList must contain at least one absolute URL when strategy is "allow-url-list".`);
+    }
+
+    return {
+      strategy,
+      allowUrlList
+    };
+  }
+
+  if (allowUrlList) {
+    throw new Error(`${label}.allowUrlList is only allowed when strategy is "allow-url-list".`);
+  }
+
+  return {
+    strategy
+  };
+}
+
+function parseAbsoluteUrlPrefix(value: string, label: string): string {
+  try {
+    return new URL(value).toString();
+  } catch {
+    throw new Error(`${label} must be an absolute URL.`);
+  }
 }
 
 

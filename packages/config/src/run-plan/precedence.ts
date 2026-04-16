@@ -6,6 +6,10 @@ import type {
 } from "@rawstep/action-catalog";
 import type {
   MemorySetting,
+  NavigationPolicy,
+  PlanningConfig,
+  ReasoningEffort,
+  ResolvedNavigationPolicy,
   ScreenReaderBackendId,
   ScreenReaderObserveConfig,
   ScreenshotPolicy,
@@ -38,6 +42,7 @@ export type RunPlanCliOverrides = {
   agentMemoryAll?: boolean;
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
+  reasoningEffort?: ReasoningEffort;
   allowedKeys?: AllowedKey[];
   allowedScreenReaderActions?: ScreenReaderActionRef[];
   screenReaderBackendId?: ScreenReaderBackendId;
@@ -61,6 +66,7 @@ export type ResolvedRunPlanPrecedence = {
   };
   includeExperienceSummary: boolean;
   includeRationale: boolean;
+  reasoningEffort?: ReasoningEffort;
   provider?: AgentProvider;
   apiKey?: string;
   model?: string;
@@ -72,7 +78,24 @@ export type ResolvedRunPlanPrecedence = {
   configuredScreenReaderBackend?: ScreenReaderBackendId;
   configuredScreenReaderObserve?: ScreenReaderObserveConfig;
   configuredVoiceOver?: VoiceOverConfig;
+  configuredNavigation: ResolvedNavigationPolicy;
+  planning: Required<PlanningConfig>;
 };
+
+const DEFAULT_PLANNING_BY_MODE = {
+  keyboard: {
+    enabled: true,
+    reflectionCadence: 10,
+    initialDelaySteps: 0,
+    firstReflectionDelaySteps: 10
+  },
+  screenreader: {
+    enabled: true,
+    reflectionCadence: 10,
+    initialDelaySteps: 3,
+    firstReflectionDelaySteps: 3
+  }
+} as const satisfies Record<UserModel, Required<PlanningConfig>>;
 
 type ResolveRunPlanPrecedenceInput = {
   cliOverrides: RunPlanCliOverrides;
@@ -162,6 +185,9 @@ export function resolveRunPlanPrecedence({
       ?? taskConfig?.includeRationale
       ?? modePreset.includeRationale
       ?? false,
+    reasoningEffort: cliOverrides.reasoningEffort
+      ?? taskConfig?.reasoningEffort
+      ?? projectConfig.config.defaults?.reasoningEffort,
     provider: cliOverrides.provider
       ?? projectConfig.config.defaults?.provider,
     apiKey: projectConfig.config.defaults?.apiKey,
@@ -190,6 +216,8 @@ export function resolveRunPlanPrecedence({
           ...(taskConfig?.voiceOver ?? {})
         }
       : undefined,
+    configuredNavigation: resolveNavigationPolicy(taskConfig?.navigation, modePreset.navigation),
+    planning: resolvePlanningConfig(selectedMode, taskConfig?.planning, modePreset.planning),
   };
 }
 
@@ -221,4 +249,60 @@ function resolveMemorySetting(
   }
 
   return memorySetting;
+}
+
+function resolvePlanningConfig(
+  selectedMode: UserModel,
+  taskPlanning: PlanningConfig | undefined,
+  modePlanning: PlanningConfig | undefined,
+): Required<PlanningConfig> {
+  const defaults = DEFAULT_PLANNING_BY_MODE[selectedMode];
+  const enabled = taskPlanning?.enabled
+    ?? modePlanning?.enabled
+    ?? defaults.enabled;
+  const reflectionCadence = taskPlanning?.reflectionCadence
+    ?? modePlanning?.reflectionCadence
+    ?? defaults.reflectionCadence;
+  const initialDelaySteps = taskPlanning?.initialDelaySteps
+    ?? modePlanning?.initialDelaySteps
+    ?? defaults.initialDelaySteps;
+  const firstReflectionDelaySteps = taskPlanning?.firstReflectionDelaySteps
+    ?? modePlanning?.firstReflectionDelaySteps
+    ?? defaults.firstReflectionDelaySteps;
+
+  if (!Number.isInteger(reflectionCadence) || reflectionCadence < 1) {
+    throw new Error("planning.reflectionCadence must be an integer greater than or equal to 1.");
+  }
+  if (!Number.isInteger(initialDelaySteps) || initialDelaySteps < 0) {
+    throw new Error("planning.initialDelaySteps must be an integer greater than or equal to 0.");
+  }
+  if (!Number.isInteger(firstReflectionDelaySteps) || firstReflectionDelaySteps < 0) {
+    throw new Error("planning.firstReflectionDelaySteps must be an integer greater than or equal to 0.");
+  }
+
+  return {
+    enabled,
+    reflectionCadence,
+    initialDelaySteps,
+    firstReflectionDelaySteps
+  };
+}
+
+function resolveNavigationPolicy(
+  taskNavigation: NavigationPolicy | undefined,
+  modeNavigation: NavigationPolicy | undefined,
+): ResolvedNavigationPolicy {
+  const selectedNavigation = taskNavigation ?? modeNavigation;
+  const strategy = selectedNavigation?.strategy ?? "same-origin";
+
+  if (strategy === "allow-url-list") {
+    return {
+      strategy,
+      allowUrlList: selectedNavigation.allowUrlList
+    };
+  }
+
+  return {
+    strategy
+  };
 }

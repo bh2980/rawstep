@@ -8,6 +8,7 @@ import type {
   ScreenReaderDomFocusSnapshot,
   ScreenReaderReadback,
 } from "../observation";
+import type { PlanState, ReflectionState } from "../agent";
 import type { ResolvedTask } from "../task";
 
 export type EndedBy = Verdict | "maxSteps" | "timeout" | "error";
@@ -86,7 +87,7 @@ export type RecordedScreenReaderCursorScreenshot =
 export type DiagnosticEvent = {
   ts: string;
   step: number;
-  scope: "domFocus" | "cursorScreenshot" | "screenReaderInit";
+  scope: "domFocus" | "cursorScreenshot" | "screenReaderInit" | "navigationGuard";
   level: "warn" | "error";
   code: string;
   message: string;
@@ -157,12 +158,21 @@ export type TraceAggregate = {
   failurePoint?: FailurePoint;
 };
 
+export type ReflectionEvent = {
+  step: number;
+  timestamp: string;
+  reflection: ReflectionState;
+};
+
 export type TraceSession = {
   task: ResolvedTask;
   startedAt: string;
   endedAt: string;
   steps: StepRecord[];
   aggregate: TraceAggregate;
+  plan?: PlanState;
+  planningError?: string;
+  reflections?: ReflectionEvent[];
   experienceSummary?: import("../agent").ExperienceSummary;
   experienceSummaryError?: string;
 };

@@ -1,5 +1,8 @@
 import type {
   MemorySetting,
+  NavigationPolicy,
+  PlanningConfig,
+  ReasoningEffort,
   ScreenReaderObserveConfig,
   ScreenReaderBackendId,
   ScreenReaderBackendsSupportingRawPerform,
@@ -32,6 +35,8 @@ type SharedModeConfigSource = {
   includeExperienceSummary?: boolean;
   includeRationale?: boolean;
   memory: MemorySetting;
+  planning?: PlanningConfig;
+  navigation?: NavigationPolicy;
 };
 
 type StableScreenReaderActionRefFor<TSemantic extends ScreenReaderSemanticAction> =
@@ -76,6 +81,7 @@ export type ProjectDefaultsSource = {
   apiKey?: string;
   model?: string;
   baseURL?: string;
+  reasoningEffort?: ReasoningEffort;
   prompt?: ProjectPromptSource;
 };
 

@@ -104,6 +104,8 @@ async function resolvePlan(cliOptions: RunPlanCliOverrides) {
       maxVerificationRetries: plan.execution.maxVerificationRetries,
       screenshotPolicy: plan.execution.screenshotPolicy,
       verifierAutoComplete: plan.execution.verifierAutoComplete,
+      navigation: plan.execution.navigation,
+      planning: plan.execution.planning,
       memory: plan.agent.memory,
       includeExperienceSummary: plan.agent.includeExperienceSummary,
       includeRationale: plan.agent.includeRationale
@@ -112,6 +114,7 @@ async function resolvePlan(cliOptions: RunPlanCliOverrides) {
     apiKey: plan.agent.apiKey,
     model: plan.agent.model,
     baseURL: plan.agent.baseURL,
+    reasoningEffort: plan.agent.reasoningEffort,
     keyboardActionPlan: plan.interaction.keyboardActionPlan,
     screenReaderActionPlan: plan.interaction.screenReaderActionPlan,
     screenReaderBackendId: plan.interaction.screenReaderBackendId,
@@ -223,6 +226,10 @@ describe.sequential("CLI", () => {
     expect(validateTaskSource({
       url: "../fixtures/simple-cta.html",
       goal: "Complete the CTA task.",
+      prompt: {
+        system: "System level instruction.",
+        user: "User level instruction."
+      },
       verify: {
         all: [
           { textVisible: "Started!" }
@@ -231,6 +238,10 @@ describe.sequential("CLI", () => {
     }, "Task file /tmp/task.json")).toEqual({
       url: "../fixtures/simple-cta.html",
       goal: "Complete the CTA task.",
+      prompt: {
+        system: "System level instruction.",
+        user: "User level instruction."
+      },
       verify: {
         all: [
           { textVisible: "Started!" }
@@ -240,6 +251,10 @@ describe.sequential("CLI", () => {
       mode: undefined,
       maxSteps: undefined,
       timeoutMs: undefined,
+      prompt: {
+        system: "System level instruction.",
+        user: "User level instruction."
+      },
       input: undefined,
       config: undefined
     });
@@ -252,6 +267,19 @@ describe.sequential("CLI", () => {
         ]
       }
     }, "Task file /tmp/task.json")).toThrow("Task file must include url and goal.");
+
+    expect(() => validateTaskSource({
+      url: "../fixtures/simple-cta.html",
+      goal: "Bad prompt task.",
+      prompt: {},
+      verify: {
+        all: [
+          { textVisible: "Started!" }
+        ]
+      }
+    }, "Task file /tmp/task.json")).toThrow(
+      "Task file /tmp/task.json prompt must be an object with non-empty system and/or user strings."
+    );
   });
 
   it("loads task files with explicit task settings and resolves relative fixture URLs", async () => {
@@ -464,13 +492,16 @@ describe.sequential("CLI", () => {
       "--model",
       "openrouter/model",
       "--base-url",
-      "https://openrouter.ai/api/v1"
+      "https://openrouter.ai/api/v1",
+      "--reasoning-effort",
+      "high"
     ]);
 
     expect(parsed.configFile).toBe(resolve("rawstep.config.ts"));
     expect(parsed.provider).toBe("openai-compatible");
     expect(parsed.model).toBe("openrouter/model");
     expect(parsed.baseURL).toBe("https://openrouter.ai/api/v1");
+    expect(parsed.reasoningEffort).toBe("high");
     expect(parsed.headless).toBe(false);
     expect(parsed.screenshotPolicy).toBe("failure-only");
     expect(parsed.maxSteps).toBe(12);
@@ -842,7 +873,8 @@ describe.sequential("CLI", () => {
   defaults: {
     provider: "anthropic",
     model: "config-model",
-    baseURL: "https://config.example/v1"
+    baseURL: "https://config.example/v1",
+    reasoningEffort: "medium"
   },
   modes: {
     keyboard: {
@@ -895,6 +927,7 @@ describe.sequential("CLI", () => {
         verifierAutoComplete: true,
         includeExperienceSummary: true,
         includeRationale: true,
+        reasoningEffort: "high",
         memory: "all"
       }
     });
@@ -913,6 +946,8 @@ describe.sequential("CLI", () => {
       "cli-model",
       "--base-url",
       "https://cli.example/v1",
+      "--reasoning-effort",
+      "xhigh",
       "--agent-memory-window",
       "3",
       "--include-rationale"
@@ -925,9 +960,16 @@ describe.sequential("CLI", () => {
     expect(options.execution.screenshotPolicy).toBe("none");
     expect(options.execution.verifierAutoComplete).toBe(true);
     expect(options.execution.maxVerificationRetries).toBe(3);
+    expect(options.execution.planning).toEqual({
+      enabled: true,
+      reflectionCadence: 10,
+      initialDelaySteps: 0,
+      firstReflectionDelaySteps: 10
+    });
     expect(options.provider).toBe("anthropic");
     expect(options.model).toBe("cli-model");
     expect(options.baseURL).toBe("https://cli.example/v1");
+    expect(options.reasoningEffort).toBe("xhigh");
     expect(options.execution.memory).toEqual({ mode: "window", window: 3 });
     expect(options.execution.includeExperienceSummary).toBe(true);
     expect(options.execution.includeRationale).toBe(true);
@@ -1165,6 +1207,12 @@ describe.sequential("CLI", () => {
     expect(execution.maxVerificationRetries).toBe(7);
     expect(execution.screenshotPolicy).toBe("important");
     expect(execution.verifierAutoComplete).toBe(true);
+    expect(execution.planning).toEqual({
+      enabled: true,
+      reflectionCadence: 10,
+      initialDelaySteps: 0,
+      firstReflectionDelaySteps: 10
+    });
     expect(execution.memory).toEqual({ mode: "window", window: 2 });
     expect(execution.includeExperienceSummary).toBe(true);
     expect(execution.includeRationale).toBe(true);
@@ -1208,6 +1256,390 @@ describe.sequential("CLI", () => {
     ]));
 
     expectResolvedOutDir(options.execution.outDir, join(tempDir, "config-out"), "filename-task");
+  });
+
+  it("resolves planning config from mode preset and task config", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-planning-config-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "planning-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `export default {
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      includeExperienceSummary: false,
+      memory: 2,
+      planning: {
+        enabled: true,
+        reflectionCadence: 12,
+        initialDelaySteps: 4,
+        firstReflectionDelaySteps: 2
+      }
+    }
+  }
+};`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use planning overrides.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        planning: {
+          enabled: false,
+          reflectionCadence: 3,
+          initialDelaySteps: 1,
+          firstReflectionDelaySteps: 0
+        }
+      }
+    });
+
+    const execution = (await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).execution;
+
+    expect(execution.planning).toEqual({
+      enabled: false,
+      reflectionCadence: 3,
+      initialDelaySteps: 1,
+      firstReflectionDelaySteps: 0
+    });
+  });
+
+  it("uses screenreader planning defaults when mode config does not override them", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-screenreader-planning-defaults-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "screenreader-planning-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `export default {
+  version: 1,
+  modes: {
+    screenreader: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      includeExperienceSummary: false,
+      memory: 2,
+      screenReaderBackend: "guidepup-virtual"
+    }
+  }
+};`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use screenreader planning defaults.",
+      verify: { all: [{ titleIncludes: "fixture" }] }
+    });
+
+    const execution = (await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "screenreader"
+    ]))).execution;
+
+    expect(execution.planning).toEqual({
+      enabled: true,
+      reflectionCadence: 10,
+      initialDelaySteps: 3,
+      firstReflectionDelaySteps: 3
+    });
+  });
+
+  it("fails when planning delay settings are negative", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-planning-negative-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "planning-negative-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `export default {
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      includeExperienceSummary: false,
+      memory: 2
+    }
+  }
+};`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use invalid planning delay.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        planning: {
+          initialDelaySteps: -1
+        }
+      }
+    });
+
+    await expect(resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).rejects.toThrow("config is invalid");
+  });
+
+  it("resolves navigation policy from mode preset and task config override", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-precedence-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2,
+      navigation: {
+        strategy: "start-url-prefix"
+      }
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use navigation overrides.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        navigation: {
+          strategy: "allow-url-list",
+          allowUrlList: ["https://example.com/app/"]
+        }
+      }
+    });
+
+    const options = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]));
+
+    expect(options.execution.navigation).toEqual({
+      strategy: "allow-url-list",
+      allowUrlList: ["https://example.com/app/"]
+    });
+  });
+
+  it("uses same-origin as the default navigation policy when no override is configured", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-default-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-default-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use navigation defaults.",
+      verify: { all: [{ titleIncludes: "fixture" }] }
+    });
+
+    const options = await resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]));
+
+    expect(options.execution.navigation).toEqual({
+      strategy: "same-origin"
+    });
+  });
+
+  it("rejects relative allow-url-list entries", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-relative-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-relative-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Use invalid allow-url-list values.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        navigation: {
+          strategy: "allow-url-list",
+          allowUrlList: ["/relative-only"]
+        }
+      }
+    });
+
+    await expect(resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).rejects.toThrow("allowUrlList[0] must be an absolute URL");
+  });
+
+  it("rejects empty allow-url-list entries", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-empty-entry-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-empty-entry-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Reject empty allow-url-list values.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        navigation: {
+          strategy: "allow-url-list",
+          allowUrlList: [""]
+        }
+      }
+    });
+
+    await expect(resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).rejects.toThrow("config.navigation is invalid");
+  });
+
+  it("rejects unknown navigation strategies", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-unknown-strategy-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-unknown-strategy-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Reject an unknown navigation strategy.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        navigation: {
+          strategy: "not-a-strategy"
+        }
+      }
+    });
+
+    await expect(resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).rejects.toThrow("config.navigation is invalid");
+  });
+
+  it("rejects allowUrlList when strategy is not allow-url-list", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "a11y-cli-navigation-strategy-mismatch-"));
+    const configPath = join(tempDir, "rawstep.config.ts");
+    const taskPath = join(tempDir, "navigation-strategy-mismatch-task.json");
+
+    await writeConfigModule(
+      configPath,
+      `{
+  version: 1,
+  modes: {
+    keyboard: {
+      outDir: "./config-out",
+      maxSteps: 20,
+      timeoutMs: 2000,
+      memory: 2
+    }
+  }
+}`
+    );
+    await writeTaskFile(taskPath, {
+      url: "./fixture.html",
+      goal: "Reject mismatched navigation config.",
+      verify: { all: [{ titleIncludes: "fixture" }] },
+      config: {
+        navigation: {
+          strategy: "same-origin",
+          allowUrlList: ["https://example.com/app/"]
+        }
+      }
+    });
+
+    await expect(resolvePlan(parseRunArgs([
+      taskPath,
+      "--config",
+      configPath,
+      "--mode",
+      "keyboard"
+    ]))).rejects.toThrow("allowUrlList is only allowed when strategy is \"allow-url-list\"");
   });
 
   it("uses the default keyboard output root when modes.keyboard.outDir is omitted", async () => {

@@ -16,8 +16,10 @@ import {
 } from "@rawstep/runtime";
 import { captureScreenReaderDomFocus } from "../packages/runtime/src/run/helpers";
 import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { AddressInfo } from "node:net";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
@@ -61,6 +63,78 @@ function createStuckAgent() {
     async decide() {
       return { verdict: "stuck" as const };
     }
+  };
+}
+
+function createPlanningLoopAgent() {
+  const planTask = vi.fn(async () => ({
+    steps: ["CTA 영역 찾기", "CTA 활성화", "완료 확인"],
+    currentFocus: "CTA 영역 찾기",
+    successSignals: ["완료 상태가 읽힘"]
+  }));
+  const reflectProgress = vi.fn(async () => ({
+    status: "flat" as const,
+    assessment: "CTA를 찾았으니 이제 활성화를 시도한다.",
+    strategyNote: "다음에는 활성화 행동으로 전환한다.",
+    updatedFocus: "CTA 활성화"
+  }));
+  const decide = vi.fn(async (ctx: { currentFocus?: string; memory?: Array<{ step: number }> }, obs: { kind: string; browserChrome?: { title: string } }) => {
+    if (obs.kind !== "keyboard" || !obs.browserChrome) {
+      return { verdict: "stuck" as const, rationale: "Only keyboard observations are supported." };
+    }
+
+    if (obs.browserChrome.title.includes("Completed")) {
+      return { verdict: "success" as const, rationale: "Completion state is visible." };
+    }
+
+    if (ctx.currentFocus === "CTA 활성화" && (ctx.memory?.length ?? 0) >= 2) {
+      return { action: { key: "Enter" as const }, rationale: "Activate the CTA." };
+    }
+
+    return { action: { key: "Tab" as const }, rationale: "Move focus toward the CTA." };
+  });
+
+  return {
+    decide,
+    planTask,
+    reflectProgress
+  };
+}
+
+function createScreenreaderPlanningAgent(successMemoryThreshold = 3) {
+  const planTask = vi.fn(async () => ({
+    steps: ["문맥 파악", "핵심 항목 찾기", "핵심 동작 실행"],
+    currentFocus: "핵심 항목 찾기",
+    successSignals: ["목표 관련 announcement가 읽힘"]
+  }));
+  const reflectProgress = vi.fn(async () => ({
+    status: "progressing" as const,
+    assessment: "핵심 항목에 가까워지고 있다.",
+    strategyNote: "현재 탐색을 유지한다."
+  }));
+  const decide = vi.fn(async (ctx: { plan?: unknown; currentFocus?: string; memory?: Array<{ step: number }> }, obs: { kind: string }) => {
+    expect(obs.kind).toBe("screenreader");
+    if (ctx.plan && (ctx.memory?.length ?? 0) >= successMemoryThreshold) {
+      return {
+        verdict: "success" as const,
+        rationale: "Planning has started and enough exploration occurred."
+      };
+    }
+
+    return {
+      action: {
+        srAction: {
+          semantic: "next"
+        }
+      },
+      rationale: "Keep exploring."
+    };
+  });
+
+  return {
+    decide,
+    planTask,
+    reflectProgress
   };
 }
 
@@ -141,6 +215,160 @@ function createMockScreenReaderRuntime(overrides: {
     captureCursorScreenshot: overrides.captureCursorScreenshot ?? (async () => ({ status: "disabled" as const })),
     close: overrides.close ?? (async () => undefined)
   };
+}
+
+function createKeySequenceAgent(keys: readonly string[], successTitle: string) {
+  let index = 0;
+
+  return {
+    async decide(_ctx: unknown, obs: { kind: string; browserChrome?: { title: string } }) {
+      if (obs.kind !== "keyboard" || !obs.browserChrome) {
+        return { verdict: "stuck" as const, rationale: "Only keyboard observations are supported." };
+      }
+
+      if (obs.browserChrome.title.includes(successTitle)) {
+        return { verdict: "success" as const, rationale: "The expected destination page is visible." };
+      }
+
+      const nextKey = keys[index];
+      index += 1;
+      if (!nextKey) {
+        return { verdict: "stuck" as const, rationale: "The scripted key sequence is exhausted." };
+      }
+
+      return {
+        action: { key: nextKey as "Tab" | "Shift+Tab" | "Enter" },
+        rationale: `Press ${nextKey}.`
+      };
+    }
+  };
+}
+
+async function createNavigationFixtureServers(): Promise<{
+  baseUrl: string;
+  externalUrl: string;
+  close(): Promise<void>;
+}> {
+  let baseUrl = "";
+  let externalUrl = "";
+
+  const externalServer = createServer((req, res) => {
+    const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(`<!doctype html><html><head><title>External ${requestUrl.pathname}</title></head><body><h1>External ${requestUrl.pathname}</h1></body></html>`);
+  });
+  await listenServer(externalServer);
+  externalUrl = getServerUrl(externalServer);
+
+  const mainServer = createServer((req, res) => {
+    const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
+    const html = renderNavigationFixturePage(requestUrl.pathname, baseUrl, externalUrl);
+    if (!html) {
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      res.end("Not found");
+      return;
+    }
+
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(html);
+  });
+  await listenServer(mainServer);
+  baseUrl = getServerUrl(mainServer);
+
+  return {
+    baseUrl,
+    externalUrl,
+    close: async () => {
+      await closeServer(mainServer);
+      await closeServer(externalServer);
+    }
+  };
+}
+
+function renderNavigationFixturePage(pathname: string, baseUrl: string, externalUrl: string): string | undefined {
+  const pages: Record<string, string> = {
+    "/same-origin-guard-start": `<!doctype html>
+      <html><head><title>Same Origin Guard Start</title></head>
+      <body>
+        <a href="${externalUrl}/outside" id="external-link">External link</a>
+        <a href="${baseUrl}/same-origin-target?from=start#done" id="same-origin-link">Same origin target</a>
+      </body></html>`,
+    "/same-origin-allowed-start": `<!doctype html>
+      <html><head><title>Same Origin Allowed Start</title></head>
+      <body>
+        <a href="${baseUrl}/same-origin-target?from=start#done" id="same-origin-link">Same origin target</a>
+      </body></html>`,
+    "/same-origin-target": `<!doctype html>
+      <html><head><title>Same Origin Target</title></head>
+      <body><h1>Same Origin Target</h1></body></html>`,
+    "/prefix/start": `<!doctype html>
+      <html><head><title>Prefix Start</title></head>
+      <body>
+        <a href="${baseUrl}/prefix-outside" id="prefix-blocked-link">Prefix blocked</a>
+        <a href="${baseUrl}/prefix/start/next" id="prefix-allowed-link">Prefix allowed</a>
+      </body></html>`,
+    "/prefix/start/next": `<!doctype html>
+      <html><head><title>Prefix Allowed</title></head>
+      <body><h1>Prefix Allowed</h1></body></html>`,
+    "/prefix-outside": `<!doctype html>
+      <html><head><title>Prefix Outside</title></head>
+      <body><h1>Prefix Outside</h1></body></html>`,
+    "/allow-list-start": `<!doctype html>
+      <html><head><title>Allow List Start</title></head>
+      <body>
+        <a href="${baseUrl}/allow-unlisted" id="allow-unlisted-link">Allow unlisted</a>
+        <a href="${baseUrl}/allow-listed/next" id="allow-listed-link">Allow listed</a>
+      </body></html>`,
+    "/allow-listed/next": `<!doctype html>
+      <html><head><title>Allow Listed</title></head>
+      <body><h1>Allow Listed</h1></body></html>`,
+    "/allow-unlisted": `<!doctype html>
+      <html><head><title>Allow Unlisted</title></head>
+      <body><h1>Allow Unlisted</h1></body></html>`,
+    "/popup-start": `<!doctype html>
+      <html><head><title>Popup Start</title></head>
+      <body>
+        <a href="${externalUrl}/popup" target="_blank" rel="noopener" id="popup-link">Popup link</a>
+        <a href="${baseUrl}/same-origin-target" id="popup-fallback-link">Fallback same-origin link</a>
+      </body></html>`
+  };
+
+  return pages[pathname];
+}
+
+async function listenServer(server: Server): Promise<void> {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    server.listen(0, "127.0.0.1", (error?: Error) => {
+      if (error) {
+        rejectPromise(error);
+        return;
+      }
+
+      resolvePromise();
+    });
+  });
+}
+
+function getServerUrl(server: Server): string {
+  const address = server.address() as AddressInfo | null;
+  if (!address) {
+    throw new Error("Server address is unavailable.");
+  }
+
+  return `http://127.0.0.1:${address.port}`;
+}
+
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    server.close((error) => {
+      if (error) {
+        rejectPromise(error);
+        return;
+      }
+
+      resolvePromise();
+    });
+  });
 }
 
 describe("runTask", () => {
@@ -362,6 +590,258 @@ describe("runTask", () => {
 
     expect(session.aggregate.endedBy).toBe("stuck");
     expect(session.aggregate.result).toBe("failure");
+  });
+
+  it("blocks cross-origin navigation under same-origin policy, records the failure, and continues", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-same-origin-block-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-same-origin-block",
+          url: `${servers.baseUrl}/same-origin-guard-start`,
+          goal: "Avoid external navigation and reach the same-origin destination.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`Blocked navigation to ${servers.externalUrl}/outside`);
+      expect(blockedStep?.execution.error).toContain('Strategy "same-origin"');
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain(`${servers.externalUrl}/outside`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("allows same-origin path, query, and hash navigation under same-origin policy", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-same-origin-allow-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-same-origin-allow",
+          url: `${servers.baseUrl}/same-origin-allowed-start`,
+          goal: "Reach the same-origin destination.",
+          mode: "keyboard",
+          maxSteps: 4,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      expect(session.steps[0]?.execution.ok).toBe(true);
+      await expect(access(join(outDir, "diagnostics.jsonl"))).rejects.toThrow();
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks prefix escapes under start-url-prefix and continues to an allowed prefix target", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-prefix-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-start-url-prefix",
+          url: `${servers.baseUrl}/prefix/start`,
+          goal: "Stay under the start URL prefix and reach the allowed page.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Prefix Allowed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "start-url-prefix" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Prefix Allowed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/prefix-outside`);
+      expect(blockedStep?.execution.error).toContain('Strategy "start-url-prefix"');
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks unlisted same-origin URLs under allow-url-list and allows listed targets", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-allow-list-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-allow-list",
+          url: `${servers.baseUrl}/allow-list-start`,
+          goal: "Use only allow-listed destinations.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Allow Listed" }]
+          }
+        },
+        {
+          outDir,
+          navigation: {
+            strategy: "allow-url-list",
+            allowUrlList: [`${servers.baseUrl}/allow-listed/`]
+          },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Allow Listed")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/allow-unlisted`);
+      expect(blockedStep?.execution.error).toContain('Strategy "allow-url-list"');
+      expect(blockedStep?.execution.error).toContain(`${servers.baseUrl}/allow-listed/`);
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("blocks popup or new-tab attempts, records diagnostics, and keeps the run in the current tab", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-nav-popup-"));
+    const servers = await createNavigationFixtureServers();
+
+    try {
+      const session = await runTask(
+        {
+          id: "navigation-popup-block",
+          url: `${servers.baseUrl}/popup-start`,
+          goal: "Avoid popup navigation and finish in the current tab.",
+          mode: "keyboard",
+          maxSteps: 6,
+          timeoutMs: 60_000,
+          verify: {
+            all: [{ titleIncludes: "Same Origin Target" }]
+          }
+        },
+        {
+          outDir,
+          navigation: { strategy: "same-origin" },
+          browserSessionFactory: (url, options) => createBrowserSession(url, { headless: true, ...options }),
+          agent: createKeySequenceAgent(["Tab", "Enter", "Tab", "Enter"], "Same Origin Target")
+        }
+      );
+
+      expect(session.aggregate.endedBy).toBe("success");
+      const blockedStep = session.steps.find((step) => step.execution.ok === false);
+      expect(blockedStep?.execution.error).toContain("Blocked popup/new-tab navigation");
+      expect(blockedStep?.execution.error).toContain(`${servers.externalUrl}/popup`);
+      const diagnostics = await readFile(join(outDir, "diagnostics.jsonl"), "utf8");
+      expect(diagnostics).toContain("NAVIGATION_BLOCKED");
+      expect(diagnostics).toContain("popup/new-tab");
+    } finally {
+      await servers.close();
+    }
+  });
+
+  it("runs planning once and feeds reflection updates into later decisions", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-planning-loop-"));
+    const agent = createPlanningLoopAgent();
+
+    const session = await runTask(
+      {
+        id: "planning-loop",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Get started 버튼을 활성화하라.",
+        mode: "keyboard",
+        maxSteps: 10,
+        timeoutMs: 60_000,
+        verify: {
+          all: [
+            { textVisible: "Started!" },
+            { titleIncludes: "Completed" }
+          ]
+        }
+      },
+      {
+        outDir,
+        planning: {
+          enabled: true,
+          reflectionCadence: 5,
+          initialDelaySteps: 0,
+          firstReflectionDelaySteps: 1
+        },
+        agent
+      }
+    );
+
+    expect(agent.planTask).toHaveBeenCalledTimes(1);
+    expect(agent.reflectProgress).toHaveBeenCalled();
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("CTA 영역 찾기");
+    expect(agent.decide.mock.calls[1]?.[0].currentFocus).toBe("CTA 활성화");
+    expect(session.plan).toEqual({
+      steps: ["CTA 영역 찾기", "CTA 활성화", "완료 확인"],
+      currentFocus: "CTA 영역 찾기",
+      successSignals: ["완료 상태가 읽힘"]
+    });
+    expect(session.reflections?.[0]?.reflection.updatedFocus).toBe("CTA 활성화");
+    expect(session.aggregate.endedBy).toBe("success");
+  });
+
+  it("uses keyboard planning defaults to start planning before the first decision", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-keyboard-planning-default-"));
+    const agent = createPlanningLoopAgent();
+
+    await runTask(
+      {
+        id: "keyboard-planning-default",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Get started 버튼을 활성화하라.",
+        mode: "keyboard",
+        maxSteps: 10,
+        timeoutMs: 60_000,
+        verify: {
+          all: [
+            { textVisible: "Started!" },
+            { titleIncludes: "Completed" }
+          ]
+        }
+      },
+      {
+        outDir,
+        agent
+      }
+    );
+
+    expect(agent.planTask).toHaveBeenCalledTimes(1);
+    expect(agent.decide.mock.calls[0]?.[0].currentFocus).toBe("CTA 영역 찾기");
   });
 
   it("ends by maxSteps when the agent never returns a verdict", async () => {
@@ -744,14 +1224,15 @@ describe("runTask", () => {
 
   it("completes the email login fixture with a named email input", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-type-text-success-"));
-    let callCount = 0;
+    let typedEmail = false;
+    let submitted = false;
     const session = await runTask(
       {
         id: "email-login",
         url: pathToFileURL(resolve("fixtures/email-login.html")).toString(),
         goal: "Enter the task email and send the magic link.",
         mode: "keyboard",
-        maxSteps: 8,
+        maxSteps: 10,
         timeoutMs: 60_000,
         input: { email: "traveler@example.com" },
         verify: {
@@ -765,51 +1246,28 @@ describe("runTask", () => {
       {
         outDir,
         agent: {
-          decide: async () => {
-            callCount += 1;
-            if (callCount === 1) {
+          decide: async (_ctx, observation) => {
+            if (observation.kind !== "keyboard") {
+              throw new Error("Expected keyboard observation for the email login fixture.");
+            }
+
+            if (observation.browserChrome.title.includes("Completed")) {
               return {
-                action: { key: "Tab" },
-                rationale: "Move from the first utility link."
+                verdict: "success",
+                rationale: "The success state is visible."
               };
             }
 
-            if (callCount === 2) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move from the second utility link to the email field."
-              };
-            }
-
-            if (callCount === 3) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move from the second utility link to the email field."
-              };
-            }
-
-            if (callCount === 4) {
+            if (!typedEmail && observation.focusHint === "input[type=email]") {
+              typedEmail = true;
               return {
                 action: { typeText: "traveler@example.com" },
                 rationale: "Type the provided email address."
               };
             }
 
-            if (callCount === 5) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move past the remember-device checkbox."
-              };
-            }
-
-            if (callCount === 6) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move focus to the send-link button."
-              };
-            }
-
-            if (callCount === 7) {
+            if (!submitted && observation.focusHint === "button \"Send magic link\"") {
+              submitted = true;
               return {
                 action: { key: "Enter" },
                 rationale: "Submit the sign-in request."
@@ -817,8 +1275,8 @@ describe("runTask", () => {
             }
 
             return {
-              verdict: "success",
-              rationale: "The success state is visible."
+              action: { key: "Tab" },
+              rationale: "Advance focus until the email field and submit button are reached."
             };
           }
         }
@@ -840,7 +1298,9 @@ describe("runTask", () => {
 
   it("completes the credential login fixture with multiple named inputs", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-credential-login-"));
-    let callCount = 0;
+    let typedEmail = false;
+    let typedPassword = false;
+    let submitted = false;
 
     const session = await runTask(
       {
@@ -848,7 +1308,7 @@ describe("runTask", () => {
         url: pathToFileURL(resolve("fixtures/credential-login.html")).toString(),
         goal: "이메일과 비밀번호 입력칸에 각각 named input 값을 넣고 Sign in 버튼을 눌러라.",
         mode: "keyboard",
-        maxSteps: 8,
+        maxSteps: 10,
         timeoutMs: 60_000,
         input: {
           email: "traveler@example.com",
@@ -864,45 +1324,36 @@ describe("runTask", () => {
       {
         outDir,
         agent: {
-          decide: async () => {
-            callCount += 1;
+          decide: async (_ctx, observation) => {
+            if (observation.kind !== "keyboard") {
+              throw new Error("Expected keyboard observation for the credential login fixture.");
+            }
 
-            if (callCount === 1) {
+            if (observation.browserChrome.title.includes("Completed")) {
               return {
-                action: { key: "Tab" },
-                rationale: "Move focus from the page body to the email field."
+                verdict: "success",
+                rationale: "The signed-in state is visible."
               };
             }
 
-            if (callCount === 2) {
+            if (!typedEmail && observation.focusHint === "input[type=email]") {
+              typedEmail = true;
               return {
                 action: { typeText: "traveler@example.com" },
                 rationale: "Fill the email field."
               };
             }
 
-            if (callCount === 3) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move focus to the password field."
-              };
-            }
-
-            if (callCount === 4) {
+            if (!typedPassword && observation.focusHint === "input[type=password]") {
+              typedPassword = true;
               return {
                 action: { typeText: "super-secret" },
                 rationale: "Fill the password field."
               };
             }
 
-            if (callCount === 5) {
-              return {
-                action: { key: "Tab" },
-                rationale: "Move focus to the sign-in button."
-              };
-            }
-
-            if (callCount === 6) {
+            if (!submitted && observation.focusHint === "button \"Sign in\"") {
+              submitted = true;
               return {
                 action: { key: "Enter" },
                 rationale: "Submit the form."
@@ -910,8 +1361,8 @@ describe("runTask", () => {
             }
 
             return {
-              verdict: "success",
-              rationale: "The signed-in state is visible."
+              action: { key: "Tab" },
+              rationale: "Advance focus until the next required field or submit button is reached."
             };
           }
         }
@@ -1031,6 +1482,92 @@ describe("runTask", () => {
       rawKeyCount: 0,
       typeTextCount: 0
     });
+  });
+
+  it("uses screenreader defaults to delay planning until after 3 completed steps", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-planning-defaults-"));
+    const agent = createScreenreaderPlanningAgent(5);
+    let observeCalls = 0;
+
+    const session = await runTask(
+      {
+        id: "screenreader-planning-defaults",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Find and activate the main call to action.",
+        mode: "screenreader",
+        maxSteps: 8,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => {
+              observeCalls += 1;
+              return {
+                kind: "screenreader",
+                announcement: `Announcement ${observeCalls}`,
+                announcementCapture: "log"
+              };
+            }
+          }
+        }),
+        agent
+      }
+    );
+
+    expect(agent.planTask).toHaveBeenCalledTimes(1);
+    expect(agent.decide.mock.calls[0]?.[0].plan).toBeUndefined();
+    expect(agent.decide.mock.calls[1]?.[0].plan).toBeUndefined();
+    expect(agent.decide.mock.calls[2]?.[0].plan).toBeUndefined();
+    expect(agent.decide.mock.calls[3]?.[0].currentFocus).toBe("핵심 항목 찾기");
+    expect(agent.reflectProgress).toHaveBeenCalledTimes(1);
+    expect(session.plan?.currentFocus).toBe("핵심 항목 찾기");
+    expect(session.aggregate.endedBy).toBe("success");
+  });
+
+  it("leaves plan unset when the run ends before planning delay is reached", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "a11y-runner-screenreader-no-plan-before-delay-"));
+    const agent = createScreenreaderPlanningAgent();
+
+    const session = await runTask(
+      {
+        id: "screenreader-no-plan-before-delay",
+        url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
+        goal: "Run out of steps before planning starts.",
+        mode: "screenreader",
+        maxSteps: 2,
+        timeoutMs: 60_000,
+        verify: {
+          all: [{ titleIncludes: "Simple CTA Fixture" }]
+        }
+      },
+      {
+        outDir,
+        browserSessionFactory: (url) => createBrowserSession(url, { headless: true }),
+        screenReaderBackendId: "guidepup-virtual",
+        screenReaderRuntimeFactory: async () => createMockScreenReaderRuntime({
+          observer: {
+            observe: async () => ({
+              kind: "screenreader",
+              announcement: "Bootstrap announcement",
+              announcementCapture: "log"
+            })
+          }
+        }),
+        agent
+      }
+    );
+
+    expect(agent.planTask).not.toHaveBeenCalled();
+    expect(session.plan).toBeUndefined();
+    expect(session.planningError).toBeUndefined();
+    expect(session.aggregate.endedBy).toBe("maxSteps");
   });
 
   it("routes screenreader typeText actions through the screen reader controller", async () => {

@@ -3,6 +3,7 @@ export {
   closeBrowserSession,
   createBrowserSession,
   settlePage,
+  type BlockedNavigationRecord,
   type BrowserSession,
   type CreateBrowserSessionOptions,
   type NetworkLog,

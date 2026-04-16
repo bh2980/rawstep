@@ -10,10 +10,14 @@ import {
 import {
   allowsRawKeyActions,
   isUserModel,
+  NAVIGATION_STRATEGY_VALUES,
   parseScreenReaderBackendId,
+  REASONING_EFFORT_VALUES,
   supportsVisualObservation,
   USER_MODEL_VALUES,
   type MemorySetting,
+  type NavigationPolicy,
+  type PlanningConfig,
   type ScreenReaderBackendId,
   type ScreenReaderObserveConfig,
   type ScreenshotPolicy,
@@ -50,6 +54,8 @@ export type ProjectModePreset = {
   screenReaderBackend?: ScreenReaderBackendId;
   observe?: ScreenReaderObserveConfig;
   voiceOver?: VoiceOverConfig;
+  planning?: PlanningConfig;
+  navigation?: NavigationPolicy;
 };
 
 export type ValidatedProjectConfig = {
@@ -64,6 +70,8 @@ const screenshotPolicySchema = z.enum(SCREENSHOT_POLICY_VALUES);
 const nonNegativeIntegerSchema = z.number().int().min(0);
 const booleanSchema = z.boolean();
 const nonEmptyStringSchema = z.string().trim().min(1);
+const reasoningEffortSchema = z.enum(REASONING_EFFORT_VALUES);
+const navigationStrategySchema = z.enum(NAVIGATION_STRATEGY_VALUES);
 const memorySettingSchema = z.union([nonNegativeIntegerSchema, z.literal("all")]);
 const screenReaderObserveConfigSchema = z.object({
   pollIntervalMs: nonNegativeIntegerSchema.optional(),
@@ -73,6 +81,16 @@ const screenReaderObserveConfigSchema = z.object({
 }).strict();
 const voiceOverConfigSchema = z.object({
   cursorScreenshot: booleanSchema.optional()
+}).strict();
+const planningConfigSchema = z.object({
+  enabled: booleanSchema.optional(),
+  reflectionCadence: nonNegativeIntegerSchema.optional(),
+  initialDelaySteps: nonNegativeIntegerSchema.optional(),
+  firstReflectionDelaySteps: nonNegativeIntegerSchema.optional()
+}).strict();
+const navigationPolicySchema = z.object({
+  strategy: navigationStrategySchema.optional(),
+  allowUrlList: z.array(nonEmptyStringSchema).optional()
 }).strict();
 const modePresetObjectSchema = z.object({
   mode: userModelSchema.optional(),
@@ -91,6 +109,8 @@ const modePresetObjectSchema = z.object({
   screenReaderBackend: z.unknown().optional(),
   observe: z.unknown().optional(),
   voiceOver: z.unknown().optional(),
+  planning: planningConfigSchema.optional(),
+  navigation: z.unknown().optional(),
   prompt: z.unknown().optional(),
 }).passthrough();
 const projectDefaultsObjectSchema = z.object({
@@ -98,6 +118,7 @@ const projectDefaultsObjectSchema = z.object({
   apiKey: nonEmptyStringSchema.optional(),
   model: nonEmptyStringSchema.optional(),
   baseURL: nonEmptyStringSchema.optional(),
+  reasoningEffort: reasoningEffortSchema.optional(),
   prompt: z.unknown().optional(),
 }).passthrough();
 const configRootSchema = z.object({
@@ -199,7 +220,7 @@ export function parseProjectDefaultsSource(
   if (candidate.provider !== undefined) {
     parseAgentProvider(candidate.provider);
   }
-  const allowedKeys = new Set(["provider", "apiKey", "model", "baseURL", "prompt"]);
+  const allowedKeys = new Set(["provider", "apiKey", "model", "baseURL", "reasoningEffort", "prompt"]);
   for (const key of Object.keys(candidate)) {
     if (!allowedKeys.has(key)) {
       throw new Error(`Config file ${configPath} defaults.${key} is not allowed.`);
@@ -216,6 +237,7 @@ export function parseProjectDefaultsSource(
     apiKey: result.data.apiKey,
     model: result.data.model,
     baseURL: result.data.baseURL,
+    reasoningEffort: result.data.reasoningEffort,
     prompt: result.data.prompt === undefined
       ? undefined
       : parseProjectPromptSource(result.data.prompt, `Config file ${configPath} defaults.prompt`)
@@ -266,6 +288,8 @@ export function parseModePresetSource(
     "screenReaderBackend",
     "observe",
     "voiceOver",
+    "planning",
+    "navigation",
     "prompt",
   ]);
 
@@ -304,6 +328,12 @@ export function parseModePresetSource(
     voiceOver: result.data.voiceOver === undefined
       ? undefined
       : parseVoiceOverConfig(result.data.voiceOver, `${label}.voiceOver`),
+    planning: result.data.planning === undefined
+      ? undefined
+      : parsePlanningConfig(result.data.planning, `${label}.planning`),
+    navigation: result.data.navigation === undefined
+      ? undefined
+      : parseNavigationPolicy(result.data.navigation, `${label}.navigation`),
   };
 
   if (supportsVisualObservation(mode) && parsed.allowedScreenReaderActions) {
@@ -394,6 +424,54 @@ function parseVoiceOverConfig(value: unknown, label: string): VoiceOverConfig {
   }
 
   return result.data;
+}
+
+function parsePlanningConfig(value: unknown, label: string): PlanningConfig {
+  const result = planningConfigSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be an object.`);
+  }
+
+  return result.data;
+}
+
+function parseNavigationPolicy(value: unknown, label: string): NavigationPolicy {
+  const result = navigationPolicySchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(`${label} must be an object.`);
+  }
+
+  const strategy = result.data.strategy ?? "same-origin";
+  const allowUrlList = result.data.allowUrlList?.map((entry, index) =>
+    parseAbsoluteUrlPrefix(entry, `${label}.allowUrlList[${index}]`)
+  );
+
+  if (strategy === "allow-url-list") {
+    if (!allowUrlList || allowUrlList.length === 0) {
+      throw new Error(`${label}.allowUrlList must contain at least one absolute URL when strategy is "allow-url-list".`);
+    }
+
+    return {
+      strategy,
+      allowUrlList
+    };
+  }
+
+  if (allowUrlList) {
+    throw new Error(`${label}.allowUrlList is only allowed when strategy is "allow-url-list".`);
+  }
+
+  return {
+    strategy
+  };
+}
+
+function parseAbsoluteUrlPrefix(value: string, label: string): string {
+  try {
+    return new URL(value).toString();
+  } catch {
+    throw new Error(`${label} must be an absolute URL.`);
+  }
 }
 
 export type { ProjectConfigSource };

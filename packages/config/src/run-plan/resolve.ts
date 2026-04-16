@@ -11,7 +11,9 @@ import {
   requiresScreenReaderBackend,
   resolveTaskSource,
   supportsVisualObservation,
+  type PlanningConfig,
   type ResolvedTask,
+  type ReasoningEffort,
   type ScreenReaderBackendId,
   type ScreenReaderObserveConfig,
   type TaskOverrideSource,
@@ -40,6 +42,7 @@ export type ResolvedRunPlan = {
     apiKey?: string;
     model?: string;
     baseURL?: string;
+    reasoningEffort?: ReasoningEffort;
     includeExperienceSummary: boolean;
     includeRationale: boolean;
     memory: {
@@ -52,6 +55,8 @@ export type ResolvedRunPlan = {
     maxVerificationRetries: number;
     verifierAutoComplete: boolean;
     screenshotPolicy?: import("@rawstep/definition").ScreenshotPolicy;
+    navigation: import("@rawstep/definition").ResolvedNavigationPolicy;
+    planning: Required<PlanningConfig>;
   };
   interaction: {
     keyboardActionPlan: KeyboardActionPlan;
@@ -141,6 +146,7 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       apiKey: merged.apiKey,
       model: merged.model,
       baseURL: merged.baseURL,
+      reasoningEffort: merged.reasoningEffort,
       includeExperienceSummary: merged.includeExperienceSummary,
       includeRationale: merged.includeRationale,
       memory: merged.memory,
@@ -150,6 +156,8 @@ export async function resolveRunPlan(cliOverrides: RunPlanCliOverrides): Promise
       maxVerificationRetries: merged.maxVerificationRetries,
       verifierAutoComplete: merged.verifierAutoComplete,
       screenshotPolicy: merged.screenshotPolicy,
+      navigation: merged.configuredNavigation,
+      planning: merged.planning,
     },
     interaction: {
       keyboardActionPlan,
