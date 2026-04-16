@@ -2,25 +2,63 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 
 export type PromptTemplates = {
+  keyboardBrowseSystem: string;
+  keyboardBrowseUser: string;
+  screenreaderBrowseSystem: string;
+  screenreaderBrowseUser: string;
   keyboardSystem: string;
   keyboardUser: string;
   screenreaderSystem: string;
   screenreaderUser: string;
+  planningSystem: string;
+  planningUser: string;
+  reflectionSystem: string;
+  reflectionUser: string;
   experienceSummarySystem: string;
   experienceSummaryUser: string;
   promptDir: string;
 };
 
 const TEMPLATE_FILES = {
+  keyboardBrowseSystem: "keyboard.browse.system.md",
+  keyboardBrowseUser: "keyboard.browse.user.md",
+  screenreaderBrowseSystem: "screenreader.browse.system.md",
+  screenreaderBrowseUser: "screenreader.browse.user.md",
   keyboardSystem: "keyboard.system.md",
   keyboardUser: "keyboard.user.md",
   screenreaderSystem: "screenreader.system.md",
   screenreaderUser: "screenreader.user.md",
+  planningSystem: "planning.system.md",
+  planningUser: "planning.user.md",
+  reflectionSystem: "reflection.system.md",
+  reflectionUser: "reflection.user.md",
   experienceSummarySystem: "experience-summary.system.md",
   experienceSummaryUser: "experience-summary.user.md"
 } as const satisfies Record<Exclude<keyof PromptTemplates, "promptDir">, string>;
 
 const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "promptDir">, string[]>> = {
+  keyboardBrowseSystem: [
+    "{{outputExamples}}"
+  ],
+  keyboardBrowseUser: [
+    "{{goal}}",
+    "{{agentMemory}}",
+    "{{taskInputs}}",
+    "{{availableActions}}",
+    "{{currentObservation}}"
+  ],
+  screenreaderBrowseSystem: [
+    "{{outputExamples}}"
+  ],
+  screenreaderBrowseUser: [
+    "{{goal}}",
+    "{{agentMemory}}",
+    "{{announcement}}",
+    "{{readbacks}}",
+    "{{taskInputs}}",
+    "{{availableActions}}",
+    "{{currentObservation}}"
+  ],
   keyboardSystem: [
     "{{outputExamples}}"
   ],
@@ -41,6 +79,26 @@ const REQUIRED_PLACEHOLDERS: Partial<Record<Exclude<keyof PromptTemplates, "prom
     "{{taskInputs}}",
     "{{availableActions}}"
   ],
+  planningSystem: [
+    "{{outputExamples}}"
+  ],
+  planningUser: [
+    "{{goal}}",
+    "{{taskInputs}}",
+    "{{availableActions}}",
+    "{{currentObservation}}"
+  ],
+  reflectionSystem: [
+    "{{outputExamples}}"
+  ],
+  reflectionUser: [
+    "{{goal}}",
+    "{{currentPlan}}",
+    "{{currentFocus}}",
+    "{{strategyNote}}",
+    "{{recentSteps}}",
+    "{{recentMemory}}"
+  ],
   experienceSummaryUser: [
     "{{taskSummary}}",
     "{{aggregateSummary}}",
@@ -60,10 +118,18 @@ export function loadPromptTemplates(
   }
 
   const templates = {
+    keyboardBrowseSystem: readPromptFile(promptDir, "keyboardBrowseSystem"),
+    keyboardBrowseUser: readPromptFile(promptDir, "keyboardBrowseUser"),
+    screenreaderBrowseSystem: readPromptFile(promptDir, "screenreaderBrowseSystem"),
+    screenreaderBrowseUser: readPromptFile(promptDir, "screenreaderBrowseUser"),
     keyboardSystem: readPromptFile(promptDir, "keyboardSystem"),
     keyboardUser: readPromptFile(promptDir, "keyboardUser"),
     screenreaderSystem: readPromptFile(promptDir, "screenreaderSystem"),
     screenreaderUser: readPromptFile(promptDir, "screenreaderUser"),
+    planningSystem: readPromptFile(promptDir, "planningSystem"),
+    planningUser: readPromptFile(promptDir, "planningUser"),
+    reflectionSystem: readPromptFile(promptDir, "reflectionSystem"),
+    reflectionUser: readPromptFile(promptDir, "reflectionUser"),
     experienceSummarySystem: readPromptFile(promptDir, "experienceSummarySystem"),
     experienceSummaryUser: readPromptFile(promptDir, "experienceSummaryUser"),
     promptDir

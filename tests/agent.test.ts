@@ -1,10 +1,14 @@
 import {
   LLMAgent,
+  buildPlanningSystemPrompt,
   buildExperienceSummarySystemPrompt,
   buildPromptParts,
+  buildReflectionSystemPrompt,
   buildSystemPrompt,
   parseExperienceSummary,
   parseDecision,
+  parsePlanState,
+  parseReflectionState,
   resolveAgentConfig,
   toLanguageModelContent,
   type AgentCompletionClient,
@@ -24,13 +28,17 @@ import type {
   Observation
 } from "@rawstep/definition";
 import { getScreenReaderBackendCapabilities } from "@rawstep/definition";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { clearPromptTemplateCache, loadPromptTemplates } from "../packages/agent/src/prompt-loader";
-import { buildExperienceSummaryPromptText } from "../packages/agent/src/prompt";
+import {
+  buildExperienceSummaryPromptText,
+  buildPlanningPromptParts,
+  buildReflectionPromptText
+} from "../packages/agent/src/prompt";
 
 const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_CWD = process.cwd();
@@ -62,6 +70,11 @@ function makeKeyboardObservation(): Observation {
     },
     previousScreenshot: {
       pngBase64: "previous-image"
+    },
+    diffScreenshot: {
+      pngBase64: "diff-image",
+      viewport: { w: 1280, h: 720 },
+      changeRatio: 0.03125
     },
     browserChrome: {
       title: "Simple CTA Fixture",
@@ -104,10 +117,18 @@ function makeKeyboardDescriptors(
 }
 
 async function createPromptFixtureRoot(contents?: Partial<Record<
-  "keyboard.system.md"
+  "keyboard.browse.system.md"
+  | "keyboard.browse.user.md"
+  | "screenreader.browse.system.md"
+  | "screenreader.browse.user.md"
+  | "keyboard.system.md"
   | "keyboard.user.md"
   | "screenreader.system.md"
   | "screenreader.user.md"
+  | "planning.system.md"
+  | "planning.user.md"
+  | "reflection.system.md"
+  | "reflection.user.md"
   | "experience-summary.system.md"
   | "experience-summary.user.md",
   string
@@ -117,10 +138,18 @@ async function createPromptFixtureRoot(contents?: Partial<Record<
   await mkdir(promptDir, { recursive: true });
 
   const files = {
+    "keyboard.browse.system.md": "browse-system-keyboard\n{{outputExamples}}",
+    "keyboard.browse.user.md": "browse goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ncurrent observation:\n{{currentObservation}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
+    "screenreader.browse.system.md": "browse-system-screenreader\n{{outputExamples}}",
+    "screenreader.browse.user.md": "browse goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ncurrent observation:\n{{currentObservation}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
     "keyboard.system.md": "system-keyboard\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
     "keyboard.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\n이미지 안내문\navailable actions:\n{{availableActions}}",
     "screenreader.system.md": "system-screenreader\n출력 규칙:\n- JSON 객체 하나만 반환하라.\n- 한 턴에 action 또는 verdict 중 하나만 반환하라.\n- 예시:\n```json\n{{outputExamples}}\n```",
     "screenreader.user.md": "goal:\n{{goal}}\nagent memory:\n{{agentMemory}}\nannouncement:\n{{announcement}}\nreadbacks:\n{{readbacks}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}",
+    "planning.system.md": "planning-template\n{{outputExamples}}",
+    "planning.user.md": "goal:\n{{goal}}\ntask inputs:\n{{taskInputs}}\navailable actions:\n{{availableActions}}\ncurrent observation:\n{{currentObservation}}",
+    "reflection.system.md": "reflection-template\n{{outputExamples}}",
+    "reflection.user.md": "goal:\n{{goal}}\ncurrent plan:\n{{currentPlan}}\ncurrent focus:\n{{currentFocus}}\nstrategy note:\n{{strategyNote}}\nrecent steps:\n{{recentSteps}}\nrecent memory:\n{{recentMemory}}",
     "experience-summary.system.md": "summary-template",
     "experience-summary.user.md": "summary-user-template\nTask\n{{taskSummary}}\nAggregate\n{{aggregateSummary}}\nStep Timeline\n{{stepTimeline}}"
   } satisfies Record<string, string>;
@@ -700,6 +729,22 @@ describe("agent helpers", () => {
     expect(() => resolveAgentConfig()).toThrow("requires a base URL");
   });
 
+  it("preserves reasoning effort for openai-compatible configs", () => {
+    expect(resolveAgentConfig({
+      provider: "openai-compatible",
+      apiKey: "shared-key",
+      model: "openai/gpt-5.4-mini",
+      baseURL: "https://openrouter.ai/api/v1",
+      reasoningEffort: "high"
+    })).toEqual({
+      provider: "openai-compatible",
+      apiKey: "shared-key",
+      model: "openai/gpt-5.4-mini",
+      baseURL: "https://openrouter.ai/api/v1",
+      reasoningEffort: "high"
+    });
+  });
+
   it("builds provider-neutral prompt parts for keyboard observations", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
@@ -733,6 +778,75 @@ describe("agent helpers", () => {
       mediaType: "image/png",
       base64: "current-image"
     });
+    expect(promptParts[2]).toEqual({
+      type: "image",
+      mediaType: "image/png",
+      base64: "previous-image"
+    });
+  });
+
+  it("uses current plus diff images for keyboard execute prompts", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+    const promptParts = buildPromptParts(
+      "keyboard",
+      {
+        ...makeKeyboardContext(),
+        plan: {
+          steps: ["영역 찾기", "핵심 동작"],
+          currentFocus: "영역 찾기",
+          successSignals: ["관련 변화 읽힘"]
+        },
+        currentFocus: "영역 찾기"
+      },
+      makeKeyboardObservation(),
+      undefined,
+      {
+        phase: "execute"
+      }
+    );
+
+    expect(promptParts).toHaveLength(3);
+    expect(promptParts[1]).toEqual({
+      type: "image",
+      mediaType: "image/png",
+      base64: "current-image"
+    });
+    expect(promptParts[2]).toEqual({
+      type: "image",
+      mediaType: "image/png",
+      base64: "diff-image"
+    });
+  });
+
+  it("falls back to previous screenshot when execute diff is unavailable", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+    const observation = makeKeyboardObservation();
+    if (observation.kind !== "keyboard") {
+      throw new Error("Expected keyboard observation.");
+    }
+    delete observation.diffScreenshot;
+
+    const promptParts = buildPromptParts(
+      "keyboard",
+      {
+        ...makeKeyboardContext(),
+        plan: {
+          steps: ["영역 찾기", "핵심 동작"],
+          currentFocus: "영역 찾기",
+          successSignals: ["관련 변화 읽힘"]
+        },
+        currentFocus: "영역 찾기"
+      },
+      observation,
+      undefined,
+      {
+        phase: "execute"
+      }
+    );
+
+    expect(promptParts).toHaveLength(3);
     expect(promptParts[2]).toEqual({
       type: "image",
       mediaType: "image/png",
@@ -856,8 +970,9 @@ describe("agent helpers", () => {
         announcement: "Submit button",
         announcementCapture: "log",
         readbacks: [
-          { method: "itemText", value: "Email" },
-          { method: "clearItemTextLog", status: "cleared" }
+          { kind: "read", method: "itemText", value: "Email" },
+          { kind: "maintenance", method: "clearItemTextLog", status: "cleared" },
+          { kind: "note", source: "runtime-recovery", value: "브라우저 UI 감지 후 자동 복구를 수행했습니다." }
         ]
       }
     );
@@ -867,6 +982,7 @@ describe("agent helpers", () => {
       expect(promptParts[0].text).toContain("- status: present");
       expect(promptParts[0].text).toContain('- method=itemText, value="Email"');
       expect(promptParts[0].text).toContain("- method=clearItemTextLog, status=cleared");
+      expect(promptParts[0].text).toContain('note(runtime-recovery)="브라우저 UI 감지 후 자동 복구를 수행했습니다."');
       expect(promptParts[0].text).not.toContain('{"method":"itemText","value":"Email"}');
     }
   });
@@ -1034,10 +1150,60 @@ describe("agent helpers", () => {
     const templates = loadPromptTemplates(rootDir);
 
     expect(templates.promptDir).toBe(join(rootDir, "prompt"));
+    expect(templates.keyboardBrowseSystem).toContain("browse-system-keyboard");
+    expect(templates.screenreaderBrowseSystem).toContain("browse-system-screenreader");
     expect(templates.keyboardSystem).toContain("{{outputExamples}}");
     expect(templates.keyboardUser).toContain("{{availableActions}}");
+    expect(templates.planningSystem).toBe("planning-template\n{{outputExamples}}");
+    expect(templates.reflectionSystem).toBe("reflection-template\n{{outputExamples}}");
     expect(templates.experienceSummarySystem).toBe("summary-template");
     expect(templates.experienceSummaryUser).toContain("{{taskSummary}}");
+  });
+
+  it("uses browse prompt templates before planning starts", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const systemPrompt = buildSystemPrompt(
+      "keyboard",
+      undefined,
+      makeKeyboardDescriptors(["Tab"]),
+      [],
+      false,
+      {
+        phase: "browse"
+      }
+    );
+    const promptParts = buildPromptParts(
+      "keyboard",
+      makeKeyboardContext(),
+      makeKeyboardObservation(),
+      undefined,
+      {
+        phase: "browse"
+      }
+    );
+
+    expect(systemPrompt).toContain("browse-system-keyboard");
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("browse goal:");
+      expect(promptParts[0].text).toContain("current observation:");
+    }
+  });
+
+  it("parses planning and reflection JSON payloads", () => {
+    expect(parsePlanState('{"steps":["영역 찾기","핵심 동작"],"currentFocus":"영역 찾기","successSignals":["관련 변화 읽힘"]}')).toEqual({
+      steps: ["영역 찾기", "핵심 동작"],
+      currentFocus: "영역 찾기",
+      successSignals: ["관련 변화 읽힘"]
+    });
+    expect(parseReflectionState('{"status":"flat","assessment":"최근 변화가 작다.","strategyNote":"다른 전략을 검토한다.","updatedFocus":"영역 다시 찾기"}')).toEqual({
+      status: "flat",
+      assessment: "최근 변화가 작다.",
+      strategyNote: "다른 전략을 검토한다.",
+      updatedFocus: "영역 다시 찾기"
+    });
   });
 
   it("strips HTML comments from prompt templates before rendering", async () => {
@@ -1108,6 +1274,284 @@ describe("agent helpers", () => {
     expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{aggregateSummary}}");
   });
 
+  it("fails when the planning user template is missing a required placeholder", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "planning.user.md": "{{goal}}"
+    });
+
+    expect(() => loadPromptTemplates(rootDir)).toThrow("must include {{taskInputs}}");
+  });
+
+  it("renders planning and reflection prompts from prompt files", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const planningSystem = buildPlanningSystemPrompt();
+    const planningParts = buildPlanningPromptParts(
+      "keyboard",
+      makeKeyboardContext(),
+      makeKeyboardObservation(),
+      { email: "traveler@example.com" }
+    );
+    const reflectionSystem = buildReflectionSystemPrompt();
+    const reflectionPrompt = buildReflectionPromptText(
+      {
+        ...makeKeyboardContext(),
+        memory: [
+          {
+            step: 0,
+            action: "key(Tab)",
+            outcome: "continued",
+            sameActionCount: 1
+          },
+          {
+            step: 1,
+            action: "key(Tab)",
+            outcome: "continued",
+            sameActionCount: 2
+          },
+          {
+            step: 2,
+            action: "key(Enter)",
+            outcome: "continued",
+            sameActionCount: 1
+          }
+        ],
+        plan: {
+          steps: ["영역 찾기", "핵심 동작"],
+          currentFocus: "영역 찾기",
+          successSignals: ["관련 변화 읽힘"]
+        },
+        currentFocus: "영역 찾기",
+        strategyNote: "같은 이동 반복을 줄인다."
+      },
+      [{
+        step: 1,
+        timestamp: "2025-01-01T00:00:00.000Z",
+        observation: {
+          kind: "keyboard",
+          screenshot: {
+            path: "screenshots/step-001.png",
+            viewport: { w: 1280, h: 720 }
+          },
+          browserChrome: {
+            title: "Simple CTA Fixture",
+            urlPath: "/fixture"
+          }
+        },
+        decision: {
+          action: {
+            key: "Tab"
+          }
+        },
+        execution: {
+          ok: true,
+          costDelta: 1
+        },
+        timings: {
+          observeMs: 10,
+          decideMs: 10,
+          executeMs: 10,
+          verifyMs: 0
+        }
+      }, {
+        step: 2,
+        timestamp: "2025-01-01T00:00:01.000Z",
+        observation: {
+          kind: "keyboard",
+          screenshot: {
+            path: "screenshots/step-002.png",
+            viewport: { w: 1280, h: 720 }
+          },
+          browserChrome: {
+            title: "Simple CTA Fixture",
+            urlPath: "/fixture"
+          }
+        },
+        decision: {
+          action: {
+            key: "Enter"
+          }
+        },
+        execution: {
+          ok: true,
+          costDelta: 1
+        },
+        timings: {
+          observeMs: 10,
+          decideMs: 10,
+          executeMs: 10,
+          verifyMs: 0
+        }
+      }]
+    );
+
+    expect(planningSystem).toContain("planning-template");
+    expect(planningParts[0]).toMatchObject({ type: "text" });
+    if (planningParts[0]?.type === "text") {
+      expect(planningParts[0].text).toContain("current observation:");
+    }
+    expect(planningParts).toHaveLength(2);
+    expect(planningParts[1]).toMatchObject({
+      type: "image",
+      mediaType: "image/png",
+      base64: "current-image"
+    });
+    expect(reflectionSystem).toContain("reflection-template");
+    expect(reflectionPrompt).toContain("current focus:");
+    expect(reflectionPrompt).toContain("recent memory:");
+    expect(reflectionPrompt).toContain('sameActionCount=2');
+    expect(reflectionPrompt).toContain('step 1: action="key(Tab)"');
+    expect(reflectionPrompt).toContain('step 2: action="key(Enter)"');
+    expect(reflectionPrompt).not.toContain('step 0: action="key(Tab)"');
+  });
+
+  it("renders fact-based memory fields in decision prompts without empty optional fields", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    process.chdir(rootDir);
+
+    const promptParts = buildPromptParts(
+      "screenreader",
+      {
+        goal: "장바구니 버튼을 찾는다.",
+        screenReaderActions: makeScreenReaderDescriptors(["next"]),
+        memory: [
+          {
+            step: 3,
+            action: "sr.next",
+            outcome: "continued",
+            announcementExcerpt: "장바구니 버튼",
+            announcementCapture: "log",
+            announcementCount: 2,
+            observeReason: "silence",
+            sameAnnouncementCount: 3,
+            sameActionCount: 2
+          },
+          {
+            step: 4,
+            action: "sr.next",
+            outcome: "continued",
+            sameActionCount: 3
+          }
+        ]
+      },
+      {
+        kind: "screenreader",
+        announcement: "장바구니 버튼",
+        announcementCapture: "log",
+        announcementCount: 2,
+        observeReason: "silence"
+      }
+    );
+
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain('announcement="장바구니 버튼"');
+      expect(promptParts[0].text).toContain('capture="log"');
+      expect(promptParts[0].text).toContain("announcementCount=2");
+      expect(promptParts[0].text).toContain('observeReason="silence"');
+      expect(promptParts[0].text).toContain("sameAnnouncementCount=3");
+      expect(promptParts[0].text).toContain("sameActionCount=2");
+      expect(promptParts[0].text).not.toContain('step 4: action="sr.next", outcome="continued", announcement=');
+      expect(promptParts[0].text).toContain('step 4: action="sr.next", outcome="continued", sameActionCount=3');
+    }
+  });
+
+  it("records planning and reflection prompt logs", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    const agent = new LLMAgent("keyboard", {
+      provider: "anthropic",
+      apiKey: "shared-key",
+      model: "claude-custom",
+      promptDir: join(rootDir, "prompt"),
+      completionClient: createCompletionClient([
+        '{"steps":["영역 찾기","핵심 동작"],"currentFocus":"영역 찾기","successSignals":["관련 변화 읽힘"]}',
+        '{"status":"progressing","assessment":"새로운 문맥이 계속 나온다.","strategyNote":"현재 전략을 유지한다."}'
+      ])
+    });
+
+    await agent.planTask?.(makeKeyboardContext(), makeKeyboardObservation());
+    await agent.reflectProgress?.({
+      ctx: {
+        ...makeKeyboardContext(),
+        plan: {
+          steps: ["영역 찾기", "핵심 동작"],
+          currentFocus: "영역 찾기",
+          successSignals: ["관련 변화 읽힘"]
+        },
+        currentFocus: "영역 찾기"
+      },
+      steps: []
+    });
+
+    expect(agent.getPromptLog().map((entry) => entry.kind)).toEqual(["planning", "reflection"]);
+    expect(agent.getPromptLog()[0]?.imageCount).toBe(1);
+    expect(agent.getPromptLog()[1]?.imageCount).toBe(0);
+  });
+
+  it("records two images for keyboard execute prompt logs", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    const agent = new LLMAgent("keyboard", {
+      provider: "anthropic",
+      apiKey: "shared-key",
+      model: "claude-custom",
+      promptDir: join(rootDir, "prompt"),
+      completionClient: createCompletionClient([
+        '{"action":{"key":"Enter"},"rationale":"핵심 동작을 시도한다."}'
+      ])
+    });
+
+    await agent.decide(
+      {
+        ...makeKeyboardContext(),
+        plan: {
+          steps: ["영역 찾기", "핵심 동작"],
+          currentFocus: "영역 찾기",
+          successSignals: ["관련 변화 읽힘"]
+        },
+        currentFocus: "영역 찾기"
+      },
+      makeKeyboardObservation()
+    );
+
+    expect(agent.getPromptLog()[0]?.kind).toBe("decision");
+    expect(agent.getPromptLog()[0]?.imageCount).toBe(2);
+  });
+
+  it("writes prompt logs to prompts.jsonl during the run", async () => {
+    const rootDir = await createPromptFixtureRoot();
+    const promptLogJsonlPath = join(rootDir, "out", "prompts.jsonl");
+    const agent = new LLMAgent("keyboard", {
+      provider: "anthropic",
+      apiKey: "shared-key",
+      model: "claude-custom",
+      promptDir: join(rootDir, "prompt"),
+      promptLogJsonlPath,
+      completionClient: createCompletionClient([
+        '{"action":{"key":"Tab"},"rationale":"다음 요소로 이동한다."}',
+        '{"status":"progressing","assessment":"새 안내가 나온다.","strategyNote":"현재 탐색을 유지한다."}'
+      ])
+    });
+
+    await agent.decide(makeKeyboardContext(), makeKeyboardObservation());
+    await agent.reflectProgress?.({
+      ctx: makeKeyboardContext(),
+      steps: []
+    });
+    await agent.flushPromptLog();
+
+    await expect(access(promptLogJsonlPath)).resolves.toBeUndefined();
+    const jsonl = await readFile(promptLogJsonlPath, "utf8");
+    const entries = jsonl.trim().split("\n").map((line) => JSON.parse(line) as {
+      kind: string;
+      sequence: number;
+      timestamp: string;
+    });
+    expect(entries.map((entry) => entry.kind)).toEqual(["decision", "reflection"]);
+    expect(entries.map((entry) => entry.sequence)).toEqual([0, 1]);
+    expect(entries[0]?.timestamp).toMatch(/^202\d-/);
+  });
+
   it("renders keyboard system prompts from prompt files with code-generated JSON format", async () => {
     const rootDir = await createPromptFixtureRoot();
     process.chdir(rootDir);
@@ -1129,6 +1573,81 @@ describe("agent helpers", () => {
     expect(prompt).toContain("출력 규칙:");
     expect(prompt).toContain("```json");
     expect(prompt).toContain('{"action":"typeText","value":"traveler@example.com","rationale":"..."}');
+  });
+
+  it("renders task-specific custom prompt placeholders in system and user templates", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.system.md": "system-keyboard\n{{customSystemPrompt}}\n{{outputExamples}}",
+      "keyboard.user.md": "custom:\n{{customUserPrompt}}\ngoal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+    });
+
+    const systemPrompt = buildSystemPrompt(
+      "keyboard",
+      { email: "traveler@example.com" },
+      makeKeyboardDescriptors(["Tab", "Enter"]),
+      [],
+      false,
+      {
+        promptDir: join(rootDir, "prompt"),
+        taskPrompt: {
+          system: "추가 system 규칙",
+          user: "추가 user 규칙"
+        }
+      }
+    );
+    const promptParts = buildPromptParts(
+      "keyboard",
+      makeKeyboardContext(),
+      makeKeyboardObservation(),
+      { email: "traveler@example.com" },
+      {
+        promptDir: join(rootDir, "prompt"),
+        taskPrompt: {
+          system: "추가 system 규칙",
+          user: "추가 user 규칙"
+        }
+      }
+    );
+
+    expect(systemPrompt).toContain("추가 system 규칙");
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("custom:\n추가 user 규칙");
+    }
+  });
+
+  it("renders empty string for custom prompt placeholders when task prompt is omitted", async () => {
+    const rootDir = await createPromptFixtureRoot({
+      "keyboard.system.md": "system-keyboard\n{{customSystemPrompt}}\n{{outputExamples}}",
+      "keyboard.user.md": "custom:\n{{customUserPrompt}}\ngoal:\n{{goal}}\nagent memory:\n{{agentMemory}}\ntask inputs:\n{{taskInputs}}\nfocus hint:\n{{focusHint}}\navailable actions:\n{{availableActions}}"
+    });
+
+    const systemPrompt = buildSystemPrompt(
+      "keyboard",
+      undefined,
+      makeKeyboardDescriptors(["Tab", "Enter"]),
+      [],
+      false,
+      {
+        promptDir: join(rootDir, "prompt")
+      }
+    );
+    const promptParts = buildPromptParts(
+      "keyboard",
+      makeKeyboardContext(),
+      makeKeyboardObservation(),
+      undefined,
+      {
+        promptDir: join(rootDir, "prompt")
+      }
+    );
+
+    expect(systemPrompt).not.toContain("{{customSystemPrompt}}");
+    expect(promptParts[0]).toMatchObject({ type: "text" });
+    if (promptParts[0]?.type === "text") {
+      expect(promptParts[0].text).toContain("custom:\n\ngoal:");
+      expect(promptParts[0].text).not.toContain("{{customUserPrompt}}");
+    }
   });
 
   it("prefers configured keyboard action hints over default key guidance", async () => {

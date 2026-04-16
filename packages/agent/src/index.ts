@@ -1,16 +1,38 @@
-import { type Agent, type AgentContext, type AgentMemoryEntry, type Decision, type ExperienceSummary, type Observation, type ResolvedTask, type StepRecord, type TaskInput, type TraceAggregate, type UserModel } from "@rawstep/definition";
+import {
+  type Agent,
+  type AgentContext,
+  type AgentMemoryEntry,
+  type Decision,
+  type ExperienceSummary,
+  type Observation,
+  type PlanState,
+  type ReflectionState,
+  type ResolvedTask,
+  type StepRecord,
+  type TaskInput,
+  type TraceAggregate,
+  type UserModel
+} from "@rawstep/definition";
 import { buildKeyboardActionPlan } from "@rawstep/action-catalog";
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { resolveAgentConfig } from "./config";
 import {
   buildStuckRationaleRetryPromptParts,
   parseDecision,
   parseDecisionResult,
-  parseExperienceSummary
+  parseExperienceSummary,
+  parsePlanState,
+  parseReflectionState
 } from "./parser";
 import {
+  buildPlanningPromptParts,
+  buildPlanningSystemPrompt,
   buildExperienceSummaryPromptText,
   buildExperienceSummarySystemPrompt,
   buildPromptParts,
+  buildReflectionPromptText,
+  buildReflectionSystemPrompt,
   buildSystemPrompt,
   buildUserPromptText
 } from "./prompt";
@@ -53,12 +75,17 @@ export class LLMAgent implements Agent {
   private readonly agentMemoryWindow: number;
   private readonly agentMemoryAll: boolean;
   private readonly taskInput?: TaskInput;
+  private readonly taskPrompt?: import("@rawstep/definition").TaskPrompt;
   private readonly promptDir?: string;
+  private readonly promptLogJsonlPath?: string;
   private readonly keyboardActions: LLMAgentOptions["keyboardActions"];
   private readonly screenReaderActions: LLMAgentOptions["screenReaderActions"];
   private readonly screenReaderCapabilities: LLMAgentOptions["screenReaderCapabilities"];
   private readonly memory: AgentMemoryEntry[] = [];
   private readonly promptLog: PromptLogEntry[] = [];
+  private promptLogJsonlInitialized = false;
+  private promptLogWriteChain: Promise<void> = Promise.resolve();
+  private promptLogWriteError?: Error;
 
   constructor(
     private readonly userModel: UserModel,
@@ -71,13 +98,16 @@ export class LLMAgent implements Agent {
     this.agentMemoryWindow = Math.max(0, options.agentMemoryWindow ?? 0);
     this.agentMemoryAll = options.agentMemoryAll ?? false;
     this.taskInput = options.taskInput;
+    this.taskPrompt = options.taskPrompt;
     this.promptDir = options.promptDir;
+    this.promptLogJsonlPath = options.promptLogJsonlPath;
     this.keyboardActions = options.keyboardActions;
     this.screenReaderActions = options.screenReaderActions;
     this.screenReaderCapabilities = options.screenReaderCapabilities;
   }
 
   async decide(ctx: AgentContext, obs: Observation): Promise<Decision> {
+    const phase = ctx.plan ? "execute" as const : "browse" as const;
     const resolvedPromptKeyboardActions = this.keyboardActions
       ?? ctx.keyboardActions
       ?? buildKeyboardActionPlan().descriptors;
@@ -92,8 +122,10 @@ export class LLMAgent implements Agent {
       this.includeRationale,
       {
         promptDir: this.promptDir,
+        taskPrompt: this.taskPrompt,
         keyboardActions: resolvedPromptKeyboardActions,
-        screenReaderActions: resolvedPromptScreenReaderActions
+        screenReaderActions: resolvedPromptScreenReaderActions,
+        phase
       }
     );
     const promptParts = buildPromptParts(
@@ -103,8 +135,10 @@ export class LLMAgent implements Agent {
       this.taskInput,
       {
         promptDir: this.promptDir,
+        taskPrompt: this.taskPrompt,
         keyboardActions: resolvedPromptKeyboardActions,
-        screenReaderActions: resolvedPromptScreenReaderActions
+        screenReaderActions: resolvedPromptScreenReaderActions,
+        phase
       }
     );
     this.recordPromptLog("decision", systemPrompt, promptParts);
@@ -157,6 +191,64 @@ export class LLMAgent implements Agent {
     }
   }
 
+  async planTask(ctx: AgentContext, obs: Observation): Promise<PlanState> {
+    const resolvedPromptKeyboardActions = this.keyboardActions
+      ?? ctx.keyboardActions
+      ?? buildKeyboardActionPlan().descriptors;
+    const resolvedPromptScreenReaderActions = this.screenReaderActions
+      ?? ctx.screenReaderActions
+      ?? [];
+    const systemPrompt = buildPlanningSystemPrompt(this.promptDir);
+    const promptParts = buildPlanningPromptParts(
+      this.userModel,
+      ctx,
+      obs,
+      this.taskInput,
+      {
+        promptDir: this.promptDir,
+        taskPrompt: this.taskPrompt,
+        keyboardActions: resolvedPromptKeyboardActions,
+        screenReaderActions: resolvedPromptScreenReaderActions
+      }
+    );
+    this.recordPromptLog("planning", systemPrompt, promptParts);
+
+    try {
+      const rawText = await this.completeWithRetries({
+        systemPrompt,
+        promptParts,
+        ctx,
+        obs,
+        fullMemory: this.memory
+      });
+
+      return parsePlanState(rawText);
+    } catch (error) {
+      throw normalizeProviderError(error, obs);
+    }
+  }
+
+  async reflectProgress(input: {
+    ctx: AgentContext;
+    steps: StepRecord[];
+  }): Promise<ReflectionState> {
+    const systemPrompt = buildReflectionSystemPrompt(this.promptDir);
+    const promptParts: PromptPart[] = [{
+      type: "text",
+      text: buildReflectionPromptText(input.ctx, input.steps, this.promptDir)
+    }];
+    this.recordPromptLog("reflection", systemPrompt, promptParts);
+
+    const rawText = await this.completeWithRetries({
+      systemPrompt,
+      promptParts,
+      ctx: input.ctx,
+      fullMemory: this.memory
+    });
+
+    return parseReflectionState(rawText);
+  }
+
   recordStepOutcome(entry: AgentMemoryEntry): void {
     this.memory.push(entry);
   }
@@ -175,6 +267,14 @@ export class LLMAgent implements Agent {
 
   getPromptLog(): PromptLogEntry[] {
     return [...this.promptLog];
+  }
+
+  async flushPromptLog(): Promise<void> {
+    await this.promptLogWriteChain;
+
+    if (this.promptLogWriteError) {
+      throw this.promptLogWriteError;
+    }
   }
 
   async summarizeExperience(input: {
@@ -208,9 +308,10 @@ export class LLMAgent implements Agent {
     systemPrompt: string,
     promptParts: PromptPart[]
   ): void {
-    this.promptLog.push({
+    const entry: PromptLogEntry = {
       kind,
       sequence: this.promptLog.length,
+      timestamp: new Date().toISOString(),
       provider: this.config.provider,
       model: this.config.model,
       systemPrompt,
@@ -219,7 +320,31 @@ export class LLMAgent implements Agent {
         .map((part) => part.text)
         .join("\n\n"),
       imageCount: promptParts.filter((part) => part.type === "image").length
-    });
+    };
+    this.promptLog.push(entry);
+    this.enqueuePromptLogWrite(entry);
+  }
+
+  private enqueuePromptLogWrite(entry: PromptLogEntry): void {
+    if (!this.promptLogJsonlPath) {
+      return;
+    }
+
+    this.promptLogWriteChain = this.promptLogWriteChain
+      .then(async () => {
+        if (!this.promptLogJsonlInitialized) {
+          await mkdir(dirname(this.promptLogJsonlPath!), { recursive: true });
+          await writeFile(this.promptLogJsonlPath!, "");
+          this.promptLogJsonlInitialized = true;
+        }
+
+        await appendFile(this.promptLogJsonlPath!, `${JSON.stringify(entry)}\n`, "utf8");
+      })
+      .catch((error) => {
+        this.promptLogWriteError = error instanceof Error
+          ? error
+          : new Error(String(error));
+      });
   }
 
   private async completeWithRetries(input: ProviderDecisionInput): Promise<string> {
@@ -247,12 +372,18 @@ export class LLMAgent implements Agent {
 }
 
 export {
+  buildPlanningPromptParts,
+  buildPlanningSystemPrompt,
   buildExperienceSummarySystemPrompt,
   buildPromptParts,
+  buildReflectionPromptText,
+  buildReflectionSystemPrompt,
   buildSystemPrompt,
   buildUserPromptText,
   parseDecision,
   parseExperienceSummary,
+  parsePlanState,
+  parseReflectionState,
   resolveAgentConfig,
   toLanguageModelContent
 };

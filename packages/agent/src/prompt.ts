@@ -12,9 +12,12 @@ import {
   type AgentMemoryEntry,
   type Decision,
   type Observation,
+  type PlanState,
+  type ReflectionState,
   type ResolvedTask,
   type StepRecord,
   type TaskInput,
+  type TaskPrompt,
   type TraceAggregate,
   type UserModel
 } from "@rawstep/definition";
@@ -23,14 +26,18 @@ import type { PromptPart } from "./shared";
 
 type SystemPromptOptions = {
   promptDir?: string;
+  taskPrompt?: TaskPrompt;
   keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
+  phase?: "browse" | "execute";
 };
 
 type UserPromptOptions = {
   promptDir?: string;
+  taskPrompt?: TaskPrompt;
   keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
+  phase?: "browse" | "execute";
 };
 
 export function buildSystemPrompt(
@@ -44,19 +51,25 @@ export function buildSystemPrompt(
   const templates = loadPromptTemplates({ promptDir: options.promptDir });
   const resolvedPromptKeyboardActions = options.keyboardActions ?? keyboardActions;
   const resolvedPromptScreenReaderActions = options.screenReaderActions ?? screenReaderActions;
+  const phase = options.phase ?? "execute";
 
   if (userModel === "screenreader") {
-    return renderPromptTemplate(templates.screenreaderSystem, {
+    return renderPromptTemplate(
+      phase === "browse" ? templates.screenreaderBrowseSystem : templates.screenreaderSystem,
+      {
+      customSystemPrompt: buildCustomPromptValue(options.taskPrompt?.system),
       outputExamples: buildScreenReaderOutputExamples(
         taskInput,
         includeRationale,
         resolvedPromptKeyboardActions,
         resolvedPromptScreenReaderActions
       )
-    });
+      }
+    );
   }
 
-  return renderPromptTemplate(templates.keyboardSystem, {
+  return renderPromptTemplate(phase === "browse" ? templates.keyboardBrowseSystem : templates.keyboardSystem, {
+    customSystemPrompt: buildCustomPromptValue(options.taskPrompt?.system),
     outputExamples: buildKeyboardOutputExamples(taskInput, resolvedPromptKeyboardActions, includeRationale)
   });
 }
@@ -74,6 +87,7 @@ export function buildPromptParts(
       text: buildUserPromptText(userModel, ctx, obs, taskInput, options)
     }
   ];
+  const phase = options.phase ?? (ctx.plan ? "execute" : "browse");
 
   if (obs.kind === "keyboard") {
     promptParts.push({
@@ -82,7 +96,13 @@ export function buildPromptParts(
       base64: obs.screenshot.pngBase64
     });
 
-    if (obs.previousScreenshot) {
+    if (phase === "execute" && obs.diffScreenshot) {
+      promptParts.push({
+        type: "image",
+        mediaType: "image/png",
+        base64: obs.diffScreenshot.pngBase64
+      });
+    } else if (obs.previousScreenshot) {
       promptParts.push({
         type: "image",
         mediaType: "image/png",
@@ -108,14 +128,20 @@ export function buildUserPromptText(
   const resolvedPromptScreenReaderActions = options.screenReaderActions
     ?? ctx.screenReaderActions
     ?? [];
+  const phase = options.phase ?? "execute";
 
   const commonReplacements = {
+    customUserPrompt: buildCustomPromptValue(options.taskPrompt?.user),
     goal: buildGoalValue(ctx.goal),
     agentMemory: buildAgentMemoryValue(ctx.memory),
     taskInputs: buildTaskInputsValue(taskInput),
     focusHint: buildFocusHintValue(obs),
     announcement: buildAnnouncementValue(obs),
     readbacks: buildReadbacksValue(obs),
+    currentPlan: buildCurrentPlanValue(ctx.plan),
+    currentFocus: buildCurrentFocusValue(ctx.currentFocus),
+    strategyNote: buildStrategyNoteValue(ctx.strategyNote),
+    lastReflection: buildLastReflectionValue(ctx.lastReflection),
     availableActions: buildAvailableActionsValue(
       userModel,
       resolvedPromptKeyboardActions,
@@ -125,10 +151,116 @@ export function buildUserPromptText(
   };
 
   if (userModel === "screenreader") {
-    return renderPromptTemplate(templates.screenreaderUser, commonReplacements);
+    return renderPromptTemplate(
+      phase === "browse" ? templates.screenreaderBrowseUser : templates.screenreaderUser,
+      {
+        ...commonReplacements,
+        currentObservation: buildCurrentObservationValue(obs)
+      }
+    );
   }
 
-  return renderPromptTemplate(templates.keyboardUser, commonReplacements);
+  return renderPromptTemplate(
+    phase === "browse" ? templates.keyboardBrowseUser : templates.keyboardUser,
+    {
+      ...commonReplacements,
+      currentObservation: buildCurrentObservationValue(obs)
+    }
+  );
+}
+
+function buildCustomPromptValue(value: string | undefined): string {
+  return value?.trim() ?? "";
+}
+
+export function buildPlanningSystemPrompt(
+  promptDir?: string
+): string {
+  const templates = loadPromptTemplates({ promptDir });
+  return renderPromptTemplate(templates.planningSystem, {
+    outputExamples: [
+      JSON.stringify({
+        steps: ["관련 영역 찾기", "필요한 입력이나 옵션 처리", "핵심 동작 실행"],
+        currentFocus: "관련 영역 찾기",
+        successSignals: ["목표와 직접 관련된 상태 변화가 읽힘"]
+      })
+    ].join("\n")
+  });
+}
+
+export function buildPlanningPromptParts(
+  userModel: UserModel,
+  ctx: AgentContext,
+  obs: Observation,
+  taskInput?: TaskInput,
+  options: UserPromptOptions = {}
+): PromptPart[] {
+  const templates = loadPromptTemplates({ promptDir: options.promptDir });
+  const resolvedPromptKeyboardActions = options.keyboardActions
+    ?? ctx.keyboardActions
+    ?? buildKeyboardActionPlan().descriptors;
+  const resolvedPromptScreenReaderActions = options.screenReaderActions
+    ?? ctx.screenReaderActions
+    ?? [];
+
+  const promptParts: PromptPart[] = [{
+    type: "text",
+    text: renderPromptTemplate(templates.planningUser, {
+      goal: buildGoalValue(ctx.goal),
+      taskInputs: buildTaskInputsValue(taskInput),
+      availableActions: buildAvailableActionsValue(
+        userModel,
+        resolvedPromptKeyboardActions,
+        resolvedPromptScreenReaderActions,
+        taskInput
+      ),
+      currentObservation: buildCurrentObservationValue(obs)
+    })
+  }];
+
+  if (obs.kind === "keyboard") {
+    promptParts.push({
+      type: "image",
+      mediaType: "image/png",
+      base64: obs.screenshot.pngBase64
+    });
+  }
+
+  return promptParts;
+}
+
+export function buildReflectionSystemPrompt(promptDir?: string): string {
+  const templates = loadPromptTemplates({ promptDir });
+  return renderPromptTemplate(templates.reflectionSystem, {
+    outputExamples: [
+      JSON.stringify({
+        status: "flat",
+        assessment: "최근 step에서 문맥 변화가 크지 않다.",
+        strategyNote: "같은 이동 반복보다 다른 탐색 전략을 검토한다.",
+        updatedFocus: "관련 영역 다시 찾기"
+      })
+    ].join("\n")
+  });
+}
+
+export function buildReflectionPromptText(
+  ctx: AgentContext,
+  steps: StepRecord[],
+  promptDir?: string
+): string {
+  const templates = loadPromptTemplates({ promptDir });
+  const recentMemory = steps.length > 0
+    ? ctx.memory.slice(-steps.length)
+    : [];
+
+  return renderPromptTemplate(templates.reflectionUser, {
+    goal: buildGoalValue(ctx.goal),
+    currentPlan: buildCurrentPlanValue(ctx.plan),
+    currentFocus: buildCurrentFocusValue(ctx.currentFocus),
+    strategyNote: buildStrategyNoteValue(ctx.strategyNote),
+    recentSteps: buildRecentStepsValue(steps),
+    recentMemory: buildRecentMemoryValue(recentMemory)
+  });
 }
 
 export function buildExperienceSummarySystemPrompt(promptDir?: string): string {
@@ -294,16 +426,90 @@ function buildGoalValue(goal: string): string {
   return goal;
 }
 
+function buildCurrentPlanValue(plan: PlanState | undefined): string {
+  if (!plan) {
+    return buildEmptyListBlock();
+  }
+
+  const items = [
+    ...plan.steps.map((step, index) => `${index + 1}. ${step}`),
+    `success signals: ${plan.successSignals.join(" | ")}`
+  ];
+
+  return buildPresentListBlock(items);
+}
+
+function buildCurrentFocusValue(currentFocus: string | undefined): string {
+  if (!currentFocus) {
+    return buildEmptyValueBlock();
+  }
+
+  return buildPresentValueBlock(currentFocus);
+}
+
+function buildStrategyNoteValue(strategyNote: string | undefined): string {
+  if (!strategyNote) {
+    return buildEmptyValueBlock();
+  }
+
+  return buildPresentValueBlock(strategyNote);
+}
+
+function buildLastReflectionValue(lastReflection: ReflectionState | undefined): string {
+  if (!lastReflection) {
+    return buildEmptyListBlock();
+  }
+
+  const items = [
+    `status=${lastReflection.status}`,
+    `assessment=${JSON.stringify(lastReflection.assessment)}`,
+    `strategyNote=${JSON.stringify(lastReflection.strategyNote)}`,
+    ...(lastReflection.updatedFocus ? [`updatedFocus=${JSON.stringify(lastReflection.updatedFocus)}`] : [])
+  ];
+
+  return buildPresentListBlock(items);
+}
+
 function buildAgentMemoryValue(memory: AgentMemoryEntry[]): string {
   if (memory.length === 0) {
     return buildEmptyListBlock();
   }
 
-  return buildPresentListBlock(memory.map((entry) => [
+  return buildPresentListBlock(memory.map(buildMemoryEntryValue));
+}
+
+function buildRecentMemoryValue(memory: AgentMemoryEntry[]): string {
+  if (memory.length === 0) {
+    return buildEmptyListBlock();
+  }
+
+  return buildPresentListBlock(memory.map(buildMemoryEntryValue));
+}
+
+function buildMemoryEntryValue(entry: AgentMemoryEntry): string {
+  return [
     `step ${entry.step}: action=${JSON.stringify(entry.action)}`,
     `outcome=${JSON.stringify(entry.outcome)}`,
+    entry.announcementExcerpt !== undefined
+      ? `announcement=${JSON.stringify(entry.announcementExcerpt)}`
+      : undefined,
+    entry.announcementCapture
+      ? `capture=${JSON.stringify(entry.announcementCapture)}`
+      : undefined,
+    typeof entry.announcementCount === "number"
+      ? `announcementCount=${entry.announcementCount}`
+      : undefined,
+    entry.observeReason
+      ? `observeReason=${JSON.stringify(entry.observeReason)}`
+      : undefined,
+    typeof entry.sameAnnouncementCount === "number"
+      ? `sameAnnouncementCount=${entry.sameAnnouncementCount}`
+      : undefined,
+    typeof entry.sameActionCount === "number"
+      ? `sameActionCount=${entry.sameActionCount}`
+      : undefined,
     entry.note ? `note=${JSON.stringify(entry.note)}` : undefined
-  ].filter(Boolean).join(", ")));
+  ].filter(Boolean).join(", ");
 }
 
 function buildKeyboardOutputExamples(
@@ -477,9 +683,11 @@ function buildReadbacksValue(obs: Observation): string {
   }
 
   return buildPresentListBlock(obs.readbacks.map((readback) =>
-    readback.status === "cleared"
-      ? `method=${readback.method}, status=cleared`
-      : `method=${readback.method}, value=${JSON.stringify(readback.value ?? "")}`
+    readback.kind === "note"
+      ? `note(${readback.source})=${JSON.stringify(readback.value)}`
+      : readback.status === "cleared"
+        ? `method=${readback.method}, status=cleared`
+        : `method=${readback.method}, value=${JSON.stringify(readback.value ?? "")}`
   ));
 }
 
@@ -489,6 +697,36 @@ function buildTaskInputsValue(taskInput?: TaskInput): string {
   }
 
   return buildPresentListBlock(buildLabeledTaskInputs(taskInput));
+}
+
+function buildCurrentObservationValue(obs: Observation): string {
+  if (obs.kind === "keyboard") {
+    const parts = [
+      `title=${JSON.stringify(obs.browserChrome.title)}`,
+      `urlPath=${JSON.stringify(obs.browserChrome.urlPath)}`,
+      obs.focusHint ? `focusHint=${JSON.stringify(obs.focusHint)}` : undefined,
+      obs.scrollHint ? `scrollHint=${JSON.stringify(obs.scrollHint)}` : undefined
+    ].filter(Boolean) as string[];
+
+    return buildPresentListBlock(parts);
+  }
+
+  const parts = [
+    `announcement=${JSON.stringify(obs.announcement)}`,
+    `capture=${obs.announcementCapture}`,
+    typeof obs.announcementCount === "number" ? `count=${obs.announcementCount}` : undefined,
+    obs.observeReason ? `observeReason=${obs.observeReason}` : undefined
+  ].filter(Boolean) as string[];
+
+  return parts.length === 0 ? buildEmptyListBlock() : buildPresentListBlock(parts);
+}
+
+function buildRecentStepsValue(steps: StepRecord[]): string {
+  if (steps.length === 0) {
+    return buildEmptyListBlock();
+  }
+
+  return buildPresentListBlock(steps.map((step) => buildExperienceSummaryStepValue(step)));
 }
 
 function buildLabeledTaskInputs(taskInput: TaskInput): string[] {

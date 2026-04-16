@@ -17,6 +17,7 @@ export function resolveTaskSource(
     id: context.taskId,
     url: context.resolvedUrl,
     goal: source.goal,
+    prompt: source.prompt,
     mode: context.mode,
     maxSteps: context.maxSteps,
     timeoutMs: context.timeoutMs,

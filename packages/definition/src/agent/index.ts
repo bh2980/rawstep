@@ -41,7 +41,26 @@ export type AgentMemoryEntry = {
   step: number;
   action: string;
   outcome: "continued" | "success" | "failure";
+  announcementExcerpt?: string;
+  announcementCapture?: Extract<Observation, { kind: "screenreader" }>["announcementCapture"];
+  announcementCount?: Extract<Observation, { kind: "screenreader" }>["announcementCount"];
+  observeReason?: Extract<Observation, { kind: "screenreader" }>["observeReason"];
+  sameAnnouncementCount?: number;
+  sameActionCount?: number;
   note?: string;
+};
+
+export type PlanState = {
+  steps: string[];
+  currentFocus: string;
+  successSignals: string[];
+};
+
+export type ReflectionState = {
+  status: "progressing" | "flat" | "drifting";
+  assessment: string;
+  strategyNote: string;
+  updatedFocus?: string;
 };
 
 export type AgentContext = {
@@ -49,6 +68,10 @@ export type AgentContext = {
   keyboardActions?: readonly KeyboardActionDescriptor[];
   screenReaderActions?: readonly ScreenReaderActionDescriptor[];
   memory: AgentMemoryEntry[];
+  plan?: PlanState;
+  currentFocus?: string;
+  strategyNote?: string;
+  lastReflection?: ReflectionState;
 };
 
 export type ExperienceSummary = {
@@ -59,7 +82,12 @@ export type ExperienceSummary = {
 };
 
 export interface Agent {
+  planTask?(ctx: AgentContext, obs: Observation): Promise<PlanState>;
   decide(ctx: AgentContext, obs: Observation): Promise<Decision>;
+  reflectProgress?(input: {
+    ctx: AgentContext;
+    steps: StepRecord[];
+  }): Promise<ReflectionState>;
   recordStepOutcome?(entry: AgentMemoryEntry): void;
   getMemoryExcerpt?(): AgentMemoryEntry[];
   getPromptLog?(): unknown[];
@@ -68,4 +96,5 @@ export interface Agent {
     aggregate: TraceAggregate;
     steps: StepRecord[];
   }): Promise<ExperienceSummary>;
+  flushPromptLog?(): Promise<void>;
 }

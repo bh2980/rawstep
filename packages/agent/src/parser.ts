@@ -9,6 +9,8 @@ import {
   type Action,
   type Decision,
   type ExperienceSummary,
+  type PlanState,
+  type ReflectionState,
   type TaskInput
 } from "@rawstep/definition";
 import type { PromptPart } from "./shared";
@@ -229,6 +231,77 @@ export function parseExperienceSummary(raw: string): ExperienceSummary {
     blockers,
     surprise,
     oneLineFeel
+  };
+}
+
+export function parsePlanState(raw: string): PlanState {
+  const candidate = JSON.parse(extractJsonObject(raw)) as {
+    steps?: unknown;
+    currentFocus?: unknown;
+    successSignals?: unknown;
+  };
+
+  if (
+    !Array.isArray(candidate.steps)
+    || typeof candidate.currentFocus !== "string"
+    || !Array.isArray(candidate.successSignals)
+  ) {
+    throw new Error("agent returned malformed plan state");
+  }
+
+  const steps = candidate.steps
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, 5);
+  const currentFocus = candidate.currentFocus.trim();
+  const successSignals = candidate.successSignals
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, 5);
+
+  if (!currentFocus || steps.length === 0 || successSignals.length === 0) {
+    throw new Error("agent returned malformed plan state");
+  }
+
+  return {
+    steps,
+    currentFocus,
+    successSignals
+  };
+}
+
+export function parseReflectionState(raw: string): ReflectionState {
+  const candidate = JSON.parse(extractJsonObject(raw)) as {
+    status?: unknown;
+    assessment?: unknown;
+    strategyNote?: unknown;
+    updatedFocus?: unknown;
+  };
+
+  if (
+    (candidate.status !== "progressing" && candidate.status !== "flat" && candidate.status !== "drifting")
+    || typeof candidate.assessment !== "string"
+    || typeof candidate.strategyNote !== "string"
+    || !(candidate.updatedFocus === undefined || typeof candidate.updatedFocus === "string")
+  ) {
+    throw new Error("agent returned malformed reflection state");
+  }
+
+  const assessment = candidate.assessment.trim();
+  const strategyNote = candidate.strategyNote.trim();
+  const updatedFocus = typeof candidate.updatedFocus === "string"
+    ? candidate.updatedFocus.trim()
+    : undefined;
+
+  if (!assessment || !strategyNote) {
+    throw new Error("agent returned malformed reflection state");
+  }
+
+  return {
+    status: candidate.status,
+    assessment,
+    strategyNote,
+    ...(updatedFocus ? { updatedFocus } : {})
   };
 }
 

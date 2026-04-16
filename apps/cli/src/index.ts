@@ -10,6 +10,7 @@ import {
 } from "@rawstep/definition";
 import { publishRunOutputs } from "@rawstep/reporter";
 import { runTask, RunTaskFailedError } from "@rawstep/runtime";
+import { join } from "node:path";
 import { parseRunArgs, printUsage } from "./args";
 
 type RunCliDependencies = {
@@ -17,7 +18,7 @@ type RunCliDependencies = {
     mode: UserModel,
     taskInput: TaskInput | undefined,
     plan: ResolvedRunPlan
-  ) => Agent & { getPromptLog?(): unknown[] };
+  ) => Agent & { getPromptLog?(): unknown[]; flushPromptLog?(): Promise<void> };
 };
 
 export async function runCli(
@@ -25,7 +26,7 @@ export async function runCli(
   dependencies: RunCliDependencies = {}
 ): Promise<number> {
   let plan: ResolvedRunPlan | undefined;
-  let agent: (Agent & { getPromptLog?(): unknown[] }) | undefined;
+  let agent: (Agent & { getPromptLog?(): unknown[]; flushPromptLog?(): Promise<void> }) | undefined;
   try {
     const command = argv[0];
     if (command !== "run") {
@@ -54,12 +55,14 @@ export async function runCli(
       screenReaderObserve: plan.interaction.screenReaderObserve,
       voiceOver: plan.interaction.voiceOver
     });
+    await agent.flushPromptLog?.();
     const published = await publishRunOutputs(session, plan.paths.outDir, agent.getPromptLog?.());
     process.stdout.write(`${published.summaryText}\n`);
 
     return 0;
   } catch (error) {
     if (error instanceof RunTaskFailedError && plan) {
+      await agent?.flushPromptLog?.();
       const published = await publishRunOutputs(error.session, plan.paths.outDir, agent?.getPromptLog?.());
       process.stdout.write(`${published.summaryText}\n`);
     }
@@ -87,6 +90,7 @@ function createAgent(
     taskInput,
     taskPrompt: plan.task.prompt,
     promptDir: plan.paths.promptDir,
+    promptLogJsonlPath: join(plan.paths.outDir, "prompts.jsonl"),
     keyboardActions: plan.prompt.keyboardActions,
     screenReaderActions: plan.prompt.screenReaderActions,
     screenReaderCapabilities: plan.interaction.screenReaderBackendId

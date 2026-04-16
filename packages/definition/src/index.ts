@@ -39,6 +39,8 @@ export type {
   VerifySpec,
 } from "./verify";
 export {
+  NAVIGATION_STRATEGY_VALUES,
+  REASONING_EFFORT_VALUES,
   resolveTaskSource,
   validateTaskInput,
   validateTaskOverrideSource,
@@ -46,9 +48,15 @@ export {
 } from "./task";
 export type {
   MemorySetting,
+  NavigationPolicy,
+  NavigationStrategy,
+  PlanningConfig,
+  ReasoningEffort,
+  ResolvedNavigationPolicy,
   ScreenReaderObserveConfig,
   VoiceOverConfig,
   TaskInput,
+  TaskPrompt,
   TaskOverrideSource,
   TaskSource,
   ResolvedTask,
@@ -79,6 +87,8 @@ export type {
   Verdict,
   Decision,
   AgentMemoryEntry,
+  PlanState,
+  ReflectionState,
   AgentContext,
   ExperienceSummary,
   Agent,

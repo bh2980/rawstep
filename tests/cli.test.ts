@@ -2221,7 +2221,7 @@ describe.sequential("CLI", () => {
     });
 
     await expect(loadResolvedTask(taskPath)).rejects.toThrow(
-      "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, requestSeen, responseSeen."
+      "Unsupported verify rule: unknownRule. Expected one of titleIncludes, urlIncludes, textVisible, textVisibleExact, activatedAnnouncementIncludes, domEventSeen, requestSeen, responseSeen."
     );
   });
 

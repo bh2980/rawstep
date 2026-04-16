@@ -2,7 +2,9 @@ import {
   formatScreenReaderBackendIdList,
   parseScreenReaderBackendId,
   parseUserModel,
+  REASONING_EFFORT_VALUES,
   USER_MODEL_VALUES,
+  type ReasoningEffort,
   type ScreenReaderBackendId,
   type ScreenshotPolicy,
   type UserModel
@@ -51,6 +53,7 @@ const MODE_USAGE = USER_MODEL_VALUES.join("|");
 const BACKEND_USAGE = formatScreenReaderBackendIdList("|");
 const PROVIDER_USAGE = AGENT_PROVIDER_VALUES.join("|");
 const SCREENSHOT_USAGE = SCREENSHOT_POLICY_VALUES.join("|");
+const REASONING_EFFORT_USAGE = REASONING_EFFORT_VALUES.join("|");
 
 export const RUN_COMMAND_ARG_MANIFEST = [
   {
@@ -185,6 +188,13 @@ export const RUN_COMMAND_ARG_MANIFEST = [
     field: "baseURL",
     placeholder: "<url>",
     parse: parseIdentityString
+  },
+  {
+    kind: "value",
+    flag: "--reasoning-effort",
+    field: "reasoningEffort",
+    placeholder: REASONING_EFFORT_USAGE,
+    parse: (value, label) => parseReasoningEffort(value, label) as ReasoningEffort
   }
 ] as const satisfies readonly RunCommandArgManifestEntry[];
 
@@ -232,4 +242,12 @@ function parseCommaSeparatedValues(value: unknown, label: string): string[] {
   }
 
   return entries;
+}
+
+function parseReasoningEffort(value: string, label: string): ReasoningEffort {
+  if ((REASONING_EFFORT_VALUES as readonly string[]).includes(value)) {
+    return value as ReasoningEffort;
+  }
+
+  throw new Error(`${label} must be one of ${REASONING_EFFORT_USAGE}.`);
 }

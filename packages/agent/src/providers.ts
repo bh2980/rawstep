@@ -16,10 +16,10 @@ export function createCompletionClient(
   config: ResolvedAgentConfig
 ): AgentCompletionClient {
   if (config.provider === "anthropic") {
-    return new AISDKCompletionClient(createAnthropicModel(config), config.model);
+    return new AISDKCompletionClient(createAnthropicModel(config), config.model, config);
   }
 
-  return new AISDKCompletionClient(createOpenAICompatibleModel(config), config.model);
+  return new AISDKCompletionClient(createOpenAICompatibleModel(config), config.model, config);
 }
 
 export function normalizeProviderError(error: unknown, obs: Observation): Error {
@@ -63,7 +63,8 @@ export function isRetryableProviderError(error: unknown): boolean {
 class AISDKCompletionClient implements AgentCompletionClient {
   constructor(
     private readonly model: unknown,
-    readonly modelId: string
+    readonly modelId: string,
+    private readonly config: ResolvedAgentConfig
   ) {}
 
   async complete(input: ProviderDecisionInput): Promise<string> {
@@ -71,6 +72,7 @@ class AISDKCompletionClient implements AgentCompletionClient {
       model: this.model as never,
       system: input.systemPrompt,
       maxOutputTokens: DEFAULT_MAX_TOKENS,
+      providerOptions: buildProviderOptions(this.config) as never,
       messages: [
         {
           role: "user",
@@ -97,6 +99,20 @@ function createOpenAICompatibleModel(config: OpenAICompatibleAgentConfig): unkno
   });
 
   return provider(config.model);
+}
+
+export function buildProviderOptions(
+  config: ResolvedAgentConfig
+): Record<string, Record<string, unknown>> | undefined {
+  if (config.provider !== "openai-compatible" || !config.reasoningEffort) {
+    return undefined;
+  }
+
+  return {
+    openaiCompatible: {
+      reasoningEffort: config.reasoningEffort
+    }
+  };
 }
 
 function looksLikeImageCapabilityError(message: string): boolean {

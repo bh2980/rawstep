@@ -6,6 +6,15 @@ import {
 } from "@rawstep/config";
 
 const providerFromEnv = process.env.AI_PROVIDER;
+const reasoningEffortFromEnv = process.env.AI_REASONING_EFFORT;
+const resolvedReasoningEffort =
+  reasoningEffortFromEnv === "none" ||
+  reasoningEffortFromEnv === "low" ||
+  reasoningEffortFromEnv === "medium" ||
+  reasoningEffortFromEnv === "high" ||
+  reasoningEffortFromEnv === "xhigh"
+    ? reasoningEffortFromEnv
+    : undefined;
 
 const config: ProjectConfigSource = defineConfig({
   version: 1,
@@ -17,11 +26,13 @@ const config: ProjectConfigSource = defineConfig({
     model: process.env.AI_MODEL,
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY,
+    reasoningEffort: "medium",
   },
   modes: {
     keyboard: {
       maxSteps: 30,
       timeoutMs: 240000,
+      headless: true,
       verifierAutoComplete: true,
       includeRationale: true,
       includeExperienceSummary: true,
@@ -62,14 +73,14 @@ const config: ProjectConfigSource = defineConfig({
     },
     screenreader: {
       headless: false,
-      maxSteps: 240,
-      timeoutMs: 420000,
+      maxSteps: 1000,
+      timeoutMs: 600000,
       screenshots: "all",
       verifierAutoComplete: true,
       includeRationale: true,
       includeExperienceSummary: true,
       memory: "all",
-      screenReaderBackend: "guidepup-voiceover",
+      screenReaderBackend: "guidepup-virtual",
       allowedScreenReaderActions: [
         sr.next({
           hint: "next는 VoiceOver 커서를 다음 읽기 항목으로 이동할 때 사용하라. 화면 구조를 넓게 파악할 때는 Tab보다 먼저 검토하라.",
@@ -77,12 +88,7 @@ const config: ProjectConfigSource = defineConfig({
         sr.previous({
           hint: "previous는 VoiceOver 커서를 이전 읽기 항목으로 이동할 때 사용하라. 방금 지나친 항목으로 되돌아갈 때 사용하라.",
         }),
-        sr.button.next({
-          hint: "button.next는 다음 버튼으로 바로 이동할 때 사용하라. 현재 목표가 명확한 버튼 찾기라면 일반 next보다 우선 검토하라.",
-        }),
-        sr.button.previous({
-          hint: "button.previous는 이전 버튼으로 바로 이동할 때 사용하라. 버튼을 지나쳤을 가능성이 있을 때 사용하라.",
-        }),
+
         sr.form.next({
           hint: "form.next는 다음 폼 컨트롤(입력칸, 체크박스, 셀렉트, 버튼)로 이동할 때 사용하라. 입력칸을 찾을 때 가장 먼저 검토하라.",
         }),
@@ -128,21 +134,21 @@ const config: ProjectConfigSource = defineConfig({
         sr.key.escape({
           hint: "Escape는 열린 dialog, menu, popup을 닫거나 현재 상태를 정리할 때 사용하라. 예상치 못한 브라우저 UI가 끼어들었을 때 우선 검토하라.",
         }),
-        sr.key.shiftTab({
-          hint: "Shift+Tab은 키보드 포커스를 이전 포커스 가능 요소로 이동할 때 사용하라. 주 탐색 수단이 아니며, 이미 페이지 안 키보드 포커스가 있다고 볼 근거가 있을 때만 사용하라.",
-        }),
         sr.key.space({
           hint: "Space는 현재 항목을 활성화하거나 토글할 때 사용하라. 체크박스, 버튼, 토글처럼 Space 반응이 자연스러운 항목에서 사용하라.",
         }),
-        sr.key.tab({
-          hint: "Tab은 키보드 포커스를 다음 포커스 가능 요소로 이동할 때 사용하라. 주 탐색 수단이 아니며, 이미 페이지 안 키보드 포커스가 있다고 볼 근거가 있을 때만 사용하라.",
-        }),
-        sr.key.home({
-          hint: "Home은 현재 문맥의 시작 쪽으로 크게 이동할 때 사용하라. 긴 목록이나 문맥 안에서 처음으로 빠르게 돌아갈 때 사용하라.",
-        }),
-        sr.key.end({
-          hint: "End는 현재 문맥의 끝 쪽으로 크게 이동할 때 사용하라. 긴 목록이나 문맥 안에서 마지막으로 빠르게 이동할 때 사용하라.",
-        }),
+        // sr.key.shiftTab({
+        //   hint: "Shift+Tab은 키보드 포커스를 이전 포커스 가능 요소로 이동할 때 사용하라. 주 탐색 수단이 아니며, 이미 페이지 안 키보드 포커스가 있다고 볼 근거가 있을 때만 사용하라.",
+        // }),
+        // sr.key.tab({
+        //   hint: "Tab은 키보드 포커스를 다음 포커스 가능 요소로 이동할 때 사용하라. 주 탐색 수단이 아니며, 이미 페이지 안 키보드 포커스가 있다고 볼 근거가 있을 때만 사용하라.",
+        // }),
+        // sr.key.home({
+        //   hint: "Home은 현재 문맥의 시작 쪽으로 크게 이동할 때 사용하라. 긴 목록이나 문맥 안에서 처음으로 빠르게 돌아갈 때 사용하라.",
+        // }),
+        // sr.key.end({
+        //   hint: "End는 현재 문맥의 끝 쪽으로 크게 이동할 때 사용하라. 긴 목록이나 문맥 안에서 마지막으로 빠르게 이동할 때 사용하라.",
+        // }),
       ],
     },
   },

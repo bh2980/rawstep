@@ -35,7 +35,8 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
     return {
       provider,
       apiKey,
-      model
+      model,
+      reasoningEffort: options.reasoningEffort
     };
   }
 
@@ -50,7 +51,8 @@ export function resolveAgentConfig(options: LLMAgentOptions = {}): ResolvedAgent
     provider,
     apiKey,
     model,
-    baseURL: resolveOpenAICompatibleBaseURL(options)
+    baseURL: resolveOpenAICompatibleBaseURL(options),
+    reasoningEffort: options.reasoningEffort
   };
 }
 
