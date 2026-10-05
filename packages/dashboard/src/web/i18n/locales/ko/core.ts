@@ -1,13 +1,14 @@
-import type { Hint, ObservedChange } from '../../shared/api.js';
-import type { RunState } from '../../shared/config.js';
+import type { Hint } from '../../../../shared/api.js';
+import type { RunState } from '../../../../shared/config.js';
 
 type HintKind = Hint['kind'];
 
 /**
- * Dashboard strings. Rawstep is not a pass/fail runner: run states describe whether the goal was reached,
- * and friction hints carry most of the meaning.
+ * Dashboard strings (plain text and `{{name}}` interpolation only). Rawstep is not a pass/fail runner:
+ * run states describe whether the goal was reached, and friction hints carry most of the meaning.
+ * Messages that branch (singular/zero, with/without a name) are split into separate keys; the branching lives in the caller.
  */
-export const ko = {
+export const core = {
   app: {
     title: 'rawstep',
     skip: '본문으로 이동',
@@ -21,7 +22,7 @@ export const ko = {
   topBar: {
     connected: '서버 연결됨',
     reconnecting: '재연결 중',
-    counts: (running: number, queued: number) => `${running} 실행 중 · ${queued} 대기`,
+    counts: '{{running}} 실행 중 · {{queued}} 대기',
     newExperiment: '새 실험',
     settings: '설정',
     settingsLabel: '설정 열기',
@@ -41,10 +42,10 @@ export const ko = {
     empty: '표시할 작업이나 실행이 없습니다.',
     emptyFiltered: '조건에 맞는 실행이 없습니다.',
     noRuns: '아직 실행이 없습니다',
-    runCount: (n: number) => `실행 ${n}개`,
-    liveCount: (n: number) => `${n}개 실행 중`,
-    repeat: (n: number) => `반복 #${n}`,
-    steps: (n: number) => `${n} 스텝`,
+    runCount: '실행 {{n}}개',
+    liveCount: '{{n}}개 실행 중',
+    repeat: '반복 #{{n}}',
+    steps: '{{n}} 스텝',
     hintsLoading: '힌트 확인 중',
     treeHelp: '화살표 키로 이동하고 Enter로 선택합니다.',
     unnamedTask: '이름 없는 작업',
@@ -66,8 +67,8 @@ export const ko = {
     empty: '아직 실행한 기록이 없습니다.',
     emptyHint: '상단의 새 실험 버튼으로 작업과 모델을 조합해 실행해 보세요.',
     columns: { task: '작업', model: '모델', mode: '모드', runs: '실행', reached: '목표 도달', median: '중앙 스텝', reference: '참조 스텝', hints: '자주 나온 힌트' },
-    runsOf: (finished: number, total: number) => `${total}개 (완료 ${finished})`,
-    reachedOf: (reached: number, finished: number) => `${reached} / ${finished}`,
+    runsOf: '{{total}}개 (완료 {{finished}})',
+    reachedOf: '{{reached}} / {{finished}}',
     noHints: '없음',
     openLatest: '최근 실행 열기',
     referenceHelp: '목표에 도달한 가장 짧은 실행의 스텝 수',
@@ -91,10 +92,13 @@ export const ko = {
   run: {
     notFound: '선택한 실행을 찾을 수 없습니다.',
     backToOverview: '개요로 돌아가기',
-    steps: (n: number) => `${n} 스텝`,
-    duration: (seconds: string) => `${seconds}초`,
+    steps: '{{n}} 스텝',
+    duration: '{{seconds}}초',
     facts: { state: '상태', steps: '스텝', duration: '소요 시간', reference: '참조 대비' },
-    versus: (extra: number) => extra === 0 ? '참조와 같은 스텝' : extra > 0 ? `참조 대비 +${extra} 스텝` : `참조 대비 ${extra} 스텝`,
+    /** Step difference against the reference run: equal, more (extra is positive), or fewer (extra is negative, sign included). */
+    versusSame: '참조와 같은 스텝',
+    versusMore: '참조 대비 +{{extra}} 스텝',
+    versusLess: '참조 대비 {{extra}} 스텝',
     cancel: '취소',
     retry: '같은 조건으로 재실행',
     openReport: '보고서 열기',
@@ -104,7 +108,7 @@ export const ko = {
     stopQueue: '큐 중지',
     simulationNotice: '모의 VoiceOver 실행입니다. 실제 네이티브 발화 검증 결과가 아닙니다.',
     serverPromptNotice: '이 /choose 서버는 지침을 소유합니다. UI의 기본 지침은 실제 적용 문구를 의미하지 않으며, 프롬프트 편집 실행은 제한됩니다.',
-    outcome: (status: string, reason: string) => `기록된 실행 결과: ${status} · ${reason}`,
+    outcome: '기록된 실행 결과: {{status}} · {{reason}}',
     noReason: '—',
     outcomeReasons: {
       'verified': '목표 규칙 확인됨',
@@ -119,12 +123,12 @@ export const ko = {
       'unsupported-profile': '지원하지 않는 프로필',
       'access-blocked': '접근이 차단됨',
       'unsupported-pattern': '지원하지 않는 패턴',
-    } as Record<string, string>,
+    },
     tabsLabel: '실행 상세 보기',
     tabs: { hints: '힌트', steps: '단계', compare: '비교', events: '기록' },
     retryTitle: '같은 조건으로 재실행',
     retryBody: '모델·프롬프트·허용 행동·환경은 기존 실행의 설정을 사용합니다. 입력값은 현재 작업 파일에서 다시 읽습니다.',
-    retryChanged: (fields: string) => `현재 작업 파일과 다른 항목: ${fields}`,
+    retryChanged: '현재 작업 파일과 다른 항목: {{fields}}',
     retryUnchanged: '입력값 외 작업 조건에 변경이 없습니다.',
     retryDiff: '작업 조건 차이 확인',
     retryOriginal: '기존',
@@ -143,49 +147,59 @@ export const ko = {
     observedHelp: '기록된 사실에서 바로 확인한 항목입니다.',
     suspected: '추정',
     suspectedHelp: '간접 신호에서 추정한 항목으로, 틀릴 수 있습니다.',
-    goToStep: (n: number) => `단계 ${n}`,
-    goToStepLabel: (n: number) => `단계 ${n}로 이동`,
+    goToStep: '단계 {{n}}',
+    goToStepLabel: '단계 {{n}}로 이동',
     stepsLabel: '관련 단계',
     limitations: '해석할 때 유의할 점',
     originalText: '원문',
+    /** Keyed by the English sentence the report records; looked up in this object directly because the keys contain '.' and ':'. */
     limitationTexts: {
       'Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.': '힌트는 살펴볼 만한 단계를 가리킬 뿐이며, 접근성 결함이나 준수 여부를 확정하지 않습니다.',
       'No page observer events were recorded, so focus, announcement and dialog hints are unavailable.': '페이지 관찰 이벤트가 기록되지 않아 포커스, 안내, 대화상자 관련 힌트를 사용할 수 없습니다.',
       'Names and text after text entry are redacted; those hints keep structure only.': '텍스트 입력 이후의 이름과 텍스트는 가려져 있어, 해당 힌트에는 구조 정보만 남아 있습니다.',
-    } as Record<string, string>,
+    },
     text: {
-      target: (role: string | undefined, name: string | undefined) => name ? `${role ?? '요소'} “${name}”` : (role ?? '요소'),
+      /** A target without a recorded role is called an element; with a name it reads `role “name”`. */
+      element: '요소',
+      targetNamed: '{{role}} “{{name}}”',
       focusedControl: '포커스된 컨트롤',
-      slowRun: (steps: number, referenceSteps: number, durationMs: number | null | undefined, referenceDurationMs: number | null | undefined) =>
-        `참조 실행(${referenceSteps} 스텝)보다 ${steps - referenceSteps} 스텝 더 걸려 ${steps} 스텝을 사용했습니다.`
-        + (typeof durationMs === 'number' && typeof referenceDurationMs === 'number' ? ` 소요 시간은 ${(durationMs / 1000).toFixed(1)}초로 참조 ${(referenceDurationMs / 1000).toFixed(1)}초였습니다.` : ''),
-      excessKeystrokes: (count: number, target: string | undefined, keys: string | undefined) =>
-        `${target ?? '포커스된 컨트롤'}을(를) 활성화하기 전에 탐색 키를 ${count}번 눌렀습니다.${keys ? ` (${keys})` : ''}`,
-      backtracking: (reversals: number) => `탐색 방향이 ${reversals}번 뒤바뀌었습니다.`,
-      repeatedState: (visits: number) => `같은 화면을 ${visits}번 마주쳤습니다.`,
-      focusLost: (from: string | undefined, reason: string | undefined, action: string | undefined) =>
-        `${action ?? '행동'} 이후 ${from ?? '포커스된 요소'}${reason === 'removed' ? '이(가) 사라져' : '에서 벗어나'} 포커스가 페이지로 되돌아갔습니다.`,
-      focusNotVisibleTarget: (target: string, hidden: boolean) => `포커스가 ${target}(으)로 이동했지만 ${hidden ? '화면에 보이지 않았습니다' : '뷰포트 밖에 있었습니다'}.`,
+      focusedElement: '포커스된 요소',
+      /** Fallback for an action that was not recorded. */
+      action: '행동',
+      slowRun: '참조 실행({{referenceSteps}} 스텝)보다 {{extra}} 스텝 더 걸려 {{steps}} 스텝을 사용했습니다.',
+      /** Appended to slowRun after a space when both durations were recorded. */
+      slowRunDuration: '소요 시간은 {{duration}}초로 참조 {{referenceDuration}}초였습니다.',
+      excessKeystrokes: '{{target}}을(를) 활성화하기 전에 탐색 키를 {{n}}번 눌렀습니다.',
+      excessKeystrokesWithKeys: '{{target}}을(를) 활성화하기 전에 탐색 키를 {{n}}번 눌렀습니다. ({{keys}})',
+      backtracking: '탐색 방향이 {{n}}번 뒤바뀌었습니다.',
+      repeatedState: '같은 화면을 {{n}}번 마주쳤습니다.',
+      /** The focused element disappeared. */
+      focusLostRemoved: '{{action}} 이후 {{from}}이(가) 사라져 포커스가 페이지로 되돌아갔습니다.',
+      /** Focus moved away from the element while it stayed. */
+      focusLostLeft: '{{action}} 이후 {{from}}에서 벗어나 포커스가 페이지로 되돌아갔습니다.',
+      focusNotVisibleHidden: '포커스가 {{target}}(으)로 이동했지만 화면에 보이지 않았습니다.',
+      focusNotVisibleViewport: '포커스가 {{target}}(으)로 이동했지만 뷰포트 밖에 있었습니다.',
       focusCovered: '다른 요소가 포커스된 컨트롤을 가리고 있을 수 있습니다.',
       focusNoIndicator: '윤곽선이나 box-shadow 같은 포커스 표시가 감지되지 않았습니다.',
-      modalFocusOutside: (target: string) => `모달 대화상자가 열려 있는데 포커스가 뒤쪽의 ${target}(으)로 이동했습니다.`,
-      dialogFocusNotMoved: (dialog: string) => `${dialog}이(가) 열렸지만 포커스가 그 안으로 이동하지 않았습니다.`,
-      missingAnnouncement: (action: string | undefined) => `${action ?? '행동'}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.`,
-      invisibleFocusChange: (target: string) => `포커스가 ${target}(으)로 이동했지만 화면은 바뀌지 않았습니다.`,
-      modelHesitation: (choiceId: string, probability: number, runnerUp: number) =>
-        `모델이 ${choiceId}을(를) 점수 ${Math.round(probability * 100)}%로 선택했습니다. 차순위는 ${Math.round(runnerUp * 100)}%였습니다.`,
+      modalFocusOutside: '모달 대화상자가 열려 있는데 포커스가 뒤쪽의 {{target}}(으)로 이동했습니다.',
+      dialogFocusNotMoved: '{{dialog}}이(가) 열렸지만 포커스가 그 안으로 이동하지 않았습니다.',
+      missingAnnouncement: '{{action}}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.',
+      invisibleFocusChange: '포커스가 {{target}}(으)로 이동했지만 화면은 바뀌지 않았습니다.',
+      /** Percentages are passed already rounded. */
+      modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{probability}}%로 선택했습니다. 차순위는 {{runnerUp}}%였습니다.',
       earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
       earlyStopStuck: '모델이 막혔다고 판단해 중단했습니다.',
       earlyStopUncertain: '모델이 확신하지 못해 중단했습니다.',
       goalMetAll: '첫 행동 이전부터 모든 목표 규칙이 이미 충족되어 있었습니다.',
-      goalMetSome: (n: number) => `첫 행동 이전부터 목표 규칙 ${n}개가 이미 충족되어 있었습니다.`,
-      focusLeftPage: (action: string | undefined) => `${action ? `${action} 이후 ` : ''}키보드 포커스가 페이지를 벗어났습니다(브라우저 UI 또는 다른 창).`,
+      goalMetSome: '첫 행동 이전부터 목표 규칙 {{n}}개가 이미 충족되어 있었습니다.',
+      focusLeftPage: '키보드 포커스가 페이지를 벗어났습니다(브라우저 UI 또는 다른 창).',
+      focusLeftPageAfter: '{{action}} 이후 키보드 포커스가 페이지를 벗어났습니다(브라우저 UI 또는 다른 창).',
     },
     liveLine: '실행 중인 기록에서 계산한 임시 힌트입니다. 실행이 끝나면 확정됩니다.',
     reachedLine: '목표에 도달했지만 아래 지점을 살펴볼 만합니다.',
     notReachedLine: '목표에 도달하지 못했습니다. 아래 지점이 원인과 관련 있는지 살펴보세요.',
     unknownLine: '목표 도달 여부를 판단하지 못했습니다.',
-    referenceLine: (steps: number, referenceSteps: number) => `이 실행 ${steps} 스텝 · 참조 ${referenceSteps} 스텝`,
+    referenceLine: '이 실행 {{steps}} 스텝 · 참조 {{referenceSteps}} 스텝',
     kinds: {
       'slow-run': '참조보다 오래 걸림',
       'excess-keystrokes': '키 입력 과다',
@@ -208,29 +222,29 @@ export const ko = {
     loadFailed: '단계 기록을 불러오지 못했습니다.',
     live: '실행 중 · 새 단계가 기록되면 자동으로 갱신합니다',
     start: '시작 화면',
-    stepNumber: (n: number) => `단계 ${n}`,
-    baselineTrue: (n: number) => `시작 시점에 이미 참인 목표 규칙 ${n}개`,
+    stepNumber: '단계 {{n}}',
+    baselineTrue: '시작 시점에 이미 참인 목표 규칙 {{n}}개',
     baselineNone: '시작 시점에 이미 참인 목표 규칙 없음',
     baselineAll: '목표 규칙이 모두 시작 시점에 충족되어 있었습니다.',
-    screenshot: (n: number) => `단계 ${n} 화면`,
-    screenshotOpen: (n: number) => `단계 ${n} 화면 크게 보기`,
+    screenshot: '단계 {{n}} 화면',
+    screenshotOpen: '단계 {{n}} 화면 크게 보기',
     screenshotMissing: '화면을 불러오지 못했습니다',
     screenshotDialog: '화면 크게 보기',
     redacted: '입력 보호로 가림',
     redactedBody: '민감할 수 있는 값은 기록과 화면에서 가렸습니다.',
     actionFailed: '행동 실패',
-    stop: (reason: string) => `중단 · ${reason}`,
-    stopSource: (source: string) => `판단 주체 ${source}`,
+    stop: '중단 · {{reason}}',
+    stopSource: '판단 주체 {{source}}',
     modelScores: '모델 점수(보정 안 됨)',
     modelScoresHelp: '모델이 후보마다 낸 점수이며 확률로 해석하면 안 됩니다.',
     chosen: '선택',
-    candidateCount: (n: number) => `후보 ${n}개`,
-    showAllCandidates: (n: number) => `후보 ${n}개 모두 보기`,
-    inference: (ms: number) => `추론 ${ms}ms`,
+    candidateCount: '후보 {{n}}개',
+    showAllCandidates: '후보 {{n}}개 모두 보기',
+    inference: '추론 {{ms}}ms',
     observed: '관찰된 변화',
     noObserved: '기록된 변화 없음',
     verification: '목표 규칙',
-    verificationCount: (met: number, total: number) => `${total}개 중 ${met}개 충족`,
+    verificationCount: '{{total}}개 중 {{met}}개 충족',
     ruleMet: '충족',
     ruleUnmet: '미충족',
     speech: '스크린리더 발화',
@@ -239,26 +253,29 @@ export const ko = {
     speechUnspecified: '출처 미상',
     hints: '이 단계의 힌트',
     jumpHighlight: '선택한 단계',
-    keyAction: (key: string) => key,
-    typeText: (name: string) => name ? `텍스트 입력 ${name}` : '텍스트 입력',
-    replaceText: (name: string) => name ? `텍스트 교체 ${name}` : '텍스트 교체',
-    intents: { next: '다음 항목', previous: '이전 항목', activate: '활성화' } as Record<string, string>,
+    typeText: '텍스트 입력',
+    typeTextNamed: '텍스트 입력 {{name}}',
+    replaceText: '텍스트 교체',
+    replaceTextNamed: '텍스트 교체 {{name}}',
+    intents: { next: '다음 항목', previous: '이전 항목', activate: '활성화' },
     unknownAction: '행동',
   },
   observed: {
-    focus: (target: string) => `포커스 → ${target}`,
+    focus: '포커스 → {{target}}',
     focusLost: '포커스 사라짐',
     pageBlur: '포커스가 페이지 밖으로',
     pageFocus: '포커스가 페이지로 돌아옴',
-    liveRegion: (text: string) => `라이브 영역: “${text}”`,
+    liveRegion: '라이브 영역: “{{text}}”',
     liveRegionEmpty: '라이브 영역 갱신',
-    appeared: (target: string) => `${target} 나타남`,
-    disappeared: (target: string) => `${target} 사라짐`,
+    appeared: '{{target}} 나타남',
+    disappeared: '{{target}} 사라짐',
     dialogAppeared: '대화상자 나타남',
-    state: (attr: string, value: string, target: string) => `${target} ${attr}=${value}`,
-    navigation: (url: string) => `이동 → ${url}`,
-    submit: (target: string) => `제출 ${target}`,
+    state: '{{target}} {{attr}}={{value}}',
+    navigation: '이동 → {{url}}',
+    submit: '제출 {{target}}',
     element: '요소',
+    /** A changed element with a recorded name reads `role “name”`. */
+    targetNamed: '{{role}} “{{name}}”',
   },
   compare: {
     title: '참조 실행과 비교',
@@ -270,22 +287,22 @@ export const ko = {
     noneBody: '같은 작업·모드에서 목표에 도달한 실행이 생기면 가장 짧은 실행을 기준으로 비교합니다. 아직 목표에 도달한 실행이 없어 이 실행이 어디서 길어졌는지 비교할 수 없습니다.',
     diverged: '처음 달라진 단계',
     identical: '두 실행의 행동이 단계 끝까지 같습니다.',
-    divergedAt: (n: number) => `단계 ${n}에서 처음 달라졌습니다.`,
+    divergedAt: '단계 {{n}}에서 처음 달라졌습니다.',
     openReference: '참조 실행 열기',
     missing: '— 이 단계 없음 —',
     loading: '참조 실행을 불러오는 중',
     loadFailed: '참조 실행의 단계를 불러오지 못했습니다.',
     caption: '단계 번호별 두 실행의 행동 비교',
-    stepCount: (n: number) => `${n} 스텝`,
+    stepCount: '{{n}} 스텝',
   },
   events: {
-    title: (n: number) => `원본 기록 ${n}개`,
+    title: '원본 기록 {{n}}개',
     description: '저장된 trace 이벤트 원본입니다. 새 이벤트가 기록되면 자동으로 갱신합니다.',
     empty: '기록된 이벤트가 없습니다.',
     loadFailed: '이벤트를 불러오지 못했습니다.',
     redacted: '가림 처리',
-    keyboardObservation: (seq: number) => `키보드 관찰 단계 ${seq}`,
-    showMore: (n: number) => `${n}개 더 보기`,
+    keyboardObservation: '키보드 관찰 단계 {{seq}}',
+    showMore: '{{n}}개 더 보기',
     settings: '적용한 설정과 프롬프트',
   },
   newExperiment: {
@@ -302,46 +319,3 @@ export const ko = {
     running: '실행 중',
   },
 } as const;
-
-export type Messages = typeof ko;
-
-export function hintKindLabel(kind: string): string {
-  return (ko.hints.kinds as Record<string, string>)[kind] ?? kind;
-}
-
-/** Korean label for a recorded outcome reason; unknown reasons are shown as recorded. */
-export function outcomeReasonLabel(reason: string): string {
-  return Object.hasOwn(ko.run.outcomeReasons, reason) ? ko.run.outcomeReasons[reason]! : reason;
-}
-
-/** Korean text for a known limitation sentence; unknown ones are shown as recorded. */
-export function limitationLabel(text: string): string {
-  return Object.hasOwn(ko.hints.limitationTexts, text) ? ko.hints.limitationTexts[text]! : text;
-}
-
-export function runStateLabel(state: string): string {
-  return (ko.runStates as Record<string, string>)[state] ?? state;
-}
-
-/** Short text for one page-observer change, for chips in the step timeline. */
-export function describeChange(change: ObservedChange): string {
-  const target = describeTarget(change);
-  switch (change.kind) {
-    case 'focus': return ko.observed.focus(target);
-    case 'focus-lost': return ko.observed.focusLost;
-    case 'page-blur': return ko.observed.pageBlur;
-    case 'page-focus': return ko.observed.pageFocus;
-    case 'live-region': return change.text ? ko.observed.liveRegion(change.text) : ko.observed.liveRegionEmpty;
-    case 'appeared': return change.role === 'dialog' || change.role === 'alertdialog' ? ko.observed.dialogAppeared : ko.observed.appeared(target);
-    case 'disappeared': return ko.observed.disappeared(target);
-    case 'state': return ko.observed.state(change.attr ?? '', String(change.value ?? ''), target);
-    case 'navigation': return ko.observed.navigation(change.url ?? '');
-    case 'submit': return ko.observed.submit(target);
-    default: return change.kind;
-  }
-}
-
-function describeTarget(change: ObservedChange): string {
-  const role = change.role ?? ko.observed.element;
-  return change.name ? `${role} “${change.name}”` : role;
-}

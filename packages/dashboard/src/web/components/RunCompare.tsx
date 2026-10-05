@@ -1,6 +1,6 @@
 import { GitCompare } from 'lucide-react';
 import type { RunHintsView, StepView } from '../../shared/api';
-import { ko } from '../i18n/ko';
+import { useTranslation } from 'react-i18next';
 import { describeStep } from '../lib/describe';
 import { cn } from '../lib/utils';
 import { useRunSteps } from '../hooks/useRunData';
@@ -18,11 +18,12 @@ type Props = {
 
 /** This run next to the shortest goal-reaching run of the same task and mode, aligned by step number. */
 export function RunCompare({ experimentId, runId, steps, hints, onOpenRun }: Props) {
+  const { t } = useTranslation();
   const reference = hints?.referenceRun;
   if (!reference) return <div className="grid place-content-center gap-2 rounded-lg border border-dashed py-14 text-center">
     <GitCompare className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
-    <p className="font-medium">{ko.compare.none}</p>
-    <p className="max-w-lg text-sm text-muted-foreground">{ko.compare.noneBody}</p>
+    <p className="font-medium">{t('compare.none')}</p>
+    <p className="max-w-lg text-sm text-muted-foreground">{t('compare.noneBody')}</p>
   </div>;
   return <CompareTable experimentId={experimentId} runId={runId} steps={steps ?? []} reference={reference} onOpenRun={onOpenRun} />;
 }
@@ -41,9 +42,10 @@ function firstDivergence(mine: Map<number, StepView>, theirs: Map<number, StepVi
 }
 
 function CompareTable({ experimentId, runId, steps, reference, onOpenRun }: TableProps) {
+  const { t } = useTranslation();
   const other = useRunSteps(reference.experimentId, reference.runId);
-  if (other.loading && !other.data) return <div aria-busy="true" role="status" className="grid gap-3"><p className="text-sm text-muted-foreground">{ko.compare.loading}</p><Skeleton className="h-24" /></div>;
-  if (!other.data) return <p role="alert" className="text-sm text-muted-foreground">{ko.compare.loadFailed} {other.error}</p>;
+  if (other.loading && !other.data) return <div aria-busy="true" role="status" className="grid gap-3"><p className="text-sm text-muted-foreground">{t('compare.loading')}</p><Skeleton className="h-24" /></div>;
+  if (!other.data) return <p role="alert" className="text-sm text-muted-foreground">{t('compare.loadFailed')} {other.error}</p>;
   const mine = new Map(steps.map(step => [step.step, step])), theirs = new Map(other.data.steps.map(step => [step.step, step]));
   const last = Math.max(0, ...mine.keys(), ...theirs.keys());
   const diverged = firstDivergence(mine, theirs, last);
@@ -51,24 +53,24 @@ function CompareTable({ experimentId, runId, steps, reference, onOpenRun }: Tabl
   return <div className="grid gap-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h3 className="font-medium">{ko.compare.title}</h3>
-        <p className="text-sm text-muted-foreground">{ko.compare.description}</p>
-        <p className="mt-1 text-sm" role="status">{diverged === undefined ? ko.compare.identical : ko.compare.divergedAt(diverged)}</p>
+        <h3 className="font-medium">{t('compare.title')}</h3>
+        <p className="text-sm text-muted-foreground">{t('compare.description')}</p>
+        <p className="mt-1 text-sm" role="status">{diverged === undefined ? t('compare.identical') : t('compare.divergedAt', { n: diverged })}</p>
       </div>
-      <Button variant="outline" size="sm" onClick={() => onOpenRun(reference.runId)}>{ko.compare.openReference}</Button>
+      <Button variant="outline" size="sm" onClick={() => onOpenRun(reference.runId)}>{t('compare.openReference')}</Button>
     </div>
     <div className="overflow-x-auto rounded-lg border">
       <Table>
-        <TableCaption>{ko.compare.caption}</TableCaption>
+        <TableCaption>{t('compare.caption')}</TableCaption>
         <TableHeader><TableRow>
-          <TableHead className="w-20">{ko.compare.stepColumn}</TableHead>
-          <TableHead>{ko.compare.thisRun} · {ko.compare.stepCount(steps.filter(s => s.step > 0).length)}</TableHead>
-          <TableHead>{ko.compare.referenceRun} · {ko.compare.stepCount(other.data.steps.filter(s => s.step > 0).length)}</TableHead>
+          <TableHead className="w-20">{t('compare.stepColumn')}</TableHead>
+          <TableHead>{t('compare.thisRun')} · {t('compare.stepCount', { n: steps.filter(s => s.step > 0).length })}</TableHead>
+          <TableHead>{t('compare.referenceRun')} · {t('compare.stepCount', { n: other.data.steps.filter(s => s.step > 0).length })}</TableHead>
         </TableRow></TableHeader>
         <TableBody>{numbers.map(n => <TableRow key={n} id={`compare-${n}`} className={cn(n === diverged && 'bg-muted ring-2 ring-inset ring-ring')}>
           <TableCell className="align-top tabular-nums">
-            {n === 0 ? ko.steps.start : n}
-            {n === diverged && <Badge variant="default" className="mt-1 block w-fit">{ko.compare.diverged}</Badge>}
+            {n === 0 ? t('steps.start') : n}
+            {n === diverged && <Badge variant="default" className="mt-1 block w-fit">{t('compare.diverged')}</Badge>}
           </TableCell>
           <CompareCell step={mine.get(n)} experimentId={experimentId} runId={runId} />
           <CompareCell step={theirs.get(n)} experimentId={reference.experimentId} runId={reference.runId} />
@@ -79,7 +81,8 @@ function CompareTable({ experimentId, runId, steps, reference, onOpenRun }: Tabl
 }
 
 function CompareCell({ step, experimentId, runId }: { step: StepView | undefined; experimentId: string; runId: string }) {
-  if (!step) return <TableCell className="align-top text-muted-foreground">{ko.compare.missing}</TableCell>;
+  const { t } = useTranslation();
+  if (!step) return <TableCell className="align-top text-muted-foreground">{t('compare.missing')}</TableCell>;
   return <TableCell className="align-top whitespace-normal">
     <div className="flex items-start gap-3">
       {step.screenshot && !step.redacted && <ScreenshotThumb experimentId={experimentId} runId={runId} eventId={step.screenshot.eventId} step={step.step} className="h-14 w-24 shrink-0" />}

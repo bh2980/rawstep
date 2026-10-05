@@ -1,6 +1,6 @@
 import { Ban, CircleDashed, CircleHelp, Clock, LoaderCircle, Target, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { RunState } from '../../shared/config';
-import { runStateLabel } from '../i18n/ko';
+import { runStateLabel } from '../i18n/labels';
 import { cn } from '../lib/utils';
 
 const icons: Record<RunState, LucideIcon> = {

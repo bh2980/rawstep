@@ -1,4 +1,4 @@
-import { ko } from '../i18n/ko';
+import { t } from '../i18n';
 import { isFinished, isLive, type RunRef } from './runs';
 
 export type TreeFilter = 'all' | 'hints' | 'running' | 'missed';
@@ -31,7 +31,7 @@ function matchesFilter(ref: RunRef, filter: TreeFilter, hintCount: TreeInput['hi
 export function buildTree(input: TreeInput): TreeNode[] {
   const query = input.query.trim().toLowerCase();
   const tasks = new Map(input.tasks.map(task => [task.id, task.name]));
-  for (const { run } of input.runs) if (!tasks.has(run.taskId)) tasks.set(run.taskId, run.snapshot.taskName || ko.sidebar.unnamedTask);
+  for (const { run } of input.runs) if (!tasks.has(run.taskId)) tasks.set(run.taskId, run.snapshot.taskName || t('sidebar.unnamedTask'));
   const narrowed = input.filter !== 'all';
   const nodes: TreeNode[] = [];
   for (const [taskId, taskName] of tasks) {
@@ -52,14 +52,14 @@ export function buildTree(input: TreeInput): TreeNode[] {
         combo = {
           id, kind: 'combo', level: 2, taskId, parentId: taskNode.id, children: [], runTotal: 0, liveTotal: 0,
           label: `${run.snapshot.model.name} · ${run.snapshot.prompt.name} · ${input.environmentName(run.environmentId)}`,
-          detail: ko.sidebar.modes[run.snapshot.mode],
+          detail: t(`sidebar.modes.${run.snapshot.mode}`),
         };
         combos.set(id, combo);
         taskNode.children.push(combo);
       }
       combo.runTotal += 1;
       if (isLive(ref.run)) combo.liveTotal += 1;
-      combo.children.push({ id: runNodeId(ref.run.id), kind: 'run', level: 3, label: ko.sidebar.repeat(ref.run.repeat), detail: '', taskId, parentId: id, children: [], ref, runTotal: 1, liveTotal: 0 });
+      combo.children.push({ id: runNodeId(ref.run.id), kind: 'run', level: 3, label: t('sidebar.repeat', { n: ref.run.repeat }), detail: '', taskId, parentId: id, children: [], ref, runTotal: 1, liveTotal: 0 });
     }
     nodes.push(taskNode);
   }

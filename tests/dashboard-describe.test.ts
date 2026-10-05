@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { HintKind } from '../packages/reports/src/hints/index.js';
 import { describeHint } from '../packages/dashboard/src/web/lib/describe.js';
-import { ko, limitationLabel, outcomeReasonLabel } from '../packages/dashboard/src/web/i18n/ko.js';
+import '../packages/dashboard/src/web/i18n/index.js';
+import { core } from '../packages/dashboard/src/web/i18n/locales/ko/core.js';
+import { hintKindLabel, limitationLabel, outcomeReasonLabel, versusLabel } from '../packages/dashboard/src/web/i18n/labels.js';
 
 const hint = (kind: HintKind, detail: Record<string, unknown>, extra: { certainty?: 'observed' | 'suspected' } = {}) =>
   ({ kind, summary: `english ${kind}`, detail, certainty: extra.certainty ?? 'observed' as const });
@@ -44,7 +46,7 @@ describe('describeHint', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'repeated-state', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
       'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page'];
-    expect(Object.keys(ko.hints.kinds).sort()).toEqual([...all].sort());
+    expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });
 
@@ -75,5 +77,19 @@ describe('outcome and limitation labels', () => {
   it('translates known limitations and keeps unknown ones', () => {
     expect(limitationLabel('Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.')).toMatch(hangul);
     expect(limitationLabel('A limitation from a newer version.')).toBe('A limitation from a newer version.');
+  });
+});
+
+describe('label helpers', () => {
+  it('labels every hint kind in Korean and keeps unknown kinds', () => {
+    for (const kind of Object.keys(core.hints.kinds)) expect(hintKindLabel(kind)).toMatch(hangul);
+    expect(hintKindLabel('brand-new')).toBe('brand-new');
+    expect(hintKindLabel('constructor')).toBe('constructor');
+  });
+
+  it('builds the reference comparison text for equal, more and fewer steps', () => {
+    expect(versusLabel(0)).toBe('참조와 같은 스텝');
+    expect(versusLabel(3)).toBe('참조 대비 +3 스텝');
+    expect(versusLabel(-2)).toBe('참조 대비 -2 스텝');
   });
 });
