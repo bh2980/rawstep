@@ -26,7 +26,7 @@ Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `
 
 Here `password` has no entry, so it is sensitive. `resolveTask` rejects the task when `goal` contains the value of a sensitive input that is 4 or more characters long, because the goal is sent to the model as written. Refer to the input by name instead, as above. A goal may contain a value shorter than 4 characters, or the value of an input with `sensitive: false`.
 
-Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice"), or in a shadow DOM field, is not masked in screenshots. The model may also infer a value from page behavior. See the [migration guide](./migration.md#hiding-input-values-from-the-policy).
+Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice") is not masked in screenshots; the focused field itself is, including inside open shadow roots. The model may also infer a value from page behavior. See the [migration guide](./migration.md#hiding-input-values-from-the-policy).
 
 ## Verification rules
 
