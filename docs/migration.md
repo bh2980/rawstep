@@ -71,7 +71,7 @@ This is a wiring example. Its title rule does not prove heading focus; choose ve
 - `observation`: real screen reader speech, evidence-event IDs, and observation-window metadata
 - `history`: prior decisions, observations, and execution status
 - `allowedActions`: allowed backend intents, keys, named input values, and replace-text support
-- `inputs`: the task-provided input values; trusted policies can see these values before trace redaction
+- `inputs`: for each named task input, `{ sensitive, description? }`: the name, whether it is sensitive (the default) and an optional description from `task.inputOptions`. Values never reach the policy; the runner resolves a named `typeText`/`replaceText` to the real value itself
 - `signal`: an AbortSignal for the run's time budget
 
 Decisions are one of:
@@ -133,17 +133,34 @@ Policies receive text observations with `provenance: "simulation"`; they do not 
 
 ## Trace v2, privacy, analysis, and reporting
 
-New runs write trace schema `2.1`, which adds explicit simulation provenance. Readers also accept saved `2.0` traces; simulated evidence is not valid under the old schema. A run writes:
+New runs write trace schema `2.2`: screenshots are stored once per distinct image as content-addressed blobs instead of inline base64. Schema `2.1` added explicit simulation provenance; readers still accept saved `2.0` and `2.1` traces (inline PNGs and all), and simulated evidence is not valid under the `2.0` schema. A run writes:
 
 - `trace.json`: run/task/environment/privacy metadata, ordered events, and final outcome
 - `trace.jsonl`: append-only event journal, also usable to recover interrupted-run evidence
+- `blobs/<sha256>.png`: screenshot pixels, deduplicated by hash
 - Optional `diagnostics/` images, never policy observations
+
+In 2.2 an event such as `keyboard.observation` keeps a reference `{ sha256, blob: "blobs/<sha256>.png", bytes, ...siblings like viewport }` in place of `{ pngBase64, viewport }`; `trace.json` and `trace.jsonl` contain no base64 PNGs. Redaction never rewrites a reference. `@rawstep/core/trace` exports `isScreenshotRef`, `screenshotSha256(value)` (works for a reference or an inline screenshot), `hydrateScreenshots(trace, dirOrSink)` (a copy with `pngBase64` added back where the blob exists and its hash matches; missing or mismatched blobs stay references), `extractScreenshots`, `writeJsonAtomic` and `traceFilePath`. Code that needs pixels from a saved trace should hydrate it first; live policy observations are unchanged and stay inline. `TraceRecorder` writes through a `TraceSink` (`FileTraceSink(dir)`, or `MemoryTraceSink` for tests and embedding without a filesystem); its constructor accepts a directory or a sink. The `onEvent(event)` option (also `RunOptions.onEvent` for `runTask`) receives each stored, already-redacted event; a throwing listener cannot affect the run. Reports written next to the trace reference `blobs/<sha256>.png` relatively; `rawstep report` and the dashboard hydrate first, so their reports embed the images.
 
 Events carry stable IDs and sequence order, source, timestamps, payloads, redaction flags, and optional command/window association. Temporal association does not assert that a particular command caused speech. Output order and duplicates are retained rather than summarized away. Unknown environment values are represented as unknown.
 
-Task input values and their URL/form-encoded forms are redacted from persisted payloads before analyzers can read them. Whole-value matching alone cannot remove characters spoken individually. After text entry starts, the runner therefore conservatively redacts subsequent protocol payloads, speech observations, related diagnostic content, and outcome details and suppresses later diagnostic screenshots. This privacy boundary stays active through cleanup because delayed echoes can arrive after an acknowledgement. Live policies still need the original task inputs and real observations to act; they are a trusted boundary.
+Task input values and their URL/form-encoded forms are redacted from persisted payloads before analyzers can read them. Whole-value matching alone cannot remove characters spoken individually. After text entry starts, the runner therefore conservatively redacts subsequent protocol payloads, speech observations, related diagnostic content, and outcome details and suppresses later diagnostic screenshots. This privacy boundary stays active through cleanup because delayed echoes can arrive after an acknowledgement. Policies refer to inputs by name and never receive their values; they are not a trusted holder of input values (see below).
 
 This is a deliberate evidence/privacy tradeoff: an input-heavy trace may lose much of its later raw speech. It does not claim comprehensive anonymization of arbitrary page content or screenshots captured before input. Review artifacts before sharing them. Programmatic `runTask` callers may explicitly set `includeSensitiveInputValues: true` to retain sensitive evidence; it exposes values in saved artifacts and to custom analyzers. The CLI provides no opt-out flag.
+
+### Hiding input values from the policy
+
+The decision policy (usually a model) must not learn input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules above.
+
+- **Screenshots (keyboard mode).** Before typing a sensitive value, the screenshot backend marks the focused field with `data-rawstep-mask`. While capturing an observation it sets `-webkit-text-security: disc !important` on marked fields through the CSSOM (so a page CSP cannot block it) and restores the field's previous inline value right after the capture. The field shows dots in the policy's screenshot and its real value in the page.
+- **Speech (screen reader mode).** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
+
+Limitations:
+
+- Values shorter than 4 characters are not substring-masked in later speech, since that would damage unrelated text. Only withholding the typing step's speech covers them.
+- The screenshot mask covers only the typed field. The same value re-rendered elsewhere on the page (for example "Hello Alice" after sign-in, or a form summary) is visible in screenshots; in speech it is masked only when the value has 4 or more characters.
+- The mask follows the field that was focused when typing started, including fields inside open shadow roots; text the page copies into other elements is not masked.
+- The model can still infer a value from page behavior, such as validation messages, search results, or which page the form leads to.
 
 `analyzeSavedTrace` reads the saved trace and writes only `analysis.json`. An analyzer has this independent interface:
 
@@ -160,6 +177,32 @@ export default analyzer;
 ```
 
 The built-in analyzer is deterministic and local. Custom analyzers receive the full persisted trace and can partition it for model calls, while explicit analyze --llm uses injected OpenAI-compatible configuration without a model SDK. Findings must reference valid evidence events. An analyzer failure is recorded as an analysis failure; it does not change the run's outcome. Reports validate that the analysis belongs to the same trace and preserves its recorded outcome. Old legacy trace files are not silently treated as schema v2.
+
+## Public API changes
+
+Package roots (`@rawstep/core`, `@rawstep/policies`, `@rawstep/browser`, `@rawstep/screenreaders`, `@rawstep/reports`, `@rawstep/cli`, and the `rawstep` facade) now export explicit names instead of `export *`, so internal helpers no longer leak. `tests/public-api.test.ts` pins every root. Each name below is still available from the subpath shown; none is re-added to a root.
+
+| Package | Removed from the root | Import it from |
+|---|---|---|
+| `@rawstep/core` | `extractScreenshots` | `@rawstep/core/trace` |
+| `@rawstep/policies` | `assertSystemOneInputs`, `validateCapabilities`, `validateSystemOneRequest`, `validateSystemOneResult`, `copySystemOnePrompt`, `systemOnePromptEvidence` | `@rawstep/policies/systemone` |
+| `@rawstep/policies` | `screenshotHash` | `@rawstep/policies/screenshot/policy` |
+| `@rawstep/browser` | `MAX_VERIFICATION_RETRIES`, `formatVerificationFeedback` | `@rawstep/browser/verify` |
+| `@rawstep/browser` | `installProfileStyles`, `verifyProfileStyles` | `@rawstep/browser/profiles` |
+| `@rawstep/browser` | `validateDecision` | `@rawstep/browser/runner` |
+| `@rawstep/browser` | `validateProxyServer`, `closeBrowserSession`, `settlePage` | `@rawstep/browser/browser` |
+| `@rawstep/screenreaders` | research corpus API: `EVIDENCE_CATALOG`, `REQUIRED_EVIDENCE_CELLS`, `compareEvidenceCase`, `compareEvidenceFixtures`, `createCorpusMockBackend`, `formatCorpusSpeech`, `formatEvidenceSpeech`, `listCorpusRules`, `normalizeEvidenceWording`, `runCorpusMockTask`, `selectEvidenceCases`, `summarizeCorpusEvaluation`, `summarizeEvidenceCoverage` | `@rawstep/screenreaders/evidence` (importing the root no longer loads the corpus data; `UnsupportedCorpusPatternError` stays on the root) |
+| `@rawstep/screenreaders` | `orcaAssumptions`, `orcaCapabilities` | `@rawstep/screenreaders/orca/profile` (also `/orca`) |
+| `@rawstep/reports` | `analysisTracePayload` | `@rawstep/reports/analyze/llm` |
+| `@rawstep/reports` | `escapeHtml` | `@rawstep/reports/report` |
+
+Renamed: `KEYS` (AT Driver key names) is now `AT_DRIVER_KEYS` in `@rawstep/screenreaders`, `@rawstep/screenreaders/at-driver`, `@rawstep/screenreaders/at-driver/profiles` and `rawstep`. There is no deprecated alias.
+
+Now internal and exported nowhere: screenreaders `isRecord`, `positiveMilliseconds` and `validInterval`, `record` (Orca transport); reports `record` and `pngFor`.
+
+Removed `@rawstep/screenreaders` subpaths: `./evidence/data` and `./evidence/learned-data` (use `./evidence`, which exports `EVIDENCE_CATALOG`, `listCorpusRules` and `summarizeCorpusEvaluation`), `./run-mock-voiceover` (use `./mock-voiceover` for `runMockVoiceOverTask`, `MOCK_VOICEOVER_WARNING` and `MockVoiceOverRunOptions`), and `./orca/paths` (use `./orca` for `orcaBridgePath`).
+
+The `rawstep` facade root follows the same curation: it no longer exports any name removed from a package root above (including the corpus API and `orcaAssumptions`/`orcaCapabilities`, which remain on `rawstep/evidence` and `rawstep/orca`). Its subpath list is unchanged and its subpaths still mirror the package subpaths, so `rawstep/systemone`, `rawstep/verify`, `rawstep/report` and the others keep the functions above.
 
 ## Release verification
 

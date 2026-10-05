@@ -58,5 +58,8 @@
     "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "peerDependencies": {
+    "playwright": "^1.59.1"
+  }
 }

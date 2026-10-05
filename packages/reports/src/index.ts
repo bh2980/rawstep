@@ -1,4 +1,10 @@
-export * from './analyze/index.js';
-export * from './report/index.js';
-export * from './screenshot/analysis.js';
-export * from './analyze/llm.js';
+export { ANALYSIS_SCHEMA_VERSION, analyzeSavedTrace, analyzeTrace, deterministicAnalyzer, loadAnalyzer, readAnalysis, summarizeTraceEvidence, validateAnalysisReport, validateAnalyzerResult } from './analyze/index.js';
+export type { AnalysisFailure, AnalysisFinding, AnalysisReport, AnalyzerResult, AnalyzeSavedTraceOptions, EvidenceModality, TraceAnalyzer, TraceEvidenceSummary } from './analyze/index.js';
+export { renderReportHtml, summarizeTrace, writeReport } from './report/index.js';
+export type { ReportAction, ReportCounts, ReportFailure, ReportSummary, ReportVerification, ReportVerificationRule } from './report/index.js';
+export { summarizeVisualExploration } from './screenshot/analysis.js';
+export type { VisualExplorationSummary } from './screenshot/analysis.js';
+export { LlmTraceAnalyzer } from './analyze/llm.js';
+export type { LlmAnalyzerOptions } from './analyze/llm.js';
+export { DEFAULT_HINT_THRESHOLDS, extractHints, HINTS_SCHEMA_VERSION, selectReference, summarizeRun, writeHints } from './hints/index.js';
+export type { Hint, HintKind, HintOptions, HintReport, HintThresholds, RunSummary } from './hints/index.js';

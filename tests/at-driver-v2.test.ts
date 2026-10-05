@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, KEYS, type AtDriverEvent, type AtDriverTransportEvent, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
+import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, AT_DRIVER_KEYS, type AtDriverEvent, type AtDriverTransportEvent, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
 
 class FakeSocket implements WebSocketLike {
   readyState = 1;
@@ -415,7 +415,7 @@ describe("AT Driver backend", () => {
     await settle(driver);
     socket.onSend = command => socket.reply(command.id, null);
     await driver.execute({ kind: "intent", intent: "heading.previous" });
-    expect(socket.sent.at(-1)).toMatchObject({ method: "interaction.userIntent", params: { name: "pressKeys", keys: [KEYS.Shift, "h"] } });
+    expect(socket.sent.at(-1)).toMatchObject({ method: "interaction.userIntent", params: { name: "pressKeys", keys: [AT_DRIVER_KEYS.Shift, "h"] } });
     await driver.close();
   });
 
@@ -423,7 +423,7 @@ describe("AT Driver backend", () => {
     const { socket, backend: driver } = await backend();
     const receipt = await driver.execute({ kind: "replaceText", text: "A@b.co" });
     expect(socket.sent.slice(1).map(command => command.params.keys)).toEqual([
-      [KEYS.Meta, "a"], [KEYS.Backspace], [KEYS.Shift, "a"], [KEYS.Shift, "2"], ["b"], ["period"], ["c"], ["o"],
+      [AT_DRIVER_KEYS.Meta, "a"], [AT_DRIVER_KEYS.Backspace], [AT_DRIVER_KEYS.Shift, "a"], [AT_DRIVER_KEYS.Shift, "2"], ["b"], ["period"], ["c"], ["o"],
     ]);
     expect(receipt.commandIds).toHaveLength(8);
     await driver.close();
@@ -455,7 +455,7 @@ describe("AT Driver backend", () => {
       controller.abort(reason);
     };
     await expect(driver.execute({ kind: "typeText", text: "ABCDE" }, { signal: controller.signal })).rejects.toBe(reason);
-    expect(socket.sent.slice(1).map(command => command.params.keys)).toEqual([[KEYS.Shift, "a"]]);
+    expect(socket.sent.slice(1).map(command => command.params.keys)).toEqual([[AT_DRIVER_KEYS.Shift, "a"]]);
     expect(socket.closeCalls).toBe(1);
     expect(vi.getTimerCount()).toBe(0);
     await expect(driver.execute({ kind: "key", key: "Tab" })).rejects.toBeInstanceOf(AtDriverError);
@@ -469,7 +469,7 @@ describe("AT Driver backend", () => {
     const execution = driver.execute({ kind: "typeText", text: "ABCDE" }, { signal: controller.signal }).catch(error => error);
     controller.abort(reason);
     expect(await execution).toBe(reason);
-    expect(socket.sent.slice(1).map(command => command.params.keys)).toEqual([[KEYS.Shift, "a"]]);
+    expect(socket.sent.slice(1).map(command => command.params.keys)).toEqual([[AT_DRIVER_KEYS.Shift, "a"]]);
     expect(socket.closeCalls).toBe(1);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -544,11 +544,24 @@ describe("AT Driver backend", () => {
   it("uses explicit, separate profiles and does not advertise NVDA interaction toggles", () => {
     const vo = getAtDriverProfile("voiceover");
     const nvda = getAtDriverProfile("nvda");
-    expect(vo.mapAction({ kind: "intent", intent: "next" })).toEqual([[KEYS.Control, KEYS.Alt, KEYS.ArrowRight]]);
-    expect(nvda.mapAction({ kind: "intent", intent: "next" })).toEqual([[KEYS.ArrowDown]]);
+    expect(vo.mapAction({ kind: "intent", intent: "next" })).toEqual([[AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, AT_DRIVER_KEYS.ArrowRight]]);
+    expect(nvda.mapAction({ kind: "intent", intent: "next" })).toEqual([[AT_DRIVER_KEYS.ArrowDown]]);
     expect(vo.capabilities.intents).toContain("interact");
     expect(nvda.capabilities.intents).not.toContain("interact");
     expect(() => vo.mapAction({ kind: "typeText", text: "한글" })).toThrow("unsupported");
     expect(Object.isFrozen(vo.capabilities.intents)).toBe(true);
+  });
+});
+
+describe('AT Driver host preconditions', () => {
+  const make = (url: string, profile: 'voiceover' | 'nvda' = 'voiceover') => new AtDriverBackend({ url, profile, webSocketFactory: () => { throw new Error('preflight must not connect'); } });
+  const ok = { platform: 'darwin', headless: false, customBrowserSession: false };
+  it('requires the same supported host, a loopback endpoint and a visible browser unless a session factory is paired', () => {
+    expect(() => make('ws://localhost/session').preflight(ok)).not.toThrow();
+    expect(() => make('ws://localhost/session').preflight({ ...ok, platform: 'win32' })).toThrow(/same supported host/);
+    expect(() => make('ws://localhost/session', 'nvda').preflight({ ...ok, platform: 'win32' })).not.toThrow();
+    expect(() => make('ws://example.test/session').preflight(ok)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/loopback AT Driver endpoint/) }));
+    expect(() => make('ws://localhost/session').preflight({ ...ok, headless: true })).toThrow(/headless is unsupported/);
+    expect(() => make('ws://example.test/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
   });
 });

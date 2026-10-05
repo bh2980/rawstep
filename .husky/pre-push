@@ -1,0 +1,6 @@
+set -e
+
+# 검사만 한다(고치지 않는다). 브라우저가 필요한 통합 테스트(test:integration)와 패키지 설치 검사(test:package)는 오래 걸려 여기서 돌리지 않는다.
+npm run build
+npm run typecheck
+npm test

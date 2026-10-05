@@ -14,7 +14,7 @@ export interface AtDriverCapabilities {
 }
 
 // WebDriver key code points, as used by AT Driver pressKeys.
-export const KEYS = Object.freeze({
+export const AT_DRIVER_KEYS = Object.freeze({
   Backspace: "\uE003", Tab: "\uE004", Enter: "\uE006", Shift: "\uE008",
   Control: "\uE009", Alt: "\uE00A", Escape: "\uE00C", Space: "\uE00D",
   PageUp: "\uE00E", PageDown: "\uE00F", End: "\uE010", Home: "\uE011",
@@ -24,23 +24,23 @@ export const KEYS = Object.freeze({
 
 const simpleKeys = ["Tab", "Enter", "Escape", "Space", "Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"] as const;
 const allowedKeys = Object.freeze([...simpleKeys, "Shift+Tab", "Shift+Enter", "Mod+A"]);
-const vo = [KEYS.Control, KEYS.Alt];
+const vo = [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt];
 const voiceoverIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  next: [...vo, KEYS.ArrowRight],
-  previous: [...vo, KEYS.ArrowLeft],
-  activate: [...vo, KEYS.Space],
-  interact: [...vo, KEYS.Shift, KEYS.ArrowDown],
-  stopInteracting: [...vo, KEYS.Shift, KEYS.ArrowUp],
-  "heading.next": [...vo, KEYS.Meta, "h"],
-  "heading.previous": [...vo, KEYS.Meta, KEYS.Shift, "h"],
-  "form.next": [...vo, KEYS.Meta, "j"],
+  next: [...vo, AT_DRIVER_KEYS.ArrowRight],
+  previous: [...vo, AT_DRIVER_KEYS.ArrowLeft],
+  activate: [...vo, AT_DRIVER_KEYS.Space],
+  interact: [...vo, AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.ArrowDown],
+  stopInteracting: [...vo, AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.ArrowUp],
+  "heading.next": [...vo, AT_DRIVER_KEYS.Meta, "h"],
+  "heading.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "h"],
+  "form.next": [...vo, AT_DRIVER_KEYS.Meta, "j"],
 });
 const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  next: [KEYS.ArrowDown], // Browse-mode next line, not VoiceOver's next object.
-  previous: [KEYS.ArrowUp],
-  activate: [KEYS.Enter],
+  next: [AT_DRIVER_KEYS.ArrowDown], // Browse-mode next line, not VoiceOver's next object.
+  previous: [AT_DRIVER_KEYS.ArrowUp],
+  activate: [AT_DRIVER_KEYS.Enter],
   "heading.next": ["h"],
-  "heading.previous": [KEYS.Shift, "h"],
+  "heading.previous": [AT_DRIVER_KEYS.Shift, "h"],
   "form.next": ["f"],
 });
 
@@ -70,16 +70,16 @@ function textKeys(text: string, profile: AtDriverProfileName): string[][] {
   // No clipboard/DOM fallback, hidden focus repair, extension intent, or synthesized speech.
   return Array.from(text, character => {
     if (/^[a-z0-9]$/.test(character)) return [character];
-    if (/^[A-Z]$/.test(character)) return [KEYS.Shift, character.toLowerCase()];
-    if (character === " ") return [KEYS.Space];
-    if (Object.hasOwn(shiftedDigits, character)) return [KEYS.Shift, shiftedDigits[character]!];
-    if (character === ";" || character === ":") return character === ";" ? [KEYS.Semicolon] : [KEYS.Shift, KEYS.Semicolon];
-    if (character === "=" || character === "+") return character === "=" ? [KEYS.Equal] : [KEYS.Shift, KEYS.Equal];
+    if (/^[A-Z]$/.test(character)) return [AT_DRIVER_KEYS.Shift, character.toLowerCase()];
+    if (character === " ") return [AT_DRIVER_KEYS.Space];
+    if (Object.hasOwn(shiftedDigits, character)) return [AT_DRIVER_KEYS.Shift, shiftedDigits[character]!];
+    if (character === ";" || character === ":") return character === ";" ? [AT_DRIVER_KEYS.Semicolon] : [AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.Semicolon];
+    if (character === "=" || character === "+") return character === "=" ? [AT_DRIVER_KEYS.Equal] : [AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.Equal];
     // Bocoup's macOS server explicitly supports these key names. The PAC NVDA
     // server only accepts alphanumeric characters and its enumerated key codes.
     if (profile === "voiceover") {
       if (Object.hasOwn(macPunctuation, character)) return [macPunctuation[character]!];
-      if (Object.hasOwn(shiftedPunctuation, character)) return [KEYS.Shift, macPunctuation[shiftedPunctuation[character]!]!];
+      if (Object.hasOwn(shiftedPunctuation, character)) return [AT_DRIVER_KEYS.Shift, macPunctuation[shiftedPunctuation[character]!]!];
     }
     throw new AtDriverError(`Text contains a character unsupported by the ${profile} key profile (U+${character.codePointAt(0)!.toString(16).toUpperCase()})`, "unsupported action");
   });
@@ -119,13 +119,13 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
       }
       if (action.kind === "key") {
         if (!allowedKeys.includes(action.key as typeof allowedKeys[number])) throw new AtDriverError(`Unsupported ${name} key: ${action.key}`, "unsupported action");
-        if (action.key === "Mod+A") return [[name === "voiceover" ? KEYS.Meta : KEYS.Control, "a"]];
-        if (action.key.startsWith("Shift+")) return [[KEYS.Shift, KEYS[action.key.slice(6) as keyof typeof KEYS]]];
-        return [[KEYS[action.key as keyof typeof KEYS]]];
+        if (action.key === "Mod+A") return [[name === "voiceover" ? AT_DRIVER_KEYS.Meta : AT_DRIVER_KEYS.Control, "a"]];
+        if (action.key.startsWith("Shift+")) return [[AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS[action.key.slice(6) as keyof typeof AT_DRIVER_KEYS]]];
+        return [[AT_DRIVER_KEYS[action.key as keyof typeof AT_DRIVER_KEYS]]];
       }
       if (action.kind === "typeText" || action.kind === "replaceText") {
         const presses = textKeys(action.text, name);
-        return action.kind === "replaceText" ? [[name === "voiceover" ? KEYS.Meta : KEYS.Control, "a"], [KEYS.Backspace], ...presses] : presses;
+        return action.kind === "replaceText" ? [[name === "voiceover" ? AT_DRIVER_KEYS.Meta : AT_DRIVER_KEYS.Control, "a"], [AT_DRIVER_KEYS.Backspace], ...presses] : presses;
       }
       throw new AtDriverError("Unknown action kind", "unsupported action");
     },

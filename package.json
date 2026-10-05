@@ -9,6 +9,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "prepare": "husky",
     "build": "node scripts/build.mjs",
     "typecheck": "node scripts/typecheck.mjs && tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
@@ -31,19 +32,22 @@
     "test:dashboard-python": "python3 -m unittest discover -s tests -p \"test_dashboard_prompt_control.py\""
   },
   "devDependencies": {
-    "@types/jsdom": "30.0.0",
-    "@types/node": "22.19.17",
-    "jsdom": "30.1.1",
-    "tsx": "4.21.0",
-    "typescript": "5.9.3",
-    "vitest": "4.1.4",
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/cli": "workspace:*",
     "@rawstep/core": "workspace:*",
     "@rawstep/policies": "workspace:*",
-    "@rawstep/browser": "workspace:*",
-    "@rawstep/screenreaders": "workspace:*",
     "@rawstep/reports": "workspace:*",
-    "@rawstep/cli": "workspace:*",
+    "@rawstep/screenreaders": "workspace:*",
+    "@types/jsdom": "30.0.0",
+    "@types/node": "22.19.17",
+    "husky": "9.1.7",
+    "jsdom": "30.1.1",
+    "playwright": "1.59.1",
     "rawstep": "workspace:*",
-    "playwright": "1.59.1"
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.4"
   }
 }

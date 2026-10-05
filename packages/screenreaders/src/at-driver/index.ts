@@ -1,5 +1,9 @@
-import { AtDriverClient, AtDriverError, isRecord, positiveMilliseconds, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
+import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
 import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName } from "./profiles.js";
+import { isRecord, positiveMilliseconds } from "../internal/guards.js";
+import type { BackendRunContext } from "@rawstep/core/contracts";
+import { isLoopbackUrl } from "@rawstep/core/defaults";
+import { RawstepError } from "@rawstep/core/errors";
 
 export * from "./transport.js";
 export * from "./profiles.js";
@@ -89,6 +93,15 @@ export class AtDriverBackend {
   private fatalError?: AtDriverError;
   private observationWake?: () => void;
   private unsubscribe: () => void;
+
+  /** Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. */
+  preflight(context: BackendRunContext): void {
+    if (context.customBrowserSession) return;
+    const host = this.profile.name === "voiceover" ? "darwin" : this.profile.name === "nvda" ? "win32" : undefined;
+    if (host && host !== context.platform) throw new RawstepError("backend-precondition", "The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.");
+    if (this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.");
+    if (context.headless) throw new RawstepError("backend-precondition", "Native AT Driver runs require a visible browser; headless is unsupported.");
+  }
 
   constructor(private readonly options: AtDriverBackendOptions) {
     this.profile = getAtDriverProfile(options.profile);

@@ -1,9 +1,8 @@
 import { ScreenshotReplayPolicy, screenshotReplayTaskHash, assertScreenshotReplayTaskSafety, type ScreenshotReplay } from '@rawstep/policies/screenshot/replay';
 import { join } from 'node:path';
-import { writeJsonAtomic } from '@rawstep/core/trace';
+import { hydrateScreenshots, writeJsonAtomic } from '@rawstep/core/trace';
 import { diagnoseScreenshotStop } from '@rawstep/policies/screenshot/stop-reason';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
-import { createBrowserSession } from '../browser/index.js';
 import type { Task } from '@rawstep/core/contracts';
 import { runTask, type RunOptions } from '../runner/index.js';
 import type { RunTrace } from '@rawstep/core/trace';
@@ -15,15 +14,9 @@ export type ScreenshotRunOptions = Omit<RunOptions, 'backend'> & {stopReasonMode
 export async function runScreenshotTask(task: Task, options: ScreenshotRunOptions): Promise<RunTrace> {
   if (task.mode && task.mode !== 'keyboard') throw new Error('Screenshot runs require task mode keyboard.');
   const backend = new ScreenshotKeyboardBackend();
-  const factory = options.browserSessionFactory ?? createBrowserSession;
-  const trace = await runTask({ ...task, mode: 'keyboard' }, { ...options, backend, headless: options.headless ?? true,
-    browserSessionFactory: async (url, browserOptions) => {
-      const session = await factory(url, browserOptions);
-      backend.attachPage(session.page);
-      return session;
-    } });
+  const trace = await runTask({ ...task, mode: 'keyboard' }, { ...options, backend, headless: options.headless ?? true });
   if(options.stopReasonModel){
-    const report=await diagnoseScreenshotStop(trace,{model:options.stopReasonModel,timeoutMs:options.stopReasonTimeoutMs,signal:options.signal});
+    const report=await diagnoseScreenshotStop(await hydrateScreenshots(trace,options.outDir),{model:options.stopReasonModel,timeoutMs:options.stopReasonTimeoutMs,signal:options.signal});
     try{await writeJsonAtomic(join(options.outDir,'stop-reason.json'),report)}catch{options.warn?.('Stop-reason analysis could not be persisted; the original run outcome is unchanged.')}
   }
   return trace;

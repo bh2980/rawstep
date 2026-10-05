@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { AllowedActions, Decision, DecisionPolicy } from '@rawstep/core/contracts';
 import { assertSystemOneInputs, validateSystemOneResult, type SystemOneClient, type SystemOneRequest } from './client.js';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse } from '../screenshot/model.js';
@@ -8,7 +9,7 @@ function actionOnly(decision: Decision): Decision {
   const a = decision.action;
   return { action: a.kind === 'key' ? { kind: a.kind, key: a.key } : a.kind === 'intent' ? { kind: a.kind, intent: a.intent } : { kind: a.kind, input: a.input } };
 }
-export function speechChoices(allowed: AllowedActions): { id: string; label: string; decision: Decision }[] {
+export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}): { id: string; label: string; decision: Decision }[] {
   return [
     ...allowed.intents.map(intent => ({ id: `intent:${intent}`, label: `Screen reader intent: ${intent}`, decision: { action: { kind: 'intent' as const, intent } } })),
     ...allowed.keys.map(key => ({ id: `key:${key}`, label: `Press key: ${key}`, decision: { action: { kind: 'key' as const, key } } })),
@@ -16,13 +17,13 @@ export function speechChoices(allowed: AllowedActions): { id: string; label: str
       ...(allowed.typeText !== false ? [{ id: `type:${input}`, label: `Type the named input ${input} into the focused editable field`, decision: { action: { kind: 'typeText' as const, input } } }] : []),
       ...(allowed.replaceText ? [{ id: `replace:${input}`, label: `Replace the focused field with the named input ${input}`, decision: { action: { kind: 'replaceText' as const, input } } }] : []),
     ]),
-    ...(['success', 'stuck', 'uncertain'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
+    ...(options.modelGiveUp === false ? ['success'] as const : ['success', 'stuck', 'uncertain'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
   ];
 }
 export class SystemOneSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly prompt: SystemOnePrompt;
-  constructor(readonly client: SystemOneClient, private readonly historyLimit = 12, prompt: SystemOnePrompt = SPEECH_DECISION_PROMPT) {
+  constructor(readonly client: SystemOneClient, private readonly historyLimit: number = RAWSTEP_DEFAULTS.policy.historyLimit, prompt: SystemOnePrompt = SPEECH_DECISION_PROMPT, private readonly options: { modelGiveUp?: boolean } = {}) {
     assertSystemOneInputs(client, ['text']);
     if (!Number.isSafeInteger(historyLimit) || historyLimit < 1 || historyLimit > 10_000) throw new Error('Invalid SystemOne history limit.');
     this.prompt = copySystemOnePrompt(prompt);
@@ -31,7 +32,7 @@ export class SystemOneSpeechPolicy implements DecisionPolicy {
   async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
     this.evidence = []; input.signal.throwIfAborted();
     if (input.observation.kind !== 'screenreader') throw new Error('SystemOne speech policy requires screen reader observations.');
-    const choices = speechChoices(input.allowedActions);
+    const choices = speechChoices(input.allowedActions, this.options);
     const request: SystemOneRequest = {
       state: { goal: input.goal, speech: [...input.observation.speech],
         history: input.history.slice(-this.historyLimit).map(h => ({ step: h.step, decision: actionOnly(h.decision),

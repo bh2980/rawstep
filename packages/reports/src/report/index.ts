@@ -3,7 +3,9 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTrace, writeJsonAtomic, type RunTrace } from "@rawstep/core/trace";
 import { validateAnalysisReport, type AnalysisReport } from "../analyze/index.js";
-import { actionLabel, eventGrounds, pngFor, record, summarizeTrace, type ReportSummary } from "./summary.js";
+import type { HintReport } from "../hints/index.js";
+import { pngFor, record } from "../internal/guards.js";
+import { actionLabel, eventGrounds, screenshotSrc, summarizeTrace, type ReportSummary } from "./summary.js";
 
 export { summarizeTrace } from "./summary.js";
 export type { ReportSummary, ReportCounts, ReportAction, ReportFailure, ReportVerification, ReportVerificationRule } from "./summary.js";
@@ -16,7 +18,7 @@ function renderableEventData(data: unknown): unknown {
   const copy = JSON.parse(JSON.stringify(data)) as unknown;
   for (const key of ["screenshot", "previousScreenshot"]) {
     const screenshot = record(record(copy)[key]);
-    if (typeof screenshot.pngBase64 === "string") screenshot.pngBase64 = key === "screenshot" && pngFor(data) ? "[PNG viewport shown above]" : "[PNG preserved in trace.json]";
+    if (typeof screenshot.pngBase64 === "string") screenshot.pngBase64 = key === "screenshot" && screenshotSrc(data) ? "[PNG viewport shown above]" : "[PNG preserved in trace.json]";
   }
   return copy;
 }
@@ -90,7 +92,7 @@ function renderVisualExploration(trace: RunTrace): string {
 <p>${e(summary.limitation)}</p>
 ${summary.states.map((state, index) => {
     const event = trace.events.find(item => item.id === state.observationEventIds[0])!;
-    return `<details><summary>Visual state ${index + 1} · ${state.visits} observation(s) · SHA-256 ${e(state.sha256.slice(0, 12))}</summary><figure><img alt="Visited keyboard visual state ${index + 1}" style="max-width:100%;height:auto" src="data:image/png;base64,${pngFor(event.data)}"></figure><p>${state.observationEventIds.map(evidenceLink).join(', ')}</p></details>`;
+    return `<details><summary>Visual state ${index + 1} · ${state.visits} observation(s) · SHA-256 ${e(state.sha256.slice(0, 12))}</summary><figure><img alt="Visited keyboard visual state ${index + 1}" style="max-width:100%;height:auto" src="${e(screenshotSrc(event.data) ?? "")}"></figure><p>${state.observationEventIds.map(evidenceLink).join(', ')}</p></details>`;
   }).join('')}
 <h3>Keyboard transitions</h3><ul>${summary.transitions.map(t => `<li>${evidenceLink(t.fromEventId)} → ${evidenceLink(t.toEventId)}: ${t.changedPixels ? 'changed pixels' : 'identical pixels'}; ${t.actionEventIds.map(evidenceLink).join(', ')}</li>`).join('')}</ul>
 <h3>Model focus observations (uncertain)</h3><ul>${summary.modelFocusObservations.map(f => `<li>${evidenceLink(f.eventId)}: ${e(f.visibility)}${f.note ? ` · ${e(f.note)}` : ''}</li>`).join('')}</ul></section>`;
@@ -103,27 +105,37 @@ function renderEnvironmentDiagnostics(trace: RunTrace): string {
   return `<section><h2>Applied environment and independent diagnostics</h2><p>Browser media emulation, page user styles and native settings are distinct. These DOM diagnostics are not policy observations and do not establish accessibility conformance.</p>${profileEvents.map(event=>`<h3>Requested versus observed settings</h3><p>${evidenceLink(event.id)}</p><pre>${escapeHtml(JSON.stringify(event.data,null,2))}</pre>`).join('')}<h3>Focus, layout and error-state observations</h3>${diagnosticEvents.map(event=>`<details><summary>${evidenceLink(event.id)}${event.redacted?' · omitted after input':''}</summary><pre>${escapeHtml(JSON.stringify(event.data,null,2))}</pre></details>`).join('')}</section>`;
 }
 
+function renderHints(hints: HintReport): string {
+  const e = escapeHtml, seconds = (ms: number | null) => ms === null ? "unknown duration" : `${(ms / 1000).toFixed(1)} s`;
+  return `<section aria-labelledby="hints"><h2 id="hints">Friction hints</h2>
+<p>Goal reached: ${hints.goalReached ? "yes" : "no"} · ${hints.steps} steps · ${e(seconds(hints.durationMs))}</p>
+${hints.reference ? `<p>Reference run ${e(hints.reference.runId)}: ${hints.reference.steps} steps · ${e(seconds(hints.reference.durationMs))}</p>` : ""}
+${hints.hints.length ? `<div class="table-scroll"><table><caption>Places worth a human look; hints are pointers, not verdicts</caption><thead><tr><th scope="col">Steps</th><th scope="col">Kind</th><th scope="col">Certainty</th><th scope="col">Summary</th></tr></thead><tbody>${hints.hints.map(hint => `<tr><td>${e(hint.steps.join(", ") || "run")}</td><td>${e(hint.kind)}</td><td>${e(hint.certainty)}</td><td>${e(hint.summary)}</td></tr>`).join("")}</tbody></table></div>` : "<p>No friction hints.</p>"}
+${hints.limitations.length ? `<ul>${hints.limitations.map(limitation => `<li>${e(limitation)}</li>`).join("")}</ul>` : ""}</section>`;
+}
+
 /** Render only escaped text. No script, embedded executable JSON, or remote resources. */
-export function renderReportHtml(trace: RunTrace, analysis?: AnalysisReport): string {
+export function renderReportHtml(trace: RunTrace, analysis?: AnalysisReport, options: { hints?: HintReport } = {}): string {
   validateTrace(trace);
   if (analysis) validateAnalysisReport(analysis, trace);
   const e = escapeHtml;
   const summary = summarizeTrace(trace);
+  const blobImages = trace.events.some(event => screenshotSrc(event.data)?.startsWith("blobs/"));
   const events = trace.events.map((event) => `<details id="${e(event.id)}" class="event"><summary>${event.seq}. ${e(event.type)} · ${e(event.id)}${event.redacted ? " · redacted" : ""}</summary>
 <p>${e(event.timestamp)} · ${e(event.source)}${event.commandId ? ` · command ${e(event.commandId)}` : ""}${event.redacted ? " · redacted" : ""}</p>
 ${event.collectionWindow ? `<p>Collection window: ${e(event.collectionWindow.startedAt)} to ${e(event.collectionWindow.endedAt)}</p>` : ""}
 ${event.association ? "<p>Temporal association only; this does not establish speech causality.</p>" : ""}
-${pngFor(event.data) ? `<figure><img alt="Keyboard viewport screenshot" style="max-width:100%;height:auto" src="data:image/png;base64,${pngFor(event.data)}"><figcaption>Recorded viewport pixels; these pixels are not anonymized.</figcaption></figure>` : ""}
+${screenshotSrc(event.data) ? `<figure><img alt="Keyboard viewport screenshot" style="max-width:100%;height:auto" src="${e(screenshotSrc(event.data)!)}"><figcaption>Recorded viewport pixels; these pixels are not anonymized.</figcaption></figure>` : ""}
 <pre>${e(JSON.stringify(renderableEventData(event.data), null, 2))}</pre></details>`).join("\n");
   const findings = analysis?.findings.map((finding) => `<article><h3>${e(finding.title)}</h3><p>${e(finding.severity)} · ${e(finding.description)}</p>
 <p>Evidence: ${finding.evidenceEventIds.map((id) => `<a href="#${e(id)}">${e(id)}</a>`).join(", ")}</p></article>`).join("\n") ?? "";
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:${blobImages ? " 'self' file:" : ""}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>RawStep trace: ${e(trace.task.id)}</title>
 <style>body{font:16px/1.6 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#18202b;background:#fff}h1,h2,h3,h4{line-height:1.25}article,.event{border:1px solid #d6dce5;border-radius:8px;padding:1rem;margin:1rem 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f8;padding:1rem}a{color:#0645ad}a:focus-visible,summary:focus-visible{outline:3px solid #125ea7;outline-offset:3px}p,td,summary{overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600}.outcome{font-size:1.25rem;font-weight:700}.table-scroll{overflow-x:auto}table{border-collapse:collapse;width:100%}caption{text-align:left;margin-bottom:.5rem}th,td{border:1px solid #d6dce5;text-align:left;vertical-align:top;padding:.6rem}.rule{border-left:3px solid #d6dce5;padding-left:1rem}.event:target{border-color:#125ea7}details.context{margin:1rem 0}figure{margin:1rem 0}</style></head>
 <body><header><h1>RawStep trace: ${e(trace.task.id)}</h1><p>Run ${e(trace.runId)} · trace schema ${e(trace.schemaVersion)}</p></header>
-<main>${renderSummary(trace, summary)}${renderActions(summary)}${renderVisualExploration(trace)}${renderEnvironmentDiagnostics(trace)}${renderVerification(trace, summary)}
+<main>${renderSummary(trace, summary)}${options.hints ? renderHints(options.hints) : ""}${renderActions(summary)}${renderVisualExploration(trace)}${renderEnvironmentDiagnostics(trace)}${renderVerification(trace, summary)}
 <details class="context"><summary>Task</summary><pre>${e(JSON.stringify(trace.task, null, 2))}</pre></details>
 <details class="context"><summary>Environment</summary><pre>${e(JSON.stringify(trace.environment, null, 2))}</pre></details>
 <h2>Analysis</h2><p>${analysis ? `${e(analysis.status)} · ${e(analysis.analyzer.id)}` : "Not requested. This report requires no model or analyzer."}</p>
@@ -131,8 +143,8 @@ ${analysis ? `<p>${e(analysis.summary)}</p>` : ""}${findings}
 <h2>Raw ordered evidence (${trace.events.length} events)</h2><p>Expand an event to inspect the saved payload. Event ordering is recorder ordering.</p>${events || "<p>No events recorded.</p>"}</main></body></html>\n`;
 }
 
-export async function writeReport(trace: RunTrace, analysis: AnalysisReport | undefined, outDir: string): Promise<{ jsonPath: string; htmlPath: string }> {
-  let html = renderReportHtml(trace, analysis);
+export async function writeReport(trace: RunTrace, analysis: AnalysisReport | undefined, outDir: string, options: { hints?: HintReport } = {}): Promise<{ jsonPath: string; htmlPath: string }> {
+  let html = renderReportHtml(trace, analysis, options);
   try {
     const reason=JSON.parse(await readFile(join(outDir,'stop-reason.json'),'utf8')) as Record<string,unknown>;
     if(reason.schemaVersion==='1.0'&&reason.runId===trace.runId&&JSON.stringify(reason.originalOutcome)===JSON.stringify(trace.outcome))html=html.replace('</main>',`<section><h2>Optional model stop hypothesis</h2><p>This separate choice-model opinion cannot change the original outcome or establish an accessibility defect.</p><pre>${escapeHtml(JSON.stringify(reason,null,2))}</pre></section></main>`);
@@ -142,7 +154,7 @@ export async function writeReport(trace: RunTrace, analysis: AnalysisReport | un
   const jsonPath = join(outDir, "report.json");
   const htmlPath = join(outDir, "report.html");
   // Report projections are separate files; execution evidence is never rewritten.
-  await writeJsonAtomic(jsonPath, { schemaVersion: "1.0", runId: trace.runId, runOutcome: trace.outcome ?? null, analysis: analysis ?? null,
+  await writeJsonAtomic(jsonPath, { schemaVersion: "1.0", runId: trace.runId, runOutcome: trace.outcome ?? null, analysis: analysis ?? null, ...(options.hints ? { hints: options.hints } : {}),
     visualExploration: summarizeVisualExploration(trace), eventCount: trace.events.length, privacy: trace.privacy, summary: summarizeTrace(trace) });
   await writeFile(htmlPath, html, { mode: 0o600 });
   return { jsonPath, htmlPath };

@@ -25,7 +25,7 @@ describe('explicit simulation provenance',()=>{
  it('keeps simulated speech separate from native evidence while exposing only the text observation contract',async()=>{
   const f=fixture();const observed:unknown[]=[];
   const trace=await runTask({url:'https://example.test',goal:'Activate Save',input:{short:'a'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:await directory(),policy:{decide:input=>{observed.push(input.observation);return{action:{kind:'intent',intent:'next'}};}}});
-  expect(trace.schemaVersion).toBe('2.1');expect(trace.environment.observationProvenance).toBe('simulation');
+  expect(trace.schemaVersion).toBe('2.2');expect(trace.environment.observationProvenance).toBe('simulation');
   expect(trace.events.filter(event=>event.source==='screen-reader')).toHaveLength(0);
   expect(trace.events.some(event=>event.source==='simulation'&&event.type==='simulation.observation')).toBe(true);
   expect(observed[0]).toMatchObject({kind:'screenreader',provenance:'simulation',speech:['Save, button']});

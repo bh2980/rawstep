@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import type { RunTrace } from '@rawstep/core/trace';
+import { screenshotSha256, type RunTrace } from '@rawstep/core/trace';
 
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export type VisualExplorationSummary = {
@@ -29,9 +28,8 @@ export function summarizeVisualExploration(trace: Readonly<RunTrace>): VisualExp
       }
     }
     if (event.source !== 'runner' || event.type !== 'keyboard.observation') continue;
-    const png = record(record(event.data).screenshot).pngBase64;
-    if (typeof png !== 'string' || Buffer.from(png, 'base64').subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') { previous = undefined; continue; }
-    const sha256 = createHash('sha256').update(Buffer.from(png, 'base64')).digest('hex');
+    const sha256 = screenshotSha256(record(event.data).screenshot);
+    if (!sha256) { previous = undefined; continue; }
     let state = states.find(item => item.sha256 === sha256);
     if (!state) { state = { sha256, visits: 0, observationEventIds: [] }; states.push(state); }
     state.visits++;

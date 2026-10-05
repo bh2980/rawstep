@@ -6,6 +6,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "./dist/cli/bin.js"
+  ],
   "exports": {
     "./systemone": {
       "types": "./dist/systemone/index.d.ts",
@@ -125,7 +128,7 @@
     "fixtures/visual-study/*.html"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "repository": {
     "type": "git",
@@ -144,6 +147,9 @@
     "@rawstep/screenreaders": "workspace:*",
     "@rawstep/reports": "workspace:*",
     "@rawstep/cli": "workspace:*"
+  },
+  "peerDependencies": {
+    "playwright": "^1.59.1"
   },
   "bin": {
     "rawstep": "./dist/cli/bin.js"

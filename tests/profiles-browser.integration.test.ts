@@ -9,6 +9,7 @@ import { runScreenshotTask, ScreenshotDecisionPolicy } from 'rawstep/screenshot'
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { runEnvironmentMatrix, readMatrix } from '@rawstep/cli/matrix';
 import { runTask } from '@rawstep/browser/runner';
+import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
 const cleanups:(()=>Promise<unknown>)[]=[];afterEach(async()=>{for(const fn of cleanups.splice(0).reverse())await fn()});
 const fixture=pathToFileURL(resolve('fixtures/environment-lab.html')).href;
@@ -56,11 +57,15 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
   it('stops matrix scheduling on cancellation and preserves a valid manifest',async()=>{
     const controller=new AbortController();const d=await dir();const report=await runEnvironmentMatrix({id:'cancel',url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{outDir:join(d,'matrix'),profiles:['default','dark'],mode:'screenshot',signal:controller.signal,browserSessionFactory:createTestBrowserSession,createPolicy:()=>({decide:()=>{controller.abort('SIGINT');return {stop:'stuck'}}})});expect(report.status).toBe('aborted');expect(report.rows).toHaveLength(1);
   });
-  it('refuses an unsupported host or mismatched native Orca pairing before observation or dispatch',async()=>{
-    let closed=false;const backend:Backend={capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({backend:'orca-native',target:{windowId:99}}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')}};
-    const trace=await runTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend,policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory:async(url,options)=>{const s=await createTestBrowserSession(url,options);const close=s.close;s.close=async()=>{closed=true;await close()};return s}});
-    expect(closed).toBe(process.platform === 'linux');
-    expect(trace.outcome?.error).toMatch(process.platform === 'linux' ? /does not match/ : /visible Linux browser/);
+  it('lets a backend refuse the host before the browser opens and the opened session before observation or dispatch',async()=>{
+    const make=(hooks:Partial<Backend>):Backend=>({capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')},...hooks});
+    let opened=0,closed=0;const contexts:unknown[]=[];
+    const browserSessionFactory=async(url:string,options:CreateBrowserSessionOptions)=>{opened++;const s=await createTestBrowserSession(url,options);const close=s.close;s.close=async()=>{closed++;await close()};return s};
+    const host=await runTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({preflight:context=>{contexts.push(context);throw new Error('host refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    expect(host.outcome?.error).toMatch(/host refused/);expect(opened).toBe(0);
+    expect(contexts).toEqual([{headless:false,platform:process.platform,customBrowserSession:true}]);
+    const session=await runTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({attachSession:()=>{throw new Error('session refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    expect(session.outcome?.error).toMatch(/session refused/);expect(opened).toBe(1);expect(closed).toBe(1);
   });
 });
 

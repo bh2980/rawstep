@@ -8,6 +8,10 @@
 
 실패한 실행은 기록된 이유·단계·오류와 함께 보고서 생성과 trace 분석 명령을 출력합니다. 네이티브 실행에는 AT Driver 연결 점검 명령도 표시합니다. `doctor`는 실제 연결 오류의 원인을 보여 주고 정리 중 오류가 발생해도 처음 원인을 유지합니다. doctor 성공은 프로토콜 연결만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다. 재실행할 때는 기존 기록을 보존하도록 새 `--out` 디렉터리를 사용하세요.
 
+중도 중단은 `screenshot-run`과 `matrix`에서 설정할 수 있습니다. `--repetition-guard` / `--no-repetition-guard`는 같은 화면이 반복될 때 멈추는 시각 반복 guard를 켜거나 끕니다. `--decision systemone`에서는 기본이 꺼짐(가볍고 빠른 모델은 이미 `maxSteps`/`timeoutMs`로 제한되고, 헤매는 기록이 마찰 힌트에 쓰임), `--model-endpoint`에서는 기본이 켜짐입니다. `--no-model-give-up`은 모델의 `stop:stuck`, `stop:uncertain` 선택지를 제거하며(`stop:success`는 유지) `--decision systemone`을 쓰는 `run`/`mock-run`에도 적용됩니다. 이 플래그들은 `--decision systemone` 또는 `--model-endpoint`가 필요하고, guard 플래그 둘은 함께 쓸 수 없습니다. 라이브러리는 `ScreenshotDecisionPolicy`의 `repetitionGuard`/`modelGiveUp`(기본 `true`)와 `SystemOneSpeechPolicy`의 `modelGiveUp`을 사용하며, guard를 꺼도 시각 상태는 기록됩니다. 대시보드 전역 설정의 "반복 화면에서 자동 중단"(자동 = SystemOne 모델은 끄기)과 "모델의 중도 포기 선택지 허용"이 같은 값을 제어합니다.
+
+`hints <trace.json|run-dir> [--reference <trace.json|run-dir>]`는 저장된 실행의 마찰 힌트(예: "성공했지만 Tab을 23번 눌렀습니다")를 보여 줍니다. 힌트는 사람이 확인해 볼 단계를 가리킬 뿐 통과/실패 판정이 아닙니다. 힌트 수, 목표 달성 여부, 단계 수(`--reference`를 주면 기준 실행의 단계 수 포함)와 힌트별 한 줄을 출력하고 trace 옆에 `hints.json`을 저장합니다. `analyze`도 `hints.json`을 함께 저장하며(기준 실행 없음), trace 옆에 `hints.json`이 있으면 `report`가 "Friction hints" 섹션을 추가합니다.
+
 설치된 패키지의 `npx rawstep` 명령과 저장소의 `npm run rawstep --` 명령은 [번들 예제 안내](../examples/v2/README.md)에 구분되어 있습니다.
 
 ## 스크린샷 키보드 탐색

@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { resolveTask } from '@rawstep/core/contracts';
-import type { Decision, DecisionPolicy, Task, VerifyRule } from '@rawstep/core/contracts';
+import { matchesText, resolveTask } from '@rawstep/core/contracts';
+import type { Decision, DecisionPolicy, ScreenshotObservation, Task, VerifyRule } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
-import { validateTrace, type RunTrace } from '@rawstep/core/trace';
+import { screenshotSha256 as storedSha256, validateTrace, type RunTrace } from '@rawstep/core/trace';
 import { screenshotHash } from './policy.js';
 
 export type ScreenshotReplay = {
@@ -45,7 +45,13 @@ function witnessMatches(witness: unknown, rule: VerifyRule): boolean {
     const r = 'requestSeen' in rule ? rule.requestSeen : rule.responseSeen;
     return witness.kind === ('requestSeen' in rule ? 'request' : 'response') && typeof witness.url === 'string' && witness.url.includes(r.urlIncludes) && typeof witness.method === 'string' && !!witness.method && (!r.method || witness.method.toUpperCase() === r.method.toUpperCase()) && (!('status' in r) || r.status === undefined || witness.status === r.status);
   }
-  // Native/simulated announcement witnesses do not make a keyboard screenshot replay.
+  if ('event' in rule) {
+    const event = record(witness.event) ? witness.event : undefined, expected = rule.event;
+    return witness.kind === 'observer-event' && !!event && event.kind === expected.kind && (expected.role === undefined || event.role === expected.role) && (expected.attr === undefined || event.attr === expected.attr) && (expected.value === undefined || event.value === expected.value)
+      && (expected.name === undefined || matchesText(expected.name, event.name as string)) && (expected.text === undefined || matchesText(expected.text, event.text as string)) && (expected.url === undefined || matchesText(expected.url, event.url as string));
+  }
+  // Native/simulated announcement witnesses, and focused/not/any rules, do not make a keyboard screenshot replay.
+
   return false;
 }
 /** Only independently witnessed, successful, keyboard-only model paths are eligible. */
@@ -75,8 +81,10 @@ export function exportScreenshotReplay(trace: RunTrace, task: Task): ScreenshotR
     const inferences = trace.events.filter(e => e.type === 'policy.evidence' && e.source === 'policy' && e.seq > observationSeq && e.seq < event.seq && record(e.data) && e.data.step === stepNumber && record(e.data.evidence) && e.data.evidence.kind === 'model-inference' && e.data.evidence.choiceId === `key:${a.key}`);
     if (inferences.length !== 1) throw new Error('Replay export requires one matching model inference for each action.');
     const inference = inferences[0]!;
-    const screenshot = observation!.screenshot as unknown as Parameters<typeof screenshotHash>[0];
-    const screenshotSha256 = screenshotHash(screenshot);
+    // Stored observations are blob references (2.2) or inline pixels (2.0/2.1); both keep the viewport beside the hash.
+    const screenshot = observation!.screenshot as { viewport: ScreenshotObservation['viewport'] };
+    const screenshotSha256 = storedSha256(screenshot);
+    if (!screenshotSha256 || !record(screenshot.viewport) || !Number.isInteger(screenshot.viewport.w) || screenshot.viewport.w < 1 || !Number.isInteger(screenshot.viewport.h) || screenshot.viewport.h < 1) throw new Error('Expected PNG screenshot evidence with a viewport.');
     const evidence = (inference.data as { evidence: Record<string, unknown> }).evidence;
     if (!record(evidence.model) || typeof evidence.model.id !== 'string' || !evidence.model.id.trim() || typeof evidence.model.runtime !== 'string' || !evidence.model.runtime.trim()) throw new Error('Replay export requires model identity and runtime.');
     if (evidence.screenshotSha256 !== screenshotSha256) throw new Error('Model inference pixels do not match the replay observation.');

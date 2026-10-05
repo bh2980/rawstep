@@ -5,7 +5,7 @@ import { parseCliArguments } from '@rawstep/cli/cli/args';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
 const observation = { kind: 'keyboard' as const, screenshot: { pngBase64: png, viewport: { w: 1, h: 1 } }, window: { id: 'one', startedAt: '2026-10-01T00:00:00.000Z', endedAt: '2026-10-01T00:00:00.000Z', reason: 'test' } };
-const input = (): Parameters<DecisionPolicy['decide']>[0] => ({ goal: 'Inspect keyboard behavior', observation: structuredClone(observation), history: [], allowedActions: { intents: [], keys: SCREENSHOT_KEYS, inputKeys: ['provided'], replaceText: true }, inputs: { provided: 'PRIVATE_VALUE' }, signal: new AbortController().signal });
+const input = (): Parameters<DecisionPolicy['decide']>[0] => ({ goal: 'Inspect keyboard behavior', observation: structuredClone(observation), history: [], allowedActions: { intents: [], keys: SCREENSHOT_KEYS, inputKeys: ['provided'], replaceText: true }, inputs: { provided: { sensitive: true } }, signal: new AbortController().signal });
 const response = (choiceId = 'key:Tab'): ScreenshotModelResponse => ({ choiceId, model: { id: 'test-fake-not-real-model', runtime: 'vitest' } });
 const history = (length: number): HistoryEntry[] => Array.from({ length }, (_, i) => ({ step: i + 1, decision: { action: { kind: 'key', key: 'Tab' } }, observation: structuredClone(observation), execution: { ok: true } }));
 
@@ -94,5 +94,42 @@ describe('explicit screenshot model HTTP adapter and CLI', () => {
     expect(parseCliArguments(['screenshot-run', 'task.json', '--script', './decisions.json']).options.script).toBe('./decisions.json');
     expect(() => parseCliArguments(['screenshot-run', 'task.json'])).toThrow(/exactly one/);
     expect(() => parseCliArguments(['screenshot-run', 'task.json', '--policy', 'a', '--model-endpoint', 'b'])).toThrow(/exactly one/);
+  });
+});
+
+describe('configurable early give-up', () => {
+  const identical = (n: number) => ({ ...input(), history: history(n) });
+  it('never stops on repetition with repetitionGuard false, yet still reports visual state', async () => {
+    const choose = vi.fn(async () => response()); const policy = new ScreenshotDecisionPolicy({ repetitionGuard: false, maxStateVisits: 1, maxUnchangedTransitions: 1, model: { choose } });
+    expect(await policy.decide(identical(8))).toEqual({ action: { kind: 'key', key: 'Tab' } });
+    const req = (choose.mock.calls[0] as unknown as [ScreenshotModelRequest])[0];
+    expect(req.visualState).toEqual({ sha256: screenshotHash(observation.screenshot), visits: 9, unchangedTransitions: 8 });
+    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ kind: 'model-inference', visualState: req.visualState, earlyStop: { repetitionGuard: false, modelGiveUp: true } })]);
+  });
+  it('keeps the guard on by default and records effective settings', async () => {
+    const policy = new ScreenshotDecisionPolicy({ maxUnchangedTransitions: 2, model: { choose: async () => response() } });
+    expect(await policy.decide(identical(2))).toMatchObject({ stop: 'stuck', stopSource: 'exploration-guard' });
+    await policy.decide(input());
+    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ earlyStop: { repetitionGuard: true, modelGiveUp: true } })]);
+  });
+  it('removes stop:stuck and stop:uncertain but keeps stop:success when modelGiveUp is false', async () => {
+    const ids = (options?: { modelGiveUp?: boolean }) => screenshotChoices(input().allowedActions, options).map(c => c.id).filter(id => id.startsWith('stop:'));
+    expect(ids()).toEqual(['stop:success', 'stop:uncertain', 'stop:stuck']); expect(ids({ modelGiveUp: true })).toEqual(ids());
+    expect(ids({ modelGiveUp: false })).toEqual(['stop:success']);
+    const choose = vi.fn(async () => response('stop:success')); const policy = new ScreenshotDecisionPolicy({ modelGiveUp: false, model: { choose } });
+    expect(await policy.decide(input())).toEqual({ stop: 'success', stopSource: 'model' });
+    expect((choose.mock.calls[0] as unknown as [ScreenshotModelRequest])[0].choices.map(c => c.id)).not.toContain('stop:stuck');
+    const giveUp = new ScreenshotDecisionPolicy({ modelGiveUp: false, model: { choose: async () => response('stop:stuck') } });
+    await expect(giveUp.decide(input())).rejects.toThrow();
+  });
+  it('parses the CLI early-stop flags and rejects conflicts or missing model selectors', () => {
+    const base = ['screenshot-run', 'task.json'];
+    expect(parseCliArguments([...base, '--decision', 'systemone', '--repetition-guard', '--no-model-give-up']).options).toMatchObject({ 'repetition-guard': true, 'no-model-give-up': true });
+    expect(parseCliArguments([...base, '--model-endpoint', 'http://127.0.0.1:1/choose', '--no-repetition-guard']).options['no-repetition-guard']).toBe(true);
+    expect(() => parseCliArguments([...base, '--decision', 'systemone', '--repetition-guard', '--no-repetition-guard'])).toThrow(/not both/);
+    expect(() => parseCliArguments([...base, '--script', 's.json', '--no-repetition-guard'])).toThrow(/require --decision systemone or --model-endpoint/);
+    expect(() => parseCliArguments(['mock-run', 'task.json', '--decision', 'systemone', '--no-repetition-guard'])).toThrow(/Unknown option/);
+    expect(parseCliArguments(['mock-run', 'task.json', '--decision', 'systemone', '--no-model-give-up']).options['no-model-give-up']).toBe(true);
+    expect(() => parseCliArguments([...base, '--decision', 'systemone', '--no-model-give-up=1'])).toThrow(/does not take a value/);
   });
 });

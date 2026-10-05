@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { Backend, BackendAction, BackendOperationOptions, BackendSpeechObservation } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendOperationOptions, BackendRunContext, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
+import { RawstepError } from '@rawstep/core/errors';
 import { orcaAssumptions, orcaCapabilities, mapOrcaAction } from './profile.js';
-import { ORCA_NATIVE_PROTOCOL, OrcaBridgeClient, OrcaBridgeError, record, validInterval, type OrcaBridgeOptions, type OrcaCommandReceipt, type OrcaTransportEvent } from './transport.js';
+import { isRecord, positiveMilliseconds } from '../internal/guards.js';
+import { ORCA_NATIVE_PROTOCOL, OrcaBridgeClient, OrcaBridgeError, type OrcaBridgeOptions, type OrcaCommandReceipt, type OrcaTransportEvent } from './transport.js';
 
 export * from './profile.js';
 export * from './transport.js';
@@ -44,7 +47,9 @@ export class OrcaBackend implements Backend {
   readonly observationKind = 'screenreader' as const;
   readonly evidenceProvenance = 'native' as const;
   readonly capabilities = orcaCapabilities;
+  readonly cleanupTimeoutMs = RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend;
   private readonly sessionId = randomUUID();
+  private targetWindowId?: number;
   private readonly client: OrcaBridgeClient;
   private readonly quietMs: number;
   private readonly maxWaitMs: number;
@@ -64,8 +69,8 @@ export class OrcaBackend implements Backend {
 
   constructor(private readonly options: OrcaBackendOptions = {}) {
     if (options.targetWindowId !== undefined && (!Number.isSafeInteger(options.targetWindowId) || options.targetWindowId <= 1)) throw new Error('targetWindowId must be a valid X11 window ID greater than one');
-    this.quietMs = validInterval(options.quietMs ?? 500, 'quietMs');
-    this.maxWaitMs = validInterval(options.maxWaitMs ?? 3_000, 'maxWaitMs');
+    this.quietMs = positiveMilliseconds(options.quietMs ?? 500, 'quietMs');
+    this.maxWaitMs = positiveMilliseconds(options.maxWaitMs ?? 3_000, 'maxWaitMs');
     this.client = new OrcaBridgeClient(options, this.sessionId);
     this.unsubscribe = this.client.subscribe(event => {
       if (event.type === 'command' && this.window && event.commandId !== undefined) this.window.commandIds.push(event.commandId);
@@ -113,7 +118,7 @@ export class OrcaBackend implements Backend {
       const receipt = await this.client.request('session.start', { protocol: ORCA_NATIVE_PROTOCOL, sessionId: this.sessionId, ...(this.options.targetWindowId !== undefined ? { targetWindowId: this.options.targetWindowId } : {}) }, options, this.client.startupTimeoutMs);
       options.signal?.throwIfAborted();
       const result = receipt.result;
-      if (!record(result) || result.protocol !== ORCA_NATIVE_PROTOCOL || result.sessionId !== this.sessionId || result.atName !== 'Orca' || result.platformName !== 'linux' || result.speechSource !== 'orca-speech' || result.captureStage !== 'speech-dispatcher-submission' || result.audioVerified !== false || typeof result.atVersion !== 'string' || !result.atVersion.trim()) {
+      if (!isRecord(result) || result.protocol !== ORCA_NATIVE_PROTOCOL || result.sessionId !== this.sessionId || result.atName !== 'Orca' || result.platformName !== 'linux' || result.speechSource !== 'orca-speech' || result.captureStage !== 'speech-dispatcher-submission' || result.audioVerified !== false || typeof result.atVersion !== 'string' || !result.atVersion.trim()) {
         throw new OrcaBridgeError('Invalid Orca startup handshake; native speech capture was not established', 'protocol error', receipt.commandId);
       }
       if (!Number.isSafeInteger(result.targetWindowId) || (result.targetWindowId as number) <= 1 || !Number.isSafeInteger(result.targetProcessId) || (result.targetProcessId as number) <= 0 || typeof result.targetClass !== 'string' || !result.targetClass.trim() || result.targetClass.length > 128 || (this.options.targetWindowId !== undefined && result.targetWindowId !== this.options.targetWindowId)) {
@@ -124,6 +129,7 @@ export class OrcaBackend implements Backend {
       const value = (key: string) => typeof result[key] === 'string' && result[key] ? result[key] as string : 'unknown';
       window.acknowledgedAt = receipt.acknowledgedAt;
       this.state = 'ready';
+      this.targetWindowId = result.targetWindowId as number;
       return {
         backend: 'orca-native', profile: 'orca', protocol: ORCA_NATIVE_PROTOCOL, sessionId: this.sessionId,
         capabilities: this.capabilities,
@@ -133,6 +139,13 @@ export class OrcaBackend implements Backend {
         collection: { quietMs: this.quietMs, maxWaitMs: this.maxWaitMs, attribution: 'temporal-only', speechCompletionSignal: false },
       };
     } catch (error) { await this.close(); throw error; }
+  }
+  /** Orca speech and input follow one exact visible Linux window, paired by a trusted session factory. */
+  preflight(context: BackendRunContext): void {
+    if (context.platform !== 'linux' || context.headless || !context.customBrowserSession || !Number.isSafeInteger(this.targetWindowId) || this.targetWindowId! < 2) throw new RawstepError('backend-precondition', 'Native Orca requires a visible Linux browser, exact native target and explicit prepaired browserSessionFactory.');
+  }
+  attachSession(session: BackendSession): void {
+    if (session.nativeTargetWindowId !== this.targetWindowId) throw new RawstepError('backend-precondition', 'Native browser window does not match the Orca speech/input target.');
   }
   async execute(action: BackendAction, options: BackendOperationOptions = {}): Promise<OrcaReceipt> {
     options.signal?.throwIfAborted(); this.assertReady();
@@ -146,7 +159,7 @@ export class OrcaBackend implements Backend {
         options.signal?.throwIfAborted();
         const receipt = await this.client.request('input.pressKeys', { sessionId: this.sessionId, keys }, options);
         options.signal?.throwIfAborted();
-        if (!record(receipt.result) || Object.keys(receipt.result).length !== 0) throw new OrcaBridgeError('Invalid native keyboard acknowledgement', 'protocol error', receipt.commandId);
+        if (!isRecord(receipt.result) || Object.keys(receipt.result).length !== 0) throw new OrcaBridgeError('Invalid native keyboard acknowledgement', 'protocol error', receipt.commandId);
         commands.push(receipt); window.acknowledgedAt = receipt.acknowledgedAt;
       }
       options.signal?.throwIfAborted(); this.assertReady();

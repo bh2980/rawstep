@@ -34,6 +34,12 @@ export async function smokePackageClosures(packs, directory, environment) {
     if(['@rawstep/core','@rawstep/policies','@rawstep/reports'].includes(target.name))await assert.rejects(access(join(cwd,'node_modules/playwright')));
     if(closure.has('@rawstep/screenreaders'))run(process.execPath,['--input-type=module','-e',`import {orcaBridgePath} from '@rawstep/screenreaders/orca';import {existsSync} from 'node:fs';import assert from 'node:assert/strict';const path=orcaBridgePath();assert.ok(path.startsWith(process.cwd()+'/node_modules/'));assert.ok(existsSync(path));`],cwd);
     if(expected.bin)assert.match(run(process.execPath,[join(cwd,'node_modules',target.name,'dist/cli/bin.js'),'--help'],cwd),/No model or API key is required/);
+    if(['@rawstep/cli','rawstep'].includes(target.name)){
+      // The dashboard is an optional peer: a CLI install must not pull it or its React UI stack.
+      await assert.rejects(access(join(cwd,'node_modules/@rawstep/dashboard')));await assert.rejects(access(join(cwd,'node_modules/react')));
+      const ui=(()=>{try{run(process.execPath,[join(cwd,'node_modules',target.name,'dist/cli/bin.js'),'ui','--port','43180'],cwd);return undefined}catch(error){return String(error.stderr)}})();
+      assert.match(ui??'ui unexpectedly started',/optional @rawstep\/dashboard/);
+    }
     if(target.name==='@rawstep/dashboard') {
       await writeFile(join(cwd,'dashboard-smoke.mjs'), `
 import assert from 'node:assert/strict';

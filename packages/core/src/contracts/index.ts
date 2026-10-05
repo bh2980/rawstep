@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '../defaults.js';
 import { resolveEnvironmentProfile } from '../profiles/schema.js';
 import type { EnvironmentProfile } from '../profiles/types.js';
 import { resolve, isAbsolute } from 'node:path';
@@ -9,9 +10,18 @@ export type RequestVerificationRule = { requestSeen: { urlIncludes: string; meth
 export type ResponseVerificationRule = { responseSeen: { urlIncludes: string; method?: string; status?: number } };
 export type ActivatedAnnouncementVerificationRule = { activatedAnnouncementIncludes: string };
 export type DomEventVerificationRule = { domEventSeen: { selector: string; event: string } };
-export type VerifyRule = { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
+/** A plain string means "includes"; matching is case-sensitive unless a regex flag says otherwise. */
+export type TextMatcher = string | { includes: string } | { equals: string } | { regex: string; flags?: string };
+export type ObservedEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
+/** Asks the page observer's timeline whether a change happened. `after` defaults to `start`: the initial load never counts. */
+export type EventVerificationRule = { event: { kind: ObservedEventKind; role?: string; name?: TextMatcher; text?: TextMatcher; attr?: string; value?: string; url?: TextMatcher }; after?: 'start' | 'lastActivation' };
+/** Where keyboard focus is now, from the observer's latest focus record. */
+export type FocusedVerificationRule = { focused: { role?: string; name?: TextMatcher } };
+export type NotVerificationRule = { not: VerifyRule };
+export type AnyVerificationRule = { any: VerifyRule[] };
+export type VerifyRule = EventVerificationRule | FocusedVerificationRule | NotVerificationRule | AnyVerificationRule | { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
 export type VerifySpec = { all: VerifyRule[] };
-export type VerifyRuleType = 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
+export type VerifyRuleType = 'event' | 'focused' | 'not' | 'any' | 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
 /** Independent observations, never task expectations or policy-visible page context. */
 export type VerificationWitness =
   | { kind: 'title'; title: string }
@@ -20,6 +30,7 @@ export type VerificationWitness =
   | { kind: 'request'; url: string; method: string; timestamp: string }
   | { kind: 'response'; url: string; method: string; status: number; ok: boolean; timestamp: string }
   | { kind: 'dom-event'; selector: string; event: string; url: string; timestamp: string }
+  | { kind: 'observer-event'; event: { kind: string; step: number; role?: string | null; name?: string; text?: string; attr?: string; value?: string | null; url?: string; sameDocument?: boolean } }
   | { kind: 'activation-speech'; provenance?: 'native' | 'simulation'; speech: string[]; outputEventIds: string[]; activationStep: number; window: ScreenReaderObservation['window']; association: 'temporal-only' };
 export type VerificationRuleRecord = {
   /** Zero-based position in task.verify.all. */
@@ -42,6 +53,8 @@ export type Task = {
   timeoutMs?: number;
   verify: VerifySpec;
   input?: Record<string, string>;
+  /** Per-input handling. Inputs are sensitive unless marked otherwise: the model never sees their values. */
+  inputOptions?: Record<string, TaskInputOptions>;
   navigation?: NavigationPolicy;
 };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
@@ -76,11 +89,15 @@ export interface DecisionPolicy {
     history: readonly HistoryEntry[];
     allowedActions: AllowedActions;
     /** Named values are task-provided; the policy cannot submit arbitrary text. */
-    inputs: Readonly<Record<string, string>>;
+    inputs: Readonly<Record<string, InputDescriptor>>;
     signal: AbortSignal;
   }): Decision | Promise<Decision>;
 }
-export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string };
+export type TaskInputOptions = { sensitive?: boolean; description?: string };
+/** What a policy may know about a named input: never its value. */
+export type InputDescriptor = { sensitive: boolean; description?: string };
+/** `sensitive` asks the backend to keep the typed value out of what the policy observes. */
+export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string; sensitive?: boolean };
 export type BackendCapabilities = { intents: readonly string[]; keys: readonly string[]; textEntry: boolean; replaceText: boolean };
 export type BackendOutput = { sequence: number; receivedAt: string; text: string; raw: unknown };
 export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string; startedAt: string; endedAt: string; reason: string; outputs: readonly BackendOutput[]; speech: readonly string[] };
@@ -88,7 +105,17 @@ export type BackendKeyboardObservation = { kind: 'keyboard'; windowId: string; s
 export type BackendObservation = BackendSpeechObservation | BackendKeyboardObservation;
 /** Generic backend boundary: transport and platform semantics belong in adapters. */
 export type BackendOperationOptions = { signal?: AbortSignal };
+/** What the runner knows about this run's host and browser, for a backend's own preconditions. */
+export type BackendRunContext = { headless: boolean; platform: string; customBrowserSession: boolean };
+/** The opened browser session as a backend sees it; `page` is the automation page (Playwright in Rawstep's browser package). */
+export type BackendSession = { readonly page: unknown; readonly nativeTargetWindowId?: number };
 export interface Backend {
+  /** Called after start(): throw when this run cannot proceed here (platform, visibility, session pairing). */
+  preflight?(context: BackendRunContext): void | Promise<void>;
+  /** Receives the opened browser session before the first observation; throw to refuse a session this backend cannot drive. */
+  attachSession?(session: BackendSession): void | Promise<void>;
+  /** Budget for close(); native bridges may need longer to release OS state. */
+  readonly cleanupTimeoutMs?: number;
   readonly observationKind?: 'screenreader' | 'keyboard';
   /** Missing means unspecified; only explicit simulation may synthesize output. */
   readonly evidenceProvenance?: 'native' | 'simulation';
@@ -111,17 +138,33 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','navigation','config','profile'], 'Task');
+  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','config','profile'], 'Task');
   if (raw.mode !== undefined && raw.mode !== 'screenreader' && raw.mode !== 'keyboard') throw new Error('Task mode must be screenreader or keyboard.');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
   if (!object(raw.verify) || !Array.isArray(raw.verify.all) || raw.verify.all.length === 0) throw new Error('Task verify.all must contain at least one independent verification rule.');
   onlyKeys(raw.verify, ['all'], 'Task verify');
-  const rules = raw.verify.all.map(validateVerifyRule);
+  const rules = raw.verify.all.map(rule => validateVerifyRule(rule));
   const input = raw.input;
   if (input !== undefined && (!object(input) || Object.keys(input).some(k => !k.trim()) || Object.values(input).some(v => typeof v !== 'string'))) throw new Error('Task input must map names to string values.');
-  const maxSteps = raw.maxSteps ?? 40;
-  const timeoutMs = raw.timeoutMs ?? 120_000;
+  const inputOptions = raw.inputOptions;
+  if (inputOptions !== undefined) {
+    if (!object(inputOptions)) throw new Error('Task inputOptions must map input names to options.');
+    for (const [name, option] of Object.entries(inputOptions)) {
+      if (!input || !Object.hasOwn(input, name)) throw new Error(`Task inputOptions names unknown input ${name}.`);
+      if (!object(option)) throw new Error(`Task inputOptions.${name} must be an object.`);
+      onlyKeys(option, ['sensitive', 'description'], `inputOptions.${name}`);
+      if (option.sensitive !== undefined && typeof option.sensitive !== 'boolean') throw new Error(`inputOptions.${name}.sensitive must be boolean.`);
+      if (option.description !== undefined && (typeof option.description !== 'string' || !option.description.trim() || option.description.length > 200)) throw new Error(`inputOptions.${name}.description must be a nonempty string up to 200 characters.`);
+    }
+  }
+  // The goal goes to the model verbatim; a sensitive value written there would defeat input hiding.
+  for (const [name, value] of Object.entries((input ?? {}) as Record<string, string>)) {
+    const sensitive = (object(inputOptions) && object(inputOptions[name]) ? inputOptions[name].sensitive : undefined) !== false;
+    if (sensitive && value.length >= 4 && goal.includes(value)) throw new Error(`Task goal contains the value of input ${name}; refer to the input by name instead.`);
+  }
+  const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
+  const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
   if (!Number.isSafeInteger(maxSteps) || (maxSteps as number) < 1) throw new Error('maxSteps must be a positive integer.');
   if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 2_147_483_647) throw new Error('timeoutMs must be an integer from 1 to 2147483647.');
   if (raw.config !== undefined && !object(raw.config)) throw new Error('Task config must be an object.');
@@ -134,7 +177,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
     if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) throw new Error('Task URL must use http, https, or file.');
     resolvedUrl = parsed.href;
   } else resolvedUrl = pathToFileURL(isAbsolute(url) ? url : resolve(baseDir, url)).href;
-  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), navigation };
+  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
 }
 export function validateNavigation(value: unknown): NavigationPolicy {
   if (value === undefined) return { strategy: 'same-origin' };
@@ -157,8 +200,52 @@ export function validateNavigation(value: unknown): NavigationPolicy {
   }
   throw new Error('Invalid navigation policy.');
 }
-function validateVerifyRule(value: unknown): VerifyRule {
+const OBSERVED_EVENT_KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation', 'page-blur', 'page-focus'];
+function validateTextMatcher(value: unknown, label: string): void {
+  if (typeof value === 'string') { text(value, label); if (value.length > 200) throw new Error(`${label} must be at most 200 characters.`); return; }
+  if (!object(value) || Object.keys(value).length < 1) throw new Error(`${label} must be a string or one of includes, equals, regex.`);
+  if ('regex' in value) {
+    onlyKeys(value, ['regex', 'flags'], label); text(value.regex, `${label}.regex`);
+    if (value.flags !== undefined && (typeof value.flags !== 'string' || !/^[imsu]*$/.test(value.flags))) throw new Error(`${label}.flags may only contain i, m, s, u.`);
+    if ((value.regex as string).length > 200) throw new Error(`${label}.regex must be at most 200 characters.`);
+    try { new RegExp(value.regex as string, value.flags as string | undefined); } catch { throw new Error(`${label}.regex is not a valid regular expression.`); }
+    return;
+  }
+  if (Object.keys(value).length !== 1 || !('includes' in value || 'equals' in value)) throw new Error(`${label} must use exactly one of includes, equals or regex.`);
+  const v = value.includes ?? value.equals; text(v, label); if ((v as string).length > 200) throw new Error(`${label} must be at most 200 characters.`);
+}
+export function matchesText(matcher: TextMatcher, value: string | null | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  if (typeof matcher === 'string') return value.includes(matcher);
+  if ('equals' in matcher) return value === matcher.equals;
+  if ('includes' in matcher) return value.includes(matcher.includes);
+  return new RegExp(matcher.regex, matcher.flags).test(value);
+}
+function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
+  if (depth > 4) throw new Error('Verification rules may nest at most four levels.');
+  if (object(value) && 'event' in value) {
+    onlyKeys(value, ['event', 'after'], 'event rule');
+    if (value.after !== undefined && value.after !== 'start' && value.after !== 'lastActivation') throw new Error('event rule after must be start or lastActivation.');
+    if (!object(value.event)) throw new Error('event rule needs an event object.');
+    onlyKeys(value.event, ['kind', 'role', 'name', 'text', 'attr', 'value', 'url'], 'event');
+    if (!OBSERVED_EVENT_KINDS.includes(String(value.event.kind))) throw new Error(`event.kind must be one of ${OBSERVED_EVENT_KINDS.join(', ')}.`);
+    for (const key of ['role', 'attr', 'value']) if (value.event[key] !== undefined) text(value.event[key], `event.${key}`);
+    for (const key of ['name', 'text', 'url']) if (value.event[key] !== undefined) validateTextMatcher(value.event[key], `event.${key}`);
+    return value as EventVerificationRule;
+  }
   if (!object(value) || Object.keys(value).length !== 1) throw new Error('Each verification rule must contain one supported rule.');
+  if ('focused' in value) {
+    if (!object(value.focused) || !Object.keys(value.focused).length) throw new Error('focused rule needs role and/or name.');
+    onlyKeys(value.focused, ['role', 'name'], 'focused');
+    if (value.focused.role !== undefined) text(value.focused.role, 'focused.role');
+    if (value.focused.name !== undefined) validateTextMatcher(value.focused.name, 'focused.name');
+    return value as FocusedVerificationRule;
+  }
+  if ('not' in value) return { not: validateVerifyRule(value.not, depth + 1) };
+  if ('any' in value) {
+    if (!Array.isArray(value.any) || !value.any.length || value.any.length > 20) throw new Error('any must list 1 to 20 rules.');
+    return { any: value.any.map(rule => validateVerifyRule(rule, depth + 1)) };
+  }
   for (const key of ['titleIncludes','urlIncludes','textVisible','textVisibleExact','activatedAnnouncementIncludes']) {
     if (key in value) { text(value[key], key); return value as VerifyRule; }
   }
@@ -176,4 +263,12 @@ function validateVerifyRule(value: unknown): VerifyRule {
     return value as RequestVerificationRule | ResponseVerificationRule;
   }
   throw new Error('Unsupported verification rule.');
+}
+
+/** Policy-facing view of a task's inputs: names, sensitivity and descriptions, never values. */
+export function describeInputs(task: Pick<Task, 'input' | 'inputOptions'>): Readonly<Record<string, InputDescriptor>> {
+  return Object.freeze(Object.fromEntries(Object.keys(task.input ?? {}).map(name => {
+    const option = task.inputOptions?.[name];
+    return [name, Object.freeze({ sensitive: option?.sensitive !== false, ...(option?.description ? { description: option.description } : {}) })];
+  })));
 }

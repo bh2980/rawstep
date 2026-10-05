@@ -2,7 +2,9 @@ import { applyProfile, installProfileStyles, type AppliedProfile, type Environme
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import type { ResolvedNavigationPolicy, VerifySpec } from "@rawstep/core/contracts";
 import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants.js";
+import { RawstepError } from "@rawstep/core/errors";
 import { installNavigationRequestBoundary } from "./navigation-boundary.js";
+import { installPageObserver, type ObserverOptions, type PageObserver } from "../observer/index.js";
 
 export type NetworkRequestRecord = {
   url: string;
@@ -61,6 +63,8 @@ export type BrowserSession = {
   };
   /** Exact native window owned by a trusted prepaired factory, when applicable. */
   nativeTargetWindowId?: number;
+  /** Isolated-world change recorder for hints and goal signals; never visible to the policy. */
+  observer?: PageObserver;
   appliedProfile?: AppliedProfile;
   setupTimings?: {
     browserLaunchMs: number;
@@ -71,13 +75,13 @@ export type BrowserSession = {
   close(): Promise<void>;
 };
 
-export class BrowserAccessBlockedError extends Error {
-  constructor(readonly url:string,readonly status:number|undefined,reason:string){super(reason);this.name='BrowserAccessBlockedError';}
+export class BrowserAccessBlockedError extends RawstepError {
+  constructor(readonly url:string,readonly status:number|undefined,reason:string){super('access-blocked',reason,{outcome:{status:'inconclusive',reason:'access-blocked'}});this.name='BrowserAccessBlockedError';}
 }
 
-export class BrowserSetupError extends Error {
+export class BrowserSetupError extends RawstepError {
   constructor(message: string, readonly blockedNavigations: BlockedNavigationRecord[], readonly warnings: NavigationGuardWarningRecord[], cause: unknown) {
-    super(message, { cause });
+    super("browser-setup", message, { cause });
     this.name = "BrowserSetupError";
   }
 }
@@ -91,6 +95,8 @@ export type CreateBrowserSessionOptions = {
   proxyServer?: string;
   navigation?: ResolvedNavigationPolicy;
   verify?: VerifySpec;
+  /** Page observer is on by default; false skips it, an object tunes its limits. */
+  observe?: boolean | ObserverOptions;
 };
 
 export function validateProxyServer(value: string): string {
@@ -121,6 +127,7 @@ export async function createBrowserSession(
   const blockedNavigations: BlockedNavigationRecord[] = [];
   const navigationGuardWarnings: NavigationGuardWarningRecord[] = [];
   let stopNavigationGuard = () => {};
+  let observer: PageObserver | undefined;
   try {
     const context = await browser.newContext({
       serviceWorkers: "block",
@@ -132,6 +139,8 @@ export async function createBrowserSession(
     });
     const page = await context.newPage();
     if (options.profile) await installProfileStyles(page, options.profile);
+    // Before the first navigation, so the initial document is observed too.
+    observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
     const network: NetworkLog = {
       requests: [],
       responses: []
@@ -265,6 +274,7 @@ export async function createBrowserSession(
       context,
       page,
       network,
+      ...(observer ? { observer } : {}),
       domEvents,
       navigation: {
         policy: navigationPolicy,
@@ -281,6 +291,7 @@ export async function createBrowserSession(
       takeNavigationGuardWarnings: () => navigationGuardWarnings.splice(0, navigationGuardWarnings.length),
       close: async () => {
         stopNavigationGuard();
+        await observer?.close();
         try {
           await context.close();
         } finally {

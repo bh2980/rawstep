@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS, isLoopbackHostname } from '@rawstep/core/defaults';
 import { validateCapabilities, validateSystemOneRequest, validateSystemOneResult, type SystemOneCapabilities, type SystemOneClient, type SystemOneRequest, type SystemOneResult } from './client.js';
 
 export type SystemOneHttpOptions = {
@@ -7,7 +8,7 @@ export function modelBaseURL(value: string): URL {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error('Model base URL must be an absolute HTTP(S) URL.'); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash ||
-      (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+      (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)))
     throw new Error('Model base URL requires HTTPS, or loopback HTTP, without credentials/query/fragment.');
   url.pathname = url.pathname.replace(/\/$/, '') + '/'; return url;
 }
@@ -33,7 +34,7 @@ abstract class HttpClient implements SystemOneClient {
   constructor(protected readonly options: SystemOneHttpOptions) {
     this.base = modelBaseURL(options.baseURL);
     if (!options.model?.trim()) throw new Error('An explicit SystemOne model is required.');
-    this.timeoutMs = options.timeoutMs ?? 60_000;
+    this.timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new Error('Invalid SystemOne timeout.');
     this.fetcher = options.fetch ?? fetch;
   }
@@ -112,7 +113,7 @@ export class OpenRouterSystemOneClient extends HttpClient {
     if (!options.apiKey?.trim()) throw new Error('OpenRouter SystemOne requires an API key. Set RAWSTEP_DECISION_OPENROUTER_API_KEY for a CLI override.');
     validateCapabilities(options.capabilities);
     this.capabilities = Object.freeze({ ...options.capabilities, inputs: Object.freeze([...options.capabilities.inputs]) });
-    const local = ['localhost', '127.0.0.1', '[::1]'].includes(this.base.hostname);
+    const local = isLoopbackHostname(this.base.hostname);
     if (!local && (this.base.origin !== 'https://openrouter.ai' || this.base.pathname !== '/api/v1/'))
       throw new Error('OpenRouter SystemOne base URL must be https://openrouter.ai/api/v1 (or loopback for tests).');
   }

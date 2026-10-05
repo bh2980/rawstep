@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +22,7 @@ describe("versioned evidence trace", () => {
     recorder.append("screen-reader.output", { text: "  Save\nbutton  " }, { commandId: "cmd-2", timestamp: "2026-01-01T00:00:00.100Z" });
     await recorder.finalize({ status: "success", reason: "verified" });
     const trace = await readTrace(dir);
-    expect(trace.schemaVersion).toBe("2.1");
+    expect(trace.schemaVersion).toBe("2.2");
     expect(trace.events.map((event) => event.seq)).toEqual([1, 2]);
     expect(trace.events[0]).toMatchObject({ id: first.id, collectionWindow: window, association: "temporal-only", source: "screen-reader" });
     expect(trace.events[0]!.data).toEqual({ text: "  Save\nbutton  ", payload: ["Save", "Save"] });
@@ -178,10 +179,14 @@ describe("versioned evidence trace", () => {
 
 it("preserves opaque valid PNG evidence and truthful flags with one-character inputs", async () => {
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/6LsAAAAASUVORK5CYII=";
-  const { recorder } = await fixture({ query: "A" });
+  const { dir, recorder } = await fixture({ query: "A" });
   const screenshot = { pngBase64: png, viewport: { w: 1, h: 1 } };
   const event = recorder.append("keyboard.observation", { kind: "keyboard", screenshot, previousScreenshot: screenshot }, { source: "runner" });
-  expect(event.data).toEqual({ kind: "keyboard", screenshot, previousScreenshot: screenshot });
+  // 2.2 stores the pixels as a blob; the reference (not the base64) survives one-character-input redaction.
+  const sha256 = createHash("sha256").update(Buffer.from(png, "base64")).digest("hex");
+  const ref = { sha256, blob: `blobs/${sha256}.png`, bytes: Buffer.from(png, "base64").length, viewport: { w: 1, h: 1 } };
+  expect(event.data).toEqual({ kind: "keyboard", screenshot: ref, previousScreenshot: ref });
+  expect(Buffer.from(await readFile(join(dir, ref.blob))).equals(Buffer.from(png, "base64"))).toBe(true);
   expect(event.redacted).toBe(false);
   const suppressed = recorder.append("keyboard.observation", { kind: "keyboard", screenshot: "[REDACTED]" }, { source: "runner", redacted: true });
   expect(suppressed.redacted).toBe(true);

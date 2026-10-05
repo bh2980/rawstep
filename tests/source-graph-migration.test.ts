@@ -40,7 +40,8 @@ describe('physical workspace ownership and aggregate verification contract',()=>
           if(specifier!.startsWith('.'))expect(relative(base,resolve(dirname(file),specifier!))).not.toMatch(/^\.\./);
           else if(!specifier!.startsWith('node:')){
             const dep=specifier!.startsWith('@')?specifier!.split('/').slice(0,2).join('/'):specifier!.split('/')[0]!;
-            expect(Object.keys(manifest.dependencies??{}),`${file}: ${specifier}`).toContain(dep);
+            // Peers count as declared: consumers own playwright and the optional dashboard.
+            expect([...Object.keys(manifest.dependencies??{}),...Object.keys(manifest.peerDependencies??{})],`${file}: ${specifier}`).toContain(dep);
             if(dep.startsWith('@rawstep/')){const other=JSON.parse(await readFile(`packages/${dep.slice(9)}/package.json`,'utf8'));expect(Object.keys(other.exports)).toContain(specifier===dep?'.':'./'+specifier!.slice(dep.length+1));}
           }
         }

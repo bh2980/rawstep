@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TraceRecorder } from '@rawstep/core/trace';
-import { analyzeSavedTrace } from '@rawstep/reports/analyze';
+import { analyzeSavedTrace, analyzeTrace } from '@rawstep/reports/analyze';
 import { LlmTraceAnalyzer, analysisTracePayload } from '@rawstep/reports/analyze/llm';
 import { runCli } from '@rawstep/cli/cli';
 const cleanup:(()=>Promise<unknown>)[]=[];
@@ -26,7 +26,14 @@ describe('explicit finalized-trace LLM analysis',()=>{
     expect(sent.messages[0].content).toContain('existing trace event IDs'); expect(sent.messages[1].content).toContain('Compare keyboard navigation');
     const abortFetch: typeof fetch = async (_url, init) => { if(init!.signal!.aborted) throw new Error('aborted'); return new Promise((_resolve,reject)=>init!.signal!.addEventListener('abort',()=>reject(new Error('aborted')),{once:true})); };
     const pending=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:abortFetch,signal:controller.signal}).analyze(trace);
-    controller.abort(); await expect(pending).rejects.toThrow('LLM analysis failed');
+    controller.abort(); await expect(pending).rejects.toMatchObject({ name: 'RawstepError', code: 'analysis-cancelled' });
+    // Callers can tell cancellation from failure without any provider text in the report.
+    const cancelled = new AbortController(); cancelled.abort();
+    const report = await analyzeTrace(trace, new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:abortFetch,signal:cancelled.signal}));
+    expect(report).toMatchObject({ status: 'failed', failure: 'cancelled', error: 'Analyzer execution or evidence validation failed.' });
+    // The LLM analyzer validates its own output, so an invented event ID surfaces as an analyzer error.
+    expect((await analyzeTrace(trace, new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:fetcher}))).failure).toBe('analyzer-error');
+    expect((await analyzeTrace(trace, { id: 'bad', analyze: () => ({ summary: 'x', findings: [{ id: 'f', title: 't', description: 'd', severity: 'info', evidenceEventIds: ['missing'] }] }) })).failure).toBe('invalid-result');
   });
   it('calls actual local HTTP only on analyze --llm and preserves execution artifacts',async()=>{
     const {dir,trace}=await fixture();const original=await readFile(join(dir,'trace.json'),'utf8');const sent:any[]=[];

@@ -22,6 +22,7 @@ Rawstep has seven engine packages and one private dashboard workspace. The compa
 | CLI and matrix orchestration | `packages/cli/src/cli/`, `matrix/` | CLI, matrix, package smoke |
 | Existing `rawstep/*` import compatibility | `packages/rawstep/src/` | facade export/consumer tests |
 | Local dashboard, shadcn components and JSON UI catalog | `packages/dashboard/src/` | dashboard build, catalog and browser checks |
+| Public API roots (explicit export lists), package-internal helpers in `src/internal/` | `packages/*/src/index.ts` | `tests/public-api.test.ts`, source-graph test |
 | Build/pack/source reproduction | `scripts/` and package manifests | package/DAG/source-smoke checks |
 
 Root `examples/` and `fixtures/` contain runnable inputs. Optional model programs stay in examples and are not mandatory npm runtime dependencies. Generated corpus source remains reproducible through the evidence scripts; do not silently edit calibration results by hand.

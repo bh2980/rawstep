@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderReportHtml, summarizeTrace, writeReport } from "@rawstep/reports/report";
 import type { RunTrace, TraceEvent } from "@rawstep/core/trace";
+import { extractHints, type HintReport } from "@rawstep/reports/hints";
 
 const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))); });
@@ -175,5 +176,29 @@ describe("evidence-first report", () => {
     const trace = fixture([{ type: "action.result", data: { ok: false } }, { type: "verifier.result", source: "verifier", data: { passed: false, failures: ["Expected Done"] } }]);
     expect(renderReportHtml(trace)).toContain("No per-rule grounds recorded in this trace");
     expect(renderReportHtml(trace)).toContain("Action not recorded");
+  });
+
+  it("renders a friction hints section only when hints are given and escapes their text", async () => {
+    const trace = fixture([{ type: "run.error", data: { message: "x" } }]);
+    const base = extractHints(trace);
+    expect(renderReportHtml(trace)).not.toContain("Friction hints");
+    expect(renderReportHtml(trace, undefined, { hints: base })).toContain("No friction hints.");
+    const hints: HintReport = { ...base, goalReached: true, steps: 9, durationMs: 2500, reference: { runId: "ref-run", steps: 3, durationMs: 1000, goalReached: true },
+      hints: [{ kind: "excess-keystrokes", certainty: "observed", steps: [2, 9], summary: "<script>alert(1)</script> 11 Tabs", detail: {}, evidence: [] }] };
+    const html = renderReportHtml(trace, undefined, { hints });
+    expect(html).not.toContain("<script>alert(1)</script>");
+    const document = new JSDOM(html).window.document;
+    expect(document.querySelector("script")).toBeNull();
+    const section = document.querySelector("#hints")!.closest("section")!;
+    expect(section.textContent).toContain("Goal reached: yes · 9 steps · 2.5 s");
+    expect(section.textContent).toContain("Reference run ref-run: 3 steps");
+    expect([...section.querySelectorAll("tbody td")].map(cell => cell.textContent)).toEqual(["2, 9", "excess-keystrokes", "observed", "<script>alert(1)</script> 11 Tabs"]);
+    expect(html.indexOf('id="hints"')).toBeLessThan(html.indexOf('id="actions"'));
+    const directory = await mkdtemp(join(tmpdir(), "rawstep-report-hints-"));
+    directories.push(directory);
+    const files = await writeReport(trace, undefined, directory, { hints });
+    expect(JSON.parse(await readFile(files.jsonPath, "utf8")).hints).toEqual(hints);
+    expect(await readFile(files.htmlPath, "utf8")).toContain("Friction hints");
+    expect(JSON.parse(await readFile((await writeReport(trace, undefined, directory)).jsonPath, "utf8"))).not.toHaveProperty("hints");
   });
 });

@@ -73,7 +73,7 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { AtDriverBackend, KEYS, readTrace, runTask } from "rawstep";
+import { AtDriverBackend, AT_DRIVER_KEYS, readTrace, runTask } from "rawstep";
 import { runCli } from "rawstep/cli";
 import { FakeSystemOneClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot';
@@ -115,7 +115,7 @@ try {
   assert.deepEqual(stderr, []);
   assert.deepEqual(server.commands.map(command => command.method), ["session.new", "interaction.userIntent"]);
   assert.equal(server.commands[0].params.capabilities.alwaysMatch.atName, "VoiceOver");
-  assert.deepEqual(server.commands[1].params.keys, [KEYS.Control, KEYS.Alt, KEYS.Space]);
+  assert.deepEqual(server.commands[1].params.keys, [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, AT_DRIVER_KEYS.Space]);
   const recorded = await readTrace(out);
   assert.equal(recorded.outcome.status, "success");
   assert.equal(recorded.task.id, "installed-websocket-roundtrip");

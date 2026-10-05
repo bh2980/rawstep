@@ -80,7 +80,7 @@ Remote screenshots require --allow-remote-model and HTTPS. Generic HTTP response
 
 Speech policies send goal, speech and decision-only history. Visual policies send goal, current/previous inline PNG and decision-only history. Built-in adapters exclude DOM/AX, verifier feedback, raw input values and external image paths/URLs. Candidate input names are allowed; values stay with the runner. Values may nevertheless appear in subsequent speech/images. Saved trace redaction does not anonymize live model requests.
 
-SystemOne chooses navigation, activation, named entry or stop. It does not prove actual focus, conformance or final success. Independent verification remains authoritative. Focus gates only narrow choices; repeat guards only stop and never invent replacement actions. Probability is not measured accuracy; native speech association remains temporal-only.
+SystemOne chooses navigation, activation, named entry or stop. It does not prove actual focus, conformance or final success. Independent verification remains authoritative. Focus gates only narrow choices; repeat guards only stop and never invent replacement actions. The visual repetition guard is off by default for `--decision systemone` (use `--repetition-guard` to enable it) and the model's `stuck`/`uncertain` choices can be removed with `--no-model-give-up`; see [CLI](./cli.md). Probability is not measured accuracy; native speech association remains temporal-only.
 
 Analyze --llm requires a finalized input-redacted trace. Every saved event is included; PNG bytes are explicitly omitted, never captioned. Oversized input fails without silent truncation. Invalid IDs/JSON, timeout and analysis errors cannot change the original trace or outcome. Matrix rows separately expose analysisStatus/reportStatus and preserve execution metrics after postprocessing failures. Run/matrix never automatically invoke this LLM analyzer. Trusted custom modules remain caller-controlled.
 
@@ -115,4 +115,4 @@ Native VoiceOver evidence is separate from screenshot evidence. The OpenRouter i
 
 0.2 removes legacy-run, rawstep/legacy, @rawstep/browser/legacy and their duplicate backend. Use screenshot-run --script/--policy and runScreenshotTask/ScreenshotKeyboardBackend. SCREENSHOT_KEYS replaces the old raw-key set; named replaceText remains available. Explicitly convert screenreader task files to keyboard for screenshot execution.
 
-Saved 2.0/2.1 traces, including historical legacy-keyboard metadata, remain readable. Existing trace/image artifacts are not deleted. Package version 0.2.0 is prepared locally, not published.
+Saved 2.0/2.1 traces (inline PNGs; new 2.2 traces store screenshots under `blobs/`), including historical legacy-keyboard metadata, remain readable. Existing trace/image artifacts are not deleted. Package version 0.2.0 is prepared locally, not published.

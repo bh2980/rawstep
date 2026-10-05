@@ -34,6 +34,6 @@ describe('retained action/input safety responsibilities',()=>{
     const trace=await runTask(task,{backend,browserSessionFactory:async()=>browser,outDir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}]),verifier:async()=>({passed:false,failures:['Not complete']})});
     expect(execute).toHaveBeenCalledTimes(editable?1:0);
     expect(trace.events.find(event=>event.type==='browser.input-gate')?.data).toMatchObject({editable});
-    if(editable)expect(execute).toHaveBeenCalledWith({kind:'typeText',text:'test@example.test'}, {signal:expect.any(AbortSignal)});
+    if(editable)expect(execute).toHaveBeenCalledWith({kind:'typeText',text:'test@example.test',sensitive:true}, {signal:expect.any(AbortSignal)});
   });
 });

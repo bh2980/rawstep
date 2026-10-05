@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { defaultConfig, defaultModes } from '../packages/dashboard/src/shared/config.js';
+import { configSchema, defaultConfig, defaultModes, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
 import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
 import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
 import { speechChoices } from '@rawstep/policies/systemone';
@@ -12,6 +12,8 @@ import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { ConfigView, DashboardConfig, Experiment, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
+import { createHash, randomUUID } from 'node:crypto';
+import type { OverviewRow, RunEventMessage, RunHintsView, RunStepsView } from '../packages/dashboard/src/shared/api.js';
 import { discover } from '../packages/dashboard/src/server/models.js';
 
 const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];
@@ -97,6 +99,28 @@ describe('dashboard API and sequential queue', () => {
     const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.globals.keyboard.keys).toEqual([]);
     expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
   });
+  it('serves blob-backed screenshots from the run directory and embeds them in the run report', async () => {
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from('dashboard-pixels')]);
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out); await trace.initialize();
+      trace.append('keyboard.observation', { screenshot: { pngBase64: png.toString('base64'), viewport: { w: 2, h: 2 } } }, { source: 'runner' });
+      return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, modelIds: ['a'], promptIds: ['baseline'] }) });
+    const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
+    await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
+    const base = app.url + '/api/experiments/' + experiment.id + '/runs/' + run.id;
+    const events = await (await fetch(base + '/events')).json() as { id: string; data: { screenshot: Record<string, unknown> } }[];
+    const shot = events.find(e => e.data?.screenshot)!;
+    expect(shot.data.screenshot).toMatchObject({ blob: expect.stringMatching(/^blobs\/[a-f0-9]{64}\.png$/), viewport: { w: 2, h: 2 } });
+    expect(JSON.stringify(events)).not.toContain(png.toString('base64'));
+    const image = await fetch(base + '/png/' + shot.id);
+    expect(image.headers.get('content-type')).toBe('image/png'); expect(Buffer.from(await image.arrayBuffer()).equals(png)).toBe(true);
+    expect((await fetch(base + '/png/event-999999')).status).toBe(404);
+    const report = await (await fetch(base + '/report')).text();
+    expect(report).toContain('data:image/png;base64,' + png.toString('base64')); expect(report).not.toContain('src="blobs/');
+  });
   it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
     const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.models[0]!.inputs = ['text']; config.models[0]!.maxImages = 0;
     await store.save(config, initial.revision, { file: 'task.json', task });
@@ -152,5 +176,121 @@ describe('dashboard API and sequential queue', () => {
       expect(sent?.messages[1]!.content).toContain('Global comparison focus');
       expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+  });
+});
+describe('dashboard early give-up settings', () => {
+  it('loads a saved config without the new policy fields and defaults them', async () => {
+    const dir = await root(), store = new ProjectStore(dir), first = await store.initialize();
+    const old = JSON.parse(JSON.stringify(first.config)); delete old.globals.policy.repetitionGuard; delete old.globals.policy.modelGiveUp;
+    await writeFile(store.path, JSON.stringify(old));
+    const policy = (await new ProjectStore(dir).read()).config.globals.policy;
+    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(defaultConfig().globals.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(() => configSchema.parse({ ...old, globals: { ...old.globals, policy: { ...old.globals.policy, repetitionGuard: 'sometimes' } } })).toThrow();
+  });
+  it('resolves auto by model family and honours explicit on/off', () => {
+    const llm = { family: 'LLM' as const }, systemOne = { family: 'SystemOne' as const }, hosted = { provider: 'systemone' as const }, local = { provider: 'screenshot' as const };
+    expect(resolveRepetitionGuard('auto', systemOne, hosted)).toBe(false);
+    expect(resolveRepetitionGuard('auto', llm, { provider: 'openai' })).toBe(true);
+    expect(resolveRepetitionGuard('auto', systemOne, local)).toBe(true);
+    expect(resolveRepetitionGuard('on', systemOne, hosted)).toBe(true);
+    expect(resolveRepetitionGuard('off', llm, { provider: 'openai' })).toBe(false);
+  });
+});
+describe('dashboard run views and live events', () => {
+  const png = (label: string) => Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from(label)]).toString('base64');
+  /** One recorded run: a key per step, each followed by a distinct screenshot, ending with the given outcome. */
+  const script = (keys: string[], status: 'success' | 'failure') => async (trace: TraceRecorder) => {
+    trace.append('keyboard.observation', { screenshot: { pngBase64: png('start') } }, { source: 'runner' });
+    keys.forEach((key, i) => {
+      trace.append('policy.decision', { step: i + 1, decision: { action: { kind: 'key', key } } }, { source: 'policy' });
+      trace.append('action.result', { step: i + 1, ok: true, action: { kind: 'key', key } });
+      trace.append('keyboard.observation', { screenshot: { pngBase64: png('step' + i) } }, { source: 'runner' });
+    });
+    return { status, steps: keys.length };
+  };
+  async function launch(scripts: (((trace: TraceRecorder) => Promise<{ status: 'success' | 'failure'; steps: number }>) | 'throw')[]) {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const next = scripts.shift(); if (!next || next === 'throw') throw new Error('no trace');
+      const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out); await trace.initialize();
+      return trace.finalize(await next(trace));
+    } }); apps.push(app);
+    const experiment = async (modelIds: string[], repeats = 1) => {
+      const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, modelIds, promptIds: ['baseline'], repeats }) });
+      const exp = await created.json() as Experiment;
+      await waitFor(async () => exp.runs.every(r => app.queue.find(exp.id, r.id).reportStatus !== 'pending' && !!app.queue.find(exp.id, r.id).endedAt));
+      return exp;
+    };
+    const get = (exp: Experiment, run: number, tail: string) => fetch(`${app.url}/api/experiments/${exp.id}/runs/${exp.runs[run]!.id}/${tail}`);
+    return { app, experiment, get };
+  }
+  it('serves step views with screenshots, a missing trace as empty steps, and 404 for unknown runs', async () => {
+    const { app, experiment, get } = await launch([script(['Tab', 'Enter'], 'success'), 'throw']);
+    const ok = await experiment(['a']), broken = await experiment(['a']);
+    const view = await (await get(ok, 0, 'steps')).json() as RunStepsView;
+    expect(view).toMatchObject({ experimentId: ok.id, runId: ok.runs[0]!.id, live: false });
+    expect(view.steps.map(s => s.step)).toEqual([0, 1, 2]);
+    expect(view.steps[1]).toMatchObject({ action: { kind: 'key', key: 'Tab' }, ok: true });
+    expect(view.steps.every(s => /^[a-f0-9]{64}$/.test(s.screenshot!.sha256))).toBe(true);
+    const image = await get(ok, 0, 'png/' + encodeURIComponent(view.steps[2]!.screenshot!.eventId));
+    expect(image.status).toBe(200); expect(createHash('sha256').update(Buffer.from(await image.arrayBuffer())).digest('hex')).toBe(view.steps[2]!.screenshot!.sha256);
+    expect(await (await get(broken, 0, 'steps')).json()).toMatchObject({ steps: [], live: false });
+    expect((await fetch(`${app.url}/api/experiments/${ok.id}/runs/${randomUUID()}/steps`)).status).toBe(404);
+    expect((await fetch(`${app.url}/api/experiments/${randomUUID()}/runs/${randomUUID()}/hints`)).status).toBe(404);
+  });
+  it('compares hints with the shortest goal-reaching run of the same task across experiments', async () => {
+    const { experiment, get } = await launch([script(['Tab', 'Tab', 'Tab', 'Tab'], 'failure'), 'throw', script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')]);
+    const failed = await experiment(['a']), missing = await experiment(['a']);
+    const none = await (await get(failed, 0, 'hints')).json() as RunHintsView;
+    expect(none.referenceRun).toBeUndefined(); expect(none.reference).toBeUndefined(); expect(none.steps).toBe(4);
+    const noTrace = await get(missing, 0, 'hints');
+    expect(noTrace.status).toBe(404); expect((await noTrace.json() as { error: string }).error).toMatch(/추적/);
+    const short = await experiment(['a']), slow = await experiment(['b']), middle = await experiment(['b']);
+    const hints = await (await get(slow, 0, 'hints')).json() as RunHintsView;
+    expect(hints.referenceRun).toEqual({ experimentId: short.id, runId: short.runs[0]!.id });
+    expect(hints.reference).toMatchObject({ runId: expect.any(String), steps: 2, goalReached: true });
+    expect(hints.hints.map(h => h.kind)).toContain('slow-run');
+    expect((await (await get(middle, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(short.runs[0]!.id);
+    // The reference run itself is compared with the next shortest goal-reaching run, never with itself.
+    expect((await (await get(short, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(middle.runs[0]!.id);
+  });
+  it('aggregates the overview by task and model from run records and saved hints', async () => {
+    const back = ['Tab', 'Shift+Tab', 'Tab', 'Shift+Tab'];
+    const { app, experiment } = await launch([script(['Tab', 'Enter'], 'success'), script([...back, 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab'], 'failure'), 'throw', script(['Enter'], 'success')]);
+    await experiment(['a'], 3); await experiment(['a']); await experiment(['b']);
+    const rows = await (await fetch(app.url + '/api/overview')).json() as OverviewRow[];
+    expect(rows.map(r => [r.modelId, r.runs, r.finished, r.goalReached, r.medianSteps, r.referenceSteps])).toEqual([['a', 4, 4, 2, 4, 2], ['b', 1, 1, 1, 1, 1]]); // the crashed run is finished but has no step count for the median
+    expect(rows[0]).toMatchObject({ taskId: 'task', taskName: 'Fixture', modelName: 'a', mode: 'keyboard' });
+    expect(rows[0]!.topHints).toEqual([{ kind: 'backtracking', count: 1 }]); expect(rows[1]!.topHints).toEqual([]);
+  });
+  it('broadcasts throttled run-event messages while a run records', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out, _key, _signal, onEvent) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out, { onEvent }); await trace.initialize();
+      for (let i = 0; i < 40; i++) trace.append('fixture.event', { i }, { source: 'runner' });
+      await new Promise(r => setTimeout(r, 400)); trace.append('fixture.event', { late: true }, { source: 'runner' });
+      return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const controller = new AbortController(), received: { at: number; message: RunEventMessage }[] = [];
+    const stream = await fetch(app.url + '/api/events', { signal: controller.signal }), reader = stream.body!.getReader(), decoder = new TextDecoder(); let buffer = '';
+    void (async () => { try { for (;;) {
+      const { done, value } = await reader.read(); if (done) return; buffer += decoder.decode(value, { stream: true });
+      for (let end = buffer.indexOf('\n\n'); end >= 0; end = buffer.indexOf('\n\n')) {
+        const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+        if (block.startsWith('event: run-event\n')) received.push({ at: Date.now(), message: JSON.parse(block.split('data: ')[1]!) as RunEventMessage });
+      }
+    } } catch { /* aborted */ } })();
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, modelIds: ['a'], promptIds: ['baseline'] }) });
+    const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
+    await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
+    await new Promise(r => setTimeout(r, 600)); controller.abort();
+    // 40 events arrive at once, then one 400 ms later: a leading message, the latest pending one, then the late one.
+    expect(received.length).toBeGreaterThanOrEqual(2); expect(received.length).toBeLessThanOrEqual(4);
+    expect(received.every(({ message }) => message.experimentId === experiment.id && message.runId === run.id && typeof message.type === 'string')).toBe(true);
+    const seqs = received.map(r => r.message.seq); expect([...seqs].sort((a, b) => a - b)).toEqual(seqs);
+    expect(Object.keys(received[0]!.message).sort()).toEqual(['experimentId', 'runId', 'seq', 'type']);
+    for (let i = 1; i < received.length; i++) expect(received[i]!.at - received[i - 1]!.at).toBeGreaterThanOrEqual(200);
+    expect(seqs.at(-1)).toBeGreaterThan(seqs[0]! + 30);
   });
 });

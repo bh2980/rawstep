@@ -78,7 +78,7 @@ Out of scope: native macOS/Safari AX parity, group interaction, rotor, Quick Nav
 
 ## Evidence and privacy
 
-New traces use schema 2.1 and retain explicit simulation provenance. Existing schema 2.0 native and keyboard traces remain readable. Simulated observations use `simulation.observation`; generated output uses `simulation.output` and `backend.output` with source `simulation`. Native output retains source `screen-reader`. Environment `observationProvenance: 'simulation'` labels even a run that fails before its first observation.
+New traces use schema 2.2 (screenshots as `blobs/`; 2.1 added simulation provenance) and retain explicit simulation provenance. Existing schema 2.0/2.1 traces remain readable. Simulated observations use `simulation.observation`; generated output uses `simulation.output` and `backend.output` with source `simulation`. Native output retains source `screen-reader`. Environment `observationProvenance: 'simulation'` labels even a run that fails before its first observation.
 
 Analysis and reports count readable and redacted simulated output separately from native screen-reader output and screenshots. Observation aggregates and transport acknowledgments do not become additional output evidence. Reports display a simulation warning, preserve independent verifier evidence, and never change the recorded run outcome. A simulated run cannot provide a native conformance verdict.
 

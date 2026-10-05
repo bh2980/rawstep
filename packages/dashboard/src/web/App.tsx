@@ -1,62 +1,105 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FlaskConical, ListTodo, Network, History, Settings, GitBranch, RefreshCw, Circle } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ConfigView, DashboardConfig, Experiment } from '../shared/config';
 import { api } from './api';
+import { ko } from './i18n/ko';
+import { findRun, flattenRuns } from './lib/runs';
+import { LiveEventsProvider } from './hooks/useLiveEvents';
+import { useDashboardData } from './hooks/useDashboardData';
+import { useMediaQuery } from './hooks/useMediaQuery';
+import { useRoute } from './hooks/useRoute';
+import type { PageProps } from './pages/types';
+import { NewExperimentDialog } from './components/NewExperimentDialog';
+import { OverviewTable } from './components/OverviewTable';
+import { RunDetail } from './components/RunDetail';
+import { SettingsSheet } from './components/SettingsSheet';
+import { Sidebar } from './components/Sidebar';
+import { StatusBanner } from './components/StatusBanner';
+import { TaskDetail } from './components/TaskDetail';
+import { TopBar } from './components/TopBar';
 import { Button } from './components/ui/button';
-import { Badge } from './components/ui/badge';
-import { Alert, AlertTitle, AlertDescription } from './components/ui/alert';
-import { ExperimentsPage } from './pages/ExperimentsPage';
-import { TasksPage } from './pages/TasksPage';
-import { ModelsPage } from './pages/ModelsPage';
-import { HistoryPage } from './pages/HistoryPage';
-import { SettingsPage } from './pages/SettingsPage';
-const tabs = [
-  { id: 'experiments', name: '실험과 실행', icon: FlaskConical }, { id: 'tasks', name: '작업', icon: ListTodo },
-  { id: 'models', name: '연결과 모델', icon: Network }, { id: 'history', name: '실행 이력', icon: History }, { id: 'settings', name: '전역 설정', icon: Settings },
-];
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './components/ui/sheet';
+
 export function App() {
-  const [view, setView] = useState<ConfigView>();
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  return <LiveEventsProvider><Dashboard /></LiveEventsProvider>;
+}
+
+function Dashboard() {
+  const data = useDashboardData();
+  const { route, navigate } = useRoute();
+  const wide = useMediaQuery('(min-width: 1024px)');
   const [editorKey, setEditorKey] = useState(0);
-  const [tab, setTab] = useState('experiments'), [focus, setFocus] = useState('');
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [connected, setConnected] = useState(false);
-  const refresh = useCallback(async () => {
-    const [state, history] = await Promise.all([api<ConfigView>('/state'), api<Experiment[]>('/experiments')]);
-    setView(state); setExperiments(history); setConnected(true);
-  }, []);
-  useEffect(() => {
-    let disposed = false;
-    const load = () => { if (!disposed) void refresh().catch(e => { if (!disposed) { setConnected(false); setError((e as Error).message); } }); };
-    load(); const source = new EventSource('/api/events'); source.addEventListener('changed', load);
-    source.onerror = () => { if (!disposed) setConnected(false); };
-    return () => { disposed = true; source.close(); };
-  }, [refresh]);
-  async function act(work: () => Promise<unknown>) {
+  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  const [navOpen, setNavOpen] = useState(false), [newOpen, setNewOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(false);
+  const { view, setView, refresh } = data;
+  const runs = useMemo(() => flattenRuns(data.experiments), [data.experiments]);
+
+  const act = useCallback(async (work: () => Promise<unknown>) => {
     setBusy(true); setError(''); setNotice('');
     try { await work(); await refresh(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
-  }
-  async function save(config: DashboardConfig, taskWrite?: { file: string; task: unknown }, revision?: string) {
+  }, [refresh]);
+  const save = useCallback(async (config: DashboardConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
     const state = await api<ConfigView>('/config', { method: 'PUT', body: { config, revision: revision ?? view!.revision, ...(taskWrite ? { taskWrite } : {}) } });
-    setView(state); setNotice('프로젝트 파일에 저장했습니다.'); return state;
-  }
-  const active = experiments.flatMap(e => e.runs).filter(r => r.state === 'running').length;
-  const waiting = experiments.flatMap(e => e.runs).filter(r => r.state === 'queued').length;
-  const props = view ? { view, save, act, busy } : undefined;
-  return <div className="min-h-screen">
-    <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">본문으로 이동</a>
-    <header className="border-b px-5 py-4 lg:px-8"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><div className="grid size-9 place-content-center rounded-lg bg-primary/10 text-primary"><GitBranch className="size-5" aria-hidden="true" /></div><span className="font-semibold tracking-tight">rawstep <span className="font-normal text-muted-foreground">/ dashboard</span></span><Badge variant="outline">LOCAL</Badge></div><div role="status" aria-live="polite" className="flex items-center gap-4 text-xs text-muted-foreground"><span>{active} 실행 중 · {waiting} 대기</span><span className="flex items-center gap-2"><Circle className={'size-2 fill-current ' + (connected ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />{connected ? '서버 연결됨' : '재연결 중'}</span></div></div></header>
-    <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="대시보드 메뉴" className="flex gap-1 overflow-x-auto border-b p-3 lg:sticky lg:top-0 lg:h-[calc(100vh-70px)] lg:flex-col lg:border-r lg:border-b-0 lg:p-5">{tabs.map(({ id, name, icon: Icon }) => <Button key={id} variant={tab === id ? 'secondary' : 'ghost'} aria-current={tab === id ? 'page' : undefined} className="shrink-0 justify-start lg:w-full" onClick={() => { setTab(id); setNotice(''); }}><Icon aria-hidden="true" />{name}</Button>)}<p className="mt-auto hidden px-3 pt-10 text-xs leading-6 text-muted-foreground lg:block">설정과 실행 기록은<br />이 프로젝트에 보관합니다.</p></nav>
-      <main id="main" className="min-w-0 px-5 py-8 lg:px-8 lg:py-10">
-        {error && <Alert variant="destructive" className="mb-6" role="alert"><AlertTitle>처리하지 못했습니다</AlertTitle><AlertDescription><p>{error}</p><Button size="sm" variant="outline" disabled={busy} onClick={() => void act(async () => { await refresh(); setEditorKey(key => key + 1); })}><RefreshCw aria-hidden="true" />편집을 버리고 다시 불러오기</Button></AlertDescription></Alert>}
-        {notice && <p role="status" className="mb-5 text-sm text-primary">{notice}</p>}
-        {!props ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">프로젝트를 불러오는 중</h1><p className="text-sm text-muted-foreground">로컬 Node 서비스의 연결 상태를 확인하고 있습니다.</p></div>
-          : tab === 'experiments' ? <ExperimentsPage key={editorKey} {...props} onRun={e => { setFocus(e.runs[0]!.id); setTab('history'); }} />
-          : tab === 'tasks' ? <TasksPage key={editorKey} {...props} />
-          : tab === 'models' ? <ModelsPage key={editorKey} {...props} />
-          : tab === 'settings' ? <SettingsPage key={editorKey} {...props} />
-          : <HistoryPage key={editorKey} {...props} experiments={experiments} focus={focus} />}
+    setView(state); setNotice(ko.app.saved);
+    return state;
+  }, [view, setView]);
+  const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
+  const pageProps: PageProps | undefined = view ? { view, save, act, busy } : undefined;
+  const banner = <StatusBanner error={error || data.loadError} notice={notice} busy={busy} onReload={reload} />;
+
+  const go: typeof navigate = (change, options) => { setNotice(''); setNavOpen(false); navigate(change, options); };
+  const running = runs.filter(ref => ref.run.state === 'running').length;
+  const queued = runs.filter(ref => ref.run.state === 'queued').length;
+  const created = (experiment: Experiment) => {
+    const first = experiment.runs[0];
+    setNewOpen(false);
+    if (first) go({ task: first.taskId, run: first.id });
+  };
+
+  return <div className="flex h-screen flex-col">
+    <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{ko.app.skip}</a>
+    <TopBar connected={data.connected} running={running} queued={queued} showNavigation={!wide && !!pageProps}
+      onNavigation={() => setNavOpen(true)} onNewExperiment={() => setNewOpen(true)} onSettings={() => setSettingsOpen(true)} />
+    <div className="flex min-h-0 flex-1">
+      {wide && pageProps && <aside aria-label={ko.sidebar.label} className="w-80 shrink-0 border-r bg-sidebar text-sidebar-foreground">
+        <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} />
+      </aside>}
+      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-5 py-6 outline-none lg:px-8 lg:py-8">
+        <div className="mx-auto grid max-w-6xl gap-5">
+          {!settingsOpen && !newOpen && banner}
+          {!pageProps
+            ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{ko.app.loadingTitle}</h1><p className="text-sm text-muted-foreground">{ko.app.loadingBody}</p></div>
+            : <Detail pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} />}
+        </div>
       </main>
     </div>
+    {pageProps && <>
+      {!wide && <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="left" className="w-80 gap-0 p-0 data-[side=left]:sm:max-w-80">
+          <SheetHeader className="sr-only"><SheetTitle>{ko.sidebar.label}</SheetTitle><SheetDescription>{ko.sidebar.treeHelp}</SheetDescription></SheetHeader>
+          <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} inSheet />
+        </SheetContent>
+      </Sheet>}
+      <NewExperimentDialog open={newOpen} onOpenChange={setNewOpen} pageProps={pageProps} banner={banner} editorKey={editorKey} onCreated={created} />
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} pageProps={pageProps} banner={banner} editorKey={editorKey} />
+    </>}
   </div>;
+}
+
+type DetailProps = {
+  pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
+  route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
+};
+
+function Detail({ pageProps, data, runs, route, navigate, editorKey }: DetailProps) {
+  if (route.run) {
+    const runRef = findRun(runs, route.run);
+    return runRef
+      ? <RunDetail key={runRef.run.id + editorKey} runRef={runRef} route={route} pageProps={pageProps} navigate={navigate} />
+      : <div className="grid justify-items-start gap-3 py-10">
+        <p>{ko.run.notFound}</p>
+        <Button variant="outline" onClick={() => navigate({})}>{ko.run.backToOverview}</Button>
+      </div>;
+  }
+  if (route.task) return <TaskDetail key={route.task + editorKey} taskId={route.task} pageProps={pageProps} runs={runs} navigate={navigate} />;
+  return <OverviewTable rows={data.overview} runs={runs} error={data.overviewError} navigate={navigate} />;
 }

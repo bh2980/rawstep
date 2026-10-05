@@ -1,9 +1,10 @@
+import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import { analyzeTrace, LlmTraceAnalyzer, writeReport } from '@rawstep/reports';
-import { createRedactor, readTrace } from '@rawstep/core/trace';
+import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
+import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
 import { defaultInstructions, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { ProjectStore, atomicJson, HttpError } from './store.js';
@@ -17,14 +18,17 @@ export class ExperimentQueue {
   private closed = false;
   private writes = Promise.resolve();
   private readonly liveTasks = new Map<string, Task>();
-  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun) {}
+  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
   async initialize() {
     const directory = await this.store.file('.rawstep/experiments');
     await mkdir(directory, { recursive: true });
     for (const id of await readdir(directory)) {
       if (!/^[0-9a-f-]{36}$/.test(id)) continue;
       const file = await this.store.file('.rawstep/experiments/' + id + '/experiment.json', true);
-      const experiment = JSON.parse(await readFile(file, 'utf8')) as Experiment;
+      let raw: string;
+      // A crash between creating the directory and renaming experiment.json into it leaves nothing to recover.
+      try { raw = await readFile(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
       let interrupted = false;
       for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }
@@ -62,7 +66,7 @@ export class ExperimentQueue {
           if (request.mode === 'screenreader' && config.globals.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
           if (request.mode === 'screenreader' && config.globals.backend !== 'simulation') {
             const endpoint = new URL(config.globals.atEndpoint);
-            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
+            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
           }
           const profile = resolveEnvironmentProfile(environment.profile);
           if (profile.browserZoom !== 1 || profile.nativeMagnifier === 'required' || profile.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');
@@ -144,9 +148,10 @@ export class ExperimentQueue {
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       try {
-        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal);
+        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
         run.outcome = trace.outcome;
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
+        const hints: { hints?: HintReport } = await writeHints(outDir).then(({ report }) => ({ hints: report }), () => ({}));
         try {
           let analyzer: LlmTraceAnalyzer | undefined;
           if (run.analysisModel) {
@@ -156,10 +161,10 @@ export class ExperimentQueue {
           const analysis = await analyzeTrace(trace, analyzer); await atomicJson(join(outDir, 'analysis.json'), analysis);
           run.analysisStatus = analysis.status === 'failed' ? 'failed' : 'complete';
           if (analysis.status === 'failed') run.analysisError = analysis.error ?? '분석 실패';
-          await writeReport(trace, analysis, outDir); run.reportStatus = 'complete';
+          await writeReport(await hydrateScreenshots(trace, outDir), analysis, outDir, hints); run.reportStatus = 'complete';
         } catch {
           run.analysisStatus = 'failed'; run.analysisError = '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.';
-          try { await writeReport(trace, undefined, outDir); run.reportStatus = 'complete'; }
+          try { await writeReport(await hydrateScreenshots(trace, outDir), undefined, outDir, hints); run.reportStatus = 'complete'; }
           catch { run.reportStatus = 'failed'; run.reportError = '보고서 생성 실패'; }
         }
       } catch {

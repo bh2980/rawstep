@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Backend, BackendAction, Task, DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
 import { BrowserAccessBlockedError, type BrowserSession } from '@rawstep/browser/browser';
 import { runTask } from '@rawstep/browser/runner';
+import type { ObserverEvent, PageObserver } from '@rawstep/browser/observer';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { TraceRecorder } from '@rawstep/core/trace';
 import { analyzeTrace } from '@rawstep/reports/analyze';
@@ -30,6 +31,32 @@ function fixture() {
   return {backend,browser,browserSessionFactory,verifier};
 }
 describe('model-neutral runner',()=>{
+  describe('initial page focus',()=>{
+    const unfocused=(f:ReturnType<typeof fixture>,afterFocus:boolean)=>{let focused=false;vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>{const source=String(fn);if(source.includes('window.focus')){focused=afterFocus;return undefined;}if(source.includes('documentHasFocus'))return {documentHasFocus:focused,focused:null};return true;}) as never);};
+    it('records that the document has focus and nothing is focused, without moving focus to an element',async()=>{
+      const f=fixture();vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>String(fn).includes('documentHasFocus')?{documentHasFocus:true,focused:null}:true) as never);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null});
+      expect(vi.mocked(f.browser.page.evaluate).mock.calls.some(([fn])=>String(fn).includes('window.focus'))).toBe(false);
+    });
+    it('focuses the page window when needed and records it',async()=>{
+      const f=fixture();unfocused(f,true);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null,focusRequested:true});
+      expect(trace.outcome?.status).toBe('success');
+    });
+    it('refuses a native screen-reader run whose keys would reach browser UI or another window',async()=>{
+      const f=fixture();Object.defineProperty(f.backend,'evidenceProvenance',{value:'native'});unfocused(f,false);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
+      expect(trace.outcome).toMatchObject({status:'failure',reason:'error'});expect(String(trace.outcome?.error)).toMatch(/does not have keyboard focus/);
+      expect(f.backend.execute).not.toHaveBeenCalled();
+    });
+    it('lets a simulated run continue when page focus cannot be confirmed',async()=>{
+      const f=fixture();unfocused(f,false);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.outcome?.status).toBe('success');expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toMatchObject({documentHasFocus:false,focusRequested:true});
+    });
+  });
   it('rejects explicit task/backend modality mismatches before starting resources',async()=>{
     const f=fixture();Object.defineProperty(f.backend,'observationKind',{value:'keyboard'});
     await expect(runTask({...task,mode:'screenreader'},{...f,outDir:await out(),policy:new ScriptedPolicy([])})).rejects.toThrow('does not match');
@@ -77,7 +104,7 @@ describe('model-neutral runner',()=>{
   it('allows only named task inputs, gates editability, and redacts input values on disk',async()=>{
     const f=fixture();const dir=await out();
     const trace=await runTask({...task,input:{email:'private@example.test'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}])});
-    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test'}, {signal:expect.any(AbortSignal)});
+    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test',sensitive:true}, {signal:expect.any(AbortSignal)});
     expect(await readFile(join(dir,'trace.json'),'utf8')).not.toContain('private@example.test');expect(trace.privacy.inputValues).toBe('redacted');
   });
   it('fails text-entry safely for a noneditable target',async()=>{
@@ -161,5 +188,115 @@ describe('model-neutral runner',()=>{
     const f=fixture();const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
     const before=JSON.stringify(trace.outcome);const report=await analyzeTrace(trace,{id:'broken',analyze:()=>{throw new Error('provider down');}});
     expect(report.status).toBe('failed');expect(JSON.stringify(trace.outcome)).toBe(before);
+  });
+  describe('page observer evidence',()=>{
+    const at='2026-01-01T00:00:00.000Z';
+    function withObserver(f:ReturnType<typeof fixture>,queue:ObserverEvent[],dropped:Record<number,number>={}){
+      const observer:PageObserver={available:true,setStep:vi.fn(),take:()=>queue.splice(0),dropped:()=>dropped,close:vi.fn(async()=>{})};
+      (f.browser as unknown as {observer:PageObserver}).observer=observer;return observer;
+    }
+    it('redacts observer events emitted after text entry, keeps earlier ones and records dropped counts',async()=>{
+      const f=fixture(),dir=await out(),queue:ObserverEvent[]=[{kind:'focus',step:1,at,frame:'main',role:'textbox',name:'Search field'}];
+      const observer=withObserver(f,queue,{3:5});
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push(
+        {kind:'state',step:1,at,frame:'main',role:'textbox',name:'Secret Value',text:'typed Secret Value',attr:'aria-invalid',value:'true',url:'https://example.test/?q=Secret+Value'},
+        {kind:'appeared',step:1,at,frame:'main',role:'status',name:'Unrelated label',text:'Unrelated text'});return {};});
+      f.verifier.mockResolvedValue({passed:false,failures:['missing']});
+      const trace=await runTask({...task,input:{field:'Secret Value'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}},{stop:'stuck'}])});
+      const events=trace.events.filter(e=>e.type.startsWith('observer.')&&e.type!=='observer.metadata'&&e.type!=='observer.dropped');
+      const focus=events.find(e=>e.type==='observer.focus')!;
+      expect(focus.data).toMatchObject({kind:'focus',step:1,role:'textbox',name:'Search field'});expect(focus.redacted).toBe(false);
+      const state=events.find(e=>e.type==='observer.state')!;
+      expect(state.data).toMatchObject({kind:'state',step:1,role:'textbox',name:'[REDACTED]',text:'[REDACTED]',value:'[REDACTED]',url:'[REDACTED]',attr:'aria-invalid'});expect(state.redacted).toBe(true);
+      // Taint redacts every later observer event, even ones that do not echo the typed value.
+      const appeared=events.find(e=>e.type==='observer.appeared')!;
+      expect(appeared.data).toMatchObject({kind:'appeared',step:1,role:'status',name:'[REDACTED]',text:'[REDACTED]'});expect(appeared.redacted).toBe(true);
+      expect(events.indexOf(focus)).toBeLessThan(events.indexOf(state));
+      expect(trace.events.find(e=>e.type==='observer.dropped')?.data).toMatchObject({perStep:{3:5}});
+      expect(observer.close).not.toHaveBeenCalled();
+      for(const path of ['trace.json','trace.jsonl']){const stored=await readFile(join(dir,path),'utf8');expect(stored).not.toContain('Secret Value');expect(stored).not.toContain('Unrelated label');expect(stored).toContain('Search field');}
+    });
+    it('keeps observer events readable when no text was entered',async()=>{
+      const f=fixture(),queue:ObserverEvent[]=[{kind:'focus',step:1,at,frame:'main',role:'button',name:'Start'}];withObserver(f,queue);
+      f.verifier.mockResolvedValue({passed:false,failures:['missing']});
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const focus=trace.events.find(e=>e.type==='observer.focus')!;
+      expect(focus.data).toMatchObject({name:'Start'});expect(focus.redacted).toBe(false);
+      expect(trace.events.some(e=>e.type==='observer.dropped')).toBe(false);
+    });
+  });
+  describe('goal baseline',()=>{
+    const at='2026-01-01T00:00:00.000Z';
+    const rules:Task['verify']['all']=[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}},{event:{kind:'live-region',text:'Added'}}];
+    /** The built-in verifier needs page.title(); the shared fixture supplies a verifier mock instead. */
+    function builtIn(title:()=>Promise<string>,queue:ObserverEvent[]=[]){
+      const {verifier,...f}=fixture();void verifier;
+      (f.browser.page as unknown as {title:()=>Promise<string>}).title=title;
+      (f.browser as unknown as {observer:PageObserver}).observer={available:true,setStep:vi.fn(),take:()=>queue.splice(0),dropped:()=>({}),close:vi.fn(async()=>{})};
+      return {f,queue};
+    }
+    const types=(trace:{events:{type:string}[]})=>trace.events.map(e=>e.type);
+    it('records which rules held once, before the first policy decision, using the built-in verifier',async()=>{
+      const {f}=builtIn(async()=>'Done page',[{kind:'live-region',step:0,at,frame:'main',role:'status',text:'Added to cart'}]);
+      const trace=await runTask({...task,verify:{all:rules}},{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const baselines=trace.events.filter(e=>e.type==='verifier.baseline');
+      expect(baselines).toHaveLength(1);
+      // Initial-load events never satisfy an event rule, so the baseline shows the goal is not yet met.
+      expect(baselines[0]!.data).toEqual({passed:false,rules:[{ruleIndex:0,ruleType:'titleIncludes',passed:true},{ruleIndex:1,ruleType:'not',passed:true},{ruleIndex:2,ruleType:'event',passed:false}]});
+      expect(baselines[0]).toMatchObject({source:'verifier',redacted:false});
+      const order=types(trace);
+      expect(order.indexOf('verifier.baseline')).toBeGreaterThan(-1);
+      expect(order.indexOf('verifier.baseline')).toBeLessThan(order.indexOf('policy.decision'));
+      expect(order.indexOf('verifier.baseline')).toBeLessThan(order.indexOf('verifier.result'));
+      expect(trace.events.some(e=>e.type==='verifier.evidence'&&(e.data as {step:number}).step===0)).toBe(false);
+      const stored=JSON.stringify(baselines[0]!.data);expect(stored).not.toContain('Done page');expect(stored).not.toContain('Added to cart');expect(stored).not.toContain('witness');
+    });
+    it('does not let the baseline decide the outcome even when every rule already holds',async()=>{
+      const {f}=builtIn(async()=>'Done page');
+      const trace=await runTask({...task,verify:{all:[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toMatchObject({passed:true});
+      expect(f.backend.execute).toHaveBeenCalledTimes(1);
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      expect(trace.events.filter(e=>e.type==='verifier.result').map(e=>(e.data as {step:number}).step)).toEqual([1]);
+    });
+    it('feeds the in-memory timeline to later verifications and passes an event rule that happened after step 0',async()=>{
+      const {f,queue}=builtIn(async()=>'Other',[{kind:'live-region',step:0,at,frame:'main',text:'Added'}]);
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'live-region',step:1,at,frame:'main',role:'status',text:'Added to cart'});return {};});
+      const trace=await runTask({...task,verify:{all:[{event:{kind:'live-region',role:'status',text:'Added'}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toEqual({passed:false,rules:[{ruleIndex:0,ruleType:'event',passed:false}]});
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
+      expect(evidence.data).toMatchObject({step:1,ruleType:'event',passed:true,witness:{kind:'observer-event',event:{kind:'live-region',step:1,role:'status',text:'Added to cart'}}});
+    });
+    it('records only the error name when the baseline throws, then continues with the run',async()=>{
+      let calls=0;
+      const {f}=builtIn(async()=>{if(++calls===1)throw new TypeError('secret https://example.test/?q=Private');return 'Done page';});
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const baseline=trace.events.find(e=>e.type==='verifier.baseline')!;
+      expect(baseline.data).toEqual({error:'TypeError'});expect(JSON.stringify(baseline)).not.toMatch(/secret|Private/);
+      expect(types(trace).indexOf('verifier.baseline')).toBeLessThan(types(trace).indexOf('policy.decision'));
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+    });
+    it('never runs a custom verifier for the baseline',async()=>{
+      const f=fixture();
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.some(e=>e.type==='verifier.baseline')).toBe(false);
+      expect(f.verifier).toHaveBeenCalledTimes(1);
+      expect(f.verifier).toHaveBeenCalledWith(expect.objectContaining({goal:task.goal}),f.browser,expect.anything());
+      // This fake session has no observer: no timeline at all, so event rules report "unavailable" instead of "nothing happened".
+      expect((f.verifier.mock.calls[0] as unknown[])[2]).not.toHaveProperty('timeline');
+    });
+    it('shows the unredacted timeline to the verifier but redacts observer witnesses after text entry',async()=>{
+      const {f,queue}=builtIn(async()=>'Other');
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'appeared',step:1,at,frame:'main',role:'status',name:'Welcome Secret Value',text:'Hi Secret Value'});return {};});
+      const dir=await out();
+      const trace=await runTask({...task,input:{field:'Secret Value'},verify:{all:[{event:{kind:'appeared',role:'status',name:'Secret Value'}}]}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}}])});
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
+      expect(evidence.redacted).toBe(true);
+      expect(evidence.data).toMatchObject({witness:{kind:'observer-event',details:'[REDACTED]',event:{kind:'appeared',step:1,role:'status'}}});
+      expect((evidence.data as {witness:{event:object}}).witness.event).toEqual({kind:'appeared',step:1,role:'status'});
+      for(const path of ['trace.json','trace.jsonl'])expect(await readFile(join(dir,path),'utf8')).not.toContain('Secret Value');
+    });
   });
 });

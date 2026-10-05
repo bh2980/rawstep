@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { runCli } from '@rawstep/cli/cli';
-import { readTrace } from '@rawstep/core/trace';
+import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
 import { renderReportHtml } from '@rawstep/reports/report';
 import { createTestBrowserSession } from './helpers/browser.js';
 const dirs:string[]=[];
@@ -15,16 +16,29 @@ async function out(){const p=await mkdtemp(join(tmpdir(),'rawstep-keyboard-brows
 const cta=pathToFileURL(resolve('fixtures/simple-cta.html')).href;
 describe('screenshot workflow in real Chromium',()=>{
  it('executes keyboard actions, verifies the fixture and preserves valid real PNG evidence',async()=>{
-  const seen:string[]=[];
+  const seen:string[]=[],outDir=await out();
   const trace=await runScreenshotTask({url:cta,goal:'Activate Get started',maxSteps:5,timeoutMs:15000,verify:{all:[{titleIncludes:'Completed'},{textVisibleExact:'Started!'},{domEventSeen:{selector:'#start',event:'click'}}]}},{
-   outDir:await out(),warn:message=>seen.push(message),browserSessionFactory:createTestBrowserSession,
+   outDir,warn:message=>seen.push(message),browserSessionFactory:createTestBrowserSession,
    policy:new ScriptedPolicy([{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Enter'}}])
   });
   expect(trace.outcome?.status).toBe('success');expect(seen).toEqual([]);
   const observations=trace.events.filter(e=>e.type==='keyboard.observation');expect(observations.length).toBe(4);
-  const png=(observations[0]!.data as {screenshot:{pngBase64:string}}).screenshot.pngBase64;
-  expect(Buffer.from(png,'base64').subarray(0,8).toString('hex')).toBe('89504e470d0a1a0a');
-  expect(renderReportHtml(trace)).toContain('data:image/png;base64,');expect(trace.events.some(e=>e.type==='screen-reader.observation')).toBe(false);
+  // Schema 2.2: the trace keeps a reference and the real PNG lives in blobs/ next to it.
+  const ref=(observations[0]!.data as {screenshot:{sha256:string;blob:string;bytes:number}}).screenshot;
+  const png=await readFile(join(outDir,ref.blob));
+  expect(png.subarray(0,8).toString('hex')).toBe('89504e470d0a1a0a');expect(png.length).toBe(ref.bytes);expect(createHash('sha256').update(png).digest('hex')).toBe(ref.sha256);
+  expect(JSON.stringify(trace)).not.toContain('pngBase64');expect(await readFile(join(outDir,'trace.jsonl'),'utf8')).not.toContain('pngBase64');
+  expect(renderReportHtml(trace)).toContain(`src="${ref.blob}"`);expect(renderReportHtml(await hydrateScreenshots(trace,outDir))).toContain('data:image/png;base64,');expect(trace.events.some(e=>e.type==='screen-reader.observation')).toBe(false);
+ },20000);
+ it('hydrates the final blob screenshot for the optional stop-reason model',async()=>{
+  const outDir=await out(),pixels:string[]=[];
+  const trace=await runScreenshotTask({url:cta,goal:'Activate Get started',maxSteps:3,timeoutMs:15000,verify:{all:[{titleIncludes:'Completed'}]}},{
+   outDir,browserSessionFactory:createTestBrowserSession,policy:new ScriptedPolicy([{stop:'stuck'}]),
+   stopReasonModel:{choose:async request=>{pixels.push(request.screenshot.pngBase64);return{choiceId:'reason:no-visible-focus',model:{id:'test-double',runtime:'unit-only'}}}}
+  });
+  expect(trace.outcome?.status).not.toBe('success');
+  expect(Buffer.from(pixels[0]!,'base64').subarray(0,8).toString('hex')).toBe('89504e470d0a1a0a');
+  expect(JSON.parse(await readFile(join(outDir,'stop-reason.json'),'utf8'))).toMatchObject({status:'completed',hypothesis:'no-visible-focus'});
  },20000);
  it('runs the installed-style screenshot CLI path without AT or provider injection',async()=>{
   const root=await out();await writeFile(join(root,'task.json'),JSON.stringify({mode:'keyboard',url:cta,goal:'Start',maxSteps:4,verify:{all:[{titleIncludes:'Completed'}]}}));

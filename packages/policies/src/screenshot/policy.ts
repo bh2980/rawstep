@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { createHash } from 'node:crypto';
 import type { AllowedActions, Decision, DecisionPolicy, ScreenshotObservation } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
@@ -8,7 +9,7 @@ export function screenshotHash(screenshot: ScreenshotObservation): string {
   if (bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || !Number.isInteger(screenshot.viewport.w) || screenshot.viewport.w < 1 || !Number.isInteger(screenshot.viewport.h) || screenshot.viewport.h < 1) throw new Error('Expected PNG screenshot pixels and positive viewport dimensions.');
   return createHash('sha256').update(bytes).digest('hex');
 }
-export function screenshotChoices(allowed: AllowedActions): ScreenshotChoice[] {
+export function screenshotChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}): ScreenshotChoice[] {
   const choices: ScreenshotChoice[] = [];
   for (const key of allowed.keys) {
     if (!(SCREENSHOT_KEYS as readonly string[]).includes(key)) throw new Error(`Screenshot policy cannot use key ${key}.`);
@@ -18,8 +19,8 @@ export function screenshotChoices(allowed: AllowedActions): ScreenshotChoice[] {
     if (allowed.typeText !== false) choices.push({ id: `type:${input}`, label: `Type task input named ${input} into the currently focused editable field`, decision: { action: { kind: 'typeText', input } } });
     if (allowed.replaceText) choices.push({ id: `replace:${input}`, label: `Replace the currently focused editable field with task input named ${input}`, decision: { action: { kind: 'replaceText', input } } });
   }
-  choices.push({ id: 'stop:success', label: 'Stop: the visible goal appears complete (independent verifier will check)', decision: { stop: 'success' } },
-    { id: 'stop:uncertain', label: 'Stop: uncertain whether further keyboard actions are appropriate or whether the goal is complete', decision: { stop: 'uncertain' } },
+  choices.push({ id: 'stop:success', label: 'Stop: the visible goal appears complete (independent verifier will check)', decision: { stop: 'success' } });
+  if (options.modelGiveUp !== false) choices.push({ id: 'stop:uncertain', label: 'Stop: uncertain whether further keyboard actions are appropriate or whether the goal is complete', decision: { stop: 'uncertain' } },
     { id: 'stop:stuck', label: 'Stop: unable to progress with the available keyboard actions', decision: { stop: 'stuck' } });
   return choices;
 }
@@ -34,7 +35,7 @@ export type FocusGateOptions = { minimumProbability?: number; minimumMargin?: nu
 /** Uncalibrated visual scores only restrict actions. They are never browser focus truth. */
 export function restrictChoicesByVisualFocus(choices: readonly ScreenshotChoice[], response: ScreenshotModelResponse, options: FocusGateOptions = {}): ScreenshotChoice[] {
   validateModelResponse(response, FOCUS_CONTEXT_CHOICES);
-  const minimumProbability = options.minimumProbability ?? 0.75, minimumMargin = options.minimumMargin ?? 0.25;
+  const minimumProbability = options.minimumProbability ?? RAWSTEP_DEFAULTS.focusGate.minimumProbability, minimumMargin = options.minimumMargin ?? RAWSTEP_DEFAULTS.focusGate.minimumMargin;
   for (const v of [minimumProbability, minimumMargin]) if (!Number.isFinite(v) || v < 0 || v > 1) throw new Error('Focus thresholds must be finite numbers from 0 to 1.');
   const index = FOCUS_CONTEXT_CHOICES.findIndex(c => c.id === response.choiceId), scores = response.probabilities;
   const confident = !!scores && scores[index]! >= minimumProbability && scores[index]! - Math.max(...scores.filter((_, i) => i !== index)) >= minimumMargin;
@@ -59,6 +60,10 @@ export type ScreenshotPolicyOptions = {
   maxStateVisits?: number;
   maxUnchangedTransitions?: number;
   historyLimit?: number;
+  /** Default true. False never stops on repetition; visualState is still computed and reported. */
+  repetitionGuard?: boolean;
+  /** Default true. False removes the model's stop:stuck and stop:uncertain choices (stop:success stays). */
+  modelGiveUp?: boolean;
 };
 
 /** The model chooses every executed action. Deterministic guards only stop; never substitute actions. */
@@ -66,7 +71,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly options: Required<Omit<ScreenshotPolicyOptions, 'model' | 'focusGate'>> & Pick<ScreenshotPolicyOptions, 'model' | 'focusGate'>;
   constructor(options: ScreenshotPolicyOptions) {
-    this.options = { maxStateVisits: 5, maxUnchangedTransitions: 4, historyLimit: 12, ...options };
+    this.options = { ...RAWSTEP_DEFAULTS.policy, ...options, repetitionGuard: options.repetitionGuard ?? true, modelGiveUp: options.modelGiveUp ?? true };
     for (const key of ['maxStateVisits', 'maxUnchangedTransitions', 'historyLimit'] as const) {
       if (!Number.isSafeInteger(this.options[key]) || this.options[key] < 1 || this.options[key] > 10_000) throw new Error(`${key} must be an integer from 1 to 10000.`);
     }
@@ -84,12 +89,12 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
     let unchangedTransitions = 0;
     for (let i = hashes.length - 1; i >= 0 && hashes[i] === sha256; i--) unchangedTransitions++;
     const limits = { maxStateVisits: this.options.maxStateVisits, maxUnchangedTransitions: this.options.maxUnchangedTransitions, historyLimit: this.options.historyLimit };
-    if (visits > limits.maxStateVisits || unchangedTransitions >= limits.maxUnchangedTransitions) {
+    if (this.options.repetitionGuard && (visits > limits.maxStateVisits || unchangedTransitions >= limits.maxUnchangedTransitions)) {
       this.evidence.push({ kind: 'exploration-limit', sha256, visits, unchangedTransitions, limits, modelCalled: false,
         uncertainty: 'Repeated pixels may reflect an invisible focus change, a trap, or a legitimate unchanged state. No accessibility defect is established.' });
       return { stop: 'stuck', stopSource: 'exploration-guard', rationale: 'Conservative visual repetition limit reached.' };
     }
-    let choices = screenshotChoices(input.allowedActions);
+    let choices = screenshotChoices(input.allowedActions, { modelGiveUp: this.options.modelGiveUp });
     // Construct a fresh allowlisted request: never forward arbitrary input/observation/history objects.
     const pixels = (s: ScreenshotObservation): ScreenshotObservation => ({ pngBase64: s.pngBase64, viewport: { w: s.viewport.w, h: s.viewport.h } });
     const decisionOnly = (decision: Decision): Decision => {
@@ -115,7 +120,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
         ...(focus.prompt ? { prompt: { ...focus.prompt } } : {}),
         model: { id: focus.model.id, runtime: focus.model.runtime, ...(focus.model.requestedId ? { requestedId: focus.model.requestedId } : {}), ...(focus.model.revision ? { revision: focus.model.revision } : {}) },
         choiceId: focus.choiceId, probabilities: focus.probabilities ? [...focus.probabilities] : undefined,
-        screenshotSha256: sha256, thresholds: { minimumProbability: this.options.focusGate.minimumProbability ?? 0.75, minimumMargin: this.options.focusGate.minimumMargin ?? 0.25 },
+        screenshotSha256: sha256, thresholds: { minimumProbability: this.options.focusGate.minimumProbability ?? RAWSTEP_DEFAULTS.focusGate.minimumProbability, minimumMargin: this.options.focusGate.minimumMargin ?? RAWSTEP_DEFAULTS.focusGate.minimumMargin },
         permittedChoiceIds: choices.map(c => c.id), blockedChoiceIds: originalChoices.filter(c => !choices.some(x => x.id === c.id)).map(c => c.id),
         observationSource: 'viewport-png-only', noDomOrAxContext: true,
         uncertainty: 'Model focus prediction is uncalibrated; it can be wrong. This is not native focus truth or accessibility certification.' });
@@ -131,7 +136,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
       ...(response.inferenceMs !== undefined ? { inferenceMs: response.inferenceMs } : {}),
       screenshotSha256: sha256, previousScreenshotSha256: input.observation.previousScreenshot ? screenshotHash(input.observation.previousScreenshot) : undefined,
       observationSource: 'viewport-png-only', noDomOrAxContext: true, choices, choiceId: response.choiceId,
-      ...(response.probabilities ? { probabilities: [...response.probabilities] } : {}), visualState: request.visualState, limits,
+      ...(response.probabilities ? { probabilities: [...response.probabilities] } : {}), visualState: request.visualState, limits, earlyStop: { repetitionGuard: this.options.repetitionGuard, modelGiveUp: this.options.modelGiveUp },
       focusAssessment: response.focusAssessment ?? { visibility: 'uncertain', note: 'No model focus assessment was supplied; inspect the saved pixels.' },
       uncertainty: 'Model probabilities and visual focus judgments are uncalibrated observations, not accessibility certification.' });
     const decision = structuredClone(choices.find(choice => choice.id === response.choiceId)!.decision);

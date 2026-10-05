@@ -13,6 +13,7 @@
 | CLI·환경 matrix 실행 | `packages/cli/src/` |
 | 기존 `rawstep/*` 호환 import와 실행 파일 | `packages/rawstep/src/` |
 | 로컬 dashboard UI·shadcn 컴포넌트·JSON UI 카탈로그 | `packages/dashboard/src/` |
+| 공개 API 루트(명시적 export 목록)와 패키지 내부 헬퍼(`src/internal/`) | `packages/*/src/index.ts` (`tests/public-api.test.ts`로 고정) |
 | 빌드·패키지 묶음·격리 설치·소스 재현 검사 | 루트 `scripts/` |
 
 예제와 fixture는 루트 `examples/`, `fixtures/`에 유지합니다. 모델 가중치·Python 환경·브라우저·네이티브 AT 서버는 자동으로 포함하거나 설치하지 않습니다. 코퍼스 생성 결과를 수동으로 유리하게 바꾸지 말고 근거와 생성·평가 절차를 보존하세요.

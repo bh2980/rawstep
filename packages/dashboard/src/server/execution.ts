@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { runTask } from '@rawstep/browser/runner';
 import { createHash } from 'node:crypto';
 import { runScreenshotTask, ScreenshotKeyboardBackend } from '@rawstep/browser/screenshot';
@@ -8,10 +9,10 @@ import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import { validateModelResponse, type ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
-import type { RunTrace } from '@rawstep/core/trace';
+import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
 import { boundedJson } from './models.js';
-import { type DashboardConfig, type Permissions, type RunRecord, defaultInstructions } from '../shared/config.js';
+import { type DashboardConfig, type Permissions, type RunRecord, defaultInstructions, resolveRepetitionGuard } from '../shared/config.js';
 
 export function backendCapabilities(config: DashboardConfig, mode: 'keyboard' | 'screenreader') {
   return mode === 'keyboard' ? new ScreenshotKeyboardBackend().capabilities : config.globals.backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(config.globals.backend).capabilities;
@@ -26,17 +27,18 @@ export function resolvePermissions(config: DashboardConfig, task: Task, mode: 'k
   p.typeText &&= capabilities.textEntry; p.replaceText &&= capabilities.replaceText;
   return p;
 }
-export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal): Promise<RunTrace> {
+export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void): Promise<RunTrace> {
   const { model, connection, prompt, mode, globals } = run.snapshot;
-  const deadline = Date.now() + (task.timeoutMs ?? 120000);
+  const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
-  const limits = globals.policy;
+  const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
+  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, connection), modelGiveUp };
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
   if (model.family === 'LLM') {
     const client = new LlmChoiceClient(connection, model, prompt, apiKey);
     screenshotModel = new LlmScreenshotAdapter(client);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit);
+    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, { modelGiveUp });
   } else if (connection.provider === 'screenshot') {
     const fetchChoice = async (request: object, inner: AbortSignal) => {
       const value = await boundedJson(await fetch(connection.baseURL.replace(/\/$/, '') + '/choose', {
@@ -65,7 +67,7 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
       adapter = { choose: async (r, o) => { const answer = await original.choose(r, o); if (answer.model.id !== model.modelId) throw new Error('로컬 서버의 모델 ID가 변경되었습니다.'); return answer; } };
     }
     screenshotModel = adapter;
-    policy = new ScreenshotDecisionPolicy({ ...limits, focusGate: limits.focusGate ? {} : undefined, model: adapter });
+    policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: adapter });
   } else {
     const opts = { baseURL: connection.baseURL, model: model.modelId, apiKey, timeoutMs: connection.timeoutMs };
     const capabilities = { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages };
@@ -73,10 +75,10 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
       : connection.provider === 'vercel' ? new VercelEvaluationClient(opts) : new SystemOneHttpClient({ ...opts, capabilities });
     await client.prepare?.({ signal: setupSignal });
     screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })
-      : new SystemOneSpeechPolicy(client, limits.historyLimit, prompt);
+    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })
+      : new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
   }
-  const common = { policy, outDir, signal, allowedActions: run.permissions,
+  const common = { policy, outDir, signal, allowedActions: run.permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
     browserExecutablePath: globals.browserExecutablePath || undefined };
   setupSignal.throwIfAborted();

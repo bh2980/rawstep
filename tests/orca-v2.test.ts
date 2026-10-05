@@ -113,6 +113,15 @@ describe('Orca NDJSON backend (transport fixture, not native evidence)', () => {
     expect(events.some(event => event.type === 'output')).toBe(true);
     expect(JSON.stringify(events)).not.toContain('PRIVATE DESKTOP');
   });
+  it('owns its host and pairing rules: a visible Linux browser from a paired factory, matching the verified target window', async () => {
+    const b = backend(); const metadata = await b.start(); const target = metadata.target.windowId;
+    const ok = { platform: 'linux', headless: false, customBrowserSession: true };
+    expect(() => b.preflight(ok)).not.toThrow();
+    for (const context of [{ ...ok, platform: 'darwin' }, { ...ok, headless: true }, { ...ok, customBrowserSession: false }]) expect(() => b.preflight(context)).toThrow(/visible Linux browser/);
+    expect(b.cleanupTimeoutMs).toBe(5_000);
+    expect(() => b.attachSession({ page: {}, nativeTargetWindowId: target })).not.toThrow();
+    expect(() => b.attachSession({ page: {}, nativeTargetWindowId: target + 1 })).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/does not match/) }));
+  });
   it('filters stale-session speech and handles split UTF-8 lines', async () => {
     const b = backend({ stale: true, splitUnicode: true });
     const events: OrcaEvent[] = []; b.subscribe(event => events.push(event));
@@ -281,8 +290,8 @@ describe('Orca NDJSON backend (transport fixture, not native evidence)', () => {
   it('inherits runner privacy taint for raw key events and delayed speech echoes', async () => {
     const b = backend({ echo: true }); const outDir = await directory();
     // This is a Node transport fixture, not Linux native runtime evidence.
-    const start = b.start.bind(b);
-    vi.spyOn(b as Backend, 'start').mockImplementation(async options => ({ ...await start(options), backend: 'orca-transport-fixture' }));
+    // The Linux-only host rule lives in OrcaBackend.preflight; this transport fixture runs on any host.
+    vi.spyOn(b, 'preflight').mockImplementation(() => {});
     const browser = pairedBrowser();
     const trace = await runTask({ url: 'https://example.test', goal: 'Enter named input', input: { q: 'z' }, maxSteps: 2, timeoutMs: 3_000, verify: { all: [{ titleIncludes: 'Done' }] } }, {
       backend: b, outDir, policy: new ScriptedPolicy([{ action: { kind: 'typeText', input: 'q' } }]), browserSessionFactory: async () => browser, verifier: async () => ({ passed: true, failures: [] }),
@@ -296,8 +305,8 @@ describe('Orca NDJSON backend (transport fixture, not native evidence)', () => {
   it('synchronously aborts real adapter dispatch when the common runner cannot persist its command journal', async () => {
     const outDir = await directory(); const log = join(outDir, 'native-requests.jsonl');
     const b = backend({ log }); const browser = pairedBrowser();
-    const start = b.start.bind(b);
-    vi.spyOn(b as Backend, 'start').mockImplementation(async options => ({ ...await start(options), backend: 'orca-transport-fixture' }));
+    // The Linux-only host rule lives in OrcaBackend.preflight; this transport fixture runs on any host.
+    vi.spyOn(b, 'preflight').mockImplementation(() => {});
     const policy = new ScriptedPolicy([
       { action: { kind: 'typeText', input: 'q' } },
       { action: { kind: 'key', key: 'Tab' } },

@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FakeSystemOneClient, SystemOneHttpClient, VercelEvaluationClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs } from 'rawstep/systemone';
+import { FakeSystemOneClient, SystemOneHttpClient, VercelEvaluationClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
@@ -18,7 +18,7 @@ afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn()
 async function directory() { const d = await mkdtemp(join(tmpdir(), 'rawstep-systemone-')); cleanup.push(() => rm(d,{recursive:true,force:true})); return d; }
 function input(): Parameters<DecisionPolicy['decide']>[0] { return {
   goal:'Activate start', observation:{kind:'screenreader',provenance:'simulation',speech:['Start, button'],outputEventIds:['out'],window:{id:'w',startedAt:'s',endedAt:'e',reason:'fixture'}},
-  history:[],allowedActions:{intents:['activate'],keys:['Tab'],inputKeys:['name'],replaceText:true},inputs:{name:'PRIVATE_INPUT'},signal:signal(),
+  history:[],allowedActions:{intents:['activate'],keys:['Tab'],inputKeys:['name'],replaceText:true},inputs:{name:{sensitive:true}},signal:signal(),
 }; }
 function visualSession(): BrowserSession {
   return {
@@ -162,5 +162,37 @@ describe('CLI selection and environment boundary',()=>{
     const execute=vi.fn();const messages:string[]=[];
     expect(await runCli(['screenshot-run','task.json','--decision','systemone'],{cwd,stdout:()=>{},stderr:s=>messages.push(s),runScreenshotTask:execute,env:{RAWSTEP_DECISION_PROVIDER:'vercel-evaluation',RAWSTEP_DECISION_BASE_URL:'https://example.test/v1',RAWSTEP_DECISION_MODEL:'test',RAWSTEP_DECISION_API_KEY:'PRIVATE_KEY'}})).toBe(1);
     expect(execute).not.toHaveBeenCalled();expect(messages.join('')).not.toContain('PRIVATE_KEY');
+  });
+});
+
+describe('early give-up configuration',()=>{
+  it('removes the speech model\'s stuck/uncertain choices only when modelGiveUp is false',async()=>{
+    const allowed=input().allowedActions,stops=(o?:{modelGiveUp?:boolean})=>speechChoices(allowed,o).map(c=>c.id).filter(id=>id.startsWith('stop:'));
+    expect(stops()).toEqual(['stop:success','stop:stuck','stop:uncertain']);expect(stops({modelGiveUp:false})).toEqual(['stop:success']);
+    const fake=new FakeSystemOneClient(['stop:success']);const policy=new SystemOneSpeechPolicy(fake,undefined,undefined,{modelGiveUp:false});
+    expect(await policy.decide(input())).toEqual({stop:'success',stopSource:'model'});
+    expect(fake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success']);
+  });
+  it('defaults the CLI repetition guard off for systemone and on for --model-endpoint, with explicit overrides',async()=>{
+    const cwd=await directory();await writeFile(join(cwd,'task.json'),JSON.stringify({mode:'keyboard',url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}}));
+    const env={RAWSTEP_DECISION_PROVIDER:'systemone-http',RAWSTEP_DECISION_BASE_URL:'http://127.0.0.1:8000/v1',RAWSTEP_DECISION_MODEL:'fake',RAWSTEP_DECISION_INPUTS:'text,image'};
+    // Identical pixels eight times: only the repetition guard stops without calling the model (HTTP endpoint 127.0.0.1:1 would refuse).
+    const guardStops=async(flags:string[])=>{
+      let stopped:boolean|undefined;
+      const execute=vi.fn(async(_task:unknown,options:{policy:DecisionPolicy})=>{
+        const obs={kind:'keyboard' as const,screenshot:{pngBase64:png,viewport:{w:1,h:1}},window:input().observation.window};
+        const history=Array.from({length:8},(_,i)=>({step:i+1,decision:{action:{kind:'key' as const,key:'Tab' as const}},observation:obs}));
+        stopped=await Promise.resolve(options.policy.decide({...input(),observation:obs,history,allowedActions:{intents:[],keys:['Tab'],inputKeys:[],replaceText:false}})).then(d=>'stopSource' in d&&d.stopSource==='exploration-guard',()=>false);
+        return {outcome:{status:'success'}} as never;
+      });
+      expect(await runCli(['screenshot-run','task.json',...flags],{cwd,stdout:()=>{},stderr:()=>{},env,createDecisionClient:()=>new FakeSystemOneClient(['key:Tab']),runScreenshotTask:execute as never})).toBe(0);
+      return stopped;
+    };
+    const endpoint=['--model-endpoint','http://127.0.0.1:1/choose'];
+    expect(await guardStops(['--decision','systemone'])).toBe(false);
+    expect(await guardStops(['--decision','systemone','--repetition-guard'])).toBe(true);
+    expect(await guardStops(['--decision','systemone','--no-repetition-guard'])).toBe(false);
+    expect(await guardStops(endpoint)).toBe(true);
+    expect(await guardStops([...endpoint,'--no-repetition-guard'])).toBe(false);
   });
 });

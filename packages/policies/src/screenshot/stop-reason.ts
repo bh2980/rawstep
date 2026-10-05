@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { RunTrace } from '@rawstep/core/trace';
 import { SCREENSHOT_MODEL_PROTOCOL, validateModelResponse, type ScreenshotModelAdapter, type ScreenshotModelRequest, type ScreenshotChoice } from './model.js';
 import type { Decision, ScreenshotObservation } from '@rawstep/core/contracts';
@@ -14,7 +15,7 @@ export async function diagnoseScreenshotStop(trace:RunTrace,options:{model:Scree
   if(!last||!['stuck','uncertain'].includes(String(last.stop)))return base;
   const event=trace.events.filter(e=>e.type==='keyboard.observation').at(-1);const data=object(event?.data);const screenshot=data.screenshot as ScreenshotObservation|undefined;
   if(!event||event.redacted||!screenshot||typeof screenshot.pngBase64!=='string')return {...base,status:'unavailable',reason:'The final screenshot is unavailable or private; no stale screenshot was substituted.'};
-  const timeoutMs=options.timeoutMs??60_000;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>300_000)throw new Error('Stop diagnosis timeout must be 1–300000ms.');
+  const timeoutMs=options.timeoutMs??RAWSTEP_DEFAULTS.modelTimeoutMs;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>300_000)throw new Error('Stop diagnosis timeout must be 1–300000ms.');
   const signal=AbortSignal.any([AbortSignal.timeout(timeoutMs),...(options.signal?[options.signal]:[])]);const started=performance.now();
   try{
     const choices:ScreenshotChoice[]=STOP_REASON_CHOICES.map(([id,label])=>({id:`reason:${id}`,label,decision:{stop:'uncertain'}}));
