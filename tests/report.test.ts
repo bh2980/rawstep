@@ -182,7 +182,7 @@ describe("evidence-first report", () => {
     expect(renderReportHtml(trace)).not.toContain("Friction hints");
     expect(renderReportHtml(trace, undefined, { hints: base })).toContain("No friction hints.");
     const hints: HintReport = { ...base, goalReached: true, steps: 9, durationMs: 2500, reference: { runId: "ref-run", steps: 3, durationMs: 1000, goalReached: true },
-      hints: [{ kind: "excess-keystrokes", certainty: "observed", steps: [2, 9], summary: "<script>alert(1)</script> 11 Tabs", detail: {}, evidence: [] }] };
+      hints: [{ kind: "excess-keystrokes", source: "page", certainty: "observed", steps: [2, 9], summary: "<script>alert(1)</script> 11 Tabs", detail: {}, evidence: [] }] };
     const html = renderReportHtml(trace, undefined, { hints });
     expect(html).not.toContain("<script>alert(1)</script>");
     const document = new JSDOM(html).window.document;

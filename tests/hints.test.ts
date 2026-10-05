@@ -218,8 +218,8 @@ describe("friction hints", () => {
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
     expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
-    expect(report).toMatchObject({ schemaVersion: "1.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
-    expect(HINTS_SCHEMA_VERSION).toBe("1.0");
+    expect(report).toMatchObject({ schemaVersion: "2.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
+    expect(HINTS_SCHEMA_VERSION).toBe("2.0");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });
@@ -231,7 +231,7 @@ describe("friction hints", () => {
       const pairs: Pair[] = [baseline(true, [baselineRule(0, "titleIncludes", true), baselineRule(1, "textVisible", true)]), ...press(1, "Tab")];
       const report = extractHints(trace(pairs, success(1)));
       expect(find(report, "goal-met-at-start")).toEqual([{
-        kind: "goal-met-at-start", certainty: "observed", steps: [0], summary: "Every goal rule already held before the first action.",
+        kind: "goal-met-at-start", source: "run", certainty: "observed", steps: [0], summary: "Every goal rule already held before the first action.",
         detail: { rules: [{ ruleIndex: 0, ruleType: "titleIncludes" }, { ruleIndex: 1, ruleType: "textVisible" }] }, evidence: ["event-1"],
       }]);
     });

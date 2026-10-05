@@ -22,7 +22,7 @@ import { hydrateScreenshots, readTrace, type RunTrace } from "@rawstep/core/trac
 import { analyzeSavedTrace, loadAnalyzer, readAnalysis } from "@rawstep/reports/analyze";
 import { writeReport } from "@rawstep/reports/report";
 import { writeHints } from "@rawstep/reports/hints";
-import type { HintReport } from "@rawstep/reports/hints";
+import { HINTS_SCHEMA_VERSION, type HintReport } from "@rawstep/reports/hints";
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from "./args.js";
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from "./args.js";
@@ -387,7 +387,7 @@ async function readDecisions(path: string): Promise<Decision[]> {
 
 /** A hints.json next to the trace is optional report input; absent or unreadable means no hints section. */
 async function readHints(directory: string): Promise<HintReport | undefined> {
-  try { const value: unknown = JSON.parse(await readFile(resolve(directory, "hints.json"), "utf8")); return isObject(value) && value.schemaVersion === "1.0" && Array.isArray(value.hints) ? value as HintReport : undefined; }
+  try { const value: unknown = JSON.parse(await readFile(resolve(directory, "hints.json"), "utf8")); return isObject(value) && value.schemaVersion === HINTS_SCHEMA_VERSION && Array.isArray(value.hints) ? value as HintReport : undefined; }
   catch { return undefined; }
 }
 
