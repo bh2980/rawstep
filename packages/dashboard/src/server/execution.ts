@@ -9,7 +9,7 @@ import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import { validateModelResponse, type ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
-import type { RunTrace } from '@rawstep/core/trace';
+import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
 import { boundedJson } from './models.js';
 import { type DashboardConfig, type Permissions, type RunRecord, defaultInstructions, resolveRepetitionGuard } from '../shared/config.js';
@@ -27,7 +27,7 @@ export function resolvePermissions(config: DashboardConfig, task: Task, mode: 'k
   p.typeText &&= capabilities.textEntry; p.replaceText &&= capabilities.replaceText;
   return p;
 }
-export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal): Promise<RunTrace> {
+export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void): Promise<RunTrace> {
   const { model, connection, prompt, mode, globals } = run.snapshot;
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
@@ -78,7 +78,7 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
     policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })
       : new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
   }
-  const common = { policy, outDir, signal, allowedActions: run.permissions,
+  const common = { policy, outDir, signal, allowedActions: run.permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
     browserExecutablePath: globals.browserExecutablePath || undefined };
   setupSignal.throwIfAborted();

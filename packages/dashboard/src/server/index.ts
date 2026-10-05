@@ -14,6 +14,8 @@ import { ProjectStore, HttpError, readOptional } from './store.js';
 import { ExperimentQueue, type Executor } from './queue.js';
 import { backendCapabilities } from './execution.js';
 import { discover, record } from './models.js';
+import { RunViews } from './views.js';
+import type { RunEventMessage } from '../shared/api.js';
 
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
 async function jsonBody(req: IncomingMessage) {
@@ -25,7 +27,21 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   const store = new ProjectStore(resolve(options.projectDir ?? process.cwd())); await store.initialize();
   const listeners = new Set<ServerResponse>();
   const changed = () => { for (const res of listeners) res.write('event: changed\ndata: {}\n\n'); };
-  const queue = new ExperimentQueue(store, changed, options.execute); await queue.initialize();
+  // At most one run-event per run every 250 ms (leading edge, then the latest pending message); the UI refetches /steps on each.
+  const throttles = new Map<string, { pending?: RunEventMessage; timer: NodeJS.Timeout }>();
+  const emit = (message: RunEventMessage) => { for (const res of listeners) res.write('event: run-event\ndata: ' + JSON.stringify(message) + '\n\n'); };
+  const tick = (runId: string) => {
+    const entry = throttles.get(runId); if (!entry) return;
+    if (!entry.pending) { throttles.delete(runId); return; }
+    emit(entry.pending); entry.pending = undefined; entry.timer = setTimeout(() => tick(runId), 250); entry.timer.unref();
+  };
+  const runEvent = (experimentId: string, runId: string, event: { seq: number; type: string }) => {
+    const message = { experimentId, runId, seq: event.seq, type: event.type }, entry = throttles.get(runId);
+    if (entry) { entry.pending = message; return; }
+    emit(message); const timer = setTimeout(() => tick(runId), 250); timer.unref(); throttles.set(runId, { timer });
+  };
+  const queue = new ExperimentQueue(store, changed, options.execute, runEvent); await queue.initialize();
+  const views = new RunViews(store, queue);
   const webDir = options.webDir ?? fileURLToPath(new URL('../web', import.meta.url));
   const server = createServer((req, res) => { void handle(req, res).catch(error => {
     if (res.headersSent) { res.end(); return; }
@@ -93,8 +109,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/plan' && method === 'POST') return send(res, (await queue.plan(await jsonBody(req))).rows);
     if (path === '/api/experiments' && method === 'GET') return send(res, queue.experiments);
+    if (path === '/api/overview' && method === 'GET') return send(res, await views.overview());
     if (path === '/api/experiments' && method === 'POST') return send(res, await queue.create(await jsonBody(req)), 201);
-    const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|trace|analysis|stop-reason|report|png)(?:\/([^/]+))?)?$/);
+    const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|stop-reason|report|png)(?:\/([^/]+))?)?$/);
     if (match) {
       const [, experimentId, runId, operation, eventId] = match;
       if (operation === 'cancel' && method === 'POST') return send(res, await queue.cancel(experimentId!, runId));
@@ -111,6 +128,8 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         const events = raw.split('\n').filter(Boolean).map(line => JSON.parse(line));
         return send(res, events.map(event => JSON.parse(JSON.stringify(event, (key, value) => key === 'pngBase64' ? '[PNG: open screenshot]' : value))));
       }
+      if (operation === 'steps' && method === 'GET') return send(res, await views.steps(experimentId!, runId));
+      if (operation === 'hints' && method === 'GET') return send(res, await views.hints(experimentId!, runId));
       if ((operation === 'trace' || operation === 'analysis' || operation === 'stop-reason') && method === 'GET') {
         const content = await readFile(await store.file(prefix + operation + '.json', true));
         res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="' + operation + '.json"' }); return res.end(content);
@@ -144,12 +163,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   const address = server.address(); url = 'http://127.0.0.1:' + (typeof address === 'object' && address ? address.port : options.port);
   let lastRevision = (await store.read()).revision;
   const timer = setInterval(() => {
-    if (queue.experiments.some(e => e.runs.some(r => r.state === 'running'))) changed();
     void store.read().then(s => { if (s.revision !== lastRevision) { lastRevision = s.revision; changed(); } }).catch(() => {});
   }, 1500);
   timer.unref();
   return { url, store, queue, async close() {
-    clearInterval(timer); await queue.close(); for (const res of listeners) res.end(); listeners.clear();
+    clearInterval(timer); for (const entry of throttles.values()) clearTimeout(entry.timer); throttles.clear(); await queue.close(); for (const res of listeners) res.end(); listeners.clear();
     await new Promise<void>((accept, reject) => server.close(e => e ? reject(e) : accept())); server.closeAllConnections();
   } };
 }

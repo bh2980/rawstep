@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
-import { createRedactor, hydrateScreenshots, readTrace } from '@rawstep/core/trace';
+import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
 import { defaultInstructions, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { ProjectStore, atomicJson, HttpError } from './store.js';
@@ -18,7 +18,7 @@ export class ExperimentQueue {
   private closed = false;
   private writes = Promise.resolve();
   private readonly liveTasks = new Map<string, Task>();
-  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun) {}
+  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
   async initialize() {
     const directory = await this.store.file('.rawstep/experiments');
     await mkdir(directory, { recursive: true });
@@ -145,7 +145,7 @@ export class ExperimentQueue {
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       try {
-        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal);
+        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
         run.outcome = trace.outcome;
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const hints: { hints?: HintReport } = await writeHints(outDir).then(({ report }) => ({ hints: report }), () => ({}));

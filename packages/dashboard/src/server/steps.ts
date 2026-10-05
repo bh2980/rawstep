@@ -1,0 +1,71 @@
+import { screenshotSha256, type TraceEvent } from '@rawstep/core/trace';
+import type { Hint, ObservedChange, RunStepsView, StepView } from '../shared/api.js';
+
+const REDACTED = '[REDACTED]';
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+/** A plain string that is not the redaction marker; redacted values are never surfaced. */
+const text = (value: unknown) => typeof value === 'string' && value !== REDACTED ? value : undefined;
+const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).map(r => ({ ruleIndex: Number(r.ruleIndex), ruleType: String(r.ruleType), passed: r.passed === true })) : [];
+
+export type StepsInput = { experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
+
+/** Folds recorded trace events into one view per policy step. Step 0 is the initial page; steps are keyed by policy.decision.step. */
+export function buildSteps({ experimentId, runId, events, hints = [], live }: StepsInput): RunStepsView {
+  const byStep = new Map<number, StepView>();
+  const step = (n: number, at?: string): StepView => {
+    let view = byStep.get(n);
+    if (!view) byStep.set(n, view = { step: n, ...(at ? { at } : {}), observed: [], hints: [], redacted: false });
+    return view;
+  };
+  let current = 0, baseline: RunStepsView['baseline'];
+  if (events.length) step(0, events[0]!.timestamp);
+  for (const event of events) {
+    const data = record(event.data) ? event.data : {};
+    const own = typeof data.step === 'number' ? data.step : undefined;
+    // Observations carry no step number; they belong to the decision that precedes them.
+    const target = event.type === 'policy.decision' && own !== undefined ? step(current = own, event.timestamp) : step(own ?? current, event.timestamp);
+    if (event.redacted) target.redacted = true;
+    if (event.type === 'policy.decision') {
+      target.at = event.timestamp;
+      const decision = record(data.decision) ? data.decision : {};
+      if (record(decision.action)) {
+        const a = decision.action, kind = text(a.kind);
+        if (kind) target.action = { kind, ...(text(a.key) ? { key: text(a.key)! } : {}), ...(text(a.intent) ? { intent: text(a.intent)! } : {}), ...(text(a.input) ? { input: text(a.input)! } : {}) };
+      } else if (text(decision.stop)) target.stop = { stop: text(decision.stop)!, ...(text(decision.stopSource) ? { source: text(decision.stopSource)! } : {}) };
+    } else if (event.type === 'action.result') {
+      target.ok = data.ok === true;
+    } else if (event.type === 'keyboard.observation') {
+      const sha256 = screenshotSha256(data.screenshot);
+      if (sha256 && !target.screenshot) target.screenshot = { eventId: event.id, sha256 };
+    } else if (event.type === 'screen-reader.observation' || event.type === 'simulation.observation') {
+      const lines = Array.isArray(data.speech) ? data.speech.map(text).filter((l): l is string => !!l) : [];
+      if (lines.length) {
+        const provenance = data.provenance === 'native' || data.provenance === 'simulation' ? data.provenance : event.type === 'simulation.observation' ? 'simulation' : 'unspecified';
+        target.speech = { lines: [...(target.speech?.lines ?? []), ...lines], provenance };
+      }
+    } else if (event.type === 'policy.evidence') {
+      const e = record(data.evidence) ? data.evidence : {};
+      if (e.kind === 'model-inference' && text(e.choiceId)) {
+        const probabilities = Array.isArray(e.probabilities) ? e.probabilities : [];
+        const candidates = Array.isArray(e.choices) ? e.choices.filter(record).filter(c => text(c.id)).map((c, i) => ({ id: text(c.id)!, ...(text(c.label) ? { label: text(c.label)! } : {}), ...(typeof probabilities[i] === 'number' ? { probability: probabilities[i] as number } : {}) })) : undefined;
+        const modelId = record(e.model) ? text(e.model.id) : undefined;
+        target.model = { choiceId: text(e.choiceId)!, ...(candidates?.length ? { candidates } : {}), ...(modelId ? { modelId } : {}), ...(typeof e.inferenceMs === 'number' ? { inferenceMs: e.inferenceMs } : {}) };
+      }
+    } else if (event.type === 'verifier.result') {
+      if (typeof data.passed === 'boolean') target.verification = { passed: data.passed, rules: rules(data.rules) };
+    } else if (event.type === 'verifier.baseline') {
+      if (typeof data.passed === 'boolean' && Array.isArray(data.rules)) baseline = { passed: data.passed, rules: rules(data.rules) };
+    } else if (event.type.startsWith('observer.') && text(data.kind)) {
+      const change: ObservedChange = { kind: text(data.kind)! };
+      if (typeof data.role === 'string' || data.role === null) change.role = data.role;
+      for (const key of ['name', 'text', 'attr', 'url'] as const) if (text(data[key])) change[key] = text(data[key])!;
+      if (data.value === null || text(data.value) !== undefined) change.value = data.value as string | null;
+      target.observed.push(change);
+    }
+  }
+  for (const hint of hints) for (const n of hint.steps) {
+    const view = byStep.get(n);
+    if (view && !view.hints.includes(hint.kind)) view.hints.push(hint.kind);
+  }
+  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), ...(baseline ? { baseline } : {}), live };
+}
