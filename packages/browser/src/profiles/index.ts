@@ -1,3 +1,4 @@
+import { RawstepError } from '@rawstep/core/errors';
 import { installProfileScript } from './page-script.js';
 import { isVerifiedZoomController } from './native-zoom.js';
 import type { Page } from 'playwright';
@@ -7,8 +8,8 @@ export * from '@rawstep/core/profiles/schema';
 export * from './diagnostics.js';
 export { createChromiumTabZoomController } from './native-zoom.js';
 
-export class ProfileApplicationError extends Error {
-  constructor(readonly appliedProfile: AppliedProfile) { super('One or more requested environment settings are unsupported or did not apply.'); this.name = 'ProfileApplicationError'; }
+export class ProfileApplicationError extends RawstepError {
+  constructor(readonly appliedProfile: AppliedProfile) { super('unsupported-profile', 'One or more requested environment settings are unsupported or did not apply.', { outcome: { status: 'inconclusive', reason: 'unsupported-profile' } }); this.name = 'ProfileApplicationError'; }
 }
 import type { NativeZoomController } from './ports.js';
 export type { NativeZoomController } from './ports.js';

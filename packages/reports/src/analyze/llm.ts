@@ -1,5 +1,6 @@
 import { RAWSTEP_DEFAULTS, isLoopbackHostname } from '@rawstep/core/defaults';
 import type { RunTrace } from '@rawstep/core/trace';
+import { RawstepError } from '@rawstep/core/errors';
 import { validateAnalyzerResult, type AnalyzerResult, type TraceAnalyzer } from './index.js';
 
 export type LlmAnalyzerOptions = { baseURL: string; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
@@ -50,6 +51,11 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
       if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string') throw new Error('Incomplete analysis response.');
       if (this.options.apiKey && choice.message.content.includes(this.options.apiKey)) throw new Error('Analysis response contains credentials.');
       const result: unknown = JSON.parse(choice.message.content); validateAnalyzerResult(result, trace); return result;
-    } catch { throw new Error('LLM analysis failed: connection, timeout, limits, or invalid evidence/JSON; raw provider details omitted for privacy.'); }
+    } catch {
+      // Provider text can carry credentials; only the kind of failure leaves this function.
+      if (this.options.signal?.aborted) throw new RawstepError('analysis-cancelled', 'LLM analysis was cancelled.');
+      if (signal.aborted) throw new RawstepError('analysis-timeout', 'LLM analysis timed out.');
+      throw new RawstepError('analysis-failed', 'LLM analysis failed: connection, limits, or invalid evidence/JSON; raw provider details omitted for privacy.');
+    }
   }
 }

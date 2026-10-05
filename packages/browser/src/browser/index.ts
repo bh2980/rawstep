@@ -2,6 +2,7 @@ import { applyProfile, installProfileStyles, type AppliedProfile, type Environme
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import type { ResolvedNavigationPolicy, VerifySpec } from "@rawstep/core/contracts";
 import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants.js";
+import { RawstepError } from "@rawstep/core/errors";
 import { installNavigationRequestBoundary } from "./navigation-boundary.js";
 import { installPageObserver, type ObserverOptions, type PageObserver } from "../observer/index.js";
 
@@ -74,13 +75,13 @@ export type BrowserSession = {
   close(): Promise<void>;
 };
 
-export class BrowserAccessBlockedError extends Error {
-  constructor(readonly url:string,readonly status:number|undefined,reason:string){super(reason);this.name='BrowserAccessBlockedError';}
+export class BrowserAccessBlockedError extends RawstepError {
+  constructor(readonly url:string,readonly status:number|undefined,reason:string){super('access-blocked',reason,{outcome:{status:'inconclusive',reason:'access-blocked'}});this.name='BrowserAccessBlockedError';}
 }
 
-export class BrowserSetupError extends Error {
+export class BrowserSetupError extends RawstepError {
   constructor(message: string, readonly blockedNavigations: BlockedNavigationRecord[], readonly warnings: NavigationGuardWarningRecord[], cause: unknown) {
-    super(message, { cause });
+    super("browser-setup", message, { cause });
     this.name = "BrowserSetupError";
   }
 }

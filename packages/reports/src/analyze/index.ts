@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { readTrace, traceFilePath, validateTrace, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
+import { findRawstepError } from "@rawstep/core/errors";
 
 export const ANALYSIS_SCHEMA_VERSION = "1.0" as const;
 export interface AnalysisFinding {
@@ -29,7 +30,10 @@ export interface AnalysisReport extends AnalyzerResult {
   /** A copy of recorded execution outcome, never an analyzer's judgment. */
   runOutcome?: RunOutcome;
   error?: string;
+  /** Why analysis failed, without raw analyzer text: callers can tell cancellation from failure. */
+  failure?: AnalysisFailure;
 }
+export type AnalysisFailure = "cancelled" | "timeout" | "invalid-result" | "analyzer-error";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -64,7 +68,8 @@ export function validateAnalysisReport(value: unknown, trace: RunTrace): asserts
       value.traceSchemaVersion !== trace.schemaVersion || !["completed", "failed"].includes(String(value.status)) ||
       !isRecord(value.analyzer) || typeof value.analyzer.id !== "string" || !value.analyzer.id ||
       typeof value.analyzedAt !== "string" || !Number.isFinite(Date.parse(value.analyzedAt)) ||
-      (value.error !== undefined && typeof value.error !== "string")) {
+      (value.error !== undefined && typeof value.error !== "string") ||
+      (value.failure !== undefined && !["cancelled", "timeout", "invalid-result", "analyzer-error"].includes(String(value.failure)))) {
     throw new Error("Analysis does not belong to this trace or uses an invalid schema.");
   }
   if (!isDeepStrictEqual(value.runOutcome, trace.outcome)) {
@@ -273,9 +278,17 @@ export async function analyzeTrace(trace: RunTrace, analyzer: TraceAnalyzer = de
     analyzedAt: new Date().toISOString(),
     ...(snapshot.outcome ? { runOutcome: JSON.parse(JSON.stringify(snapshot.outcome)) as RunOutcome } : {})
   };
+  let failure: AnalysisFailure = "analyzer-error";
   try {
     if (!analyzer || !analyzer.id || typeof analyzer.analyze !== "function") throw new Error("Invalid analyzer plugin.");
-    const candidate: unknown = await analyzer.analyze(snapshot);
+    let candidate: unknown;
+    try { candidate = await analyzer.analyze(snapshot); }
+    catch (error) {
+      const known = findRawstepError(error)?.code;
+      failure = known === "analysis-cancelled" || (error instanceof Error && error.name === "AbortError") ? "cancelled" : known === "analysis-timeout" || (error instanceof Error && error.name === "TimeoutError") ? "timeout" : "analyzer-error";
+      throw error;
+    }
+    failure = "invalid-result";
     validateAnalyzerResult(candidate, snapshot);
     // Materialize plugin output before validation/use so getters or later mutation cannot
     // replace a previously checked evidence reference.
@@ -285,7 +298,7 @@ export async function analyzeTrace(trace: RunTrace, analyzer: TraceAnalyzer = de
   } catch {
     // Plugin errors can contain credentials/environment secrets. Keep them out of artifacts.
     return {
-      ...base, status: "failed", findings: [],
+      ...base, status: "failed", findings: [], failure,
       summary: "Analysis failed. The saved trace and recorded run outcome are unchanged.",
       error: "Analyzer execution or evidence validation failed."
     };

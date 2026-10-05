@@ -6,6 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
+import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
 import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
 
@@ -269,7 +270,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         } else await withinBudget(() => options.backend.execute(action, { signal: controller.signal }));
         execution = { ok: true };
       } catch (error) {
-        if (error && typeof error === 'object' && (error as {code?:string}).code === 'UNSUPPORTED_CORPUS_PATTERN') throw error;
+        // An error that names its own run outcome ends the run instead of becoming a failed action.
+        if (error instanceof RawstepError && error.outcome) throw error;
         if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw evidenceFailure ?? controller.signal.reason ?? error;
         execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error) };
       }
@@ -313,9 +315,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       bestEffortEvidence(() => append('run.aborted', cancellation));
     } else {
       outcome = { status: error instanceof BudgetExceeded ? 'inconclusive' : 'failure', reason: error instanceof BudgetExceeded ? 'timeout' : 'error', stage, step: activeStep, error: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error) };
-      if(error && typeof error === 'object' && (error as {code?:string}).code === 'UNSUPPORTED_CORPUS_PATTERN') outcome={...outcome,status:'inconclusive',reason:'unsupported-pattern'};
-      if(accessError)outcome={...outcome,status:'inconclusive',reason:'access-blocked'};
-      if (profileError) outcome = { ...outcome, status: 'inconclusive', reason: 'unsupported-profile' };
+      const hint = findRawstepError(error, candidate => !!candidate.outcome)?.outcome;
+      if (hint) outcome = { ...outcome, ...hint };
       bestEffortEvidence(() => append('run.error', { stage, step: activeStep, message: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error) }, { redacted: inputTainted }));
     }
   } finally {
