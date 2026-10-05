@@ -12,6 +12,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { RunTree } from './RunTree';
+import { NewTaskDialog } from './NewTaskDialog';
 import { TaskImportDialog } from './TaskImportDialog';
 
 type SidebarProps = {
@@ -30,7 +31,7 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<TreeFilter>('all');
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState(false), [creating, setCreating] = useState(false);
   const config = pageProps.view.config;
   const runs = useMemo(() => flattenRuns(experiments), [experiments]);
   const hintsFor = useHintSummaries();
@@ -41,7 +42,7 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
     hintCount: runId => hintsFor(runId)?.reduce((sum, hint) => sum + hint.count, 0),
   }), [config.tasks, config.environments, runs, filter, query, hintsFor]);
   const selected: RunRef | undefined = findRun(runs, route.run);
-  const taskId = selected?.run.taskId ?? (route.task && route.task !== 'new' ? route.task : undefined);
+  const taskId = selected?.run.taskId ?? route.task;
   const selectedId = selected ? runNodeId(selected.run.id) : taskId ? taskNodeId(taskId) : undefined;
   const revealIds = selected ? ancestorIds(selected) : taskId ? [taskNodeId(taskId)] : [];
   const narrowed = query.trim() !== '' || filter !== 'all';
@@ -56,7 +57,7 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
         <h2 className="text-sm font-semibold">{t('sidebar.tasks')}</h2>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.importTask')} title={t('sidebar.importTask')} onClick={() => setImporting(true)}><FileInput aria-hidden="true" /></Button>
-          <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.addTask')} title={t('sidebar.addTask')} onClick={() => navigate({ task: 'new' })}><Plus aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.addTask')} title={t('sidebar.addTask')} onClick={() => setCreating(true)}><Plus aria-hidden="true" /></Button>
         </div>
       </div>
       <div className="relative">
@@ -75,6 +76,7 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
         : <p className="p-4 text-xs leading-5 text-muted-foreground">{narrowed ? t('sidebar.emptyFiltered') : t('sidebar.empty')}</p>}
     </div>
     <p className="border-t p-3 text-[11px] leading-4 text-muted-foreground">{t('sidebar.treeHelp')}</p>
+    <NewTaskDialog {...pageProps} open={creating} onOpenChange={setCreating} onCreated={id => navigate({ task: id })} />
     <TaskImportDialog {...pageProps} open={importing} onOpenChange={setImporting} onImported={id => navigate({ task: id })} />
   </div>;
 }

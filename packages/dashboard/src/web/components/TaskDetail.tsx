@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { defaultModes, type ManagedTask } from '../../shared/config';
-import type { TFunction } from 'i18next';
+import type { ManagedTask } from '../../shared/config';
 import { useTranslation } from 'react-i18next';
 import { formatDate, isFinished, runStartedAt, runStepCount, environmentName, type RunRef } from '../lib/runs';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';
@@ -16,15 +15,10 @@ import { TaskEditor } from './TaskEditor';
 type Draft = { task: ManagedTask; json?: unknown };
 type Props = { taskId: string; pageProps: PageProps; runs: RunRef[]; navigate: (change: RouteChange) => void };
 
-function newDraft(t: TFunction): Draft {
-  const id = crypto.randomUUID();
-  return { task: { id, name: t('task.newName'), file: 'tasks/' + id + '.json', modes: defaultModes() } };
-}
-
 /** Task editor plus a table of that task's runs. Mount with `key={taskId}` so drafts do not leak between tasks. */
 export function TaskDetail({ taskId, pageProps, runs, navigate }: Props) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<Draft | undefined>(() => taskId === 'new' ? newDraft(t) : undefined);
+  const [draft, setDraft] = useState<Draft | undefined>();
   const config = pageProps.view.config;
   const saved = config.tasks.find(task => task.id === taskId);
   const managed = draft?.task ?? saved;

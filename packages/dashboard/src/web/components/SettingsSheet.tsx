@@ -21,8 +21,8 @@ export function SettingsSheet({ open, onOpenChange, pageProps, banner, editorKey
         {banner}
         <Tabs defaultValue="models">
           <TabsList aria-label={t('settings.tabsLabel')}>
-            <TabsTrigger value="models">{t('settings.tabs.models')}</TabsTrigger>
-            <TabsTrigger value="globals">{t('settings.tabs.globals')}</TabsTrigger>
+            <TabsTrigger value="models">{t('settingsSheet.tabModels')}</TabsTrigger>
+            <TabsTrigger value="globals">{t('settingsSheet.tabRun')}</TabsTrigger>
           </TabsList>
           <TabsContent value="models" forceMount className="pt-6 data-[state=inactive]:hidden"><ModelsPage key={editorKey} {...pageProps} /></TabsContent>
           <TabsContent value="globals" forceMount className="pt-6 data-[state=inactive]:hidden"><SettingsPage key={editorKey} {...pageProps} /></TabsContent>

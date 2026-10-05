@@ -6,9 +6,9 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-export function Field({ label, value, onChange, multiline, type, hint }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; type?: string; hint?: string }) {
+export function Field({ label, value, onChange, multiline, type, hint, placeholder }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; type?: string; hint?: string; placeholder?: string }) {
   const id = useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} onChange={e => onChange(e.target.value)} rows={5} className="font-mono text-xs leading-6" /> : <Input id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={5} className="font-mono text-xs leading-6" /> : <Input id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
 }
 export function Choice({ label, value, onChange, options }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[] }) {
   const id = useId();
@@ -22,4 +22,8 @@ export function MultiChoice({ label, items, selected, onChange }: { label: strin
 }
 export function SectionHeader({ title, description, children }: { title: string; description: string; children?: ReactNode }) {
   return <div className="mb-8 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p></div><div className="flex flex-wrap gap-2">{children}</div></div>;
+}
+/** A titled block inside the advanced settings; sections are separated by a rule. */
+export function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return <section className="grid gap-4 border-t pt-6"><div className="grid gap-1"><h3 className="font-medium">{title}</h3>{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}</div>{children}</section>;
 }

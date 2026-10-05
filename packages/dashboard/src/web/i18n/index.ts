@@ -2,9 +2,10 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { core } from './locales/ko/core.js';
 import { editor } from './locales/ko/editor.js';
+import { settings } from './locales/ko/settings.js';
 
 /** One namespace; top-level keys of the locale files must not collide. */
-export const resources = { ko: { translation: { ...core, ...editor } } } as const;
+export const resources = { ko: { translation: { ...core, ...editor, ...settings } } } as const;
 
 // Synchronous init with bundled resources: the first render already has every string.
 void i18n.use(initReactI18next).init({
