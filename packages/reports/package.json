@@ -64,6 +64,8 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@rawstep/core": "workspace:*"
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "zod": "4.6.5"
   }
 }

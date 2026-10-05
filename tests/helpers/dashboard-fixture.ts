@@ -32,8 +32,8 @@ export async function dashboardFixture() {
   const url = 'http://127.0.0.1:' + address.port;
   const config = defaultConfig();
   config.connections = [{ id: 'fixture', name: '자동 검증용 HTTP fixture', provider: 'systemone', baseURL: url, timeoutMs: 5000 }, { id: 'llm', name: '자동 검증용 LLM fixture', provider: 'openai', baseURL: url, timeoutMs: 5000 }];
-  config.models = ['fixture-a', 'fixture-b'].map(id => ({ id, connectionId: 'fixture', modelId: id, name: id + ' (테스트 응답)', family: 'SystemOne' as const, inputs: ['text' as const, 'image' as const], capabilitySource: 'discovery' as const, maxChoices: 255, maxImages: 2, roles: ['decision' as const], promptEditable: true }));
-  config.models.push({ ...config.models[0]!, id: 'fixture-llm', connectionId: 'llm', modelId: 'fixture-llm', name: 'LLM fixture (테스트 응답)', family: 'LLM' });
+  config.models = ['fixture-a', 'fixture-b'].map(id => ({ id, connectionId: 'fixture', modelId: id, name: id + ' (테스트 응답)', family: 'SystemOne' as const, protocol: 'systemone-http' as const, inputs: ['text' as const, 'image' as const], capabilitySource: 'discovery' as const, maxChoices: 255, maxImages: 2, roles: ['decision' as const], promptEditable: true }));
+  config.models.push({ ...config.models[0]!, id: 'fixture-llm', connectionId: 'llm', modelId: 'fixture-llm', name: 'LLM fixture (테스트 응답)', family: 'LLM', protocol: 'chat' });
   const modes = defaultModes(); modes.keyboard.prompts.push({ ...modes.keyboard.prompts[0]!, id: 'careful', name: '신중하게', version: '2', instructions: 'Fixture careful variant. Select a permitted candidate.' });
   config.tasks = [{ id: 'fixture-task', name: '버튼 활성화 fixture', file: 'task.json', modes }];
   config.machine.browserExecutablePath = process.env.RAWSTEP_TEST_BROWSER_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';

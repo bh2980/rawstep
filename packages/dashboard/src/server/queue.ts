@@ -6,7 +6,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
 import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { defaultInstructions, planSchema, resolveRunSettings, taskProfile, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
+import { connectionProtocols, defaultInstructions, planSchema, resolveRunSettings, taskProfile, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { ProjectStore, atomicJson, HttpError } from './store.js';
 import { executeRun, resolvePermissions } from './execution.js';
 
@@ -56,11 +56,11 @@ export class ExperimentQueue {
           if (request.mode === 'keyboard' && (!model.inputs.includes('image') || model.maxImages < 2)) throw new Error('키보드 실행에는 현재·이전 이미지를 지원하는 모델이 필요합니다.');
           if (request.mode === 'screenreader' && !model.inputs.includes('text')) throw new Error('스크린리더 실행에는 텍스트 입력 지원이 필요합니다.');
           const connection = config.connections.find(c => c.id === model.connectionId)!;
-          if (model.family === 'SystemOne' && connection.provider === 'openai') throw new Error('OpenAI 호환 연결에는 LLM을 선택하세요. SystemOne은 native 평가 Provider가 필요합니다.');
-          if (connection.provider === 'vercel' && request.mode === 'keyboard') throw new Error('Vercel Evaluation 어댑터는 텍스트 입력만 지원합니다.');
+          if (!connectionProtocols[connection.provider].includes(model.protocol) || (model.protocol === 'chat') !== (model.family === 'LLM')) throw new Error('모델의 호출 방식이 연결 종류와 맞지 않습니다. 모델을 다시 등록하세요.');
+          if (model.protocol === 'vercel-evaluation' && request.mode === 'keyboard') throw new Error('Vercel Evaluation 어댑터는 텍스트 입력만 지원합니다.');
           const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + 3;
           if (choiceCount > model.maxChoices) throw new Error('선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.');
-          if (connection.provider === 'screenshot' && request.mode !== 'keyboard') throw new Error('/choose는 키보드 모드 전용입니다.');
+          if (model.protocol === 'choose' && request.mode !== 'keyboard') throw new Error('/choose는 키보드 모드 전용입니다.');
           if (!model.promptEditable && prompt.instructions !== defaultInstructions.keyboard) throw new Error('/choose 서버가 프롬프트 변경을 지원하지 않습니다.');
           if (model.family === 'LLM' && settings.policy.focusGate) throw new Error('확률 기반 포커스 제한은 SystemOne 모델만 지원합니다. 실행 프로필이나 작업 설정에서 해제하세요.');
           if (request.mode === 'screenreader' && config.machine.backend === 'voiceover' && process.platform !== 'darwin') throw new Error('VoiceOver는 macOS에서 실행하세요.');

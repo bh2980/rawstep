@@ -16,7 +16,7 @@ describe('physical workspace ownership and aggregate verification contract',()=>
   });
   it('has a frozen importer for every real workspace and no mandatory native or model runtime',async()=>{
     const lock=await readFile('pnpm-lock.yaml','utf8');
-    expect(lock).not.toMatch(/guidepup|virtual-screen-reader|@ai-sdk|pixelmatch|pngjs|onnxruntime|transformers|torch/);
+    expect(lock).not.toMatch(/guidepup|virtual-screen-reader|pixelmatch|pngjs|onnxruntime|transformers|torch/);
     const importers=lock.split('\nimporters:\n')[1]!.split('\npackages:\n')[0]!;
     expect(importers.match(/^  \S[^\n]*:/gm)?.sort()).toEqual(['  .:',...order.map(n=>`  packages/${n}:`),'  packages/dashboard:'].sort());
     const dashboard=JSON.parse(await readFile('packages/dashboard/package.json','utf8'));
@@ -25,7 +25,7 @@ describe('physical workspace ownership and aggregate verification contract',()=>
       const manifest=JSON.parse(await readFile(`packages/${name}/package.json`,'utf8'));
       expect(manifest.name).toBe(names(name)); expect(manifest.private).not.toBe(true);
       expect(manifest.files).toContain('dist');
-      expect(JSON.stringify(manifest.dependencies)).not.toMatch(/guidepup|virtual-screen-reader|@ai-sdk|onnxruntime|transformers|torch|python/);
+      expect(JSON.stringify(manifest.dependencies)).not.toMatch(/guidepup|virtual-screen-reader|onnxruntime|transformers|torch|python/);
       const config=JSON.parse(await readFile(`packages/${name}/tsconfig.json`,'utf8'));
       expect(config.compilerOptions.rootDir).toBe('src');expect(config.compilerOptions.outDir).toBe('dist');expect(config.compilerOptions.paths).toBeUndefined();expect(config.include).toEqual(['src/**/*.ts']);
     }

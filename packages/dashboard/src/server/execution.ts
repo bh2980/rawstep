@@ -33,14 +33,14 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
-  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, connection), modelGiveUp };
+  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model), modelGiveUp };
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
-  if (model.family === 'LLM') {
+  if (model.protocol === 'chat') {
     const client = new LlmChoiceClient(connection, model, prompt, apiKey);
     screenshotModel = new LlmScreenshotAdapter(client);
     policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, { modelGiveUp });
-  } else if (connection.provider === 'screenshot') {
+  } else if (model.protocol === 'choose') {
     const fetchChoice = async (request: object, inner: AbortSignal) => {
       const value = await boundedJson(await fetch(connection.baseURL.replace(/\/$/, '') + '/choose', {
         method: 'POST', redirect: 'error', signal: AbortSignal.any([inner, AbortSignal.timeout(connection.timeoutMs)]),
@@ -72,8 +72,8 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
   } else {
     const opts = { baseURL: connection.baseURL, model: model.modelId, apiKey, timeoutMs: connection.timeoutMs };
     const capabilities = { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages };
-    const client: SystemOneClient = connection.provider === 'openrouter' ? new OpenRouterSystemOneClient({ ...opts, capabilities })
-      : connection.provider === 'vercel' ? new VercelEvaluationClient(opts) : new SystemOneHttpClient({ ...opts, capabilities });
+    const client: SystemOneClient = model.protocol === 'openrouter-decisions' ? new OpenRouterSystemOneClient({ ...opts, capabilities })
+      : model.protocol === 'vercel-evaluation' ? new VercelEvaluationClient(opts) : new SystemOneHttpClient({ ...opts, capabilities });
     await client.prepare?.({ signal: setupSignal });
     screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
     policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })

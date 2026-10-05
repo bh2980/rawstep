@@ -1,12 +1,15 @@
 import { resolveTask, type VerifyRule } from '@rawstep/core/contracts';
 import { closeBrowserSession, createBrowserSession } from '@rawstep/browser/browser';
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
-import { modelBaseURL } from '@rawstep/policies/systemone';
-import { boundedJson, record } from './models.js';
+import { z } from 'zod';
+import { createLlmModel, generateStructured } from '@rawstep/policies/llm';
+import { record } from './models.js';
 import type { Connection, MachineSettings, Model } from '../shared/config.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
 const MAX_STRUCTURE = 14_000;
+/** Each proposal is validated against the task contract afterwards; here only the envelope is checked. */
+const suggestionsSchema = z.object({ suggestions: z.array(z.unknown()) });
 const SYSTEM = `You help set up Rawstep, a library that reports where a keyboard or screen reader run got slow or took detours.
 A task has a start URL and a goal. Propose 2 to 4 completion checks that tell, after a run, whether the goal was reached.
 A completion check is one signal among several, so prefer checks that are simple, robust to wording changes, and false on the start page.
@@ -78,24 +81,12 @@ export async function suggestChecks(options: {
 }
 
 async function askModel(options: { model: Model; connection: Connection; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
-  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(options.connection.timeoutMs)]);
-  let value: unknown;
   try {
-    value = await boundedJson(await fetch(new URL('chat/completions', modelBaseURL(options.connection.baseURL)), {
-      method: 'POST', redirect: 'error', signal,
-      headers: { 'content-type': 'application/json', ...(options.apiKey ? { authorization: 'Bearer ' + options.apiKey } : {}) },
-      body: JSON.stringify({ model: options.model.modelId, response_format: { type: 'json_object' }, messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: JSON.stringify({ goal, pageStructure: structure }) },
-      ] }),
-    }));
-    const envelope = record(value), first = record(Array.isArray(envelope.choices) ? envelope.choices[0] : undefined), message = record(first.message);
-    if (typeof message.content !== 'string' || (options.apiKey && message.content.includes(options.apiKey))) throw new Error('incomplete');
-    const answer = record(JSON.parse(message.content));
-    if (!Array.isArray(answer.suggestions)) throw new Error('shape');
-    return answer.suggestions;
+    const llm = createLlmModel({ baseURL: options.connection.baseURL, modelId: options.model.modelId, apiKey: options.apiKey, timeoutMs: options.connection.timeoutMs, name: 'rawstep-suggest' });
+    const { object } = await generateStructured({ model: llm, system: SYSTEM, user: JSON.stringify({ goal, pageStructure: structure }), signal: options.signal, schema: suggestionsSchema });
+    return object.suggestions;
   } catch {
-    signal.throwIfAborted();
+    options.signal?.throwIfAborted();
     // Provider text can carry credentials or page content; only the kind of failure leaves this function.
     throw new Error('완료 확인 제안 실패: 분석 모델의 연결과 응답 형식을 확인하세요. Provider 원문은 표시하지 않습니다.');
   }

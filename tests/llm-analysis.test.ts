@@ -23,7 +23,7 @@ describe('explicit finalized-trace LLM analysis',()=>{
     const fetcher: typeof fetch = async (_url, init) => { sent=JSON.parse(String(init!.body)); return Response.json({ choices: [{ finish_reason:'stop', message:{content:JSON.stringify(result('invented-event'))} }] }); };
     const analyzer=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',instructions:'Compare keyboard navigation',fetch:fetcher,signal:controller.signal});
     await expect(analyzer.analyze(trace)).rejects.toThrow('LLM analysis failed');
-    expect(sent.messages[0].content).toContain('existing trace event IDs'); expect(sent.messages[1].content).toContain('Compare keyboard navigation');
+    expect(sent.messages[0].content).toContain('existing trace event IDs'); expect(sent.messages[0].content).toContain('Compare keyboard navigation');
     const abortFetch: typeof fetch = async (_url, init) => { if(init!.signal!.aborted) throw new Error('aborted'); return new Promise((_resolve,reject)=>init!.signal!.addEventListener('abort',()=>reject(new Error('aborted')),{once:true})); };
     const pending=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:abortFetch,signal:controller.signal}).analyze(trace);
     controller.abort(); await expect(pending).rejects.toMatchObject({ name: 'RawstepError', code: 'analysis-cancelled' });

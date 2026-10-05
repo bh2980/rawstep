@@ -47,6 +47,7 @@
     "rawstep": "workspace:*",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.4"
+    "vitest": "4.1.4",
+    "zod": "4.6.5"
   }
 }

@@ -23,13 +23,14 @@ export async function discover(connection: Connection, apiKey?: string): Promise
     const info = record(await get('health')), model = record(info.model);
     const modelId = String(model.id ?? model.model ?? info.modelId ?? '');
     if (!modelId) throw new HttpError(502, '/health에 모델 ID가 없습니다. 모델 ID를 수동으로 등록하세요.');
-    return [{ id: 'discovered-0', connectionId: connection.id, modelId, name: modelId, family: 'SystemOne', inputs: ['text', 'image'], capabilitySource: 'discovery', maxChoices: typeof info.maxChoices === 'number' ? info.maxChoices : 26, maxImages: typeof info.maxImages === 'number' ? info.maxImages : 2, roles: ['decision'], promptEditable: info.promptControl === 'client-v1' }];
+    return [{ id: 'discovered-0', connectionId: connection.id, modelId, name: modelId, family: 'SystemOne', protocol: 'choose', inputs: ['text', 'image'], capabilitySource: 'discovery', maxChoices: typeof info.maxChoices === 'number' ? info.maxChoices : 26, maxImages: typeof info.maxImages === 'number' ? info.maxImages : 2, roles: ['decision'], promptEditable: info.promptControl === 'client-v1' }];
   }
   const rows = record(await get('models')).data;
   if (!Array.isArray(rows)) throw new HttpError(502, '모델 목록 API가 없습니다. 명시적인 모델 ID와 입력 지원을 수동으로 등록하세요.');
   let all: unknown[] = rows;
-  if (connection.provider === 'openrouter') {
-    const decisions = record(await get('models?output_modalities=decisions')).data;
+  if (connection.provider === 'openai') {
+    // OpenRouter lists SystemOne decision models separately; other OpenAI-compatible servers just do not have this route.
+    const decisions = record(await get('models?output_modalities=decisions').catch(() => undefined)).data;
     if (Array.isArray(decisions)) all = [...rows, ...decisions];
   }
   const result: Model[] = [];
@@ -38,16 +39,15 @@ export async function discover(connection: Connection, apiKey?: string): Promise
     const modelId = typeof m.canonical_slug === 'string' ? m.canonical_slug : m.id;
     if (typeof modelId !== 'string' || !modelId || (apiKey && JSON.stringify(m).includes(apiKey))) continue;
     const output = Array.isArray(arch.output_modalities) ? arch.output_modalities : [];
-    const family = connection.provider === 'systemone' || connection.provider === 'vercel' || m.type === 'evaluation' || output.includes('decisions') ? 'SystemOne' : 'LLM';
+    const protocol: Model['protocol'] = connection.provider === 'systemone' ? 'systemone-http' : output.includes('decisions') ? 'openrouter-decisions' : m.type === 'evaluation' ? 'vercel-evaluation' : 'chat';
+    const family = protocol === 'chat' ? 'LLM' : 'SystemOne';
     const reported = arch.input_modalities ?? modalities.input ?? m.inputs;
     const confirmed = Array.isArray(reported) && reported.includes('text');
     const inputs: ('text' | 'image')[] = ['text'];
     if (confirmed && reported.includes('image')) inputs.push('image');
-    if (connection.provider === 'vercel' && family !== 'SystemOne') continue;
-    if (connection.provider === 'vercel' && m.type !== 'evaluation') continue;
     if (result.some(v => v.modelId === modelId && v.family === family)) continue;
     result.push({
-      id: 'discovered-' + result.length, connectionId: connection.id, modelId, name: typeof m.name === 'string' ? m.name : modelId, family, inputs,
+      id: 'discovered-' + result.length, connectionId: connection.id, modelId, name: typeof m.name === 'string' ? m.name : modelId, family, protocol, inputs,
       capabilitySource: confirmed ? 'discovery' : 'manual',
       maxChoices: typeof m.maxChoices === 'number' ? m.maxChoices : 255,
       maxImages: inputs.includes('image') ? 2 : 0, roles: family === 'LLM' ? ['decision', 'analysis'] : ['decision'], promptEditable: true,

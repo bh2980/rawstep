@@ -15,12 +15,16 @@ const modeSchema = z.object({
   permissions: permissionsSchema.nullable(), prompts: z.array(promptSchema).min(1).max(50),
 }).strict();
 export const connectionSchema = z.object({
-  id, name: text, provider: z.enum(['systemone', 'openrouter', 'vercel', 'openai', 'screenshot']),
+  id, name: text, /** `openai`: any OpenAI-compatible API (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...). `systemone`: native SystemOne server. `screenshot`: /choose server. */
+  provider: z.enum(['openai', 'systemone', 'screenshot']),
   baseURL: z.url(), apiKeyEnv: z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/).optional(),
   timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
 }).strict();
+/** How a model is called: `chat` is an LLM through the AI SDK; the others are SystemOne decision or /choose protocols. */
+export const modelProtocolSchema = z.enum(['chat', 'openrouter-decisions', 'vercel-evaluation', 'systemone-http', 'choose']);
+export type ModelProtocol = z.infer<typeof modelProtocolSchema>;
 export const modelSchema = z.object({
-  id, connectionId: id, modelId: text, name: text, family: z.enum(['SystemOne', 'LLM']),
+  id, connectionId: id, modelId: text, name: text, family: z.enum(['SystemOne', 'LLM']), protocol: modelProtocolSchema,
   inputs: z.array(z.enum(['text', 'image'])).min(1).max(2),
   capabilitySource: z.enum(['discovery', 'manual']),
   maxChoices: z.number().int().min(1).max(10000).default(255),
@@ -106,8 +110,17 @@ export function defaultModes(): ManagedTask['modes'] {
   }])) as ManagedTask['modes'];
 }
 /** `auto`: off for cheap, fast SystemOne models (bounded by maxSteps/timeoutMs); on for LLMs and the local /choose server. */
-export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'family'>, connection: Pick<Connection, 'provider'>): boolean {
-  return setting === 'auto' ? model.family !== 'SystemOne' || connection.provider === 'screenshot' : setting === 'on';
+export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'protocol'>): boolean {
+  return setting === 'auto' ? model.protocol === 'chat' || model.protocol === 'choose' : setting === 'on';
+}
+/** Which model protocols each connection kind can serve. */
+export const connectionProtocols: Record<Connection['provider'], readonly ModelProtocol[]> = {
+  openai: ['chat', 'openrouter-decisions', 'vercel-evaluation'], systemone: ['systemone-http'], screenshot: ['choose'],
+};
+/** The protocol a model entered by hand uses: LLMs always chat, SystemOne models follow their connection (Vercel gateway hosts evaluation models). */
+export function manualProtocol(connection: Pick<Connection, 'provider' | 'baseURL'>, family: Model['family']): ModelProtocol {
+  return family === 'LLM' ? 'chat' : connection.provider === 'screenshot' ? 'choose' : connection.provider === 'systemone' ? 'systemone-http'
+    : /(^|\.)vercel\.sh(:|\/|$)/.test(connection.baseURL.replace(/^[a-z]+:\/\//, '')) ? 'vercel-evaluation' : 'openrouter-decisions';
 }
 export function defaultProfile(id = 'default', name = '기본'): RunProfile {
   return runProfileSchema.parse({

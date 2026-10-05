@@ -43,6 +43,11 @@
       "types": "./dist/screenshot/replay.d.ts",
       "import": "./dist/screenshot/replay.js",
       "default": "./dist/screenshot/replay.js"
+    },
+    "./llm": {
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js",
+      "default": "./dist/llm/index.js"
     }
   },
   "files": [
@@ -64,6 +69,9 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@rawstep/core": "workspace:*"
+    "@ai-sdk/openai-compatible": "3.0.63",
+    "@rawstep/core": "workspace:*",
+    "ai": "7.0.128",
+    "zod": "4.6.5"
   }
 }

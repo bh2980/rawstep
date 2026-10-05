@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import type { Connection, Model } from '../../shared/config';
+import { connectionProtocols, manualProtocol, type Connection, type Model } from '../../shared/config';
 import { api } from '../api';
 import { ENV_NAME, generateEnvName, withAnalysis } from '../lib/modelSetup';
 import { useGuardedAct } from '../lib/useGuardedAct';
@@ -66,8 +66,8 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Model; pagePr
       <CollapsibleContent className="grid gap-6">
         <div className="grid gap-4">
           <Field label={t('modelSetup.modelId')} value={model.modelId} onChange={modelId => patch({ modelId })} />
-          <Choice label={t('modelSetup.useConnection')} value={model.connectionId} onChange={id => { patch({ connectionId: id }); setConnection(structuredClone(connections.find(c => c.id === id))); }} options={connections.map(c => ({ id: c.id, name: c.name }))} />
-          <Choice label={t('modelSetup.family')} value={model.family} onChange={family => patch({ family: family as Model['family'], roles: family === 'SystemOne' ? ['decision'] : model.roles })} options={[{ id: 'SystemOne', name: t('modelSetup.familySystemOne') }, { id: 'LLM', name: t('modelSetup.familyLlm') }]} />
+          <Choice label={t('modelSetup.useConnection')} value={model.connectionId} onChange={id => { const next = structuredClone(connections.find(c => c.id === id)); patch({ connectionId: id, ...(next && !connectionProtocols[next.provider].includes(model.protocol) ? { protocol: manualProtocol(next, model.family) } : {}) }); setConnection(next); }} options={connections.map(c => ({ id: c.id, name: c.name }))} />
+          <Choice label={t('modelSetup.family')} value={model.family} onChange={family => patch({ family: family as Model['family'], ...(connection ? { protocol: manualProtocol(connection, family as Model['family']) } : {}), roles: family === 'SystemOne' ? ['decision'] : model.roles })} options={[{ id: 'SystemOne', name: t('modelSetup.familySystemOne') }, { id: 'LLM', name: t('modelSetup.familyLlm') }]} />
           <div className="grid gap-4 sm:grid-cols-2">
             <MultiChoice label={t('modelSetup.inputSupport')} selected={model.inputs} onChange={inputs => patch({ inputs: inputs as Model['inputs'], maxImages: inputs.includes('image') ? Math.max(2, model.maxImages) : 0, capabilitySource: 'manual' })} items={[{ id: 'text', name: t('modelSetup.inputText') }, { id: 'image', name: t('modelSetup.inputImage') }]} />
             <MultiChoice label={t('modelSetup.roles')} selected={model.roles} onChange={roles => patch({ roles: roles as Model['roles'] })} items={model.family === 'LLM' ? [{ id: 'decision', name: t('modelSetup.roleDecision') }, { id: 'analysis', name: t('modelSetup.roleAnalysis') }] : [{ id: 'decision', name: t('modelSetup.roleDecision') }]} />

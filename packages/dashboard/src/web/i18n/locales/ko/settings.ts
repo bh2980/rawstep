@@ -13,10 +13,8 @@ export const settings = {
     emptyTitle: '아직 등록된 모델이 없습니다',
     emptyDescription: '모델을 추가해야 실험을 실행할 수 있습니다. 서버를 고르고 목록에서 모델을 선택하면 끝납니다.',
     where: {
-      openrouter: 'OpenRouter',
-      openai: '로컬 서버 (OpenAI 호환)',
+      openai: 'OpenAI 호환 API',
       systemone: 'SystemOne 서버',
-      vercel: 'Vercel Evaluation',
       screenshot: '/choose 스크린샷 서버',
     },
     usage: {
@@ -43,17 +41,15 @@ export const settings = {
       model: { title: '모델 고르기', description: '사용할 모델을 고르고 이름을 확인하세요.' },
     },
     presets: {
-      openrouter: { name: 'OpenRouter', description: '클라우드의 다양한 모델을 인증키로 사용합니다.' },
-      openai: { name: 'OpenAI 호환 서버 (LM Studio·Ollama·vLLM 등)', description: '내 컴퓨터나 사내에서 실행 중인 서버를 사용합니다. 인증키는 보통 필요 없습니다.' },
-      systemone: { name: 'SystemOne', description: '후보 중에서 다음 행동을 고르는 SystemOne 형식의 서버입니다.' },
-      vercel: { name: 'Vercel Evaluation', description: 'Vercel AI Gateway의 평가(Evaluation) 모델을 사용합니다. 인증키가 필요합니다.' },
+      openai: { name: 'OpenAI 호환 API', description: 'OpenAI·OpenRouter·Vercel AI Gateway·LM Studio·Ollama처럼 OpenAI 형식을 따르는 서버입니다.' },
+      systemone: { name: 'SystemOne 서버', description: '후보 중에서 다음 행동을 고르는 SystemOne 형식의 서버입니다.' },
       screenshot: { name: '/choose 스크린샷 서버', description: '화면 이미지를 받아 키보드 행동을 고르는 로컬 서버입니다.' },
     },
     connect: {
       baseUrl: '서버 주소',
       baseUrlHint: '/v1 같은 API 기본 경로까지 입력하세요.',
       baseUrlHintScreenshot: '서버의 기본 주소를 입력하세요.',
-      apiKeyRequired: '인증키 (필수)',
+      quickFill: '자주 쓰는 주소',
       apiKeyOptional: '인증키 (선택)',
       keyStoredHint: '입력한 키는 이 프로젝트의 .env.local에만 저장되며 화면에 다시 표시되지 않습니다.',
       keyOptionalHint: '인증이 필요 없는 서버는 비워 두세요.',

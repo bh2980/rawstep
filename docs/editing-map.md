@@ -13,6 +13,7 @@ Rawstep has seven engine packages and one private dashboard workspace. The compa
 | Budgets, actions, named inputs, cancellation/verifier | `packages/browser/src/runner/`, `verify/` | runner, input and browser suites |
 | Screenshot keyboard backend | `packages/browser/src/screenshot/` | screenshot/keyboard integration |
 | SystemOne clients/policies | `packages/policies/src/systemone/` | fake and HTTP tests |
+| Every LLM call (Vercel AI SDK, OpenAI-compatible; `@rawstep/policies/llm`) | `packages/policies/src/llm/` | `tests/llm.test.ts` |
 | Explicit LLM analyzer | `packages/reports/src/analyze/llm.ts` | finalized trace/evidence tests |
 | Applied profiles/focus/layout/native zoom | `packages/browser/src/profiles/` | profiles browser tests |
 | AT Driver/Orca/simulated VoiceOver | `packages/screenreaders/src/` | protocol/native bridge/simulation suites |

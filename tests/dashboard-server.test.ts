@@ -23,7 +23,7 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', input: { em
 function setup(): DashboardConfig {
   const config = defaultConfig();
   config.connections.push({ id: 'local', name: 'Local', provider: 'systemone', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
-  for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
+  for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', protocol: 'systemone-http', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
   const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
 }
@@ -60,6 +60,28 @@ describe('dashboard local persistence and permissions', () => {
       const models = await discover({ id: 'local', name: 'local', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 }, 'PRIVATE_DISCOVERY_KEY');
       expect(models).toHaveLength(2); expect(models[0]!.inputs).toEqual(['text']); expect(models[0]!.capabilitySource).toBe('manual'); expect(models[1]!.inputs).toEqual(['text', 'image']);
       expect(JSON.stringify(models)).not.toContain('PRIVATE_DISCOVERY_KEY');
+    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+  });
+  it('sorts discovered models into protocols and ignores a missing decisions route', async () => {
+    const seen: string[] = [];
+    const server = createServer((req, res) => {
+      seen.push(req.url!); res.setHeader('content-type', 'application/json');
+      if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'chat-model', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }, { id: 'gateway/eval', type: 'evaluation' }] }));
+      else if (req.url === '/v1/models?output_modalities=decisions') res.end(JSON.stringify({ data: [{ id: 'one/decider', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] }));
+      else { res.statusCode = 404; res.end('{}'); }
+    });
+    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
+    try {
+      const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port + '/v1';
+      const models = await discover({ id: 'c', name: 'c', provider: 'openai', baseURL: base, timeoutMs: 1000 });
+      expect(models.map(m => [m.modelId, m.family, m.protocol])).toEqual([['chat-model', 'LLM', 'chat'], ['gateway/eval', 'SystemOne', 'vercel-evaluation'], ['one/decider', 'SystemOne', 'openrouter-decisions']]);
+      expect((await discover({ id: 's', name: 's', provider: 'systemone', baseURL: base, timeoutMs: 1000 })).every(m => m.protocol === 'systemone-http' && m.family === 'SystemOne')).toBe(true);
+      // Servers without the decisions route (LM Studio, Ollama, OpenAI) still list their chat models.
+      seen.length = 0;
+      const plain = createServer((req, res) => { res.setHeader('content-type', 'application/json'); if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'local' }] })); else { res.statusCode = 404; res.end('nope'); } });
+      await new Promise<void>(accept => plain.listen(0, '127.0.0.1', accept));
+      try { expect((await discover({ id: 'p', name: 'p', provider: 'openai', baseURL: 'http://127.0.0.1:' + (plain.address() as { port: number }).port + '/v1', timeoutMs: 1000 })).map(m => [m.modelId, m.protocol])).toEqual([['local', 'chat']]); }
+      finally { plain.closeAllConnections(); await new Promise<void>(accept => plain.close(() => accept())); }
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
   });
   it.each([[false, false], [true, false], [false, true], [true, true]])('independently restricts type=%s and replace=%s in candidates and execution', (typeText, replaceText) => {
@@ -169,7 +191,7 @@ describe('dashboard API and sequential queue', () => {
     await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     config.connections.push({ id: 'analysis', name: 'Analysis', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 });
-    config.models.push({ ...config.models[0]!, id: 'analysis', connectionId: 'analysis', modelId: 'analyzer', family: 'LLM', roles: ['analysis'] });
+    config.models.push({ ...config.models[0]!, id: 'analysis', connectionId: 'analysis', modelId: 'analyzer', family: 'LLM', protocol: 'chat', roles: ['analysis'] });
     config.profiles[0]!.analysisInstructions = 'Global comparison focus';
     await store.save(config, initial.revision, { file: 'task.json', task });
     try {
@@ -178,7 +200,7 @@ describe('dashboard API and sequential queue', () => {
         const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
       } }); apps.push(app);
       const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['baseline'], analysisModelId: 'analysis' }); await waitFor(async () => !!e.runs[0]!.endedAt);
-      expect(sent?.messages[1]!.content).toContain('Global comparison focus');
+      expect(sent?.messages[0]!.content).toContain('Global comparison focus');
       expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
   });
@@ -193,13 +215,14 @@ describe('dashboard early give-up settings', () => {
     expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
     expect(() => configSchema.parse({ ...old, profiles: [{ ...old.profiles[0], policy: { ...old.profiles[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
   });
-  it('resolves auto by model family and honours explicit on/off', () => {
-    const llm = { family: 'LLM' as const }, systemOne = { family: 'SystemOne' as const }, hosted = { provider: 'systemone' as const }, local = { provider: 'screenshot' as const };
-    expect(resolveRepetitionGuard('auto', systemOne, hosted)).toBe(false);
-    expect(resolveRepetitionGuard('auto', llm, { provider: 'openai' })).toBe(true);
-    expect(resolveRepetitionGuard('auto', systemOne, local)).toBe(true);
-    expect(resolveRepetitionGuard('on', systemOne, hosted)).toBe(true);
-    expect(resolveRepetitionGuard('off', llm, { provider: 'openai' })).toBe(false);
+  it('resolves auto by model protocol and honours explicit on/off', () => {
+    const chat = { protocol: 'chat' as const }, decisions = { protocol: 'systemone-http' as const }, choose = { protocol: 'choose' as const };
+    expect(resolveRepetitionGuard('auto', decisions)).toBe(false);
+    expect(resolveRepetitionGuard('auto', { protocol: 'openrouter-decisions' })).toBe(false);
+    expect(resolveRepetitionGuard('auto', chat)).toBe(true);
+    expect(resolveRepetitionGuard('auto', choose)).toBe(true);
+    expect(resolveRepetitionGuard('on', decisions)).toBe(true);
+    expect(resolveRepetitionGuard('off', chat)).toBe(false);
   });
 });
 describe('dashboard run views and live events', () => {

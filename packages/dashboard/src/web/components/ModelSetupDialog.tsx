@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Search } from 'lucide-react';
 import type { Connection, Model } from '../../shared/config';
 import { api } from '../api';
-import { findConnection, generateEnvName, manualModel, newConnection, preset, PRESETS, usageKey, withAnalysis } from '../lib/modelSetup';
+import { findConnection, generateEnvName, manualModel, newConnection, OPENAI_URLS, preset, PRESETS, usageKey, withAnalysis } from '../lib/modelSetup';
 import { useGuardedAct } from '../lib/useGuardedAct';
 import type { PageProps } from '../pages/types';
 import { Field } from './forms';
@@ -29,7 +29,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   const { t } = useTranslation();
   const { error, setError, run } = useGuardedAct(props.act);
   const [step, setStep] = useState<Step>('provider');
-  const [provider, setProvider] = useState<Connection['provider']>('openrouter');
+  const [provider, setProvider] = useState<Connection['provider']>('openai');
   const [baseURL, setBaseURL] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [revision, setRevision] = useState(props.view.revision);
@@ -47,11 +47,11 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   const heading = useRef<HTMLDivElement>(null), mounted = useRef(false);
   useEffect(() => { if (mounted.current) heading.current?.focus(); mounted.current = true; }, [step, manual]);
 
-  const config = props.view.config, connections = config.connections, current = preset(provider);
+  const config = props.view.config, connections = config.connections;
   const target = connections.find(c => c.id === createdId) ?? findConnection(connections, provider, baseURL);
   const keySet = !!target && !!props.view.credentialStatus[target.id];
   const key = apiKey.trim();
-  const canConnect = !!baseURL.trim() && (!current.keyRequired || !!key || keySet);
+  const canConnect = !!baseURL.trim();
   const stepNo = STEPS.indexOf(step) + 1;
   const providerLabel = t(`modelSetup.presets.${provider}.name`);
 
@@ -65,7 +65,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       let next: Connection;
       if (base) next = { ...base, ...(created ? { baseURL: url } : {}) };
       else next = newConnection(connections, provider, url, t(`modelSetup.where.${provider}`));
-      if ((current.keyRequired || key) && !next.apiKeyEnv) next.apiKeyEnv = generateEnvName(connections, provider, url, next.id);
+      if (key && !next.apiKeyEnv) next.apiKeyEnv = generateEnvName(connections, provider, url, next.id);
       if (!base || JSON.stringify(next) !== JSON.stringify(base)) {
         const saved = await props.save({ ...config, connections: [...config.connections.filter(c => c.id !== next.id), next] }, undefined, revision);
         setRevision(saved.revision);
@@ -116,9 +116,13 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     {step === 'connect' && <>
       <div className="grid gap-4">
         <p className="text-sm font-medium">{providerLabel}</p>
+        {provider === 'openai' && <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('modelSetup.connect.quickFill')}>
+          <span className="text-xs text-muted-foreground">{t('modelSetup.connect.quickFill')}</span>
+          {OPENAI_URLS.map(u => <Button key={u.name} type="button" size="sm" variant={baseURL.trim() === u.baseURL ? 'secondary' : 'outline'} aria-pressed={baseURL.trim() === u.baseURL} onClick={() => setBaseURL(u.baseURL)}>{u.name}</Button>)}
+        </div>}
         <Field label={t('modelSetup.connect.baseUrl')} value={baseURL} onChange={setBaseURL} hint={provider === 'screenshot' ? t('modelSetup.connect.baseUrlHintScreenshot') : t('modelSetup.connect.baseUrlHint')} />
-        <Field label={current.keyRequired ? t('modelSetup.connect.apiKeyRequired') : t('modelSetup.connect.apiKeyOptional')} type="password" value={apiKey} onChange={setApiKey}
-          hint={(keySet ? t('modelSetup.connect.keyAlreadySet') + ' ' : '') + (current.keyRequired || key ? t('modelSetup.connect.keyStoredHint') : t('modelSetup.connect.keyOptionalHint'))} />
+        <Field label={t('modelSetup.connect.apiKeyOptional')} type="password" value={apiKey} onChange={setApiKey}
+          hint={(keySet ? t('modelSetup.connect.keyAlreadySet') + ' ' : '') + (key ? t('modelSetup.connect.keyStoredHint') : t('modelSetup.connect.keyOptionalHint'))} />
         {target && !createdId && <p className="text-xs leading-5 text-muted-foreground">{t('modelSetup.connect.reused')}</p>}
       </div>
       <DialogFooter className="sm:justify-between">

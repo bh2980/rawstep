@@ -33,7 +33,7 @@ async function project() {
   return dir;
 }
 
-const model: Model = { id: 'm', connectionId: 'c', modelId: 'test-llm', name: 'Test', family: 'LLM', inputs: ['text'], capabilitySource: 'manual', maxChoices: 255, maxImages: 0, roles: ['analysis'], promptEditable: true };
+const model: Model = { id: 'm', connectionId: 'c', modelId: 'test-llm', name: 'Test', family: 'LLM', protocol: 'chat', inputs: ['text'], capabilitySource: 'manual', maxChoices: 255, maxImages: 0, roles: ['analysis'], promptEditable: true };
 const connection = (baseURL: string): Connection => ({ id: 'c', name: 'Fake', provider: 'openai', baseURL, timeoutMs: 10000 });
 const machine = { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH ?? '' };
 
