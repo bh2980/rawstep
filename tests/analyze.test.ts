@@ -225,7 +225,7 @@ describe("independent post-run analysis and reports", () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-keyboard-startup-analysis-'));
     const recorder = new TraceRecorder({ id: 'failed-keyboard-startup', ...(source === 'task' ? { mode: 'keyboard' as const } : {}) }, dir);
     await recorder.initialize();
-    if (source === 'metadata') recorder.append('backend.metadata', { backend: 'legacy-keyboard', observationKind: 'keyboard' });
+    if (source === 'metadata') recorder.append('backend.metadata', { backend: 'screenshot-keyboard', observationKind: 'keyboard' });
     recorder.append('run.error', { message: 'Browser startup failed' });
     const analysis = await analyzeTrace(await recorder.finalize({ status: 'failure' }));
     expect(analysis.summary).toContain('Mode: keyboard');

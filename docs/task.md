@@ -26,7 +26,21 @@ Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `
 
 Here `password` has no entry, so it is sensitive. `resolveTask` rejects the task when `goal` contains the value of a sensitive input that is 4 or more characters long, because the goal is sent to the model as written. Refer to the input by name instead, as above. A goal may contain a value shorter than 4 characters, or the value of an input with `sensitive: false`.
 
-Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice") is not masked in screenshots; the focused field itself is, including inside open shadow roots. The model may also infer a value from page behavior. See the [migration guide](./migration.md#hiding-input-values-from-the-policy).
+Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice") is not masked in screenshots; the focused field itself is, including inside open shadow roots. The model may also infer a value from page behavior. See [Hiding input values from the policy](#hiding-input-values-from-the-policy).
+
+## Hiding input values from the policy
+
+The decision policy (usually a model) must not learn input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
+
+- **Screenshots (keyboard mode).** Before typing a sensitive value, the screenshot backend marks the focused field with `data-rawstep-mask`. While capturing an observation it sets `-webkit-text-security: disc !important` on marked fields through the CSSOM (so a page CSP cannot block it) and restores the field's previous inline value right after the capture. The field shows dots in the policy's screenshot and its real value in the page.
+- **Speech (screen reader mode).** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
+
+Limitations:
+
+- Values shorter than 4 characters are not substring-masked in later speech, since that would damage unrelated text. Only withholding the typing step's speech covers them.
+- The screenshot mask covers only the typed field. The same value re-rendered elsewhere on the page (for example "Hello Alice" after sign-in, or a form summary) is visible in screenshots; in speech it is masked only when the value has 4 or more characters.
+- The mask follows the field that was focused when typing started, including fields inside open shadow roots; text the page copies into other elements is not masked.
+- The model can still infer a value from page behavior, such as validation messages, search results, or which page the form leads to.
 
 ## Verification rules
 
@@ -84,7 +98,7 @@ Example, run on `fixtures/friction-lab.html` with the keys `Tab, Tab, Tab, Enter
 
 The run succeeds at step 4. Earlier verifications fail because the announcement has not happened yet, and the baseline shows `titleIncludes` and `not` already true with the `event` rule false, so `hints` reports a suspected `goal-met-at-start`.
 
-See the [current README](../README.md), [complete migration/API guide](./migration.md), [source map](./editing-map.md), and [test migration](./test-migration.md). Historical workspace-specific instructions were removed with their implementation.
+See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
 
 ## Initial focus
 

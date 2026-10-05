@@ -77,7 +77,7 @@ export const configSchema = z.object({
 export type DashboardConfig = z.infer<typeof configSchema>;
 /**
  * The settings one run executes with: its run profile (plus task overrides) and the machine settings.
- * Run snapshots store this shape as `globals`, the same shape config version 1 kept globally.
+ * Run snapshots store this shape as `globals`.
  */
 export type RunSettings = MachineSettings & { keyboard: Permissions; screenreader: Permissions; analysisInstructions: string; policy: Policy };
 export type Connection = z.infer<typeof connectionSchema>;
@@ -122,27 +122,7 @@ export function defaultProfile(id = 'default', name = '기본'): RunProfile {
 export function defaultConfig(): DashboardConfig {
   return configSchema.parse({ version: 2, connections: [], models: [], tasks: [], profiles: [defaultProfile()], machine: {} });
 }
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-/**
- * Upgrades a version 1 file (one global settings block plus environments) to version 2: every environment
- * becomes a run profile carrying the former global permissions, policy and analysis instructions, and
- * browser/screen-reader settings move to `machine`. Other input is returned unchanged for the schema to judge.
- */
-export function migrateConfig(raw: unknown): unknown {
-  if (!isRecord(raw) || raw.version !== 1 || !isRecord(raw.globals)) return raw;
-  const { globals, environments, version: _version, ...rest } = raw;
-  const { keyboard, screenreader, policy, analysisInstructions, backend, atEndpoint, browserExecutablePath, headless } = globals;
-  const list = Array.isArray(environments) && environments.length ? environments.filter(isRecord) : [{ id: 'default', name: '기본', profile: 'default' }];
-  return {
-    ...rest, version: 2,
-    profiles: list.map(env => ({
-      id: env.id, name: env.name === '기본 환경' ? '기본' : env.name, environment: env.profile,
-      permissions: { keyboard, screenreader }, policy, analysisInstructions: analysisInstructions ?? '',
-    })),
-    machine: Object.fromEntries(Object.entries({ backend, atEndpoint, browserExecutablePath, headless }).filter(([, value]) => value !== undefined)),
-  };
-}
-export function parseConfig(raw: unknown): DashboardConfig { return configSchema.parse(migrateConfig(raw)); }
+export function parseConfig(raw: unknown): DashboardConfig { return configSchema.parse(raw); }
 /** The run profile a task uses by default: its own when it still exists, otherwise the first one. */
 export function taskProfile(config: DashboardConfig, task: Pick<ManagedTask, 'profileId'>): RunProfile {
   return config.profiles.find(p => p.id === task.profileId) ?? config.profiles[0]!;
@@ -157,12 +137,12 @@ export function resolveRunSettings(config: DashboardConfig, task: Pick<ManagedTa
   };
 }
 export type ConfigView = { config: DashboardConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, Task>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
-export type Combination = { key: string; taskId: string; modelId: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'global' | 'task' };
+export type Combination = { key: string; taskId: string; modelId: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'profile' | 'task' };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
-  /** `profile` is the resolved page environment; `runProfile` names the run profile (absent in version 1 history). */
-  snapshot: { task: Task; taskName: string; model: Model; connection: Connection; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile?: { id: string; name: string } };
+  /** `profile` is the resolved page environment; `runProfile` names the run profile. */
+  snapshot: { task: Task; taskName: string; model: Model; connection: Connection; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
   outcome?: { status: string; reason?: string; steps?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   analysisError?: string; reportError?: string; analysisModel?: Model;
@@ -172,5 +152,4 @@ export type RunRecord = Combination & {
   promptSource?: 'client' | 'server';
 };
 export type RetryPreview = { revision: string; changedFields: string[]; original: RunRecord['snapshot']['task']; current: RunRecord['snapshot']['task'] };
-/** History written before config version 2 has `environmentIds` instead of `profileIds`; runs are normalized on load. */
-export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest & { environmentIds?: string[] } };
+export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest };

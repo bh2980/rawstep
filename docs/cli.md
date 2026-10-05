@@ -14,7 +14,7 @@ Early give-up is configurable on `screenshot-run` and `matrix`. `--repetition-gu
 
 See the [bundled examples](../examples/v2/README.md) for separate installed-package (`npx rawstep`) and repository-checkout (`npm run rawstep --`) commands.
 
-See the [current README](../README.md), [complete migration/API guide](./migration.md), [source map](./editing-map.md), and [test migration](./test-migration.md). Historical workspace-specific instructions were removed with their implementation.
+See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
 
 ## Explicit network proxy
 

@@ -29,8 +29,7 @@ function resultLabel(passed: boolean | undefined): string { return passed === tr
 function renderSummary(trace: RunTrace, summary: ReportSummary): string {
   const e = escapeHtml;
   const counts = summary.counts;
-  const firstClassScreenshot = trace.events.some(event => event.type === "backend.metadata" && record(event.data).backend === "screenshot-keyboard");
-  const modality = summary.modality === "keyboard" ? (firstClassScreenshot ? "Screenshot keyboard exploration" : "Deprecated screenshot keyboard run") : summary.modality === "simulation" ? "Simulated VoiceOver run" : summary.modality === "screenreader" ? "Screen-reader run" : summary.modality === "mixed" ? "Mixed observation evidence" : "Observation modality not recorded";
+  const modality = summary.modality === "keyboard" ? "Screenshot keyboard exploration" : summary.modality === "simulation" ? "Simulated VoiceOver run" : summary.modality === "screenreader" ? "Screen-reader run" : summary.modality === "mixed" ? "Mixed observation evidence" : "Observation modality not recorded";
   const hasNative = summary.modalities.includes("screenreader") || summary.modality === "unknown";
   const hasSimulation = summary.modalities.includes("simulation");
   const hasKeyboard = summary.modalities.includes("keyboard");

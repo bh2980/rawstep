@@ -5,7 +5,7 @@ import { VercelEvaluationClient, SystemOneHttpClient, OpenRouterSystemOneClient,
 import type { CliArguments } from './args.js';
 
 export type CliEnvironment = Record<string, string | undefined>;
-/** Never mutates process.env, writes files, or consults legacy AI_* variables. */
+/** Never mutates process.env or writes files; only RAWSTEP_DECISION_* and RAWSTEP_ANALYSIS_* are read. */
 export async function loadCliEnvironment(cwd: string, environment: CliEnvironment = process.env): Promise<CliEnvironment> {
   let result: CliEnvironment = {};
   for (const name of ['.env', '.env.local']) {

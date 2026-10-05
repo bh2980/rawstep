@@ -159,10 +159,10 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       if (operation === 'png' && method === 'GET') {
         const raw = await readOptional(await store.file(prefix + 'trace.jsonl')) ?? '';
         const event = raw.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.id === decodeURIComponent(eventId ?? ''));
-        const shot = record(event?.data).screenshot, png = record(shot).pngBase64;
-        // Schema 2.2 keeps a blob reference; the path comes from the validated reference (blobs/<sha256>.png), never from the client.
+        const shot = record(event?.data).screenshot;
+        // The path comes from the validated reference (blobs/<sha256>.png), never from the client.
         const blob = isScreenshotRef(shot) ? await readFile(await store.file(prefix + shot.blob, true)).catch(() => undefined) : undefined;
-        const bytes = blob && createHash('sha256').update(blob).digest('hex') === (shot as { sha256: string }).sha256 ? blob : typeof png === 'string' ? Buffer.from(png, 'base64') : undefined;
+        const bytes = blob && createHash('sha256').update(blob).digest('hex') === (shot as { sha256: string }).sha256 ? blob : undefined;
         if (event?.redacted || !bytes) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(bytes);
       }

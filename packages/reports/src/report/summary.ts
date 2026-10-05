@@ -63,8 +63,10 @@ function strings(value: unknown): string[] {
 }
 /** Image source for an event's screenshot: a data URI for inline pixels, else a path relative to the trace directory for a blob reference. */
 export function screenshotSrc(data: unknown): string | undefined {
-  const png = pngFor(data), screenshot = record(data).screenshot;
-  return png ? `data:image/png;base64,${png}` : isScreenshotRef(screenshot) ? screenshot.blob : undefined;
+  const screenshot = record(data).screenshot;
+  if (!isScreenshotRef(screenshot)) return undefined;
+  const png = pngFor(data);
+  return png ? `data:image/png;base64,${png}` : screenshot.blob;
 }
 
 function firstFailure(trace: RunTrace): ReportFailure | null {

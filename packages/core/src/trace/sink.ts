@@ -85,14 +85,12 @@ function inlinePng(value: unknown): Buffer | undefined {
   const bytes = Buffer.from(value.pngBase64, "base64");
   return bytes.subarray(0, 8).toString("hex") === PNG_SIGNATURE ? bytes : undefined;
 }
-/** SHA-256 of the PNG bytes, from a blob reference or an inline (schema 2.0/2.1) screenshot. */
+/** SHA-256 of the PNG bytes, from a screenshot blob reference (hydrated references keep it). */
 export function screenshotSha256(value: unknown): string | undefined {
-  if (isScreenshotRef(value)) return value.sha256;
-  const bytes = inlinePng(value);
-  return bytes ? createHash("sha256").update(bytes).digest("hex") : undefined;
+  return isScreenshotRef(value) ? value.sha256 : undefined;
 }
 
-/** Replaces every inline PNG screenshot with a blob reference. Returns a copy and the JSON paths of the references. */
+/** Replaces every inline PNG screenshot handed in by a backend with a blob reference. Returns a copy and the JSON paths of the references. */
 export function extractScreenshots(value: unknown, put: (name: string, bytes: Uint8Array) => void): { value: unknown; paths: (string | number)[][] } {
   const paths: (string | number)[][] = [];
   const walk = (node: unknown, path: (string | number)[]): unknown => {

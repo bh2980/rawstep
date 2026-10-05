@@ -18,7 +18,7 @@ async function fixture(html: string) {
   const events: unknown[] = [];
   backend.subscribe(event => events.push(event));
   const metadata = await backend.start();
-  backend.attachPage(page);
+  backend.attachSession({ page: page });
   cleanup.push(() => backend.close());
   const initial = await backend.observe();
   async function intent(intent: string) { await backend.execute({ kind: 'intent', intent }); return (await backend.observe()).speech; }

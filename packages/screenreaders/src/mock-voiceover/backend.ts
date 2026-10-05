@@ -56,9 +56,8 @@ export class MockVoiceOverBackend implements Backend {
   private lastCurrentFingerprint?: string;
   private listeners = new Set<(event: unknown) => void>();
 
-  attachSession(session: BackendSession): void { this.attachPage(session.page as Page); }
-  /** @deprecated Prefer attachSession; the runner calls it with the opened session. */
-  attachPage(page: Page): void {
+  attachSession(session: BackendSession): void {
+    const page = session.page as Page;
     if (this.state === 'closed') throw new Error('Mock VoiceOver backend is closed.');
     if (this.page && this.page !== page) throw new Error('Mock VoiceOver backend is already attached to a page.');
     this.page = page;

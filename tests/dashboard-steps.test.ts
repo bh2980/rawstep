@@ -14,9 +14,9 @@ const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from('
 
 describe('dashboard step view', () => {
   it('folds a run into steps with actions, results, screenshots, model candidates, changes and verification', () => {
-    const inlineSha = createHash('sha256').update(png).digest('hex');
+    const firstSha = 'c'.repeat(64);
     const view = build([
-      ['keyboard.observation', { screenshot: { pngBase64: png.toString('base64') } }],
+      ['keyboard.observation', { screenshot: ref(firstSha) }],
       ['observer.focus', { kind: 'focus', step: 0, role: 'button', name: 'Start', tag: 'button' }],
       ['verifier.baseline', { passed: false, rules: [{ ruleIndex: 0, ruleType: 'titleIncludes', passed: false }] }],
       ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', choiceId: 'key:Tab', choices: [{ id: 'key:Tab', label: 'Press Tab' }, { id: 'key:Enter', label: 'Press Enter' }, { id: 'stop:stuck' }], probabilities: [0.6, 0.3, 0.1], model: { id: 'm1' }, inferenceMs: 420 } }],
@@ -33,7 +33,7 @@ describe('dashboard step view', () => {
     expect(view).toMatchObject({ experimentId: 'x', runId: 'r', live: true, baseline: { passed: false, rules: [{ ruleIndex: 0, ruleType: 'titleIncludes', passed: false }] } });
     expect(view.steps.map(s => s.step)).toEqual([0, 1, 2, 3]);
     const [s0, s1, s2, s3] = view.steps as [typeof view.steps[0], typeof view.steps[0], typeof view.steps[0], typeof view.steps[0]];
-    expect(s0.screenshot).toEqual({ eventId: 'e1', sha256: inlineSha });
+    expect(s0.screenshot).toEqual({ eventId: 'e1', sha256: firstSha });
     expect(s0.observed).toEqual([{ kind: 'focus', role: 'button', name: 'Start' }]);
     expect(s0.hints).toEqual(['goal-met-at-start']);
     expect(s1.action).toEqual({ kind: 'key', key: 'Tab' }); expect(s1.ok).toBe(true);
@@ -51,7 +51,7 @@ describe('dashboard step view', () => {
     const view = build([
       ['keyboard.observation', { screenshot: ref(sha) }],
       ['policy.decision', { step: 1, decision: { action: { kind: 'key', key: 'Tab' } } }],
-      ['keyboard.observation', { screenshot: { pngBase64: 'not-a-png' } }],
+      ['keyboard.observation', { screenshot: { pngBase64: png.toString('base64') } }], // inline pixels are not stored evidence
       ['policy.decision', { step: 2, decision: { action: { kind: 'key', key: 'Tab' } } }],
       ['keyboard.observation', { screenshot: ref('b'.repeat(64)) }],
     ]);

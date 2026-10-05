@@ -49,7 +49,7 @@ export type VerificationRuleRecord = {
   /** The runner persists these separately and replaces them with evidenceEventIds. */
   witnesses: VerificationWitness[];
 };
-/** Legacy custom verifiers may omit per-rule observations. */
+/** Custom verifiers supplied to the runner may omit per-rule observations. */
 export type VerificationRecord = { passed: boolean; failures: string[]; rules?: VerificationRuleRecord[] };
 export type Task = {
   id?: string;
@@ -84,8 +84,6 @@ export type KeyboardObservation = {
   previousScreenshot?: ScreenshotObservation;
   window: { id: string; startedAt: string; endedAt: string; reason: string };
 };
-/** Compatibility alias; new code should use KeyboardObservation. */
-export type LegacyKeyboardObservation = KeyboardObservation;
 export type Observation = ScreenReaderObservation | KeyboardObservation;
 export type HistoryEntry = { step: number; decision: Decision; observation: Observation; execution?: { ok: boolean; error?: string } };
 export interface DecisionPolicy {
@@ -146,7 +144,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','config','profile'], 'Task');
+  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
   if (raw.mode !== undefined && raw.mode !== 'screenreader' && raw.mode !== 'keyboard') throw new Error('Task mode must be screenreader or keyboard.');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
@@ -177,10 +175,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
   if (!Number.isSafeInteger(maxSteps) || (maxSteps as number) < 1) throw new Error('maxSteps must be a positive integer.');
   if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 2_147_483_647) throw new Error('timeoutMs must be an integer from 1 to 2147483647.');
-  if (raw.config !== undefined && !object(raw.config)) throw new Error('Task config must be an object.');
-  const config = object(raw.config) ? raw.config : {};
-  onlyKeys(config, ['navigation'], 'Deprecated task config; move supported options to task fields');
-  const navigation = validateNavigation(raw.navigation ?? config.navigation);
+  const navigation = validateNavigation(raw.navigation);
   let resolvedUrl: string;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^[A-Za-z]:[\\/]/.test(url)) {
     const parsed = new URL(url);

@@ -7,7 +7,7 @@ const exportNames = async (specifier: string) => Object.keys(await import(specif
 const internalNames = ['isRecord', 'positiveMilliseconds', 'record', 'validInterval', 'pngFor', 'KEYS'];
 
 describe('public API surface', () => {
-  // A change here is a public API change: update docs/migration.md in the same commit.
+  // A change here is a public API change: update the docs and README in the same commit.
   it('pins the core root', async () => { expect(await exportNames('@rawstep/core')).toMatchInlineSnapshot(`
     [
       "BUILTIN_PROFILES",

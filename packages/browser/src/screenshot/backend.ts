@@ -15,8 +15,6 @@ export class ScreenshotKeyboardBackend implements Backend {
   private masking = false;
 
   attachSession(session: BackendSession): void { this.page = session.page as Page; }
-  /** @deprecated Prefer attachSession; the runner calls it with the opened session. */
-  attachPage(page: Page): void { this.page = page; }
   async start(options: BackendOperationOptions = {}): Promise<unknown> {
     options.signal?.throwIfAborted();
     if (this.active) throw new Error('Screenshot keyboard backend has already started.');

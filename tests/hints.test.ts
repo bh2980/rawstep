@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_HINT_THRESHOLDS, HINTS_SCHEMA_VERSION, extractHints, selectReference, summarizeRun } from "@rawstep/reports/hints";
 import type { HintKind } from "@rawstep/reports/hints";
@@ -11,7 +12,7 @@ const frameB = Buffer.from("frame-b").toString("base64");
 /** Builds a trace whose events are the given (type, data) pairs with sequential ids. */
 function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<RunTrace> = {}): RunTrace {
   return {
-    schemaVersion: "2.1", runId: "hints-test", task: { id: "hints" },
+    schemaVersion: "2.2", runId: "hints-test", task: { id: "hints" },
     environment: { platform: "test", platformVersion: "1", browser: "test", browserVersion: "1", screenReader: "none", screenReaderVersion: "0" },
     startedAt: timestamp, endedAt: "2026-01-01T00:00:05.000Z",
     events: pairs.map(([type, data], index): TraceEvent => ({
@@ -24,9 +25,11 @@ function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<
 }
 const decide = (step: number, key: string): Pair => ["policy.decision", { step, decision: { action: { kind: "key", key } } }];
 const result = (step: number, ok = true): Pair => ["action.result", { step, ok }];
-// Hints hash only valid PNGs, so the fake pixel payloads get a PNG signature prefix.
-const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
-const frame = (pixels: string): Pair => ["keyboard.observation", { screenshot: { pngBase64: Buffer.concat([PNG_SIGNATURE, Buffer.from(pixels, "base64")]).toString("base64") } }];
+// Screenshots are blob references; the hash identifies the pixels.
+const frame = (pixels: string): Pair => {
+  const sha256 = createHash("sha256").update(Buffer.from(pixels, "base64")).digest("hex");
+  return ["keyboard.observation", { screenshot: { sha256, blob: `blobs/${sha256}.png`, bytes: 1 } }];
+};
 const observer = (kind: string, step: number, extra: Record<string, unknown> = {}): Pair => [`observer.${kind}`, { kind, step, at: timestamp, ...extra }];
 /** One policy step: a key decision, its result and the observation that follows. */
 const press = (step: number, key: string, pixels = `step-${step}`): Pair[] => [decide(step, key), result(step), frame(Buffer.from(pixels).toString("base64"))];

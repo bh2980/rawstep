@@ -10,7 +10,7 @@ import { ScreenshotKeyboardBackend } from './backend.js';
 export * from './backend.js';
 
 export type ScreenshotRunOptions = Omit<RunOptions, 'backend'> & {stopReasonModel?:ScreenshotModelAdapter;stopReasonTimeoutMs?:number;warn?:(message:string)=>void};
-/** First-class screenshot exploration; the old legacy implementation has been removed. */
+/** Screenshot-only keyboard exploration. */
 export async function runScreenshotTask(task: Task, options: ScreenshotRunOptions): Promise<RunTrace> {
   if (task.mode && task.mode !== 'keyboard') throw new Error('Screenshot runs require task mode keyboard.');
   const backend = new ScreenshotKeyboardBackend();

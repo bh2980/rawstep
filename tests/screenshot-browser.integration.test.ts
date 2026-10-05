@@ -31,7 +31,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
     const html = renderReportHtml(trace, await analyzeTrace(trace)); expect(html).toContain('Visited visual states'); expect(html).toContain('Screenshot keyboard exploration'); expect(html).not.toContain('Deprecated screenshot keyboard run');
   });
   it('navigates forward/backward, activates dialog, escapes, and toggles with Space without mouse', async () => {
-    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     await backend.execute({ kind: 'key', key: 'Tab' }); await backend.execute({ kind: 'key', key: 'Tab' }); await backend.execute({ kind: 'key', key: 'Shift+Tab' });
     expect(await session.page.evaluate(() => document.activeElement?.id)).toBe('open');
     await backend.execute({ kind: 'key', key: 'Enter' }); expect(await session.page.locator('dialog').isVisible()).toBe(true);
@@ -43,7 +43,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
   // either headed or headless verification. Keep the native-dropdown case
   // elsewhere and test renderer-owned listbox arrows on every host below.
   it.runIf(process.platform !== 'darwin')('supports actual arrow navigation of a native collapsed select', async () => {
-    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     for (let i = 0; i < 4; i++) await backend.execute({ kind: 'key', key: 'Tab' });
     await backend.execute({ kind: 'key', key: 'ArrowDown' });
     expect(await session.page.locator('#theme').inputValue()).toBe('Dark');
@@ -52,7 +52,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
     const dir = await directory(), file = join(dir, 'listbox.html');
     await writeFile(file, '<!doctype html><select id="theme" size="3" autofocus><option selected>Light</option><option>Dark</option><option>High contrast</option></select>');
     const session = await createTestBrowserSession(pathToFileURL(file).href); cleanup.push(() => session.close());
-    const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     await backend.execute({ kind: 'key', key: 'ArrowDown' });
     expect(await session.page.locator('#theme').inputValue()).toBe('Dark');
   });

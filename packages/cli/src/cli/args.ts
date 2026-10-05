@@ -157,7 +157,7 @@ Policies export a default or named policy object implementing decide().
 Scripts contain a JSON array of decisions. No model or API key is required.
 Only --decision systemone and analyze --llm load RAWSTEP_DECISION_* or RAWSTEP_ANALYSIS_*.
 Precedence: explicit CLI overrides > process env > .env.local > .env. Libraries use injected config.
-API keys are environment-only, not CLI flags. Legacy AI_* variables are ignored.
+API keys are environment-only, not CLI flags.
 Analyzers run separately against a saved trace. A custom analyzer may send data externally;
 review the trace and the module before using it. Default analysis stays local; --llm explicitly opts into network analysis.
 AT Driver servers and screen readers must be installed and started separately.

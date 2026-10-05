@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
 import { isDeepStrictEqual } from "node:util";
 
-/** 2.2 stores screenshots as content-addressed blobs; 2.0/2.1 traces with inline PNGs remain readable. */
+/** Screenshots are stored as content-addressed blobs; events keep a small reference. */
 export const TRACE_SCHEMA_VERSION = "2.2" as const;
 export const REDACTED = "[REDACTED]";
 
@@ -50,7 +50,7 @@ export interface RunOutcome {
   [key: string]: unknown;
 }
 export interface RunTrace {
-  schemaVersion: "2.0" | "2.1" | typeof TRACE_SCHEMA_VERSION;
+  schemaVersion: typeof TRACE_SCHEMA_VERSION;
   runId: string;
   task: TraceTaskMetadata;
   environment: TraceEnvironment;
@@ -172,7 +172,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
   if (type === "keyboard.observation") {
     // PNG bytes cannot be meaningfully redacted with string substitution. The runner
     // suppresses entire visual observations after input; pre-input pixels are explicit
-    // legacy visual evidence and are not claimed to be anonymized.
+    // visual evidence and are not claimed to be anonymized.
     for (const field of ["screenshot", "previousScreenshot"]) {
       if (record(original[field]) && record(redacted[field])) {
         const source = original[field] as Record<string, unknown>;
@@ -365,7 +365,7 @@ function validateEvent(value: unknown, expectedSequence: number): asserts value 
 
 /** Fail closed on unknown schemas, corrupt order, duplicate IDs, or missing provenance. */
 export function validateTrace(value: unknown): asserts value is RunTrace {
-  if (!record(value) || !["2.0", "2.1", TRACE_SCHEMA_VERSION].includes(String(value.schemaVersion))) throw new Error("Unsupported trace schema version; expected 2.0, 2.1 or 2.2.");
+  if (!record(value) || value.schemaVersion !== TRACE_SCHEMA_VERSION) throw new Error(`Unsupported trace schema version; expected ${TRACE_SCHEMA_VERSION}.`);
   if (typeof value.runId !== "string" || !value.runId || !record(value.task) || typeof value.task.id !== "string" ||
       !value.task.id || !validTimestamp(value.startedAt) || !Array.isArray(value.events) || !record(value.environment)) {
     throw new Error("Invalid trace metadata.");
@@ -378,7 +378,6 @@ export function validateTrace(value: unknown): asserts value is RunTrace {
   const ids = new Set<string>();
   value.events.forEach((event, index) => {
     validateEvent(event, index + 1);
-    if (value.schemaVersion === "2.0" && event.source === "simulation") throw new Error("Simulation evidence requires trace schema 2.1.");
     if (ids.has(event.id)) throw new Error(`Duplicate evidence event id at sequence ${index + 1}.`);
     ids.add(event.id);
   });

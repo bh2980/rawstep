@@ -13,7 +13,6 @@
     "build": "node scripts/build.mjs",
     "typecheck": "node scripts/typecheck.mjs && tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
-    "test:v2": "vitest run tests/*-v2.test.ts",
     "rawstep": "node packages/cli/dist/cli/bin.js",
     "dashboard": "node packages/dashboard/dist/server/bin.js",
     "dashboard:build": "corepack pnpm --filter @rawstep/dashboard build",

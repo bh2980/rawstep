@@ -30,7 +30,6 @@ export class ExperimentQueue {
       try { raw = await readFile(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
       const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
-      normalizeLegacy(experiment);
       let interrupted = false;
       for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }
       this.experiments.push(experiment);
@@ -76,7 +75,7 @@ export class ExperimentQueue {
           if (request.diagnoseStop && request.mode !== 'keyboard') throw new Error('중단 진단은 마지막 스크린샷을 사용하는 키보드 모드 전용입니다.');
         } catch (e) { reason = (e as Error).message; }
       }
-      rows.push({ key: [taskId, modelId, promptId, profileId, repeat].join(':'), taskId, modelId, promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'global' });
+      rows.push({ key: [taskId, modelId, promptId, profileId, repeat].join(':'), taskId, modelId, promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
     }
     return { request, config, tasks, rows };
   }
@@ -201,15 +200,6 @@ export class ExperimentQueue {
     this.find(experiment, run);
     return readTrace(await this.store.file('.rawstep/experiments/' + experiment + '/' + run + '/trace.json', true));
   }
-}
-/** History written before config version 2 identifies a run's environment, not its profile; the files are left as they are. */
-function normalizeLegacy(experiment: Experiment) {
-  for (const run of experiment.runs) {
-    const legacy = run as RunRecord & { environmentId?: string };
-    legacy.profileId ??= legacy.environmentId ?? 'default'; delete legacy.environmentId;
-  }
-  const request = experiment.request;
-  if (request.environmentIds) { request.profileIds ??= request.environmentIds; delete request.environmentIds; }
 }
 function safeTask(task: Task): Task {
   const redacted = createRedactor(Object.values(task.input ?? {}))(task).value;

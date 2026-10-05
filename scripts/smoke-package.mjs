@@ -37,10 +37,9 @@ try {
   assert.match(await readFile(join(directory, "node_modules/rawstep/fixtures/simple-cta.html"), "utf8"), /Get started/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/fixtures/mock-voiceover-system.html"), "utf8"), /Save again/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/examples/v2/mock-task.json"), "utf8"), /mock-voiceover-system/);
-  assert.match(await readFile(join(directory, "node_modules/rawstep/docs/migration.md"), "utf8"), /DecisionPolicy/);
+  assert.match(await readFile(join(directory, "node_modules/rawstep/docs/cli.md"), "utf8"), /DecisionPolicy/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/examples/v2/policy.mjs"), "utf8"), /decide/);
   assert.deepEqual(Object.keys(manifest.dependencies).sort(), ["@rawstep/core", "@rawstep/policies", "@rawstep/browser", "@rawstep/screenreaders", "@rawstep/reports", "@rawstep/cli"].sort());
-  assert.equal(manifest.exports['./legacy'], undefined);
   const exportedModules = Object.keys(manifest.exports).filter((name) => name !== "./package.json");
   command(process.execPath, ["--input-type=module", "-e", `for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));`], directory);
   const binary = join(directory, "node_modules/rawstep/dist/cli/bin.js");
@@ -49,8 +48,8 @@ try {
   assert.equal(command(process.execPath, [binary, "--version"], directory).trim(), manifest.version);
   assert.match(command(process.execPath, [binary, "doctor", "--backend", "nvda"], directory), /Native readiness is unverified/);
   const trace = {
-    schemaVersion: "2.0", runId: "package-smoke", task: { id: "task" },
-    environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "not-used", screenReaderVersion: "unknown", backend: "legacy-keyboard" },
+    schemaVersion: "2.2", runId: "package-smoke", task: { id: "task" },
+    environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "not-used", screenReaderVersion: "unknown", backend: "screenshot-keyboard" },
     startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:00:01.000Z",
     events: [], outcome: { status: "inconclusive", reason: "package smoke" },
     privacy: { inputValues: "redacted", redactionApplied: false },
@@ -80,7 +79,6 @@ import { ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot'
 import { mockAtDriverServer } from "./mock-at-driver-server.mjs";
 
 assert.equal(fileURLToPath(import.meta.resolve("rawstep")), join(process.cwd(), "node_modules", "rawstep", "dist", "index.js"));
-await assert.rejects(import('rawstep/legacy'), {code:'ERR_PACKAGE_PATH_NOT_EXPORTED'});
 const server = await mockAtDriverServer({ onCommand(command, output) {
   assert.equal(command.method, "interaction.userIntent");
   assert.equal(command.params.name, "pressKeys");
@@ -206,7 +204,7 @@ try {
     const mockOut = join(process.cwd(), "installed-mock-browser");
     assert.equal(await runCli(["mock-run", "mock-task.json", "--script", "mock-decisions.json", "--browser-executable", process.env.RAWSTEP_TEST_BROWSER_PATH, "--out", mockOut], io), 0, stderr.join("\n"));
     const mockTrace = await readTrace(mockOut);
-    assert.equal(mockTrace.schemaVersion, "2.1");
+    assert.equal(mockTrace.schemaVersion, "2.2");
     assert.equal(mockTrace.outcome.status, "success");
     assert.equal(mockTrace.environment.observationProvenance, "simulation");
     assert.equal(mockTrace.events.filter(event => event.source === "screen-reader").length, 0);

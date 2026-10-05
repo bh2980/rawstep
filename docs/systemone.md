@@ -115,4 +115,4 @@ Native VoiceOver evidence is separate from screenshot evidence. The OpenRouter i
 
 0.2 removes legacy-run, rawstep/legacy, @rawstep/browser/legacy and their duplicate backend. Use screenshot-run --script/--policy and runScreenshotTask/ScreenshotKeyboardBackend. SCREENSHOT_KEYS replaces the old raw-key set; named replaceText remains available. Explicitly convert screenreader task files to keyboard for screenshot execution.
 
-Saved 2.0/2.1 traces (inline PNGs; new 2.2 traces store screenshots under `blobs/`), including historical legacy-keyboard metadata, remain readable. Existing trace/image artifacts are not deleted. Package version 0.2.0 is prepared locally, not published.
+Only trace schema 2.2 (screenshots stored under `blobs/`) is read; traces saved by older versions are not. Existing trace/image artifacts are not deleted. Package version 0.2.0 is prepared locally, not published.

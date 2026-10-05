@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { configSchema, defaultConfig, defaultProfile, defaultModes, migrateConfig, parseConfig, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
+import { configSchema, defaultConfig, defaultProfile, defaultModes, parseConfig, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
 import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
 import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
 import { speechChoices } from '@rawstep/policies/systemone';
@@ -300,36 +300,12 @@ describe('dashboard run views and live events', () => {
   });
 });
 
-const v1Config = () => ({
-  version: 1, connections: [], models: [], tasks: [],
-  globals: {
-    keyboard: { keys: ['Tab'], intents: [], typeText: false, replaceText: false },
-    screenreader: { keys: [], intents: ['next'], typeText: false, replaceText: false },
-    policy: { historyLimit: 7, maxStateVisits: 3, maxUnchangedTransitions: 4, focusGate: true },
-    analysisInstructions: 'Compare carefully', backend: 'voiceover', atEndpoint: 'ws://127.0.0.1:9444', browserExecutablePath: '/opt/chrome', headless: false,
-  },
-  environments: [{ id: 'default', name: '기본 환경', profile: 'default' }, { id: 'zoom', name: 'Zoomed', profile: 'zoom-200' }],
-});
 describe('dashboard config version 2 profiles', () => {
-  it('migrates a version 1 config into one profile per environment and machine settings', async () => {
-    const migrated = parseConfig(v1Config());
-    expect(migrated.version).toBe(2); expect(migrated.profiles.map(p => p.id)).toEqual(['default', 'zoom']);
-    expect(migrated.profiles.map(p => p.name)).toEqual(['기본', 'Zoomed']);
-    for (const profile of migrated.profiles) {
-      expect(profile.permissions.keyboard.keys).toEqual(['Tab']); expect(profile.permissions.screenreader.intents).toEqual(['next']);
-      expect(profile.policy).toMatchObject({ historyLimit: 7, maxStateVisits: 3, focusGate: true, repetitionGuard: 'auto', modelGiveUp: true });
-      expect(profile.analysisInstructions).toBe('Compare carefully');
-    }
-    expect(migrated.profiles[1]!.environment).toBe('zoom-200');
-    expect(migrated.machine).toEqual({ backend: 'voiceover', atEndpoint: 'ws://127.0.0.1:9444', browserExecutablePath: '/opt/chrome', headless: false });
-    expect(migrateConfig(migrated)).toBe(migrated);
-    const dir = await root(), store = new ProjectStore(dir); await store.initialize();
-    const raw = JSON.stringify(v1Config()); await writeFile(store.path, raw);
-    const read = await store.read();
-    expect(read.config.profiles).toHaveLength(2); expect(read.config.machine.backend).toBe('voiceover');
-    expect(await readFile(store.path, 'utf8')).toBe(raw);
-    expect((await store.save(read.config, read.revision)).config.version).toBe(2);
-    expect(JSON.parse(await readFile(store.path, 'utf8')).version).toBe(2);
+  it('accepts only version 2 configs', async () => {
+    const config = defaultConfig();
+    expect(parseConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
+    expect(() => parseConfig({ ...config, version: 1 })).toThrow();
+    expect(() => parseConfig({ version: 1, connections: [], models: [], tasks: [], globals: {}, environments: [] })).toThrow();
   });
   it('plans one row per requested profile with that profile\'s permissions, or the task profile when omitted', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
@@ -340,7 +316,7 @@ describe('dashboard config version 2 profiles', () => {
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const base = { ...request, modelIds: ['a'], promptIds: ['baseline'] };
     const both = (await app.queue.plan({ ...base, profileIds: ['a', 'b'], revision: saved.revision })).rows;
-    expect(both.map(r => [r.profileId, r.permissions.keys, r.permissionSource])).toEqual([['a', ['Tab'], 'global'], ['b', ['Tab', 'Enter'], 'global']]);
+    expect(both.map(r => [r.profileId, r.permissions.keys, r.permissionSource])).toEqual([['a', ['Tab'], 'profile'], ['b', ['Tab', 'Enter'], 'profile']]);
     expect(new Set(both.map(r => r.key)).size).toBe(2); expect(both.every(r => r.key.includes(r.profileId))).toBe(true);
     const { profileIds: _omit, ...withoutProfiles } = base;
     const own = (await app.queue.plan(withoutProfiles)).rows;
@@ -370,15 +346,5 @@ describe('dashboard config version 2 profiles', () => {
     config.tasks[0]!.profileId = 'default'; config.profiles.push(defaultProfile());
     await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400 });
     expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), environment: 'no-such-environment' }] })).toThrow();
-  });
-  it('normalizes version 1 history in memory when it is loaded', async () => {
-    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
-    await store.save(setup(), initial.revision, { file: 'task.json', task });
-    const id = randomUUID(), path = join(dir, '.rawstep/experiments', id, 'experiment.json');
-    const legacy = { id, createdAt: new Date().toISOString(), stopped: false, request: { ...request, profileIds: undefined, environmentIds: ['default'] }, runs: [{ id: randomUUID(), environmentId: 'default', state: 'success', key: 'k', taskId: 'task', modelId: 'a', promptId: 'baseline', repeat: 1, supported: true, permissions: {}, permissionSource: 'global' }] };
-    await (await import('node:fs/promises')).mkdir(join(dir, '.rawstep/experiments', id), { recursive: true }); await writeFile(path, JSON.stringify(legacy));
-    const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
-    expect(app.queue.experiments[0]!.runs[0]!.profileId).toBe('default'); expect(app.queue.experiments[0]!.request.profileIds).toEqual(['default']);
-    expect(JSON.parse(await readFile(path, 'utf8')).runs[0].environmentId).toBe('default');
   });
 });

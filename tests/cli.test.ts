@@ -35,7 +35,7 @@ function output(cwd: string) {
 }
 function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
   return {
-    schemaVersion: "2.0", runId: "cli-test", task: { id: "task" },
+    schemaVersion: "2.2", runId: "cli-test", task: { id: "task" },
     environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "test", screenReaderVersion: "unknown" },
     startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:00:01.000Z",
     events: [], outcome: { status }, privacy: { inputValues: "redacted", redactionApplied: false },
@@ -277,7 +277,7 @@ describe("offline analysis and reports", () => {
   it("refuses analysis from a different run", async () => {
     const directory = await temporaryDirectory();
     await writeFile(join(directory, "trace.json"), JSON.stringify(fixtureTrace()));
-    await writeFile(join(directory, "analysis.json"), JSON.stringify({ schemaVersion: "1.0", traceSchemaVersion: "2.0", runId: "another-run", status: "completed", findings: [] }));
+    await writeFile(join(directory, "analysis.json"), JSON.stringify({ schemaVersion: "1.0", traceSchemaVersion: "2.2", runId: "another-run", status: "completed", findings: [] }));
     const io = output(directory);
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
     expect(io.stderr.mock.calls.flat().join("")).toMatch(/run|trace/i);
@@ -287,7 +287,7 @@ describe("offline analysis and reports", () => {
 /** A saved trace with eleven Tab presses before activation (an excess-keystrokes hint) and the given step count. */
 function frictionTrace(runId: string, steps: number, tabs = 11): RunTrace {
   const decisions = [...Array.from({ length: tabs }, () => "Tab"), "Enter"].map((key, index) => ({ type: "policy.decision", data: { step: index + 1, decision: { action: { kind: "key", key } } } }));
-  return { ...fixtureTrace(), schemaVersion: "2.1", runId, outcome: { status: "success", steps },
+  return { ...fixtureTrace(), runId, outcome: { status: "success", steps },
     events: decisions.map((event, index) => ({ id: `event-${index + 1}`, seq: index + 1, timestamp: "2026-01-01T00:00:00.000Z", source: "policy" as const, redacted: false, ...event })) };
 }
 
@@ -381,7 +381,7 @@ describe("doctor", () => {
   });
 });
 
-it("preserves the rawstep compatibility release over real workspace packages", async () => {
+it("ships the rawstep package over real workspace packages", async () => {
   const manifest = JSON.parse(await readFile(resolve(import.meta.dirname, "../packages/rawstep/package.json"), "utf8"));
   expect(manifest.name).toBe("rawstep");
   expect(manifest.private).not.toBe(true);

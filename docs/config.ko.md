@@ -1,6 +1,6 @@
 # 현재 config 안내
 
-Guidepup/LLMAgent 설정과 AI_* 환경변수는 복원하지 않습니다. --decision systemone은 RAWSTEP_DECISION_*만, analyze --llm은 RAWSTEP_ANALYSIS_*만 읽습니다. 우선순위는 CLI → 프로세스 env → .env.local → .env이며 파일을 덮어쓰지 않습니다. 라이브러리는 설정을 주입받습니다. [SystemOne 설정·검증](./systemone.md), 루트 .env.example, [마이그레이션](./migration.md)을 참고하세요.
+Guidepup/LLMAgent 설정과 AI_* 환경변수는 복원하지 않습니다. --decision systemone은 RAWSTEP_DECISION_*만, analyze --llm은 RAWSTEP_ANALYSIS_*만 읽습니다. 우선순위는 CLI → 프로세스 env → .env.local → .env이며 파일을 덮어쓰지 않습니다. 라이브러리는 설정을 주입받습니다. [SystemOne 설정·검증](./systemone.md), 루트 .env.example을 참고하세요.
 
 ## OpenRouter 스크린샷 실행
 

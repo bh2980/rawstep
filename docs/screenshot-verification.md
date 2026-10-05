@@ -1,6 +1,6 @@
 # Screenshot keyboard verification
 
-> Historical snapshot. The current seven-workspace delivery and its validation limits are recorded in [V5 completion](./completion-v5.ko.md).
+> Historical snapshot. The current checkout is validated with `npm run check`; see the [README](../README.md).
 Date: 2026-10-01 UTC. Cloud Linux only; no user Mac, native VoiceOver, paid model endpoint, push, PR or publication.
 
 ## Important finding: navigation quality remains weak

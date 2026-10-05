@@ -123,7 +123,7 @@ npm run test:orca-native
 
 전체 검사는 workspace 빌드, 소스·테스트 타입 검사, 기본 테스트 전체, 각 패키지의 로컬 의존성 묶음 격리 설치를 포함합니다. facade 검사는 실제 Chromium, 프로토콜, 취소, 기록 실패와 보고서를 확인합니다. Python 단위 검사가 통과해도 실제 Orca 발화가 검증된 것은 아닙니다.
 
-V5 workspace는 깨끗한 frozen-lock 소스 설치·타입 검사·패키지 격리 설치와 JS/TS 641개(34개 파일), Python 30개 단위 검사를 통과했습니다. [V5 완료 보고서](./docs/completion-v5.ko.md)는 요청한 9개 항목의 통과·부분 구현·차단 상태를 구분합니다. 물리적 패키지 이동 전 통합 게이트는 JS/TS623개와 Python30개 검사를 통과했습니다. [과거 화면 모델 측정](./docs/screenshot-verification.md)과 [V4 보고서](./docs/completion-v4.ko.md)는 당시 기록입니다. 최종 전달 버전의 workspace 검증과 혼동하지 마세요. 추가 안내: [네이티브 Orca](./docs/native-orca.md), [코퍼스 범위](./docs/screenreader-evidence.md), [CLI](./docs/cli.md), [소스 지도](./docs/editing-map.ko.md).
+[과거 화면 모델 측정](./docs/screenshot-verification.md)은 당시 기록입니다. 현재 체크아웃 검증과 혼동하지 마세요. 추가 안내: [네이티브 Orca](./docs/native-orca.md), [코퍼스 범위](./docs/screenreader-evidence.md), [CLI](./docs/cli.md), [소스 지도](./docs/editing-map.ko.md).
 
 ### 추가 실험 기능
 

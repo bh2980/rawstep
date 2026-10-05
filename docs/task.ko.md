@@ -1,6 +1,6 @@
 # 현재 task 안내
 
-예전 Guidepup/LLMAgent workspace 전용 설정과 명령은 제거되었습니다. 현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 상세 API는 [마이그레이션 가이드](./migration.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 스크린샷 기반 모델 탐색은 `screenshot-run`을 사용합니다. legacy-run은 0.2에서 제거했습니다. [SystemOne 설정](./systemone.md)을 참고하세요.
+예전 Guidepup/LLMAgent workspace 전용 설정과 명령은 제거되었습니다. 현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 스크린샷 기반 모델 탐색은 `screenshot-run`을 사용합니다. legacy-run은 0.2에서 제거했습니다. [SystemOne 설정](./systemone.md)을 참고하세요.
 
 ## 입력(input)
 
@@ -26,7 +26,7 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 
 위 예에서 `password`는 항목이 없으므로 민감 입력입니다. `goal`은 그대로 모델에 전달되므로, `goal`에 4자 이상인 민감 입력의 값이 들어 있으면 `resolveTask`가 task를 거부합니다. 위 예처럼 값 대신 이름으로 가리키십시오. 4자 미만의 값이나 `sensitive: false` 입력의 값은 `goal`에 써도 됩니다.
 
-가리기는 최선의 방어입니다. 4자 미만의 값은 값을 입력한 단계의 음성을 숨기는 것으로만 보호됩니다. 페이지의 다른 곳에 다시 표시된 값(예: "Hello Alice")은 스크린샷에서 가려지지 않으며(입력한 필드 자체는 열린 shadow root 안에 있어도 가려집니다), 모델이 페이지의 동작에서 값을 추측할 수도 있습니다. 자세한 내용은 [마이그레이션 가이드](./migration.md#hiding-input-values-from-the-policy)를 참고하세요.
+가리기는 최선의 방어입니다. 4자 미만의 값은 값을 입력한 단계의 음성을 숨기는 것으로만 보호됩니다. 페이지의 다른 곳에 다시 표시된 값(예: "Hello Alice")은 스크린샷에서 가려지지 않으며(입력한 필드 자체는 열린 shadow root 안에 있어도 가려집니다), 모델이 페이지의 동작에서 값을 추측할 수도 있습니다. 자세한 내용은 [입력값 가리기 (영문)](./task.md#hiding-input-values-from-the-policy)를 참고하세요.
 
 ## 검증 규칙
 

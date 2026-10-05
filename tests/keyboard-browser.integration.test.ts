@@ -46,7 +46,7 @@ describe('retained screenshot keyboard fixture execution in real Chromium',()=>{
     const {trace}=await runFixture('search',[key('Tab'),type('query'),key('Tab'),key('Enter'),key('Tab'),key('Tab'),key('Enter')]);expect(trace.outcome?.status).toBe('success');
   });
   it('captures current and previous real screenshots without mutating natural startup focus',async()=>{
-    const session=await createTestBrowserSession(pathToFileURL(resolve('fixtures/simple-cta.html')).href);cleanup.push(()=>session.close());const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachPage(session.page);cleanup.push(()=>backend.close());
+    const session=await createTestBrowserSession(pathToFileURL(resolve('fixtures/simple-cta.html')).href);cleanup.push(()=>session.close());const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachSession({ page: session.page });cleanup.push(()=>backend.close());
     expect(await session.page.evaluate(()=>document.activeElement===document.body)).toBe(true);expect(await session.page.locator('html').getAttribute('tabindex')).toBeNull();
     const before=await backend.observe();await backend.execute({kind:'key',key:'Tab'});const after=await backend.observe();
     expect(Buffer.from(before.screenshot.pngBase64,'base64').subarray(1,4).toString()).toBe('PNG');expect(after.previousScreenshot).toEqual(before.screenshot);expect(after.screenshot.pngBase64).not.toBe(before.screenshot.pngBase64);
