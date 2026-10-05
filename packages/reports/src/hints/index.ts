@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { RunOutcome, RunTrace, TraceEvent } from '@rawstep/core/trace';
+import { dirname, join } from 'node:path';
+import { readTrace, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 
 /**
  * Friction hints: places in a saved run worth a human look ("it succeeded, but took 23 Tabs").
@@ -210,6 +211,15 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   return { schemaVersion: HINTS_SCHEMA_VERSION, ...run, taskId: String(trace.task.id),
     ...(outcome ? { outcome: { status: outcome.status, ...(outcome.reason ? { reason: outcome.reason } : {}) } } : {}),
     ...(reference ? { reference } : {}), hints, limitations };
+}
+
+/** Reads a saved trace (and optional reference), extracts hints and writes hints.json next to the trace. */
+export async function writeHints(pathOrOutDir: string, options: { reference?: string; thresholds?: Partial<HintThresholds> } = {}): Promise<{ path: string; report: HintReport }> {
+  const trace = await readTrace(pathOrOutDir), reference = options.reference ? await readTrace(options.reference) : undefined;
+  const report = extractHints(trace, { ...(reference ? { reference } : {}), ...(options.thresholds ? { thresholds: options.thresholds } : {}) });
+  const path = join(dirname(await traceFilePath(pathOrOutDir)), 'hints.json');
+  await writeJsonAtomic(path, report);
+  return { path, report };
 }
 
 function countBy(values: string[]): Record<string, number> {

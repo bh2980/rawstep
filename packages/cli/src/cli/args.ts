@@ -1,4 +1,4 @@
-export type Command = "ui" | "profiles" | "matrix" | "run" | "mock-run" | "screenshot-run" | "analyze" | "report" | "doctor";
+export type Command = "ui" | "profiles" | "matrix" | "run" | "mock-run" | "screenshot-run" | "analyze" | "hints" | "report" | "doctor";
 export type CliArguments = {
   command: Command;
   positionals: string[];
@@ -18,6 +18,7 @@ const optionsByCommand: Record<Command, readonly string[]> = {
   "mock-run": [...decisionOptions, "profile", "policy", "script", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
   "screenshot-run": [...decisionOptions, "script", "diagnose-stop", "stop-reason-endpoint", "profile", "policy", "model-endpoint", "allow-remote-model", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
   analyze: ["analyzer", "llm", "analysis-provider", "analysis-base-url", "analysis-model", "out"],
+  hints: ["reference"],
   report: ["analysis", "out"],
   doctor: ["backend", "endpoint", "orca-target-window", "orca-python", "orca-bridge"],
 };
@@ -123,6 +124,7 @@ Usage:
   rawstep screenshot-run <task.json> --decision systemone [--decision-* overrides] [--out <dir>]
   rawstep run <task.json> --decision systemone --backend voiceover|nvda --endpoint <ws://...> [--out <dir>]
   rawstep analyze <trace.json|run-dir> [--analyzer <module>|--llm] [--out <dir>]
+  rawstep hints <trace.json|run-dir> [--reference <trace.json|run-dir>]
   rawstep report <trace.json|run-dir> [--analysis <analysis.json>] [--out <dir>]
   rawstep doctor --backend voiceover|nvda [--endpoint <ws://...>]
 
@@ -160,6 +162,7 @@ It requires Chromium, not macOS or AT Driver. It does not run Apple VoiceOver or
 screenshot-run is first-class screenshot-only, keyboard-only exploration with a pluggable decision model.
 The /choose adapter remains available; SystemOne uses a separately running compatible service. Scripts are explicitly selected deterministic checks, never automatic fallback.
 Screenshots can expose private page contents. The model receives pixels, goal, named input keys and keyboard history, never DOM/AX or verifier results.
+hints lists places worth a human look in a saved run (for example excess Tab presses), never a pass/fail verdict; analyze also writes hints.json next to the trace.
 LLM analysis sends every saved event with PNG bytes omitted, validates evidence IDs, and never changes runOutcome.
 VoiceOver remains unverified until an actual native slice passes; NVDA is experimental pending Windows evidence.
 `;

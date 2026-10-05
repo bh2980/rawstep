@@ -3,6 +3,7 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTrace, writeJsonAtomic, type RunTrace } from "@rawstep/core/trace";
 import { validateAnalysisReport, type AnalysisReport } from "../analyze/index.js";
+import type { HintReport } from "../hints/index.js";
 import { actionLabel, eventGrounds, pngFor, record, summarizeTrace, type ReportSummary } from "./summary.js";
 
 export { summarizeTrace } from "./summary.js";
@@ -103,8 +104,17 @@ function renderEnvironmentDiagnostics(trace: RunTrace): string {
   return `<section><h2>Applied environment and independent diagnostics</h2><p>Browser media emulation, page user styles and native settings are distinct. These DOM diagnostics are not policy observations and do not establish accessibility conformance.</p>${profileEvents.map(event=>`<h3>Requested versus observed settings</h3><p>${evidenceLink(event.id)}</p><pre>${escapeHtml(JSON.stringify(event.data,null,2))}</pre>`).join('')}<h3>Focus, layout and error-state observations</h3>${diagnosticEvents.map(event=>`<details><summary>${evidenceLink(event.id)}${event.redacted?' · omitted after input':''}</summary><pre>${escapeHtml(JSON.stringify(event.data,null,2))}</pre></details>`).join('')}</section>`;
 }
 
+function renderHints(hints: HintReport): string {
+  const e = escapeHtml, seconds = (ms: number | null) => ms === null ? "unknown duration" : `${(ms / 1000).toFixed(1)} s`;
+  return `<section aria-labelledby="hints"><h2 id="hints">Friction hints</h2>
+<p>Goal reached: ${hints.goalReached ? "yes" : "no"} · ${hints.steps} steps · ${e(seconds(hints.durationMs))}</p>
+${hints.reference ? `<p>Reference run ${e(hints.reference.runId)}: ${hints.reference.steps} steps · ${e(seconds(hints.reference.durationMs))}</p>` : ""}
+${hints.hints.length ? `<div class="table-scroll"><table><caption>Places worth a human look; hints are pointers, not verdicts</caption><thead><tr><th scope="col">Steps</th><th scope="col">Kind</th><th scope="col">Certainty</th><th scope="col">Summary</th></tr></thead><tbody>${hints.hints.map(hint => `<tr><td>${e(hint.steps.join(", ") || "run")}</td><td>${e(hint.kind)}</td><td>${e(hint.certainty)}</td><td>${e(hint.summary)}</td></tr>`).join("")}</tbody></table></div>` : "<p>No friction hints.</p>"}
+${hints.limitations.length ? `<ul>${hints.limitations.map(limitation => `<li>${e(limitation)}</li>`).join("")}</ul>` : ""}</section>`;
+}
+
 /** Render only escaped text. No script, embedded executable JSON, or remote resources. */
-export function renderReportHtml(trace: RunTrace, analysis?: AnalysisReport): string {
+export function renderReportHtml(trace: RunTrace, analysis?: AnalysisReport, options: { hints?: HintReport } = {}): string {
   validateTrace(trace);
   if (analysis) validateAnalysisReport(analysis, trace);
   const e = escapeHtml;
@@ -123,7 +133,7 @@ ${pngFor(event.data) ? `<figure><img alt="Keyboard viewport screenshot" style="m
 <title>RawStep trace: ${e(trace.task.id)}</title>
 <style>body{font:16px/1.6 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#18202b;background:#fff}h1,h2,h3,h4{line-height:1.25}article,.event{border:1px solid #d6dce5;border-radius:8px;padding:1rem;margin:1rem 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f8;padding:1rem}a{color:#0645ad}a:focus-visible,summary:focus-visible{outline:3px solid #125ea7;outline-offset:3px}p,td,summary{overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600}.outcome{font-size:1.25rem;font-weight:700}.table-scroll{overflow-x:auto}table{border-collapse:collapse;width:100%}caption{text-align:left;margin-bottom:.5rem}th,td{border:1px solid #d6dce5;text-align:left;vertical-align:top;padding:.6rem}.rule{border-left:3px solid #d6dce5;padding-left:1rem}.event:target{border-color:#125ea7}details.context{margin:1rem 0}figure{margin:1rem 0}</style></head>
 <body><header><h1>RawStep trace: ${e(trace.task.id)}</h1><p>Run ${e(trace.runId)} · trace schema ${e(trace.schemaVersion)}</p></header>
-<main>${renderSummary(trace, summary)}${renderActions(summary)}${renderVisualExploration(trace)}${renderEnvironmentDiagnostics(trace)}${renderVerification(trace, summary)}
+<main>${renderSummary(trace, summary)}${options.hints ? renderHints(options.hints) : ""}${renderActions(summary)}${renderVisualExploration(trace)}${renderEnvironmentDiagnostics(trace)}${renderVerification(trace, summary)}
 <details class="context"><summary>Task</summary><pre>${e(JSON.stringify(trace.task, null, 2))}</pre></details>
 <details class="context"><summary>Environment</summary><pre>${e(JSON.stringify(trace.environment, null, 2))}</pre></details>
 <h2>Analysis</h2><p>${analysis ? `${e(analysis.status)} · ${e(analysis.analyzer.id)}` : "Not requested. This report requires no model or analyzer."}</p>
@@ -131,8 +141,8 @@ ${analysis ? `<p>${e(analysis.summary)}</p>` : ""}${findings}
 <h2>Raw ordered evidence (${trace.events.length} events)</h2><p>Expand an event to inspect the saved payload. Event ordering is recorder ordering.</p>${events || "<p>No events recorded.</p>"}</main></body></html>\n`;
 }
 
-export async function writeReport(trace: RunTrace, analysis: AnalysisReport | undefined, outDir: string): Promise<{ jsonPath: string; htmlPath: string }> {
-  let html = renderReportHtml(trace, analysis);
+export async function writeReport(trace: RunTrace, analysis: AnalysisReport | undefined, outDir: string, options: { hints?: HintReport } = {}): Promise<{ jsonPath: string; htmlPath: string }> {
+  let html = renderReportHtml(trace, analysis, options);
   try {
     const reason=JSON.parse(await readFile(join(outDir,'stop-reason.json'),'utf8')) as Record<string,unknown>;
     if(reason.schemaVersion==='1.0'&&reason.runId===trace.runId&&JSON.stringify(reason.originalOutcome)===JSON.stringify(trace.outcome))html=html.replace('</main>',`<section><h2>Optional model stop hypothesis</h2><p>This separate choice-model opinion cannot change the original outcome or establish an accessibility defect.</p><pre>${escapeHtml(JSON.stringify(reason,null,2))}</pre></section></main>`);
@@ -142,7 +152,7 @@ export async function writeReport(trace: RunTrace, analysis: AnalysisReport | un
   const jsonPath = join(outDir, "report.json");
   const htmlPath = join(outDir, "report.html");
   // Report projections are separate files; execution evidence is never rewritten.
-  await writeJsonAtomic(jsonPath, { schemaVersion: "1.0", runId: trace.runId, runOutcome: trace.outcome ?? null, analysis: analysis ?? null,
+  await writeJsonAtomic(jsonPath, { schemaVersion: "1.0", runId: trace.runId, runOutcome: trace.outcome ?? null, analysis: analysis ?? null, ...(options.hints ? { hints: options.hints } : {}),
     visualExploration: summarizeVisualExploration(trace), eventCount: trace.events.length, privacy: trace.privacy, summary: summarizeTrace(trace) });
   await writeFile(htmlPath, html, { mode: 0o600 });
   return { jsonPath, htmlPath };

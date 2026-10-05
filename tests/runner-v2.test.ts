@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Backend, BackendAction, Task, DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
 import { BrowserAccessBlockedError, type BrowserSession } from '@rawstep/browser/browser';
 import { runTask } from '@rawstep/browser/runner';
+import type { ObserverEvent, PageObserver } from '@rawstep/browser/observer';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { TraceRecorder } from '@rawstep/core/trace';
 import { analyzeTrace } from '@rawstep/reports/analyze';
@@ -161,5 +162,41 @@ describe('model-neutral runner',()=>{
     const f=fixture();const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
     const before=JSON.stringify(trace.outcome);const report=await analyzeTrace(trace,{id:'broken',analyze:()=>{throw new Error('provider down');}});
     expect(report.status).toBe('failed');expect(JSON.stringify(trace.outcome)).toBe(before);
+  });
+  describe('page observer evidence',()=>{
+    const at='2026-01-01T00:00:00.000Z';
+    function withObserver(f:ReturnType<typeof fixture>,queue:ObserverEvent[],dropped:Record<number,number>={}){
+      const observer:PageObserver={available:true,setStep:vi.fn(),take:()=>queue.splice(0),dropped:()=>dropped,close:vi.fn(async()=>{})};
+      (f.browser as unknown as {observer:PageObserver}).observer=observer;return observer;
+    }
+    it('redacts observer events emitted after text entry, keeps earlier ones and records dropped counts',async()=>{
+      const f=fixture(),dir=await out(),queue:ObserverEvent[]=[{kind:'focus',step:1,at,frame:'main',role:'textbox',name:'Search field'}];
+      const observer=withObserver(f,queue,{3:5});
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push(
+        {kind:'state',step:1,at,frame:'main',role:'textbox',name:'Secret Value',text:'typed Secret Value',attr:'aria-invalid',value:'true',url:'https://example.test/?q=Secret+Value'},
+        {kind:'appeared',step:1,at,frame:'main',role:'status',name:'Unrelated label',text:'Unrelated text'});return {};});
+      f.verifier.mockResolvedValue({passed:false,failures:['missing']});
+      const trace=await runTask({...task,input:{field:'Secret Value'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}},{stop:'stuck'}])});
+      const events=trace.events.filter(e=>e.type.startsWith('observer.')&&e.type!=='observer.metadata'&&e.type!=='observer.dropped');
+      const focus=events.find(e=>e.type==='observer.focus')!;
+      expect(focus.data).toMatchObject({kind:'focus',step:1,role:'textbox',name:'Search field'});expect(focus.redacted).toBe(false);
+      const state=events.find(e=>e.type==='observer.state')!;
+      expect(state.data).toMatchObject({kind:'state',step:1,role:'textbox',name:'[REDACTED]',text:'[REDACTED]',value:'[REDACTED]',url:'[REDACTED]',attr:'aria-invalid'});expect(state.redacted).toBe(true);
+      // Taint redacts every later observer event, even ones that do not echo the typed value.
+      const appeared=events.find(e=>e.type==='observer.appeared')!;
+      expect(appeared.data).toMatchObject({kind:'appeared',step:1,role:'status',name:'[REDACTED]',text:'[REDACTED]'});expect(appeared.redacted).toBe(true);
+      expect(events.indexOf(focus)).toBeLessThan(events.indexOf(state));
+      expect(trace.events.find(e=>e.type==='observer.dropped')?.data).toMatchObject({perStep:{3:5}});
+      expect(observer.close).not.toHaveBeenCalled();
+      for(const path of ['trace.json','trace.jsonl']){const stored=await readFile(join(dir,path),'utf8');expect(stored).not.toContain('Secret Value');expect(stored).not.toContain('Unrelated label');expect(stored).toContain('Search field');}
+    });
+    it('keeps observer events readable when no text was entered',async()=>{
+      const f=fixture(),queue:ObserverEvent[]=[{kind:'focus',step:1,at,frame:'main',role:'button',name:'Start'}];withObserver(f,queue);
+      f.verifier.mockResolvedValue({passed:false,failures:['missing']});
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const focus=trace.events.find(e=>e.type==='observer.focus')!;
+      expect(focus.data).toMatchObject({name:'Start'});expect(focus.redacted).toBe(false);
+      expect(trace.events.some(e=>e.type==='observer.dropped')).toBe(false);
+    });
   });
 });

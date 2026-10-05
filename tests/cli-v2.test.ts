@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -281,6 +281,65 @@ describe("offline analysis and reports", () => {
     const io = output(directory);
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
     expect(io.stderr.mock.calls.flat().join("")).toMatch(/run|trace/i);
+  });
+});
+
+/** A saved trace with eleven Tab presses before activation (an excess-keystrokes hint) and the given step count. */
+function frictionTrace(runId: string, steps: number, tabs = 11): RunTrace {
+  const decisions = [...Array.from({ length: tabs }, () => "Tab"), "Enter"].map((key, index) => ({ type: "policy.decision", data: { step: index + 1, decision: { action: { kind: "key", key } } } }));
+  return { ...fixtureTrace(), schemaVersion: "2.1", runId, outcome: { status: "success", steps },
+    events: decisions.map((event, index) => ({ id: `event-${index + 1}`, seq: index + 1, timestamp: "2026-01-01T00:00:00.000Z", source: "policy" as const, redacted: false, ...event })) };
+}
+
+describe("hints command", () => {
+  it("parses hints with an optional reference and rejects other options", () => {
+    expect(parseCliArguments(["hints", "run", "--reference", "other"])).toMatchObject({ command: "hints", positionals: ["run"], options: { reference: "other" } });
+    for (const args of [["hints"], ["hints", "a", "b"], ["hints", "a", "--out", "x"], ["hints", "a", "--reference"]]) expect(() => parseCliArguments(args)).toThrow();
+  });
+  it("prints hints and writes hints.json next to the trace without changing it", async () => {
+    const directory = await temporaryDirectory();
+    const source = JSON.stringify(frictionTrace("hint-run", 12));
+    await writeFile(join(directory, "trace.json"), source);
+    const io = output(directory);
+    expect(await runCli(["hints", "trace.json"], io)).toBe(0);
+    const text = io.stdout.mock.calls.flat().join("");
+    expect(text).toContain("Hints: 1 · goal reached: yes · steps 12\n");
+    expect(text).toContain("step 1,12 · excess-keystrokes · observed · 11 navigation keys");
+    expect(text).toContain(`Wrote ${join(directory, "hints.json")}`);
+    const written = JSON.parse(await readFile(join(directory, "hints.json"), "utf8"));
+    expect(written).toMatchObject({ runId: "hint-run", goalReached: true, steps: 12 });
+    expect(written.hints.map((hint: { kind: string }) => hint.kind)).toEqual(["excess-keystrokes"]);
+    expect(await readFile(join(directory, "trace.json"), "utf8")).toBe(source);
+  });
+  it("accepts run directories and compares against a reference run", async () => {
+    const directory = await temporaryDirectory();
+    await mkdir(join(directory, "slow")); await mkdir(join(directory, "fast"));
+    await writeFile(join(directory, "slow", "trace.json"), JSON.stringify(frictionTrace("slow-run", 12)));
+    await writeFile(join(directory, "fast", "trace.json"), JSON.stringify(frictionTrace("fast-run", 4, 1)));
+    const io = output(directory);
+    expect(await runCli(["hints", "slow", "--reference", "fast"], io)).toBe(0);
+    const text = io.stdout.mock.calls.flat().join("");
+    expect(text).toContain("Hints: 2 · goal reached: yes · steps 12 · reference 4 steps\n");
+    expect(text).toContain("step  · slow-run · observed · 12 steps against a 4-step reference run (+8).");
+    expect(JSON.parse(await readFile(join(directory, "slow", "hints.json"), "utf8")).reference).toMatchObject({ runId: "fast-run", steps: 4 });
+  });
+  it("reports a missing trace as a hints-stage failure", async () => {
+    const io = output(await temporaryDirectory());
+    expect(await runCli(["hints", "missing.json"], io)).toBe(1);
+    expect(io.stderr.mock.calls.flat().join("")).toContain("Stage: hints");
+  });
+  it("is written by analyze and rendered by report when present next to the trace", async () => {
+    const directory = await temporaryDirectory();
+    await writeFile(join(directory, "trace.json"), JSON.stringify(frictionTrace("analyze-run", 12)));
+    const io = output(directory);
+    expect(await runCli(["report", "trace.json"], io)).toBe(0);
+    expect(await readFile(join(directory, "report.html"), "utf8")).not.toContain("Friction hints");
+    expect(await runCli(["analyze", "trace.json"], io)).toBe(0);
+    expect(io.stdout.mock.calls.flat().join("")).toContain(`Hints saved: ${join(directory, "hints.json")}`);
+    expect(JSON.parse(await readFile(join(directory, "hints.json"), "utf8")).hints).toHaveLength(1);
+    expect(await runCli(["report", "trace.json"], io)).toBe(0);
+    expect(await readFile(join(directory, "report.html"), "utf8")).toContain("Friction hints");
+    expect(JSON.parse(await readFile(join(directory, "report.json"), "utf8")).hints.hints).toHaveLength(1);
   });
 });
 

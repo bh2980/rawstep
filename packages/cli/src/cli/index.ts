@@ -21,6 +21,8 @@ import { MockVoiceOverBackend, runMockVoiceOverTask } from "@rawstep/screenreade
 import { readTrace, type RunTrace } from "@rawstep/core/trace";
 import { analyzeSavedTrace, loadAnalyzer, readAnalysis } from "@rawstep/reports/analyze";
 import { writeReport } from "@rawstep/reports/report";
+import { writeHints } from "@rawstep/reports/hints";
+import type { HintReport } from "@rawstep/reports/hints";
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from "./args.js";
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from "./args.js";
@@ -42,6 +44,7 @@ export interface CliDependencies {
   analyzeSavedTrace?: typeof analyzeSavedTrace;
   loadAnalyzer?: typeof loadAnalyzer;
   writeReport?: typeof writeReport;
+  writeHints?: typeof writeHints;
   /** Defaults to process; injectable so embedders can scope cancellation. */
   signals?: {
     on(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
@@ -49,7 +52,7 @@ export interface CliDependencies {
   };
 }
 
-type CliStage = "arguments" | "task-loading" | "policy-loading" | "execution" | "analysis" | "report" | "doctor";
+type CliStage = "arguments" | "task-loading" | "policy-loading" | "execution" | "analysis" | "hints" | "report" | "doctor";
 
 export async function runCli(
   argv: string[] = process.argv.slice(2),
@@ -177,6 +180,13 @@ export async function runCli(
       const cancellation = isObject(trace.outcome?.cancellation) ? trace.outcome.cancellation : {};
       return cancellation.signal === "SIGINT" ? 130 : cancellation.signal === "SIGTERM" ? 143 : 1;
     }
+    if (args.command === "hints") {
+      stage = "hints";
+      const { path, report } = await (dependencies.writeHints ?? writeHints)(inputPath, args.options.reference ? { reference: resolve(cwd, String(args.options.reference)) } : {});
+      stdout(`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? "yes" : "no"} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ""}\n`
+        + report.hints.map(hint => `step ${hint.steps.join(",")} · ${hint.kind} · ${hint.certainty} · ${hint.summary}\n`).join("") + `Wrote ${path}\n`);
+      return 0;
+    }
     stage = args.command === "analyze" ? "analysis" : "report";
     const outDir = args.options.out ? resolve(cwd, String(args.options.out)) : await traceDirectory(inputPath);
     if (args.command === "analyze") {
@@ -185,13 +195,15 @@ export async function runCli(
         : args.options.llm ? new LlmTraceAnalyzer(analysisConfig(args, await loadCliEnvironment(cwd, dependencies.env))) : undefined;
       const analysis = await (dependencies.analyzeSavedTrace ?? analyzeSavedTrace)(inputPath, { analyzer, outDir });
       stdout(`Analysis: ${analysis.status}\nSaved: ${resolve(outDir, "analysis.json")}\n`);
+      stdout(`Hints saved: ${(await (dependencies.writeHints ?? writeHints)(inputPath)).path}\n`);
       return analysis.status === "completed" ? 0 : 1;
     }
     const trace = await (dependencies.readTrace ?? readTrace)(inputPath);
     const analysis = args.options.analysis
       ? await readAnalysis(resolve(cwd, String(args.options.analysis)), trace)
       : undefined;
-    const paths = await (dependencies.writeReport ?? writeReport)(trace, analysis, outDir);
+    const hints = await readHints(await traceDirectory(inputPath));
+    const paths = await (dependencies.writeReport ?? writeReport)(trace, analysis, outDir, hints ? { hints } : {});
     stdout(`Report: ${paths.htmlPath}\nData: ${paths.jsonPath}\n`);
     return 0;
   } catch (error) {
@@ -234,6 +246,7 @@ function preparationRecovery(stage: CliStage): string {
     case "policy-loading": return "Check the --policy module path and its decide() export, or the --script path and decision JSON. See npx rawstep --help.";
     case "execution": return "Check the error, backend setup, and output-directory permissions. Retry with a fresh --out directory. Execution did not return a saved outcome; inspect the output directory before analyzing a trace.";
     case "analysis": return "Check the saved trace path, the selected analyzer module, and output-directory permissions. See npx rawstep --help.";
+    case "hints": return "Check that the saved trace path (and --reference path) exist and are valid traces, and that the trace directory is writable. See npx rawstep --help.";
     case "report": return "Check the saved trace path, any --analysis file belongs to that run, and output-directory permissions. See npx rawstep --help.";
     case "doctor": return "Check the backend and WebSocket endpoint, then rerun doctor. Inspect the server log if the connection still fails.";
   }
@@ -368,6 +381,12 @@ async function readDecisions(path: string): Promise<Decision[]> {
     }
   }
   return data as Decision[];
+}
+
+/** A hints.json next to the trace is optional report input; absent or unreadable means no hints section. */
+async function readHints(directory: string): Promise<HintReport | undefined> {
+  try { const value: unknown = JSON.parse(await readFile(resolve(directory, "hints.json"), "utf8")); return isObject(value) && value.schemaVersion === "1.0" && Array.isArray(value.hints) ? value as HintReport : undefined; }
+  catch { return undefined; }
 }
 
 async function traceDirectory(path: string): Promise<string> {
