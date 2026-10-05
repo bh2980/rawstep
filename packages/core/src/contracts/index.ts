@@ -53,6 +53,8 @@ export type Task = {
   timeoutMs?: number;
   verify: VerifySpec;
   input?: Record<string, string>;
+  /** Per-input handling. Inputs are sensitive unless marked otherwise: the model never sees their values. */
+  inputOptions?: Record<string, TaskInputOptions>;
   navigation?: NavigationPolicy;
 };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
@@ -87,11 +89,15 @@ export interface DecisionPolicy {
     history: readonly HistoryEntry[];
     allowedActions: AllowedActions;
     /** Named values are task-provided; the policy cannot submit arbitrary text. */
-    inputs: Readonly<Record<string, string>>;
+    inputs: Readonly<Record<string, InputDescriptor>>;
     signal: AbortSignal;
   }): Decision | Promise<Decision>;
 }
-export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string };
+export type TaskInputOptions = { sensitive?: boolean; description?: string };
+/** What a policy may know about a named input: never its value. */
+export type InputDescriptor = { sensitive: boolean; description?: string };
+/** `sensitive` asks the backend to keep the typed value out of what the policy observes. */
+export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string; sensitive?: boolean };
 export type BackendCapabilities = { intents: readonly string[]; keys: readonly string[]; textEntry: boolean; replaceText: boolean };
 export type BackendOutput = { sequence: number; receivedAt: string; text: string; raw: unknown };
 export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string; startedAt: string; endedAt: string; reason: string; outputs: readonly BackendOutput[]; speech: readonly string[] };
@@ -132,7 +138,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','navigation','config','profile'], 'Task');
+  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','config','profile'], 'Task');
   if (raw.mode !== undefined && raw.mode !== 'screenreader' && raw.mode !== 'keyboard') throw new Error('Task mode must be screenreader or keyboard.');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
@@ -141,6 +147,22 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   const rules = raw.verify.all.map(rule => validateVerifyRule(rule));
   const input = raw.input;
   if (input !== undefined && (!object(input) || Object.keys(input).some(k => !k.trim()) || Object.values(input).some(v => typeof v !== 'string'))) throw new Error('Task input must map names to string values.');
+  const inputOptions = raw.inputOptions;
+  if (inputOptions !== undefined) {
+    if (!object(inputOptions)) throw new Error('Task inputOptions must map input names to options.');
+    for (const [name, option] of Object.entries(inputOptions)) {
+      if (!input || !Object.hasOwn(input, name)) throw new Error(`Task inputOptions names unknown input ${name}.`);
+      if (!object(option)) throw new Error(`Task inputOptions.${name} must be an object.`);
+      onlyKeys(option, ['sensitive', 'description'], `inputOptions.${name}`);
+      if (option.sensitive !== undefined && typeof option.sensitive !== 'boolean') throw new Error(`inputOptions.${name}.sensitive must be boolean.`);
+      if (option.description !== undefined && (typeof option.description !== 'string' || !option.description.trim() || option.description.length > 200)) throw new Error(`inputOptions.${name}.description must be a nonempty string up to 200 characters.`);
+    }
+  }
+  // The goal goes to the model verbatim; a sensitive value written there would defeat input hiding.
+  for (const [name, value] of Object.entries((input ?? {}) as Record<string, string>)) {
+    const sensitive = (object(inputOptions) && object(inputOptions[name]) ? inputOptions[name].sensitive : undefined) !== false;
+    if (sensitive && value.length >= 4 && goal.includes(value)) throw new Error(`Task goal contains the value of input ${name}; refer to the input by name instead.`);
+  }
   const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
   if (!Number.isSafeInteger(maxSteps) || (maxSteps as number) < 1) throw new Error('maxSteps must be a positive integer.');
@@ -155,7 +177,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
     if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) throw new Error('Task URL must use http, https, or file.');
     resolvedUrl = parsed.href;
   } else resolvedUrl = pathToFileURL(isAbsolute(url) ? url : resolve(baseDir, url)).href;
-  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), navigation };
+  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
 }
 export function validateNavigation(value: unknown): NavigationPolicy {
   if (value === undefined) return { strategy: 'same-origin' };
@@ -241,4 +263,12 @@ function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
     return value as RequestVerificationRule | ResponseVerificationRule;
   }
   throw new Error('Unsupported verification rule.');
+}
+
+/** Policy-facing view of a task's inputs: names, sensitivity and descriptions, never values. */
+export function describeInputs(task: Pick<Task, 'input' | 'inputOptions'>): Readonly<Record<string, InputDescriptor>> {
+  return Object.freeze(Object.fromEntries(Object.keys(task.input ?? {}).map(name => {
+    const option = task.inputOptions?.[name];
+    return [name, Object.freeze({ sensitive: option?.sensitive !== false, ...(option?.description ? { description: option.description } : {}) })];
+  })));
 }

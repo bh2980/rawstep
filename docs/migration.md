@@ -71,7 +71,7 @@ This is a wiring example. Its title rule does not prove heading focus; choose ve
 - `observation`: real screen reader speech, evidence-event IDs, and observation-window metadata
 - `history`: prior decisions, observations, and execution status
 - `allowedActions`: allowed backend intents, keys, named input values, and replace-text support
-- `inputs`: the task-provided input values; trusted policies can see these values before trace redaction
+- `inputs`: for each named task input, `{ sensitive, description? }`: the name, whether it is sensitive (the default) and an optional description from `task.inputOptions`. Values never reach the policy; the runner resolves a named `typeText`/`replaceText` to the real value itself
 - `signal`: an AbortSignal for the run's time budget
 
 Decisions are one of:
@@ -141,9 +141,23 @@ New runs write trace schema `2.1`, which adds explicit simulation provenance. Re
 
 Events carry stable IDs and sequence order, source, timestamps, payloads, redaction flags, and optional command/window association. Temporal association does not assert that a particular command caused speech. Output order and duplicates are retained rather than summarized away. Unknown environment values are represented as unknown.
 
-Task input values and their URL/form-encoded forms are redacted from persisted payloads before analyzers can read them. Whole-value matching alone cannot remove characters spoken individually. After text entry starts, the runner therefore conservatively redacts subsequent protocol payloads, speech observations, related diagnostic content, and outcome details and suppresses later diagnostic screenshots. This privacy boundary stays active through cleanup because delayed echoes can arrive after an acknowledgement. Live policies still need the original task inputs and real observations to act; they are a trusted boundary.
+Task input values and their URL/form-encoded forms are redacted from persisted payloads before analyzers can read them. Whole-value matching alone cannot remove characters spoken individually. After text entry starts, the runner therefore conservatively redacts subsequent protocol payloads, speech observations, related diagnostic content, and outcome details and suppresses later diagnostic screenshots. This privacy boundary stays active through cleanup because delayed echoes can arrive after an acknowledgement. Policies refer to inputs by name and never receive their values; they are not a trusted holder of input values (see below).
 
 This is a deliberate evidence/privacy tradeoff: an input-heavy trace may lose much of its later raw speech. It does not claim comprehensive anonymization of arbitrary page content or screenshots captured before input. Review artifacts before sharing them. Programmatic `runTask` callers may explicitly set `includeSensitiveInputValues: true` to retain sensitive evidence; it exposes values in saved artifacts and to custom analyzers. The CLI provides no opt-out flag.
+
+### Hiding input values from the policy
+
+The decision policy (usually a model) must not learn input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules above.
+
+- **Screenshots (keyboard mode).** Before typing a sensitive value, the screenshot backend marks the focused field with `data-rawstep-mask`. While capturing an observation it sets `-webkit-text-security: disc !important` on marked fields through the CSSOM (so a page CSP cannot block it) and restores the field's previous inline value right after the capture. The field shows dots in the policy's screenshot and its real value in the page.
+- **Speech (screen reader mode).** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
+
+Limitations:
+
+- Values shorter than 4 characters are not substring-masked in later speech, since that would damage unrelated text. Only withholding the typing step's speech covers them.
+- The screenshot mask covers only the typed field. The same value re-rendered elsewhere on the page (for example "Hello Alice" after sign-in, or a form summary) is visible in screenshots; in speech it is masked only when the value has 4 or more characters.
+- The mask follows the field that was focused when typing started, including fields inside open shadow roots; text the page copies into other elements is not masked.
+- The model can still infer a value from page behavior, such as validation messages, search results, or which page the form leads to.
 
 `analyzeSavedTrace` reads the saved trace and writes only `analysis.json`. An analyzer has this independent interface:
 

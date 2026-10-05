@@ -1,6 +1,32 @@
 # Current task format
 
-Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks use `screenshot-run`; the duplicate `legacy-run` was removed in 0.2.
+Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks use `screenshot-run`; the duplicate `legacy-run` was removed in 0.2.
+
+## Inputs
+
+`input` maps names to string values. The decision policy (usually a model) only sees each input's name, whether it is sensitive, and an optional description. It never sees the value. The runner types the real value when the policy asks to enter a named input.
+
+`inputOptions` configures individual inputs. Each key must be a name from `input`, and each entry accepts only:
+
+- `sensitive` (boolean, default `true`): the value is kept out of what the policy observes. In keyboard mode the field is shown as dots in screenshots, and in screen reader mode the value is replaced with `[REDACTED]` in speech, and the speech right after typing it is withheld. Set `false` for harmless values such as a search term, which are then not masked.
+- `description` (string, 1 to 200 characters): shown to the model next to the input name, so it knows what the input is for.
+
+```json
+{
+  "url": "fixtures/login.html",
+  "goal": "Sign in with the stored email and password",
+  "input": { "email": "traveler@example.com", "password": "super-secret", "query": "red shoes" },
+  "inputOptions": {
+    "email": { "description": "Account email address" },
+    "query": { "sensitive": false, "description": "Product search term" }
+  },
+  "verify": { "all": [{ "titleIncludes": "Welcome" }] }
+}
+```
+
+Here `password` has no entry, so it is sensitive. `resolveTask` rejects the task when `goal` contains the value of a sensitive input that is 4 or more characters long, because the goal is sent to the model as written. Refer to the input by name instead, as above. A goal may contain a value shorter than 4 characters, or the value of an input with `sensitive: false`.
+
+Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice"), or in a shadow DOM field, is not masked in screenshots. The model may also infer a value from page behavior. See the [migration guide](./migration.md#hiding-input-values-from-the-policy).
 
 ## Verification rules
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FOCUS_CONTEXT_CHOICES, restrictChoicesByVisualFocus, ScreenshotDecisionPolicy, screenshotChoices, type ScreenshotModelRequest } from 'rawstep/screenshot';
 import type { DecisionPolicy } from '@rawstep/core/contracts';
 const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
-const input=():Parameters<DecisionPolicy['decide']>[0]=>({goal:'Use query field',observation:{kind:'keyboard',screenshot:{pngBase64:png,viewport:{w:1,h:1}},window:{id:'w',startedAt:'2026-01-01',endedAt:'2026-01-01',reason:'test'}},history:[],allowedActions:{keys:['Tab','Enter','Space','Backspace','Delete'],intents:[],inputKeys:['query'],replaceText:true},inputs:{query:'PRIVATE_VALUE'},signal:new AbortController().signal});
+const input=():Parameters<DecisionPolicy['decide']>[0]=>({goal:'Use query field',observation:{kind:'keyboard',screenshot:{pngBase64:png,viewport:{w:1,h:1}},window:{id:'w',startedAt:'2026-01-01',endedAt:'2026-01-01',reason:'test'}},history:[],allowedActions:{keys:['Tab','Enter','Space','Backspace','Delete'],intents:[],inputKeys:['query'],replaceText:true},inputs:{query:{sensitive:true}},signal:new AbortController().signal});
 const response=(choiceId:string,probabilities?:number[])=>({choiceId,probabilities,model:{id:'test-double',runtime:'unit'}});
 const choices=()=>screenshotChoices(input().allowedActions);
 describe('opt-in screenshot-only focus gate',()=>{

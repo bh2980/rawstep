@@ -18,7 +18,7 @@ afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn()
 async function directory() { const d = await mkdtemp(join(tmpdir(), 'rawstep-systemone-')); cleanup.push(() => rm(d,{recursive:true,force:true})); return d; }
 function input(): Parameters<DecisionPolicy['decide']>[0] { return {
   goal:'Activate start', observation:{kind:'screenreader',provenance:'simulation',speech:['Start, button'],outputEventIds:['out'],window:{id:'w',startedAt:'s',endedAt:'e',reason:'fixture'}},
-  history:[],allowedActions:{intents:['activate'],keys:['Tab'],inputKeys:['name'],replaceText:true},inputs:{name:'PRIVATE_INPUT'},signal:signal(),
+  history:[],allowedActions:{intents:['activate'],keys:['Tab'],inputKeys:['name'],replaceText:true},inputs:{name:{sensitive:true}},signal:signal(),
 }; }
 function visualSession(): BrowserSession {
   return {

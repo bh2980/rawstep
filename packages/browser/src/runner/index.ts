@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
-import { TraceRecorder, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
+import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
+import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
 import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
@@ -44,6 +44,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const task: Task = { ...resolved, mode: resolved.mode ?? observationKind };
   if (!options.policy || typeof options.policy.decide !== 'function') throw new Error('A DecisionPolicy is required.');
   const allowedActions = resolveAllowedActions(task, options);
+  const inputDescriptors = describeInputs(task);
+  // What the policy observes: sensitive values are masked by backends (pixels) and here (speech).
+  // Values under 4 characters cannot be hidden by substring matching without destroying unrelated speech; the withheld typing step covers their echo.
+  const sensitiveValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value.length >= 4).map(([, value]) => value);
+  const maskForPolicy = createRedactor(sensitiveValues);
+  const withheldObservations = new WeakSet<Observation>();
+  const policyView = (value: Observation): Observation => value.kind !== 'screenreader' ? value
+    : withheldObservations.has(value) ? { ...value, speech: ['[typed input withheld]'] }
+    : { ...value, speech: value.speech.map(line => maskForPolicy(line).value) };
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance } });
   await trace.initialize();
   const controller = new AbortController();
@@ -221,7 +230,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
-      const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, observation: structuredClone(observation), history: structuredClone(history), allowedActions: structuredClone(allowedActions), inputs: Object.freeze({ ...task.input }), signal: controller.signal }));
+      const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
       for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
         append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.' } : { step, evidence }, { source: 'policy', redacted: inputTainted });
       }
@@ -253,7 +262,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
             inputTainted = true;
             append('privacy.input-taint', { step, reason: 'Subsequent protocol payloads, speech and diagnostic screenshots are redacted because late input echoes cannot be attributed reliably.' }, { redacted: true });
           }
-          await withinBudget(() => options.backend.execute({ kind: action.kind, text: task.input![action.input] }, { signal: controller.signal }));
+          await withinBudget(() => options.backend.execute({ kind: action.kind, text: task.input![action.input]!, sensitive: inputDescriptors[action.input]!.sensitive }, { signal: controller.signal }));
         } else await withinBudget(() => options.backend.execute(action, { signal: controller.signal }));
         execution = { ok: true };
       } catch (error) {
@@ -266,6 +275,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       history.push({ step, decision, observation, execution });
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page)); }
       observation = await observe();
+      // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
+      if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
       if (execution.ok && isActivation(action)) latestActivation = { step, action, observation };
       drainObserver();
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);

@@ -78,7 +78,7 @@ describe('model-neutral runner',()=>{
   it('allows only named task inputs, gates editability, and redacts input values on disk',async()=>{
     const f=fixture();const dir=await out();
     const trace=await runTask({...task,input:{email:'private@example.test'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}])});
-    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test'}, {signal:expect.any(AbortSignal)});
+    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test',sensitive:true}, {signal:expect.any(AbortSignal)});
     expect(await readFile(join(dir,'trace.json'),'utf8')).not.toContain('private@example.test');expect(trace.privacy.inputValues).toBe('redacted');
   });
   it('fails text-entry safely for a noneditable target',async()=>{

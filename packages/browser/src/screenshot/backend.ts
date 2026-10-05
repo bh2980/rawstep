@@ -12,6 +12,7 @@ export class ScreenshotKeyboardBackend implements Backend {
   private active = false;
   private counter = 0;
   private previousScreenshot?: BackendKeyboardObservation['screenshot'];
+  private masking = false;
 
   attachSession(session: BackendSession): void { this.page = session.page as Page; }
   /** @deprecated Prefer attachSession; the runner calls it with the opened session. */
@@ -37,6 +38,8 @@ export class ScreenshotKeyboardBackend implements Backend {
       if (!(SCREENSHOT_KEYS as readonly string[]).includes(action.key)) throw new Error(`Unsupported screenshot key: ${action.key}`);
       await page.keyboard.press(action.key);
     } else {
+      // Mark the field before typing so its value can be hidden from the policy's screenshots.
+      if (action.sensitive) { await page.evaluate(MARK_FOCUSED_FIELD); this.masking = true; }
       if (action.kind === 'replaceText') {
         await page.keyboard.press('ControlOrMeta+A');
         options.signal?.throwIfAborted();
@@ -54,7 +57,11 @@ export class ScreenshotKeyboardBackend implements Backend {
     options.signal?.throwIfAborted();
     const page = this.getPage();
     const startedAt = new Date().toISOString();
-    const png = await page.screenshot({ type: 'png', fullPage: false, caret: 'hide' });
+    // CSSOM changes, not a <style> tag, so a page CSP cannot block the mask; restored right after the capture.
+    if (this.masking) await page.evaluate(SET_MASK, true);
+    let png: Buffer;
+    try { png = await page.screenshot({ type: 'png', fullPage: false, caret: 'hide' }); }
+    finally { if (this.masking) await page.evaluate(SET_MASK, false).catch(() => undefined); }
     options.signal?.throwIfAborted();
     const viewport = page.viewportSize();
     const screenshot = { pngBase64: png.toString('base64'), viewport: { w: viewport?.width ?? 0, h: viewport?.height ?? 0 } };
@@ -66,3 +73,23 @@ export class ScreenshotKeyboardBackend implements Backend {
   }
   async close(): Promise<void> { this.active = false; this.page = undefined; this.previousScreenshot = undefined; }
 }
+
+type MaskHost = { __rawstepMasked?: Map<HTMLElement, { value: string; hadStyle: boolean }> };
+/** Elements are kept in a page-side registry so fields inside shadow roots are masked too. */
+const MARK_FOCUSED_FIELD = () => {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  if (!(active instanceof HTMLElement)) return;
+  const host = window as unknown as MaskHost;
+  (host.__rawstepMasked ??= new Map()).set(active, { value: '', hadStyle: false });
+  active.setAttribute('data-rawstep-mask', '');
+};
+const SET_MASK = (on: boolean) => {
+  const masked = (window as unknown as MaskHost).__rawstepMasked;
+  for (const [element, saved] of masked ?? []) {
+    if (!element.isConnected) { masked!.delete(element); continue; }
+    if (on) { saved.value = element.style.getPropertyValue('-webkit-text-security'); saved.hadStyle = element.hasAttribute('style'); element.style.setProperty('-webkit-text-security', 'disc', 'important'); continue; }
+    if (saved.value) element.style.setProperty('-webkit-text-security', saved.value); else element.style.removeProperty('-webkit-text-security');
+    if (!saved.hadStyle && element.getAttribute('style') === '') element.removeAttribute('style');
+  }
+};

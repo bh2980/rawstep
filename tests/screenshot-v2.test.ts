@@ -5,7 +5,7 @@ import { parseCliArguments } from '@rawstep/cli/cli/args';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
 const observation = { kind: 'keyboard' as const, screenshot: { pngBase64: png, viewport: { w: 1, h: 1 } }, window: { id: 'one', startedAt: '2026-10-01T00:00:00.000Z', endedAt: '2026-10-01T00:00:00.000Z', reason: 'test' } };
-const input = (): Parameters<DecisionPolicy['decide']>[0] => ({ goal: 'Inspect keyboard behavior', observation: structuredClone(observation), history: [], allowedActions: { intents: [], keys: SCREENSHOT_KEYS, inputKeys: ['provided'], replaceText: true }, inputs: { provided: 'PRIVATE_VALUE' }, signal: new AbortController().signal });
+const input = (): Parameters<DecisionPolicy['decide']>[0] => ({ goal: 'Inspect keyboard behavior', observation: structuredClone(observation), history: [], allowedActions: { intents: [], keys: SCREENSHOT_KEYS, inputKeys: ['provided'], replaceText: true }, inputs: { provided: { sensitive: true } }, signal: new AbortController().signal });
 const response = (choiceId = 'key:Tab'): ScreenshotModelResponse => ({ choiceId, model: { id: 'test-fake-not-real-model', runtime: 'vitest' } });
 const history = (length: number): HistoryEntry[] => Array.from({ length }, (_, i) => ({ step: i + 1, decision: { action: { kind: 'key', key: 'Tab' } }, observation: structuredClone(observation), execution: { ok: true } }));
 

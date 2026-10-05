@@ -2,6 +2,32 @@
 
 예전 Guidepup/LLMAgent workspace 전용 설정과 명령은 제거되었습니다. 현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 상세 API는 [마이그레이션 가이드](./migration.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 스크린샷 기반 모델 탐색은 `screenshot-run`을 사용합니다. legacy-run은 0.2에서 제거했습니다. [SystemOne 설정](./systemone.md)을 참고하세요.
 
+## 입력(input)
+
+task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 정책(보통 모델)은 각 입력의 이름, 민감 여부, 선택적 설명만 볼 수 있고 값은 절대 보지 못합니다. 정책이 이름 붙은 입력을 입력하라고 요청하면 runner가 실제 값을 입력합니다.
+
+`inputOptions`로 입력별 옵션을 지정합니다. 키는 반드시 `input`에 있는 이름이어야 하고, 각 항목에는 다음 두 필드만 쓸 수 있습니다.
+
+- `sensitive`(boolean, 기본값 `true`): 값이 정책의 관찰에서 가려집니다. 키보드 모드에서는 스크린샷에 해당 필드가 점으로 보이고, 스크린리더 모드에서는 음성에서 값이 `[REDACTED]`로 바뀌며 값을 입력한 직후의 음성은 통째로 숨겨집니다. 검색어처럼 무해한 값은 `false`로 두면 가리지 않습니다.
+- `description`(문자열, 1~200자): 모델에게 입력 이름과 함께 보여 주는 설명으로, 입력의 용도를 알려 줍니다.
+
+```json
+{
+  "url": "fixtures/login.html",
+  "goal": "Sign in with the stored email and password",
+  "input": { "email": "traveler@example.com", "password": "super-secret", "query": "red shoes" },
+  "inputOptions": {
+    "email": { "description": "Account email address" },
+    "query": { "sensitive": false, "description": "Product search term" }
+  },
+  "verify": { "all": [{ "titleIncludes": "Welcome" }] }
+}
+```
+
+위 예에서 `password`는 항목이 없으므로 민감 입력입니다. `goal`은 그대로 모델에 전달되므로, `goal`에 4자 이상인 민감 입력의 값이 들어 있으면 `resolveTask`가 task를 거부합니다. 위 예처럼 값 대신 이름으로 가리키십시오. 4자 미만의 값이나 `sensitive: false` 입력의 값은 `goal`에 써도 됩니다.
+
+가리기는 최선의 방어입니다. 4자 미만의 값은 값을 입력한 단계의 음성을 숨기는 것으로만 보호됩니다. 페이지의 다른 곳에 다시 표시된 값(예: "Hello Alice")이나 shadow DOM 안의 필드는 스크린샷에서 가려지지 않으며, 모델이 페이지의 동작에서 값을 추측할 수도 있습니다. 자세한 내용은 [마이그레이션 가이드](./migration.md#hiding-input-values-from-the-policy)를 참고하세요.
+
 ## 검증 규칙
 
 `verify.all`은 모두 성립해야 하는 독립 규칙의 목록입니다. 기본 규칙은 페이지를 직접 읽습니다: `titleIncludes`, `urlIncludes`, `textVisible`, `textVisibleExact`, `domEventSeen`, `requestSeen`, `responseSeen`, `activatedAnnouncementIncludes`. 타임라인 목표 규칙은 실행이 끝났을 때 페이지가 어떻게 보이는지가 아니라 실행 중 무엇이 바뀌었는지를 묻습니다.
