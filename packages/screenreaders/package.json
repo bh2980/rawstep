@@ -33,11 +33,6 @@
       "import": "./dist/evidence/coverage.js",
       "default": "./dist/evidence/coverage.js"
     },
-    "./evidence/data": {
-      "types": "./dist/evidence/data.d.ts",
-      "import": "./dist/evidence/data.js",
-      "default": "./dist/evidence/data.js"
-    },
     "./evidence/formatter": {
       "types": "./dist/evidence/formatter.d.ts",
       "import": "./dist/evidence/formatter.js",
@@ -47,11 +42,6 @@
       "types": "./dist/evidence/index.d.ts",
       "import": "./dist/evidence/index.js",
       "default": "./dist/evidence/index.js"
-    },
-    "./evidence/learned-data": {
-      "types": "./dist/evidence/learned-data.d.ts",
-      "import": "./dist/evidence/learned-data.js",
-      "default": "./dist/evidence/learned-data.js"
     },
     "./evidence/learned": {
       "types": "./dist/evidence/learned.d.ts",
@@ -88,11 +78,6 @@
       "import": "./dist/orca/index.js",
       "default": "./dist/orca/index.js"
     },
-    "./orca/paths": {
-      "types": "./dist/orca/paths.d.ts",
-      "import": "./dist/orca/paths.js",
-      "default": "./dist/orca/paths.js"
-    },
     "./orca/profile": {
       "types": "./dist/orca/profile.d.ts",
       "import": "./dist/orca/profile.js",
@@ -102,11 +87,6 @@
       "types": "./dist/orca/transport.d.ts",
       "import": "./dist/orca/transport.js",
       "default": "./dist/orca/transport.js"
-    },
-    "./run-mock-voiceover": {
-      "types": "./dist/run-mock-voiceover.d.ts",
-      "import": "./dist/run-mock-voiceover.js",
-      "default": "./dist/run-mock-voiceover.js"
     },
     "./package.json": "./package.json"
   },

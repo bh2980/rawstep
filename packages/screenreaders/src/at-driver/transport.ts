@@ -1,4 +1,5 @@
 /** Minimal AT Driver wire client. No browser, policy, or screen-reader semantics. */
+import { isRecord, positiveMilliseconds } from "../internal/guards.js";
 export interface WebSocketLike {
   readonly readyState: number;
   addEventListener(type: string, listener: (event: any) => void): void;
@@ -61,17 +62,6 @@ type Pending = {
   resolve: (receipt: CommandReceipt) => void;
   reject: (error: unknown) => void;
 };
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-export function positiveMilliseconds(value: number, name: string): number {
-  if (!Number.isFinite(value) || value <= 0 || value > 2_147_483_647) {
-    throw new Error(`${name} must be a positive finite timer interval`);
-  }
-  return value;
-}
 
 export class AtDriverClient {
   private socket?: WebSocketLike;

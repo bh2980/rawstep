@@ -1,5 +1,5 @@
 import type { Task } from '@rawstep/core/contracts';
-import { MockVoiceOverBackend } from './mock-voiceover/backend.js';
+import { MockVoiceOverBackend } from './backend.js';
 import { runTask, type RunOptions } from '@rawstep/browser/runner';
 import type { RunTrace } from '@rawstep/core/trace';
 

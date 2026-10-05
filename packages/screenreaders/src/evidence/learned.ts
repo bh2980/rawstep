@@ -1,5 +1,5 @@
-import { RawstepError } from '@rawstep/core/errors';
 import { LEARNED_CORPUS_RULES, CORPUS_EVALUATION } from './learned-data.js';
+export { UnsupportedCorpusPatternError } from './unsupported.js';
 import type { SimulatedSemanticNode } from '../mock-voiceover/semantics.js';
 export type CorpusProfile = { at: 'voiceover' | 'nvda'; browser: 'safari' | 'chrome' | 'edge' | 'firefox'; atVersion: string; browserVersion: string; osVersion: string };
 export type CorpusSpeechInput = {
@@ -12,9 +12,6 @@ export type CorpusSpeechInput = {
   allowExploratoryGeneralization?: boolean;
 };
 export type CorpusSpeechResult = { status:'supported'|'unsupported';speech:string|null;reason?:string;ruleId?:string;sourceIds:string[];scope:'source-bounded-training-rule'|'exploratory-generalization';evidenceProvenance:'simulation';nativeParityEstablished:false };
-export class UnsupportedCorpusPatternError extends RawstepError {
-  constructor(readonly result:CorpusSpeechResult){super('unsupported-pattern',result.reason??'No supported corpus wording pattern.',{outcome:{status:'inconclusive',reason:'unsupported-pattern'}});this.name='UnsupportedCorpusPatternError';}
-}
 export function formatCorpusSpeech(input:CorpusSpeechInput):CorpusSpeechResult {
   const base={scope:input.allowExploratoryGeneralization===true?'exploratory-generalization' as const:'source-bounded-training-rule' as const,evidenceProvenance:'simulation' as const,nativeParityEstablished:false as const,sourceIds:[] as string[]};
   const unsupported=(reason:string):CorpusSpeechResult=>({...base,status:'unsupported',speech:null,reason});

@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { orcaBridgePath } from './paths.js';
+import { isRecord, positiveMilliseconds } from '../internal/guards.js';
 import { StringDecoder } from 'node:string_decoder';
 import type { BackendOperationOptions } from '@rawstep/core/contracts';
 
@@ -26,13 +27,6 @@ export interface OrcaTransportEvent {
   text?: string; raw?: unknown; error?: string;
 }
 type Pending = { sentAt: number; resolve: (value: OrcaCommandReceipt) => void; reject: (error: unknown) => void; cleanup: () => void };
-export function validInterval(value: number, name: string): number {
-  if (!Number.isFinite(value) || value <= 0 || value > 2_147_483_647) throw new Error(`${name} must be a positive finite timer interval`);
-  return value;
-}
-export function record(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 /** Local NDJSON child-process transport. This is deliberately not an AT Driver server/client. */
 export class OrcaBridgeClient {
@@ -52,9 +46,9 @@ export class OrcaBridgeClient {
   readonly startupTimeoutMs: number;
   private readonly closeTimeoutMs: number;
   constructor(private readonly options: OrcaBridgeOptions, readonly sessionId: string) {
-    this.commandTimeoutMs = validInterval(options.commandTimeoutMs ?? 5_000, 'commandTimeoutMs');
-    this.startupTimeoutMs = validInterval(options.startupTimeoutMs ?? 15_000, 'startupTimeoutMs');
-    this.closeTimeoutMs = validInterval(options.closeTimeoutMs ?? 1_000, 'closeTimeoutMs');
+    this.commandTimeoutMs = positiveMilliseconds(options.commandTimeoutMs ?? 5_000, 'commandTimeoutMs');
+    this.startupTimeoutMs = positiveMilliseconds(options.startupTimeoutMs ?? 15_000, 'startupTimeoutMs');
+    this.closeTimeoutMs = positiveMilliseconds(options.closeTimeoutMs ?? 1_000, 'closeTimeoutMs');
     if (options.bridgeCommand && (options.bridgeCommand.length === 0 || options.bridgeCommand.some(value => typeof value !== 'string' || value.includes('\0')) || !options.bridgeCommand[0])) {
       throw new Error('bridgeCommand must contain an executable and optional string arguments without NUL');
     }
@@ -128,7 +122,7 @@ export class OrcaBridgeClient {
       if (!line.trim()) continue;
       let frame: unknown;
       try { frame = JSON.parse(line); } catch { this.fail(new OrcaBridgeError('Orca bridge emitted invalid NDJSON', 'protocol error')); return; }
-      if (!record(frame)) { this.fail(new OrcaBridgeError('Orca bridge emitted a non-object frame', 'protocol error')); return; }
+      if (!isRecord(frame)) { this.fail(new OrcaBridgeError('Orca bridge emitted a non-object frame', 'protocol error')); return; }
       if (frame.type === 'speech') {
         if (typeof frame.sessionId !== 'string' || typeof frame.text !== 'string' || frame.source !== 'orca-speech') { this.fail(new OrcaBridgeError('Orca bridge emitted invalid speech provenance', 'protocol error')); return; }
         if (frame.sessionId !== this.sessionId) { this.emit({ type: 'ignoredSpeech' }); continue; }
@@ -145,7 +139,7 @@ export class OrcaBridgeClient {
           pending.reject(error); this.fail(error); return;
         }
         if (Object.hasOwn(frame, 'error')) {
-          if (!record(frame.error) || typeof frame.error.code !== 'string' || typeof frame.error.message !== 'string') {
+          if (!isRecord(frame.error) || typeof frame.error.code !== 'string' || typeof frame.error.message !== 'string') {
             const error = new OrcaBridgeError('Orca bridge emitted an invalid error response', 'protocol error', commandId);
             pending.reject(error); this.fail(error); return;
           }

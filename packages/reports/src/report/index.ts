@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { validateTrace, writeJsonAtomic, type RunTrace } from "@rawstep/core/trace";
 import { validateAnalysisReport, type AnalysisReport } from "../analyze/index.js";
 import type { HintReport } from "../hints/index.js";
-import { actionLabel, eventGrounds, pngFor, record, screenshotSrc, summarizeTrace, type ReportSummary } from "./summary.js";
+import { pngFor, record } from "../internal/guards.js";
+import { actionLabel, eventGrounds, screenshotSrc, summarizeTrace, type ReportSummary } from "./summary.js";
 
 export { summarizeTrace } from "./summary.js";
 export type { ReportSummary, ReportCounts, ReportAction, ReportFailure, ReportVerification, ReportVerificationRule } from "./summary.js";

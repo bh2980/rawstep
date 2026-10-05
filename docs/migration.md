@@ -178,6 +178,32 @@ export default analyzer;
 
 The built-in analyzer is deterministic and local. Custom analyzers receive the full persisted trace and can partition it for model calls, while explicit analyze --llm uses injected OpenAI-compatible configuration without a model SDK. Findings must reference valid evidence events. An analyzer failure is recorded as an analysis failure; it does not change the run's outcome. Reports validate that the analysis belongs to the same trace and preserves its recorded outcome. Old legacy trace files are not silently treated as schema v2.
 
+## Public API changes
+
+Package roots (`@rawstep/core`, `@rawstep/policies`, `@rawstep/browser`, `@rawstep/screenreaders`, `@rawstep/reports`, `@rawstep/cli`, and the `rawstep` facade) now export explicit names instead of `export *`, so internal helpers no longer leak. `tests/public-api.test.ts` pins every root. Each name below is still available from the subpath shown; none is re-added to a root.
+
+| Package | Removed from the root | Import it from |
+|---|---|---|
+| `@rawstep/core` | `extractScreenshots` | `@rawstep/core/trace` |
+| `@rawstep/policies` | `assertSystemOneInputs`, `validateCapabilities`, `validateSystemOneRequest`, `validateSystemOneResult`, `copySystemOnePrompt`, `systemOnePromptEvidence` | `@rawstep/policies/systemone` |
+| `@rawstep/policies` | `screenshotHash` | `@rawstep/policies/screenshot/policy` |
+| `@rawstep/browser` | `MAX_VERIFICATION_RETRIES`, `formatVerificationFeedback` | `@rawstep/browser/verify` |
+| `@rawstep/browser` | `installProfileStyles`, `verifyProfileStyles` | `@rawstep/browser/profiles` |
+| `@rawstep/browser` | `validateDecision` | `@rawstep/browser/runner` |
+| `@rawstep/browser` | `validateProxyServer`, `closeBrowserSession`, `settlePage` | `@rawstep/browser/browser` |
+| `@rawstep/screenreaders` | research corpus API: `EVIDENCE_CATALOG`, `REQUIRED_EVIDENCE_CELLS`, `compareEvidenceCase`, `compareEvidenceFixtures`, `createCorpusMockBackend`, `formatCorpusSpeech`, `formatEvidenceSpeech`, `listCorpusRules`, `normalizeEvidenceWording`, `runCorpusMockTask`, `selectEvidenceCases`, `summarizeCorpusEvaluation`, `summarizeEvidenceCoverage` | `@rawstep/screenreaders/evidence` (importing the root no longer loads the corpus data; `UnsupportedCorpusPatternError` stays on the root) |
+| `@rawstep/screenreaders` | `orcaAssumptions`, `orcaCapabilities` | `@rawstep/screenreaders/orca/profile` (also `/orca`) |
+| `@rawstep/reports` | `analysisTracePayload` | `@rawstep/reports/analyze/llm` |
+| `@rawstep/reports` | `escapeHtml` | `@rawstep/reports/report` |
+
+Renamed: `KEYS` (AT Driver key names) is now `AT_DRIVER_KEYS` in `@rawstep/screenreaders`, `@rawstep/screenreaders/at-driver`, `@rawstep/screenreaders/at-driver/profiles` and `rawstep`. There is no deprecated alias.
+
+Now internal and exported nowhere: screenreaders `isRecord`, `positiveMilliseconds` and `validInterval`, `record` (Orca transport); reports `record` and `pngFor`.
+
+Removed `@rawstep/screenreaders` subpaths: `./evidence/data` and `./evidence/learned-data` (use `./evidence`, which exports `EVIDENCE_CATALOG`, `listCorpusRules` and `summarizeCorpusEvaluation`), `./run-mock-voiceover` (use `./mock-voiceover` for `runMockVoiceOverTask`, `MOCK_VOICEOVER_WARNING` and `MockVoiceOverRunOptions`), and `./orca/paths` (use `./orca` for `orcaBridgePath`).
+
+The `rawstep` facade root follows the same curation: it no longer exports any name removed from a package root above (including the corpus API and `orcaAssumptions`/`orcaCapabilities`, which remain on `rawstep/evidence` and `rawstep/orca`). Its subpath list is unchanged and its subpaths still mirror the package subpaths, so `rawstep/systemone`, `rawstep/verify`, `rawstep/report` and the others keep the functions above.
+
 ## Release verification
 
 ```sh

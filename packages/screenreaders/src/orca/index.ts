@@ -3,7 +3,8 @@ import type { Backend, BackendAction, BackendOperationOptions, BackendRunContext
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { orcaAssumptions, orcaCapabilities, mapOrcaAction } from './profile.js';
-import { ORCA_NATIVE_PROTOCOL, OrcaBridgeClient, OrcaBridgeError, record, validInterval, type OrcaBridgeOptions, type OrcaCommandReceipt, type OrcaTransportEvent } from './transport.js';
+import { isRecord, positiveMilliseconds } from '../internal/guards.js';
+import { ORCA_NATIVE_PROTOCOL, OrcaBridgeClient, OrcaBridgeError, type OrcaBridgeOptions, type OrcaCommandReceipt, type OrcaTransportEvent } from './transport.js';
 
 export * from './profile.js';
 export * from './transport.js';
@@ -68,8 +69,8 @@ export class OrcaBackend implements Backend {
 
   constructor(private readonly options: OrcaBackendOptions = {}) {
     if (options.targetWindowId !== undefined && (!Number.isSafeInteger(options.targetWindowId) || options.targetWindowId <= 1)) throw new Error('targetWindowId must be a valid X11 window ID greater than one');
-    this.quietMs = validInterval(options.quietMs ?? 500, 'quietMs');
-    this.maxWaitMs = validInterval(options.maxWaitMs ?? 3_000, 'maxWaitMs');
+    this.quietMs = positiveMilliseconds(options.quietMs ?? 500, 'quietMs');
+    this.maxWaitMs = positiveMilliseconds(options.maxWaitMs ?? 3_000, 'maxWaitMs');
     this.client = new OrcaBridgeClient(options, this.sessionId);
     this.unsubscribe = this.client.subscribe(event => {
       if (event.type === 'command' && this.window && event.commandId !== undefined) this.window.commandIds.push(event.commandId);
@@ -117,7 +118,7 @@ export class OrcaBackend implements Backend {
       const receipt = await this.client.request('session.start', { protocol: ORCA_NATIVE_PROTOCOL, sessionId: this.sessionId, ...(this.options.targetWindowId !== undefined ? { targetWindowId: this.options.targetWindowId } : {}) }, options, this.client.startupTimeoutMs);
       options.signal?.throwIfAborted();
       const result = receipt.result;
-      if (!record(result) || result.protocol !== ORCA_NATIVE_PROTOCOL || result.sessionId !== this.sessionId || result.atName !== 'Orca' || result.platformName !== 'linux' || result.speechSource !== 'orca-speech' || result.captureStage !== 'speech-dispatcher-submission' || result.audioVerified !== false || typeof result.atVersion !== 'string' || !result.atVersion.trim()) {
+      if (!isRecord(result) || result.protocol !== ORCA_NATIVE_PROTOCOL || result.sessionId !== this.sessionId || result.atName !== 'Orca' || result.platformName !== 'linux' || result.speechSource !== 'orca-speech' || result.captureStage !== 'speech-dispatcher-submission' || result.audioVerified !== false || typeof result.atVersion !== 'string' || !result.atVersion.trim()) {
         throw new OrcaBridgeError('Invalid Orca startup handshake; native speech capture was not established', 'protocol error', receipt.commandId);
       }
       if (!Number.isSafeInteger(result.targetWindowId) || (result.targetWindowId as number) <= 1 || !Number.isSafeInteger(result.targetProcessId) || (result.targetProcessId as number) <= 0 || typeof result.targetClass !== 'string' || !result.targetClass.trim() || result.targetClass.length > 128 || (this.options.targetWindowId !== undefined && result.targetWindowId !== this.options.targetWindowId)) {
@@ -158,7 +159,7 @@ export class OrcaBackend implements Backend {
         options.signal?.throwIfAborted();
         const receipt = await this.client.request('input.pressKeys', { sessionId: this.sessionId, keys }, options);
         options.signal?.throwIfAborted();
-        if (!record(receipt.result) || Object.keys(receipt.result).length !== 0) throw new OrcaBridgeError('Invalid native keyboard acknowledgement', 'protocol error', receipt.commandId);
+        if (!isRecord(receipt.result) || Object.keys(receipt.result).length !== 0) throw new OrcaBridgeError('Invalid native keyboard acknowledgement', 'protocol error', receipt.commandId);
         commands.push(receipt); window.acknowledgedAt = receipt.acknowledgedAt;
       }
       options.signal?.throwIfAborted(); this.assertReady();

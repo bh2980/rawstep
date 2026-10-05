@@ -1,4 +1,5 @@
 import { isScreenshotRef, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
+import { pngFor, record } from "../internal/guards.js";
 import { summarizeTraceEvidence, type EvidenceModality } from "../analyze/index.js";
 
 export interface ReportCounts {
@@ -54,19 +55,11 @@ export interface ReportSummary {
   verification: ReportVerification[];
 }
 
-export function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
 function stepOf(data: Record<string, unknown>): number | undefined {
   return typeof data.step === "number" ? data.step : undefined;
 }
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-export function pngFor(data: unknown): string | undefined {
-  const png = record(record(data).screenshot).pngBase64;
-  return typeof png === "string" && /^[A-Za-z0-9+/=]+$/.test(png) &&
-    Buffer.from(png, "base64").subarray(0, 8).toString("hex") === "89504e470d0a1a0a" ? png : undefined;
 }
 /** Image source for an event's screenshot: a data URI for inline pixels, else a path relative to the trace directory for a blob reference. */
 export function screenshotSrc(data: unknown): string | undefined {

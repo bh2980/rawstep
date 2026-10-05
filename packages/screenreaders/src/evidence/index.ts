@@ -25,5 +25,6 @@ export function compareEvidenceCase(
 export function compareEvidenceFixtures(filter: EvidenceCoverageFilter = {}): EvidenceComparison[] {
   return selectEvidenceCases(filter).map(item => compareEvidenceCase(item));
 }
-export { formatCorpusSpeech, listCorpusRules, summarizeCorpusEvaluation, UnsupportedCorpusPatternError, type CorpusProfile, type CorpusSpeechInput, type CorpusSpeechResult } from './learned.js';
+export { formatCorpusSpeech, listCorpusRules, summarizeCorpusEvaluation, type CorpusProfile, type CorpusSpeechInput, type CorpusSpeechResult } from './learned.js';
 export { createCorpusMockBackend, runCorpusMockTask, type CorpusMockOptions } from './mock.js';
+export { UnsupportedCorpusPatternError } from './unsupported.js';

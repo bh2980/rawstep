@@ -1,5 +1,6 @@
-import { AtDriverClient, AtDriverError, isRecord, positiveMilliseconds, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
+import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
 import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName } from "./profiles.js";
+import { isRecord, positiveMilliseconds } from "../internal/guards.js";
 import type { BackendRunContext } from "@rawstep/core/contracts";
 import { isLoopbackUrl } from "@rawstep/core/defaults";
 import { RawstepError } from "@rawstep/core/errors";

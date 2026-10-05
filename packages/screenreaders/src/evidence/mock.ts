@@ -2,7 +2,8 @@ import { createBrowserSession } from '@rawstep/browser/browser';
 import type { Task } from '@rawstep/core/contracts';
 import { MockVoiceOverBackend } from '../mock-voiceover/backend.js';
 import { runTask, type RunOptions } from '@rawstep/browser/runner';
-import { formatCorpusSpeech, UnsupportedCorpusPatternError, type CorpusProfile } from './learned.js';
+import { formatCorpusSpeech, type CorpusProfile } from './learned.js';
+import { UnsupportedCorpusPatternError } from './unsupported.js';
 export type CorpusMockOptions = { profile:CorpusProfile; sourceFixturePath:string };
 /** Explicit source-bounded word simulation over Chromium flat navigation, never native NVDA/VO. */
 export function createCorpusMockBackend(input:CorpusMockOptions):MockVoiceOverBackend {
