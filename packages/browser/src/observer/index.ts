@@ -5,7 +5,8 @@ import type { CDPSession, Page } from 'playwright';
  * so friction hints and goal signals can be derived after the run. It runs in an isolated JS world:
  * page scripts cannot see or patch it, and nothing it records is ever shown to the decision policy.
  */
-export type ObserverEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation';
+/** page-blur: keyboard focus left the page (browser UI or another window); page-focus: it came back. */
+export type ObserverEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
 export type ObserverEvent = {
   kind: ObserverEventKind;
   /** Runner step whose action preceded the change; 0 is the initial page load. */
@@ -44,7 +45,7 @@ export type PageObserver = {
 
 export const OBSERVER_WORLD = 'rawstep-observer';
 const BINDING = '__rawstepObserve';
-const KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation'];
+const KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation', 'page-blur', 'page-focus'];
 
 /** Install before the first navigation so the observer sees the initial document. */
 export async function installPageObserver(page: Page, options: ObserverOptions = {}): Promise<PageObserver> {
@@ -161,6 +162,11 @@ const OBSERVER_SOURCE = String.raw`function(bindingName) {
     if (el && el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) emit(Object.assign({ kind: 'state', attr: 'checked', value: String(el.checked) }, describe(el)));
   }, true);
   document.addEventListener('focusout', (event) => { if (!event.relatedTarget) setTimeout(() => focusLost('blur'), 0); }, true);
+  // Only the top window: a child frame losing focus to its parent page is not focus leaving the page.
+  if (frame === 'main') {
+    window.addEventListener('blur', () => setTimeout(() => { if (!document.hasFocus()) emit({ kind: 'page-blur' }); }, 0));
+    window.addEventListener('focus', () => emit({ kind: 'page-focus' }));
+  }
   document.addEventListener('submit', (event) => { const form = event.target; if (form && form.getAttribute) emit(Object.assign({ kind: 'submit' }, describe(form))); }, true);
 
   const SURFACES = '[role="alert"],[role="alertdialog"],[role="dialog"],[role="status"],[role="log"],dialog[open]';

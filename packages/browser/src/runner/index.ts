@@ -149,6 +149,25 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       return opened;
     });
     await withinBudget(() => browser!.page.bringToFront());
+    // Keys must reach the page, not browser UI or another window. A real user starts on the document with nothing focused
+    // (unless the page uses autofocus), so the runner never moves focus to an element itself.
+    const readInitialFocus = () => browser!.page.evaluate(() => {
+      let active = document.activeElement;
+      while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+      const element = active && active !== document.body && active !== document.documentElement ? active : null;
+      return { documentHasFocus: document.hasFocus(), focused: element ? { tag: element.tagName.toLowerCase(), role: element.getAttribute('role'), autofocus: element.hasAttribute('autofocus') } : null };
+    });
+    // Best effort: a session that cannot evaluate scripts simply records nothing; cancellation and budgets still apply.
+    const tryInitialFocus = async (): Promise<unknown> => { try { return await withinBudget(readInitialFocus); } catch (error) { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; } };
+    let initialFocus: unknown = await tryInitialFocus();
+    if (initialFocus && typeof initialFocus === 'object' && (initialFocus as { documentHasFocus?: unknown }).documentHasFocus === false) {
+      await withinBudget(() => browser!.page.evaluate(() => window.focus())).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; });
+      const retried = await tryInitialFocus();
+      initialFocus = retried && typeof retried === 'object' ? { ...retried, focusRequested: true } : initialFocus;
+      // Native screen readers send real OS keys: without page focus they would land in browser UI or another window.
+      if ((initialFocus as { documentHasFocus?: unknown }).documentHasFocus === false && options.backend.evidenceProvenance === 'native') throw new RawstepError('backend-precondition', 'The browser page does not have keyboard focus; native key presses would reach browser UI or another window.');
+    }
+    if (initialFocus && typeof initialFocus === 'object') append('browser.initial-focus', initialFocus, { source: 'browser-diagnostic' });
     trace.updateEnvironment({ browser: 'chromium', browserVersion: browser.browser?.version?.() ?? 'unknown' });
     if (task.profile) {
       if (!browser.appliedProfile) throw new Error('Browser factory did not verify the requested environment profile.');

@@ -39,7 +39,7 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 | `{ "not": <rule> }` | The inner rule does not hold. |
 | `{ "any": [<rule>, ...] }` | At least one of 1 to 20 inner rules holds. |
 
-`event.kind` is one of `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`. `role` and `attr` are compared exactly, `value` must equal the recorded value, and `name`, `text` and `url` take a text matcher. Every listed field must match the same recorded change. `attr` and `value` apply to `state` changes, `url` to `navigation`, and `text` to changes that carry text such as `live-region`.
+`event.kind` is one of `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur` (keyboard focus left the page for browser UI or another window), `page-focus`. `role` and `attr` are compared exactly, `value` must equal the recorded value, and `name`, `text` and `url` take a text matcher. Every listed field must match the same recorded change. `attr` and `value` apply to `state` changes, `url` to `navigation`, and `text` to changes that carry text such as `live-region`.
 
 **Text matchers.** A plain string means "includes". The object forms are `{ "includes": "..." }`, `{ "equals": "..." }` (the whole text) and `{ "regex": "...", "flags": "i" }` (searched anywhere in the text; flags may only contain `i`, `m`, `s`, `u`). Matching is case-sensitive unless a regex flag says otherwise. A matcher object takes exactly one of the three forms. Strings are at most 200 characters, and an invalid regular expression is rejected when the task is loaded.
 
@@ -78,3 +78,7 @@ Example, run on `fixtures/friction-lab.html` with the keys `Tab, Tab, Tab, Enter
 The run succeeds at step 4. Earlier verifications fail because the announcement has not happened yet, and the baseline shows `titleIncludes` and `not` already true with the `event` rule false, so `hints` reports a suspected `goal-met-at-start`.
 
 See the [current README](../README.md), [complete migration/API guide](./migration.md), [source map](./editing-map.md), and [test migration](./test-migration.md). Historical workspace-specific instructions were removed with their implementation.
+
+## Initial focus
+
+The runner never moves focus to an element before the first action: like a real user, a run starts on the document with nothing focused unless the page uses `autofocus`, so skip links and Tab counts are measured as users meet them. It records `browser.initial-focus` (`documentHasFocus`, the focused element if any). If the page does not have keyboard focus, the runner focuses the page window, not an element. A native screen-reader run that still cannot give the page focus is refused, because real OS key presses would reach browser UI or another window. During a run, `page-blur` observer events become `focus-left-page` hints.

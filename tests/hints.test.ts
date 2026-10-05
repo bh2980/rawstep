@@ -267,4 +267,10 @@ describe("friction hints", () => {
       expect(report.hints.map(hint => hint.kind)).toEqual(["goal-met-at-start", "focus-lost"]);
     });
   });
+  it("reports keyboard focus leaving the page after an action, but not at load", () => {
+    const report = extractHints(trace([observer("page-blur", 0), decide(1, "Tab"), result(1), observer("page-blur", 1), observer("page-focus", 2)]));
+    const left = report.hints.filter(h => h.kind === "focus-left-page");
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatchObject({ certainty: "observed", steps: [1], detail: { action: "Tab" } });
+  });
 });

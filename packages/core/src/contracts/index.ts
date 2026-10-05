@@ -12,7 +12,7 @@ export type ActivatedAnnouncementVerificationRule = { activatedAnnouncementInclu
 export type DomEventVerificationRule = { domEventSeen: { selector: string; event: string } };
 /** A plain string means "includes"; matching is case-sensitive unless a regex flag says otherwise. */
 export type TextMatcher = string | { includes: string } | { equals: string } | { regex: string; flags?: string };
-export type ObservedEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation';
+export type ObservedEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
 /** Asks the page observer's timeline whether a change happened. `after` defaults to `start`: the initial load never counts. */
 export type EventVerificationRule = { event: { kind: ObservedEventKind; role?: string; name?: TextMatcher; text?: TextMatcher; attr?: string; value?: string; url?: TextMatcher }; after?: 'start' | 'lastActivation' };
 /** Where keyboard focus is now, from the observer's latest focus record. */
@@ -200,7 +200,7 @@ export function validateNavigation(value: unknown): NavigationPolicy {
   }
   throw new Error('Invalid navigation policy.');
 }
-const OBSERVED_EVENT_KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation'];
+const OBSERVED_EVENT_KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation', 'page-blur', 'page-focus'];
 function validateTextMatcher(value: unknown, label: string): void {
   if (typeof value === 'string') { text(value, label); if (value.length > 200) throw new Error(`${label} must be at most 200 characters.`); return; }
   if (!object(value) || Object.keys(value).length < 1) throw new Error(`${label} must be a string or one of includes, equals, regex.`);

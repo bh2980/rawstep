@@ -39,7 +39,7 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 | `{ "not": <규칙> }` | 안쪽 규칙이 성립하지 않습니다. |
 | `{ "any": [<규칙>, ...] }` | 1~20개의 안쪽 규칙 중 하나 이상이 성립합니다. |
 
-`event.kind`는 `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation` 중 하나입니다. `role`과 `attr`는 정확히 일치해야 하고, `value`는 기록된 값과 같아야 하며, `name`, `text`, `url`에는 텍스트 매처를 쓸 수 있습니다. 지정한 모든 필드가 같은 하나의 기록된 변화에서 일치해야 합니다. `attr`와 `value`는 `state` 변화에, `url`은 `navigation`에, `text`는 `live-region`처럼 텍스트가 있는 변화에 해당합니다.
+`event.kind`는 `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur`(키보드 포커스가 브라우저 UI나 다른 창으로 페이지를 벗어남), `page-focus` 중 하나입니다. `role`과 `attr`는 정확히 일치해야 하고, `value`는 기록된 값과 같아야 하며, `name`, `text`, `url`에는 텍스트 매처를 쓸 수 있습니다. 지정한 모든 필드가 같은 하나의 기록된 변화에서 일치해야 합니다. `attr`와 `value`는 `state` 변화에, `url`은 `navigation`에, `text`는 `live-region`처럼 텍스트가 있는 변화에 해당합니다.
 
 **텍스트 매처.** 일반 문자열은 "포함"을 뜻합니다. 객체 형태는 `{ "includes": "..." }`, `{ "equals": "..." }`(전체 텍스트 일치), `{ "regex": "...", "flags": "i" }`(텍스트 어디서든 검색, flags는 `i`, `m`, `s`, `u`만 가능)입니다. regex 플래그로 바꾸지 않는 한 대소문자를 구분합니다. 매처 객체에는 세 형태 중 정확히 하나만 쓸 수 있습니다. 문자열은 최대 200자이며, 잘못된 정규식은 task를 불러올 때 거부됩니다.
 
@@ -76,3 +76,7 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 ```
 
 실행은 step 4에서 성공합니다. 그 전 검증은 알림이 아직 나타나지 않았으므로 실패하고, baseline에서는 `titleIncludes`와 `not`이 이미 true이고 `event` 규칙은 false이므로 `hints`가 suspected `goal-met-at-start`를 보고합니다.
+
+## 시작 시점 포커스
+
+runner는 첫 행동 전에 요소에 포커스를 옮기지 않습니다. 실제 사용자처럼 페이지가 `autofocus`를 쓰지 않는 한 포커스된 요소 없이 문서에서 시작하므로, 건너뛰기 링크나 Tab 횟수가 사용자가 겪는 그대로 측정됩니다. 시작 상태는 `browser.initial-focus`(`documentHasFocus`, 포커스된 요소)로 기록합니다. 페이지가 키보드 포커스를 갖지 않았으면 요소가 아니라 페이지 창에 포커스를 줍니다. 그래도 포커스를 줄 수 없는 실제 스크린리더 실행은 시작하지 않습니다. OS의 실제 키 입력이 브라우저 UI나 다른 창으로 가기 때문입니다. 실행 중의 `page-blur` 관찰 이벤트는 `focus-left-page` 힌트가 됩니다.

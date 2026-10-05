@@ -10,7 +10,7 @@ export const HINTS_SCHEMA_VERSION = '1.0' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
-  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start';
+  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page';
 export type Hint = {
   kind: HintKind;
   /** observed: directly recorded. suspected: inferred from indirect signals and may be wrong. */
@@ -145,6 +145,13 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     hints.push({ kind: 'focus-lost', certainty: 'observed', steps: [lost.step],
       summary: `Focus fell back to the page after ${action ? keyOf(action) ?? 'the action' : 'an action'} ${lost.reason === 'removed' ? 'removed' : 'left'} ${label(lost)}.`,
       detail: { from: { role: lost.role, name: lost.name }, reason: lost.reason, ...(action ? { action: keyOf(action) } : {}) }, evidence: [lost.id, ...(action ? [action.eventId] : [])] });
+  }
+
+  for (const left of observer.filter(o => o.kind === 'page-blur' && o.step > 0)) {
+    const action = actions.find(a => a.step === left.step);
+    hints.push({ kind: 'focus-left-page', certainty: 'observed', steps: [left.step],
+      summary: `Keyboard focus left the page${action ? ` after ${keyOf(action)}` : ''} (browser UI or another window).`,
+      detail: action ? { action: keyOf(action) } : {}, evidence: [left.id, ...(action ? [action.eventId] : [])] });
   }
 
   for (const focus of observer.filter(o => o.kind === 'focus' && o.step > 0 && (o.visible === false || o.inViewport === false))) hints.push({

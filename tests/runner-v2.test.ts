@@ -31,6 +31,32 @@ function fixture() {
   return {backend,browser,browserSessionFactory,verifier};
 }
 describe('model-neutral runner',()=>{
+  describe('initial page focus',()=>{
+    const unfocused=(f:ReturnType<typeof fixture>,afterFocus:boolean)=>{let focused=false;vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>{const source=String(fn);if(source.includes('window.focus')){focused=afterFocus;return undefined;}if(source.includes('documentHasFocus'))return {documentHasFocus:focused,focused:null};return true;}) as never);};
+    it('records that the document has focus and nothing is focused, without moving focus to an element',async()=>{
+      const f=fixture();vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>String(fn).includes('documentHasFocus')?{documentHasFocus:true,focused:null}:true) as never);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null});
+      expect(vi.mocked(f.browser.page.evaluate).mock.calls.some(([fn])=>String(fn).includes('window.focus'))).toBe(false);
+    });
+    it('focuses the page window when needed and records it',async()=>{
+      const f=fixture();unfocused(f,true);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null,focusRequested:true});
+      expect(trace.outcome?.status).toBe('success');
+    });
+    it('refuses a native screen-reader run whose keys would reach browser UI or another window',async()=>{
+      const f=fixture();Object.defineProperty(f.backend,'evidenceProvenance',{value:'native'});unfocused(f,false);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
+      expect(trace.outcome).toMatchObject({status:'failure',reason:'error'});expect(String(trace.outcome?.error)).toMatch(/does not have keyboard focus/);
+      expect(f.backend.execute).not.toHaveBeenCalled();
+    });
+    it('lets a simulated run continue when page focus cannot be confirmed',async()=>{
+      const f=fixture();unfocused(f,false);
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      expect(trace.outcome?.status).toBe('success');expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toMatchObject({documentHasFocus:false,focusRequested:true});
+    });
+  });
   it('rejects explicit task/backend modality mismatches before starting resources',async()=>{
     const f=fixture();Object.defineProperty(f.backend,'observationKind',{value:'keyboard'});
     await expect(runTask({...task,mode:'screenreader'},{...f,outDir:await out(),policy:new ScriptedPolicy([])})).rejects.toThrow('does not match');
