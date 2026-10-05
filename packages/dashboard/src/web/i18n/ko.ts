@@ -1,5 +1,5 @@
-import type { Hint, ObservedChange } from '../../shared/api';
-import type { RunState } from '../../shared/config';
+import type { Hint, ObservedChange } from '../../shared/api.js';
+import type { RunState } from '../../shared/config.js';
 
 type HintKind = Hint['kind'];
 
@@ -106,6 +106,20 @@ export const ko = {
     serverPromptNotice: '이 /choose 서버는 지침을 소유합니다. UI의 기본 지침은 실제 적용 문구를 의미하지 않으며, 프롬프트 편집 실행은 제한됩니다.',
     outcome: (status: string, reason: string) => `기록된 실행 결과: ${status} · ${reason}`,
     noReason: '—',
+    outcomeReasons: {
+      'verified': '목표 규칙 확인됨',
+      'verification-failed': '목표 규칙 확인 실패',
+      'policy-stuck': '모델이 막혔다고 판단해 중단',
+      'policy-uncertain': '모델이 확신하지 못해 중단',
+      'maxSteps': '최대 스텝 도달',
+      'timeout': '시간 초과',
+      'error': '오류',
+      'aborted': '중단됨',
+      'trace-persistence-error': 'trace 저장 오류',
+      'unsupported-profile': '지원하지 않는 프로필',
+      'access-blocked': '접근이 차단됨',
+      'unsupported-pattern': '지원하지 않는 패턴',
+    } as Record<string, string>,
     tabsLabel: '실행 상세 보기',
     tabs: { hints: '힌트', steps: '단계', compare: '비교', events: '기록' },
     retryTitle: '같은 조건으로 재실행',
@@ -133,6 +147,40 @@ export const ko = {
     goToStepLabel: (n: number) => `단계 ${n}로 이동`,
     stepsLabel: '관련 단계',
     limitations: '해석할 때 유의할 점',
+    originalText: '원문',
+    limitationTexts: {
+      'Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.': '힌트는 살펴볼 만한 단계를 가리킬 뿐이며, 접근성 결함이나 준수 여부를 확정하지 않습니다.',
+      'No page observer events were recorded, so focus, announcement and dialog hints are unavailable.': '페이지 관찰 이벤트가 기록되지 않아 포커스, 안내, 대화상자 관련 힌트를 사용할 수 없습니다.',
+      'Names and text after text entry are redacted; those hints keep structure only.': '텍스트 입력 이후의 이름과 텍스트는 가려져 있어, 해당 힌트에는 구조 정보만 남아 있습니다.',
+    } as Record<string, string>,
+    text: {
+      target: (role: string | undefined, name: string | undefined) => name ? `${role ?? '요소'} “${name}”` : (role ?? '요소'),
+      focusedControl: '포커스된 컨트롤',
+      slowRun: (steps: number, referenceSteps: number, durationMs: number | null | undefined, referenceDurationMs: number | null | undefined) =>
+        `참조 실행(${referenceSteps} 스텝)보다 ${steps - referenceSteps} 스텝 더 걸려 ${steps} 스텝을 사용했습니다.`
+        + (typeof durationMs === 'number' && typeof referenceDurationMs === 'number' ? ` 소요 시간은 ${(durationMs / 1000).toFixed(1)}초로 참조 ${(referenceDurationMs / 1000).toFixed(1)}초였습니다.` : ''),
+      excessKeystrokes: (count: number, target: string | undefined, keys: string | undefined) =>
+        `${target ?? '포커스된 컨트롤'}을(를) 활성화하기 전에 탐색 키를 ${count}번 눌렀습니다.${keys ? ` (${keys})` : ''}`,
+      backtracking: (reversals: number) => `탐색 방향이 ${reversals}번 뒤바뀌었습니다.`,
+      repeatedState: (visits: number) => `같은 화면을 ${visits}번 마주쳤습니다.`,
+      focusLost: (from: string | undefined, reason: string | undefined, action: string | undefined) =>
+        `${action ?? '행동'} 이후 ${from ?? '포커스된 요소'}${reason === 'removed' ? '이(가) 사라져' : '에서 벗어나'} 포커스가 페이지로 되돌아갔습니다.`,
+      focusNotVisibleTarget: (target: string, hidden: boolean) => `포커스가 ${target}(으)로 이동했지만 ${hidden ? '화면에 보이지 않았습니다' : '뷰포트 밖에 있었습니다'}.`,
+      focusCovered: '다른 요소가 포커스된 컨트롤을 가리고 있을 수 있습니다.',
+      focusNoIndicator: '윤곽선이나 box-shadow 같은 포커스 표시가 감지되지 않았습니다.',
+      modalFocusOutside: (target: string) => `모달 대화상자가 열려 있는데 포커스가 뒤쪽의 ${target}(으)로 이동했습니다.`,
+      dialogFocusNotMoved: (dialog: string) => `${dialog}이(가) 열렸지만 포커스가 그 안으로 이동하지 않았습니다.`,
+      missingAnnouncement: (action: string | undefined) => `${action ?? '행동'}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.`,
+      invisibleFocusChange: (target: string) => `포커스가 ${target}(으)로 이동했지만 화면은 바뀌지 않았습니다.`,
+      modelHesitation: (choiceId: string, probability: number, runnerUp: number) =>
+        `모델이 ${choiceId}을(를) 점수 ${Math.round(probability * 100)}%로 선택했습니다. 차순위는 ${Math.round(runnerUp * 100)}%였습니다.`,
+      earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
+      earlyStopStuck: '모델이 막혔다고 판단해 중단했습니다.',
+      earlyStopUncertain: '모델이 확신하지 못해 중단했습니다.',
+      goalMetAll: '첫 행동 이전부터 모든 목표 규칙이 이미 충족되어 있었습니다.',
+      goalMetSome: (n: number) => `첫 행동 이전부터 목표 규칙 ${n}개가 이미 충족되어 있었습니다.`,
+      focusLeftPage: (action: string | undefined) => `${action ? `${action} 이후 ` : ''}키보드 포커스가 페이지를 벗어났습니다(브라우저 UI 또는 다른 창).`,
+    },
     liveLine: '실행 중인 기록에서 계산한 임시 힌트입니다. 실행이 끝나면 확정됩니다.',
     reachedLine: '목표에 도달했지만 아래 지점을 살펴볼 만합니다.',
     notReachedLine: '목표에 도달하지 못했습니다. 아래 지점이 원인과 관련 있는지 살펴보세요.',
@@ -259,6 +307,16 @@ export type Messages = typeof ko;
 
 export function hintKindLabel(kind: string): string {
   return (ko.hints.kinds as Record<string, string>)[kind] ?? kind;
+}
+
+/** Korean label for a recorded outcome reason; unknown reasons are shown as recorded. */
+export function outcomeReasonLabel(reason: string): string {
+  return Object.hasOwn(ko.run.outcomeReasons, reason) ? ko.run.outcomeReasons[reason]! : reason;
+}
+
+/** Korean text for a known limitation sentence; unknown ones are shown as recorded. */
+export function limitationLabel(text: string): string {
+  return Object.hasOwn(ko.hints.limitationTexts, text) ? ko.hints.limitationTexts[text]! : text;
 }
 
 export function runStateLabel(state: string): string {

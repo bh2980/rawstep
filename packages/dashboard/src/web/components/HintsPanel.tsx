@@ -1,9 +1,10 @@
 import { Lightbulb } from 'lucide-react';
 import type { Hint, RunHintsView } from '../../shared/api';
-import { hintKindLabel, ko } from '../i18n/ko';
+import { hintKindLabel, ko, limitationLabel } from '../i18n/ko';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Skeleton } from './ui/skeleton';
+import { describeHint } from '../lib/describe';
 
 type Props = { hints: RunHintsView | undefined; error: string; loading: boolean; live: boolean; onJump: (step: number) => void };
 
@@ -36,7 +37,7 @@ export function HintsPanel({ hints, error, loading, live, onJump }: Props) {
     {hints.limitations.length > 0 && <section aria-labelledby="hint-limitations">
       <h3 id="hint-limitations" className="mb-2 text-sm font-medium">{ko.hints.limitations}</h3>
       <ul className="grid list-disc gap-1 pl-5 text-xs leading-5 text-muted-foreground">
-        {hints.limitations.map(item => <li key={item}>{item}</li>)}
+        {hints.limitations.map(item => <li key={item} title={limitationLabel(item) === item ? undefined : item}>{limitationLabel(item)}</li>)}
       </ul>
     </section>}
   </div>;
@@ -56,11 +57,15 @@ function HintGroup({ certainty, title, help, hints, onJump }: GroupProps) {
 }
 
 function HintCard({ hint, onJump }: { hint: Hint; onJump: (step: number) => void }) {
-  const steps = [...new Set(hint.steps)];
+  const steps = [...new Set(hint.steps)], text = describeHint(hint);
   return <Card size="sm">
     <CardContent className="grid gap-2">
       <p className="font-medium">{hintKindLabel(hint.kind)}</p>
-      <p className="text-sm leading-6 text-muted-foreground">{hint.summary}</p>
+      <p className="text-sm leading-6 text-muted-foreground" title={text === hint.summary ? undefined : hint.summary}>{text}</p>
+      {text !== hint.summary && <details className="text-xs text-muted-foreground">
+        <summary className="w-fit cursor-pointer">{ko.hints.originalText}</summary>
+        <p lang="en" className="mt-1 leading-5">{hint.summary}</p>
+      </details>}
       {steps.length > 0 && <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={ko.hints.stepsLabel}>
         {steps.map(step => <Button key={step} variant="outline" size="xs" aria-label={ko.hints.goToStepLabel(step)} onClick={() => onJump(step)}>{ko.hints.goToStep(step)}</Button>)}
       </div>}

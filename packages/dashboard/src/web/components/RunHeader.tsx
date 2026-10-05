@@ -3,7 +3,7 @@ import { Download, ExternalLink, RotateCcw, Square, X } from 'lucide-react';
 import type { RunHintsView } from '../../shared/api';
 import type { Experiment, RetryPreview } from '../../shared/config';
 import { api } from '../api';
-import { ko, runStateLabel } from '../i18n/ko';
+import { ko, outcomeReasonLabel, runStateLabel } from '../i18n/ko';
 import { durationSeconds, environmentName, isLive, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { Button } from './ui/button';
@@ -65,7 +65,7 @@ function RunNotices({ runRef }: { runRef: RunRef }) {
   return <div className="grid gap-1 text-sm">
     {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{ko.run.simulationNotice}</p>}
     {run.promptSource === 'server' && <p className="text-muted-foreground">{ko.run.serverPromptNotice}</p>}
-    {run.outcome && <p>{ko.run.outcome(runStateLabel(run.state), run.outcome.reason ?? ko.run.noReason)}</p>}
+    {run.outcome && <p title={run.outcome.reason}>{ko.run.outcome(runStateLabel(run.state), run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : ko.run.noReason)}</p>}
     {run.error && <p role="alert" className="text-destructive">{run.error}</p>}
     {run.analysisError && <p role="alert" className="text-destructive">{run.analysisError}</p>}
   </div>;
