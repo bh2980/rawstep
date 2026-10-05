@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { useState } from 'react';
 import { Plus, Copy, Save } from 'lucide-react';
 import { defaultModes, type ManagedTask, type Mode } from '../../shared/config';
@@ -32,7 +33,7 @@ export function TasksPage(props: PageProps) {
 function TaskEditor({ managed, initial, onSaved, onDuplicate, ...props }: PageProps & { managed: ManagedTask; initial?: unknown; onSaved: () => void; onDuplicate: (t: ManagedTask, json: unknown) => void }) {
   const [task, setTask] = useState(() => structuredClone(managed));
   const [revision, setRevision] = useState(props.view.revision);
-  const [json, setJson] = useState(JSON.stringify(initial ?? { mode: 'keyboard', url: 'https://example.com', goal: '목표를 입력하세요', maxSteps: 40, timeoutMs: 120000, verify: { all: [{ titleIncludes: 'Example Domain' }] } }, null, 2));
+  const [json, setJson] = useState(JSON.stringify(initial ?? { mode: 'keyboard', url: 'https://example.com', goal: '목표를 입력하세요', maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs, verify: { all: [{ titleIncludes: 'Example Domain' }] } }, null, 2));
   const [mode, setMode] = useState<Mode>('keyboard');
   const modeValue = task.modes[mode];
   const inputs = (() => { try { return Object.keys(JSON.parse(json).input ?? {}); } catch { return []; } })();

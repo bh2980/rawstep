@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { runTask } from '@rawstep/browser/runner';
 import { createHash } from 'node:crypto';
 import { runScreenshotTask, ScreenshotKeyboardBackend } from '@rawstep/browser/screenshot';
@@ -28,7 +29,7 @@ export function resolvePermissions(config: DashboardConfig, task: Task, mode: 'k
 }
 export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal): Promise<RunTrace> {
   const { model, connection, prompt, mode, globals } = run.snapshot;
-  const deadline = Date.now() + (task.timeoutMs ?? 120000);
+  const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const limits = globals.policy;
   let policy: DecisionPolicy;

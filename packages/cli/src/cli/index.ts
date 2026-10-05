@@ -1,3 +1,4 @@
+import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { BUILTIN_PROFILES, resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { runEnvironmentMatrix } from '../matrix/index.js';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
@@ -70,7 +71,10 @@ export async function runCli(
     }
     const args = parseCliArguments(argv);
     if (args.command === 'ui') {
-      const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard')).startDashboard;
+      const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard').catch((error: unknown) => {
+        if ((error as { code?: unknown } | null)?.code === 'ERR_MODULE_NOT_FOUND' && String((error as { message?: unknown }).message).includes('@rawstep/dashboard')) throw new CliUsageError('rawstep ui needs the optional @rawstep/dashboard package. Install it next to rawstep to use the dashboard.');
+        throw error;
+      })).startDashboard;
       const app = await startDashboard({ projectDir: resolve(cwd, String(args.options.project ?? '.')), port: Number(args.options.port ?? 4318) });
       stdout('Rawstep dashboard: ' + app.url + '\n');
       const signals = dependencies.signals ?? process;
@@ -205,7 +209,7 @@ async function selectPolicy(args: CliArguments, cwd: string, dependencies: CliDe
     const base = modelBaseURL(config.baseURL);
     const client = (dependencies.createDecisionClient ?? createDecisionClient)(config);
     const policy = visual ? new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client) }) : new SystemOneSpeechPolicy(client);
-    if (visual && !['localhost', '127.0.0.1', '[::1]'].includes(base.hostname) && !args.options['allow-remote-model']) throw new CliUsageError('Remote screenshot transmission requires --allow-remote-model.');
+    if (visual && !isLoopbackHostname(base.hostname) && !args.options['allow-remote-model']) throw new CliUsageError('Remote screenshot transmission requires --allow-remote-model.');
     (dependencies.stderr ?? (text => process.stderr.write(text)))('[privacy] SystemOne receives the goal and live speech/images, which may contain displayed or spoken input values. Saved trace redaction does not anonymize live requests.\n');
     return { client, policy };
   }

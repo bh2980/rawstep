@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { AllowedActions, Decision, DecisionPolicy } from '@rawstep/core/contracts';
 import { assertSystemOneInputs, validateSystemOneResult, type SystemOneClient, type SystemOneRequest } from './client.js';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse } from '../screenshot/model.js';
@@ -22,7 +23,7 @@ export function speechChoices(allowed: AllowedActions): { id: string; label: str
 export class SystemOneSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly prompt: SystemOnePrompt;
-  constructor(readonly client: SystemOneClient, private readonly historyLimit = 12, prompt: SystemOnePrompt = SPEECH_DECISION_PROMPT) {
+  constructor(readonly client: SystemOneClient, private readonly historyLimit: number = RAWSTEP_DEFAULTS.policy.historyLimit, prompt: SystemOnePrompt = SPEECH_DECISION_PROMPT) {
     assertSystemOneInputs(client, ['text']);
     if (!Number.isSafeInteger(historyLimit) || historyLimit < 1 || historyLimit > 10_000) throw new Error('Invalid SystemOne history limit.');
     this.prompt = copySystemOnePrompt(prompt);

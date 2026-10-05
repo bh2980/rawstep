@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { z } from 'zod';
 import type { Task } from '@rawstep/core/contracts';
 
@@ -16,7 +17,7 @@ const modeSchema = z.object({
 export const connectionSchema = z.object({
   id, name: text, provider: z.enum(['systemone', 'openrouter', 'vercel', 'openai', 'screenshot']),
   baseURL: z.url(), apiKeyEnv: z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/).optional(),
-  timeoutMs: z.number().int().min(100).max(600000).default(60000),
+  timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
 }).strict();
 export const modelSchema = z.object({
   id, connectionId: id, modelId: text, name: text, family: z.enum(['SystemOne', 'LLM']),
@@ -85,7 +86,7 @@ export function defaultConfig(): DashboardConfig {
       keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [], typeText: false, replaceText: false },
       screenreader: { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false },
       backend: 'simulation', atEndpoint: 'ws://127.0.0.1:9333', browserExecutablePath: '', headless: true,
-      policy: { historyLimit: 12, maxStateVisits: 5, maxUnchangedTransitions: 4, focusGate: false },
+      policy: { ...RAWSTEP_DEFAULTS.policy, focusGate: false },
     },
   });
 }

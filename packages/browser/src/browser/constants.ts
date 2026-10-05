@@ -1,6 +1,8 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
+
 export const DEFAULT_VIEWPORT = {
-  w: 1280,
-  h: 800
+  w: RAWSTEP_DEFAULTS.viewport.width,
+  h: RAWSTEP_DEFAULTS.viewport.height
 } as const;
 
-export const SETTLE_MS = 120;
+export const SETTLE_MS = RAWSTEP_DEFAULTS.settleMs;

@@ -1,4 +1,4 @@
-import { summarizeEvidenceCoverage } from '@rawstep/screenreaders/evidence';
+import { summarizeEvidenceCoverage } from '@rawstep/screenreaders/evidence/coverage';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';

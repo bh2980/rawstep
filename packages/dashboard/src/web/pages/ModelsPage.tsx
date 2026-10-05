@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { useState } from 'react';
 import { Plus, Save, Search } from 'lucide-react';
 import type { Connection, Model } from '../../shared/config';
@@ -9,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import type { PageProps } from './types';
 
 export function ModelsPage(props: PageProps) {
-  const [connection, setConnection] = useState<Connection>(() => structuredClone(props.view.config.connections[0] ?? { id: crypto.randomUUID(), name: '새 연결', provider: 'openai', baseURL: 'http://127.0.0.1:1234/v1', timeoutMs: 60000 }));
+  const [connection, setConnection] = useState<Connection>(() => structuredClone(props.view.config.connections[0] ?? { id: crypto.randomUUID(), name: '새 연결', provider: 'openai', baseURL: 'http://127.0.0.1:1234/v1', timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs }));
   const [apiKey, setApiKey] = useState('');
   const [revision, setRevision] = useState(props.view.revision);
   const [discovered, setDiscovered] = useState<Model[]>([]);
@@ -19,7 +20,7 @@ export function ModelsPage(props: PageProps) {
     const saved = await props.save({ ...props.view.config, connections: [...props.view.config.connections.filter(c => c.id !== connection.id), connection] }, undefined, revision); setRevision(saved.revision);
     if (apiKey) { await api('/credentials', { method: 'POST', body: { connectionId: connection.id, value: apiKey } }); setApiKey(''); }
   }
-  const newConnection = () => { setRevision(props.view.revision); setConnection({ id: crypto.randomUUID(), name: '새 연결', provider: 'openai', baseURL: 'http://127.0.0.1:1234/v1', timeoutMs: 60000 }); setApiKey(''); setDiscovered([]); };
+  const newConnection = () => { setRevision(props.view.revision); setConnection({ id: crypto.randomUUID(), name: '새 연결', provider: 'openai', baseURL: 'http://127.0.0.1:1234/v1', timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs }); setApiKey(''); setDiscovered([]); };
   const manual = () => setModel({ id: crypto.randomUUID(), connectionId: connection.id, modelId: '', name: '새 모델', family: connection.provider === 'openai' ? 'LLM' : 'SystemOne', inputs: ['text'], capabilitySource: 'manual', maxChoices: 255, maxImages: 0, roles: ['decision'], promptEditable: connection.provider !== 'screenshot' });
   return <>
     <SectionHeader title="연결과 모델" description="주소로 모델을 조회하고, 입력 지원과 실행·분석 역할을 확인합니다."><Button onClick={newConnection}><Plus aria-hidden="true" />연결 추가</Button></SectionHeader>

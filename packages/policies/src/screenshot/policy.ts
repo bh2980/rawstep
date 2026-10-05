@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { createHash } from 'node:crypto';
 import type { AllowedActions, Decision, DecisionPolicy, ScreenshotObservation } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
@@ -34,7 +35,7 @@ export type FocusGateOptions = { minimumProbability?: number; minimumMargin?: nu
 /** Uncalibrated visual scores only restrict actions. They are never browser focus truth. */
 export function restrictChoicesByVisualFocus(choices: readonly ScreenshotChoice[], response: ScreenshotModelResponse, options: FocusGateOptions = {}): ScreenshotChoice[] {
   validateModelResponse(response, FOCUS_CONTEXT_CHOICES);
-  const minimumProbability = options.minimumProbability ?? 0.75, minimumMargin = options.minimumMargin ?? 0.25;
+  const minimumProbability = options.minimumProbability ?? RAWSTEP_DEFAULTS.focusGate.minimumProbability, minimumMargin = options.minimumMargin ?? RAWSTEP_DEFAULTS.focusGate.minimumMargin;
   for (const v of [minimumProbability, minimumMargin]) if (!Number.isFinite(v) || v < 0 || v > 1) throw new Error('Focus thresholds must be finite numbers from 0 to 1.');
   const index = FOCUS_CONTEXT_CHOICES.findIndex(c => c.id === response.choiceId), scores = response.probabilities;
   const confident = !!scores && scores[index]! >= minimumProbability && scores[index]! - Math.max(...scores.filter((_, i) => i !== index)) >= minimumMargin;
@@ -66,7 +67,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly options: Required<Omit<ScreenshotPolicyOptions, 'model' | 'focusGate'>> & Pick<ScreenshotPolicyOptions, 'model' | 'focusGate'>;
   constructor(options: ScreenshotPolicyOptions) {
-    this.options = { maxStateVisits: 5, maxUnchangedTransitions: 4, historyLimit: 12, ...options };
+    this.options = { ...RAWSTEP_DEFAULTS.policy, ...options };
     for (const key of ['maxStateVisits', 'maxUnchangedTransitions', 'historyLimit'] as const) {
       if (!Number.isSafeInteger(this.options[key]) || this.options[key] < 1 || this.options[key] > 10_000) throw new Error(`${key} must be an integer from 1 to 10000.`);
     }
@@ -115,7 +116,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
         ...(focus.prompt ? { prompt: { ...focus.prompt } } : {}),
         model: { id: focus.model.id, runtime: focus.model.runtime, ...(focus.model.requestedId ? { requestedId: focus.model.requestedId } : {}), ...(focus.model.revision ? { revision: focus.model.revision } : {}) },
         choiceId: focus.choiceId, probabilities: focus.probabilities ? [...focus.probabilities] : undefined,
-        screenshotSha256: sha256, thresholds: { minimumProbability: this.options.focusGate.minimumProbability ?? 0.75, minimumMargin: this.options.focusGate.minimumMargin ?? 0.25 },
+        screenshotSha256: sha256, thresholds: { minimumProbability: this.options.focusGate.minimumProbability ?? RAWSTEP_DEFAULTS.focusGate.minimumProbability, minimumMargin: this.options.focusGate.minimumMargin ?? RAWSTEP_DEFAULTS.focusGate.minimumMargin },
         permittedChoiceIds: choices.map(c => c.id), blockedChoiceIds: originalChoices.filter(c => !choices.some(x => x.id === c.id)).map(c => c.id),
         observationSource: 'viewport-png-only', noDomOrAxContext: true,
         uncertainty: 'Model focus prediction is uncalibrated; it can be wrong. This is not native focus truth or accessibility certification.' });

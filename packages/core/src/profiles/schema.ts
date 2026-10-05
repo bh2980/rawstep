@@ -1,5 +1,6 @@
+import { RAWSTEP_DEFAULTS } from '../defaults.js';
 import type { EnvironmentProfile } from './types.js';
-export const DEFAULT_PROFILE: EnvironmentProfile = Object.freeze({ id: 'default', viewport: { width: 1280, height: 800 }, browserZoom: 1, textScale: 1, colorScheme: 'light', forcedColors: 'none', contrast: 'no-preference', reducedMotion: 'no-preference', nativeMagnifier: 'not-requested', nativeHighContrast: 'not-requested', diagnostics: true, requireApplied: true });
+export const DEFAULT_PROFILE: EnvironmentProfile = Object.freeze({ id: 'default', viewport: { ...RAWSTEP_DEFAULTS.viewport }, browserZoom: 1, textScale: 1, colorScheme: 'light', forcedColors: 'none', contrast: 'no-preference', reducedMotion: 'no-preference', nativeMagnifier: 'not-requested', nativeHighContrast: 'not-requested', diagnostics: true, requireApplied: true });
 export const BUILTIN_PROFILES: Readonly<Record<string, Partial<EnvironmentProfile>>> = Object.freeze({
   default: {}, narrow: { viewport: { width: 320, height: 800 } }, 'zoom-200': { browserZoom: 2 }, 'zoom-400': { browserZoom: 4 },
   'text-200': { textScale: 2 }, spacing: { textSpacing: { lineHeight: 1.5, letterSpacingEm: .12, wordSpacingEm: .16, paragraphSpacingEm: 2 } },

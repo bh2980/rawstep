@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS, isLoopbackHostname } from '@rawstep/core/defaults';
 import type { Decision, ScreenshotObservation } from '@rawstep/core/contracts';
 
 export const SCREENSHOT_MODEL_PROTOCOL = 'rawstep-screenshot-choice-v1' as const;
@@ -45,11 +46,11 @@ export class HttpScreenshotModel implements ScreenshotModelAdapter {
   constructor(options: { endpoint: string; allowRemote?: boolean; timeoutMs?: number; fetch?: typeof fetch }) {
     const url = new URL(options.endpoint);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash || url.search) throw new Error('Model endpoint must be an HTTP(S) URL without credentials, query, or fragment.');
-    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    const local = isLoopbackHostname(url.hostname);
     if (!local && options.allowRemote !== true) throw new Error('Remote screenshot transmission requires explicit allowRemote: true.');
     if (!local && url.protocol !== 'https:') throw new Error('Remote screenshot model endpoints require HTTPS.');
     this.endpoint = url.href;
-    this.timeoutMs = options.timeoutMs ?? 60_000;
+    this.timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new Error('Model timeoutMs must be a positive bounded integer.');
     this.fetcher = options.fetch ?? fetch;
   }

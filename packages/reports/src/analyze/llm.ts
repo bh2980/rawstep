@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS, isLoopbackHostname } from '@rawstep/core/defaults';
 import type { RunTrace } from '@rawstep/core/trace';
 import { validateAnalyzerResult, type AnalyzerResult, type TraceAnalyzer } from './index.js';
 
@@ -18,10 +19,10 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
     catch { throw new Error('Invalid analysis base URL.'); }
     const url = this.endpoint;
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash ||
-      (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) throw new Error('Analysis requires HTTPS or loopback HTTP without URL credentials/query/fragment.');
+      (url.protocol === 'http:' && !isLoopbackHostname(url.hostname))) throw new Error('Analysis requires HTTPS or loopback HTTP without URL credentials/query/fragment.');
     if (!options.model?.trim()) throw new Error('An explicit analysis model is required.');
     if (options.instructions !== undefined && (typeof options.instructions !== 'string' || Buffer.byteLength(options.instructions) > 16384)) throw new Error('Invalid analysis instructions.');
-    this.timeout = options.timeoutMs ?? 60_000; this.maxInput = options.maxInputBytes ?? 1_000_000;
+    this.timeout = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs; this.maxInput = options.maxInputBytes ?? 1_000_000;
     if (![this.timeout, this.maxInput].every(v => Number.isSafeInteger(v) && v > 0 && v <= 2_147_483_647)) throw new Error('Invalid analysis limits.');
   }
   async analyze(trace: Readonly<RunTrace>): Promise<AnalyzerResult> {

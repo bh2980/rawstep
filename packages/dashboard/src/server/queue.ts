@@ -1,3 +1,4 @@
+import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -62,7 +63,7 @@ export class ExperimentQueue {
           if (request.mode === 'screenreader' && config.globals.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
           if (request.mode === 'screenreader' && config.globals.backend !== 'simulation') {
             const endpoint = new URL(config.globals.atEndpoint);
-            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
+            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
           }
           const profile = resolveEnvironmentProfile(environment.profile);
           if (profile.browserZoom !== 1 || profile.nativeMagnifier === 'required' || profile.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');

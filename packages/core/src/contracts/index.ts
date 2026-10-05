@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS } from '../defaults.js';
 import { resolveEnvironmentProfile } from '../profiles/schema.js';
 import type { EnvironmentProfile } from '../profiles/types.js';
 import { resolve, isAbsolute } from 'node:path';
@@ -120,8 +121,8 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   const rules = raw.verify.all.map(validateVerifyRule);
   const input = raw.input;
   if (input !== undefined && (!object(input) || Object.keys(input).some(k => !k.trim()) || Object.values(input).some(v => typeof v !== 'string'))) throw new Error('Task input must map names to string values.');
-  const maxSteps = raw.maxSteps ?? 40;
-  const timeoutMs = raw.timeoutMs ?? 120_000;
+  const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
+  const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
   if (!Number.isSafeInteger(maxSteps) || (maxSteps as number) < 1) throw new Error('maxSteps must be a positive integer.');
   if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 2_147_483_647) throw new Error('timeoutMs must be an integer from 1 to 2147483647.');
   if (raw.config !== undefined && !object(raw.config)) throw new Error('Task config must be an object.');

@@ -1,3 +1,4 @@
+import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve, extname, join } from 'node:path';
@@ -40,7 +41,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = req.headers.host;
-    if (!host || !['127.0.0.1', 'localhost', '[::1]'].includes(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
+    if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
     const origin = req.headers.origin;
     if (origin && origin !== new URL(url).origin && origin !== options.allowedOrigin) throw new HttpError(403, '요청 Origin을 허용하지 않습니다.');
     const path = new URL(req.url ?? '/', url).pathname, method = req.method ?? 'GET';

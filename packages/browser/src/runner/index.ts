@@ -1,3 +1,4 @@
+import { RAWSTEP_DEFAULTS, isLoopbackUrl } from '@rawstep/core/defaults';
 import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile, type NativeZoomController } from '../profiles/index.js';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -119,7 +120,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       if (native.backend === 'at-driver') {
         const expected = native.profile === 'voiceover' ? 'darwin' : native.profile === 'nvda' ? 'win32' : undefined;
         if (expected && expected !== process.platform) throw new Error('The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.');
-        if (native.endpoint && !['localhost','127.0.0.1','[::1]','::1'].includes(new URL(native.endpoint).hostname)) throw new Error('Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.');
+        if (native.endpoint && !isLoopbackUrl(native.endpoint)) throw new Error('Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.');
         if (options.headless) throw new Error('Native AT Driver runs require a visible browser; headless is unsupported.');
       }
     }
@@ -304,7 +305,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // Bound cleanup too. A server disconnect never turns an observed success into failure.
     for (const [name, close] of [['backend', () => options.backend.close()], ['browser', () => browser?.close()]] as const) {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      try { await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup timed out`)), expectedNativeTarget !== undefined && name === 'backend' ? 5_000 : 2_000); })]); }
+      try { await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup timed out`)), expectedNativeTarget !== undefined && name === 'backend' ? RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend : RAWSTEP_DEFAULTS.cleanupTimeoutMs.default); })]); }
       catch (error) { bestEffortEvidence(() => append('run.cleanup-warning', { resource: name, message: inputTainted ? 'Cleanup failed; raw error redacted.' : errorMessage(error) }, { redacted: inputTainted })); }
       finally { if (timer) clearTimeout(timer); }
     }
