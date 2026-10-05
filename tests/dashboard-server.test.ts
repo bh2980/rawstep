@@ -1,0 +1,156 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { startDashboard } from '../packages/dashboard/src/server/index.js';
+import { ProjectStore } from '../packages/dashboard/src/server/store.js';
+import { defaultConfig, defaultModes } from '../packages/dashboard/src/shared/config.js';
+import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
+import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
+import { speechChoices } from '@rawstep/policies/systemone';
+import { validateDecision } from '@rawstep/browser/runner';
+import { TraceRecorder } from '@rawstep/core/trace';
+import type { ConfigView, DashboardConfig, Experiment, PlanRequest } from '../packages/dashboard/src/shared/config.js';
+import { createServer } from 'node:http';
+import { discover } from '../packages/dashboard/src/server/models.js';
+
+const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];
+afterEach(async () => { await Promise.all(apps.splice(0).map(app => app.close())); await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
+async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-')); dirs.push(r); return r; }
+const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
+function setup(): DashboardConfig {
+  const config = defaultConfig();
+  config.connections.push({ id: 'local', name: 'Local', provider: 'systemone', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
+  for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
+  const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
+  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
+}
+const request: PlanRequest = { taskIds: ['task'], modelIds: ['a', 'b'], promptIds: ['baseline', 'careful'], environmentIds: ['default'], repeats: 1, mode: 'keyboard' };
+async function waitFor(work: () => Promise<boolean>) { for (let i = 0; i < 100; i++) { if (await work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); }
+describe('dashboard local persistence and permissions', () => {
+  it('detects external writes and keeps keys out of config responses', async () => {
+    const dir = await root(); const store = new ProjectStore(dir); const first = await store.initialize();
+    await writeFile(store.path, JSON.stringify({ ...first.config, globals: { ...first.config.globals, headless: false } }));
+    await expect(store.save(first.config, first.revision)).rejects.toMatchObject({ status: 409 });
+    await store.setCredential('RAWSTEP_TEST_KEY', 'secret-fixture-value');
+    expect(await store.credential('RAWSTEP_TEST_KEY')).toBe('secret-fixture-value');
+    expect(JSON.stringify(await store.read())).not.toContain('secret-fixture-value');
+    const reread = new ProjectStore(dir); expect((await reread.read()).config.globals.headless).toBe(false);
+  });
+  it('rejects paths outside the project and symlink escapes', async () => {
+    const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
+    await expect(store.file('../outside.json')).rejects.toMatchObject({ status: 400 });
+    await symlink(other, join(dir, 'link'));
+    await expect(store.file('link/task.json')).rejects.toMatchObject({ status: 400 });
+  });
+  it('detects changes to external task files before saving or executing', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
+    const saved = await store.save(setup(), initial.revision, { file: 'task.json', task });
+    await writeFile(join(dir, 'task.json'), JSON.stringify({ ...task, goal: 'Externally changed' }));
+    await expect(store.save(saved.config, saved.revision)).rejects.toMatchObject({ status: 409 });
+    const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    await expect(app.queue.create({ ...request, revision: saved.revision })).rejects.toMatchObject({ status: 409 });
+  });
+  it('only confirms advertised model inputs and omits credential echoes', async () => {
+    const server = createServer((_req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'vision-by-name-only' }, { id: 'vision-confirmed', inputs: ['text', 'image'] }, { id: 'PRIVATE_DISCOVERY_KEY' }] })); });
+    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
+    try {
+      const models = await discover({ id: 'local', name: 'local', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 }, 'PRIVATE_DISCOVERY_KEY');
+      expect(models).toHaveLength(2); expect(models[0]!.inputs).toEqual(['text']); expect(models[0]!.capabilitySource).toBe('manual'); expect(models[1]!.inputs).toEqual(['text', 'image']);
+      expect(JSON.stringify(models)).not.toContain('PRIVATE_DISCOVERY_KEY');
+    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+  });
+  it.each([[false, false], [true, false], [false, true], [true, true]])('independently restricts type=%s and replace=%s in candidates and execution', (typeText, replaceText) => {
+    const config = setup(), permissions = resolvePermissions(config, task, 'keyboard', { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText });
+    for (const candidates of [screenshotChoices(permissions as Required<typeof permissions>), speechChoices(permissions as Required<typeof permissions>)]) {
+      expect(candidates.some(c => c.id === 'type:email')).toBe(typeText);
+      expect(candidates.some(c => c.id === 'replace:email')).toBe(replaceText);
+    }
+    const check = (kind: 'typeText' | 'replaceText') => () => validateDecision({ action: { kind, input: 'email' } }, permissions as Required<typeof permissions>);
+    if (typeText) expect(check('typeText')).not.toThrow(); else expect(check('typeText')).toThrow();
+    if (replaceText) expect(check('replaceText')).not.toThrow(); else expect(check('replaceText')).toThrow();
+    expect(permissions.keys).toEqual([]);
+    expect(resolvePermissions(config, task, 'keyboard', null).keys).toEqual(config.globals.keyboard.keys);
+  });
+});
+describe('dashboard API and sequential queue', () => {
+  it('runs a two-by-two matrix, snapshots settings, saves real trace files and restores history', async () => {
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    let active = 0, maxActive = 0; const seen: unknown[] = [];
+    const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web'), execute: async (run, actualTask, outDir, _key, signal) => {
+      active++; maxActive = Math.max(active, maxActive); seen.push({ task: structuredClone(actualTask), prompt: run.snapshot.prompt.instructions });
+      await new Promise(r => setTimeout(r, 15)); signal.throwIfAborted();
+      const trace = new TraceRecorder({ ...actualTask, id: actualTask.id ?? 'fixture' }, outDir); await trace.initialize(); trace.append('fixture.policy', { instructions: run.snapshot.prompt.instructions }, { source: 'policy' });
+      active--; return trace.finalize({ status: 'success', reason: 'test-double-only', steps: 1 });
+    } }); apps.push(app);
+    const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(request) });
+    expect(response.status).toBe(201); const experiment = await response.json() as Experiment; expect(experiment.runs).toHaveLength(4);
+    const current = await store.read(); await store.save({ ...current.config, globals: { ...current.config.globals, keyboard: { ...current.config.globals.keyboard, keys: [] } } }, current.revision);
+    await waitFor(async () => { const durable = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment; return durable.runs.every(r => r.state === 'success' && !!r.endedAt); });
+    expect(maxActive).toBe(1); expect(seen).toHaveLength(4); expect(JSON.stringify(seen)).toContain('private-value');
+    const saved = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment;
+    expect(JSON.stringify(saved)).not.toContain('private-value'); expect(saved.runs.every(r => r.permissions.keys.includes('Tab'))).toBe(true);
+    expect(saved.runs.every(r => r.reportStatus === 'complete')).toBe(true);
+    await app.close(); apps.splice(apps.indexOf(app), 1);
+    const restarted = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(restarted);
+    expect(restarted.queue.experiments[0]!.runs.every(r => r.state === 'success')).toBe(true);
+    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.globals.keyboard.keys).toEqual([]);
+    expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
+  });
+  it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.models[0]!.inputs = ['text']; config.models[0]!.maxImages = 0;
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(app);
+    expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://foreign.example' } })).status).toBe(403);
+    const plan = await app.queue.plan(request);
+    expect(plan.rows.filter(r => r.modelId === 'a').every(r => !r.supported && r.reason!.includes('이미지'))).toBe(true);
+    await expect(app.queue.create(request)).rejects.toMatchObject({ status: 400 });
+    expect(app.queue.experiments).toHaveLength(0);
+  });
+  it('cancels the active run and queued siblings without starting them', async () => {
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    let calls = 0;
+    const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web'), execute: async (_run, _task, _out, _key, signal) => {
+      calls++; await new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true })); throw new Error('Unreachable');
+    } }); apps.push(app);
+    const e = await app.queue.create(request); await waitFor(async () => calls === 1);
+    await app.queue.cancel(e.id); await waitFor(async () => e.runs.every(r => r.state === 'cancelled'));
+    expect(calls).toBe(1);
+  });
+  it('retries pinned public conditions with fresh inputs after config changes', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
+    await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const seen: { goal: string; input: unknown; model: string; prompt: string }[] = [];
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
+      seen.push({ goal: actual.goal, input: actual.input, model: run.snapshot.model.modelId, prompt: run.snapshot.prompt.instructions });
+      const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['careful'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
+    const before = await store.read(); before.config.models[0]!.modelId = 'changed-model'; before.config.tasks[0]!.modes.keyboard.prompts[1]!.instructions = 'Changed instructions';
+    await store.save(before.config, before.revision, { file: 'task.json', task: { ...task, goal: 'changed goal', input: { email: 'NEW_PRIVATE_INPUT' } } });
+    const preview = await app.queue.previewRetry(e.id, e.runs[0]!.id); expect(preview.changedFields).toContain('goal'); expect(JSON.stringify(preview)).not.toContain('NEW_PRIVATE_INPUT');
+    await expect(app.queue.retry(e.id, e.runs[0]!.id, 'stale')).rejects.toMatchObject({ status: 409 });
+    const retried = await app.queue.retry(e.id, e.runs[0]!.id, preview.revision); await waitFor(async () => !!retried.runs[0]!.endedAt);
+    expect(seen[1]).toEqual({ goal: task.goal, input: { email: 'NEW_PRIVATE_INPUT' }, model: 'a', prompt: 'Careful fixture instructions' });
+    expect(JSON.stringify(retried)).not.toContain('NEW_PRIVATE_INPUT'); expect(retried.runs[0]!.retryOf?.run).toBe(e.runs[0]!.id);
+  });
+  it('pins the analysis connection and preserves success when analysis fails', async () => {
+    let sent: { messages: { content: string }[] } | undefined;
+    const server = createServer((req, res) => { void (async () => { let body = ''; for await (const part of req) body += part; sent = JSON.parse(body); res.writeHead(503); res.end('PRIVATE_PROVIDER_ERROR'); })(); });
+    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.connections.push({ id: 'analysis', name: 'Analysis', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 });
+    config.models.push({ ...config.models[0]!, id: 'analysis', connectionId: 'analysis', modelId: 'analyzer', family: 'LLM', roles: ['analysis'] });
+    config.globals.analysisInstructions = 'Global comparison focus';
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    try {
+      const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+        const changed = await store.read(); changed.config.connections.find(c => c.id === 'analysis')!.baseURL = 'http://127.0.0.1:1'; await store.save(changed.config, changed.revision);
+        const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
+      } }); apps.push(app);
+      const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['baseline'], analysisModelId: 'analysis' }); await waitFor(async () => !!e.runs[0]!.endedAt);
+      expect(sent?.messages[1]!.content).toContain('Global comparison focus');
+      expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
+    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+  });
+});

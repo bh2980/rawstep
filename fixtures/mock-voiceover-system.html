@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mock VoiceOver system demo</title></head>
+<body>
+  <button id="save" type="button">Save</button>
+  <p id="status" role="status">No saves yet</p>
+  <script>
+    let count = 0;
+    document.querySelector('#save').addEventListener('click', () => {
+      count += 1;
+      document.querySelector('#save').textContent = count === 1 ? 'Save again' : 'Save once more';
+      document.querySelector('#status').textContent = `Saved ${count} times`;
+      if (count >= 2) document.title = 'Mock VoiceOver demo completed';
+    });
+  </script>
+</body>
+</html>

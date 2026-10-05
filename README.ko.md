@@ -1,177 +1,130 @@
-# RawStep
+# Rawstep
 
 [English](./README.md) | 한국어
 
-> 제한된 관측 하에서 키보드·스크린리더 과업 수행 병목을 기록하는 실험용 러너
+키보드·스크린리더 작업 시도를 기록하고, 실행 정책·독립 검증·환경 비교·사후 보고서를 분리하는 로컬 실행용 모노레포입니다. npm에 게시하지 않아도 소스를 받아 빌드하거나 로컬 tarball을 라이브러리로 설치할 수 있습니다.
 
-> [!WARNING]
-> RawStep은 실제 서비스 투입을 전제로 한 안정적인 접근성 진단 도구가 아닙니다.
-> 제한된 관측 채널 안에서 에이전트가 과업을 수행할 때 어디서 실패하는지 관찰하기 위한 프로토타입입니다.
-> 현재는 실제 과업 수행 성공률과 재현성이 낮고, 모델·backend·환경 상태에 따라 결과가 크게 달라질 수 있습니다.
+**실험용 도구이며 접근성 인증 도구가 아닙니다.** 작업 성공, 모델 점수, 모의 발화와 사람이 보고한 문제는 서로 다른 근거입니다. 사이트 전체의 접근성이나 실제 보조공학과의 동등성을 증명하지 않습니다.
 
-## 개요
+## 소스를 받아 실행하기
 
-axe-core, Lighthouse 같은 도구는 DOM과 규칙 위반을 잘 찾습니다.  
-하지만 실제 사용자가 과업을 수행할 때 어디서 막히는지는 잘 보여주지 못합니다.
+Node.js 22.12 이상과 `package.json`에 고정된 pnpm이 필요합니다.
 
-RawStep은 제한된 관측 채널과 제한된 행동 집합 안에서 에이전트가 직접 과업을 시도하게 하고,
-그 과정을 trace와 리포트로 남겨 병목 지점을 다시 볼 수 있게 하는 실험용 프로젝트입니다.
-
-RawStep으로 주로 보려는 것은 아래와 같습니다.
-
-- 키보드 사용자처럼 이동을 시도했을 때 목표에 가까워지는지
-- 스크린리더 사용자가 읽히는 정보만으로 다음 행동을 고를 수 있는지
-- 성공 또는 실패까지 몇 step이 걸렸는지
-- 어느 시점부터 헤매기 시작했는지
-- verifier 기준으로 실제 성공이 확인됐는지
-
-| 항목 | 규칙 기반 도구 | RawStep |
-|------|----------------|---------|
-| 평가 단위 | 규칙 위반 | 과업 수행 |
-| 입력 | DOM / ARIA | 스크린샷 또는 스크린리더 announcement |
-| 출력 | 규칙별 통과/실패 | trace, metrics, prompts, HTML report |
-| 병목 위치 추적 | 상대적으로 약함 | 실험적으로 추적 시도 |
-| 실제 사용 흐름 재현 | 간접적 | 제한된 조건에서 직접 시도 |
-
-위 표는 성능 우열 비교라기보다, RawStep이 어떤 방향의 실험을 하고 있는지 설명하기 위한 단순화된 그림에 가깝습니다.
-
-## 이런 경우에 더 적합합니다
-
-- 접근성 과업을 에이전트로 실험해보고 싶을 때
-- 성공보다 실패 trace와 병목 지점을 보고 싶을 때
-- prompt, observer, verifier, report 구조를 탐색하고 싶을 때
-- 내부 아이디어 검증용 하네스가 필요할 때
-
-## 이런 용도로는 아직 적합하지 않습니다
-
-- 실제 서비스의 접근성 pass/fail 판정
-- 사람 테스트를 대체하는 자동화 도구
-- 안정적인 회귀 테스트 인프라
-- 재현성이 높은 운영용 진단 도구
-
-## 무엇이 남는가
-
-실행 결과는 보통 아래 파일들로 남습니다.
-
-- `trace.jsonl`: step별 리플레이 로그
-- `trace.json`: 최종 합본 trace
-- `metrics.json`: 총 step 수, 종료 이유, action count, timing
-- `prompts.json`: step별 prompt 기록
-- `report/index.html`: 사람이 보기 좋은 리포트
-- `diagnostics.jsonl`: 런타임 경고/에러가 있을 때만 생성
-
-이 산출물은 최종 판정서라기보다, 실험 과정과 실패 지점을 다시 보기 위한 기록에 가깝습니다.
-
-## 빠른 시작
-
-```bash
-pnpm install
-cp .env.sample .env
-# .env 에서 AI_PROVIDER, AI_API_KEY, AI_MODEL 값을 채운다
-# openai-compatible provider면 AI_BASE_URL도 함께 채운다
-pnpm rawstep run examples/tasks/simple-cta.json
+```sh
+corepack pnpm install --frozen-lockfile
+npm run build
+corepack pnpm --filter @rawstep/browser exec playwright install chromium
+npm run rawstep -- --help
+npm run rawstep -- profiles
 ```
 
-기본 출력 경로는 `./.rawstep/out/<mode>/<taskId>/<runId>/` 입니다.  
-실행이 끝나면 CLI가 `report/index.html` 경로를 출력합니다.
+체크아웃의 CLI는 먼저 빌드해야 합니다. 기존의 신뢰할 수 있는 Chromium을 쓰려면 `--browser-executable`을 지정하세요. 테스트에는 `RAWSTEP_TEST_BROWSER_PATH`도 사용할 수 있습니다. 브라우저 sandbox를 끄는 옵션은 필요하지 않습니다. 자세한 내용은 [로컬 개발 안내](./docs/local-development.md)에 있습니다.
 
-이 repo에는 바로 실행 가능한 기본 [rawstep.config.ts](./rawstep.config.ts)가 이미 들어 있습니다.  
-처음에는 설정 파일을 새로 만들기보다 `.env`만 채우고 `examples/tasks/` 아래 예시 task부터 실행하면 됩니다.
+## 로컬 대시보드
 
-이 예시는 기능을 간단히 확인해보는 용도입니다.  
-실행이 된다고 해서 실제 사이트 과업을 안정적으로 수행한다고 보기는 어렵습니다.
-
-## 실행 모델
-
-### `keyboard`
-
-- 관측: 현재 viewport screenshot, 이전 screenshot, focus hint, scroll hint
-- 행동: `Tab`, `Shift+Tab`, 화살표, `Enter`, `Space`, `Escape`, `Home`, `End` 등 허용된 키
-- 특징: 이미지 입력이 가능한 모델이 필요합니다
-
-### `screenreader`
-
-- 관측: announcement 텍스트, capture 방식, observe reason, readbacks
-- 행동: `sr.next`, `sr.form.next`, `sr.heading.next`, `sr.act`, `sr.key.*` 등 허용된 screenreader action
-- 특징: 개발자용 스크린샷은 저장될 수 있지만 에이전트 입력에는 들어가지 않습니다
-
-### 에이전트에게 주지 않는 정보
-
-- DOM selector
-- accessibility tree
-- ARIA role/label 전체
-- 요소 존재 여부에 대한 정답
-- 정밀한 시각 위치 정보
-
-## Task 예시
-
-task 파일은 어느 페이지에서 무엇을 해야 하는지를 적는 실행 단위입니다.
-
-```json
-{
-  "url": "../../fixtures/simple-cta.html",
-  "goal": "Get started 버튼을 찾아서 활성화하고, 결과 메시지가 보이는 상태로 만들어라.",
-  "verify": {
-    "all": [
-      { "textVisible": "Started!" },
-      { "titleIncludes": "Completed" }
-    ]
-  }
-}
+```sh
+npm run rawstep -- ui
+# 개발: npm run dashboard:dev
 ```
 
-추가로 넣을 수 있는 대표 필드는 아래입니다.
+연결 주소에서 모델을 조회하고, 작업별 프롬프트·허용 행동을 저장한 뒤 개별·선택·전체 실행과 결과 비교를 할 수 있습니다. Node가 화면과 API를 함께 제공하며 설정·결과는 프로젝트 파일에 저장합니다. UI는 별도 `packages/dashboard` workspace이며 shadcn과 공식 json-render shadcn 연동을 사용합니다. [대시보드 안내](./docs/dashboard-plan.ko.md)와 [구현 계획·검증 기록](./docs/dashboard-plan.ko.md)을 참고하세요.
 
-- `id`
-- `mode`
-- `maxSteps`
-- `timeoutMs`
-- `input`
-- `prompt`
-- `config`
-- `verify`
+## 실행 방식
 
-자세한 스펙은 [docs/task.ko.md](./docs/task.ko.md)를 보면 됩니다.
+- `screenshot-run`: 실제 PNG 화면 → 멀티모달 모델 선택 → 키보드 입력 → 새 화면. 기본 화면 정책에 DOM·AX·선택자·숨은 포커스·독립 검증 결과를 넘기지 않습니다
+- `run --backend voiceover|nvda`: 해당 OS에서 별도로 실행한 네이티브 AT Driver 서버에 연결합니다
+- `run --backend orca`: 정확한 Linux 브라우저 창과 연결한 Orca 발화 파이프라인 어댑터입니다. 개발 클라우드에서는 필요한 IPC가 막혀 실제 발화 검증은 완료하지 못했습니다
+- `mock-run`: Chromium 기반 VoiceOver 시뮬레이션입니다. 생성된 문구는 항상 simulation으로 표시합니다
+- `matrix`: 같은 작업을 여러 환경 프로필에서 실행하고 결과를 비교합니다
+- `analyze` / `report`: 저장된 근거로 별도의 JSON·HTML 분석 보고서를 만듭니다
+- `analyze --llm`: 저장된 trace에 대한 명시적인 사후 모델 분석입니다. 실행 결과는 변경하지 않습니다
 
-## 리포트에서 볼 수 있는 것
+0.2에서는 텍스트·이미지 SystemOne을 `--decision systemone`으로 선택합니다. 모델 이름을 Jev로 고정하지 않습니다. `legacy-run`과 `rawstep/legacy`는 제거했으며 `screenshot-run --script` 또는 `--policy`로 이전하세요. 새 screenshot 모드와 과거 2.0/2.1 trace 읽기는 유지합니다. [설정·검증 상태](./docs/systemone.md)를 참고하세요.
 
-리포트에는 보통 아래 정보가 정리됩니다.
+기본 `npm test`는 브라우저를 실행하지 않습니다. 실제 browser 테스트는 `test:integration`으로 worker 1개에서 순차 실행하고, `test:all`과 `check`는 전체 범위를 검증합니다.
 
-- 최종 성공/실패
-- failure point
-- action breakdown
-- timing overview
-- step detail
-- screenreader announcement 근거
-- experience summary
-- planning / reflection 결과
+행동 제한, 이름 있는 입력값, 탐색 경계, 단계·시간 예산, 취소와 기록 실패 시 중단은 runner가 담당합니다. 모델 판단이 나쁘다고 미리 정한 행동으로 바꾸지 않습니다. 성공 선언은 독립 검증을 통과해야 하고, 모델의 stuck·uncertain, 반복 보호장치와 런타임 오류를 구분합니다.
 
-리포트 구조는 [docs/report.ko.md](./docs/report.ko.md)에서 자세히 볼 수 있습니다.
+## 스크린샷 모델 실행
 
-### 리포트 예시
+선택 사항인 [OneJev 모델 서버](./examples/screenshot/README.md)를 먼저 실행한 뒤:
 
-![RawStep report overview](./docs/assets/report-overview.png)
+```sh
+npm run rawstep -- screenshot-run examples/screenshot/task.json \
+  --model-endpoint http://127.0.0.1:8766/choose --out runs/screenshot-01
+npm run rawstep -- analyze runs/screenshot-01
+npm run rawstep -- report runs/screenshot-01 --analysis runs/screenshot-01/analysis.json
+```
 
-## 세부 문서
+엔드포인트는 `rawstep-screenshot-choice-v1` 규약을 사용합니다. OpenAI chat-completions 주소를 그대로 넣는 방식은 아닙니다. `--policy ./policy.mjs`로 다른 신뢰된 모델 어댑터를 연결할 수 있습니다.
 
-- [docs/task.ko.md](./docs/task.ko.md): task 스펙, `input`, `verify`, override 규칙
-- [docs/config.ko.md](./docs/config.ko.md): `rawstep.config.ts`, defaults, modes, planning, observe, 우선순위
-- [docs/cli.ko.md](./docs/cli.ko.md): CLI 옵션, provider 환경 변수, 허용 키/action 목록
-- [docs/report.ko.md](./docs/report.ko.md): 리포트 구조와 각 항목 설명
-- [docs/prompts.ko.md](./docs/prompts.ko.md): 프롬프트 파일 구조와 템플릿 변수 설명
-- [docs/editing-map.ko.md](./docs/editing-map.ko.md): 수정 포인트와 변경 후 확인 항목
+선택적인 `--diagnose-stop`은 정지 후 제한된 이유 후보를 별도 모델 호출로 평가합니다. 결과는 점수가 있는 가설이며 자유 생성 설명이나 확정된 결함이 아닙니다. 진단 실패·시간 초과가 원래 실행 결과를 바꾸거나 추가 키를 누르게 하지 않습니다.
 
-## 현재 한계
+모델 가중치, Python 환경, 네이티브 AT 서버와 브라우저 바이너리는 별도 설치입니다. npm 설치·import만으로 다운로드하거나 실행하지 않습니다. 실제 OneJev0.8B/4B 검증은 CPU에서 수행했으며, 모델 제작자의 GPU 지연 시간과 같은 수치라고 주장하지 않습니다.
 
-- 이 프로젝트는 아직 프로토타입 단계입니다.
-- 실제 과업 수행 성공률이 낮고, 같은 task도 실행마다 결과 차이가 큽니다.
-- 에이전트는 제한된 관측 채널만 받기 때문에 실제 사용자처럼 모든 문맥을 알 수는 없습니다.
-- `screenreader` 모드는 backend 품질과 환경 상태에 크게 영향을 받습니다.
-- `screenreader + guidepup-voiceover` 조합에서는 `typeText` 후 synthetic announcement가 쓰일 수 있습니다.
-- 자유로운 텍스트 생성 입력은 허용하지 않고, task가 제공한 값만 입력합니다.
-- 결과를 실제 접근성 품질의 확정 판정으로 사용하기에는 아직 불안정합니다.
+## 환경 프로필과 비교
 
-## 라이선스
+```sh
+npm run rawstep -- matrix examples/profiles/task.json \
+  --profiles default,reflow-text,forced-colors \
+  --model-endpoint http://127.0.0.1:8767/choose --out runs/matrix-01
+```
 
-이 프로젝트는 MIT License로 공개됩니다.  
-전체 문구는 [LICENSE](./LICENSE) 파일을 보면 됩니다.
+화면 크기, 페이지 텍스트 확대·간격, 색상·강제색·대비·모션 미디어 조건과 AT 버전 등을 요청값과 관측값으로 기록합니다. 브라우저 미디어 에뮬레이션, 페이지 사용자 스타일과 네이티브 OS 설정은 구분합니다. 진짜 브라우저 줌은 검증된 Chromium 탭 줌 연결이 필요합니다. 사용할 수 없으면 CSS 확대나 핀치를 대신 적용했다고 주장하지 않고 unsupported로 남깁니다. OS 돋보기와 고대비 제어는 브라우저 어댑터가 제공하지 않습니다.
+
+포커스 순서·가림 후보·잘림·겹침·오류 상태는 모델에게 주지 않는 별도 진단입니다. 비교 보고서는 성공, 의심 문제, 모델 실패, 런타임 오류, 미지원 환경·패턴과 사람이 보고한 결과를 구분합니다. `--human-evidence`는 동의와 출처가 있는 동일 작업의 실제 사용자·검토자 결과를 연결하며, 가짜 사용자 테스트를 만들지 않습니다. [프로필 안내](./docs/environment-profiles.md)를 참고하세요.
+
+## 모노레포와 라이브러리
+
+| 패키지 | 역할 |
+|---|---|
+| `@rawstep/core` | 계약, 작업·프로필 스키마, trace 기록 |
+| `@rawstep/policies` | 정책, 화면 모델 어댑터, 정지 이유 가설 |
+| `@rawstep/browser` | 브라우저, runner, 검증, 키보드와 환경 진단 |
+| `@rawstep/screenreaders` | AT Driver, Orca, 모의 실행과 출처별 코퍼스 |
+| `@rawstep/reports` | 저장된 trace 분석·보고서 |
+| `@rawstep/dashboard` | shadcn·json-render UI, 로컬 설정 API와 모델·프롬프트 실험 큐 |
+| `@rawstep/cli` | 명령과 환경 matrix 실행 |
+| `rawstep` | 기존 import와 실행 파일을 유지하는 호환 facade |
+
+각 구현은 `packages/<이름>/src`에 있고, 각 패키지가 자기 빌드 결과와 의존성을 소유합니다. `rawstep/screenshot`, `rawstep/runner`, `rawstep/trace`, `rawstep/orca`, `rawstep/matrix` 등의 기존 import는 유지됩니다. facade에 구현을 복제하지 않습니다.
+
+```js
+import { runScreenshotTask, ScreenshotDecisionPolicy, HttpScreenshotModel } from 'rawstep/screenshot';
+const policy = new ScreenshotDecisionPolicy({
+  model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose' }),
+});
+await runScreenshotTask(task, { policy, outDir: 'runs/example' });
+```
+
+### npm 게시 없이 다른 프로젝트에서 쓰기
+
+```sh
+npm run pack:all
+# 별도의 프로젝트에서 로컬 패키지 묶음을 설치합니다
+npm install /절대/경로/rawstep/artifacts/*.tgz
+npx rawstep --help
+```
+
+`artifacts/INSTALL.md`, `packages.json`, `SHA256SUMS`에 패키지 묶음과 해시가 저장됩니다. 아직 npm에 없는 내부 의존성을 내려받을 수는 없으므로, 의존하는 tarball 하나만 설치하지 말고 안내된 로컬 의존성 묶음을 함께 설치해야 합니다. core·policies·reports만 사용하는 경우에는 해당 묶음만 설치할 수 있고 Playwright가 필수는 아닙니다.
+
+## 개인정보와 안전
+
+이전 결과를 덮어쓰지 않도록 새 출력 폴더를 사용합니다. 이름 있는 입력값은 기본적으로 숨기며, 입력 후에는 화면·모델 근거·자유 형식 진단도 저장에서 제외합니다. 다만 활성 모델에게 보내는 화면이 trace의 가림 처리 때문에 익명화되는 것은 아닙니다. 원격 HTTPS 모델 전송에는 명시적인 허용이 필요합니다. 사용자 정책·분석기는 신뢰된 실행 코드이며 악성 코드를 격리하는 sandbox가 아닙니다.
+
+공개 사이트 테스트에서는 변경 요청과 계정·편집·결제·신청 경로를 막을 수 있습니다. 접근 제한·사람 확인·TLS 경고를 우회하지 않습니다. `--proxy-server`는 이미 사용 가능한 인증정보 없는 프록시를 명시적으로 선택하는 옵션이며, 인증서 신뢰나 TLS 검증을 완화하지 않습니다.
+
+## 검사
+
+```sh
+npm run check
+npm run test:orca-native
+```
+
+전체 검사는 workspace 빌드, 소스·테스트 타입 검사, 기본 테스트 전체, 각 패키지의 로컬 의존성 묶음 격리 설치를 포함합니다. facade 검사는 실제 Chromium, 프로토콜, 취소, 기록 실패와 보고서를 확인합니다. Python 단위 검사가 통과해도 실제 Orca 발화가 검증된 것은 아닙니다.
+
+V5 workspace는 깨끗한 frozen-lock 소스 설치·타입 검사·패키지 격리 설치와 JS/TS 641개(34개 파일), Python 30개 단위 검사를 통과했습니다. [V5 완료 보고서](./docs/completion-v5.ko.md)는 요청한 9개 항목의 통과·부분 구현·차단 상태를 구분합니다. 물리적 패키지 이동 전 통합 게이트는 JS/TS623개와 Python30개 검사를 통과했습니다. [과거 화면 모델 측정](./docs/screenshot-verification.md)과 [V4 보고서](./docs/completion-v4.ko.md)는 당시 기록입니다. 최종 전달 버전의 workspace 검증과 혼동하지 마세요. 추가 안내: [네이티브 Orca](./docs/native-orca.md), [코퍼스 범위](./docs/screenreader-evidence.md), [CLI](./docs/cli.md), [소스 지도](./docs/editing-map.ko.md).
+
+### 추가 실험 기능
+
+[화면 포커스 확인, 고정 화면 비교 실험, 검증된 경로 재실행](./docs/visual-improvement-study.md)을 선택적으로 사용할 수 있습니다. 기본 정책은 그대로이며, 모델의 포커스 추정과 키보드 재실행 결과는 접근성 인증이나 실제 스크린 리더 검증을 대신하지 않습니다.

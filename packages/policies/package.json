@@ -1,0 +1,68 @@
+{
+  "name": "@rawstep/policies",
+  "version": "0.2.0",
+  "description": "Rawstep policies workspace",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./systemone": {
+      "types": "./dist/systemone/index.d.ts",
+      "import": "./dist/systemone/index.js",
+      "default": "./dist/systemone/index.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./policy": {
+      "types": "./dist/policy/index.d.ts",
+      "import": "./dist/policy/index.js",
+      "default": "./dist/policy/index.js"
+    },
+    "./screenshot/model": {
+      "types": "./dist/screenshot/model.d.ts",
+      "import": "./dist/screenshot/model.js",
+      "default": "./dist/screenshot/model.js"
+    },
+    "./screenshot/policy": {
+      "types": "./dist/screenshot/policy.d.ts",
+      "import": "./dist/screenshot/policy.js",
+      "default": "./dist/screenshot/policy.js"
+    },
+    "./screenshot/stop-reason": {
+      "types": "./dist/screenshot/stop-reason.d.ts",
+      "import": "./dist/screenshot/stop-reason.js",
+      "default": "./dist/screenshot/stop-reason.js"
+    },
+    "./package.json": "./package.json",
+    "./screenshot/replay": {
+      "types": "./dist/screenshot/replay.d.ts",
+      "import": "./dist/screenshot/replay.js",
+      "default": "./dist/screenshot/replay.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/policies"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*"
+  }
+}

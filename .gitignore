@@ -5,5 +5,22 @@ coverage
 playwright-report
 test-results
 .env
+.env.*
+!.env.example
 .rawstep
 *.tsbuildinfo
+
+artifacts/
+
+# Release assets copied by scripts/build.mjs; the originals live at the root.
+/packages/rawstep/docs/
+/packages/rawstep/examples/
+/packages/rawstep/fixtures/
+/packages/rawstep/README.md
+/packages/rawstep/README.ko.md
+
+__pycache__/
+*.pyc
+
+# Local dashboard settings written by `rawstep ui`.
+rawstep.dashboard.json

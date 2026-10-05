@@ -1,0 +1,138 @@
+{
+  "root": "permissions",
+  "elements": {
+    "permissions": {
+      "type": "Card",
+      "props": {
+        "title": "허용 기능",
+        "description": "실행 모드별로 모델이 선택할 행동을 지정합니다.",
+        "maxWidth": "full",
+        "centered": false,
+        "className": "bg-card/40"
+      },
+      "children": [
+        "actions"
+      ]
+    },
+    "actions": {
+      "type": "Stack",
+      "props": {
+        "direction": "vertical",
+        "gap": "lg",
+        "align": "stretch",
+        "justify": "start",
+        "className": null
+      },
+      "children": [
+        "navigation",
+        "forward",
+        "backward",
+        "extraNavigation",
+        "activate",
+        "divider",
+        "input",
+        "textEntry",
+        "replaceText"
+      ]
+    },
+    "navigation": {
+      "type": "Text",
+      "props": {
+        "text": "탐색과 활성화",
+        "variant": "muted"
+      },
+      "children": []
+    },
+    "divider": {
+      "type": "Separator",
+      "props": {},
+      "children": []
+    },
+    "input": {
+      "type": "Text",
+      "props": {
+        "text": "작업 입력값",
+        "variant": "muted"
+      },
+      "children": []
+    },
+    "forward": {
+      "type": "Checkbox",
+      "props": {
+        "label": "Tab으로 다음 포커스 이동",
+        "name": "keyboard-forward",
+        "checked": {
+          "$bindState": "/keyboard/forward"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "backward": {
+      "type": "Checkbox",
+      "props": {
+        "label": "Shift+Tab으로 이전 포커스 이동",
+        "name": "keyboard-backward",
+        "checked": {
+          "$bindState": "/keyboard/backward"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "extraNavigation": {
+      "type": "Checkbox",
+      "props": {
+        "label": "방향키와 페이지 이동",
+        "name": "keyboard-extraNavigation",
+        "checked": {
+          "$bindState": "/keyboard/extraNavigation"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "activate": {
+      "type": "Checkbox",
+      "props": {
+        "label": "Enter · Space로 활성화",
+        "name": "keyboard-activate",
+        "checked": {
+          "$bindState": "/keyboard/activate"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "textEntry": {
+      "type": "Switch",
+      "props": {
+        "label": "텍스트 입력 허용",
+        "name": "keyboard-textEntry",
+        "checked": {
+          "$bindState": "/keyboard/textEntry"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "replaceText": {
+      "type": "Switch",
+      "props": {
+        "label": "기존 값 교체 허용",
+        "name": "keyboard-replaceText",
+        "checked": {
+          "$bindState": "/keyboard/replaceText"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    }
+  }
+}

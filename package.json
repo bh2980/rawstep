@@ -1,18 +1,49 @@
 {
   "name": "rawstep-workspace",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
+  "license": "MIT",
   "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
-    "build": "pnpm generate:actions && pnpm -r build",
-    "generate:actions": "tsx packages/action-catalog/scripts/generate.ts",
-    "test": "pnpm generate:actions && vitest run",
-    "rawstep": "tsx --tsconfig tsconfig.json apps/cli/src/index.ts"
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs && tsc -p tsconfig.tests.json --noEmit",
+    "test": "vitest run",
+    "test:v2": "vitest run tests/*-v2.test.ts",
+    "rawstep": "node packages/cli/dist/cli/bin.js",
+    "dashboard": "node packages/dashboard/dist/server/bin.js",
+    "dashboard:build": "corepack pnpm --filter @rawstep/dashboard build",
+    "dashboard:preview": "corepack pnpm --filter @rawstep/dashboard preview",
+    "test:package": "node scripts/smoke-package.mjs",
+    "check": "npm run build && npm run typecheck && npm run test:all && npm run test:package",
+    "test:all": "npm test && npm run test:integration",
+    "test:integration": "node scripts/test-browser.mjs",
+    "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
+    "pack:all": "node scripts/pack-workspace.mjs",
+    "test:source": "node scripts/smoke-source.mjs",
+    "verify:voiceover": "node scripts/verify-voiceover.mjs",
+    "verify:multimodal": "node scripts/verify-multimodal.mjs",
+    "try:openrouter": "npm run build && node scripts/try-openrouter.mjs",
+    "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",
+    "test:dashboard-python": "python3 -m unittest discover -s tests -p \"test_dashboard_prompt_control.py\""
   },
   "devDependencies": {
-    "@types/node": "^22.18.6",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.4",
-    "zod": "^4.3.6"
+    "@types/jsdom": "30.0.0",
+    "@types/node": "22.19.17",
+    "jsdom": "30.1.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.4",
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/screenreaders": "workspace:*",
+    "@rawstep/reports": "workspace:*",
+    "@rawstep/cli": "workspace:*",
+    "rawstep": "workspace:*",
+    "playwright": "1.59.1"
   }
 }

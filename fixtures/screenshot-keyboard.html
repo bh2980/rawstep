@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Keyboard exploration lab</title>
+<style>
+body{font:24px system-ui,sans-serif;background:#f4f6fa;color:#152137;margin:50px;max-width:900px}h1{font-size:38px}button,input,select{font:inherit;padding:14px 22px;margin:12px 14px 12px 0;border:2px solid #727d8e;border-radius:6px;background:white;color:#152137}button:focus-visible,input:focus-visible,select:focus-visible{outline:7px solid #ef6400;outline-offset:5px}button{cursor:pointer}.panel{padding:20px;background:white;border-radius:12px}.status{font-weight:700;color:#11603c;min-height:40px}.help{font-size:19px;color:#49556a}dialog{padding:30px;border:3px solid #2b4667}label{display:block}
+</style>
+<h1>Keyboard exploration lab</h1><p>Complete the task using keyboard only. The orange outline marks keyboard focus.</p>
+<section class="panel"><button id="open">Open settings</button><button id="finish">Finish task</button><p id="status" class="status" role="status">Task not completed</p></section>
+<p class="help">Extra controls for optional exploration</p><label>Display name <input id="name" autocomplete="off"></label><label>Theme <select id="theme"><option>Light</option><option>Dark</option><option>High contrast</option></select></label><button id="toggle" aria-pressed="false">Enable notifications</button>
+<dialog id="settings"><h2>Settings</h2><p>Press Escape or activate Close settings to return.</p><button id="close">Close settings</button></dialog>
+<script>
+const dialog=document.getElementById('settings');document.getElementById('open').onclick=()=>dialog.showModal();document.getElementById('close').onclick=()=>dialog.close();document.getElementById('finish').onclick=()=>document.getElementById('status').textContent='Task completed successfully';document.getElementById('toggle').onclick=e=>{const enabled=e.target.getAttribute('aria-pressed')==='true';e.target.setAttribute('aria-pressed',String(!enabled));e.target.textContent=enabled?'Enable notifications':'Disable notifications'};
+</script></html>

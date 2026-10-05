@@ -1,0 +1,8 @@
+{
+  "id": "simple-cta-at-driver",
+  "url": "../../fixtures/simple-cta.html",
+  "goal": "Find and activate the Get started button.",
+  "maxSteps": 12,
+  "timeoutMs": 120000,
+  "verify": { "all": [{ "titleIncludes": "Completed" }] }
+}

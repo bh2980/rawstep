@@ -1,0 +1,609 @@
+[
+  {
+    "observationId": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "15.5",
+      "browser": "Safari",
+      "browserVersion": "18.5",
+      "os": "macOS",
+      "osVersion": "15.5",
+      "testedOn": "2025-07-25",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "action, toggle button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Action",
+      "pressed": false
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Navigation wording only for plain toggle buttons; does not cover state-change activation speech.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:2",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/2",
+    "sourceSha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "15.5",
+      "browser": "Safari",
+      "browserVersion": "18.5",
+      "os": "macOS",
+      "osVersion": "15.5",
+      "testedOn": "2025-07-25",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "action, selected, toggle button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Action",
+      "pressed": true
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Navigation wording only for plain toggle buttons; does not cover state-change activation speech.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:4",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/4",
+    "sourceSha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "15.5",
+      "browser": "Safari",
+      "browserVersion": "18.5",
+      "os": "macOS",
+      "osVersion": "15.5",
+      "testedOn": "2025-07-25",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "action, mixed, toggle button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Action",
+      "pressed": "mixed"
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Navigation wording only for plain toggle buttons; does not cover state-change activation speech.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:6",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/6",
+    "sourceSha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "15.5",
+      "browser": "Safari",
+      "browserVersion": "18.5",
+      "os": "macOS",
+      "osVersion": "15.5",
+      "testedOn": "2025-07-25",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "action, button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Action"
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Navigation wording only for plain toggle buttons; does not cover state-change activation speech.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/html/input/input-checkbox:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/input/input-checkbox.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "829abcfd69209f861f8b1b43f818626a152362f1252cae107a4a10f3e0ca9e1e",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.15",
+      "browser": "Safari",
+      "browserVersion": "13.0.3",
+      "os": "macOS",
+      "osVersion": "10.15",
+      "testedOn": "2019-12-06",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "yes, unchecked, checkbox",
+    "semanticInput": {
+      "role": "checkbox",
+      "name": "Yes",
+      "checked": false
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "VO+Right navigation; do not append fieldset legend to this record.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:apg/checkbox-two-state:vo_macos:safari:20",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/apg/checkbox-two-state.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/20",
+    "sourceSha256": "488e81f889ff5519152266a015919c423fdf69884ea9a09190b13c5b62756efa",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.14.5",
+      "browser": "Safari",
+      "browserVersion": "12.1.1",
+      "os": "macOS",
+      "osVersion": "10.14.5",
+      "testedOn": "2019-05-24",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "Tomato, checked, checkbox",
+    "semanticInput": {
+      "role": "checkbox",
+      "name": "Tomato",
+      "checked": true
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Navigation to checked ARIA checkbox.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/html/buttons:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/buttons.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "cc6b6ebe673609686d02c7eb2c3d08acd22e3b8c33ef57e7314f1fe20c83bcfa",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.14.5",
+      "browser": "Safari",
+      "browserVersion": "12.1.1",
+      "os": "macOS",
+      "osVersion": "10.14.5",
+      "testedOn": "2019-08-10",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "apply, button",
+    "semanticInput": {
+      "role": "button",
+      "name": "apply"
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Simple input type=button navigation.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/html/links/example1:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/links/example1.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "0a07dac9c87332fab975500a8d130f1da41efb973d8ebfc44fe91df63c33734d",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.14.5",
+      "browser": "Safari",
+      "browserVersion": "12.1.1",
+      "os": "macOS",
+      "osVersion": "10.14.5",
+      "testedOn": "2019-07-24",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_item",
+      "definition": {
+        "command": "VO + Right arrow",
+        "name": "Read next item",
+        "tags": [
+          "common",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "link, sample",
+    "semanticInput": {
+      "role": "link",
+      "name": "sample"
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Simple unvisited link navigation.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-expanded:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-expanded.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "48d710204df6e4df676c46b09fa801d6690e39ef73c9105bb7f3ec3339490f29",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.15.4",
+      "browser": "Safari",
+      "browserVersion": "13.1",
+      "os": "macOS",
+      "osVersion": "10.15.4",
+      "testedOn": "2020-03-30",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_focusable_item",
+      "definition": {
+        "command": "Tab",
+        "name": "Read next focusable item",
+        "tags": [
+          "forms",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": "tab to the button with it collapsed"
+    },
+    "reportedSpeech": "show more, collapsed, button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Show more",
+      "expanded": false
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Tab navigation onto collapsed disclosure button.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-expanded:vo_macos:safari:1",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-expanded.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/1",
+    "sourceSha256": "48d710204df6e4df676c46b09fa801d6690e39ef73c9105bb7f3ec3339490f29",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.15.4",
+      "browser": "Safari",
+      "browserVersion": "13.1",
+      "os": "macOS",
+      "osVersion": "10.15.4",
+      "testedOn": "2020-03-30",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_focusable_item",
+      "definition": {
+        "command": "Tab",
+        "name": "Read next focusable item",
+        "tags": [
+          "forms",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": "tab to the button with it expanded"
+    },
+    "reportedSpeech": "show more, expanded, button",
+    "semanticInput": {
+      "role": "button",
+      "name": "Show more",
+      "expanded": true
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Tab navigation onto expanded disclosure button.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-required:vo_macos:safari:0",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/0",
+    "sourceSha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.14.5",
+      "browser": "Safari",
+      "browserVersion": "12.1.1",
+      "os": "macOS",
+      "osVersion": "10.14.5",
+      "testedOn": "2019-07-01",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_focusable_item",
+      "definition": {
+        "command": "Tab",
+        "name": "Read next focusable item",
+        "tags": [
+          "forms",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "Fruit, edit text.",
+    "semanticInput": {
+      "role": "textbox",
+      "name": "Fruit"
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Tab navigation onto empty non-required text field.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/aria/aria-required:vo_macos:safari:1",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/1",
+    "sourceSha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.14.5",
+      "browser": "Safari",
+      "browserVersion": "12.1.1",
+      "os": "macOS",
+      "osVersion": "10.14.5",
+      "testedOn": "2019-07-01",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_focusable_item",
+      "definition": {
+        "command": "Tab",
+        "name": "Read next focusable item",
+        "tags": [
+          "forms",
+          "reading",
+          "sr/reading",
+          "sr/interaction"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "Veggie, required, edit text.",
+    "semanticInput": {
+      "role": "textbox",
+      "name": "Veggie",
+      "required": true
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Tab navigation onto empty required text field.",
+    "runtimeEvidenceProvenance": "simulation"
+  },
+  {
+    "observationId": "a11ysupport:tech/html/textarea:vo_macos:safari:3",
+    "sourceUrl": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/textarea.json",
+    "sourceJsonPointer": "/commands/vo_macos/safari/3",
+    "sourceSha256": "5f92b572792cc95fb9931d8166b6173ae2fdf592c4a8b061ebaf3711681d48d1",
+    "environment": {
+      "at": "VoiceOver (macOS)",
+      "atVersion": "10.15.2",
+      "browser": "Safari",
+      "browserVersion": "13.0.4",
+      "os": "macOS",
+      "osVersion": "10.15.2",
+      "testedOn": "2020-01-03",
+      "speechLanguage": "en (inferred from output; not an explicit AT locale setting)",
+      "quickNav": null,
+      "verbosity": null,
+      "punctuation": null,
+      "keyboardLayout": null,
+      "voice": null,
+      "unknownSettingsPolicy": "null means not reported; do not substitute defaults"
+    },
+    "action": {
+      "id": "next_form_field",
+      "definition": {
+        "command": "VO + Command + J",
+        "name": "Next Form Control",
+        "tags": [
+          "elements",
+          "forms",
+          "sr/reading"
+        ]
+      },
+      "definitionSource": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/ATBrowsers.json",
+      "sourceNotes": null
+    },
+    "reportedSpeech": "tell us about yourself, edit text, buffalo buffalo buffalo",
+    "semanticInput": {
+      "role": "textbox",
+      "name": "Tell us about yourself",
+      "value": "buffalo buffalo buffalo",
+      "multiline": true
+    },
+    "semanticInputProvenance": "Manually abstracted from pinned test HTML and recorded action/state; not an observed native AX tree",
+    "comparison": "case-insensitive, collapse whitespace, ignore comma/full-stop separators; preserve token order and all other words",
+    "scope": "Next form field navigation onto textarea; name, edit text, value in this observation.",
+    "runtimeEvidenceProvenance": "simulation"
+  }
+]

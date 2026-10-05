@@ -1,23 +1,13 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "paths": {
-      "@rawstep/action-catalog": ["./packages/action-catalog/src"],
-      "@rawstep/definition": ["./packages/definition/src"],
-      "@rawstep/config": ["./packages/config/src"],
-      "@rawstep/agent": ["./packages/agent/src"],
-      "@rawstep/runtime": ["./packages/runtime/src"],
-      "@rawstep/reporter": ["./packages/reporter/src"]
-    }
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "noEmit": true
   },
-  "include": ["./.env.d.ts", "./rawstep.config.ts"],
-  "references": [
-    { "path": "./packages/action-catalog" },
-    { "path": "./packages/definition" },
-    { "path": "./packages/agent" },
-    { "path": "./packages/config" },
-    { "path": "./packages/runtime" },
-    { "path": "./packages/reporter" },
-    { "path": "./apps/cli" }
-  ]
+  "include": [
+    "packages/*/src/**/*.ts"
+  ],
+  "exclude": ["packages/dashboard"]
 }

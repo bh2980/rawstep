@@ -1,0 +1,61 @@
+{
+  "name": "@rawstep/core",
+  "version": "0.2.0",
+  "description": "Rawstep core workspace",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "default": "./dist/contracts/index.js"
+    },
+    "./profiles/schema": {
+      "types": "./dist/profiles/schema.d.ts",
+      "import": "./dist/profiles/schema.js",
+      "default": "./dist/profiles/schema.js"
+    },
+    "./profiles/types": {
+      "types": "./dist/profiles/types.d.ts",
+      "import": "./dist/profiles/types.js",
+      "default": "./dist/profiles/types.js"
+    },
+    "./screenshot": {
+      "types": "./dist/screenshot.d.ts",
+      "import": "./dist/screenshot.js",
+      "default": "./dist/screenshot.js"
+    },
+    "./trace": {
+      "types": "./dist/trace/index.d.ts",
+      "import": "./dist/trace/index.js",
+      "default": "./dist/trace/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/core"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,151 @@
+{
+  "name": "rawstep",
+  "version": "0.2.0",
+  "description": "Record screen-reader or screenshot-keyboard task traces with pluggable decision policies and post-run analysis",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./systemone": {
+      "types": "./dist/systemone/index.d.ts",
+      "import": "./dist/systemone/index.js",
+      "default": "./dist/systemone/index.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "default": "./dist/contracts/index.js"
+    },
+    "./at-driver": {
+      "types": "./dist/at-driver/index.d.ts",
+      "import": "./dist/at-driver/index.js",
+      "default": "./dist/at-driver/index.js"
+    },
+    "./mock-voiceover": {
+      "types": "./dist/mock-voiceover/index.d.ts",
+      "import": "./dist/mock-voiceover/index.js",
+      "default": "./dist/mock-voiceover/index.js"
+    },
+    "./policy": {
+      "types": "./dist/policy/index.d.ts",
+      "import": "./dist/policy/index.js",
+      "default": "./dist/policy/index.js"
+    },
+    "./runner": {
+      "types": "./dist/runner/index.d.ts",
+      "import": "./dist/runner/index.js",
+      "default": "./dist/runner/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "default": "./dist/browser/index.js"
+    },
+    "./verify": {
+      "types": "./dist/verify/index.d.ts",
+      "import": "./dist/verify/index.js",
+      "default": "./dist/verify/index.js"
+    },
+    "./trace": {
+      "types": "./dist/trace/index.d.ts",
+      "import": "./dist/trace/index.js",
+      "default": "./dist/trace/index.js"
+    },
+    "./analyze": {
+      "types": "./dist/analyze/index.d.ts",
+      "import": "./dist/analyze/index.js",
+      "default": "./dist/analyze/index.js"
+    },
+    "./report": {
+      "types": "./dist/report/index.d.ts",
+      "import": "./dist/report/index.js",
+      "default": "./dist/report/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "default": "./dist/cli/index.js"
+    },
+    "./package.json": "./package.json",
+    "./screenshot": {
+      "types": "./dist/screenshot/index.d.ts",
+      "import": "./dist/screenshot/index.js",
+      "default": "./dist/screenshot/index.js"
+    },
+    "./profiles": {
+      "types": "./dist/profiles/index.d.ts",
+      "import": "./dist/profiles/index.js",
+      "default": "./dist/profiles/index.js"
+    },
+    "./matrix": {
+      "types": "./dist/matrix/index.d.ts",
+      "import": "./dist/matrix/index.js",
+      "default": "./dist/matrix/index.js"
+    },
+    "./orca": {
+      "types": "./dist/orca/index.d.ts",
+      "import": "./dist/orca/index.js",
+      "default": "./dist/orca/index.js"
+    },
+    "./evidence": {
+      "types": "./dist/evidence/index.d.ts",
+      "import": "./dist/evidence/index.js",
+      "default": "./dist/evidence/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.ko.md",
+    "LICENSE",
+    "docs/*.md",
+    "examples/v2",
+    "fixtures/simple-cta.html",
+    "fixtures/native-voiceover.html",
+    "fixtures/mock-voiceover-system.html",
+    "examples/screenshot/*.json",
+    "examples/screenshot/*.mjs",
+    "examples/screenshot/*.md",
+    "examples/screenshot/*.py",
+    "examples/screenshot/*.txt",
+    "fixtures/screenshot-keyboard.html",
+    "fixtures/screenshot-workflow.html",
+    "examples/profiles/*.json",
+    "examples/profiles/*.md",
+    "examples/orca/*.mjs",
+    "examples/orca/*.html",
+    "examples/orca/*.md",
+    "fixtures/environment-lab.html",
+    "fixtures/visual-study/*.html"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/rawstep"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/screenreaders": "workspace:*",
+    "@rawstep/reports": "workspace:*",
+    "@rawstep/cli": "workspace:*"
+  },
+  "bin": {
+    "rawstep": "./dist/cli/bin.js"
+  }
+}

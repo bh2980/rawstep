@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Keyboard study controls</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1f5fa;color:#13223a;font:22px Arial,sans-serif}main{max-width:900px;margin:70px auto;padding:44px;background:white;border:1px solid #b6c4d6;border-radius:14px}h1{font-size:34px;margin:0 0 28px}p{line-height:1.5}label{display:block;font-weight:bold;margin-bottom:12px}input,button{font:inherit;padding:16px 20px;border:2px solid #68788d;border-radius:6px;margin:10px 16px 16px 0}input{width:420px}button{background:#eef2f7;color:#172a46}button.primary{background:#1355a5;color:white}*:focus-visible{outline:5px solid #e26900;outline-offset:5px}.invisible :focus,.invisible :focus-visible{outline:none;box-shadow:none}.panel{padding:24px;border:2px solid #738299;margin-bottom:24px}.overlay{position:fixed;left:calc(50% - 450px);top:350px;width:900px;height:230px;background:#e8ecf3;border:2px solid #738299;z-index:4;padding:24px}.note{color:#52647b;font-size:18px}#result{font-weight:bold;color:#176a37}
+</style><main id="content"></main>
+<script>
+const p=new URLSearchParams(location.search),scenario=p.get('scenario')||'search',defect=p.get('defect')||'normal';
+if(defect==='invisible')document.body.classList.add('invisible');
+if(scenario==='search'){
+ content.innerHTML='<h1>Library search</h1><p>Find a book in the local catalogue.</p><form><label for="query">Search books</label><input id="query" autocomplete="off"><button class="primary">Search</button></form><p id="result" role="status"></p>';
+ document.querySelector('form').onsubmit=e=>{e.preventDefault();result.textContent='Results for '+query.value};
+}else{
+ content.innerHTML='<h1>Reading preferences</h1><p>Preview your choice, then apply the settings below.</p><section class="panel" aria-label="Preview panel"><button id="preview">Preview</button><p class="note">The preview does not save settings.</p></section><button class="primary" id="apply">Apply settings</button><p id="result" role="status"></p>';
+ apply.onclick=()=>{result.textContent='Settings applied'};
+ if(defect==='trap')document.addEventListener('keydown',e=>{if(['Tab','Escape'].includes(e.key)&&document.activeElement===preview){e.preventDefault();preview.focus()}});
+ if(defect==='occluded'){const cover=document.createElement('div');cover.className='overlay';cover.textContent='Preview help panel: this panel overlaps the page controls';document.body.append(cover)}
+}
+</script></html>

@@ -1,0 +1,9 @@
+{
+  "id": "openrouter-simple-cta",
+  "mode": "keyboard",
+  "url": "../../fixtures/simple-cta.html",
+  "goal": "Use keyboard navigation to focus and activate the Get started button. Stop when the visible status says Started!",
+  "maxSteps": 6,
+  "timeoutMs": 45000,
+  "verify": { "all": [{ "titleIncludes": "Completed - Simple CTA Fixture" }, { "textVisibleExact": "Started!" }] }
+}

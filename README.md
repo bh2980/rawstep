@@ -1,180 +1,120 @@
-# RawStep
+# Rawstep
 
 English | [한국어](./README.ko.md)
 
-> An experimental runner for recording keyboard and screen reader task bottlenecks under limited observation
+A local-first monorepo for recording keyboard and screen-reader task attempts, with pluggable decision policies, independent verification, environment comparisons and source-linked reports.
 
-> [!WARNING]
-> RawStep is not a stable accessibility diagnostic tool intended for real production use.
-> It is a prototype for observing where an agent fails while attempting a task under a limited observation channel.
-> At the moment, actual task success rates and reproducibility are low, and results can vary significantly depending on the model, backend, and environment state.
+**Experimental, not an accessibility certification tool.** Task completion, visual-model confidence, simulated wording and imported reviewer claims are different evidence. None establishes whole-site accessibility or native assistive-technology parity.
 
-## Overview
+## Run the source locally
 
-Tools like axe-core and Lighthouse are good at finding DOM issues and rule violations.  
-But they do not show very well where real users get stuck while trying to complete a task.
+Requires Node.js22+ and the pinned pnpm version in `package.json`. Nothing needs to be published to npm.
 
-RawStep lets an agent attempt the task directly within a limited observation channel and a limited action set,
-then records the process as traces and reports so you can review the bottleneck points afterward.
-
-What RawStep is mainly meant to help you inspect:
-
-- Whether it gets closer to the goal when moving like a keyboard user
-- Whether a screen reader user could choose the next action using only the information that is actually read out
-- How many steps it took before success or failure
-- At which point it started wandering
-- Whether success was actually confirmed by the verifier
-
-| Item | Rule-based tools | RawStep |
-|------|------------------|---------|
-| Evaluation unit | Rule violations | Task completion |
-| Input | DOM / ARIA | Screenshot or screen reader announcement |
-| Output | Pass/fail by rule | Trace, metrics, prompts, HTML report |
-| Bottleneck localization | Relatively weak | Experimental attempt to trace bottlenecks |
-| Real user flow reproduction | Indirect | Direct attempt under limited conditions |
-
-The table above is not meant as a performance ranking. It is closer to a simplified picture of the kind of experiment RawStep is trying to run.
-
-## Better Fit For
-
-- Experimenting with accessibility tasks through an agent
-- Inspecting failure traces and bottleneck points more than success rates
-- Exploring prompt, observer, verifier, and report structure
-- Building an internal harness for idea validation
-
-## Not Yet A Good Fit For
-
-- Pass/fail decisions for real production accessibility quality
-- Automation that replaces human testing
-- Stable regression-testing infrastructure
-- Highly reproducible operational diagnostics
-
-## What You Get
-
-Run output usually leaves the following files behind.
-
-- `trace.jsonl`: replay log for each step
-- `trace.json`: final merged trace
-- `metrics.json`: total step count, exit reason, action count, timing
-- `prompts.json`: prompts recorded per step
-- `report/index.html`: human-readable report
-- `diagnostics.jsonl`: created only when runtime warnings or errors exist
-
-These artifacts are closer to records for reviewing the experiment process and failure points than to a final verdict document.
-
-## Quick Start
-
-```bash
-pnpm install
-cp .env.sample .env
-# Fill in AI_PROVIDER, AI_API_KEY, and AI_MODEL in .env
-# If you use an openai-compatible provider, also fill in AI_BASE_URL
-pnpm rawstep run examples/tasks/simple-cta.json
+```sh
+corepack pnpm install --frozen-lockfile
+npm run build
+corepack pnpm --filter @rawstep/browser exec playwright install chromium
+npm run rawstep -- --help
+npm run rawstep -- profiles
 ```
 
-The default output path is `./.rawstep/out/<mode>/<taskId>/<runId>/`.  
-When the run finishes, the CLI prints the `report/index.html` path.
+Build before using the checkout CLI. A trusted existing Chromium can be selected with `--browser-executable`. Tests can use `RAWSTEP_TEST_BROWSER_PATH`; no sandbox-disabling arguments are required. See [local setup, packages and troubleshooting](./docs/local-development.md).
 
-If you need provider-specific request options, put them in `rawstep.config.ts > defaults.providerOptions`.
-For example, OpenAI-compatible reasoning settings now live under `providerOptions.openaiCompatible.*` instead of a dedicated `reasoningEffort` top-level field.
+## Execution modes
 
-This repo already includes a working default [rawstep.config.ts](./rawstep.config.ts).  
-At the beginning, it is easier to fill in `.env` and run the example tasks under `examples/tasks/` instead of creating a new config file from scratch.
+- `screenshot-run`: actual viewport pixels → multimodal model choice → keyboard input → new pixels. No DOM/AX, locator, verifier result or hidden focus context is sent to the built-in screenshot policy
+- `run --backend voiceover|nvda`: connect to an independently installed native AT Driver server on the supported host
+- `run --backend orca`: native Linux Orca speech-pipeline adapter with an explicitly paired visible browser/window. The development cloud could not provide the required native IPC; live speech is not claimed
+- `mock-run`: Chromium-backed simulated VoiceOver. Generated wording is always labelled simulation
+- `matrix`: repeat one task across verified environment profiles with independent traces and comparison reports
+- `analyze` / `report`: local saved-evidence analysis and escaped JSON/HTML reports; `analyze --llm` explicitly opts into post-run model analysis
 
-This example is mainly for checking the basic flow.  
-Even if it runs, that does not mean it can perform real-site tasks reliably.
+Version 0.2 adds provider-independent SystemOne speech/image decisions through `--decision systemone`. Decision and analysis are configured separately; libraries never auto-load env. `legacy-run` and `rawstep/legacy` are removed; migrate to `screenshot-run --script` or `--policy`. Saved 2.0/2.1 keyboard traces remain readable. See [SystemOne configuration and verification](./docs/systemone.md).
 
-## Execution Models
+`npm test` runs browser-free tests. `test:integration` runs browser suites serially with one worker; `test:all` and `check` retain aggregate coverage.
 
-### `keyboard`
+The runner owns action restrictions, named-input gates, navigation boundaries, time/step budgets, cancellation and fail-closed trace persistence. No scripted fallback replaces a poor model decision. Model-selected success is independently verified; stuck, uncertain, repeat-guard stop and runtime failure remain distinct.
 
-- Observation: current viewport screenshot, previous screenshot, focus hint, scroll hint
-- Actions: allowed keys such as `Tab`, `Shift+Tab`, arrows, `Enter`, `Space`, `Escape`, `Home`, `End`
-- Note: requires a model that can accept image input
+### Local dashboard
 
-### `screenreader`
+After building, run `npm run rawstep -- ui`; Node serves the UI and API together. Use `npm run dashboard:dev` for development. Manage connections/model discovery, task-owned prompts and permissions, individual or matrix runs, and persisted comparison in the separate dashboard workspace. Configuration and results use project files, with no database. Components use shadcn and the official json-render shadcn catalog/registry. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
-- Observation: announcement text, capture method, observe reason, readbacks
-- Actions: allowed screen reader actions such as `sr.next`, `sr.form.next`, `sr.heading.next`, `sr.act`, `sr.key.*`
-- Note: developer screenshots may be saved, but they are not included in agent input
+### Screenshot model example
 
-### Information Hidden from the Agent
+Start the separately installed [OneJev companion](./examples/screenshot/README.md), then:
 
-- DOM selectors
-- Accessibility tree
-- Full ARIA role/label information
-- Ground-truth answers about whether an element exists
-- Precise visual location data
-
-## Task Example
-
-A task file is the execution unit that says what should be done on which page.
-
-```json
-{
-  "url": "../../fixtures/simple-cta.html",
-  "goal": "Find and activate the Get started button, then leave the page in a state where the result message is visible.",
-  "verify": {
-    "all": [
-      { "textVisible": "Started!" },
-      { "titleIncludes": "Completed" }
-    ]
-  }
-}
+```sh
+npm run rawstep -- screenshot-run examples/screenshot/task.json \
+  --model-endpoint http://127.0.0.1:8766/choose --out runs/screenshot-01
+npm run rawstep -- analyze runs/screenshot-01
+npm run rawstep -- report runs/screenshot-01 --analysis runs/screenshot-01/analysis.json
 ```
 
-Common additional fields are listed below.
+An endpoint implements `rawstep-screenshot-choice-v1`, not the OpenAI chat-completions protocol. `--policy ./policy.mjs` supports another trusted model adapter. Optional `--diagnose-stop` performs a separate bounded reason-choice call after a suitable stop; its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions.
 
-- `id`
-- `mode`
-- `maxSteps`
-- `timeoutMs`
-- `input`
-- `prompt`
-- `config`
-- `verify`
+Model weights, Python environments, native AT servers and browser binaries are not npm dependencies and are never automatically downloaded on import/install. Actual local OneJev0.8B/4B experiments and their failures are documented separately; the publisher's GPU latency is not our CPU performance.
 
-See [docs/task.md](./docs/task.md) for the full spec.
+Experimental [visual focus gating, frozen-frame studies and exact-pixel replay](./docs/visual-improvement-study.md) are available as opt-in tools.
 
-## What You Can Inspect In The Report
+### Environment comparisons
 
-The report usually organizes the following information.
+```sh
+npm run rawstep -- matrix examples/profiles/task.json \
+  --profiles default,reflow-text,forced-colors \
+  --model-endpoint http://127.0.0.1:8767/choose --out runs/matrix-01
+```
 
-- Final success/failure
-- Failure point
-- Action breakdown
-- Timing overview
-- Step detail
-- Screen reader announcement evidence
-- Experience summary
-- Planning / reflection results
+Profiles cover viewport, page text enlargement/spacing, color scheme, forced-colors/contrast media, reduced motion, AT expectations and independently checked support. Browser media emulation and user styles are explicitly different from native OS settings. Genuine browser zoom needs a verified paired Chromium tab-zoom controller; an unsupported request stops instead of substituting CSS zoom or pinch. Native magnifier/high-contrast control is not implemented by the browser adapter.
 
-See [docs/report.md](./docs/report.md) for the report structure in detail.
+Focus order, possible occlusion, clipping, overlaps and error-state changes are separate browser diagnostics, never policy hints. Comparisons separate task completion, suspected issues, model failure, runtime error, unsupported environment/pattern and source-linked human findings. `--human-evidence` imports consenting reviewer records for the same task; the examples invent no user research. See [profiles and evidence limits](./docs/environment-profiles.md).
 
-### Report Preview
+## Library and package layout
 
-![RawStep report overview](./docs/assets/report-overview.png)
+| Workspace | Responsibility |
+|---|---|
+| `@rawstep/core` | Contracts, task/profile schema, trace data and persistence |
+| `@rawstep/policies` | Policy interface implementations, screenshot choice adapters, stop hypotheses |
+| `@rawstep/browser` | Browser, runner, verifier, keyboard adapters and environment diagnostics |
+| `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |
+| `@rawstep/reports` | Saved-trace analysis and reports |
+| `@rawstep/dashboard` | shadcn/json-render UI, local configuration API and experiment queue |
+| `@rawstep/cli` | Commands and matrix orchestration |
+| `rawstep` | Compatibility facade and executable |
 
-## Detailed Docs
+Code lives in `packages/<name>/src`; each package owns its compiled output and declared dependencies. Existing imports such as `rawstep/screenshot`, `rawstep/runner`, `rawstep/trace`, `rawstep/orca` and `rawstep/matrix` remain supported. The facade is not a second implementation.
 
-- [docs/task.md](./docs/task.md): task spec, `input`, `verify`, override rules
-- [docs/config.md](./docs/config.md): `rawstep.config.ts`, defaults, modes, planning, observe, precedence
-- [docs/cli.md](./docs/cli.md): CLI options, provider environment variables, allowed keys/actions
-- [docs/report.md](./docs/report.md): report structure and section descriptions
-- [docs/prompts.md](./docs/prompts.md): prompt file structure and template variables
-- [docs/editing-map.md](./docs/editing-map.md): editing entry points and post-change checks
+```js
+import { runScreenshotTask, ScreenshotDecisionPolicy, HttpScreenshotModel } from 'rawstep/screenshot';
+const policy = new ScreenshotDecisionPolicy({
+  model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose' }),
+});
+await runScreenshotTask(task, { policy, outDir: 'runs/example' });
+```
 
-## Current Limits
+### Local tarballs without publishing
 
-- This project is still in the prototype stage.
-- Actual task success rates are low, and even the same task can produce different results from run to run.
-- The agent only receives limited observation channels, so it does not know the full context the way a real user might.
-- `screenreader` mode is heavily affected by backend quality and environment state.
-- In the `screenreader + guidepup-voiceover` combination, a synthetic announcement may be used after `typeText`.
-- Free-form text generation for inputs is not allowed. The agent can only input values that the task provides.
-- It is still too unstable to use as a definitive pass/fail judgment tool for real accessibility quality.
+```sh
+npm run pack:all
+# In another project, install the full local dependency closure:
+npm install /absolute/path/to/rawstep/artifacts/*.tgz
+npx rawstep --help
+```
 
-## License
+`artifacts/INSTALL.md`, `packages.json` and `SHA256SUMS` describe the generated package set. Unpublished sibling packages cannot be fetched from npm by installing only a dependent tarball. Selective consumers can install a package's documented local dependency closure. Core, policies and reports do not require Playwright merely for their own imports.
 
-This project is licensed under the MIT License.  
-See [LICENSE](./LICENSE) for the full text.
+## Privacy and safety
+
+Fresh output directories preserve earlier runs. Named inputs are redacted by default; after text entry, screenshots and free diagnostic/model payloads are omitted because echoes cannot be reliably attributed. Live model screenshots are not anonymized by trace redaction. Remote HTTPS model transmission requires an explicit opt-in. Local policies/analyzers are trusted executable modules, not a sandbox for hostile code.
+
+Read-only public tests can block mutating methods and excluded account/edit/payment/application URLs. Access, human-verification and TLS barriers are not bypassed. `--proxy-server` explicitly selects an existing credential-free proxy; it does not change certificate trust or disable TLS verification.
+
+## Verification
+
+```sh
+npm run check
+npm run test:orca-native
+```
+
+The aggregate builds all workspaces, typechecks source/tests, runs all default tests and installs each package with its local dependency closure outside the checkout. The facade smoke covers actual Chromium, protocol roundtrips, cancellation, evidence-write failure and reports. Native Python tests are separate from live Orca validation.
+
+The V5 migrated-source gate passed 641 JavaScript/TypeScript tests across 34 files and 30 Python unit tests, including a fresh frozen-lock installation and independently installed package closures. The [V5 completion report](./docs/completion-v5.ko.md) maps all nine requested areas to verified, partial and blocked results. Before relocation, the integrated feature gate passed623 JavaScript/TypeScript tests and30 Python tests. Historical [screenshot measurements](./docs/screenshot-verification.md) and [V4 report](./docs/completion-v4.ko.md) remain historical snapshots, not substitutes for a current checkout check. The subsequent opt-in visual-policy study is described in [the visual study guide](./docs/visual-improvement-study.md). See [native Orca limits](./docs/native-orca.md), [corpus coverage](./docs/screenreader-evidence.md), [CLI guide](./docs/cli.md) and [source map](./docs/editing-map.md).

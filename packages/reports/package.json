@@ -1,0 +1,63 @@
+{
+  "name": "@rawstep/reports",
+  "version": "0.2.0",
+  "description": "Rawstep reports workspace",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./analyze/llm": {
+      "types": "./dist/analyze/llm.d.ts",
+      "import": "./dist/analyze/llm.js",
+      "default": "./dist/analyze/llm.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./analyze": {
+      "types": "./dist/analyze/index.d.ts",
+      "import": "./dist/analyze/index.js",
+      "default": "./dist/analyze/index.js"
+    },
+    "./report": {
+      "types": "./dist/report/index.d.ts",
+      "import": "./dist/report/index.js",
+      "default": "./dist/report/index.js"
+    },
+    "./report/summary": {
+      "types": "./dist/report/summary.d.ts",
+      "import": "./dist/report/summary.js",
+      "default": "./dist/report/summary.js"
+    },
+    "./screenshot/analysis": {
+      "types": "./dist/screenshot/analysis.d.ts",
+      "import": "./dist/screenshot/analysis.js",
+      "default": "./dist/screenshot/analysis.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/reports"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*"
+  }
+}

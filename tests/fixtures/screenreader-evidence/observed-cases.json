@@ -1,0 +1,1191 @@
+[
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-15.5-18.5",
+    "atVersion": "15.5",
+    "browser": "safari",
+    "browserVersion": "18.5",
+    "osVersion": "15.5",
+    "pattern": "toggle-button.false",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": false
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, toggle button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:2",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-15.5-18.5",
+    "atVersion": "15.5",
+    "browser": "safari",
+    "browserVersion": "18.5",
+    "osVersion": "15.5",
+    "pattern": "toggle-button.true",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": true
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, selected, toggle button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/vo_macos/safari/2",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:4",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-15.5-18.5",
+    "atVersion": "15.5",
+    "browser": "safari",
+    "browserVersion": "18.5",
+    "osVersion": "15.5",
+    "pattern": "toggle-button.mixed",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": "mixed"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, mixed, toggle button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/vo_macos/safari/4",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:vo_macos:safari:6",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-15.5-18.5",
+    "atVersion": "15.5",
+    "browser": "safari",
+    "browserVersion": "18.5",
+    "osVersion": "15.5",
+    "pattern": "button",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/vo_macos/safari/6",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/input/input-checkbox:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.15-13.0.3",
+    "atVersion": "10.15",
+    "browser": "safari",
+    "browserVersion": "13.0.3",
+    "osVersion": "10.15",
+    "pattern": "checkbox.unchecked",
+    "command": "next_item",
+    "elementKind": "checkbox",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "checkbox",
+      "name": "Yes",
+      "checked": false
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "yes, unchecked, checkbox",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/input/input-checkbox.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "829abcfd69209f861f8b1b43f818626a152362f1252cae107a4a10f3e0ca9e1e",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-12-06",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:apg/checkbox-two-state:vo_macos:safari:20",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.14.5-12.1.1",
+    "atVersion": "10.14.5",
+    "browser": "safari",
+    "browserVersion": "12.1.1",
+    "osVersion": "10.14.5",
+    "pattern": "checkbox.checked",
+    "command": "next_item",
+    "elementKind": "checkbox",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "checkbox",
+      "name": "Tomato",
+      "checked": true
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "Tomato, checked, checkbox",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/apg/checkbox-two-state.json",
+      "jsonPointer": "/commands/vo_macos/safari/20",
+      "sha256": "488e81f889ff5519152266a015919c423fdf69884ea9a09190b13c5b62756efa",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-05-24",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/buttons:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.14.5-12.1.1",
+    "atVersion": "10.14.5",
+    "browser": "safari",
+    "browserVersion": "12.1.1",
+    "osVersion": "10.14.5",
+    "pattern": "button",
+    "command": "next_item",
+    "elementKind": "input-button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "apply"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "apply, button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/buttons.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "cc6b6ebe673609686d02c7eb2c3d08acd22e3b8c33ef57e7314f1fe20c83bcfa",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-08-10",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/links/example1:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.14.5-12.1.1",
+    "atVersion": "10.14.5",
+    "browser": "safari",
+    "browserVersion": "12.1.1",
+    "osVersion": "10.14.5",
+    "pattern": "link",
+    "command": "next_item",
+    "elementKind": "link",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "link",
+      "name": "sample"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "link, sample",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/links/example1.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "0a07dac9c87332fab975500a8d130f1da41efb973d8ebfc44fe91df63c33734d",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-07-24",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-expanded:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.15.4-13.1",
+    "atVersion": "10.15.4",
+    "browser": "safari",
+    "browserVersion": "13.1",
+    "osVersion": "10.15.4",
+    "pattern": "disclosure.collapsed",
+    "command": "next_focusable_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Show more",
+      "expanded": false
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "show more, collapsed, button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-expanded.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "48d710204df6e4df676c46b09fa801d6690e39ef73c9105bb7f3ec3339490f29",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2020-03-30",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-expanded:vo_macos:safari:1",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.15.4-13.1",
+    "atVersion": "10.15.4",
+    "browser": "safari",
+    "browserVersion": "13.1",
+    "osVersion": "10.15.4",
+    "pattern": "disclosure.expanded",
+    "command": "next_focusable_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Show more",
+      "expanded": true
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "show more, expanded, button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-expanded.json",
+      "jsonPointer": "/commands/vo_macos/safari/1",
+      "sha256": "48d710204df6e4df676c46b09fa801d6690e39ef73c9105bb7f3ec3339490f29",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2020-03-30",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-required:vo_macos:safari:0",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.14.5-12.1.1",
+    "atVersion": "10.14.5",
+    "browser": "safari",
+    "browserVersion": "12.1.1",
+    "osVersion": "10.14.5",
+    "pattern": "textbox.optional",
+    "command": "next_focusable_item",
+    "elementKind": "input-text",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "textbox",
+      "name": "Fruit"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "Fruit, edit text.",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+      "jsonPointer": "/commands/vo_macos/safari/0",
+      "sha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-07-01",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-required:vo_macos:safari:1",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.14.5-12.1.1",
+    "atVersion": "10.14.5",
+    "browser": "safari",
+    "browserVersion": "12.1.1",
+    "osVersion": "10.14.5",
+    "pattern": "textbox.required",
+    "command": "next_focusable_item",
+    "elementKind": "input-text",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": true,
+      "multiline": false,
+      "modal": false,
+      "role": "textbox",
+      "name": "Veggie"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "Veggie, required, edit text.",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+      "jsonPointer": "/commands/vo_macos/safari/1",
+      "sha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2019-07-01",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/textarea:vo_macos:safari:3",
+    "at": "voiceover",
+    "profileId": "voiceover-safari-10.15.2-13.0.4",
+    "atVersion": "10.15.2",
+    "browser": "safari",
+    "browserVersion": "13.0.4",
+    "osVersion": "10.15.2",
+    "pattern": "textarea.valued",
+    "command": "next_form_field",
+    "elementKind": "textarea",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": true,
+      "modal": false,
+      "role": "textbox",
+      "name": "Tell us about yourself",
+      "value": "buffalo buffalo buffalo"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "tell us about yourself, edit text, buffalo buffalo buffalo",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/textarea.json",
+      "jsonPointer": "/commands/vo_macos/safari/3",
+      "sha256": "5f92b572792cc95fb9931d8166b6173ae2fdf592c4a8b061ebaf3711681d48d1",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2020-01-03",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/buttons:nvda:chrome:0",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.3.1-143",
+    "atVersion": "2025.3.1",
+    "browser": "chrome",
+    "browserVersion": "143",
+    "osVersion": "Windows 11 version 21H2",
+    "pattern": "button",
+    "command": "next_item",
+    "elementKind": "input-button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "apply"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "button, apply",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/buttons.json",
+      "jsonPointer": "/commands/nvda/chrome/0",
+      "sha256": "cc6b6ebe673609686d02c7eb2c3d08acd22e3b8c33ef57e7314f1fe20c83bcfa",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2026-05-03",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/buttons:nvda:chrome:1",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.3.1-143",
+    "atVersion": "2025.3.1",
+    "browser": "chrome",
+    "browserVersion": "143",
+    "osVersion": "Windows 11 version 21H2",
+    "pattern": "button",
+    "command": "next_focusable_item",
+    "elementKind": "input-button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "apply"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "apply, button",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/buttons.json",
+      "jsonPointer": "/commands/nvda/chrome/1",
+      "sha256": "cc6b6ebe673609686d02c7eb2c3d08acd22e3b8c33ef57e7314f1fe20c83bcfa",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2026-05-03",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:0",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.false",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": false
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "toggle button, not pressed, action",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/0",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:1",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.false",
+    "command": "next_focusable_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": false
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, toggle button, not pressed",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/1",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:2",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.true",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": true
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "toggle button, pressed, action",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/2",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:3",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.true",
+    "command": "next_focusable_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": true
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, toggle button, pressed",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/3",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:4",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.mixed",
+    "command": "next_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": "mixed"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "toggle button, not pressed, half checked, action",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/4",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-pressed:nvda:chrome:5",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2025.1.1-137",
+    "atVersion": "2025.1.1",
+    "browser": "chrome",
+    "browserVersion": "137",
+    "osVersion": "Windows 10 Pro version 2009",
+    "pattern": "toggle-button.mixed",
+    "command": "next_focusable_item",
+    "elementKind": "button",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "button",
+      "name": "Action",
+      "pressed": "mixed"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "action, toggle button, not pressed, half-checked",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-pressed.json",
+      "jsonPointer": "/commands/nvda/chrome/5",
+      "sha256": "6c33ad1a3d0fca70989520ad4883d67df65a371bf3918a8dad8f27adf739e599",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2025-07-25",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/links/example1:nvda:chrome:0",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2021.1-92",
+    "atVersion": "2021.1",
+    "browser": "chrome",
+    "browserVersion": "92",
+    "osVersion": "Windows 10 version 21h1",
+    "pattern": "link",
+    "command": "next_item",
+    "elementKind": "link",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "link",
+      "name": "sample"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "link, sample",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/links/example1.json",
+      "jsonPointer": "/commands/nvda/chrome/0",
+      "sha256": "0a07dac9c87332fab975500a8d130f1da41efb973d8ebfc44fe91df63c33734d",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2021-07-30",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/html/links/example1:nvda:chrome:1",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2021.1-92",
+    "atVersion": "2021.1",
+    "browser": "chrome",
+    "browserVersion": "92",
+    "osVersion": "Windows 10 version 21h1",
+    "pattern": "link",
+    "command": "next_focusable_item",
+    "elementKind": "link",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "link",
+      "name": "sample"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "sample, link",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/html/links/example1.json",
+      "jsonPointer": "/commands/nvda/chrome/1",
+      "sha256": "0a07dac9c87332fab975500a8d130f1da41efb973d8ebfc44fe91df63c33734d",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2021-07-30",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-required:nvda:chrome:0",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2021.1-92",
+    "atVersion": "2021.1",
+    "browser": "chrome",
+    "browserVersion": "92",
+    "osVersion": "Windows 10 version 21h1",
+    "pattern": "textbox.optional",
+    "command": "next_focusable_item",
+    "elementKind": "input-text",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": false,
+      "multiline": false,
+      "modal": false,
+      "role": "textbox",
+      "name": "Fruit"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "Fruit, edit. Blank.",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+      "jsonPointer": "/commands/nvda/chrome/0",
+      "sha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2021-07-28",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  },
+  {
+    "id": "a11ysupport:tech/aria/aria-required:nvda:chrome:1",
+    "at": "nvda",
+    "profileId": "nvda-chrome-2021.1-92",
+    "atVersion": "2021.1",
+    "browser": "chrome",
+    "browserVersion": "92",
+    "osVersion": "Windows 10 version 21h1",
+    "pattern": "textbox.required",
+    "command": "next_focusable_item",
+    "elementKind": "input-text",
+    "node": {
+      "protected": false,
+      "disabled": false,
+      "readonly": false,
+      "required": true,
+      "multiline": false,
+      "modal": false,
+      "role": "textbox",
+      "name": "Veggie"
+    },
+    "context": {
+      "readingUnit": "single-control",
+      "groupContext": "none",
+      "language": "en"
+    },
+    "reportedSpeech": "Veggie, edit, required. Blank.",
+    "semanticInputProvenance": "manual-abstraction-not-native-AX",
+    "contextProvenance": "simulation-premise-not-observed-settings",
+    "source": {
+      "url": "https://github.com/accessibilitysupported/a11ysupport.io/blob/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/data/tests/tech/aria/aria-required.json",
+      "jsonPointer": "/commands/nvda/chrome/1",
+      "sha256": "8b8ad942ac8679ba3224b28b65f8a3e363d37c94a057027cab9f816cf0e588bb",
+      "attribution": "Michael Fairchild and Accessibility Supported contributors",
+      "testedOn": "2021-07-28",
+      "commit": "6730ad42e83dd780f63555ab3f14f1c26ea0fae5"
+    },
+    "unknownSettings": [
+      "actualOperatingMode",
+      "quickNav",
+      "verbosity",
+      "voice",
+      "punctuation",
+      "typingEcho",
+      "keyboardLayout"
+    ]
+  }
+]

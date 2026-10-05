@@ -1,0 +1,9 @@
+{
+  "id": "onejev-two-stage-wiring-check",
+  "mode": "keyboard",
+  "url": "../../fixtures/screenshot-workflow.html",
+  "goal": "Complete the two-stage workflow by activating the focused button, then activating Complete workflow. The orange outline identifies keyboard focus. Stop only when Both keyboard stages completed is visible.",
+  "maxSteps": 8,
+  "timeoutMs": 180000,
+  "verify": { "all": [{ "textVisibleExact": "Both keyboard stages completed" }] }
+}

@@ -1,0 +1,105 @@
+{
+  "name": "@rawstep/browser",
+  "version": "0.2.0",
+  "description": "Rawstep browser workspace",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./browser/constants": {
+      "types": "./dist/browser/constants.d.ts",
+      "import": "./dist/browser/constants.js",
+      "default": "./dist/browser/constants.js"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "default": "./dist/browser/index.js"
+    },
+    "./browser/navigation-boundary": {
+      "types": "./dist/browser/navigation-boundary.d.ts",
+      "import": "./dist/browser/navigation-boundary.js",
+      "default": "./dist/browser/navigation-boundary.js"
+    },
+    "./profiles/diagnostics": {
+      "types": "./dist/profiles/diagnostics.d.ts",
+      "import": "./dist/profiles/diagnostics.js",
+      "default": "./dist/profiles/diagnostics.js"
+    },
+    "./profiles": {
+      "types": "./dist/profiles/index.d.ts",
+      "import": "./dist/profiles/index.js",
+      "default": "./dist/profiles/index.js"
+    },
+    "./profiles/native-zoom": {
+      "types": "./dist/profiles/native-zoom.d.ts",
+      "import": "./dist/profiles/native-zoom.js",
+      "default": "./dist/profiles/native-zoom.js"
+    },
+    "./profiles/page-script": {
+      "types": "./dist/profiles/page-script.d.ts",
+      "import": "./dist/profiles/page-script.js",
+      "default": "./dist/profiles/page-script.js"
+    },
+    "./profiles/ports": {
+      "types": "./dist/profiles/ports.d.ts",
+      "import": "./dist/profiles/ports.js",
+      "default": "./dist/profiles/ports.js"
+    },
+    "./runner": {
+      "types": "./dist/runner/index.d.ts",
+      "import": "./dist/runner/index.js",
+      "default": "./dist/runner/index.js"
+    },
+    "./screenshot/backend": {
+      "types": "./dist/screenshot/backend.d.ts",
+      "import": "./dist/screenshot/backend.js",
+      "default": "./dist/screenshot/backend.js"
+    },
+    "./screenshot": {
+      "types": "./dist/screenshot/index.d.ts",
+      "import": "./dist/screenshot/index.js",
+      "default": "./dist/screenshot/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
+    },
+    "./verify": {
+      "types": "./dist/verify/index.d.ts",
+      "import": "./dist/verify/index.js",
+      "default": "./dist/verify/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/browser"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "playwright": "1.59.1"
+  }
+}
