@@ -11,7 +11,7 @@ export const HINTS_SCHEMA_VERSION = '1.0' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
-  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop';
+  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start';
 export type Hint = {
   kind: HintKind;
   /** observed: directly recorded. suspected: inferred from indirect signals and may be wrong. */
@@ -196,6 +196,16 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     if (chosen < t.hesitationProbability || chosen - runnerUp < t.hesitationMargin) hints.push({ kind: 'model-hesitation', certainty: 'suspected', steps: [item.step],
       summary: `The model chose ${String(item.data.choiceId)} with ${(chosen * 100).toFixed(0)}% (runner-up ${(runnerUp * 100).toFixed(0)}%).`,
       detail: { choiceId: item.data.choiceId, probability: chosen, runnerUp }, evidence: [item.id] });
+  }
+
+  // Goal rules that already held before any action make "reached the goal" weak evidence. `not` rules hold at start by design.
+  const baseline = (trace.events as readonly TraceEvent[]).find(e => e.type === 'verifier.baseline');
+  const baseRules = baseline && record(baseline.data) && Array.isArray(baseline.data.rules) ? (baseline.data.rules as { ruleIndex?: number; ruleType?: string; passed?: boolean }[]).filter(r => r.passed === true && r.ruleType !== 'not') : [];
+  if (baseline && baseRules.length) {
+    const all = record(baseline.data) && baseline.data.passed === true;
+    hints.push({ kind: 'goal-met-at-start', certainty: all ? 'observed' : 'suspected', steps: [0],
+      summary: all ? 'Every goal rule already held before the first action.' : `${baseRules.length} goal rule(s) already held before the first action.`,
+      detail: { rules: baseRules.map(r => ({ ruleIndex: r.ruleIndex, ruleType: r.ruleType })) }, evidence: [baseline.id] });
   }
 
   const outcome = trace.outcome;

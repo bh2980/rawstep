@@ -218,4 +218,51 @@ describe("friction hints", () => {
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });
+  describe("goal met at start", () => {
+    const baselineRule = (ruleIndex: number, ruleType: string, passed: boolean) => ({ ruleIndex, ruleType, passed });
+    const baseline = (passed: boolean, rules: ReturnType<typeof baselineRule>[]): Pair => ["verifier.baseline", { passed, rules }];
+
+    it("observes a goal that already held before the first action", () => {
+      const pairs: Pair[] = [baseline(true, [baselineRule(0, "titleIncludes", true), baselineRule(1, "textVisible", true)]), ...press(1, "Tab")];
+      const report = extractHints(trace(pairs, success(1)));
+      expect(find(report, "goal-met-at-start")).toEqual([{
+        kind: "goal-met-at-start", certainty: "observed", steps: [0], summary: "Every goal rule already held before the first action.",
+        detail: { rules: [{ ruleIndex: 0, ruleType: "titleIncludes" }, { ruleIndex: 1, ruleType: "textVisible" }] }, evidence: ["event-1"],
+      }]);
+    });
+
+    it("suspects a goal when only some rules held at the start and lists those rules", () => {
+      const report = extractHints(trace([baseline(false, [baselineRule(0, "titleIncludes", true), baselineRule(1, "event", false), baselineRule(2, "urlIncludes", true)])], success(3)));
+      const [hint] = find(report, "goal-met-at-start");
+      expect(find(report, "goal-met-at-start")).toHaveLength(1);
+      expect(hint).toMatchObject({ certainty: "suspected", steps: [0], summary: "2 goal rule(s) already held before the first action.", detail: { rules: [{ ruleIndex: 0, ruleType: "titleIncludes" }, { ruleIndex: 2, ruleType: "urlIncludes" }] }, evidence: ["event-1"] });
+    });
+
+    it("ignores not rules, which hold at the start by design", () => {
+      expect(kinds([baseline(false, [baselineRule(0, "not", true), baselineRule(1, "event", false)])])).not.toContain("goal-met-at-start");
+      expect(kinds([baseline(true, [baselineRule(0, "not", true)])])).not.toContain("goal-met-at-start");
+      // A not rule passing alongside real rules is left out of the reported rules and the count, but does not stop the hint.
+      const mixed = extractHints(trace([baseline(true, [baselineRule(0, "not", true), baselineRule(1, "titleIncludes", true)])]));
+      expect(find(mixed, "goal-met-at-start")[0]).toMatchObject({ certainty: "observed", summary: "Every goal rule already held before the first action.", detail: { rules: [{ ruleIndex: 1, ruleType: "titleIncludes" }] } });
+      const partial = extractHints(trace([baseline(false, [baselineRule(0, "not", true), baselineRule(1, "titleIncludes", true), baselineRule(2, "event", false)])]));
+      expect(find(partial, "goal-met-at-start")[0]).toMatchObject({ certainty: "suspected", summary: "1 goal rule(s) already held before the first action.", detail: { rules: [{ ruleIndex: 1, ruleType: "titleIncludes" }] } });
+    });
+
+    it("reports nothing when no rule held, the baseline errored, or there is no baseline", () => {
+      expect(kinds([baseline(false, [baselineRule(0, "titleIncludes", false), baselineRule(1, "event", false)])])).not.toContain("goal-met-at-start");
+      expect(kinds([baseline(true, [])])).not.toContain("goal-met-at-start");
+      expect(kinds([["verifier.baseline", { error: "TypeError" }]])).not.toContain("goal-met-at-start");
+      expect(kinds([["verifier.baseline", { passed: true }]])).not.toContain("goal-met-at-start");
+      expect(kinds([...press(1, "Tab")], success(1))).not.toContain("goal-met-at-start");
+      expect(find(extractHints(trace([])), "goal-met-at-start")).toEqual([]);
+    });
+
+    it("uses only the first baseline and sorts the hint ahead of later ones", () => {
+      const pairs: Pair[] = [baseline(true, [baselineRule(0, "titleIncludes", true)]), baseline(false, [baselineRule(0, "titleIncludes", false)]), ...press(1, "Tab"), observer("focus-lost", 1, { name: "Gone", reason: "removed" })];
+      const report = extractHints(trace(pairs, success(1)));
+      expect(find(report, "goal-met-at-start")).toHaveLength(1);
+      expect(find(report, "goal-met-at-start")[0]!.certainty).toBe("observed");
+      expect(report.hints.map(hint => hint.kind)).toEqual(["goal-met-at-start", "focus-lost"]);
+    });
+  });
 });

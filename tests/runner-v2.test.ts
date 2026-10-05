@@ -199,4 +199,78 @@ describe('model-neutral runner',()=>{
       expect(trace.events.some(e=>e.type==='observer.dropped')).toBe(false);
     });
   });
+  describe('goal baseline',()=>{
+    const at='2026-01-01T00:00:00.000Z';
+    const rules:Task['verify']['all']=[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}},{event:{kind:'live-region',text:'Added'}}];
+    /** The built-in verifier needs page.title(); the shared fixture supplies a verifier mock instead. */
+    function builtIn(title:()=>Promise<string>,queue:ObserverEvent[]=[]){
+      const {verifier,...f}=fixture();void verifier;
+      (f.browser.page as unknown as {title:()=>Promise<string>}).title=title;
+      (f.browser as unknown as {observer:PageObserver}).observer={available:true,setStep:vi.fn(),take:()=>queue.splice(0),dropped:()=>({}),close:vi.fn(async()=>{})};
+      return {f,queue};
+    }
+    const types=(trace:{events:{type:string}[]})=>trace.events.map(e=>e.type);
+    it('records which rules held once, before the first policy decision, using the built-in verifier',async()=>{
+      const {f}=builtIn(async()=>'Done page',[{kind:'live-region',step:0,at,frame:'main',role:'status',text:'Added to cart'}]);
+      const trace=await runTask({...task,verify:{all:rules}},{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const baselines=trace.events.filter(e=>e.type==='verifier.baseline');
+      expect(baselines).toHaveLength(1);
+      // Initial-load events never satisfy an event rule, so the baseline shows the goal is not yet met.
+      expect(baselines[0]!.data).toEqual({passed:false,rules:[{ruleIndex:0,ruleType:'titleIncludes',passed:true},{ruleIndex:1,ruleType:'not',passed:true},{ruleIndex:2,ruleType:'event',passed:false}]});
+      expect(baselines[0]).toMatchObject({source:'verifier',redacted:false});
+      const order=types(trace);
+      expect(order.indexOf('verifier.baseline')).toBeGreaterThan(-1);
+      expect(order.indexOf('verifier.baseline')).toBeLessThan(order.indexOf('policy.decision'));
+      expect(order.indexOf('verifier.baseline')).toBeLessThan(order.indexOf('verifier.result'));
+      expect(trace.events.some(e=>e.type==='verifier.evidence'&&(e.data as {step:number}).step===0)).toBe(false);
+      const stored=JSON.stringify(baselines[0]!.data);expect(stored).not.toContain('Done page');expect(stored).not.toContain('Added to cart');expect(stored).not.toContain('witness');
+    });
+    it('does not let the baseline decide the outcome even when every rule already holds',async()=>{
+      const {f}=builtIn(async()=>'Done page');
+      const trace=await runTask({...task,verify:{all:[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toMatchObject({passed:true});
+      expect(f.backend.execute).toHaveBeenCalledTimes(1);
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      expect(trace.events.filter(e=>e.type==='verifier.result').map(e=>(e.data as {step:number}).step)).toEqual([1]);
+    });
+    it('feeds the in-memory timeline to later verifications and passes an event rule that happened after step 0',async()=>{
+      const {f,queue}=builtIn(async()=>'Other',[{kind:'live-region',step:0,at,frame:'main',text:'Added'}]);
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'live-region',step:1,at,frame:'main',role:'status',text:'Added to cart'});return {};});
+      const trace=await runTask({...task,verify:{all:[{event:{kind:'live-region',role:'status',text:'Added'}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toEqual({passed:false,rules:[{ruleIndex:0,ruleType:'event',passed:false}]});
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
+      expect(evidence.data).toMatchObject({step:1,ruleType:'event',passed:true,witness:{kind:'observer-event',event:{kind:'live-region',step:1,role:'status',text:'Added to cart'}}});
+    });
+    it('records only the error name when the baseline throws, then continues with the run',async()=>{
+      let calls=0;
+      const {f}=builtIn(async()=>{if(++calls===1)throw new TypeError('secret https://example.test/?q=Private');return 'Done page';});
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const baseline=trace.events.find(e=>e.type==='verifier.baseline')!;
+      expect(baseline.data).toEqual({error:'TypeError'});expect(JSON.stringify(baseline)).not.toMatch(/secret|Private/);
+      expect(types(trace).indexOf('verifier.baseline')).toBeLessThan(types(trace).indexOf('policy.decision'));
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+    });
+    it('never runs a custom verifier for the baseline',async()=>{
+      const f=fixture();
+      const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      expect(trace.events.some(e=>e.type==='verifier.baseline')).toBe(false);
+      expect(f.verifier).toHaveBeenCalledTimes(1);
+      expect(f.verifier).toHaveBeenCalledWith(expect.objectContaining({goal:task.goal}),f.browser,expect.anything());
+      // This fake session has no observer: no timeline at all, so event rules report "unavailable" instead of "nothing happened".
+      expect((f.verifier.mock.calls[0] as unknown[])[2]).not.toHaveProperty('timeline');
+    });
+    it('shows the unredacted timeline to the verifier but redacts observer witnesses after text entry',async()=>{
+      const {f,queue}=builtIn(async()=>'Other');
+      vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'appeared',step:1,at,frame:'main',role:'status',name:'Welcome Secret Value',text:'Hi Secret Value'});return {};});
+      const dir=await out();
+      const trace=await runTask({...task,input:{field:'Secret Value'},verify:{all:[{event:{kind:'appeared',role:'status',name:'Secret Value'}}]}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}}])});
+      expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
+      const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
+      expect(evidence.redacted).toBe(true);
+      expect(evidence.data).toMatchObject({witness:{kind:'observer-event',details:'[REDACTED]',event:{kind:'appeared',step:1,role:'status'}}});
+      expect((evidence.data as {witness:{event:object}}).witness.event).toEqual({kind:'appeared',step:1,role:'status'});
+      for(const path of ['trace.json','trace.jsonl'])expect(await readFile(join(dir,path),'utf8')).not.toContain('Secret Value');
+    });
+  });
 });

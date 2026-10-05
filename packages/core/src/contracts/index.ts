@@ -10,9 +10,18 @@ export type RequestVerificationRule = { requestSeen: { urlIncludes: string; meth
 export type ResponseVerificationRule = { responseSeen: { urlIncludes: string; method?: string; status?: number } };
 export type ActivatedAnnouncementVerificationRule = { activatedAnnouncementIncludes: string };
 export type DomEventVerificationRule = { domEventSeen: { selector: string; event: string } };
-export type VerifyRule = { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
+/** A plain string means "includes"; matching is case-sensitive unless a regex flag says otherwise. */
+export type TextMatcher = string | { includes: string } | { equals: string } | { regex: string; flags?: string };
+export type ObservedEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation';
+/** Asks the page observer's timeline whether a change happened. `after` defaults to `start`: the initial load never counts. */
+export type EventVerificationRule = { event: { kind: ObservedEventKind; role?: string; name?: TextMatcher; text?: TextMatcher; attr?: string; value?: string; url?: TextMatcher }; after?: 'start' | 'lastActivation' };
+/** Where keyboard focus is now, from the observer's latest focus record. */
+export type FocusedVerificationRule = { focused: { role?: string; name?: TextMatcher } };
+export type NotVerificationRule = { not: VerifyRule };
+export type AnyVerificationRule = { any: VerifyRule[] };
+export type VerifyRule = EventVerificationRule | FocusedVerificationRule | NotVerificationRule | AnyVerificationRule | { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
 export type VerifySpec = { all: VerifyRule[] };
-export type VerifyRuleType = 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
+export type VerifyRuleType = 'event' | 'focused' | 'not' | 'any' | 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
 /** Independent observations, never task expectations or policy-visible page context. */
 export type VerificationWitness =
   | { kind: 'title'; title: string }
@@ -21,6 +30,7 @@ export type VerificationWitness =
   | { kind: 'request'; url: string; method: string; timestamp: string }
   | { kind: 'response'; url: string; method: string; status: number; ok: boolean; timestamp: string }
   | { kind: 'dom-event'; selector: string; event: string; url: string; timestamp: string }
+  | { kind: 'observer-event'; event: { kind: string; step: number; role?: string | null; name?: string; text?: string; attr?: string; value?: string | null; url?: string; sameDocument?: boolean } }
   | { kind: 'activation-speech'; provenance?: 'native' | 'simulation'; speech: string[]; outputEventIds: string[]; activationStep: number; window: ScreenReaderObservation['window']; association: 'temporal-only' };
 export type VerificationRuleRecord = {
   /** Zero-based position in task.verify.all. */
@@ -118,7 +128,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   const goal = text(raw.goal, 'Task goal');
   if (!object(raw.verify) || !Array.isArray(raw.verify.all) || raw.verify.all.length === 0) throw new Error('Task verify.all must contain at least one independent verification rule.');
   onlyKeys(raw.verify, ['all'], 'Task verify');
-  const rules = raw.verify.all.map(validateVerifyRule);
+  const rules = raw.verify.all.map(rule => validateVerifyRule(rule));
   const input = raw.input;
   if (input !== undefined && (!object(input) || Object.keys(input).some(k => !k.trim()) || Object.values(input).some(v => typeof v !== 'string'))) throw new Error('Task input must map names to string values.');
   const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
@@ -158,8 +168,52 @@ export function validateNavigation(value: unknown): NavigationPolicy {
   }
   throw new Error('Invalid navigation policy.');
 }
-function validateVerifyRule(value: unknown): VerifyRule {
+const OBSERVED_EVENT_KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation'];
+function validateTextMatcher(value: unknown, label: string): void {
+  if (typeof value === 'string') { text(value, label); if (value.length > 200) throw new Error(`${label} must be at most 200 characters.`); return; }
+  if (!object(value) || Object.keys(value).length < 1) throw new Error(`${label} must be a string or one of includes, equals, regex.`);
+  if ('regex' in value) {
+    onlyKeys(value, ['regex', 'flags'], label); text(value.regex, `${label}.regex`);
+    if (value.flags !== undefined && (typeof value.flags !== 'string' || !/^[imsu]*$/.test(value.flags))) throw new Error(`${label}.flags may only contain i, m, s, u.`);
+    if ((value.regex as string).length > 200) throw new Error(`${label}.regex must be at most 200 characters.`);
+    try { new RegExp(value.regex as string, value.flags as string | undefined); } catch { throw new Error(`${label}.regex is not a valid regular expression.`); }
+    return;
+  }
+  if (Object.keys(value).length !== 1 || !('includes' in value || 'equals' in value)) throw new Error(`${label} must use exactly one of includes, equals or regex.`);
+  const v = value.includes ?? value.equals; text(v, label); if ((v as string).length > 200) throw new Error(`${label} must be at most 200 characters.`);
+}
+export function matchesText(matcher: TextMatcher, value: string | null | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  if (typeof matcher === 'string') return value.includes(matcher);
+  if ('equals' in matcher) return value === matcher.equals;
+  if ('includes' in matcher) return value.includes(matcher.includes);
+  return new RegExp(matcher.regex, matcher.flags).test(value);
+}
+function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
+  if (depth > 4) throw new Error('Verification rules may nest at most four levels.');
+  if (object(value) && 'event' in value) {
+    onlyKeys(value, ['event', 'after'], 'event rule');
+    if (value.after !== undefined && value.after !== 'start' && value.after !== 'lastActivation') throw new Error('event rule after must be start or lastActivation.');
+    if (!object(value.event)) throw new Error('event rule needs an event object.');
+    onlyKeys(value.event, ['kind', 'role', 'name', 'text', 'attr', 'value', 'url'], 'event');
+    if (!OBSERVED_EVENT_KINDS.includes(String(value.event.kind))) throw new Error(`event.kind must be one of ${OBSERVED_EVENT_KINDS.join(', ')}.`);
+    for (const key of ['role', 'attr', 'value']) if (value.event[key] !== undefined) text(value.event[key], `event.${key}`);
+    for (const key of ['name', 'text', 'url']) if (value.event[key] !== undefined) validateTextMatcher(value.event[key], `event.${key}`);
+    return value as EventVerificationRule;
+  }
   if (!object(value) || Object.keys(value).length !== 1) throw new Error('Each verification rule must contain one supported rule.');
+  if ('focused' in value) {
+    if (!object(value.focused) || !Object.keys(value.focused).length) throw new Error('focused rule needs role and/or name.');
+    onlyKeys(value.focused, ['role', 'name'], 'focused');
+    if (value.focused.role !== undefined) text(value.focused.role, 'focused.role');
+    if (value.focused.name !== undefined) validateTextMatcher(value.focused.name, 'focused.name');
+    return value as FocusedVerificationRule;
+  }
+  if ('not' in value) return { not: validateVerifyRule(value.not, depth + 1) };
+  if ('any' in value) {
+    if (!Array.isArray(value.any) || !value.any.length || value.any.length > 20) throw new Error('any must list 1 to 20 rules.');
+    return { any: value.any.map(rule => validateVerifyRule(rule, depth + 1)) };
+  }
   for (const key of ['titleIncludes','urlIncludes','textVisible','textVisibleExact','activatedAnnouncementIncludes']) {
     if (key in value) { text(value[key], key); return value as VerifyRule; }
   }

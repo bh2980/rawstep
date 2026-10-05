@@ -72,3 +72,49 @@ describe('page observer in real Chromium', () => {
     expect(trace.events.filter(event => event.type.startsWith('observer.'))).toEqual([]);
   }, 120_000);
 });
+
+describe('timeline goal rules in real Chromium', () => {
+  const verify: Task['verify'] = { all: [
+    { event: { kind: 'live-region', role: 'status', text: 'Added to cart' } },
+    { any: [{ event: { kind: 'appeared', role: 'alert', name: { regex: 'cart', flags: 'i' } } }, { titleIncludes: 'Nope' }] },
+    { not: { event: { kind: 'focus-lost' } } },
+    { titleIncludes: 'Friction' },
+  ] };
+  const results = (trace: RunTrace) => trace.events.filter(event => event.type === 'verifier.result').map(event => event.data as { step: number; passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] });
+
+  it('verifies a live-region announcement from the observer timeline and flags a goal that held before any action', async () => {
+    const task: Task = { url: pathToFileURL(resolve('fixtures/friction-lab.html')).href, goal: 'Add the item to the cart', maxSteps: 8, verify };
+    const warn = vi.fn();
+    const scripted = new ScriptedPolicy(['Tab', 'Tab', 'Tab', 'Enter'].map(key).concat({ stop: 'success' }));
+    const trace = await runScreenshotTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn, policy: { decide: () => scripted.decide() } });
+    expect(warn).not.toHaveBeenCalled();
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 4 });
+
+    // The cart announcement happens on step 4; earlier checks fail on the event rule only.
+    const verdicts = results(trace);
+    expect(verdicts.map(result => result.step)).toEqual([1, 2, 3, 4]);
+    for (const early of verdicts.slice(0, 3)) {
+      expect(early.passed).toBe(false);
+      expect(early.rules.map(rule => [rule.ruleType, rule.passed])).toEqual(expect.arrayContaining([['event', false], ['titleIncludes', true]]));
+    }
+    expect(verdicts[3]).toMatchObject({ passed: true });
+    expect(verdicts[3]!.rules.map(rule => [rule.ruleType, rule.passed])).toEqual([['event', true], ['any', true], ['not', true], ['titleIncludes', true]]);
+    expect(trace.events.filter(event => event.type === 'verifier.evidence' && (event.data as { witness: { kind: string } }).witness.kind === 'observer-event').length).toBeGreaterThan(0);
+
+    // Before step 1 the title and the not-rule already held, the event rule did not.
+    const baselines = trace.events.filter(event => event.type === 'verifier.baseline');
+    expect(baselines).toHaveLength(1);
+    expect(trace.events.indexOf(baselines[0]!)).toBeLessThan(trace.events.findIndex(event => event.type === 'policy.decision'));
+    expect(baselines[0]!.data).toMatchObject({ passed: false });
+    const baseline = (baselines[0]!.data as { rules: { ruleType: string; passed: boolean }[] }).rules;
+    expect(baseline.find(rule => rule.ruleType === 'titleIncludes')?.passed).toBe(true);
+    expect(baseline.find(rule => rule.ruleType === 'not')?.passed).toBe(true);
+    expect(baseline.find(rule => rule.ruleType === 'event')?.passed).toBe(false);
+
+    const hints = extractHints(trace).hints.filter(hint => hint.kind === 'goal-met-at-start');
+    expect(hints).toHaveLength(1);
+    expect(hints[0]).toMatchObject({ certainty: 'suspected', steps: [0] });
+    expect(JSON.stringify(hints[0]!.detail)).toContain('titleIncludes');
+    expect(JSON.stringify(hints[0]!.detail)).not.toContain('"not"');
+  }, 120_000);
+});

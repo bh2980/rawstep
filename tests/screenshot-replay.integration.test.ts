@@ -46,3 +46,30 @@ it.each([{rule:{textVisibleExact:'Done now'},content:'Done\n   now'},{rule:{text
 it('matches verifier request method casing without accepting unrelated methods',async()=>{const original=await source();const trace=structuredClone(original),t={...task,verify:{all:[{requestSeen:{urlIncludes:'/read',method:'get'}}]}};Object.assign(trace.task,t);for(const e of trace.events){const d=e.data as any;if(e.type==='verifier.result'&&d.passed)d.rules[0].ruleType='requestSeen';if(e.type==='verifier.evidence'){d.ruleType='requestSeen';d.witness={kind:'request',url:'https://example.test/read',method:'GET',timestamp:'2026-01-01T00:00:00Z'}}}expect(exportScreenshotReplay(trace,t).steps).toHaveLength(3);(trace.events.find(e=>e.type==='verifier.evidence')!.data as any).witness.method='POST';expect(()=>exportScreenshotReplay(trace,t)).toThrow(/witnesses/)});
 
 it('accepts empty input records but rejects unknown or nonempty input metadata',async()=>{const trace=await source();trace.task.input={};expect(exportScreenshotReplay(trace,{...task,input:{}}).steps).toHaveLength(3);for(const value of ['unknown',{private:'value'}]){trace.task.input=value;expect(()=>exportScreenshotReplay(trace,task)).toThrow(/inputs/)}});
+
+describe('timeline goal rules and replay export',()=>{
+ const live={kind:'observer-event',event:{kind:'live-region',step:3,role:'status',text:'Added to cart'}};
+ async function retargeted(rule:Task['verify']['all'][number],witness:unknown){
+  const trace=structuredClone(await source()),t:Task={...task,verify:{all:[rule]}},type=Object.keys(rule)[0]!;
+  Object.assign(trace.task,t);
+  for(const e of trace.events){const d=e.data as any;if(e.type==='verifier.result'&&d.passed)d.rules[0].ruleType=type;if(e.type==='verifier.evidence'){d.ruleType=type;d.witness=witness}}
+  return {trace,t};
+ }
+ it('accepts a final observer-event witness that matches an event rule',async()=>{
+  for(const rule of [{event:{kind:'live-region'}},{event:{kind:'live-region',role:'status',text:{regex:'^added',flags:'i'}}},{event:{kind:'live-region',text:'Added to cart'},after:'lastActivation'}] as Task['verify']['all']){
+   const {trace,t}=await retargeted(rule,live);expect(exportScreenshotReplay(trace,t).steps).toHaveLength(3);
+  }
+ });
+ it('rejects observer-event witnesses that do not match the event rule',async()=>{
+  for(const rule of [{event:{kind:'appeared'}},{event:{kind:'live-region',role:'alert'}},{event:{kind:'live-region',text:{equals:'Added'}}},{event:{kind:'live-region',name:'x'}},{event:{kind:'state',attr:'checked'}}] as Task['verify']['all']){
+   const {trace,t}=await retargeted(rule,live);expect(()=>exportScreenshotReplay(trace,t)).toThrow(/witnesses/);
+  }
+  const {trace,t}=await retargeted({event:{kind:'live-region'}},{kind:'title',title:'Added to cart'});expect(()=>exportScreenshotReplay(trace,t)).toThrow(/witnesses/);
+ });
+ it('does not accept focused, not or any rules for a replay export, even with an observer-event witness',async()=>{
+  const focus={kind:'observer-event',event:{kind:'focus',step:2,role:'button',name:'Add'}};
+  for(const rule of [{focused:{role:'button'}},{not:{event:{kind:'focus-lost'}}},{any:[{event:{kind:'focus'}}]}] as Task['verify']['all']){
+   const {trace,t}=await retargeted(rule,focus);expect(()=>exportScreenshotReplay(trace,t)).toThrow(/witnesses/);
+  }
+ });
+});

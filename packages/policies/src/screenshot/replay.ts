@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { resolveTask } from '@rawstep/core/contracts';
+import { matchesText, resolveTask } from '@rawstep/core/contracts';
 import type { Decision, DecisionPolicy, Task, VerifyRule } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
 import { validateTrace, type RunTrace } from '@rawstep/core/trace';
@@ -45,7 +45,13 @@ function witnessMatches(witness: unknown, rule: VerifyRule): boolean {
     const r = 'requestSeen' in rule ? rule.requestSeen : rule.responseSeen;
     return witness.kind === ('requestSeen' in rule ? 'request' : 'response') && typeof witness.url === 'string' && witness.url.includes(r.urlIncludes) && typeof witness.method === 'string' && !!witness.method && (!r.method || witness.method.toUpperCase() === r.method.toUpperCase()) && (!('status' in r) || r.status === undefined || witness.status === r.status);
   }
-  // Native/simulated announcement witnesses do not make a keyboard screenshot replay.
+  if ('event' in rule) {
+    const event = record(witness.event) ? witness.event : undefined, expected = rule.event;
+    return witness.kind === 'observer-event' && !!event && event.kind === expected.kind && (expected.role === undefined || event.role === expected.role) && (expected.attr === undefined || event.attr === expected.attr) && (expected.value === undefined || event.value === expected.value)
+      && (expected.name === undefined || matchesText(expected.name, event.name as string)) && (expected.text === undefined || matchesText(expected.text, event.text as string)) && (expected.url === undefined || matchesText(expected.url, event.url as string));
+  }
+  // Native/simulated announcement witnesses, and focused/not/any rules, do not make a keyboard screenshot replay.
+
   return false;
 }
 /** Only independently witnessed, successful, keyboard-only model paths are eligible. */

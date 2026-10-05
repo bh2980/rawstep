@@ -1,4 +1,6 @@
 import type { BrowserSession } from "../browser/index.js";
+import type { ObserverEvent } from "../observer/index.js";
+import { matchesText } from "@rawstep/core/contracts";
 import type {
   PolicyAction,
   Observation,
@@ -18,6 +20,8 @@ export type VerificationContext = {
     action: PolicyAction;
     observation: Observation;
   };
+  /** Page observer changes recorded so far in this run, unredacted; never visible to the policy. */
+  timeline?: readonly ObserverEvent[];
 };
 
 export async function verifyTask(
@@ -28,7 +32,7 @@ export async function verifyTask(
   const failures: string[] = [];
   const rules: VerificationRuleRecord[] = [];
   for (const [ruleIndex, rule] of task.verify.all.entries()) {
-    const result = await observeVerifyRule(rule, browser, context, true);
+    const { unavailable: _unavailable, ...result } = await observeVerifyRule(rule, browser, context, true);
     rules.push({ ruleIndex, ...result });
     if (result.failure) {
       failures.push(result.failure);
@@ -51,15 +55,55 @@ export async function evaluateVerifyRule(
 }
 
 /** Collect once so reported grounds describe the observations used for the decision. */
+type ObservedRule = Omit<VerificationRuleRecord, 'ruleIndex'> & { unavailable?: true };
+
 async function observeVerifyRule(
   rule: VerifyRule,
   browser: BrowserSession,
   context: VerificationContext | undefined,
   collectWitnesses: boolean
-): Promise<Omit<VerificationRuleRecord, 'ruleIndex'>> {
-  const result = (ruleType: VerifyRuleType, failure: string | undefined, witnesses: VerificationWitness[] = []): Omit<VerificationRuleRecord, 'ruleIndex'> => ({
+): Promise<ObservedRule> {
+  const result = (ruleType: VerifyRuleType, failure: string | undefined, witnesses: VerificationWitness[] = []): ObservedRule => ({
     ruleType, passed: failure === undefined, ...(failure ? { failure } : {}), witnesses: collectWitnesses ? witnesses : []
   });
+  // Unobservable is not the same as "did not happen": `not` must fail closed on it.
+  const unavailable = (ruleType: VerifyRuleType, failure: string): ObservedRule => ({ ...result(ruleType, failure), unavailable: true });
+  if ("event" in rule) {
+    const timeline = context?.timeline;
+    if (!timeline) return unavailable('event', 'Verification failed: page observer events are unavailable, so event rules cannot be checked.');
+    const from = rule.after === 'lastActivation' ? context?.latestActivation?.step : 1;
+    if (from === undefined) return result('event', 'Verification failed: no activation has happened yet for an after: lastActivation event rule.');
+    const expected = rule.event;
+    const matches = timeline.filter(event => event.step >= from && event.kind === expected.kind && (expected.role === undefined || event.role === expected.role)
+      && (expected.attr === undefined || event.attr === expected.attr) && (expected.value === undefined || event.value === expected.value)
+      && (expected.name === undefined || matchesText(expected.name, event.name)) && (expected.text === undefined || matchesText(expected.text, event.text))
+      && (expected.url === undefined || matchesText(expected.url, event.url)));
+    return result('event', matches.length ? undefined : `Verification failed: no ${expected.kind} change matching the rule was observed ${rule.after === 'lastActivation' ? 'since the last activation' : 'after the initial load'}.`,
+      matches.slice(0, 5).map(observerWitness));
+  }
+
+  if ("focused" in rule) {
+    const latest = [...(context?.timeline ?? [])].reverse().find(event => event.kind === 'focus' || event.kind === 'focus-lost');
+    if (!context?.timeline) return unavailable('focused', 'Verification failed: page observer events are unavailable, so focus rules cannot be checked.');
+    const matched = latest?.kind === 'focus' && (rule.focused.role === undefined || latest.role === rule.focused.role) && (rule.focused.name === undefined || matchesText(rule.focused.name, latest.name));
+    return result('focused', matched ? undefined : `Verification failed: keyboard focus is ${latest?.kind === 'focus' ? 'on a different element' : 'not on any recorded element'}.`, latest ? [observerWitness(latest)] : []);
+  }
+
+  if ("not" in rule) {
+    const inner = await observeVerifyRule(rule.not, browser, context, collectWitnesses);
+    if (inner.unavailable) return unavailable('not', `Verification failed: the absence of a ${inner.ruleType} change cannot be established without its evidence source.`);
+    // When the inner rule holds, its witnesses are the evidence of the violation.
+    return result('not', inner.passed ? `Verification failed: a ${inner.ruleType} rule that must not hold was observed.` : undefined, inner.passed ? inner.witnesses : []);
+  }
+
+  if ("any" in rule) {
+    const inner = [];
+    for (const child of rule.any) inner.push(await observeVerifyRule(child, browser, context, collectWitnesses));
+    const passed = inner.filter(child => child.passed);
+    if (!passed.length && inner.every(child => child.unavailable)) return unavailable('any', `Verification failed: none of ${inner.length} alternative rules could be checked.`);
+    return result('any', passed.length ? undefined : `Verification failed: none of ${inner.length} alternative rules held.`, passed.flatMap(child => child.witnesses));
+  }
+
   if ("titleIncludes" in rule) {
     const title = await browser.page.title();
     return result('titleIncludes', title.includes(rule.titleIncludes) ? undefined :
@@ -140,6 +184,11 @@ async function observeVerifyRule(
     && (expected.status === undefined || response.status === expected.status));
   return result('responseSeen', matched ? undefined : formatResponseFailure(expected.urlIncludes, expected.method, expected.status),
     (matched ? [matched] : candidates).map(({ url, method, status, ok, timestamp }) => ({ kind: 'response', url, method, status, ok, timestamp })));
+}
+
+function observerWitness(event: ObserverEvent): VerificationWitness {
+  const { kind, step, role, name, text, attr, value, url, sameDocument } = event;
+  return { kind: 'observer-event', event: { kind, step, ...(role !== undefined ? { role } : {}), ...(name !== undefined ? { name } : {}), ...(text !== undefined ? { text } : {}), ...(attr !== undefined ? { attr } : {}), ...(value !== undefined ? { value } : {}), ...(url !== undefined ? { url } : {}), ...(sameDocument !== undefined ? { sameDocument } : {}) } };
 }
 
 export function formatVerificationFeedback(result: VerificationRecord): string {

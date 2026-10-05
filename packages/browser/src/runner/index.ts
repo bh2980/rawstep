@@ -90,7 +90,11 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   let latestActivation: VerificationContext['latestActivation'];
   const outputEventIds = new Map<number, string>();
   // Observer changes keep their structure after text entry so hints still work; only words are withheld.
-  const drainObserver = () => { for (const event of browser?.observer?.take() ?? []) append(`observer.${event.kind}`, inputTainted ? redactObserverEvent(event) : event, { source: 'browser-diagnostic', timestamp: event.at, redacted: inputTainted }); };
+  // The unredacted timeline stays in memory for goal rules; only the trace copy is redacted.
+  const timeline: ObserverEvent[] = [];
+  // Without a working observer there is no timeline at all, so event rules report "unavailable" rather than "nothing happened".
+  const observedTimeline = (): { timeline?: readonly ObserverEvent[] } => browser?.observer?.available ? { timeline } : {};
+  const drainObserver = () => { for (const event of browser?.observer?.take() ?? []) timeline.push(event), append(`observer.${event.kind}`, inputTainted ? redactObserverEvent(event) : event, { source: 'browser-diagnostic', timestamp: event.at, redacted: inputTainted }); };
   const recordBrowserDiagnostic = (type: string, data: unknown) => append(type, inputTainted ? { message: '[REDACTED]', reason: 'Browser diagnostics may contain delayed or form-encoded task input.' } : data, { source: 'browser-diagnostic', redacted: inputTainted });
   try {
     unsubscribe = options.backend.subscribe((event: unknown) => {
@@ -200,7 +204,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     drainObserver();
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
-      const result = await withinBudget(() => (options.verifier ?? verifyTask)(task, browser!, { latestActivation }));
+      drainObserver();
+      const result = await withinBudget(() => (options.verifier ?? verifyTask)(task, browser!, { latestActivation, ...observedTimeline() }));
       const rules = result.rules?.map(({ witnesses, failure, ...rule }) => ({
         ...rule, ...(failure ? { failure: inputTainted ? 'Verification rule failed; details redacted after text entry.' : failure } : {}),
         evidenceEventIds: witnesses.map(witness => append('verifier.evidence', {
@@ -214,6 +219,17 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }, { source: 'verifier', redacted: inputTainted });
       return result;
     };
+    // Baseline: which goal rules already hold before any action. Recorded for hints; it never decides the outcome.
+    // Built-in verifier only: custom verifiers may have side effects or remote calls, and run only when deciding.
+    if (!options.verifier) try {
+      stage = 'verification';
+      const baseline = await withinBudget(() => verifyTask(task, browser!, observedTimeline()));
+      append('verifier.baseline', { passed: baseline.passed, rules: (baseline.rules ?? []).map(({ ruleIndex, ruleType, passed }) => ({ ruleIndex, ruleType, passed })) }, { source: 'verifier' });
+    } catch (error) {
+      if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error;
+      // Error text can carry page URLs or echoed values; keep only its type.
+      append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
+    }
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
@@ -387,6 +403,7 @@ function redactVerificationWitness(witness: VerificationWitness): Record<string,
   if (witness.kind === 'response') { safe.status = witness.status; safe.ok = witness.ok; }
   if (witness.kind === 'visible-text') { safe.matchIndex = witness.matchIndex; safe.visible = witness.visible; if (witness.textSource) safe.textSource = witness.textSource; }
   if ('timestamp' in witness) safe.timestamp = witness.timestamp;
+  if (witness.kind === 'observer-event') safe.event = { kind: witness.event.kind, step: witness.event.step, ...(witness.event.role !== undefined ? { role: witness.event.role } : {}) };
   if (witness.kind === 'activation-speech') {
     if (witness.provenance) safe.provenance = witness.provenance;
     safe.outputEventIds = witness.outputEventIds;
