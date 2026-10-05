@@ -5,7 +5,7 @@ import { LlmTraceAnalyzer } from '@rawstep/reports';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { resolveRunSettings, taskProfile } from '@rawstep/project/config';
+import { modelKeyRequired, resolveBaseURL, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { checkRun, resolvePermissions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
@@ -16,8 +16,8 @@ import { HttpError, koreanMessage } from './http.js';
 /** Runs one run record; the default executes it for real, tests substitute their own. */
 export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void) => Promise<RunTrace>;
 const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent) => {
-  const { model, connection, prompt, mode, globals, profile } = run.snapshot;
-  return executeRun({ task, model, connection, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...(onEvent ? { onEvent } : {}) });
+  const { model, prompt, mode, globals, profile } = run.snapshot;
+  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...(onEvent ? { onEvent } : {}) });
 };
 export class ExperimentQueue {
   readonly experiments: Experiment[] = [];
@@ -49,6 +49,8 @@ export class ExperimentQueue {
     const request = planSchema.parse(raw), { config, revision } = await this.store.read(), tasks = await this.store.tasks(config);
     if (request.revision && request.revision !== revision) throw new HttpError(409, '작업이나 설정이 변경되었습니다. 실행 조합을 다시 확인하세요.');
     const rows: Combination[] = [];
+    const keyed = new Map<string, boolean>();
+    const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
     for (const taskId of new Set(request.taskIds)) for (const modelId of new Set(request.modelIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
       if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
       const task = config.tasks.find(t => t.id === taskId), model = config.models.find(m => m.id === modelId), profile = config.profiles.find(p => p.id === profileId);
@@ -59,9 +61,10 @@ export class ExperimentQueue {
       else {
         try {
           const analyzer = request.analysisModelId ? config.models.find(m => m.id === request.analysisModelId) : undefined;
-          const check = checkRun({ config, task: source, taskEntry: task, model, profile, prompt, mode: request.mode, analysisModel: analyzer, diagnoseStop: request.diagnoseStop });
+          const check = checkRun({ config, task: source, taskEntry: task, model, profile, mode: request.mode, analysisModel: analyzer, diagnoseStop: request.diagnoseStop });
           permissions = check.permissions;
           if (check.problem) reason = koreanMessage(check.problem);
+          else if (!await hasKey(model)) reason = koreanMessage(new ProjectError('missing-credential', ''));
           else if (request.analysisModelId && !analyzer) reason = koreanMessage(new ProjectError('analysis-model-invalid', ''));
         } catch (e) { reason = (e as Error).message; }
       }
@@ -77,13 +80,13 @@ export class ExperimentQueue {
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
       const task = config.tasks.find(t => t.id === row.taskId)!, model = config.models.find(m => m.id === row.modelId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
       const settings = resolveRunSettings(config, task, profile);
-      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, promptSource: model.promptEditable ? 'client' : 'server', taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
+      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
-        taskName: task.name, model: structuredClone(model), connection: structuredClone(config.connections.find(c => c.id === model.connectionId)!),
+        taskName: task.name, model: structuredClone(model),
         prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
         mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
         globals: settings,
-      }, ...(request.analysisModelId ? { analysisModel: structuredClone(config.models.find(m => m.id === request.analysisModelId)!), analysisConnection: structuredClone(config.connections.find(c => c.id === config.models.find(m => m.id === request.analysisModelId)!.connectionId)!) } : {}) };
+      }, ...(request.analysisModelId ? { analysisModel: structuredClone(config.models.find(m => m.id === request.analysisModelId)!) } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
     }) };
@@ -141,12 +144,12 @@ export class ExperimentQueue {
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       try {
-        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
+        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.model), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
         run.outcome = trace.outcome;
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const done = await finalizeRun(trace, outDir, run.analysisModel ? { createAnalyzer: async () => {
-          const c = run.analysisConnection; if (!c) throw new Error('분석 모델 연결이 없습니다.');
-          return new LlmTraceAnalyzer({ baseURL: c.baseURL, model: run.analysisModel!.modelId, apiKey: await this.store.credential(c.apiKeyEnv), timeoutMs: c.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
+          const m = run.analysisModel!;
+          return new LlmTraceAnalyzer({ baseURL: resolveBaseURL(m), model: m.modelId, apiKey: await this.store.credential(m), timeoutMs: m.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
         } } : {});
         run.analysisStatus = done.analysis.status;
         if (done.analysis.status === 'failed') run.analysisError = done.analysis.threw ? '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.' : done.analysis.error ?? '분석 실패';

@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import type { Model } from '@rawstep/project/config';
+import { credentialId, modelKeyEnv, modelKeyRequired, type Model } from '@rawstep/project/config';
 import { ModelEditDialog } from '../components/ModelEditDialog';
 import { ModelSetupDialog } from '../components/ModelSetupDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import { usageKey } from '../lib/modelSetup';
+import { providerTextKey, usageKey } from '../lib/modelSetup';
 import type { PageProps } from './types';
 
-/** Registered models as a plain list; connections and capability details stay behind the add/edit dialogs. */
+/** Registered models as a plain list; provider details and capabilities stay behind the add/edit dialogs. */
 export function ModelsPage(props: PageProps) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -27,15 +27,14 @@ export function ModelsPage(props: PageProps) {
     {config.models.length === 0
       ? <Card><CardContent className="grid justify-items-center gap-4 py-10 text-center"><div className="grid gap-1"><p className="font-medium">{t('modelSetup.emptyTitle')}</p><p className="max-w-md text-sm text-muted-foreground">{t('modelSetup.emptyDescription')}</p></div><Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('modelSetup.add')}</Button></CardContent></Card>
       : <ul aria-label={t('modelSetup.listLabel')} className="grid gap-3">{config.models.map(model => {
-        const connection = config.connections.find(c => c.id === model.connectionId);
-        const keySet = !!connection && !!credentialStatus[connection.id];
+        const keyUsed = modelKeyRequired(model) || !!modelKeyEnv(model), keySet = !!credentialStatus[credentialId(model)];
         return <li key={model.id}><Card size="sm"><CardContent className="flex flex-wrap items-center justify-between gap-3">
           <div className="grid min-w-0 gap-1.5">
             <p className="break-all font-medium">{model.name}</p>
-            <p className="text-sm text-muted-foreground">{connection ? t(`modelSetup.where.${connection.provider}`) : '-'} · {t(`modelSetup.usage.${usageKey(model.inputs)}`)}</p>
+            <p className="text-sm text-muted-foreground">{t(`modelSetup.kinds.${model.kind}.name`)} · {t(`modelSetup.providers.${providerTextKey(model.kind, model.provider)}.name`)} · {t(`modelSetup.usage.${usageKey(model.inputs)}`)}</p>
             <div className="flex flex-wrap gap-1.5">
               {model.roles.includes('analysis') && <Badge variant="secondary">{t('modelSetup.analysisBadge')}</Badge>}
-              <Badge variant={keySet ? 'outline' : 'ghost'}>{keySet ? t('modelSetup.keySet') : t('modelSetup.keyMissing')}</Badge>
+              {keyUsed && <Badge variant={keySet ? 'outline' : 'ghost'}>{keySet ? t('modelSetup.keySet') : t('modelSetup.keyMissing')}</Badge>}
             </div>
           </div>
           <div className="flex gap-2">

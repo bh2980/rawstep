@@ -5,7 +5,8 @@
 export type RawstepErrorCode =
   | 'unsupported-pattern' | 'access-blocked' | 'unsupported-profile' | 'browser-setup'
   | 'backend-precondition' | 'analysis-cancelled' | 'analysis-timeout' | 'analysis-failed'
-  | 'llm-cancelled' | 'llm-timeout' | 'llm-failed';
+  | 'llm-cancelled' | 'llm-timeout' | 'llm-failed'
+  | 'decision-cancelled' | 'decision-timeout' | 'decision-failed';
 export type RawstepOutcomeHint = { status: 'inconclusive' | 'failure'; reason: 'unsupported-pattern' | 'access-blocked' | 'unsupported-profile' };
 
 export class RawstepError extends Error {

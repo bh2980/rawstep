@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Task } from '@rawstep/core/contracts';
-import { idSchema as id, type Connection, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunSettings } from '@rawstep/project/config';
+import { idSchema as id, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunSettings } from '@rawstep/project/config';
 
 export const planSchema = z.object({
   taskIds: z.array(id).min(1).max(100), modelIds: z.array(id).min(1).max(100),
@@ -19,14 +19,13 @@ export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclus
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
   /** `profile` is the resolved page environment; `runProfile` names the run profile. */
-  snapshot: { task: Task; taskName: string; model: Model; connection: Connection; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
+  snapshot: { task: Task; taskName: string; model: Model; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
   outcome?: { status: string; reason?: string; steps?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   analysisError?: string; reportError?: string; analysisModel?: Model;
-  analysisConnection?: Connection; analysisInstructions?: string; taskFile?: string;
+  analysisInstructions?: string; taskFile?: string;
   retryOf?: { experiment: string; run: string };
   diagnoseStop?: boolean;
-  promptSource?: 'client' | 'server';
 };
 export type RetryPreview = { revision: string; changedFields: string[]; original: RunRecord['snapshot']['task']; current: RunRecord['snapshot']['task'] };
 export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest };

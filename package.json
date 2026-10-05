@@ -24,8 +24,7 @@
     "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
     "pack:all": "node scripts/pack-workspace.mjs",
     "test:source": "node scripts/smoke-source.mjs",
-    "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",
-    "test:dashboard-python": "python3 -m unittest discover -s tests -p \"test_dashboard_prompt_control.py\""
+    "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

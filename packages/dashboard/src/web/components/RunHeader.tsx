@@ -67,7 +67,6 @@ function RunNotices({ runRef }: { runRef: RunRef }) {
   const { run } = runRef;
   return <div className="grid gap-1 text-sm">
     {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
-    {run.promptSource === 'server' && <p className="text-muted-foreground">{t('run.serverPromptNotice')}</p>}
     {run.outcome && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
     {run.error && <p role="alert" className="text-destructive">{run.error}</p>}
     {run.analysisError && <p role="alert" className="text-destructive">{run.analysisError}</p>}

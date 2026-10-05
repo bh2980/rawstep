@@ -3,7 +3,7 @@ import { closeBrowserSession, createBrowserSession } from '@rawstep/browser/brow
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
 import { createLlmModel, generateStructured } from '@rawstep/policies/llm';
-import type { Connection, MachineSettings, Model } from '@rawstep/project/config';
+import { resolveBaseURL, type MachineSettings, type Model } from '@rawstep/project/config';
 import { record } from './http.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
@@ -41,7 +41,7 @@ const NOT_TRIED = (rule: VerifyRule): boolean => 'event' in rule || 'focused' in
  * Each proposal is validated against the task contract and tried on the start page; invalid ones are dropped.
  */
 export async function suggestChecks(options: {
-  url: string; goal: string; projectDir: string; model: Model; connection: Connection; apiKey?: string;
+  url: string; goal: string; projectDir: string; model: Model; apiKey?: string;
   machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath'>; signal?: AbortSignal;
 }): Promise<SuggestionResult> {
   // Resolves project-relative HTML paths the same way a task does, and rejects unusable URLs early.
@@ -80,9 +80,9 @@ export async function suggestChecks(options: {
   }
 }
 
-async function askModel(options: { model: Model; connection: Connection; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
+async function askModel(options: { model: Model; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
   try {
-    const llm = createLlmModel({ baseURL: options.connection.baseURL, modelId: options.model.modelId, apiKey: options.apiKey, timeoutMs: options.connection.timeoutMs, name: 'rawstep-suggest' });
+    const llm = createLlmModel({ baseURL: resolveBaseURL(options.model), modelId: options.model.modelId, apiKey: options.apiKey, timeoutMs: options.model.timeoutMs, name: 'rawstep-suggest' });
     const { object } = await generateStructured({ model: llm, system: SYSTEM, user: JSON.stringify({ goal, pageStructure: structure }), signal: options.signal, schema: suggestionsSchema });
     return object.suggestions;
   } catch {

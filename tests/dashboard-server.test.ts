@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultConfig, defaultProfile, defaultModes, type ProjectConfig } from '@rawstep/project/config';
+import { buildModel, defaultConfig, defaultProfile, defaultModes, type ProjectConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, ConfigView, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
@@ -17,8 +17,7 @@ async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-dashboar
 const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
 function setup(): ProjectConfig {
   const config = defaultConfig();
-  config.connections.push({ id: 'local', name: 'Local', provider: 'systemone', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
-  for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', protocol: 'systemone-http', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
+  for (const id of ['a', 'b']) config.models.push({ id, kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', name: id, modelId: id, inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], timeoutMs: 10000 });
   const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
 }
@@ -42,7 +41,7 @@ describe('dashboard API and sequential queue', () => {
     const post = (path: string, method: string, body: unknown) => fetch(app.url + path, { method, headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const stale = await post('/api/config', 'PUT', { config, revision: 'stale' });
     expect(stale.status).toBe(409); expect(((await stale.json()) as { error: string }).error).toContain('변경');
-    const lost = await post('/api/discover', 'POST', { connection: { id: 'x', name: 'x', provider: 'openai', baseURL: 'http://127.0.0.1:1/v1', timeoutMs: 500 } });
+    const lost = await post('/api/discover', 'POST', { kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' });
     expect(lost.status).toBe(502); expect(((await lost.json()) as { error: string }).error).toContain('연결할 수 없습니다');
     const missing = await post('/api/tasks/import', 'POST', { file: 'nothing.json' });
     expect(missing.status).toBe(404);
@@ -136,18 +135,38 @@ describe('dashboard API and sequential queue', () => {
     expect(seen[1]).toEqual({ goal: task.goal, input: { email: 'NEW_PRIVATE_INPUT' }, model: 'a', prompt: 'Careful fixture instructions' });
     expect(JSON.stringify(retried)).not.toContain('NEW_PRIVATE_INPUT'); expect(retried.runs[0]!.retryOf?.run).toBe(e.runs[0]!.id);
   });
-  it('pins the analysis connection and preserves success when analysis fails', async () => {
+  it('stores keys by provider or custom model, reports their status without values and marks runs whose key is missing', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.models[0]!.apiKeyEnv = 'RAWSTEP_TEST_DASH_KEY';
+    config.models.push(buildModel({ id: 'jev', name: 'jev', kind: 'decision', provider: 'typesafe', modelId: 'jev-latest', inputs: ['text', 'image'] }));
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
+    const keyless = await app.queue.plan({ ...request, modelIds: ['jev'], promptIds: ['baseline'] });
+    expect(keyless.rows[0]).toMatchObject({ supported: false, reason: expect.stringContaining('인증키') });
+    expect((await post('/api/credentials', { provider: 'typesafe', value: 'sk-ts-secret' })).status).toBe(200);
+    expect((await post('/api/credentials', { modelId: 'a', value: 'sk-a-secret' })).status).toBe(200);
+    expect((await post('/api/credentials', { provider: 'custom', value: 'x' })).status).toBe(400);
+    expect((await post('/api/credentials', { modelId: 'b', value: 'x' })).status).toBe(400);
+    expect((await post('/api/credentials', { modelId: 'ghost', value: 'x' })).status).toBe(404);
+    expect((await post('/api/credentials', { connectionId: 'a', value: 'x' })).status).toBe(400);
+    const text = await (await fetch(app.url + '/api/state')).text(), view = JSON.parse(text) as ConfigView;
+    expect(view.credentialStatus).toMatchObject({ 'provider:typesafe': true, 'model:a': true });
+    expect(text).not.toContain('sk-ts-secret'); expect(text).not.toContain('sk-a-secret');
+    expect((await app.queue.plan({ ...request, modelIds: ['jev'], promptIds: ['baseline'] })).rows[0]).toMatchObject({ supported: true });
+    expect(await readFile(join(dir, '.env.local'), 'utf8')).toContain('RAWSTEP_TYPESAFE_API_KEY="sk-ts-secret"');
+  });
+  it('pins the analysis model and preserves success when analysis fails', async () => {
     let sent: { messages: { content: string }[] } | undefined;
     const server = createServer((req, res) => { void (async () => { let body = ''; for await (const part of req) body += part; sent = JSON.parse(body); res.writeHead(503); res.end('PRIVATE_PROVIDER_ERROR'); })(); });
     await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.connections.push({ id: 'analysis', name: 'Analysis', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 });
-    config.models.push({ ...config.models[0]!, id: 'analysis', connectionId: 'analysis', modelId: 'analyzer', family: 'LLM', protocol: 'chat', roles: ['analysis'] });
+    config.models.push({ ...config.models[0]!, id: 'analysis', kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, modelId: 'analyzer', roles: ['analysis'], timeoutMs: 1000 });
     config.profiles[0]!.analysisInstructions = 'Global comparison focus';
     await store.save(config, initial.revision, { file: 'task.json', task });
     try {
       const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
-        const changed = await store.read(); changed.config.connections.find(c => c.id === 'analysis')!.baseURL = 'http://127.0.0.1:1'; await store.save(changed.config, changed.revision);
+        const changed = await store.read(); changed.config.models.find(m => m.id === 'analysis')!.baseURL = 'http://127.0.0.1:1'; await store.save(changed.config, changed.revision);
         const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
       } }); apps.push(app);
       const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['baseline'], analysisModelId: 'analysis' }); await waitFor(async () => !!e.runs[0]!.endedAt);

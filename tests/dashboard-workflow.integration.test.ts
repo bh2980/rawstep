@@ -6,7 +6,6 @@ import { ProjectStore } from '@rawstep/project/store';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import type { PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { dashboardFixture } from './helpers/dashboard-fixture.js';
-import { discover } from '@rawstep/project/discover';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await work(); });
 it('executes the real Runner over HTTP with two models/two prompts, LLM choices and simulated speech', async () => {
@@ -36,18 +35,3 @@ it('executes the real Runner over HTTP with two models/two prompts, LLM choices 
   expect(speechTrace.environment.observationProvenance).toBe('simulation');
   expect(fixture.requests.filter(r => r.path.endsWith('/systemone')).some(r => JSON.stringify(r.state).includes('speech'))).toBe(true);
 }, 45000);
-it('negotiates /choose prompt control and rejects ignored instructions before actions', async () => {
-  const fixture = await dashboardFixture(); cleanup.push(fixture.close);
-  const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-choose-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
-  const connection = { id: 'choose', name: 'Choose fixture', provider: 'screenshot' as const, baseURL: fixture.url, timeoutMs: 5000 };
-  fixture.config.connections = [connection]; fixture.config.models = await discover(connection); fixture.config.models[0]!.id = 'choose';
-  const store = new ProjectStore(dir), initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
-  const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
-  const request = { taskIds: ['fixture-task'], modelIds: ['choose'], promptIds: ['careful'], mode: 'keyboard', profileIds: ['default'], repeats: 1 };
-  const good = await app.queue.create(request); await expect.poll(() => !!good.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
-  expect(good.runs[0]!.state).toBe('success'); expect(fixture.requests[0]!.instructions).toContain('Fixture careful variant');
-  const config = await store.read(); config.config.connections[0]!.baseURL += '/bad'; await store.save(config.config, config.revision);
-  const bad = await app.queue.create(request); await expect.poll(() => !!bad.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
-  expect(bad.runs[0]!.state).toBe('failure');
-  const trace = await app.queue.trace(bad.id, bad.runs[0]!.id); expect(trace.events.filter(e => e.type === 'action.result')).toHaveLength(0);
-}, 30000);

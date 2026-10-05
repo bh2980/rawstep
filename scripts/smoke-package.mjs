@@ -78,8 +78,8 @@ import { AtDriverBackend, AT_DRIVER_KEYS, ScriptedPolicy, readTrace, resolveTask
 import { runTask } from "rawstep/runner";
 import { runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { runCli } from "rawstep/cli";
-import { FakeSystemOneClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
-import { HttpScreenshotModel, ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot';
+import { DecisionClient, FakeSystemOneClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
+import { ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot';
 import { mockAtDriverServer } from "./mock-at-driver-server.mjs";
 
 assert.equal(fileURLToPath(import.meta.resolve("rawstep")), join(process.cwd(), "node_modules", "rawstep", "dist", "index.js"));
@@ -180,18 +180,18 @@ try {
     const httpModel = createServer(async (request, response) => {
       let body = ''; for await (const chunk of request) body += chunk;
       const modelInput = JSON.parse(body);
-      assert.equal(modelInput.protocol, 'rawstep-screenshot-choice-v1');
-      assert.match(modelInput.screenshot.pngBase64, /^iVBOR/);
+      assert.equal(request.url, '/v1/systemone');
+      assert.match(modelInput.media[0].data, /^data:image\/png;base64,iVBOR/);
       assert.ok(!('verify' in modelInput) && !('inputs' in modelInput));
-      assert.ok(modelInput.history.every(item => !('execution' in item)));
-      const choiceId = ['key:Tab', 'key:Enter'][modelRequests++];
+      assert.ok(modelInput.state.history.every(item => !('execution' in item)));
+      const choice = ['key:Tab', 'key:Enter'][modelRequests++], criteria = Object.keys(modelInput.questions.next.criteria);
       response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ choiceId, model: { id: 'package-smoke-fixture-adapter', runtime: 'not-real-inference' } }));
+      response.end(JSON.stringify({ model: modelInput.model, answers: { next: { type: 'choice', choice, probabilities: Object.fromEntries(criteria.map(id => [id, id === choice ? 1 : 0])) } } }));
     });
     await new Promise(resolve => httpModel.listen(0, '127.0.0.1', resolve));
     try {
       const visualOut = join(process.cwd(), 'installed-screenshot-model');
-      await runScreenshotTask(browserTask, { policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:' + httpModel.address().port + '/choose' }) }), outDir: visualOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH });
+      await runScreenshotTask(browserTask, { policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:' + httpModel.address().port + '/v1', modelId: 'package-smoke-fixture-adapter', capabilities: { inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 } })) }), outDir: visualOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH });
       const visualTrace = await readTrace(visualOut);
       assert.equal(visualTrace.outcome.status, 'success');
       assert.equal(visualTrace.events.filter(event => event.type === 'policy.evidence').length, 2);
@@ -233,10 +233,10 @@ try {
     'const policy: DecisionPolicy = new ScriptedPolicy([{ stop: "stuck" }]);',
     'const task: Task = { url: "https://example.com", goal: "Read the page", verify: { all: [{ titleIncludes: "Example" }] } };',
     'const analyzer: TraceAnalyzer = { id: "example", analyze: async () => ({ summary: "Done", findings: [] }) };',
-    'import { ScreenshotDecisionPolicy, HttpScreenshotModel, type ScreenshotModelAdapter } from "rawstep/screenshot";',
-    'const model: ScreenshotModelAdapter = new HttpScreenshotModel({ endpoint: "http://127.0.0.1:8766/choose" });',
+    'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
+    'import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
+    'const model: ScreenshotModelAdapter = new SystemOneScreenshotAdapter(new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { inputs: ["text", "image"], maxChoices: 255, maxImages: 2 } }));',
     'const screenshotPolicy = new ScreenshotDecisionPolicy({ model });',
-    'import { FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
     'import { LlmTraceAnalyzer } from "@rawstep/reports/analyze/llm";',
     'const client: SystemOneClient = new FakeSystemOneClient(["stop:uncertain"]);',
     'const speechPolicy = new SystemOneSpeechPolicy(client);',

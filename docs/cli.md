@@ -6,7 +6,7 @@ The `rawstep` executable reads [`rawstep.config.json`](./config.md) in the proje
 
 | Command | Purpose |
 |---|---|
-| `rawstep init [--project <dir>]` | Write a default `rawstep.config.json` (one profile named Default; no connections, models or tasks). An existing file is never overwritten. |
+| `rawstep init [--project <dir>]` | Write a default `rawstep.config.json` (one profile named Default; no models or tasks). An existing file is never overwritten. |
 | `rawstep ui [--port <port>] [--project <dir>]` | Serve the dashboard on `127.0.0.1` (default port 4318). Creates the config file if it is missing. |
 | `rawstep run <task> [options]` | Run a task and print each run's outcome and the findings across runs. |
 | `rawstep hints <run-dir> [--reference <run-dir>]` | List the places worth a look in a saved run and write `hints.json`. |
@@ -56,11 +56,11 @@ A forced kill cannot clean up or finalize a trace. Use a fresh `--out` directory
 
 ## Credentials
 
-A connection in `rawstep.config.json` names an environment variable with `apiKeyEnv`. The value is read from the process environment or from `.env.local` in the project directory; the dashboard writes `.env.local` with mode 0600. Keys never appear in the config, traces or reports. Do not commit `.env.local`. See `.env.example`.
+Each model's provider keeps its key in an environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; see [config](./config.md)); a `custom` model names its own with `apiKeyEnv`. The value is read from the process environment or from `.env.local` in the project directory; the dashboard writes `.env.local` with mode 0600. Keys never appear in the config, traces or reports. Do not commit `.env.local`. See `.env.example`.
 
 ## Privacy
 
-Screenshots can expose private page content. The model receives pixels, the goal, named input keys and the action history. It never receives the DOM or verifier results. Saved traces redact input values. A remote model receives these screenshots, so choose the connection with that in mind.
+Screenshots can expose private page content. The model receives pixels, the goal, named input keys and the action history. It never receives the DOM or verifier results. Saved traces redact input values. A remote model receives these screenshots, so choose the provider with that in mind.
 
 ## Library
 

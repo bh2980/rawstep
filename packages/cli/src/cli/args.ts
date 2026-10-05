@@ -82,7 +82,7 @@ Usage:
 
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
-  ui        Open the dashboard to set up connections, models, tasks and profiles, and to run experiments.
+  ui        Open the dashboard to set up models, tasks and profiles, and to run experiments.
   run       Run a task from rawstep.config.json (by id) or a task JSON file, then print each run's outcome
             and the findings gathered across the runs, grouped as Page and Model.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
@@ -93,7 +93,7 @@ Commands:
             screen reader, that its AT Driver endpoint answers.
 
 Configuration:
-  Everything lives in rawstep.config.json in the project directory: connections, models, tasks, run profiles
+  Everything lives in rawstep.config.json in the project directory: models, tasks, run profiles
   and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.

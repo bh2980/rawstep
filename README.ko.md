@@ -10,11 +10,11 @@ Rawstep은 웹 페이지에서 키보드 또는 스크린리더 작업을 모델
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # 대시보드에서 연결·모델·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
+npx rawstep ui          # 대시보드에서 모델·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
 npx rawstep run checkout
 ```
 
-`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 모델 연결과 작업을 등록한 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
+`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 모델과 작업을 등록한 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
 
 ```text
 Run 1 of 2: goal reached · 7 steps
@@ -73,7 +73,7 @@ npx rawstep run checkout --profile zoom-200
 
 ## 설정 파일
 
-프로젝트 폴더의 `rawstep.config.json` 하나에 모델 연결, 모델, 작업, 실행 프로필, 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 연결에는 환경변수 이름(`apiKeyEnv`)만 적고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
+프로젝트 폴더의 `rawstep.config.json` 하나에 모델, 작업, 실행 프로필, 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 제공자마다 정해진 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, 사용자 지정 서버는 직접 지정)에서 읽고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
 
 ## 소스에서 실행
 

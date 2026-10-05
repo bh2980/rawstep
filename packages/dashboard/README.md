@@ -13,7 +13,7 @@ npm run rawstep -- ui
 
 Open the printed `http://127.0.0.1:4318` URL. Node serves the compiled UI and API together. `npm run dashboard:dev` starts the Node API and Vite on port 5173; set `RAWSTEP_DASHBOARD_PROJECT` to edit another project during development. `npm run dashboard:preview` serves the built application through Node.
 
-The UI manages connections and discovered models, SystemOne/LLM identity and roles, Task JSON files, task-owned prompt variants, global and per-task keyboard/screenreader permissions, environment profiles and policy limits. Experiments run sequentially as independent task/model/prompt/environment combinations. History includes comparison, saved snapshots, events, screenshots, reports and reviewed retries. A retry pins the original public conditions and reads fresh input values from the task file. Unsupported model/mode/backend combinations have explicit preflight reasons.
+The UI manages models by type (LLM or decision), provider and key, discovered models, roles, Task JSON files, task-owned prompt variants, global and per-task keyboard/screenreader permissions, environment profiles and policy limits. Experiments run sequentially as independent task/model/prompt/environment combinations. History includes comparison, saved snapshots, events, screenshots, reports and reviewed retries. A retry pins the original public conditions and reads fresh input values from the task file. Unsupported model/mode/backend combinations have explicit preflight reasons.
 
 | Location | Responsibility |
 |---|---|
@@ -39,7 +39,7 @@ For a new JSON component, update both the catalog and registry. Keep its impleme
 
 Configuration is in `rawstep.config.json`, the same file `rawstep run` and `runTask` read, so tasks, models and profiles set up in the dashboard run unchanged from the CLI and in tests. Task JSON keeps its engine contract. Keys are stored in `.env.local` and returned only as configured/not-configured status. Runs live in `.rawstep/experiments`. Save conflicts preserve frontend drafts. A server restart marks unfinished runs interrupted and never automatically calls a model again.
 
-Keyboard execution needs a model with confirmed/manual image support; native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. UI supports simulation, VoiceOver and NVDA; Orca remains available through the library API. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running. Version-1 `/choose` servers own their prompt; `client-v1` servers must return matching prompt identity/version/hash evidence for custom instructions.
+Keyboard execution needs a model with confirmed/manual image support; native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. UI supports simulation, VoiceOver and NVDA; Orca remains available through the library API. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running.
 
 Verification:
 
@@ -48,7 +48,6 @@ npm run dashboard:build
 npm run typecheck
 corepack pnpm exec vitest run tests/dashboard-catalog.test.ts tests/dashboard-server.test.ts
 RAWSTEP_TEST_BROWSER_PATH=/path/to/chromium npm run test:integration
-npm run test:dashboard-python
 npm run test:package
 ```
 

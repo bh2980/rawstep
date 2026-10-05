@@ -1,4 +1,4 @@
-/** Strings for the task editor, model/connection settings and other forms. */
+/** Strings for the task editor, model settings and other forms. */
 export const editor = {
   taskEditor: {
     copyName: '{{name}} 복사',
@@ -29,7 +29,7 @@ export const editor = {
     policyInherited: '"{{profile}}" 프로필의 값을 사용합니다: {{values}}',
     inheritedPolicy: '{{stuck}} · 이전 행동 {{history}}개 · 같은 화면 {{visits}}회 · 변화 없음 {{unchanged}}회 · 중도 포기 {{giveUp}} · 포커스 확인 {{focusGate}}',
     promptVariants: '프롬프트 변형',
-    promptHint: '실행 지침만 편집합니다. 목표·후보·관찰·이력은 실행 중 자동 조립됩니다. 기존 /choose 서버가 지침 변경을 지원하지 않으면 조합 계산에서 알려줍니다.',
+    promptHint: '실행 지침만 편집합니다. 목표·후보·관찰·이력은 실행 중 자동 조립됩니다.',
     variantName: '변형 이름 {{n}}',
     version: '버전 {{n}}',
     instructions: '실행 지침 {{n}}',

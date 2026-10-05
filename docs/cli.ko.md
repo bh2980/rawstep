@@ -6,7 +6,7 @@
 
 | 명령 | 하는 일 |
 |---|---|
-| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(프로필 `Default` 하나, 연결·모델·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
+| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(프로필 `Default` 하나, 모델·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
 | `rawstep ui [--port <port>] [--project <dir>]` | 로컬 대시보드를 `127.0.0.1`(기본 포트 4318)에서 엽니다. 설정 파일이 없으면 만듭니다 |
 | `rawstep run <task> [옵션]` | 작업을 실행하고 결과와 발견 사항을 출력합니다 |
 | `rawstep hints <run-dir> [--reference <run-dir>]` | 저장된 실행의 마찰 힌트를 출력하고 `hints.json`을 씁니다 |
@@ -64,7 +64,7 @@ Model
 
 ## doctor
 
-Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실행할 수 있는지, 각 연결의 `apiKeyEnv`가 설정되어 있는지(값은 출력하지 않습니다)를 확인합니다. `machine.backend`가 `voiceover`나 `nvda`이면 AT Driver 엔드포인트의 응답도 확인합니다. 점검이 하나라도 실패하면 종료 코드 1입니다. 이는 연결과 설정만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다.
+Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실행할 수 있는지, 각 모델 제공자의 키 환경변수가 설정되어 있는지(값은 출력하지 않습니다)를 확인합니다. `machine.backend`가 `voiceover`나 `nvda`이면 AT Driver 엔드포인트의 응답도 확인합니다. 점검이 하나라도 실패하면 종료 코드 1입니다. 이는 연결과 설정만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다.
 
 ## 종료 코드
 
@@ -77,7 +77,7 @@ Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실�
 
 ## 인증 정보
 
-API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결의 `apiKeyEnv`에 적힌 환경변수를 프로세스 환경 또는 프로젝트의 `.env.local`에서 읽으며, 대시보드가 입력받은 키도 `.env.local`(권한 0600)에 씁니다. `.env.local`은 커밋하지 마세요.
+API 키는 `rawstep.config.json`에 저장하지 않습니다. 모델 제공자의 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, [설정 안내](./config.ko.md) 참고)를 프로세스 환경 또는 프로젝트의 `.env.local`에서 읽으며, 대시보드가 입력받은 키도 `.env.local`(권한 0600)에 씁니다. `.env.local`은 커밋하지 마세요.
 
 ## 개인정보
 

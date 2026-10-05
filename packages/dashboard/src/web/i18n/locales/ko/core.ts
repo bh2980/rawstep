@@ -133,7 +133,6 @@ export const core = {
     downloadStopReason: '중단 진단 다운로드',
     stopQueue: '큐 중지',
     simulationNotice: '모의 VoiceOver 실행입니다. 실제 네이티브 발화 검증 결과가 아닙니다.',
-    serverPromptNotice: '이 /choose 서버는 지침을 소유합니다. UI의 기본 지침은 실제 적용 문구를 의미하지 않으며, 프롬프트 편집 실행은 제한됩니다.',
     outcome: '기록된 실행 결과: {{status}} · {{reason}}',
     noReason: '—',
     outcomeReasons: {

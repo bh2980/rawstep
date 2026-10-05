@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FakeSystemOneClient, SystemOneHttpClient, VercelEvaluationClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices } from 'rawstep/systemone';
+import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
@@ -50,7 +50,7 @@ describe('model-independent SystemOne contracts',()=>{
   it('rejects unknown decisions, cancellation, images and oversized candidate lists',async()=>{
     await expect(new SystemOneSpeechPolicy(new FakeSystemOneClient(['arbitrary'])).decide(input())).rejects.toThrow('Invalid SystemOne');
     const controller=new AbortController();controller.abort();await expect(new SystemOneSpeechPolicy(new FakeSystemOneClient(['key:Tab'])).decide({...input(),signal:controller.signal})).rejects.toThrow();
-    const client=new VercelEvaluationClient({baseURL:'https://example.test/v1',model:'configured',apiKey:'test-key'});
+    const client=new DecisionClient({provider:'gateway',modelId:'configured',apiKey:'test-key',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}});
     expect(()=>new SystemOneScreenshotAdapter(client)).toThrow('input modalities');expect(()=>assertSystemOneInputs(client,['text'],256)).toThrow('candidate count');
   });
   it('runs fake decision → fake backend → trace → independent verification',async()=>{
@@ -85,29 +85,50 @@ describe('model-independent SystemOne contracts',()=>{
     }
   });
 });
-describe('actual HTTP protocols, not real model inference',()=>{
-  it('uses Gateway evaluation, not chat completions or fallback options',async()=>{
-    const requests:any[]=[];const baseURL=await http(request=>{requests.push(request);return request.path.endsWith('/models')?{data:[{id:'test/native',type:'evaluation',modalities:{input:['text']}}]}:answer('test/native','intent:activate',request.body.questions.next.criteria);});
-    await new SystemOneSpeechPolicy(new VercelEvaluationClient({baseURL,model:'test/native',apiKey:'PRIVATE_KEY'})).decide(input());
-    expect(requests.map(r=>r.path)).toEqual(['/v1/models','/v1/evaluate']);expect(requests[1].headers.authorization).toBe('Bearer PRIVATE_KEY');expect(requests[1].body).not.toHaveProperty('providerOptions');expect(JSON.stringify(requests[1].body)).not.toContain('PRIVATE_KEY');
+describe('actual HTTP protocols through the AI SDK decide API, not real model inference',()=>{
+  const text={inputs:['text' as const],maxChoices:10,maxImages:0};
+  const gatewayModel=(modelType:string)=>({models:[{id:'test/native',name:'Native',modelType,specification:{specificationVersion:'v4',provider:'gateway',modelId:'test/native'}}]});
+  it('uses the Gateway decision model with the key in a header and no fallback options',async()=>{
+    const requests:any[]=[];const baseURL=await http(request=>{requests.push(request);return request.path.endsWith('/config')?gatewayModel('decision'):answer('test/native','intent:activate',request.body.questions.next.criteria);});
+    const client=new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',apiKey:'PRIVATE_KEY',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}});
+    await new SystemOneSpeechPolicy(client).decide(input());
+    expect(requests.map(r=>r.path)).toEqual(['/v1/config','/v1/decision-model']);expect(requests[1].headers.authorization).toBe('Bearer PRIVATE_KEY');expect(requests[1].headers['ai-model-id']).toBe('test/native');
+    expect(requests[1].body.providerOptions ?? {}).toEqual({});expect(JSON.stringify(requests[1].body)).not.toContain('PRIVATE_KEY');
+    expect(()=>new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}})).toThrow('API key');
+    expect(()=>new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',apiKey:'k',capabilities:{inputs:['text','image'],maxChoices:255,maxImages:2}})).toThrow('text only');
   });
-  it('rejects generative models before inference and silent model substitution',async()=>{
-    const post=vi.fn();const baseURL=await http(request=>{if(request.body)post();return {data:[{id:'not-native',type:'language',modalities:{input:['text']}}]};});
-    await expect(new VercelEvaluationClient({baseURL,model:'not-native',apiKey:'test'}).prepare({signal:signal()})).rejects.toThrow('native text evaluation');expect(post).not.toHaveBeenCalled();
-    const changed=new SystemOneHttpClient({baseURL:await http(req=>answer('changed','a',req.body.questions.next.criteria)),model:'requested',capabilities:{inputs:['text'],maxChoices:10,maxImages:0}});
-    await expect(changed.evaluate({state:{},instructions:'next',choices:[{id:'a',label:'A'}]},{signal:signal()})).rejects.toThrow('different model');
+  it('rejects non-decision models before inference and silent model substitution',async()=>{
+    const post=vi.fn();const baseURL=await http(request=>{if(request.body)post();return gatewayModel('language');});
+    await expect(new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',apiKey:'test',capabilities:text}).prepare({signal:signal()})).rejects.toMatchObject({name:'RawstepError',code:'decision-failed'});expect(post).not.toHaveBeenCalled();
+    const changed=new DecisionClient({provider:'custom',baseURL:await http(req=>answer('changed','a',req.body.questions.next.criteria)),modelId:'requested',capabilities:text});
+    await expect(changed.evaluate({state:{},instructions:'next',choices:[{id:'a',label:'A'}]},{signal:signal()})).rejects.toMatchObject({code:'decision-failed'});
+  });
+  it('talks to /systemone with the key as a bearer token and reports the runtime',async()=>{
+    const seen:any[]=[];const baseURL=await http(req=>{seen.push(req);return answer('jev-latest','a',req.body.questions.next.criteria);});
+    const client=new DecisionClient({provider:'typesafe',baseURL,modelId:'jev-latest',apiKey:'PRIVATE_KEY',capabilities:text});
+    const result=await client.evaluate({state:{goal:'Next',missing:undefined},instructions:'Choose',choices:[{id:'a',label:'A'},{id:'b',label:'B'}]},{signal:signal()});
+    expect(seen.map(r=>r.path)).toEqual(['/v1/systemone']);expect(seen[0].headers.authorization).toBe('Bearer PRIVATE_KEY');
+    expect(seen[0].body).toEqual({model:'jev-latest',state:{goal:'Next'},questions:{next:{type:'choice',instructions:'Choose',criteria:{a:'A',b:'B'}}}});
+    expect(result).toEqual({choiceId:'a',probabilities:[1,0],model:{id:'jev-latest',requestedId:'jev-latest',runtime:'systemone-http'}});
   });
   it('sends ordered inline current/previous media without file paths or URLs',async()=>{
     let sent:any;const baseURL=await http(req=>{sent=req.body;return answer('visual-model','a',sent.questions.next.criteria);});
-    const client=new SystemOneHttpClient({baseURL,model:'visual-model',capabilities:{inputs:['text','image'],maxChoices:255,maxImages:2}});
+    const client=new DecisionClient({provider:'custom',baseURL,modelId:'visual-model',capabilities:{inputs:['text','image'],maxChoices:255,maxImages:2}});
     await client.evaluate({state:{goal:'Next',imageOrder:['current','previous']},images:[{pngBase64:png},{pngBase64:png}],instructions:'Choose',choices:[{id:'a',label:'A'}]},{signal:signal()});
-    expect(sent.state.screens).toEqual(['<image:1>','<image:2>']);expect(sent.media).toEqual([{type:'image',data:`data:image/png;base64,${png}`},{type:'image',data:`data:image/png;base64,${png}`}]);expect(JSON.stringify(sent)).not.toMatch(/"url"|"path"/);
+    expect(sent.state.screens).toEqual(['<image:1>','<image:2>']);expect(sent.media).toEqual([{type:'image',data:`data:image/png;base64,${png}`},{type:'image',data:`data:image/png;base64,${png}`}]);expect(JSON.stringify(sent)).not.toMatch(/"url"|"path"|rawstep/);
+    await expect(client.evaluate({state:{screens:['<image:1>']},instructions:'Choose',choices:[{id:'a',label:'A'}]},{signal:signal()})).rejects.toMatchObject({code:'decision-failed'});
   });
   it('fails closed without leaking HTTP bodies, invalid JSON or transport credentials',async()=>{
-    for(const fetcher of [async()=>new Response('PRIVATE_BODY',{status:500}),async()=>new Response('PRIVATE_BODY'),async()=>{throw new Error('PRIVATE_KEY');},async()=>Response.json({model:'test',answers:{next:{type:'choice',choice:'a',probabilities:{a:-1}}}})]){
-      const client=new SystemOneHttpClient({baseURL:'http://127.0.0.1:1/v1',model:'test',capabilities:{inputs:['text'],maxChoices:10,maxImages:0},fetch:fetcher});
-      const error=await client.evaluate({state:{},instructions:'Choose',choices:[{id:'a',label:'A'}]},{signal:signal()}).then(()=>undefined,e=>e);expect(error).toBeInstanceOf(Error);expect(String(error)).not.toMatch(/PRIVATE_BODY|PRIVATE_KEY/);
+    for(const fetcher of [async()=>new Response('PRIVATE_BODY',{status:500}),async()=>new Response('PRIVATE_BODY'),async()=>{throw new Error('PRIVATE_KEY');},async()=>Response.json({model:'test',answers:{next:{type:'choice',choice:'a',probabilities:{a:-1}}}}),async()=>Response.json({model:'test',answers:{next:{type:'choice',choice:'a',probabilities:{a:1}},leak:'PRIVATE_KEY'}})]){
+      const client=new DecisionClient({provider:'custom',baseURL:'http://127.0.0.1:1/v1',modelId:'test',apiKey:'PRIVATE_KEY',capabilities:text,fetch:fetcher});
+      const error=await client.evaluate({state:{},instructions:'Choose',choices:[{id:'a',label:'A'}]},{signal:signal()}).then(()=>undefined,e=>e);expect(error).toMatchObject({name:'RawstepError',code:'decision-failed'});expect(String(error)).not.toMatch(/PRIVATE_BODY|PRIVATE_KEY/);
     }
+  });
+  it('never retries a failed request, so one decision is at most one inference', async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response('PRIVATE_BODY', { status: 503 }));
+    const client = new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:1/v1', modelId: 'test', capabilities: text, fetch: fetcher });
+    await expect(client.evaluate({ state: {}, instructions: 'Choose', choices: [{ id: 'a', label: 'A' }] }, { signal: signal() })).rejects.toMatchObject({ code: 'decision-failed' });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
   it('cancels in-flight HTTP and enforces a timeout without another inference', async () => {
     const request = { state: {}, instructions: 'Choose', choices: [{ id: 'a', label: 'A' }] };
@@ -120,12 +141,12 @@ describe('actual HTTP protocols, not real model inference',()=>{
         if (options?.signal?.aborted) abort(); else options?.signal?.addEventListener('abort', abort, { once: true });
       });
     };
-    const client = new SystemOneHttpClient({ baseURL: 'http://127.0.0.1:1/v1', model: 'test', capabilities: { inputs: ['text'], maxChoices: 10, maxImages: 0 }, fetch: fetcher, timeoutMs: 10 });
+    const client = new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:1/v1', modelId: 'test', capabilities: text, fetch: fetcher, timeoutMs: 10 });
     const controller = new AbortController();
     const pending = client.evaluate(request, { signal: controller.signal });
     await started; controller.abort(new Error('PRIVATE_REASON'));
-    await expect(pending).rejects.toThrow('cancelled');
-    await expect(client.evaluate(request, { signal: signal() })).rejects.toThrow('timed out');
+    await expect(pending).rejects.toMatchObject({ code: 'decision-cancelled' });
+    await expect(client.evaluate(request, { signal: signal() })).rejects.toMatchObject({ code: 'decision-timeout' });
     expect(seen).toHaveBeenCalledTimes(2);
   });
 });

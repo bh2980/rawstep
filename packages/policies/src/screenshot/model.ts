@@ -1,4 +1,3 @@
-import { RAWSTEP_DEFAULTS, isLoopbackHostname } from '@rawstep/core/defaults';
 import type { Decision, ScreenshotObservation } from '@rawstep/core/contracts';
 
 export const SCREENSHOT_MODEL_PROTOCOL = 'rawstep-screenshot-choice-v1' as const;
@@ -37,57 +36,4 @@ export function validateModelResponse(value: unknown, choices: readonly Screensh
   if (result.inferenceMs !== undefined && (!Number.isFinite(result.inferenceMs) || result.inferenceMs < 0)) throw new Error('Invalid inference duration.');
   if (result.probabilities !== undefined && (!Array.isArray(result.probabilities) || result.probabilities.length !== choices.length || result.probabilities.some(p => !Number.isFinite(p) || p < 0 || p > 1) || Math.abs(result.probabilities.reduce((a, b) => a + b, 0) - 1) > 0.01)) throw new Error('Model probabilities must be normalized and match the choice list.');
   if (result.focusAssessment && (!['visible', 'not-visible', 'uncertain'].includes(result.focusAssessment.visibility) || (result.focusAssessment.note !== undefined && typeof result.focusAssessment.note !== 'string'))) throw new Error('Invalid visual focus assessment.');
-}
-
-/** Explicit HTTP adapter. Local-only by default; remote transmission requires opt-in. */
-export class HttpScreenshotModel implements ScreenshotModelAdapter {
-  readonly endpoint: string;
-  private readonly timeoutMs: number;
-  constructor(options: { endpoint: string; allowRemote?: boolean; timeoutMs?: number; fetch?: typeof fetch }) {
-    const url = new URL(options.endpoint);
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash || url.search) throw new Error('Model endpoint must be an HTTP(S) URL without credentials, query, or fragment.');
-    const local = isLoopbackHostname(url.hostname);
-    if (!local && options.allowRemote !== true) throw new Error('Remote screenshot transmission requires explicit allowRemote: true.');
-    if (!local && url.protocol !== 'https:') throw new Error('Remote screenshot model endpoints require HTTPS.');
-    this.endpoint = url.href;
-    this.timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
-    if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new Error('Model timeoutMs must be a positive bounded integer.');
-    this.fetcher = options.fetch ?? fetch;
-  }
-  private readonly fetcher: typeof fetch;
-  async choose(request: ScreenshotModelRequest, options: { signal: AbortSignal }): Promise<ScreenshotModelResponse> {
-    options.signal.throwIfAborted();
-    const signal = AbortSignal.any([options.signal, AbortSignal.timeout(this.timeoutMs)]);
-    const response = await this.fetcher(this.endpoint, { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(request), signal, redirect: 'error' });
-    if (!response.ok) throw new Error(`Screenshot model request failed (HTTP ${response.status}); response body omitted for privacy.`);
-    let value: unknown;
-    try { value = JSON.parse(await boundedText(response)); }
-    catch (error) {
-      signal.throwIfAborted();
-      if (error instanceof ResponseTooLargeError) throw error;
-      throw new Error('Screenshot model returned invalid JSON; response body omitted for privacy.');
-    }
-    options.signal.throwIfAborted();
-    validateModelResponse(value, request.choices);
-    return value;
-  }
-}
-
-const MAX_RESPONSE_BYTES = 1_000_000;
-class ResponseTooLargeError extends Error {}
-/** Reads at most MAX_RESPONSE_BYTES so a misbehaving model server cannot exhaust memory. */
-async function boundedText(response: Response): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  const chunks: Uint8Array[] = []; let length = 0;
-  try {
-    for (;;) {
-      const part = await reader.read(); if (part.done) break;
-      length += part.value.length;
-      if (length > MAX_RESPONSE_BYTES) throw new ResponseTooLargeError('Screenshot model response exceeds the byte limit; response body omitted for privacy.');
-      chunks.push(part.value);
-    }
-  } finally { await reader.cancel().catch(() => undefined); }
-  return Buffer.concat(chunks).toString('utf8');
 }

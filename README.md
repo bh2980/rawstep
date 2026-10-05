@@ -10,12 +10,12 @@ Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawst
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # set up connections, models and tasks in the dashboard
+npx rawstep ui          # set up models and tasks in the dashboard
 # or: npx rawstep init  # write rawstep.config.json, then edit it by hand
 npx rawstep run checkout --repeat 2
 ```
 
-Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: a connection names an environment variable (`apiKeyEnv`), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
+Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: each provider reads its key from a fixed environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; a custom server names its own), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
 
 Example output:
 
@@ -70,19 +70,24 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage connections and model discovery, task prompts and permissions, experiments across tasks, models, prompts and profiles, and persisted comparison. Configuration and results use project files, with no database. Components use shadcn and the official json-render shadcn catalog/registry. See the [dashboard guide](./docs/dashboard-plan.ko.md).
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage models by type and provider with model discovery, task prompts and permissions, experiments across tasks, models, prompts and profiles, and persisted comparison. Configuration and results use project files, with no database. Components use shadcn and the official json-render shadcn catalog/registry. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
-### Screenshot model example
+### Models
 
-Start the separately installed [OneJev companion](./examples/screenshot/README.md). Add its `/choose` server as a `screenshot` connection with a `choose` model, in the dashboard or in `rawstep.config.json`. Register `examples/screenshot/task.json` as a task, then:
+Register a model as type, provider, then model: `npx rawstep ui` walks through it, or write the `models[]` entry yourself ([configuration reference](./docs/config.md)).
+
+- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It also runs post-run analysis and completion-check suggestions.
+- **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
+
+Keyboard mode sends screenshots, so it needs an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
 
 ```sh
 npx rawstep run <task>
 ```
 
-A server implements `rawstep-screenshot-choice-v1`, not the OpenAI chat-completions protocol. The dashboard's experiment dialog has a diagnose-stop option: a separate bounded reason-choice call after a suitable stop. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions. The CLI does not offer it.
+The dashboard's experiment dialog has a diagnose-stop option: a separate bounded reason-choice call after a suitable stop. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions. The CLI does not offer it.
 
-Model weights, Python environments, native AT servers and browser binaries are not npm dependencies and are never automatically downloaded on import/install. Actual local OneJev0.8B/4B experiments and their failures are documented separately; the publisher's GPU latency is not our CPU performance.
+Native AT servers and browser binaries are not npm dependencies and are never automatically downloaded on import/install.
 
 Experimental [visual focus gating, frozen-frame studies and exact-pixel replay](./docs/visual-improvement-study.md) are available as opt-in tools.
 

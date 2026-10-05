@@ -6,7 +6,7 @@ import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } f
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { findByIdOrName, taskProfile, type Mode, type ProjectConfig } from './config.js';
+import { findByIdOrName, modelKeyEnv, modelKeyRequired, resolveBaseURL, taskProfile, type Mode, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
 import { ProjectStore, atomicJson } from './store.js';
 import { assertRunnable, checkRun, defaultPrompt, supportsMode } from './plan.js';
@@ -106,10 +106,9 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const model = options.model !== undefined ? pick('model', config.models, options.model) : config.models.find(m => supportsMode(m, mode));
   if (!model) throw new ProjectError('no-model', `No model in rawstep.config.json can run ${mode} mode. It needs the decision role${mode === 'keyboard' ? ' and image input' : ''}. Add one with \`rawstep ui\`.`);
   const prompt = defaultPrompt(entry, mode);
-  const { settings, permissions, connection } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, model, profile, prompt, mode }));
-  const apiKey = await store.credential(connection.apiKeyEnv);
-  if (connection.apiKeyEnv && !apiKey) throw new ProjectError('missing-credential', `The key ${connection.apiKeyEnv} for connection "${connection.name}" is not set. Add ${connection.apiKeyEnv}=... to .env.local or export it.`);
-  const spec: RunSpec = { task: source, model, connection, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions };
+  const { settings, permissions } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, model, profile, mode }));
+  const apiKey = await requireKey(store, model);
+  const spec: RunSpec = { task: source, model, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions };
   const root = options.outDir ? resolve(options.outDir) : join(projectDir, '.rawstep', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`);
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');
@@ -132,14 +131,19 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   return { runs, findings: aggregateHints(runs.map(r => r.hints)) };
 }
 
+/** The key a model needs (`undefined` for a server that takes none); a missing required key stops the run before anything starts. */
+export async function requireKey(store: ProjectStore, model: Model): Promise<string | undefined> {
+  const apiKey = await store.credential(model), env = modelKeyEnv(model);
+  if (modelKeyRequired(model) && !apiKey) throw new ProjectError('missing-credential', env ? `The key ${env} for model "${model.name}" is not set. Add ${env}=... to .env.local or export it.` : `Model "${model.name}" needs a key, but no environment variable is named for it.`);
+  return apiKey;
+}
+
 /** An analysis-role LLM from the config (by id or name; the first one by default) as a trace analyzer. */
 export async function projectAnalyzer(projectDir: string, options: { model?: string; signal?: AbortSignal } = {}): Promise<{ analyzer: LlmTraceAnalyzer; modelName: string }> {
   const store = new ProjectStore(resolve(projectDir)), { config } = await store.read();
-  const model = options.model !== undefined ? pick('model', config.models, options.model) : config.models.find(m => m.family === 'LLM' && m.roles.includes('analysis'));
+  const model = options.model !== undefined ? pick('model', config.models, options.model) : config.models.find(m => m.kind === 'llm' && m.roles.includes('analysis'));
   if (!model) throw new ProjectError('no-analysis-model', 'No model in rawstep.config.json has the analysis role. Add an LLM with that role in `rawstep ui`.');
-  if (model.family !== 'LLM' || !model.roles.includes('analysis')) throw new ProjectError('analysis-model-invalid', `Model "${model.name}" cannot analyze runs. Choose an LLM with the analysis role.`);
-  const connection = config.connections.find(c => c.id === model.connectionId)!;
-  const apiKey = await store.credential(connection.apiKeyEnv);
-  if (connection.apiKeyEnv && !apiKey) throw new ProjectError('missing-credential', `The key ${connection.apiKeyEnv} for connection "${connection.name}" is not set. Add ${connection.apiKeyEnv}=... to .env.local or export it.`);
-  return { analyzer: new LlmTraceAnalyzer({ baseURL: connection.baseURL, model: model.modelId, apiKey, timeoutMs: connection.timeoutMs, ...(options.signal ? { signal: options.signal } : {}) }), modelName: model.name };
+  if (model.kind !== 'llm' || !model.roles.includes('analysis')) throw new ProjectError('analysis-model-invalid', `Model "${model.name}" cannot analyze runs. Choose an LLM with the analysis role.`);
+  const apiKey = await requireKey(store, model);
+  return { analyzer: new LlmTraceAnalyzer({ baseURL: resolveBaseURL(model), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(options.signal ? { signal: options.signal } : {}) }), modelName: model.name };
 }

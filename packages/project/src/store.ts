@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/systemone';
-import { CONFIG_FILE, configSchema, defaultConfig, parseConfig, type ProjectConfig } from './config.js';
+import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, modelKeyEnv, parseConfig, type Model, type ProjectConfig, type ProviderId } from './config.js';
 import { ProjectError } from './errors.js';
 
 export async function readOptional(path: string): Promise<string | undefined> {
@@ -53,12 +53,11 @@ export class ProjectStore {
     return { config, revision: digest(JSON.stringify({ raw, files })) };
   }
   validateReferences(config: ProjectConfig) {
-    for (const connection of config.connections) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.models, config.tasks, config.profiles]) {
+    for (const model of config.models) if (model.baseURL) modelBaseURL(model.baseURL);
+    for (const group of [config.models, config.tasks, config.profiles]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
     }
-    for (const model of config.models) if (!config.connections.some(c => c.id === model.connectionId)) throw new ProjectError('model-connection-missing', 'A model refers to a connection that does not exist.');
-    for (const model of config.models) if (model.family === 'SystemOne' && model.roles.includes('analysis')) throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM model.');
+    for (const model of config.models) if (model.kind === 'decision' && model.roles.includes('analysis')) throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM model.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
     for (const task of config.tasks) for (const mode of Object.values(task.modes)) if (new Set(mode.prompts.map(p => p.id)).size !== mode.prompts.length) throw new ProjectError('duplicate-prompt-id', 'Prompt IDs must be unique within a task mode.');
     for (const profile of config.profiles) resolveEnvironmentProfile(profile.environment);
@@ -114,15 +113,32 @@ export class ProjectStore {
     this.pending = work.then(() => {}, () => {});
     return work;
   }
-  /** The key stored in .env.local under `name`, otherwise the process environment. Never part of any config response. */
-  async credential(name?: string): Promise<string | undefined> {
+  /** The environment variable a credential target uses: a preset provider's fixed one, or the one a custom model names. */
+  private envName(target: ProviderId | Pick<Model, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined {
+    if (typeof target !== 'string') return modelKeyEnv(target);
+    return KEYED_PROVIDERS.find(p => p.provider === target)?.keyEnv;
+  }
+  /**
+   * The key of a provider (`'openai'`, `'typesafe'`, ...) or of one model (a custom model has its own variable): the value
+   * stored in .env.local, otherwise the process environment. Never part of any config response.
+   */
+  async credential(target: ProviderId | Pick<Model, 'kind' | 'provider' | 'apiKeyEnv'>): Promise<string | undefined> {
+    const name = this.envName(target);
     if (!name) return;
     const file = await readOptional(await this.file('.env.local')) ?? '';
     const line = file.split(/\r?\n/).find(v => v.startsWith(name + '='));
     if (line) { try { const value: unknown = JSON.parse(line.slice(name.length + 1)); if (typeof value === 'string') return value; } catch {} }
     return parseEnv(file)[name] ?? process.env[name];
   }
-  async setCredential(name: string, value: string) {
+  /** Whether each key the config can use is set, by `credentialId`: one entry per preset provider, one per custom model with a key variable. */
+  async credentialStatus(config: Pick<ProjectConfig, 'models'>): Promise<Record<string, boolean>> {
+    const entries: [string, Promise<string | undefined>][] = KEYED_PROVIDERS.map(p => [`provider:${p.provider}`, this.credential(p.provider)]);
+    for (const model of config.models) if (model.provider === 'custom' && model.apiKeyEnv) entries.push([credentialId(model), this.credential(model)]);
+    return Object.fromEntries(await Promise.all(entries.map(async ([id, value]) => [id, !!await value])));
+  }
+  async setCredential(target: ProviderId | Pick<Model, 'kind' | 'provider' | 'apiKeyEnv'>, value: string) {
+    const name = this.envName(target);
+    if (!name) throw new ProjectError('credential-target', 'This provider or model has no key variable to store a key in. Give the custom model an environment variable name first.');
     if (!/^[A-Z][A-Z0-9_]{0,100}$/.test(name) || !value.trim() || value.length > 16384 || /[\r\n]/.test(value)) throw new ProjectError('invalid-credential', 'The credential name or value is not valid.');
     const work = this.pending.then(async () => {
       const path = await this.file('.env.local');

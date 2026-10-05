@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { suggestChecks } from '../packages/dashboard/src/server/suggest.js';
-import type { Connection, Model } from '@rawstep/project/config';
+import type { Model } from '@rawstep/project/config';
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn(); });
@@ -33,8 +33,7 @@ async function project() {
   return dir;
 }
 
-const model: Model = { id: 'm', connectionId: 'c', modelId: 'test-llm', name: 'Test', family: 'LLM', protocol: 'chat', inputs: ['text'], capabilitySource: 'manual', maxChoices: 255, maxImages: 0, roles: ['analysis'], promptEditable: true };
-const connection = (baseURL: string): Connection => ({ id: 'c', name: 'Fake', provider: 'openai', baseURL, timeoutMs: 10000 });
+const model = (baseURL: string): Model => ({ id: 'm', kind: 'llm', provider: 'custom', baseURL, modelId: 'test-llm', name: 'Test', inputs: ['text'], capabilitySource: 'manual', maxChoices: 255, maxImages: 0, roles: ['analysis'], timeoutMs: 10000 });
 const machine = { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH ?? '' };
 
 describe('completion check suggestions', () => {
@@ -47,7 +46,7 @@ describe('completion check suggestions', () => {
       { title: '잘못된 규칙', why: 'x', rule: { textAppears: 'Added' } },
     ] }, seen);
     const dir = await project();
-    const result = await suggestChecks({ url: 'shop.html', goal: '신발을 장바구니에 담는다', projectDir: dir, model, connection: connection(baseURL), machine });
+    const result = await suggestChecks({ url: 'shop.html', goal: '신발을 장바구니에 담는다', projectDir: dir, model: model(baseURL), machine });
 
     expect(result.page.title).toBe('Shop');
     expect(result.dropped).toBe(1);
@@ -66,7 +65,7 @@ describe('completion check suggestions', () => {
   it('hides provider text when the model answers with something unusable', async () => {
     const baseURL = await fakeModel('not json: sk-secret-provider-text', []);
     const dir = await project();
-    await expect(suggestChecks({ url: 'shop.html', goal: '담기', projectDir: dir, model, connection: connection(baseURL), machine }))
+    await expect(suggestChecks({ url: 'shop.html', goal: '담기', projectDir: dir, model: model(baseURL), machine }))
       .rejects.toThrow(/^완료 확인 제안 실패/);
   });
 });

@@ -68,13 +68,13 @@ npm run rawstep -- run examples/profiles/task.json --model MODEL --out runs/firs
 
 `examples/profiles/task.json`은 함께 제공되는 환경 fixture에 맞춰져 있습니다. 실제 사이트의 탐색 정책으로 사용하지 마세요. 모델 없이 고정 행동을 쓰는 회귀 테스트는 라이브러리(`runScreenshotTask`와 `ScriptedPolicy` 등)로 작성하며, 실제 모델 추론이라고 표현하지 않습니다.
 
-실제 스크린샷 모델은 `examples/screenshot/README.md`의 별도 설치 절차를 따릅니다. 로컬 서버를 실행한 뒤 `screenshot` 연결(`http://127.0.0.1:8766/choose`)과 프로토콜 `choose` 모델을 등록하고:
+키보드 모드는 화면 이미지를 모델에 보내므로 이미지 입력을 지원하는 모델이 필요합니다. `npx rawstep ui`에서 이미지를 받는 LLM, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델을 등록하세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 등록합니다.
 
 ```sh
-npm run rawstep -- run examples/screenshot/task.json --model onejev --mode keyboard
+npm run rawstep -- run examples/screenshot/task.json --model MODEL --mode keyboard
 ```
 
-OneJev는 TypeSafe의 비공개 Jev와 구분되는 공개 모델입니다. 기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없습니다. 0.8B 예제의 PyTorch `+cpu` 설치 명령은 측정한 Linux 전용입니다. Mac에서 그대로 실행하는 명령이 아닙니다. Mac용 Python/모델 런타임은 공식 배포처의 해당 플랫폼 지원을 따로 확인해야 하며 이번 전달에서 검증한 것으로 간주하지 않습니다. 4B 브리지의 별도 자산과 실행 절차는 [4B 안내](../examples/screenshot/onejev4b.md)에 있습니다. CPU에서는 모델 선택에 수십 초가 걸릴 수 있습니다. 작은 모델의 잘못된 판단을 행동 스크립트로 대신하지 않습니다.
+기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없으며, 원격 모델은 스크린샷을 받는다는 점에 유의하세요. 예제 작업 파일은 `examples/screenshot/README.md`에 있습니다.
 
 ## 4. 환경 비교
 

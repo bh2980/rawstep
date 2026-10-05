@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { chooseCandidate, createLlmModel, generateStructured } from '@rawstep/policies/llm';
 import { LlmChoiceClient } from '@rawstep/project/llm';
-import { defaultInstructions, type Connection, type Model } from '@rawstep/project/config';
+import { defaultInstructions, type Model } from '@rawstep/project/config';
 
 const BASE = 'http://127.0.0.1:1/v1';
 const reply = (content: unknown, extra: Record<string, unknown> = {}, finish = 'stop') => Response.json({ id: 'r', created: 1, model: 'fixture', choices: [{ index: 0, finish_reason: finish, message: { role: 'assistant', content: typeof content === 'string' ? content : JSON.stringify(content) } }], ...extra });
@@ -76,18 +76,17 @@ describe('shared AI SDK LLM module', () => {
 });
 
 describe('LlmChoiceClient', () => {
-  const connection: Connection = { id: 'c', name: 'c', provider: 'openai', baseURL: BASE, timeoutMs: 5000 };
-  const model: Model = { id: 'm', connectionId: 'c', modelId: 'fixture', name: 'm', family: 'LLM', protocol: 'chat', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true };
+  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], timeoutMs: 5000 };
   const prompt = { id: 'baseline', name: 'b', version: '1', instructions: defaultInstructions.keyboard };
   it('returns the choice with model and prompt evidence', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'stop:success' }));
-    const answer = await new LlmChoiceClient(connection, model, prompt, 'sk-secret-key', fetcher).choose({ goal: 'g' }, candidates, [], new AbortController().signal);
+    const answer = await new LlmChoiceClient(model, prompt, 'sk-secret-key', fetcher).choose({ goal: 'g' }, candidates, [], new AbortController().signal);
     expect(answer).toMatchObject({ choiceId: 'stop:success', model: { id: 'fixture', requestedId: 'fixture', runtime: 'openai-compatible-generative-choice' }, prompt: { id: 'baseline', version: '1' } });
     expect(answer.prompt.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
   it('shows only a fixed message for provider failures and passes cancellation through', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'key:Tab', leaked: 'sk-secret-key' }));
-    const client = new LlmChoiceClient(connection, model, prompt, 'sk-secret-key', fetcher);
+    const client = new LlmChoiceClient(model, prompt, 'sk-secret-key', fetcher);
     const error = await client.choose({}, candidates, [], new AbortController().signal).catch((e: Error) => e);
     expect((error as Error).message).toMatch(/^LLM choice failed/); expect((error as Error).message).not.toContain('sk-secret-key');
     const cancelled = new AbortController(); cancelled.abort(new Error('stopped'));

@@ -284,16 +284,24 @@ describe("doctor", () => {
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
     expect(text(io.stdout)).toContain("FAIL  Config");
   });
-  it("checks that the key of each connection is set, without printing it", async () => {
-    const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY";
+  it("checks that the key of each provider and keyed custom model is set, without printing it", async () => {
+    const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY", optional = "RAWSTEP_DOCTOR_OPTIONAL_KEY";
+    const base = { kind: "llm" as const, inputs: ["text" as const], capabilitySource: "manual" as const, maxChoices: 255, maxImages: 0, roles: ["decision" as const], timeoutMs: 1000 };
     const directory = await project(config => {
-      config.connections.push({ id: "a", name: "With key", provider: "openai", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present, timeoutMs: 1000 }, { id: "b", name: "Missing key", provider: "openai", baseURL: "http://127.0.0.1:1235/v1", apiKeyEnv: absent, timeoutMs: 1000 }, { id: "c", name: "Local", provider: "openai", baseURL: "http://127.0.0.1:1236/v1", timeoutMs: 1000 });
+      config.models.push(
+        { ...base, id: "a", name: "With key", provider: "custom", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present, modelId: "a" },
+        { ...base, id: "b", name: "Optional key", provider: "custom", baseURL: "http://127.0.0.1:1235/v1", apiKeyEnv: optional, modelId: "b" },
+        { ...base, id: "c", name: "Local", provider: "custom", baseURL: "http://127.0.0.1:1236/v1", modelId: "c" },
+        { ...base, id: "d", name: "Hosted", provider: "anthropic", modelId: "claude-fixture" },
+      );
     });
     await writeFile(join(directory, ".env.local"), `${present}="secret-doctor-value"\n`);
+    vi.stubEnv("RAWSTEP_ANTHROPIC_API_KEY", "");
     const io = output(directory);
-    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    try { expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1); } finally { vi.unstubAllEnvs(); }
     const out = text(io.stdout);
-    expect(out).toContain(`ok    Connection With key: ${present} is set`); expect(out).toContain(`FAIL  Connection Missing key: ${absent} is missing`); expect(out).toContain("ok    Connection Local: no API key needed");
+    expect(out).toContain(`ok    Key With key: ${present} is set`); expect(out).toContain(`ok    Key Optional key: ${optional} is not set (optional for this server)`);
+    expect(out).toContain("ok    Key Local: no API key needed"); expect(out).toContain("FAIL  Key Anthropic: RAWSTEP_ANTHROPIC_API_KEY is missing");
     expect(out).not.toContain("secret-doctor-value");
   });
   it("probes the native screen reader endpoint when machine.backend is native", async () => {

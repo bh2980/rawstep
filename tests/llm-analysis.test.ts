@@ -40,8 +40,7 @@ describe('explicit finalized-trace LLM analysis',()=>{
     const {dir,trace}=await fixture();const original=await readFile(join(dir,'trace.json'),'utf8');const sent:any[]=[];
     const server=createServer(async(req,res)=>{const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));sent.push(JSON.parse(Buffer.concat(chunks).toString()));res.setHeader('content-type','application/json');res.end(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result(trace.events[1]!.id))}}]}));});
     await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));cleanup.push(async()=>{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
-    const config=defaultConfig();config.connections=[{id:'local',name:'Local',provider:'openai',baseURL:`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`,timeoutMs:5000}];
-    config.models=[{id:'judge',connectionId:'local',modelId:'fixture',name:'Judge',family:'LLM',protocol:'chat',inputs:['text'],capabilitySource:'manual',maxChoices:255,maxImages:0,roles:['analysis'],promptEditable:true}];
+    const config=defaultConfig();config.models=[{id:'judge',kind:'llm',provider:'custom',baseURL:`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`,modelId:'fixture',name:'Judge',inputs:['text'],capabilitySource:'manual',maxChoices:255,maxImages:0,roles:['analysis'],timeoutMs:5000}];
     await writeFile(join(dir,'rawstep.config.json'),JSON.stringify(config));
     const options={cwd:dir,stdout:()=>{},stderr:()=>{}};
     expect(await runCli(['analyze',dir],options)).toBe(0);expect(sent).toHaveLength(0);

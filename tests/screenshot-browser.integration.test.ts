@@ -3,8 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { runScreenshotTask, HttpScreenshotModel, ScreenshotDecisionPolicy, ScreenshotKeyboardBackend, summarizeVisualExploration, type ScreenshotModelRequest } from 'rawstep/screenshot';
+import { runScreenshotTask, ScreenshotDecisionPolicy, ScreenshotKeyboardBackend, summarizeVisualExploration, type ScreenshotModelRequest } from 'rawstep/screenshot';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
+import { DecisionClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
 import { renderReportHtml } from '@rawstep/reports/report';
 import { analyzeTrace } from '@rawstep/reports/analyze';
 import { TraceRecorder } from '@rawstep/core/trace';
@@ -90,9 +91,9 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
   it('does not persist malformed successful HTTP response bodies in run errors', async () => {
     const outDir = await directory();
     const trace = await runScreenshotTask({ url: fixture, goal: 'Inspect', maxSteps: 1, verify: { all: [{ titleIncludes: 'Never' }] } }, {
-      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: async () => new Response('PRIVATE_RESPONSE_MARKER_992') }) }) });
+      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:8766/v1', modelId: 'fixture', capabilities: { inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 }, fetch: async () => new Response('PRIVATE_RESPONSE_MARKER_992') })) }) });
     expect(trace.outcome?.status).toBe('failure'); expect(await readFile(join(outDir, 'trace.json'), 'utf8')).not.toContain('PRIVATE_RESPONSE');
-    expect(trace.outcome?.error).toBe('Screenshot model returned invalid JSON; response body omitted for privacy.');
+    expect(trace.outcome?.error).toMatch(/^Decision call failed/);
   });
   it('rejects a screen-reader mode mismatch before launching Chromium', async () => {
     await expect(runScreenshotTask({ mode: 'screenreader', url: fixture, goal: 'No', verify: { all: [{ titleIncludes: 'No' }] } }, { outDir: await directory(), policy: new ScriptedPolicy([]) })).rejects.toThrow(/keyboard/);

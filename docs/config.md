@@ -6,45 +6,61 @@ Commit `rawstep.config.json` with your project. Keep `.rawstep/` (run output) an
 
 ## Credentials
 
-The config never contains keys. A connection names an environment variable in `apiKeyEnv`. Put the value in `.env.local` in the project directory (the dashboard writes it with mode 0600) or in the process environment. `.env.example` shows the format. `rawstep doctor` checks that each variable is set without printing it.
+The config never contains keys. A preset provider keeps its key under a fixed environment variable (the table below); a `custom` model may name its own in `apiKeyEnv`. Put the value in `.env.local` in the project directory (the dashboard writes it with mode 0600) or in the process environment. `.env.example` shows the format. `rawstep doctor` checks that each variable is set without printing it.
 
 ## Top-level fields
 
 | Field | Content |
 |---|---|
 | `version` | Always `1`. |
-| `connections` | Model servers. |
-| `models` | Models offered by connections. |
+| `models` | Registered models. |
 | `tasks` | Registered task files with per-mode prompts and permissions. |
 | `profiles` | Run profiles. At least one is required. |
 | `machine` | Settings of the computer running Rawstep. |
 
 Unknown fields are rejected.
 
-## connections[]
-
-| Field | Meaning |
-|---|---|
-| `id`, `name` | Identifier (letters, digits, `.`, `_`, `-`) and display name. |
-| `provider` | `openai`: any OpenAI-compatible API (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama). `systemone`: a native SystemOne server. `screenshot`: a local `/choose` server (`rawstep-screenshot-choice-v1`). |
-| `baseURL` | Server URL. |
-| `apiKeyEnv` | Optional name of the environment variable that holds the key. |
-| `timeoutMs` | Request timeout, 100 to 600000 ms. |
-
 ## models[]
 
+A model is registered as type, then provider, then model: `kind` and `provider` say where it lives, so there is no separate connection to set up.
+
 | Field | Meaning |
 |---|---|
-| `id`, `name` | Identifier and display name. `--model` accepts either. |
-| `connectionId` | The connection that serves this model. |
-| `modelId` | The identifier sent to the server. |
-| `family` | `SystemOne` or `LLM`. |
-| `protocol` | `chat`, `openrouter-decisions`, `vercel-evaluation`, `systemone-http` or `choose`. The connection's provider limits the choices. |
+| `id`, `name` | Identifier (letters, digits, `.`, `_`, `-`) and display name. `--model` accepts either. |
+| `kind` | `llm`: a language model that reads the situation and picks a candidate (runs, post-run analysis, completion-check suggestions). `decision`: a model that answers with a probability for every candidate (runs only; fast and cheap). |
+| `provider` | Where the model lives. One of the providers of its `kind`, see below. |
+| `modelId` | The identifier sent to the provider. |
+| `baseURL` | Only for `provider: custom`: the server address (HTTPS, or HTTP on this computer). |
+| `apiKeyEnv` | Only for `provider: custom`: the environment variable that holds the key, if the server needs one. |
 | `inputs` | `text` and/or `image`. |
-| `capabilitySource` | `discovery` or `manual`. |
+| `capabilitySource` | `discovery` (the provider said so) or `manual`. |
 | `maxChoices`, `maxImages` | Candidate and image limits (defaults 255 and 2). |
-| `roles` | `decision` models choose actions. `analysis` models (LLMs only) write post-run analysis. |
-| `promptEditable` | Whether the dashboard may edit prompts for this model (default true). |
+| `roles` | `decision` models choose actions. `analysis` (`llm` only) writes post-run analysis. |
+| `timeoutMs` | Request timeout, 100 to 600000 ms. |
+
+Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
+
+| `kind` | `provider` | Address | Key variable |
+|---|---|---|---|
+| `llm` | `openai` | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` |
+| `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic's OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` |
+| `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
+| `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `custom` | any OpenAI-compatible server (LM Studio, Ollama, ...), `baseURL` | optional, `apiKeyEnv` |
+| `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
+| `decision` | `gateway` | Vercel AI Gateway, called through the AI SDK's gateway provider; text only | `RAWSTEP_AI_GATEWAY_API_KEY` |
+| `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (shared with `llm`) |
+| `decision` | `custom` | any `/systemone`-compatible server, `baseURL` | optional, `apiKeyEnv` |
+
+Models of one preset provider share its key. `llm` models call the provider's chat API through the AI SDK. `decision` models call the AI SDK's experimental `decide` API: an in-house adapter for the `/systemone` protocol serves `typesafe`, `openrouter` and `custom`, and the AI SDK's gateway provider serves `gateway` (see [SystemOne decisions](./systemone.md)). Keyboard mode sends images, so it needs an `llm` with image input or a `decision` model on `typesafe`, `openrouter` or `custom`.
+
+```json
+{
+  "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "modelId": "jev-latest",
+  "inputs": ["text", "image"], "capabilitySource": "manual", "maxChoices": 255, "maxImages": 2,
+  "roles": ["decision"], "timeoutMs": 60000
+}
+```
 
 ## tasks[]
 
@@ -71,7 +87,7 @@ A run profile is a named set of conditions.
 | `environment` | A built-in environment profile name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. See [environment profiles](./environment-profiles.md). |
 | `analysisInstructions` | Optional analysis focus. |
 
-`repetitionGuard: auto` is on for `chat` and `choose` models and off for SystemOne models. `modelGiveUp: false` removes the model's `stop:stuck` and `stop:uncertain` choices.
+`repetitionGuard: auto` is on for `llm` models and off for `decision` models. `modelGiveUp: false` removes the model's `stop:stuck` and `stop:uncertain` choices.
 
 ## machine
 

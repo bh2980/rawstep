@@ -8,13 +8,13 @@ import { speechChoices } from '@rawstep/policies/systemone';
 import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
-  CONFIG_FILE, configSchema, defaultConfig, defaultModes, defaultProfile, findByIdOrName, parseConfig, resolveRepetitionGuard, taskProfile,
+  CONFIG_FILE, buildModel, configSchema, credentialId, credentialRequirements, defaultConfig, defaultModes, defaultProfile, findByIdOrName, modelKeyEnv, parseConfig, resolveBaseURL, resolveRepetitionGuard, taskProfile,
   type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { discover } from '@rawstep/project/discover';
-import { assertRunnable, backendCapabilities, checkRun, defaultPrompt, resolvePermissions, supportsMode } from '@rawstep/project/plan';
+import { assertRunnable, backendCapabilities, checkRun, resolvePermissions, supportsMode } from '@rawstep/project/plan';
 import { runTask } from '@rawstep/project/run';
 import type { RunExecutor, RunSpec } from '@rawstep/project/execution';
 
@@ -24,8 +24,7 @@ async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-project-
 const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
 function setup(): ProjectConfig {
   const config = defaultConfig();
-  config.connections.push({ id: 'local', name: 'Local', provider: 'systemone', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
-  for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', protocol: 'systemone-http', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
+  for (const id of ['a', 'b']) config.models.push({ id, kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', name: id, modelId: id, inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], timeoutMs: 10000 });
   const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
 }
@@ -35,10 +34,29 @@ describe('project store', () => {
     const dir = await root(); const store = new ProjectStore(dir); const first = await store.initialize();
     await writeFile(store.path, JSON.stringify({ ...first.config, machine: { ...first.config.machine, headless: false } }));
     await expect(store.save(first.config, first.revision)).rejects.toMatchObject({ code: 'config-conflict', status: 409 });
-    await store.setCredential('RAWSTEP_TEST_KEY', 'secret-fixture-value');
-    expect(await store.credential('RAWSTEP_TEST_KEY')).toBe('secret-fixture-value');
+    await store.setCredential('typesafe', 'secret-fixture-value');
+    expect(await store.credential('typesafe')).toBe('secret-fixture-value');
     expect(JSON.stringify(await store.read())).not.toContain('secret-fixture-value');
     const reread = new ProjectStore(dir); expect((await reread.read()).config.machine.headless).toBe(false);
+  });
+  it('keeps one key per preset provider and one per custom model, under their environment variables', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.models.push(buildModel({ id: 'or-llm', name: 'or-llm', kind: 'llm', provider: 'openrouter', modelId: 'x/y' }), buildModel({ id: 'or-dec', name: 'or-dec', kind: 'decision', provider: 'openrouter', modelId: 'x/z' }),
+      buildModel({ id: 'keyed', name: 'keyed', kind: 'llm', provider: 'custom', modelId: 'k', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'RAWSTEP_TEST_CUSTOM_KEY' }));
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': false, 'provider:typesafe': false, 'model:keyed': false });
+    // OpenRouter serves both kinds with one key; the file stores it under the preset variable.
+    await store.setCredential('openrouter', 'sk-or-fixture');
+    expect(await store.credential(config.models.find(m => m.id === 'or-llm')!)).toBe('sk-or-fixture');
+    expect(await store.credential(config.models.find(m => m.id === 'or-dec')!)).toBe('sk-or-fixture');
+    expect(await readFile(join(dir, '.env.local'), 'utf8')).toContain('RAWSTEP_OPENROUTER_API_KEY="sk-or-fixture"');
+    await store.setCredential(config.models.find(m => m.id === 'keyed')!, 'sk-custom-fixture');
+    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': true, 'provider:typesafe': false, 'model:keyed': true });
+    // A custom model without a key variable has nowhere to store a key; the custom provider has no shared key.
+    await expect(store.setCredential(config.models.find(m => m.id === 'a')!, 'sk')).rejects.toMatchObject({ code: 'credential-target' });
+    await expect(store.setCredential('custom', 'sk')).rejects.toMatchObject({ code: 'credential-target' });
+    await expect(store.setCredential('openai', 'two\nlines')).rejects.toMatchObject({ code: 'invalid-credential' });
+    expect(credentialRequirements(config).map(k => [k.id, k.env, k.required])).toEqual([['model:a', undefined, false], ['model:b', undefined, false], ['provider:openrouter', 'RAWSTEP_OPENROUTER_API_KEY', true], ['model:keyed', 'RAWSTEP_TEST_CUSTOM_KEY', false]]);
   });
   it('rejects paths outside the project and symlink escapes', async () => {
     const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
@@ -82,39 +100,90 @@ describe('project store', () => {
 });
 
 describe('model discovery', () => {
+  const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
+  /** A fetch that answers from a map of URL to response and records what it was asked for. */
+  const catalog = (answers: Record<string, unknown>) => {
+    const calls: { url: string; headers: Record<string, string> }[] = [];
+    const fetcher: typeof fetch = async (input, init) => { const url = String(input); calls.push({ url, headers: { ...(init?.headers as Record<string, string>) } }); return url in answers ? json(answers[url]) : json({}, 404); };
+    return { calls, fetcher };
+  };
   it('only confirms advertised model inputs and omits credential echoes', async () => {
     const server = createServer((_req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'vision-by-name-only' }, { id: 'vision-confirmed', inputs: ['text', 'image'] }, { id: 'PRIVATE_DISCOVERY_KEY' }] })); });
     await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
     try {
-      const models = await discover({ id: 'local', name: 'local', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 }, 'PRIVATE_DISCOVERY_KEY');
+      const models = await discover({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port }, 'PRIVATE_DISCOVERY_KEY');
       expect(models).toHaveLength(2); expect(models[0]!.inputs).toEqual(['text']); expect(models[0]!.capabilitySource).toBe('manual'); expect(models[1]!.inputs).toEqual(['text', 'image']);
+      expect(models.every(m => m.kind === 'llm' && m.provider === 'custom' && m.baseURL?.startsWith('http://127.0.0.1:'))).toBe(true);
       expect(JSON.stringify(models)).not.toContain('PRIVATE_DISCOVERY_KEY');
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
   });
-  it('sorts discovered models into protocols and ignores a missing decisions route', async () => {
-    const seen: string[] = [];
-    const server = createServer((req, res) => {
-      seen.push(req.url!); res.setHeader('content-type', 'application/json');
-      if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'chat-model', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }, { id: 'gateway/eval', type: 'evaluation' }] }));
-      else if (req.url === '/v1/models?output_modalities=decisions') res.end(JSON.stringify({ data: [{ id: 'one/decider', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] }));
-      else { res.statusCode = 404; res.end('{}'); }
+  it('lists LLM presets from their /models, taking image support only from OpenRouter', async () => {
+    const { calls, fetcher } = catalog({
+      'https://openrouter.ai/api/v1/models': { data: [{ id: 'chat/vision', name: 'Vision', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }, { id: 'art/maker', architecture: { input_modalities: ['text'], output_modalities: ['image'] } }, { id: 'one/decider', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] },
+      'https://api.openai.com/v1/models': { data: [{ id: 'gpt-fixture', modalities: { input: ['text', 'image'] } }, { id: 'plain' }] },
+      'https://generativelanguage.googleapis.com/v1beta/openai/models': { data: [{ id: 'models/gemini-fixture' }] },
+      'https://api.anthropic.com/v1/models?limit=1000': { data: [{ id: 'claude-fixture', display_name: 'Claude Fixture' }] },
     });
-    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
-    try {
-      const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port + '/v1';
-      const models = await discover({ id: 'c', name: 'c', provider: 'openai', baseURL: base, timeoutMs: 1000 });
-      expect(models.map(m => [m.modelId, m.family, m.protocol])).toEqual([['chat-model', 'LLM', 'chat'], ['gateway/eval', 'SystemOne', 'vercel-evaluation'], ['one/decider', 'SystemOne', 'openrouter-decisions']]);
-      expect((await discover({ id: 's', name: 's', provider: 'systemone', baseURL: base, timeoutMs: 1000 })).every(m => m.protocol === 'systemone-http' && m.family === 'SystemOne')).toBe(true);
-      // Servers without the decisions route (LM Studio, Ollama, OpenAI) still list their chat models.
-      seen.length = 0;
-      const plain = createServer((req, res) => { res.setHeader('content-type', 'application/json'); if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'local' }] })); else { res.statusCode = 404; res.end('nope'); } });
-      await new Promise<void>(accept => plain.listen(0, '127.0.0.1', accept));
-      try { expect((await discover({ id: 'p', name: 'p', provider: 'openai', baseURL: 'http://127.0.0.1:' + (plain.address() as { port: number }).port + '/v1', timeoutMs: 1000 })).map(m => [m.modelId, m.protocol])).toEqual([['local', 'chat']]); }
-      finally { plain.closeAllConnections(); await new Promise<void>(accept => plain.close(() => accept())); }
-    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+    const openrouter = await discover({ kind: 'llm', provider: 'openrouter' }, 'sk-or', { fetch: fetcher });
+    expect(openrouter.map(m => [m.modelId, m.name, m.inputs, m.capabilitySource, m.roles])).toEqual([['chat/vision', 'Vision', ['text', 'image'], 'discovery', ['decision', 'analysis']]]);
+    const openai = await discover({ kind: 'llm', provider: 'openai' }, 'sk-openai', { fetch: fetcher });
+    expect(openai.map(m => [m.modelId, m.inputs, m.capabilitySource])).toEqual([['gpt-fixture', ['text', 'image'], 'discovery'], ['plain', ['text'], 'manual']]);
+    expect((await discover({ kind: 'llm', provider: 'google' }, 'k', { fetch: fetcher })).map(m => m.modelId)).toEqual(['gemini-fixture']);
+    const anthropic = await discover({ kind: 'llm', provider: 'anthropic' }, 'sk-ant', { fetch: fetcher });
+    expect(anthropic.map(m => [m.modelId, m.name, m.capabilitySource])).toEqual([['claude-fixture', 'Claude Fixture', 'manual']]);
+    expect(calls.find(c => c.url.startsWith('https://api.anthropic.com'))!.headers).toMatchObject({ authorization: 'Bearer sk-ant', 'x-api-key': 'sk-ant', 'anthropic-version': '2023-06-01' });
+    expect(calls.find(c => c.url.startsWith('https://api.openai.com'))!.headers).not.toHaveProperty('x-api-key');
   });
-  it('answers an unreachable server with a bad-gateway project error', async () => {
-    await expect(discover({ id: 'x', name: 'x', provider: 'openai', baseURL: 'http://127.0.0.1:1/v1', timeoutMs: 500 })).rejects.toMatchObject({ code: 'model-unreachable', status: 502 });
+  it('lists decision models from OpenRouter and TypeSafe, and leaves custom servers to be typed by hand', async () => {
+    const { calls, fetcher } = catalog({
+      'https://openrouter.ai/api/v1/models?output_modalities=decisions': { data: [{ id: 'one/decider', canonical_slug: 'one/decider-2026', architecture: { input_modalities: ['text', 'image'], output_modalities: ['decisions'] } }, { id: 'one/text', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] },
+      'https://api.typesafe.ai/v1/models': { data: [{ id: 'jev-latest' }] },
+    });
+    const openrouter = await discover({ kind: 'decision', provider: 'openrouter' }, 'sk-or', { fetch: fetcher });
+    expect(openrouter.map(m => [m.modelId, m.inputs, m.roles, m.kind])).toEqual([['one/decider-2026', ['text', 'image'], ['decision'], 'decision'], ['one/text', ['text'], ['decision'], 'decision']]);
+    expect((await discover({ kind: 'decision', provider: 'typesafe' }, 'sk-ts', { fetch: fetcher })).map(m => [m.modelId, m.capabilitySource])).toEqual([['jev-latest', 'manual']]);
+    expect(calls.map(c => c.url)).toEqual(['https://openrouter.ai/api/v1/models?output_modalities=decisions', 'https://api.typesafe.ai/v1/models']);
+    expect(await discover({ kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { fetch: fetcher })).toEqual([]);
+    expect(calls).toHaveLength(2);
+    await expect(discover({ kind: 'decision', provider: 'gateway' })).rejects.toMatchObject({ code: 'missing-credential' });
+  });
+  it('rejects a provider of the other kind and a custom provider without a usable address', async () => {
+    await expect(discover({ kind: 'llm', provider: 'typesafe' })).rejects.toMatchObject({ code: 'invalid-provider' });
+    await expect(discover({ kind: 'decision', provider: 'openai' })).rejects.toMatchObject({ code: 'invalid-provider' });
+    await expect(discover({ kind: 'llm', provider: 'custom' })).rejects.toMatchObject({ code: 'invalid-base-url' });
+    await expect(discover({ kind: 'llm', provider: 'custom', baseURL: 'http://example.com/v1' })).rejects.toMatchObject({ code: 'invalid-base-url' });
+  });
+  it('answers an unreachable server and a server without a model list with project errors', async () => {
+    await expect(discover({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { timeoutMs: 500 })).rejects.toMatchObject({ code: 'model-unreachable', status: 502 });
+    await expect(discover({ kind: 'llm', provider: 'openai' }, 'k', { fetch: async () => json({ object: 'list' }) })).rejects.toMatchObject({ code: 'model-list-missing', status: 502 });
+    await expect(discover({ kind: 'llm', provider: 'openai' }, 'k', { fetch: async () => json({}, 401) })).rejects.toMatchObject({ code: 'model-http' });
+  });
+});
+
+describe('model schema', () => {
+  const base = { id: 'm', name: 'm', modelId: 'm', inputs: ['text'], capabilitySource: 'manual', roles: ['decision'] };
+  const parse = (model: Record<string, unknown>) => parseConfig({ ...defaultConfig(), models: [{ ...base, ...model }] });
+  it('resolves the address and key variable of presets and custom models', () => {
+    const preset = buildModel({ id: 'p', name: 'p', kind: 'decision', provider: 'typesafe', modelId: 'jev-latest' });
+    expect(resolveBaseURL(preset)).toBe('https://api.typesafe.ai/v1'); expect(modelKeyEnv(preset)).toBe('RAWSTEP_TYPESAFE_API_KEY');
+    expect(resolveBaseURL(buildModel({ id: 'o', name: 'o', kind: 'llm', provider: 'openrouter', modelId: 'x/y' }))).toBe('https://openrouter.ai/api/v1');
+    const custom = buildModel({ id: 'c', name: 'c', kind: 'llm', provider: 'custom', modelId: 'local', baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'MY_KEY' });
+    expect(resolveBaseURL(custom)).toBe('http://127.0.0.1:1234/v1'); expect(modelKeyEnv(custom)).toBe('MY_KEY'); expect(modelKeyEnv({ ...custom, apiKeyEnv: undefined })).toBeUndefined();
+    expect(credentialId(preset)).toBe('provider:typesafe'); expect(credentialId(custom)).toBe('model:c');
+    expect(parse({ kind: 'llm', provider: 'google' }).models[0]).toMatchObject({ timeoutMs: expect.any(Number), maxChoices: 255, maxImages: 2 });
+  });
+  it('keeps each provider with its kind and the address and key variable with custom models', () => {
+    expect(() => parse({ kind: 'llm', provider: 'openai' })).not.toThrow();
+    expect(() => parse({ kind: 'llm', provider: 'typesafe' })).toThrow();
+    expect(() => parse({ kind: 'decision', provider: 'anthropic' })).toThrow();
+    expect(() => parse({ kind: 'decision', provider: 'custom' })).toThrow();
+    expect(() => parse({ kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:8000/v1' })).not.toThrow();
+    expect(() => parse({ kind: 'llm', provider: 'openai', baseURL: 'https://example.com/v1' })).toThrow();
+    expect(() => parse({ kind: 'llm', provider: 'openai', apiKeyEnv: 'MY_KEY' })).toThrow();
+    expect(() => parse({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'lower' })).toThrow();
+    expect(() => parse({ kind: 'decision', provider: 'gateway', inputs: ['text', 'image'] })).toThrow();
+    expect(() => parse({ kind: 'decision', provider: 'gateway' })).not.toThrow();
+    expect(() => parse({ kind: 'llm', provider: 'openai', family: 'LLM', protocol: 'chat', connectionId: 'x' })).toThrow();
   });
 });
 
@@ -143,21 +212,19 @@ describe('project config', () => {
     expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
     expect(() => configSchema.parse({ ...old, profiles: [{ ...old.profiles[0], policy: { ...old.profiles[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
   });
-  it('resolves auto by model protocol and honours explicit on/off', () => {
-    const chat = { protocol: 'chat' as const }, decisions = { protocol: 'systemone-http' as const }, choose = { protocol: 'choose' as const };
-    expect(resolveRepetitionGuard('auto', decisions)).toBe(false);
-    expect(resolveRepetitionGuard('auto', { protocol: 'openrouter-decisions' })).toBe(false);
-    expect(resolveRepetitionGuard('auto', chat)).toBe(true);
-    expect(resolveRepetitionGuard('auto', choose)).toBe(true);
-    expect(resolveRepetitionGuard('on', decisions)).toBe(true);
-    expect(resolveRepetitionGuard('off', chat)).toBe(false);
+  it('resolves auto by model kind and honours explicit on/off', () => {
+    const llm = { kind: 'llm' as const }, decision = { kind: 'decision' as const };
+    expect(resolveRepetitionGuard('auto', decision)).toBe(false);
+    expect(resolveRepetitionGuard('auto', llm)).toBe(true);
+    expect(resolveRepetitionGuard('on', decision)).toBe(true);
+    expect(resolveRepetitionGuard('off', llm)).toBe(false);
   });
   it('accepts only version 1 configs', () => {
     const config = defaultConfig();
     expect(config.version).toBe(1);
     expect(parseConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
     expect(() => parseConfig({ ...config, version: 2 })).toThrow();
-    expect(() => parseConfig({ version: 1, connections: [], models: [], tasks: [], globals: {}, environments: [] })).toThrow();
+    expect(() => parseConfig({ version: 1, connections: [], models: [], tasks: [], profiles: [defaultProfile()], machine: {} })).toThrow();
   });
   it('finds models and profiles by id first, then by name', () => {
     const list = [{ id: 'one', name: 'two' }, { id: 'two', name: 'one' }];
@@ -171,21 +238,19 @@ describe('run checks', () => {
   const modelOf = (config: ProjectConfig, id = 'a') => config.models.find(m => m.id === id)!;
   const check = (config: ProjectConfig, change: (c: ProjectConfig) => void = () => {}, extra: Partial<Parameters<typeof checkRun>[0]> = {}) => {
     change(config);
-    return checkRun({ config, task: task as never, taskEntry: config.tasks[0], model: modelOf(config), profile: config.profiles[0]!, prompt: defaultPrompt(config.tasks[0], 'keyboard'), mode: 'keyboard', ...extra });
+    return checkRun({ config, task: task as never, taskEntry: config.tasks[0], model: modelOf(config), profile: config.profiles[0]!, mode: 'keyboard', ...extra });
   };
   it('accepts a supported combination and returns its settings', () => {
     const result = check(setup());
-    expect(result.problem).toBeUndefined(); expect(result.settings.policy.historyLimit).toBeGreaterThan(0); expect(result.connection.id).toBe('local');
+    expect(result.problem).toBeUndefined(); expect(result.settings.policy.historyLimit).toBeGreaterThan(0);
     expect(assertRunnable(result).permissions.keys).toContain('Tab');
   });
   it.each([
     ['model-needs-images', (c: ProjectConfig) => { modelOf(c).inputs = ['text']; modelOf(c).maxImages = 0; }],
     ['analysis-only-model', (c: ProjectConfig) => { modelOf(c).roles = ['analysis']; }],
     ['too-many-choices', (c: ProjectConfig) => { modelOf(c).maxChoices = 4; }],
-    ['protocol-mismatch', (c: ProjectConfig) => { modelOf(c).protocol = 'chat'; }],
-    ['vercel-text-only', (c: ProjectConfig) => { modelOf(c).protocol = 'vercel-evaluation'; c.connections[0]!.provider = 'openai'; }],
     ['unsupported-action', (c: ProjectConfig) => { c.profiles[0]!.permissions.keyboard.keys = ['F13']; }],
-    ['focus-gate-llm', (c: ProjectConfig) => { Object.assign(modelOf(c), { family: 'LLM', protocol: 'chat' }); c.connections[0]!.provider = 'openai'; c.profiles[0]!.policy.focusGate = true; }],
+    ['focus-gate-llm', (c: ProjectConfig) => { modelOf(c).kind = 'llm'; c.profiles[0]!.policy.focusGate = true; }],
     ['environment-unsupported', (c: ProjectConfig) => { c.profiles[0]!.environment = 'zoom-200'; }],
   ])('reports %s as the problem, not by throwing', (code, change) => {
     const result = check(setup(), change);
@@ -203,8 +268,8 @@ describe('run checks', () => {
     expect(supportsMode(a, 'keyboard')).toBe(true); expect(supportsMode(a, 'screenreader')).toBe(true);
     expect(supportsMode({ ...a, inputs: ['text'], maxImages: 0 }, 'keyboard')).toBe(false);
     expect(supportsMode({ ...a, roles: ['analysis'] }, 'screenreader')).toBe(false);
-    expect(supportsMode({ ...a, protocol: 'choose' }, 'screenreader')).toBe(false);
-    expect(supportsMode({ ...a, protocol: 'vercel-evaluation' }, 'keyboard')).toBe(false);
+    expect(supportsMode({ ...a, inputs: ['image'], maxImages: 2 }, 'screenreader')).toBe(false);
+    expect(supportsMode({ ...a, maxImages: 1 }, 'keyboard')).toBe(false);
   });
   it('lists the backend capabilities of each mode', () => {
     const config = defaultConfig();
@@ -243,7 +308,7 @@ describe('runTask', () => {
     const { dir } = await project(), { calls, execute } = player(recorded(['Tab', 'Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.spec).toMatchObject({ mode: 'keyboard', model: { id: 'a' }, connection: { id: 'local' }, prompt: { id: 'baseline' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
+    expect(calls[0]!.spec).toMatchObject({ mode: 'keyboard', model: { id: 'a' }, prompt: { id: 'baseline' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
     expect(calls[0]!.spec.permissions.keys).toContain('Tab');
     expect(dirname(dirname(calls[0]!.outDir))).toBe(join(dir, '.rawstep', 'runs')); expect(basename(dirname(calls[0]!.outDir))).toMatch(/^[0-9T-]+Z-[0-9a-f]{8}$/); expect(basename(calls[0]!.outDir)).toBe('run-1');
     expect(result.runs).toHaveLength(1);
@@ -316,13 +381,15 @@ describe('runTask', () => {
     const unsupported = await project(config => { config.profiles[0]!.environment = 'zoom-200'; });
     await expect(runTask('task', { projectDir: unsupported.dir }, { execute })).rejects.toMatchObject({ code: 'environment-unsupported' });
   });
-  it('requires the connection key, reading it from .env.local, and hands it to the run', async () => {
-    const { dir, store } = await project(config => { config.connections[0]!.apiKeyEnv = 'RAWSTEP_TEST_RUN_KEY'; });
-    const { calls, execute } = player(recorded(['Enter'], 'success'));
-    await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_TEST_RUN_KEY') });
-    await store.setCredential('RAWSTEP_TEST_RUN_KEY', 'sk-fixture-key');
+  it('requires the provider key, reading it from .env.local, and hands it to the run; a custom server needs none', async () => {
+    const { dir, store } = await project(config => { const { baseURL: _address, ...model } = config.models[0]!; config.models[0] = { ...model, kind: 'llm', provider: 'openai' }; });
+    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+    await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
+    await store.setCredential('openai', 'sk-fixture-key');
     await runTask('task', { projectDir: dir }, { execute });
     expect(calls[0]!.apiKey).toBe('sk-fixture-key');
+    await runTask('task', { projectDir: dir, model: 'b' }, { execute });
+    expect(calls[1]!.apiKey).toBeUndefined();
   });
   it('rejects on cancellation and keeps the traces written so far', async () => {
     const { dir } = await project(), controller = new AbortController();

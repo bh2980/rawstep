@@ -7,17 +7,16 @@
 | 대상 | git |
 |---|---|
 | `rawstep.config.json` | 프로젝트와 함께 커밋합니다 |
-| `.env.local` | 커밋하지 않습니다. 연결별 API 키가 들어 있습니다 |
+| `.env.local` | 커밋하지 않습니다. 제공자별 API 키가 들어 있습니다 |
 | `.rawstep/` | 커밋하지 않습니다. 실행 결과와 대시보드 이력이 쌓입니다 |
 
-API 키는 설정 파일에 들어가지 않습니다. 연결에는 환경변수 이름(`apiKeyEnv`)만 적고, 값은 프로세스 환경이나 프로젝트의 `.env.local`에서 읽습니다. 대시보드는 키를 `.env.local`(권한 0600)에 쓰고 UI에는 설정 여부만 돌려줍니다. 설정 파일은 검증 후 원자적으로 저장하며, 외부에서 파일을 고치면 대시보드가 저장 충돌로 알려 줍니다.
+API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정해진 환경변수(아래 표)를 쓰고, `custom` 모델만 `apiKeyEnv`에 환경변수 이름을 적습니다. 값은 프로세스 환경이나 프로젝트의 `.env.local`에서 읽습니다. 대시보드는 키를 `.env.local`(권한 0600)에 쓰고 UI에는 설정 여부만 돌려줍니다. 설정 파일은 검증 후 원자적으로 저장하며, 외부에서 파일을 고치면 대시보드가 저장 충돌로 알려 줍니다.
 
 ## 최상위 필드
 
 ```json
 {
   "version": 1,
-  "connections": [],
   "models": [],
   "tasks": [],
   "profiles": [ ],
@@ -25,35 +24,43 @@ API 키는 설정 파일에 들어가지 않습니다. 연결에는 환경변수
 }
 ```
 
-`version`은 `1`입니다. `profiles`에는 최소 하나가 있어야 하고, `rawstep init`은 이름이 `Default`인 프로필 하나와 빈 연결·모델·작업 목록을 만듭니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `--model`과 `--profile`은 id를 먼저, 없으면 이름(대소문자 구분)으로 찾습니다.
+`version`은 `1`입니다. `profiles`에는 최소 하나가 있어야 하고, `rawstep init`은 이름이 `Default`인 프로필 하나와 빈 모델·작업 목록을 만듭니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `--model`과 `--profile`은 id를 먼저, 없으면 이름(대소문자 구분)으로 찾습니다.
 
-## connections
+## models
 
-모델 서버 연결입니다.
+모델은 유형, 제공자, 모델 순서로 등록합니다. `kind`와 `provider`가 모델이 있는 곳을 정하므로 따로 만들어 둘 연결은 없습니다.
 
 | 필드 | 설명 |
 |---|---|
 | `id`, `name` | 식별자와 표시 이름 |
-| `provider` | `openai`: OpenAI 호환 API(OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama 등), `systemone`: SystemOne 서버, `screenshot`: 로컬 `/choose` 서버(`rawstep-screenshot-choice-v1` 규약) |
-| `baseURL` | 서버 주소 |
-| `apiKeyEnv` | 키를 담은 환경변수 이름(선택, 대문자·숫자·`_`). 로컬 서버처럼 키가 없으면 생략합니다 |
+| `kind` | `llm`: 상황을 읽고 후보를 고르는 언어 모델(실행, 사후 분석, 완료 확인 제안). `decision`: 모든 후보의 확률을 바로 돌려주는 빠르고 저렴한 모델(실행 전용) |
+| `provider` | 모델이 있는 곳. `kind`에 맞는 제공자만 쓸 수 있습니다(아래 표) |
+| `modelId` | 제공자에서 쓰는 모델 이름 |
+| `baseURL` | `provider: custom`일 때만. 서버 주소(HTTPS, 이 컴퓨터의 서버는 HTTP도 가능) |
+| `apiKeyEnv` | `provider: custom`일 때만. 키를 담은 환경변수 이름(선택, 대문자·숫자·`_`) |
+| `inputs` | `text`, `image` 중 지원하는 입력 |
+| `capabilitySource` | `discovery`(제공자가 알려 줌) 또는 `manual`(직접 입력) |
+| `maxChoices`, `maxImages` | 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2) |
+| `roles` | `decision`: 행동을 고르는 모델, `analysis`: 실행 후 분석을 쓰는 모델(`llm`만 해당) |
 | `timeoutMs` | 모델 요청 제한 시간(100~600000, 기본 60000) |
 
-## models
+제공자는 `@rawstep/project/config`의 `PROVIDERS`에 한 번만 정의합니다.
 
-| 필드 | 설명 |
-|---|---|
-| `id`, `name`, `connectionId` | 식별자, 표시 이름, 사용하는 연결 |
-| `modelId` | 서버에서 쓰는 모델 이름 |
-| `family` | `SystemOne` 또는 `LLM` |
-| `protocol` | `chat`, `openrouter-decisions`, `vercel-evaluation`, `systemone-http`, `choose`. 연결의 provider가 지원하는 값만 쓸 수 있습니다 |
-| `inputs` | `text`, `image` 중 지원하는 입력 |
-| `capabilitySource` | `discovery`(서버 조회로 확인) 또는 `manual`(직접 입력) |
-| `maxChoices`, `maxImages` | 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2) |
-| `roles` | `decision`: 행동을 고르는 모델, `analysis`: 실행 후 분석을 쓰는 모델(LLM만 해당) |
-| `promptEditable` | 대시보드에서 프롬프트를 바꿀 수 있는지 |
+| `kind` | `provider` | 주소 | 키 환경변수 |
+|---|---|---|---|
+| `llm` | `openai` | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` |
+| `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic의 OpenAI 호환 주소) | `RAWSTEP_ANTHROPIC_API_KEY` |
+| `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
+| `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `custom` | OpenAI 호환 서버(LM Studio, Ollama 등), `baseURL` | 선택, `apiKeyEnv` |
+| `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
+| `decision` | `gateway` | Vercel AI Gateway(AI SDK의 gateway provider 사용), 텍스트 전용 | `RAWSTEP_AI_GATEWAY_API_KEY` |
+| `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (`llm`과 같은 키) |
+| `decision` | `custom` | `/systemone` 호환 서버, `baseURL` | 선택, `apiKeyEnv` |
 
-키보드 모드는 이미지 입력을 지원하고 `maxImages`가 2 이상인 `decision` 모델이 필요합니다. 목록에 이름이 있다는 것만으로 이미지 지원을 확정하지 않으며, 확인하지 못한 기능은 미확인으로 남깁니다.
+같은 기본 제공자의 모델은 키 하나를 함께 씁니다. `llm`은 AI SDK로 제공자의 채팅 API를 호출하고, `decision`은 AI SDK의 실험적 `decide` API를 호출합니다. `typesafe`·`openrouter`·`custom`은 자체 `/systemone` 어댑터, `gateway`는 AI SDK의 gateway provider를 씁니다([SystemOne 결정 모델](./systemone.md)).
+
+키보드 모드는 이미지를 보내므로 이미지 입력을 지원하고 `maxImages`가 2 이상인 `decision` 역할 모델이 필요합니다(이미지를 받는 `llm`, 또는 `typesafe`·`openrouter`·`custom`의 `decision` 모델). 목록에 이름이 있다는 것만으로 이미지 지원을 확정하지 않으며, 확인하지 못한 기능은 미확인으로 남깁니다.
 
 ## tasks
 
@@ -77,7 +84,7 @@ API 키는 설정 파일에 들어가지 않습니다. 연결에는 환경변수
 | `environment` | 페이지 환경. `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 프로필 이름 또는 객체. [환경 프로필 안내](./environment-profiles.md) |
 | `analysisInstructions` | 분석 초점 |
 
-허용 행동은 후보 생성과 실행 직전 검사에 모두 적용하고, 실제 백엔드가 지원하지 않는 항목은 쓰지 않습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다. `repetitionGuard`의 `auto`는 SystemOne 모델에서는 끄고 LLM과 `/choose` 서버에서는 켭니다.
+허용 행동은 후보 생성과 실행 직전 검사에 모두 적용하고, 실제 백엔드가 지원하지 않는 항목은 쓰지 않습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다. `repetitionGuard`의 `auto`는 `decision` 모델에서는 끄고 `llm` 모델에서는 켭니다.
 
 ## machine
 

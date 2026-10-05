@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HttpScreenshotModel, ScreenshotDecisionPolicy, screenshotChoices, screenshotHash, SCREENSHOT_KEYS, validateModelResponse, type ScreenshotModelRequest, type ScreenshotModelResponse } from 'rawstep/screenshot';
+import { ScreenshotDecisionPolicy, screenshotChoices, screenshotHash, SCREENSHOT_KEYS, validateModelResponse, type ScreenshotModelRequest, type ScreenshotModelResponse } from 'rawstep/screenshot';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
@@ -64,28 +64,6 @@ describe('first-class screenshot model policy', () => {
     expect(() => screenshotChoices({ ...input().allowedActions, keys: ['MouseClick'] })).toThrow(/cannot use/);
     const choices = screenshotChoices(input().allowedActions);
     for (const value of [response('click:5,6'), { ...response(), probabilities: [1] }, { ...response(), probabilities: choices.map(() => 0) }, { ...response(), model: {} }]) expect(() => validateModelResponse(value, choices)).toThrow();
-  });
-});
-
-describe('explicit screenshot model HTTP adapter', () => {
-  it('requires separate explicit remote transmission and HTTPS', () => {
-    expect(() => new HttpScreenshotModel({ endpoint: 'https://example.com/choose' })).toThrow(/allowRemote/);
-    expect(() => new HttpScreenshotModel({ endpoint: 'http://example.com/choose', allowRemote: true })).toThrow(/HTTPS/);
-    expect(() => new HttpScreenshotModel({ endpoint: 'http://user:pass@localhost/choose' })).toThrow(/credentials/);
-    expect(() => new HttpScreenshotModel({ endpoint: 'https://example.com/choose', allowRemote: true })).not.toThrow();
-    for (const value of ['false', 1, {}]) expect(() => new HttpScreenshotModel({ endpoint: 'https://example.com/choose', allowRemote: value as boolean })).toThrow(/allowRemote/);
-  });
-  it('passes cancellation and disables redirects, with no raw HTTP error-body leakage', async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => new Response('SECRET_ERROR_BODY', { status: 500 }));
-    const model = new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: fetcher });
-    const policy = new ScreenshotDecisionPolicy({ model });
-    await expect(policy.decide(input())).rejects.toThrow('HTTP 500');
-    expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: 'error', method: 'POST', signal: expect.any(AbortSignal) });
-  });
-  it('does not expose response-body snippets from malformed HTTP-200 JSON', async () => {
-    const model = new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: async () => new Response('PRIVATE_SERVER_RESPONSE_BODY') });
-    const policy = new ScreenshotDecisionPolicy({ model });
-    await expect(policy.decide(input())).rejects.toThrow('Screenshot model returned invalid JSON; response body omitted for privacy.');
   });
 });
 

@@ -22,7 +22,7 @@ export function EventsPanel({ experimentId, run }: { experimentId: string; run: 
     <details>
       <summary className="cursor-pointer text-sm font-medium">{t('events.settings')}</summary>
       <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs">
-        {JSON.stringify({ ...run.snapshot, promptSource: run.promptSource ?? 'client', analysisInstructions: run.analysisInstructions, permissions: run.permissions, permissionSource: run.permissionSource }, null, 2)}
+        {JSON.stringify({ ...run.snapshot, analysisInstructions: run.analysisInstructions, permissions: run.permissions, permissionSource: run.permissionSource }, null, 2)}
       </pre>
     </details>
     {events.length === 0 && <p className="text-sm text-muted-foreground">{t('events.empty')}</p>}

@@ -3,12 +3,12 @@ import type { DecisionPolicy, Decision } from '@rawstep/core/contracts';
 import { speechChoices } from '@rawstep/policies/systemone';
 import { chooseCandidate, createLlmModel, type LlmModel } from '@rawstep/policies/llm';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
-import type { Connection, Model, Prompt } from './config.js';
+import { resolveBaseURL, type Model, type Prompt } from './config.js';
 
 export class LlmChoiceClient {
   private readonly llm: LlmModel;
-  constructor(readonly connection: Connection, readonly model: Model, readonly prompt: Prompt, apiKey?: string, fetcher?: typeof fetch) {
-    this.llm = createLlmModel({ baseURL: connection.baseURL, modelId: model.modelId, apiKey, timeoutMs: connection.timeoutMs, name: 'rawstep-choice', fetch: fetcher });
+  constructor(readonly model: Model, readonly prompt: Prompt, apiKey?: string, fetcher?: typeof fetch) {
+    this.llm = createLlmModel({ baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs, name: 'rawstep-choice', fetch: fetcher });
   }
   async choose(state: unknown, choices: readonly { id: string; label: string }[], images: readonly string[], signal: AbortSignal) {
     signal.throwIfAborted();

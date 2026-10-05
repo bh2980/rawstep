@@ -80,7 +80,7 @@ function SuggestionCard({ suggestion, onUse, onAdd }: { suggestion: CheckSuggest
 export function CheckSuggestions({ view, url, goal, onUse, onAdd }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
-  const models = view.config.models.filter(model => model.family === 'LLM' && model.roles.includes('analysis'));
+  const models = view.config.models.filter(model => model.kind === 'llm' && model.roles.includes('analysis'));
   const [picked, setPicked] = useState('');
   const [loading, setLoading] = useState(false), [error, setError] = useState<string>();
   const [result, setResult] = useState<SuggestionResult>();

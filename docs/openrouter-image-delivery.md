@@ -19,7 +19,7 @@ OpenRouter consumes inline images as content parts **inside `state`**. The direc
 }
 ```
 
-Both `/api/alpha/decisions` and `/api/v1/systemone` distinguished solid red and blue with the same text/question/candidates. The actual rebuilt `OpenRouterSystemOneClient` then passed these sequential probes:
+Both `/api/alpha/decisions` and `/api/v1/systemone` distinguished solid red and blue with the same text/question/candidates. The actual rebuilt OpenRouter `/systemone` client (at the time `OpenRouterSystemOneClient`, now `DecisionClient` with the `openrouter` provider) then passed these sequential probes:
 
 | Synthetic image(s) | Returned choice | Probabilities (red, blue) |
 | --- | --- | --- |

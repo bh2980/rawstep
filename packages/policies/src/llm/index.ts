@@ -3,7 +3,7 @@ import { generateText, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
-import { modelBaseURL } from '../systemone/http.js';
+import { modelBaseURL } from '../systemone/base-url.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint

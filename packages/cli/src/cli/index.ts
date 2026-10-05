@@ -7,6 +7,7 @@ import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { ProjectError } from '@rawstep/project/errors';
+import { credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
@@ -46,7 +47,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
     switch (args.command) {
       case 'init': {
         const path = await initProject(projectDir);
-        stdout(`Created ${path}\n\nNext:\n  npx rawstep ui                     add a connection, a model and a task\n  npx rawstep run <task>             run a task\n\nCommit rawstep.config.json. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
+        stdout(`Created ${path}\n\nNext:\n  npx rawstep ui                     add a model and a task\n  npx rawstep run <task>             run a task\n\nCommit rawstep.config.json. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
         return 0;
       }
       case 'ui': return await ui(args, projectDir, dependencies, stdout);
@@ -157,7 +158,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     read = await store.read();
     const c = read.config;
-    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.models.length} models, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
+    report(true, 'Config', `${store.path} (${c.models.length} models, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined;
   try {
@@ -165,10 +166,11 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     report(true, 'Browser', executablePath ? `launched ${executablePath}` : 'launched');
   } catch (error) { report(false, 'Browser', `${errorDetails(error)}. Install one with \`npx playwright install chromium\` or set machine.browserExecutablePath in the config.`); }
   if (read) {
-    for (const connection of read.config.connections) {
-      if (!connection.apiKeyEnv) { report(true, `Connection ${connection.name}`, 'no API key needed'); continue; }
-      const present = !!await store.credential(connection.apiKeyEnv);
-      report(present, `Connection ${connection.name}`, present ? `${connection.apiKeyEnv} is set` : `${connection.apiKeyEnv} is missing. Add ${connection.apiKeyEnv}=... to .env.local or export it`);
+    for (const key of credentialRequirements(read.config)) {
+      const label = `Key ${key.label}`;
+      if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }
+      const present = !!await store.credential(key.model);
+      report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
     }
     const { backend, atEndpoint } = read.config.machine;
     if (backend === 'simulation') report(undefined, 'Screen reader', 'machine.backend is simulation; no native screen reader to check');

@@ -9,11 +9,12 @@ import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { connectionSchema, machineSchema } from '@rawstep/project/config';
+import { discoverRequestSchema, machineSchema, modelKeyEnv, providerSchema } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
 import { discover } from '@rawstep/project/discover';
+import { requireKey } from '@rawstep/project/run';
 import type { ConfigView } from '../shared/config.js';
 import { HttpError, koreanMessage, record } from './http.js';
 import { ExperimentQueue, type Executor } from './queue.js';
@@ -56,7 +57,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   let url = '';
   async function state(): Promise<ConfigView> {
     const { config, revision } = await store.read();
-    const credentialStatus = Object.fromEntries(await Promise.all(config.connections.map(async c => [c.id, !!await store.credential(c.apiKeyEnv)])));
+    const credentialStatus = await store.credentialStatus(config);
     const keyboard = backendCapabilities(config, 'keyboard'), screenreader = backendCapabilities(config, 'screenreader');
     return { config, revision, credentialStatus, tasks: await store.tasks(config), environmentPresets: BUILTIN_PROFILES,
       capabilities: { keyboard: { keys: [...keyboard.keys], intents: [...keyboard.intents] }, screenreader: { keys: [...screenreader.keys], intents: [...screenreader.intents] } } };
@@ -99,26 +100,35 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       changed(); return send(res, await state());
     }
     if (path === '/api/credentials' && method === 'POST') {
-      const body = z.object({ connectionId: z.string(), value: z.string() }).strict().parse(await jsonBody(req));
-      const { config } = await store.read(), connection = config.connections.find(c => c.id === body.connectionId);
-      if (!connection?.apiKeyEnv) throw new HttpError(400, '연결의 인증키 환경변수 이름이 필요합니다.');
-      await store.setCredential(connection.apiKeyEnv, body.value); return send(res, { configured: true });
+      // A preset provider keeps its key under a fixed variable; only a custom model names its own.
+      const body = z.union([z.object({ provider: providerSchema, value: z.string() }).strict(), z.object({ modelId: z.string(), value: z.string() }).strict()]).parse(await jsonBody(req));
+      if ('provider' in body) {
+        if (body.provider === 'custom') throw new HttpError(400, '사용자 지정 서버의 인증키는 모델 단위로 저장합니다.');
+        await store.setCredential(body.provider, body.value);
+      } else {
+        const { config } = await store.read(), model = config.models.find(m => m.id === body.modelId);
+        if (!model) throw new HttpError(404, '모델을 찾을 수 없습니다.');
+        if (!modelKeyEnv(model)) throw new HttpError(400, '모델의 인증키 환경변수 이름이 필요합니다.');
+        await store.setCredential(model, body.value);
+      }
+      return send(res, { configured: true });
     }
     if (path === '/api/discover' && method === 'POST') {
-      const body = z.object({ connection: connectionSchema }).strict().parse(await jsonBody(req));
-      return send(res, await discover(body.connection, await store.credential(body.connection.apiKeyEnv)));
+      const { apiKey, ...target } = discoverRequestSchema.parse(await jsonBody(req));
+      // A key typed for a custom server is used once and not stored; presets use the key saved for their provider.
+      return send(res, await discover(target, apiKey ?? (target.provider === 'custom' ? undefined : await store.credential(target.provider))));
     }
     if (path === '/api/suggest-checks' && method === 'POST') {
       const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000), modelId: z.string() }).strict().parse(await jsonBody(req));
       const { config } = await store.read();
       const model = config.models.find(m => m.id === body.modelId);
-      if (!model || model.family !== 'LLM' || !model.roles.includes('analysis')) throw new HttpError(400, '사후 분석 역할의 LLM 모델을 선택하세요.');
-      const connection = config.connections.find(c => c.id === model.connectionId)!;
+      if (!model || model.kind !== 'llm' || !model.roles.includes('analysis')) throw new HttpError(400, '사후 분석 역할의 LLM 모델을 선택하세요.');
+      const apiKey = await requireKey(store, model);
       // One page at a time: each suggestion opens a browser.
       if (suggesting) throw new HttpError(409, '다른 완료 확인 제안이 진행 중입니다. 끝난 뒤 다시 시도하세요.');
       suggesting = true;
       try {
-        return send(res, await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, connection, apiKey: await store.credential(connection.apiKeyEnv), machine: config.machine }));
+        return send(res, await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }));
       } catch (error) {
         if (error instanceof HttpError) throw error;
         throw new HttpError(400, error instanceof Error && error.message.startsWith('완료 확인 제안 실패') ? error.message : '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.');

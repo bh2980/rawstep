@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { resolveTask } from '@rawstep/core/contracts';
-import { OpenRouterSystemOneClient, SystemOneHttpClient, SystemOneScreenshotAdapter } from '@rawstep/policies/systemone';
+import { DecisionClient, SystemOneScreenshotAdapter } from '@rawstep/policies/systemone';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { readTrace } from '@rawstep/core/trace';
@@ -30,9 +30,9 @@ it.each(['systemone-http', 'openrouter-systemone'] as const)('runs %s â†’ PNG â†
   const out = await mkdtemp(join(tmpdir(), 'rawstep-multimodal-chrome-')); cleanup.push(() => rm(out, { recursive: true, force: true }));
   let launches = 0, closes = 0;
   const errors: string[] = [];
-  const options = { baseURL: `http://127.0.0.1:${(server.address() as { port: number }).port}/api/v1`, model, apiKey: 'FAKE_HTTP_ONLY', capabilities: { inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2 } };
-  const client = provider === 'openrouter-systemone' ? new OpenRouterSystemOneClient(options) : new SystemOneHttpClient(options);
-  if (client instanceof OpenRouterSystemOneClient) await client.prepare({ signal: AbortSignal.timeout(10000) });
+  const options = { baseURL: `http://127.0.0.1:${(server.address() as { port: number }).port}/api/v1`, modelId: model, apiKey: 'FAKE_HTTP_ONLY', capabilities: { inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2 } };
+  const client = new DecisionClient({ ...options, provider: provider === 'openrouter-systemone' ? 'openrouter' : 'custom' });
+  await client.prepare({ signal: AbortSignal.timeout(10000) });
   const task = resolveTask(JSON.parse(await readFile('examples/screenshot/openrouter-task.json', 'utf8')), resolve('examples/screenshot'));
   const finished = await runScreenshotTask(task, { outDir: out, policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client) }), browserSessionFactory: async (url, browserOptions) => {
     launches++; const session = await createTestBrowserSession(url, browserOptions); const close = session.close;
