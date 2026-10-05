@@ -133,11 +133,14 @@ Policies receive text observations with `provenance: "simulation"`; they do not 
 
 ## Trace v2, privacy, analysis, and reporting
 
-New runs write trace schema `2.1`, which adds explicit simulation provenance. Readers also accept saved `2.0` traces; simulated evidence is not valid under the old schema. A run writes:
+New runs write trace schema `2.2`: screenshots are stored once per distinct image as content-addressed blobs instead of inline base64. Schema `2.1` added explicit simulation provenance; readers still accept saved `2.0` and `2.1` traces (inline PNGs and all), and simulated evidence is not valid under the `2.0` schema. A run writes:
 
 - `trace.json`: run/task/environment/privacy metadata, ordered events, and final outcome
 - `trace.jsonl`: append-only event journal, also usable to recover interrupted-run evidence
+- `blobs/<sha256>.png`: screenshot pixels, deduplicated by hash
 - Optional `diagnostics/` images, never policy observations
+
+In 2.2 an event such as `keyboard.observation` keeps a reference `{ sha256, blob: "blobs/<sha256>.png", bytes, ...siblings like viewport }` in place of `{ pngBase64, viewport }`; `trace.json` and `trace.jsonl` contain no base64 PNGs. Redaction never rewrites a reference. `@rawstep/core/trace` exports `isScreenshotRef`, `screenshotSha256(value)` (works for a reference or an inline screenshot), `hydrateScreenshots(trace, dirOrSink)` (a copy with `pngBase64` added back where the blob exists and its hash matches; missing or mismatched blobs stay references), `extractScreenshots`, `writeJsonAtomic` and `traceFilePath`. Code that needs pixels from a saved trace should hydrate it first; live policy observations are unchanged and stay inline. `TraceRecorder` writes through a `TraceSink` (`FileTraceSink(dir)`, or `MemoryTraceSink` for tests and embedding without a filesystem); its constructor accepts a directory or a sink. The `onEvent(event)` option (also `RunOptions.onEvent` for `runTask`) receives each stored, already-redacted event; a throwing listener cannot affect the run. Reports written next to the trace reference `blobs/<sha256>.png` relatively; `rawstep report` and the dashboard hydrate first, so their reports embed the images.
 
 Events carry stable IDs and sequence order, source, timestamps, payloads, redaction flags, and optional command/window association. Temporal association does not assert that a particular command caused speech. Output order and duplicates are retained rather than summarized away. Unknown environment values are represented as unknown.
 

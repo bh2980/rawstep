@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
-import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
+import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
 import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
@@ -26,6 +26,8 @@ export type RunOptions = {
   browserExecutablePath?: string;
   proxyServer?: string;
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
+  /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
+  onEvent?: (event: TraceEvent) => void;
   /** Page observer for hints; on by default. Never visible to the policy. */
   observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
@@ -53,7 +55,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const policyView = (value: Observation): Observation => value.kind !== 'screenreader' ? value
     : withheldObservations.has(value) ? { ...value, speech: ['[typed input withheld]'] }
     : { ...value, speech: value.speech.map(line => maskForPolicy(line).value) };
-  const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance } });
+  const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
   const deadline = Date.now() + task.timeoutMs!;

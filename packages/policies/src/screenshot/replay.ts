@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { matchesText, resolveTask } from '@rawstep/core/contracts';
-import type { Decision, DecisionPolicy, Task, VerifyRule } from '@rawstep/core/contracts';
+import type { Decision, DecisionPolicy, ScreenshotObservation, Task, VerifyRule } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
-import { validateTrace, type RunTrace } from '@rawstep/core/trace';
+import { screenshotSha256 as storedSha256, validateTrace, type RunTrace } from '@rawstep/core/trace';
 import { screenshotHash } from './policy.js';
 
 export type ScreenshotReplay = {
@@ -81,8 +81,10 @@ export function exportScreenshotReplay(trace: RunTrace, task: Task): ScreenshotR
     const inferences = trace.events.filter(e => e.type === 'policy.evidence' && e.source === 'policy' && e.seq > observationSeq && e.seq < event.seq && record(e.data) && e.data.step === stepNumber && record(e.data.evidence) && e.data.evidence.kind === 'model-inference' && e.data.evidence.choiceId === `key:${a.key}`);
     if (inferences.length !== 1) throw new Error('Replay export requires one matching model inference for each action.');
     const inference = inferences[0]!;
-    const screenshot = observation!.screenshot as unknown as Parameters<typeof screenshotHash>[0];
-    const screenshotSha256 = screenshotHash(screenshot);
+    // Stored observations are blob references (2.2) or inline pixels (2.0/2.1); both keep the viewport beside the hash.
+    const screenshot = observation!.screenshot as { viewport: ScreenshotObservation['viewport'] };
+    const screenshotSha256 = storedSha256(screenshot);
+    if (!screenshotSha256 || !record(screenshot.viewport) || !Number.isInteger(screenshot.viewport.w) || screenshot.viewport.w < 1 || !Number.isInteger(screenshot.viewport.h) || screenshot.viewport.h < 1) throw new Error('Expected PNG screenshot evidence with a viewport.');
     const evidence = (inference.data as { evidence: Record<string, unknown> }).evidence;
     if (!record(evidence.model) || typeof evidence.model.id !== 'string' || !evidence.model.id.trim() || typeof evidence.model.runtime !== 'string' || !evidence.model.runtime.trim()) throw new Error('Replay export requires model identity and runtime.');
     if (evidence.screenshotSha256 !== screenshotSha256) throw new Error('Model inference pixels do not match the replay observation.');

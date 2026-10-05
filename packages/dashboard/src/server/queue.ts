@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
-import { createRedactor, readTrace } from '@rawstep/core/trace';
+import { createRedactor, hydrateScreenshots, readTrace } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
 import { defaultInstructions, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { ProjectStore, atomicJson, HttpError } from './store.js';
@@ -158,10 +158,10 @@ export class ExperimentQueue {
           const analysis = await analyzeTrace(trace, analyzer); await atomicJson(join(outDir, 'analysis.json'), analysis);
           run.analysisStatus = analysis.status === 'failed' ? 'failed' : 'complete';
           if (analysis.status === 'failed') run.analysisError = analysis.error ?? '분석 실패';
-          await writeReport(trace, analysis, outDir, hints); run.reportStatus = 'complete';
+          await writeReport(await hydrateScreenshots(trace, outDir), analysis, outDir, hints); run.reportStatus = 'complete';
         } catch {
           run.analysisStatus = 'failed'; run.analysisError = '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.';
-          try { await writeReport(trace, undefined, outDir, hints); run.reportStatus = 'complete'; }
+          try { await writeReport(await hydrateScreenshots(trace, outDir), undefined, outDir, hints); run.reportStatus = 'complete'; }
           catch { run.reportStatus = 'failed'; run.reportError = '보고서 생성 실패'; }
         }
       } catch {

@@ -24,7 +24,9 @@ function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<
 }
 const decide = (step: number, key: string): Pair => ["policy.decision", { step, decision: { action: { kind: "key", key } } }];
 const result = (step: number, ok = true): Pair => ["action.result", { step, ok }];
-const frame = (pngBase64: string): Pair => ["keyboard.observation", { screenshot: { pngBase64 } }];
+// Hints hash only valid PNGs, so the fake pixel payloads get a PNG signature prefix.
+const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
+const frame = (pixels: string): Pair => ["keyboard.observation", { screenshot: { pngBase64: Buffer.concat([PNG_SIGNATURE, Buffer.from(pixels, "base64")]).toString("base64") } }];
 const observer = (kind: string, step: number, extra: Record<string, unknown> = {}): Pair => [`observer.${kind}`, { kind, step, at: timestamp, ...extra }];
 /** One policy step: a key decision, its result and the observation that follows. */
 const press = (step: number, key: string, pixels = `step-${step}`): Pair[] => [decide(step, key), result(step), frame(Buffer.from(pixels).toString("base64"))];

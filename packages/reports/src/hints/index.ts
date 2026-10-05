@@ -1,6 +1,5 @@
-import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { readTrace, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { readTrace, screenshotSha256, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 
 /**
  * Friction hints: places in a saved run worth a human look ("it succeeded, but took 23 Tabs").
@@ -86,8 +85,8 @@ function collect(trace: Readonly<RunTrace>) {
       if (action) actions.push({ step, eventId: event.id, ...(typeof action.key === 'string' ? { key: action.key } : {}), ...(typeof action.intent === 'string' ? { intent: action.intent } : {}), ...(action.kind === 'typeText' || action.kind === 'replaceText' ? { text: true } : {}) });
     } else if (event.type === 'action.result' && typeof data.step === 'number') {
       const action = actions.find(a => a.step === data.step); if (action) action.ok = data.ok === true;
-    } else if (event.type === 'keyboard.observation' && record(data.screenshot) && typeof data.screenshot.pngBase64 === 'string') {
-      screens.push({ step, eventId: event.id, sha256: createHash('sha256').update(Buffer.from(data.screenshot.pngBase64, 'base64')).digest('hex') });
+    } else if (event.type === 'keyboard.observation' && screenshotSha256(data.screenshot)) {
+      screens.push({ step, eventId: event.id, sha256: screenshotSha256(data.screenshot)! });
     } else if (event.type.startsWith('observer.') && typeof data.step === 'number' && typeof data.kind === 'string') {
       observer.push({ ...(data as Omit<ObserverRecord, 'id'>), id: event.id });
     } else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence)) {

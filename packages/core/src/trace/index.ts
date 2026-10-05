@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { appendFileSync } from "node:fs";
-import { mkdir, readFile, stat, writeFile, rename } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { FileTraceSink, extractScreenshots, isScreenshotRef, writeJsonAtomic, type TraceSink } from "./sink.js";
+export * from "./sink.js";
 import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
 import { isDeepStrictEqual } from "node:util";
 
-export const TRACE_SCHEMA_VERSION = "2.1" as const;
+/** 2.2 stores screenshots as content-addressed blobs; 2.0/2.1 traces with inline PNGs remain readable. */
+export const TRACE_SCHEMA_VERSION = "2.2" as const;
 export const REDACTED = "[REDACTED]";
 
 export type TraceSource = "simulation" | "screen-reader" | "runner" | "browser-diagnostic" | "verifier" | "policy";
@@ -48,7 +50,7 @@ export interface RunOutcome {
   [key: string]: unknown;
 }
 export interface RunTrace {
-  schemaVersion: "2.0" | typeof TRACE_SCHEMA_VERSION;
+  schemaVersion: "2.0" | "2.1" | typeof TRACE_SCHEMA_VERSION;
   runId: string;
   task: TraceTaskMetadata;
   environment: TraceEnvironment;
@@ -67,6 +69,8 @@ export interface TraceRecorderOptions {
   /** Opt-in also exposes values to any subsequently selected analyzer plugin. */
   includeSensitiveInputValues?: boolean;
   runId?: string;
+  /** Receives each stored (already redacted) event; listener errors never affect the run. */
+  onEvent?: (event: TraceEvent) => void;
 }
 export interface AppendEventOptions {
   source?: TraceSource;
@@ -173,7 +177,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
       if (record(original[field]) && record(redacted[field])) {
         const source = original[field] as Record<string, unknown>;
         const target = redacted[field] as Record<string, unknown>;
-        if (typeof source.pngBase64 === "string" && /^[A-Za-z0-9+/=]+$/.test(source.pngBase64) && Buffer.from(source.pngBase64, "base64").subarray(0, 8).toString("hex") === "89504e470d0a1a0a") copy(source, target, ["pngBase64", "viewport"]);
+        if (isScreenshotRef(source)) copy(source, target, ["sha256", "blob", "bytes", "viewport"]);
       }
     }
   }
@@ -209,7 +213,15 @@ export class TraceRecorder {
   private finalized = false;
   private finalizing = false;
 
-  constructor(task: TraceTaskMetadata, readonly outDir: string, options: TraceRecorderOptions = {}) {
+  /** Directory of a file-backed trace; undefined for other sinks. */
+  readonly outDir: string | undefined;
+  private readonly sink: TraceSink;
+  private readonly onEvent?: (event: TraceEvent) => void;
+
+  constructor(task: TraceTaskMetadata, target: string | TraceSink, options: TraceRecorderOptions = {}) {
+    this.sink = typeof target === "string" ? new FileTraceSink(target) : target;
+    this.outDir = typeof target === "string" ? target : undefined;
+    this.onEvent = options.onEvent;
     if (!task.id) throw new Error("Trace task id is required.");
     const include = options.includeSensitiveInputValues === true;
     this.redact = createRedactor(include ? [] : [
@@ -240,10 +252,7 @@ export class TraceRecorder {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    await mkdir(this.outDir, { recursive: true });
-    // A reused output directory must never silently replace a previous run.
-    await writeFile(join(this.outDir, "trace.json"), JSON.stringify(this.state, null, 2) + "\n", { flag: "wx", mode: 0o600 });
-    await writeFile(join(this.outDir, "trace.jsonl"), "", { flag: "wx", mode: 0o600 });
+    await this.sink.initialize(this.state);
     this.initialized = true;
   }
 
@@ -252,8 +261,11 @@ export class TraceRecorder {
     if (this.finalized || this.finalizing) throw new Error("Cannot append to a finalized trace.");
     if (typeof type !== "string" || !type.trim()) throw new Error("Event type is required.");
     const source = options.source ?? sourceFor(type);
-    const safe = this.redact(data);
-    preserveEventStructure(type, data, safe.value);
+    // Screenshots leave the event as blobs first, so redaction never rewrites pixels or their hash references.
+    const stored = extractScreenshots(jsonCopy(data), (name, bytes) => this.sink.putBlob(name, bytes));
+    const safe = this.redact(stored.value);
+    preserveEventStructure(type, stored.value, safe.value);
+    for (const path of stored.paths) setAt(safe.value, path, getAt(stored.value, path));
     const seq = this.state.events.length + 1;
     const event: TraceEvent = {
       id: `event-${String(seq).padStart(6, "0")}`,
@@ -265,13 +277,14 @@ export class TraceRecorder {
       ...(options.commandId !== undefined ? { commandId: options.commandId } : {}),
       ...(options.collectionWindow ? { collectionWindow: jsonCopy(options.collectionWindow) } : {}),
       ...((source === "screen-reader" || source === "simulation") && options.commandId ? { association: "temporal-only" as const } : {}),
-      redacted: !isDeepStrictEqual(jsonCopy(data), safe.value) || options.redacted === true
+      redacted: !isDeepStrictEqual(stored.value, safe.value) || options.redacted === true
     };
     validateEvent(event, seq);
     // Append before exposing the event; no merge, trim, deduplication, or causal inference.
-    appendFileSync(join(this.outDir, "trace.jsonl"), JSON.stringify(event) + "\n", { mode: 0o600 });
+    this.sink.appendEvent(event);
     this.state.events.push(event);
     this.state.privacy.redactionApplied ||= event.redacted;
+    if (this.onEvent) try { this.onEvent(jsonCopy(event)); } catch { /* A listener cannot affect evidence. */ }
     return jsonCopy(event);
   }
 
@@ -304,7 +317,7 @@ export class TraceRecorder {
     validateTrace(next);
     this.finalizing = true;
     try {
-      await writeJsonAtomic(join(this.outDir, "trace.json"), next);
+      await this.sink.finalize(next);
     } catch (error) {
       this.finalizing = false;
       throw error;
@@ -348,7 +361,7 @@ function validateEvent(value: unknown, expectedSequence: number): asserts value 
 
 /** Fail closed on unknown schemas, corrupt order, duplicate IDs, or missing provenance. */
 export function validateTrace(value: unknown): asserts value is RunTrace {
-  if (!record(value) || !["2.0", TRACE_SCHEMA_VERSION].includes(String(value.schemaVersion))) throw new Error("Unsupported trace schema version; expected 2.0 or 2.1.");
+  if (!record(value) || !["2.0", "2.1", TRACE_SCHEMA_VERSION].includes(String(value.schemaVersion))) throw new Error("Unsupported trace schema version; expected 2.0, 2.1 or 2.2.");
   if (typeof value.runId !== "string" || !value.runId || !record(value.task) || typeof value.task.id !== "string" ||
       !value.task.id || !validTimestamp(value.startedAt) || !Array.isArray(value.events) || !record(value.environment)) {
     throw new Error("Invalid trace metadata.");
@@ -397,8 +410,11 @@ export async function readTrace(pathOrOutDir: string): Promise<RunTrace> {
   return value;
 }
 
-export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temporary, JSON.stringify(value, null, 2) + "\n", { flag: "wx", mode: 0o600 });
-  await rename(temporary, path);
+function getAt(value: unknown, path: (string | number)[]): unknown {
+  return path.reduce<unknown>((node, key) => (node as Record<string | number, unknown> | undefined)?.[key], value);
+}
+function setAt(value: unknown, path: (string | number)[], replacement: unknown): void {
+  if (!path.length) return;
+  const parent = getAt(value, path.slice(0, -1));
+  if (parent && typeof parent === "object") (parent as Record<string | number, unknown>)[path.at(-1)!] = jsonCopy(replacement);
 }

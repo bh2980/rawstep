@@ -97,6 +97,28 @@ describe('dashboard API and sequential queue', () => {
     const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.globals.keyboard.keys).toEqual([]);
     expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
   });
+  it('serves blob-backed screenshots from the run directory and embeds them in the run report', async () => {
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from('dashboard-pixels')]);
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out); await trace.initialize();
+      trace.append('keyboard.observation', { screenshot: { pngBase64: png.toString('base64'), viewport: { w: 2, h: 2 } } }, { source: 'runner' });
+      return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, modelIds: ['a'], promptIds: ['baseline'] }) });
+    const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
+    await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
+    const base = app.url + '/api/experiments/' + experiment.id + '/runs/' + run.id;
+    const events = await (await fetch(base + '/events')).json() as { id: string; data: { screenshot: Record<string, unknown> } }[];
+    const shot = events.find(e => e.data?.screenshot)!;
+    expect(shot.data.screenshot).toMatchObject({ blob: expect.stringMatching(/^blobs\/[a-f0-9]{64}\.png$/), viewport: { w: 2, h: 2 } });
+    expect(JSON.stringify(events)).not.toContain(png.toString('base64'));
+    const image = await fetch(base + '/png/' + shot.id);
+    expect(image.headers.get('content-type')).toBe('image/png'); expect(Buffer.from(await image.arrayBuffer()).equals(png)).toBe(true);
+    expect((await fetch(base + '/png/event-999999')).status).toBe(404);
+    const report = await (await fetch(base + '/report')).text();
+    expect(report).toContain('data:image/png;base64,' + png.toString('base64')); expect(report).not.toContain('src="blobs/');
+  });
   it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
     const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.models[0]!.inputs = ['text']; config.models[0]!.maxImages = 0;
     await store.save(config, initial.revision, { file: 'task.json', task });

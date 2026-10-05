@@ -1,6 +1,6 @@
 import { ScreenshotReplayPolicy, screenshotReplayTaskHash, assertScreenshotReplayTaskSafety, type ScreenshotReplay } from '@rawstep/policies/screenshot/replay';
 import { join } from 'node:path';
-import { writeJsonAtomic } from '@rawstep/core/trace';
+import { hydrateScreenshots, writeJsonAtomic } from '@rawstep/core/trace';
 import { diagnoseScreenshotStop } from '@rawstep/policies/screenshot/stop-reason';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import type { Task } from '@rawstep/core/contracts';
@@ -16,7 +16,7 @@ export async function runScreenshotTask(task: Task, options: ScreenshotRunOption
   const backend = new ScreenshotKeyboardBackend();
   const trace = await runTask({ ...task, mode: 'keyboard' }, { ...options, backend, headless: options.headless ?? true });
   if(options.stopReasonModel){
-    const report=await diagnoseScreenshotStop(trace,{model:options.stopReasonModel,timeoutMs:options.stopReasonTimeoutMs,signal:options.signal});
+    const report=await diagnoseScreenshotStop(await hydrateScreenshots(trace,options.outDir),{model:options.stopReasonModel,timeoutMs:options.stopReasonTimeoutMs,signal:options.signal});
     try{await writeJsonAtomic(join(options.outDir,'stop-reason.json'),report)}catch{options.warn?.('Stop-reason analysis could not be persisted; the original run outcome is unchanged.')}
   }
   return trace;

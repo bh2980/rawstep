@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { readTrace, traceFilePath, validateTrace, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
+import { readTrace, screenshotSha256, traceFilePath, validateTrace, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
 import { findRawstepError } from "@rawstep/core/errors";
 
 export const ANALYSIS_SCHEMA_VERSION = "1.0" as const;
@@ -136,10 +136,7 @@ export function summarizeTraceEvidence(trace: Readonly<RunTrace>): TraceEvidence
     return !event.redacted && typeof text === 'string' && text.trim().length > 0;
   };
   const hasScreenshot = (event: TraceEvent): boolean => {
-    const screenshot = dataOf(event).screenshot;
-    return isRecord(screenshot) && typeof screenshot.pngBase64 === 'string' &&
-      /^[A-Za-z0-9+/]+={0,2}$/.test(screenshot.pngBase64) &&
-      Buffer.from(screenshot.pngBase64, 'base64').subarray(0, 8).toString('hex') === '89504e470d0a1a0a';
+    return screenshotSha256(dataOf(event).screenshot) !== undefined;
   };
   const evidence = trace.events.filter((event) => event.source === 'verifier' && event.type === 'verifier.evidence' &&
     isRecord(dataOf(event).witness));

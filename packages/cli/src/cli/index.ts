@@ -18,7 +18,7 @@ import { runTask } from "@rawstep/browser/runner";
 import { runScreenshotTask } from "@rawstep/browser/screenshot";
 import { ScreenshotDecisionPolicy, HttpScreenshotModel } from "@rawstep/policies";
 import { MockVoiceOverBackend, runMockVoiceOverTask } from "@rawstep/screenreaders/mock-voiceover";
-import { readTrace, type RunTrace } from "@rawstep/core/trace";
+import { hydrateScreenshots, readTrace, type RunTrace } from "@rawstep/core/trace";
 import { analyzeSavedTrace, loadAnalyzer, readAnalysis } from "@rawstep/reports/analyze";
 import { writeReport } from "@rawstep/reports/report";
 import { writeHints } from "@rawstep/reports/hints";
@@ -198,7 +198,8 @@ export async function runCli(
       stdout(`Hints saved: ${(await (dependencies.writeHints ?? writeHints)(inputPath)).path}\n`);
       return analysis.status === "completed" ? 0 : 1;
     }
-    const trace = await (dependencies.readTrace ?? readTrace)(inputPath);
+    // Reports may land anywhere, so embed the screenshots that 2.2 traces keep as blobs next to trace.json.
+    const trace = await hydrateScreenshots(await (dependencies.readTrace ?? readTrace)(inputPath), await traceDirectory(inputPath));
     const analysis = args.options.analysis
       ? await readAnalysis(resolve(cwd, String(args.options.analysis)), trace)
       : undefined;

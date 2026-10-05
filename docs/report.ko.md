@@ -8,4 +8,4 @@
 
 `report.json.summary`에는 `modality`, `modalities`, `counts`, `actions`, `firstFailure`, `verification`이 추가됩니다. 동작 실행 성공과 작업 검증 성공은 별개이며, 보고서와 분석은 원본 trace나 실행 결과를 변경하지 않습니다.
 
-새 실행은 trace schema 2.1을 저장하며 기존 2.0 네이티브·키보드 trace도 읽을 수 있습니다. `mock-run` 보고서는 VoiceOver 근사 시뮬레이션임을 눈에 띄게 표시합니다. `modality: "simulation"`과 별도의 `readableSimulationOutputEvents`, `redactedSimulationOutputEvents` 수로 실제 스크린리더 발화와 구분합니다. 초기 실행 실패로 출력이 없어도 환경 provenance로 시뮬레이션임을 유지합니다. 시뮬레이션에 네이티브 발화가 없다는 이유만으로 missing-speech 경고를 내지 않으며, 시뮬레이션 결과는 Apple VoiceOver의 실제 동작이나 적합성을 증명하지 않습니다.
+새 실행은 trace schema 2.2를 저장하며(스크린샷은 `blobs/<sha256>.png`로 한 번만 저장하고 이벤트에는 `{ sha256, blob, bytes, viewport }` 참조만 남깁니다) 기존 2.0/2.1 네이티브·키보드 trace도 읽을 수 있습니다. `rawstep report`는 스크린샷을 복원해 HTML에 포함합니다. `mock-run` 보고서는 VoiceOver 근사 시뮬레이션임을 눈에 띄게 표시합니다. `modality: "simulation"`과 별도의 `readableSimulationOutputEvents`, `redactedSimulationOutputEvents` 수로 실제 스크린리더 발화와 구분합니다. 초기 실행 실패로 출력이 없어도 환경 provenance로 시뮬레이션임을 유지합니다. 시뮬레이션에 네이티브 발화가 없다는 이유만으로 missing-speech 경고를 내지 않으며, 시뮬레이션 결과는 Apple VoiceOver의 실제 동작이나 적합성을 증명하지 않습니다.

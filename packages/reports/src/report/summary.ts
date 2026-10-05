@@ -1,4 +1,4 @@
-import type { RunTrace, TraceEvent } from "@rawstep/core/trace";
+import { isScreenshotRef, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
 import { summarizeTraceEvidence, type EvidenceModality } from "../analyze/index.js";
 
 export interface ReportCounts {
@@ -67,6 +67,11 @@ export function pngFor(data: unknown): string | undefined {
   const png = record(record(data).screenshot).pngBase64;
   return typeof png === "string" && /^[A-Za-z0-9+/=]+$/.test(png) &&
     Buffer.from(png, "base64").subarray(0, 8).toString("hex") === "89504e470d0a1a0a" ? png : undefined;
+}
+/** Image source for an event's screenshot: a data URI for inline pixels, else a path relative to the trace directory for a blob reference. */
+export function screenshotSrc(data: unknown): string | undefined {
+  const png = pngFor(data), screenshot = record(data).screenshot;
+  return png ? `data:image/png;base64,${png}` : isScreenshotRef(screenshot) ? screenshot.blob : undefined;
 }
 
 function firstFailure(trace: RunTrace): ReportFailure | null {
