@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { ManagedTask } from '../../shared/config';
+import type { ManagedTask } from '@rawstep/project/config';
 import { useTranslation } from 'react-i18next';
 import { formatDate, isFinished, runStartedAt, runStepCount, runProfileName, type RunRef } from '../lib/runs';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';

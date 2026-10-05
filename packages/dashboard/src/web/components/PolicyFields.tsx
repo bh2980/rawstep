@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { Policy } from '../../shared/config';
+import type { Policy } from '@rawstep/project/config';
 import { Advanced, Choice, Field, Toggle } from './forms';
 
 /** Stuck-detection settings: the two everyone understands up front, the numeric limits under "advanced". */

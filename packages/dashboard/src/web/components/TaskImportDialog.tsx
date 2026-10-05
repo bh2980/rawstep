@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { ChevronDown, FileUp } from 'lucide-react';
-import { defaultModes } from '../../shared/config';
+import { defaultModes } from '@rawstep/project/config';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
 import { createManagedTask, slugify } from '../lib/taskFiles';

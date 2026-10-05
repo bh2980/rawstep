@@ -1,7 +1,7 @@
 {
   "name": "@rawstep/cli",
   "version": "0.2.0",
-  "description": "Rawstep cli workspace",
+  "description": "Rawstep command line: init, ui, run, hints, report, analyze and doctor",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,11 +25,6 @@
       "import": "./dist/cli/index.js",
       "default": "./dist/cli/index.js"
     },
-    "./matrix": {
-      "types": "./dist/matrix/index.d.ts",
-      "import": "./dist/matrix/index.js",
-      "default": "./dist/matrix/index.js"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -52,10 +47,10 @@
   },
   "dependencies": {
     "@rawstep/core": "workspace:*",
-    "@rawstep/policies": "workspace:*",
     "@rawstep/browser": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
-    "@rawstep/reports": "workspace:*"
+    "@rawstep/reports": "workspace:*",
+    "@rawstep/project": "workspace:*"
   },
   "peerDependencies": {
     "playwright": "^1.59.1",

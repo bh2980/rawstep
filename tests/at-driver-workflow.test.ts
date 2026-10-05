@@ -6,24 +6,23 @@ import { mockAtDriverServer } from './helpers/mock-at-driver-server.js';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { runTask } from '@rawstep/browser/runner';
 import { runCli } from '@rawstep/cli/cli';
+import { resolveTask } from '@rawstep/core/contracts';
+import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import type { BrowserSession } from '@rawstep/browser/browser';
 const cleanup:(()=>Promise<void>)[]=[];
 afterEach(async()=>{for(const fn of cleanup.splice(0).reverse())await fn();});
 function browser(){return {page:{bringToFront:async()=>{},evaluate:async()=>true},browser:{version:()=> 'test-browser'},takeBlockedNavigations:()=>[],takeNavigationGuardWarnings:()=>[],close:async()=>{}} as unknown as BrowserSession;}
 describe('real WebSocket adapter to runner to saved artifacts',()=>{
-  it('runs CLI with an actual socket session and reruns analyze/report without any model',async()=>{
+  it('runs an actual socket session and reruns analyze/report from the CLI without any model',async()=>{
     const server=await mockAtDriverServer({onCommand:(_command,output)=>{output('Started!');}});cleanup.push(()=>server.close());
     const root=await mkdtemp(join(tmpdir(),'rawstep-integration-'));cleanup.push(()=>rm(root,{recursive:true,force:true}));
-    const task=join(root,'task.json'),script=join(root,'script.json'),out=join(root,'out');
-    await writeFile(task,JSON.stringify({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}}));
-    await writeFile(script,JSON.stringify([{action:{kind:'intent',intent:'activate'}}]));
+    const out=join(root,'out');
     const stdout:string[]=[];const stderr:string[]=[];
-    const code=await runCli(['run',task,'--script',script,'--backend','voiceover','--endpoint',server.url,'--out',out],{
-      stdout:s=>stdout.push(s),stderr:s=>stderr.push(s),
-      createBackend:options=>new AtDriverBackend({...options,quietMs:10,maxWaitMs:40}),
-      runTask:(task,options)=>runTask(task,{...options,browserSessionFactory:async()=>browser(),verifier:async()=>({passed:true,failures:[]})})
-    });
+    const trace0=await runTask(resolveTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},root),{
+      backend:new AtDriverBackend({profile:'voiceover',url:server.url,quietMs:10,maxWaitMs:40}),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}]),outDir:out,
+      browserSessionFactory:async()=>browser(),verifier:async()=>({passed:true,failures:[]})
+    });const code=trace0.outcome?.status==='success'?0:1;
     expect(stderr).toEqual([]);expect(code).toBe(0);expect(server.commands.map(c=>c.method)).toEqual(['session.new','interaction.userIntent']);
     const trace=await readTrace(out);expect(trace.outcome?.status).toBe('success');
     expect(trace.events.filter(e=>e.type==='backend.command').every(e=>typeof e.commandId==='string')).toBe(true);

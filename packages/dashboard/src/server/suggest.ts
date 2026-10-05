@@ -3,8 +3,8 @@ import { closeBrowserSession, createBrowserSession } from '@rawstep/browser/brow
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
 import { createLlmModel, generateStructured } from '@rawstep/policies/llm';
-import { record } from './models.js';
-import type { Connection, MachineSettings, Model } from '../shared/config.js';
+import type { Connection, MachineSettings, Model } from '@rawstep/project/config';
+import { record } from './http.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
 const MAX_STRUCTURE = 14_000;

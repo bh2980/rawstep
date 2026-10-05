@@ -33,7 +33,7 @@ export async function smokePackageClosures(packs, directory, environment) {
     run(process.execPath,[require.resolve('typescript/bin/tsc'),'--noEmit','--module','NodeNext','--moduleResolution','NodeNext','--target','ES2022','--skipLibCheck','consumer.ts'],cwd);
     if(['@rawstep/core','@rawstep/policies','@rawstep/reports'].includes(target.name))await assert.rejects(access(join(cwd,'node_modules/playwright')));
     if(closure.has('@rawstep/screenreaders'))run(process.execPath,['--input-type=module','-e',`import {orcaBridgePath} from '@rawstep/screenreaders/orca';import {existsSync} from 'node:fs';import assert from 'node:assert/strict';const path=orcaBridgePath();assert.ok(path.startsWith(process.cwd()+'/node_modules/'));assert.ok(existsSync(path));`],cwd);
-    if(expected.bin)assert.match(run(process.execPath,[join(cwd,'node_modules',target.name,'dist/cli/bin.js'),'--help'],cwd),/No model or API key is required/);
+    if(expected.bin)assert.match(run(process.execPath,[join(cwd,'node_modules',target.name,'dist/cli/bin.js'),'--help'],cwd),/rawstep\.config\.json/);
     if(['@rawstep/cli','rawstep'].includes(target.name)){
       // The dashboard is an optional peer: a CLI install must not pull it or its React UI stack.
       await assert.rejects(access(join(cwd,'node_modules/@rawstep/dashboard')));await assert.rejects(access(join(cwd,'node_modules/react')));
@@ -53,10 +53,10 @@ try {
   const html=await htmlResponse.text(); assert.match(html,/Rawstep/);
   const asset=html.match(/src="([^" ]+\\.js)"/)[1];
   const js=await fetch(app.url+asset); assert.equal(js.status,200); assert.match(js.headers.get('content-type'),/javascript/); assert.ok((await js.text()).length>1000);
-  const state=await (await fetch(app.url+'/api/state')).json(); state.config.globals.headless=false;
+  const state=await (await fetch(app.url+'/api/state')).json(); state.config.machine.headless=false;
   const saved=await fetch(app.url+'/api/config',{method:'PUT',headers:{'content-type':'application/json',origin:app.url},body:JSON.stringify({config:state.config,revision:state.revision})}); assert.equal(saved.status,200);
   await app.close(); app=await startDashboard({projectDir,port:0});
-  assert.equal((await (await fetch(app.url+'/api/state')).json()).config.globals.headless,false);
+  assert.equal((await (await fetch(app.url+'/api/state')).json()).config.machine.headless,false);
 } finally {await app.close();}
 `);
       run(process.execPath,['dashboard-smoke.mjs'],cwd);

@@ -1,4 +1,5 @@
-import type { Experiment, Mode, RunRecord } from '../../shared/config';
+import type { Mode } from '@rawstep/project/config';
+import type { Experiment, RunRecord } from '../../shared/config';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
 

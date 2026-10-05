@@ -1,30 +1,21 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runCli, parseCliArguments, type CliDependencies } from "@rawstep/cli/cli";
-import type { Backend } from "@rawstep/core/contracts";
+import { runCli, parseCliArguments, formatRunResult, type CliDependencies } from "@rawstep/cli/cli";
+import { ProjectError } from "@rawstep/project/errors";
+import { ProjectStore, initProject } from "@rawstep/project/store";
+import { defaultConfig } from "@rawstep/project/config";
+import type { RunTaskResult } from "@rawstep/project/run";
 import type { RunTrace } from "@rawstep/core/trace";
 
 const directories: string[] = [];
-describe('local dashboard command', () => {
-  it('shares normal option validation and closes the server on a signal', async () => {
-    expect(parseCliArguments(['ui','--port=5432','--project','project']).options.port).toBe('5432');
-    for (const args of [['ui','--port','0'],['ui','--port','65536'],['ui','--port','1','--port','2'],['ui','task.json']]) expect(() => parseCliArguments(args)).toThrow();
-    const signals=new EventEmitter(), close=vi.fn(async()=>{}), stdout=vi.fn();
-    const startDashboard=vi.fn(async()=>({url:'http://127.0.0.1:5432',close}));
-    const pending=runCli(['ui','--port=5432','--project','project'],{cwd:'/tmp',signals,startDashboard,stdout,stderr:()=>{}});
-    await vi.waitFor(()=>expect(signals.listenerCount('SIGINT')).toBe(1)); signals.emit('SIGINT');
-    expect(await pending).toBe(0); expect(startDashboard).toHaveBeenCalledWith({projectDir:'/tmp/project',port:5432}); expect(close).toHaveBeenCalledOnce(); expect(signals.listenerCount('SIGTERM')).toBe(0);
-  });
-});
 afterEach(async () => {
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "rawstep-cli-v2-"));
+  const directory = await mkdtemp(join(tmpdir(), "rawstep-cli-"));
   directories.push(directory);
   return directory;
 }
@@ -33,6 +24,7 @@ function output(cwd: string) {
   const stderr = vi.fn();
   return { cwd, stdout, stderr };
 }
+const text = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls.flat().join("");
 function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
   return {
     schemaVersion: "2.2", runId: "cli-test", task: { id: "task" },
@@ -41,238 +33,147 @@ function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
     events: [], outcome: { status }, privacy: { inputValues: "redacted", redactionApplied: false },
   };
 }
-function backend(): Backend {
-  return {
-    capabilities: { intents: [], keys: [], textEntry: false, replaceText: false },
-    start: vi.fn(async () => ({ protocol: "at-driver", screenReader: "test" })),
-    close: vi.fn(async () => {}), execute: vi.fn(async () => ({})),
-    observe: vi.fn(async () => ({ windowId: "test", startedAt: "test", endedAt: "test", reason: "test", outputs: [], speech: [] })),
-    subscribe: vi.fn(() => () => {}),
-  };
-}
-async function writeTask(directory: string, extra: Record<string, unknown> = {}): Promise<void> {
-  await writeFile(join(directory, "task.json"), JSON.stringify({ url: "fixture.html", goal: "Reach the button", verify: { all: [{ titleIncludes: "Done" }] }, ...extra }));
-}
-const runArgs = ["run", "task.json", "--script", "decisions.json", "--backend", "voiceover", "--endpoint", "ws://localhost:3030/session", "--out", "result"];
 
-describe("model-neutral CLI argument contract", () => {
-  it("accepts explicit backend, policy, and endpoint without model options", () => {
-    const parsed = parseCliArguments(["run", "task.json", "--policy=./policy.mjs", "--backend", "nvda", "--endpoint", "ws://localhost:3031"]);
-    expect(parsed.options.policy).toBe("./policy.mjs");
-    expect(parsed.options.backend).toBe("nvda");
-  });
-  it("keeps simulated VoiceOver explicit and independent of a native endpoint", () => {
-    expect(parseCliArguments(["mock-run", "task.json", "--script", "decisions.json", "--headed"]).options).toEqual({ script: "decisions.json", headed: true });
-    expect(() => parseCliArguments(["mock-run", "task.json", "--script", "decisions.json", "--backend", "voiceover"])).toThrow(/Unknown option/);
-    expect(() => parseCliArguments(["mock-run", "task.json", "--script", "decisions.json", "--endpoint", "ws://localhost"])).toThrow(/Unknown option/);
-    expect(() => parseCliArguments(["run", "task.json", "--script", "decisions.json", "--backend", "mock", "--endpoint", "ws://localhost"])).toThrow(/mock-run/);
-    expect(() => parseCliArguments(["mock-run", "task.json"])).toThrow(/exactly one of/);
+describe("CLI argument contract", () => {
+  it("parses the seven commands and their options", () => {
+    expect(parseCliArguments(["init"]).command).toBe("init");
+    expect(parseCliArguments(["ui", "--port=5432", "--project", "project"]).options).toEqual({ port: "5432", project: "project" });
+    expect(parseCliArguments(["run", "login", "--model", "fast", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
+      command: "run", positionals: ["login"], options: { model: "fast", profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
+    });
+    expect(parseCliArguments(["analyze", "run-1", "--model", "judge"]).options).toEqual({ model: "judge" });
+    expect(parseCliArguments(["hints", "run", "--reference", "other"])).toMatchObject({ command: "hints", positionals: ["run"], options: { reference: "other" } });
+    expect(parseCliArguments(["report", "run", "--analysis", "analysis.json", "--out", "x"]).command).toBe("report");
+    expect(parseCliArguments(["doctor"]).command).toBe("doctor");
   });
   it.each([
-    ["run", "task.json", "--backend", "voiceover", "--endpoint", "ws://localhost:3030/session"],
-    [...runArgs, "--policy", "policy.mjs"],
-    [...runArgs, "--model", "arbitrary-model"],
-    [...runArgs, "--headless"],
-    [...runArgs, "--out", "again"],
-    ["doctor", "--backend", "keyboard"],
-    ["doctor", "--backend", "nvda", "--endpoint", "https://localhost"],
-    ["analyze", "trace.json", "unexpected.json"],
-    ["report", "trace.json", "--out"],
-  ])("rejects invalid or ambiguous arguments: %j", (...args) => {
+    ["ui", "--port", "0"], ["ui", "--port", "65536"], ["ui", "--port", "1", "--port", "2"], ["ui", "task.json"],
+    ["init", "extra"], ["doctor", "--backend", "nvda"],
+    ["run"], ["run", "a", "b"], ["run", "a", "--mode", "mock"], ["run", "a", "--repeat", "0"], ["run", "a", "--repeat", "101"], ["run", "a", "--repeat", "two"],
+    ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--out", "x", "--out", "y"],
+    // Options of the removed commands and of the environment-variable configuration are gone.
+    ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
+    ["analyze", "run", "--llm"], ["analyze", "run", "--analyzer", "a.mjs"], ["analyze"],
+    ["hints"], ["hints", "a", "b"], ["hints", "a", "--out", "x"], ["hints", "a", "--reference"], ["report", "trace.json", "--out"],
+    ["mock-run", "task.json"], ["screenshot-run", "task.json"], ["matrix", "task.json"], ["profiles"],
+  ])("rejects invalid or retired usage: %j", (...args) => {
     expect(() => parseCliArguments(args)).toThrow();
   });
-  it("has provider-free help and rejects the retired legacy command", async () => {
+  it("prints help for the new commands and rejects unknown ones", async () => {
     const io = output(await temporaryDirectory());
     expect(await runCli(["--help"], io)).toBe(0);
-    expect(io.stdout.mock.calls.flat().join("")).toContain("No model or API key is required");
+    const help = text(io.stdout);
+    for (const command of ["rawstep init", "rawstep ui", "rawstep run <task>", "rawstep hints", "rawstep report", "rawstep analyze", "rawstep doctor", "rawstep.config.json"]) expect(help).toContain(command);
+    for (const gone of ["mock-run", "screenshot-run", "matrix", "RAWSTEP_DECISION", "RAWSTEP_ANALYSIS", "--decision"]) expect(help).not.toContain(gone);
     expect(await runCli(["legacy-run"], io)).toBe(2);
-    expect(io.stderr.mock.calls.flat().join("")).toContain('Unknown command: legacy-run');
+    expect(text(io.stderr)).toContain("Unknown command: legacy-run");
   });
 });
 
-describe("run CLI", () => {
-  it.each([false, true])("runs explicit simulated VoiceOver without creating a native backend (headed: %s)", async (headed) => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const io = output(directory);
-    const execute = vi.fn<NonNullable<CliDependencies["runMockVoiceOverTask"]>>(async (_task, options) => {
-      options.warn?.("Simulated VoiceOver approximation; not Apple VoiceOver.");
-      return fixtureTrace();
-    });
-    const createBackend = vi.fn(() => backend());
-    const nativeRun = vi.fn();
-    const args = ["mock-run", "task.json", "--script", "decisions.json", "--out", "result", "--browser-executable", "browser/chromium", "--diagnostic-screenshots", ...(headed ? ["--headed"] : [])];
-    expect(await runCli(args, { ...io, createBackend, runTask: nativeRun, runMockVoiceOverTask: execute })).toBe(0);
-    expect(createBackend).not.toHaveBeenCalled();
-    expect(nativeRun).not.toHaveBeenCalled();
-    expect(execute.mock.calls[0]![1]).toMatchObject({ headless: !headed, outDir: join(directory, "result"), browserExecutablePath: join(directory, "browser/chromium"), diagnosticScreenshots: true });
-    expect(execute.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
-    expect(io.stderr.mock.calls.flat().join("")).toContain("[simulation] Simulated VoiceOver approximation; not Apple VoiceOver");
+describe("local dashboard command", () => {
+  it("closes the server on a signal and starts it in the project directory", async () => {
+    const signals = new EventEmitter(), close = vi.fn(async () => {}), stdout = vi.fn();
+    const startDashboard = vi.fn(async () => ({ url: "http://127.0.0.1:5432", close }));
+    const pending = runCli(["ui", "--port=5432", "--project", "project"], { cwd: "/tmp", signals, startDashboard, stdout, stderr: () => {} });
+    await vi.waitFor(() => expect(signals.listenerCount("SIGINT")).toBe(1)); signals.emit("SIGINT");
+    expect(await pending).toBe(0); expect(startDashboard).toHaveBeenCalledWith({ projectDir: "/tmp/project", port: 5432 }); expect(close).toHaveBeenCalledOnce(); expect(signals.listenerCount("SIGTERM")).toBe(0);
   });
-  it("reports simulated failures without suggesting native AT Driver setup", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const io = output(directory);
-    expect(await runCli(["mock-run", "task.json", "--script", "decisions.json"], { ...io, runMockVoiceOverTask: async () => fixtureTrace("failure") })).toBe(1);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("npx rawstep report");
-    expect(text).not.toContain("rawstep doctor");
+});
+
+describe("init", () => {
+  it("writes a default rawstep.config.json and refuses to overwrite it", async () => {
+    const directory = await temporaryDirectory(), io = output(directory);
+    expect(await runCli(["init"], io)).toBe(0);
+    expect(text(io.stdout)).toContain(join(directory, "rawstep.config.json"));
+    expect(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8"))).toEqual(defaultConfig());
+    await writeFile(join(directory, "rawstep.config.json"), "{\"mine\":true}");
+    expect(await runCli(["init"], io)).toBe(1);
+    expect(text(io.stderr)).toContain("already exists");
+    expect(await readFile(join(directory, "rawstep.config.json"), "utf8")).toBe("{\"mine\":true}");
+    await expect(initProject(directory)).rejects.toBeInstanceOf(ProjectError);
   });
-  it.each([["SIGINT", 130], ["SIGTERM", 143]] as const)("saves a %s cancellation and removes temporary signal handlers", async (signal, expectedCode) => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const signals = new EventEmitter();
-    const existing = vi.fn();
-    signals.on("SIGINT", existing);
-    const execute = vi.fn<NonNullable<CliDependencies["runTask"]>>(async (_task, options) => {
-      expect(options.signal?.aborted).toBe(false);
-      signals.emit(signal);
-      expect(options.signal?.aborted).toBe(true);
-      expect(options.signal?.reason).toBe(signal);
-      signals.emit(signal === "SIGINT" ? "SIGTERM" : "SIGINT");
-      expect(options.signal?.reason).toBe(signal);
-      return { ...fixtureTrace(), outcome: { status: "aborted", reason: "aborted", stage: "policy", step: 2,
-        cancellation: { signal, stage: "policy", step: 2 } } };
-    });
-    const io = output(directory);
-    expect(await runCli(runArgs, { ...io, signals, createBackend: () => backend(), runTask: execute })).toBe(expectedCode);
-    expect(signals.listeners("SIGINT")).toEqual([existing]);
-    expect(signals.listenerCount("SIGTERM")).toBe(0);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("Reason: aborted");
-    expect(text).toContain("Stage: policy (step 2)");
-    expect(text).toContain(`Cancellation: ${signal}`);
-    expect(text).toContain("npx rawstep report");
-    expect(text).toContain("npx rawstep doctor --backend voiceover");
+  it("initializes the directory given by --project", async () => {
+    const directory = await temporaryDirectory(), io = output(directory);
+    expect(await runCli(["init", "--project", "sub/app"], io)).toBe(0);
+    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.profiles).toHaveLength(1);
   });
-  it("removes run signal handlers even when execution throws", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const signals = new EventEmitter();
-    const io = output(directory);
-    expect(await runCli(runArgs, { ...io, signals, createBackend: () => backend(), runTask: async () => { throw new Error("trace cannot be initialized"); } })).toBe(1);
-    expect(signals.listenerCount("SIGINT")).toBe(0);
-    expect(signals.listenerCount("SIGTERM")).toBe(0);
-    expect(io.stderr.mock.calls.flat().join("")).toContain("Stage: execution");
-    expect(io.stderr.mock.calls.flat().join("")).toContain("fresh --out directory");
-    expect(io.stdout.mock.calls.flat().join("")).not.toContain("Trace:");
+});
+
+const result: RunTaskResult = {
+  runs: [
+    { runId: "r1", outDir: "/p/.rawstep/runs/x/run-1", outcome: { status: "success" }, hints: { schemaVersion: "2.0", runId: "r1", taskId: "t", steps: 7, durationMs: 10, goalReached: true, hints: [{ kind: "slow-run", source: "run", certainty: "observed", steps: [], summary: "7 steps against a 3-step reference run (+4).", detail: {}, evidence: [] }], limitations: [] } },
+    { runId: "r2", outDir: "/p/.rawstep/runs/x/run-2", outcome: { status: "failure", reason: "max-steps" }, hints: { schemaVersion: "2.0", runId: "r2", taskId: "t", steps: 40, durationMs: 10, goalReached: false, hints: [], limitations: [] } },
+  ],
+  findings: [
+    { kind: "backtracking", source: "model", runs: 1, totalRuns: 2, occurrences: [] },
+    { kind: "focus-lost", source: "page", target: { role: "button", name: "Pay" }, runs: 2, totalRuns: 2, occurrences: [] },
+    { kind: "missing-announcement", source: "page", runs: 1, totalRuns: 2, occurrences: [] },
+  ],
+};
+describe("run", () => {
+  it("passes the options to runTask, prints outcomes and findings grouped as Page and Model, and exits 0 whatever the outcome", async () => {
+    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
+    expect(await runCli(["run", "login", "--model", "fast", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
+    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, model: "fast", profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
+    const out = text(io.stdout);
+    expect(out).toContain("Run 1 of 2: goal reached · 7 steps");
+    expect(out).toContain("Run 2 of 2: goal not reached (max-steps) · 40 steps");
+    expect(out.indexOf("Page")).toBeLessThan(out.indexOf("Model"));
+    expect(out).toContain('button "Pay" · focus-lost · 2 of 2 runs');
+    expect(out).toContain("(no element) · missing-announcement · 1 of 2 runs");
+    expect(out).toContain("(no element) · backtracking · 1 of 2 runs");
   });
-  it("identifies missing task files before claiming a saved trace exists", async () => {
-    const directory = await temporaryDirectory();
-    const io = output(directory);
-    const createBackend = vi.fn(() => backend());
-    expect(await runCli(runArgs, { ...io, createBackend })).toBe(2);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("Stage: task-loading");
-    expect(text).toContain("Check that the task file exists");
-    expect(text).toContain("npx rawstep --help");
-    expect(io.stdout.mock.calls.flat().join("")).not.toContain("Trace:");
-    expect(createBackend).not.toHaveBeenCalled();
+  it("defaults to keyboard mode with one run and the current directory", async () => {
+    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
+    expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
+    expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, mode: "keyboard", repeat: 1 })]);
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model");
   });
-  it("identifies missing policy modules with relevant recovery guidance", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    const io = output(directory);
-    const createBackend = vi.fn(() => backend());
-    expect(await runCli(["run", "task.json", "--policy", "missing.mjs", "--backend", "voiceover", "--endpoint", "ws://localhost:3030"], { ...io, createBackend })).toBe(1);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("Stage: policy-loading");
-    expect(text).toContain("Check the --policy module path and its decide() export");
-    expect(io.stdout.mock.calls.flat().join("")).not.toContain("Trace:");
-    expect(createBackend).not.toHaveBeenCalled();
+  it("prints the result object with --json", async () => {
+    const io = output(await temporaryDirectory());
+    expect(await runCli(["run", "task.json", "--json"], { ...io, runTask: async () => result })).toBe(0);
+    expect(JSON.parse(text(io.stdout))).toEqual(result);
+    expect(text(io.stderr)).not.toContain("Running");
   });
-  it("prints the recorded failure cause and stage without claiming a report already exists", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const io = output(directory);
-    const trace = { ...fixtureTrace("failure"), outcome: { status: "failure" as const, reason: "error", stage: "backend.start", step: 0, error: "Connection refused: ECONNREFUSED" } };
-    expect(await runCli(runArgs, { ...io, createBackend: () => backend(), runTask: async () => trace })).toBe(1);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("Reason: error");
-    expect(text).toContain("Stage: backend.start (step 0)");
-    expect(text).toContain("Detail: Connection refused: ECONNREFUSED");
-    expect(text).toContain("fresh --out directory");
-    expect(io.stdout.mock.calls.flat().join("")).not.toContain("Report:");
+  it("reports errors with a non-zero exit code and no stack", async () => {
+    const io = output(await temporaryDirectory());
+    const runTask = async () => { throw new ProjectError("no-config", "rawstep.config.json was not found. Create it with `rawstep init` or `rawstep ui`.", 404); };
+    expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(1);
+    expect(text(io.stderr)).toContain("rawstep.config.json was not found"); expect(text(io.stderr)).not.toContain("(no-config)");
+    expect(text(io.stdout)).toBe("");
   });
-  it("runs screenshot keyboard scripts without a native backend or provider", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory, { mode: "keyboard" });
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const io = output(directory);
-    const execute = vi.fn<NonNullable<CliDependencies["runScreenshotTask"]>>(async () => fixtureTrace());
-    const createBackend = vi.fn(() => backend());
-    expect(await runCli(["screenshot-run", "task.json", "--script", "decisions.json", "--out", "result"], { ...io, createBackend, runScreenshotTask: execute })).toBe(0);
-    expect(createBackend).not.toHaveBeenCalled();
-    expect(execute.mock.calls[0]![1].headless).toBe(true);
-    expect(io.stderr.mock.calls.flat().join("")).not.toContain("deprecated");
+  it.each([["SIGINT", 130], ["SIGTERM", 143]] as const)("exits %s-style on cancellation and removes its signal handlers", async (signal, code) => {
+    const signals = new EventEmitter(), io = output(await temporaryDirectory());
+    const runTask = vi.fn(async (_task: string, options?: { signal?: AbortSignal }) => new Promise<RunTaskResult>((_accept, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(new ProjectError("cancelled", "The run was cancelled.")), { once: true });
+    }));
+    const pending = runCli(["run", "task.json"], { ...io, signals, runTask });
+    await vi.waitFor(() => expect(signals.listenerCount(signal)).toBe(1)); signals.emit(signal);
+    expect(await pending).toBe(code);
+    expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
+    expect(text(io.stderr)).toContain("cancelled");
   });
-  it("runs a scripted policy with no old config or provider credentials", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ stop: "success" }]));
-    const device = backend();
-    const execute = vi.fn<NonNullable<CliDependencies["runTask"]>>(async () => fixtureTrace());
-    const io = output(directory);
-    const exitCode = await runCli(runArgs, { ...io, createBackend: () => device, runTask: execute });
-    expect(exitCode).toBe(0);
-    const [task, options] = execute.mock.calls[0]!;
-    expect(task.url).toBe(pathToFileURL(join(directory, "fixture.html")).href);
-    expect(options.backend).toBe(device);
-    expect(options.outDir).toBe(join(directory, "result"));
-    expect(options.headless).toBe(false);
-    expect(await options.policy.decide({} as never)).toEqual({ stop: "success" });
-    expect(io.stdout.mock.calls.flat().join("")).toContain("Run cli-test: success");
+  it("removes its signal handlers when the run throws", async () => {
+    const signals = new EventEmitter(), io = output(await temporaryDirectory());
+    expect(await runCli(["run", "task.json"], { ...io, signals, runTask: async () => { throw new Error("boom"); } })).toBe(1);
+    expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
   });
-  it("loads a trusted local policy module without a model-specific adapter", async () => {
-    const directory = await temporaryDirectory();
-    await writeTask(directory);
-    await writeFile(join(directory, "policy.mjs"), 'export const policy = { decide: () => ({ stop: "stuck", rationale: "fixture" }) };');
-    const execute = vi.fn(async () => fixtureTrace("failure"));
-    const io = output(directory);
-    expect(await runCli(["run", "task.json", "--policy", "policy.mjs", "--backend", "nvda", "--endpoint", "ws://localhost:3031"], { ...io, createBackend: () => backend(), runTask: execute })).toBe(1);
-    expect(execute).toHaveBeenCalledOnce();
-  });
-  it("rejects old keyboard mode and malformed scripts before creating a backend", async () => {
-    const directory = await temporaryDirectory();
-    const io = output(directory);
-    const createBackend = vi.fn(() => backend());
-    await writeTask(directory, { mode: "keyboard" });
-    expect(await runCli(runArgs, { ...io, createBackend })).toBe(2);
-    expect(io.stderr.mock.calls.flat().join("")).toContain('screenshot-run');
-    await writeTask(directory);
-    await writeFile(join(directory, "decisions.json"), JSON.stringify([{ action: { kind: "anything" } }]));
-    expect(await runCli(runArgs, { ...io, createBackend })).toBe(2);
-    expect(createBackend).not.toHaveBeenCalled();
+  it("formats a run without an outcome and a run without findings", () => {
+    const out = formatRunResult({ runs: [{ runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
+    expect(out).toContain("Run 1 of 1: no outcome recorded · 0 steps"); expect(out).toContain("No page or model findings.");
   });
 });
 
 describe("offline analysis and reports", () => {
-  it("analyzes and renders a saved trace without starting a backend", async () => {
+  it("analyzes and renders a saved trace locally, without a project config", async () => {
     const directory = await temporaryDirectory();
     const source = JSON.stringify(fixtureTrace());
     await writeFile(join(directory, "trace.json"), source);
     const io = output(directory);
-    const createBackend = vi.fn(() => backend());
-    expect(await runCli(["analyze", "trace.json"], { ...io, createBackend })).toBe(0);
-    expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], { ...io, createBackend })).toBe(0);
+    expect(await runCli(["analyze", "trace.json"], io)).toBe(0);
+    expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(0);
     expect(await readFile(join(directory, "trace.json"), "utf8")).toBe(source);
     expect(await readFile(join(directory, "report.html"), "utf8")).toContain("cli-test");
-    expect(createBackend).not.toHaveBeenCalled();
-  });
-  it("returns a failure for analyzer errors while preserving the original trace", async () => {
-    const directory = await temporaryDirectory();
-    const source = JSON.stringify(fixtureTrace());
-    await writeFile(join(directory, "trace.json"), source);
-    await writeFile(join(directory, "analyzer.mjs"), 'export default { id: "broken", analyze() { throw new Error("offline analyzer failed"); } };');
-    const io = output(directory);
-    expect(await runCli(["analyze", "trace.json", "--analyzer", "analyzer.mjs"], io)).toBe(1);
-    expect(JSON.parse(await readFile(join(directory, "analysis.json"), "utf8")).status).toBe("failed");
-    expect(await readFile(join(directory, "trace.json"), "utf8")).toBe(source);
   });
   it("refuses analysis from a different run", async () => {
     const directory = await temporaryDirectory();
@@ -280,7 +181,17 @@ describe("offline analysis and reports", () => {
     await writeFile(join(directory, "analysis.json"), JSON.stringify({ schemaVersion: "1.0", traceSchemaVersion: "2.2", runId: "another-run", status: "completed", findings: [] }));
     const io = output(directory);
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
-    expect(io.stderr.mock.calls.flat().join("")).toMatch(/run|trace/i);
+    expect(text(io.stderr)).toMatch(/run|trace/i);
+  });
+  it("needs the analysis model named by --model to exist in rawstep.config.json", async () => {
+    const directory = await temporaryDirectory();
+    await writeFile(join(directory, "trace.json"), JSON.stringify(fixtureTrace()));
+    const io = output(directory);
+    expect(await runCli(["analyze", "trace.json", "--model", "judge"], io)).toBe(1);
+    expect(text(io.stderr)).toContain("rawstep.config.json was not found");
+    await initProject(directory);
+    expect(await runCli(["analyze", "trace.json", "--model", "judge"], io)).toBe(1);
+    expect(text(io.stderr)).toContain('No model "judge"');
   });
 });
 
@@ -326,7 +237,7 @@ describe("hints command", () => {
   it("reports a missing trace as a hints-stage failure", async () => {
     const io = output(await temporaryDirectory());
     expect(await runCli(["hints", "missing.json"], io)).toBe(1);
-    expect(io.stderr.mock.calls.flat().join("")).toContain("Stage: hints");
+    expect(io.stderr.mock.calls.flat().join("")).toMatch(/missing\.json/);
   });
   it("is written by analyze and rendered by report when present next to the trace", async () => {
     const directory = await temporaryDirectory();
@@ -344,51 +255,55 @@ describe("hints command", () => {
 });
 
 describe("doctor", () => {
-  it("reports unverified native prerequisites without connecting by default", async () => {
-    const io = output(await temporaryDirectory());
-    const createBackend = vi.fn(() => backend());
-    expect(await runCli(["doctor", "--backend", "nvda"], { ...io, createBackend })).toBe(0);
-    expect(io.stdout.mock.calls.flat().join("")).toContain("Native readiness is unverified");
-    expect(createBackend).not.toHaveBeenCalled();
+  async function project(configure?: (config: ReturnType<typeof defaultConfig>) => void) {
+    const directory = await temporaryDirectory(), config = defaultConfig(); configure?.(config);
+    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify(config));
+    return directory;
+  }
+  it("passes when the browser launches, the config parses and the simulation needs no screen reader", async () => {
+    const directory = await project(), io = output(directory), launchBrowser = vi.fn(async () => {});
+    expect(await runCli(["doctor"], { ...io, launchBrowser })).toBe(0);
+    const out = text(io.stdout);
+    expect(out).toContain("ok    Browser"); expect(out).toContain("ok    Config"); expect(out).toContain("skip  Screen reader");
+    expect(launchBrowser).toHaveBeenCalledOnce();
   });
-  it("probes an explicit endpoint and closes the session", async () => {
-    const io = output(await temporaryDirectory());
-    const device = backend();
-    expect(await runCli(["doctor", "--backend", "voiceover", "--endpoint", "ws://localhost:3030/session"], { ...io, createBackend: () => device })).toBe(0);
-    expect(device.start).toHaveBeenCalledOnce();
-    expect(device.close).toHaveBeenCalledOnce();
-    expect(io.stdout.mock.calls.flat().join("")).toContain("protocol connection only");
+  it("fails when the browser cannot launch, with the way out", async () => {
+    const io = output(await project());
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => { throw new Error("no chromium"); } })).toBe(1);
+    expect(text(io.stdout)).toMatch(/FAIL\s+Browser: no chromium.*playwright install/);
   });
-  it("closes a failed protocol probe and reports failure", async () => {
-    const io = output(await temporaryDirectory());
-    const device = backend();
-    device.start = vi.fn(async () => { throw new Error("connection refused"); });
-    expect(await runCli(["doctor", "--backend", "nvda", "--endpoint", "ws://localhost:3031"], { ...io, createBackend: () => device })).toBe(1);
-    expect(device.close).toHaveBeenCalledOnce();
-    expect(io.stderr.mock.calls.flat().join("")).toContain("connection refused");
+  it("fails without a config file but still checks the browser", async () => {
+    const io = output(await temporaryDirectory()), launchBrowser = vi.fn(async () => {});
+    expect(await runCli(["doctor"], { ...io, launchBrowser })).toBe(1);
+    expect(text(io.stdout)).toContain("FAIL  Config: rawstep.config.json was not found");
+    expect(launchBrowser).toHaveBeenCalledOnce();
   });
-  it("preserves the connection cause when cleanup also fails", async () => {
-    const io = output(await temporaryDirectory());
-    const device = backend();
-    device.start = vi.fn(async () => { throw new Error("WebSocket connection failed", { cause: Object.assign(new Error("Connection refused"), { code: "ECONNREFUSED" }) }); });
-    device.close = vi.fn(async () => { throw new Error("cleanup failed"); });
-    expect(await runCli(["doctor", "--backend", "nvda", "--endpoint", "ws://localhost:3031"], { ...io, createBackend: () => device })).toBe(1);
-    const text = io.stderr.mock.calls.flat().join("");
-    expect(text).toContain("Connection: failed");
-    expect(text).toContain("ECONNREFUSED");
-    expect(text).toContain("Recovery: start the native AT Driver server");
-    expect(text).toContain("Cleanup warning: cleanup failed");
+  it("reports an invalid config", async () => {
+    const directory = await temporaryDirectory(), io = output(directory);
+    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 2 }));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    expect(text(io.stdout)).toContain("FAIL  Config");
   });
-});
-
-it("ships the rawstep package over real workspace packages", async () => {
-  const manifest = JSON.parse(await readFile(resolve(import.meta.dirname, "../packages/rawstep/package.json"), "utf8"));
-  expect(manifest.name).toBe("rawstep");
-  expect(manifest.private).not.toBe(true);
-  expect(manifest.bin.rawstep).toBe("./dist/cli/bin.js");
-  expect(manifest.files).toEqual(["dist", "README.md", "README.ko.md", "LICENSE", "docs/*.md", "examples/v2", "fixtures/simple-cta.html", "fixtures/native-voiceover.html", "fixtures/mock-voiceover-system.html", "examples/screenshot/*.json", "examples/screenshot/*.mjs", "examples/screenshot/*.md", "examples/screenshot/*.py", "examples/screenshot/*.txt", "fixtures/screenshot-keyboard.html", "fixtures/screenshot-workflow.html", "examples/profiles/*.json", "examples/profiles/*.md", "examples/orca/*.mjs", "examples/orca/*.html", "examples/orca/*.md", "fixtures/environment-lab.html", "fixtures/visual-study/*.html"]);
-  expect(manifest.exports["./mock-voiceover"]).toEqual({ types: "./dist/mock-voiceover/index.d.ts", import: "./dist/mock-voiceover/index.js", default: "./dist/mock-voiceover/index.js" });
-  expect(Object.keys(manifest.dependencies)).toEqual(["@rawstep/core", "@rawstep/policies", "@rawstep/browser", "@rawstep/screenreaders", "@rawstep/reports", "@rawstep/cli"]);
-  expect(JSON.stringify(manifest.dependencies)).not.toMatch(/guidepup|anthropic|openai|ollama|virtual-screen-reader/);
-  expect(manifest.exports["./policy"].types).toBe("./dist/policy/index.d.ts");
+  it("checks that the key of each connection is set, without printing it", async () => {
+    const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY";
+    const directory = await project(config => {
+      config.connections.push({ id: "a", name: "With key", provider: "openai", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present, timeoutMs: 1000 }, { id: "b", name: "Missing key", provider: "openai", baseURL: "http://127.0.0.1:1235/v1", apiKeyEnv: absent, timeoutMs: 1000 }, { id: "c", name: "Local", provider: "openai", baseURL: "http://127.0.0.1:1236/v1", timeoutMs: 1000 });
+    });
+    await writeFile(join(directory, ".env.local"), `${present}="secret-doctor-value"\n`);
+    const io = output(directory);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    const out = text(io.stdout);
+    expect(out).toContain(`ok    Connection With key: ${present} is set`); expect(out).toContain(`FAIL  Connection Missing key: ${absent} is missing`); expect(out).toContain("ok    Connection Local: no API key needed");
+    expect(out).not.toContain("secret-doctor-value");
+  });
+  it("probes the native screen reader endpoint when machine.backend is native", async () => {
+    const directory = await project(config => { config.machine.backend = "voiceover"; config.machine.atEndpoint = "ws://127.0.0.1:9333"; });
+    const io = output(directory), checkNativeBackend = vi.fn(async () => ({}));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkNativeBackend })).toBe(0);
+    expect(checkNativeBackend).toHaveBeenCalledWith({ profile: "voiceover", url: "ws://127.0.0.1:9333" });
+    expect(text(io.stdout)).toContain("ok    Screen reader: voiceover AT Driver answered");
+    const failing = output(directory);
+    expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => {}, checkNativeBackend: async () => { throw new Error("ECONNREFUSED"); } })).toBe(1);
+    expect(text(failing.stdout)).toContain("FAIL  Screen reader: voiceover AT Driver at ws://127.0.0.1:9333: ECONNREFUSED");
+  });
 });

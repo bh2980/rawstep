@@ -25,3 +25,6 @@ __pycache__/
 # Local dashboard settings written by `rawstep ui`.
 rawstep.dashboard.json
 .claude/scheduled_tasks.lock
+
+# This repo keeps personal configs out of git. In your own project, commit rawstep.config.json.
+/rawstep.config.json

@@ -24,9 +24,6 @@
     "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
     "pack:all": "node scripts/pack-workspace.mjs",
     "test:source": "node scripts/smoke-source.mjs",
-    "verify:voiceover": "node scripts/verify-voiceover.mjs",
-    "verify:multimodal": "node scripts/verify-multimodal.mjs",
-    "try:openrouter": "npm run build && node scripts/try-openrouter.mjs",
     "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",
     "test:dashboard-python": "python3 -m unittest discover -s tests -p \"test_dashboard_prompt_control.py\""
   },
@@ -37,6 +34,7 @@
     "@rawstep/cli": "workspace:*",
     "@rawstep/core": "workspace:*",
     "@rawstep/policies": "workspace:*",
+    "@rawstep/project": "workspace:*",
     "@rawstep/reports": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "@types/jsdom": "30.0.0",

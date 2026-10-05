@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Search } from 'lucide-react';
-import type { Connection, Model } from '../../shared/config';
+import type { Connection, Model } from '@rawstep/project/config';
 import { api } from '../api';
 import { findConnection, generateEnvName, manualModel, newConnection, OPENAI_URLS, preset, PRESETS, usageKey, withAnalysis } from '../lib/modelSetup';
 import { useGuardedAct } from '../lib/useGuardedAct';

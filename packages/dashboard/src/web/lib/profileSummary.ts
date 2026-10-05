@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import type { Permissions, Policy } from '../../shared/config';
+import type { Permissions, Policy } from '@rawstep/project/config';
 
 /** "Tab·Shift+Tab·Enter" for the allowed actions of one mode; a "none" label when nothing is allowed. */
 export function permissionsSummary(permissions: Permissions): string {

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HttpScreenshotModel, ScreenshotDecisionPolicy, screenshotChoices, screenshotHash, SCREENSHOT_KEYS, validateModelResponse, type ScreenshotModelRequest, type ScreenshotModelResponse } from 'rawstep/screenshot';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
-import { parseCliArguments } from '@rawstep/cli/cli/args';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
 const observation = { kind: 'keyboard' as const, screenshot: { pngBase64: png, viewport: { w: 1, h: 1 } }, window: { id: 'one', startedAt: '2026-10-01T00:00:00.000Z', endedAt: '2026-10-01T00:00:00.000Z', reason: 'test' } };
@@ -68,7 +67,7 @@ describe('first-class screenshot model policy', () => {
   });
 });
 
-describe('explicit screenshot model HTTP adapter and CLI', () => {
+describe('explicit screenshot model HTTP adapter', () => {
   it('requires separate explicit remote transmission and HTTPS', () => {
     expect(() => new HttpScreenshotModel({ endpoint: 'https://example.com/choose' })).toThrow(/allowRemote/);
     expect(() => new HttpScreenshotModel({ endpoint: 'http://example.com/choose', allowRemote: true })).toThrow(/HTTPS/);
@@ -87,13 +86,6 @@ describe('explicit screenshot model HTTP adapter and CLI', () => {
     const model = new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: async () => new Response('PRIVATE_SERVER_RESPONSE_BODY') });
     const policy = new ScreenshotDecisionPolicy({ model });
     await expect(policy.decide(input())).rejects.toThrow('Screenshot model returned invalid JSON; response body omitted for privacy.');
-  });
-  it('exposes screenshot-run with a real endpoint or trusted custom policy, never silent scripts', () => {
-    expect(parseCliArguments(['screenshot-run', 'task.json', '--model-endpoint', 'http://127.0.0.1:8766/choose']).command).toBe('screenshot-run');
-    expect(parseCliArguments(['screenshot-run', 'task.json', '--policy', './policy.mjs']).options.policy).toBe('./policy.mjs');
-    expect(parseCliArguments(['screenshot-run', 'task.json', '--script', './decisions.json']).options.script).toBe('./decisions.json');
-    expect(() => parseCliArguments(['screenshot-run', 'task.json'])).toThrow(/exactly one/);
-    expect(() => parseCliArguments(['screenshot-run', 'task.json', '--policy', 'a', '--model-endpoint', 'b'])).toThrow(/exactly one/);
   });
 });
 
@@ -121,15 +113,5 @@ describe('configurable early give-up', () => {
     expect((choose.mock.calls[0] as unknown as [ScreenshotModelRequest])[0].choices.map(c => c.id)).not.toContain('stop:stuck');
     const giveUp = new ScreenshotDecisionPolicy({ modelGiveUp: false, model: { choose: async () => response('stop:stuck') } });
     await expect(giveUp.decide(input())).rejects.toThrow();
-  });
-  it('parses the CLI early-stop flags and rejects conflicts or missing model selectors', () => {
-    const base = ['screenshot-run', 'task.json'];
-    expect(parseCliArguments([...base, '--decision', 'systemone', '--repetition-guard', '--no-model-give-up']).options).toMatchObject({ 'repetition-guard': true, 'no-model-give-up': true });
-    expect(parseCliArguments([...base, '--model-endpoint', 'http://127.0.0.1:1/choose', '--no-repetition-guard']).options['no-repetition-guard']).toBe(true);
-    expect(() => parseCliArguments([...base, '--decision', 'systemone', '--repetition-guard', '--no-repetition-guard'])).toThrow(/not both/);
-    expect(() => parseCliArguments([...base, '--script', 's.json', '--no-repetition-guard'])).toThrow(/require --decision systemone or --model-endpoint/);
-    expect(() => parseCliArguments(['mock-run', 'task.json', '--decision', 'systemone', '--no-repetition-guard'])).toThrow(/Unknown option/);
-    expect(parseCliArguments(['mock-run', 'task.json', '--decision', 'systemone', '--no-model-give-up']).options['no-model-give-up']).toBe(true);
-    expect(() => parseCliArguments([...base, '--decision', 'systemone', '--no-model-give-up=1'])).toThrow(/does not take a value/);
   });
 });

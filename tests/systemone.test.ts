@@ -7,8 +7,6 @@ import { FakeSystemOneClient, SystemOneHttpClient, VercelEvaluationClient, Syste
 import { ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
-import { runCli, parseCliArguments } from '@rawstep/cli/cli';
-import { decisionConfig, loadCliEnvironment } from '../packages/cli/src/cli/config.js';
 import type { Backend, DecisionPolicy } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
@@ -62,21 +60,16 @@ describe('model-independent SystemOne contracts',()=>{
     const trace=await runTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},{backend,policy:new SystemOneSpeechPolicy(fake),outDir:dir,browserSessionFactory:async()=>session,verifier:async()=>({passed:true,failures:[]})});
     expect(trace.outcome?.status).toBe('success');expect(backend.execute).toHaveBeenCalledOnce();expect(backend.close).toHaveBeenCalled();expect(session.close).toHaveBeenCalled();expect(trace.events.some(e=>e.type==='policy.evidence')).toBe(true);expect(await readFile(join(dir,'trace.json'),'utf8')).toContain('fake-systemone');
   });
-  it('runs fake image decision through the CLI, keyboard runner and finalized trace without credentials', async () => {
+  it('runs a fake image decision through the keyboard runner to a finalized trace without credentials', async () => {
     const cwd = await directory(), session = visualSession(), client = new FakeSystemOneClient(['key:Enter']);
-    await writeFile(join(cwd, 'task.json'), JSON.stringify({ mode: 'keyboard', url: 'https://example.test', goal: 'Start', verify: { all: [{ titleIncludes: 'Done' }] } }));
-    let saved: Awaited<ReturnType<typeof runTask>> | undefined;
-    const code = await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--out', 'run'], {
-      cwd, stdout: () => {}, stderr: () => {}, createDecisionClient: () => client,
-      env: { RAWSTEP_DECISION_PROVIDER: 'systemone-http', RAWSTEP_DECISION_BASE_URL: 'http://127.0.0.1:8000/v1', RAWSTEP_DECISION_MODEL: 'fake', RAWSTEP_DECISION_INPUTS: 'text,image' },
-      runScreenshotTask: async (task, options) => saved = await runScreenshotTask(task, {
-        ...options, browserSessionFactory: async () => session, verifier: async () => ({ passed: true, failures: [] }),
-      }),
+    const saved = await runScreenshotTask({ mode: 'keyboard', url: 'https://example.test', goal: 'Start', verify: { all: [{ titleIncludes: 'Done' }] } }, {
+      outDir: join(cwd, 'run'), policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client) }),
+      browserSessionFactory: async () => session, verifier: async () => ({ passed: true, failures: [] }),
     });
-    expect(code).toBe(0); expect(session.page.keyboard.press).toHaveBeenCalledWith('Enter'); expect(session.close).toHaveBeenCalledOnce();
-    expect(saved?.endedAt).toBeTruthy(); expect(saved?.outcome?.status).toBe('success');
-    expect(saved?.events.some(e => e.type === 'keyboard.observation')).toBe(true);
-    expect(saved?.events.some(e => e.type === 'policy.evidence')).toBe(true);
+    expect(session.page.keyboard.press).toHaveBeenCalledWith('Enter'); expect(session.close).toHaveBeenCalledOnce();
+    expect(saved.endedAt).toBeTruthy(); expect(saved.outcome?.status).toBe('success');
+    expect(saved.events.some(e => e.type === 'keyboard.observation')).toBe(true);
+    expect(saved.events.some(e => e.type === 'policy.evidence')).toBe(true);
     expect(client.requests[0]?.images?.[0]?.pngBase64).toBe(png);
     expect(await readFile(join(cwd, 'run', 'trace.json'), 'utf8')).toContain('fake-systemone');
   });
@@ -136,34 +129,6 @@ describe('actual HTTP protocols, not real model inference',()=>{
     expect(seen).toHaveBeenCalledTimes(2);
   });
 });
-describe('CLI selection and environment boundary',()=>{
-  it('rejects insufficient mock candidate capacity before starting its runner', async () => {
-    const cwd = await directory(), execute = vi.fn(), errors: string[] = [];
-    await writeFile(join(cwd, 'task.json'), JSON.stringify({ url: 'https://example.test', goal: 'Start', verify: { all: [{ titleIncludes: 'Done' }] } }));
-    expect(await runCli(['mock-run', 'task.json', '--decision', 'systemone'], {
-      cwd, stdout: () => {}, stderr: text => errors.push(text), runMockVoiceOverTask: execute,
-      env: { RAWSTEP_DECISION_PROVIDER: 'systemone-http', RAWSTEP_DECISION_BASE_URL: 'http://127.0.0.1:8000/v1', RAWSTEP_DECISION_MODEL: 'fake', RAWSTEP_DECISION_INPUTS: 'text' },
-      createDecisionClient: () => new FakeSystemOneClient(['stop:uncertain'], { inputs: ['text'], maxChoices: 3, maxImages: 0 }),
-    })).toBe(1);
-    expect(execute).not.toHaveBeenCalled(); expect(errors.join('')).toContain('candidate count');
-  });
-  it('loads files without mutations and applies process then CLI overrides',async()=>{
-    const cwd=await directory();await writeFile(join(cwd,'.env'),'RAWSTEP_DECISION_MODEL=base\nAI_API_KEY=ignored');await writeFile(join(cwd,'.env.local'),'RAWSTEP_DECISION_MODEL=local\nRAWSTEP_DECISION_API_KEY=PRIVATE_LOCAL');
-    const env=await loadCliEnvironment(cwd,{RAWSTEP_DECISION_MODEL:'process'});expect(env.RAWSTEP_DECISION_MODEL).toBe('process');expect(env.AI_API_KEY).toBeUndefined();
-    const args=parseCliArguments(['screenshot-run','task.json','--decision','systemone','--decision-provider','systemone-http','--decision-base-url','http://127.0.0.1:8000/v1','--decision-inputs','text,image','--decision-model','cli']);
-    expect(decisionConfig(args,env).model).toBe('cli');expect(await readFile(join(cwd,'.env.local'),'utf8')).toContain('PRIVATE_LOCAL');
-  });
-  it('supports scripts and rejects mixed selectors and analyzer flags',()=>{
-    expect(parseCliArguments(['screenshot-run','task.json','--script','script.json']).options.script).toBe('script.json');
-    for(const args of [['screenshot-run','task.json','--script','s.json','--decision','systemone'],['analyze','trace.json','--llm','--analyzer','a.mjs'],['mock-run','task.json','--script','s.json','--decision-model','bad']])expect(()=>parseCliArguments(args)).toThrow();
-  });
-  it('rejects text-only screenshot models before browser startup, without key leakage',async()=>{
-    const cwd=await directory();await writeFile(join(cwd,'task.json'),JSON.stringify({mode:'keyboard',url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}}));
-    const execute=vi.fn();const messages:string[]=[];
-    expect(await runCli(['screenshot-run','task.json','--decision','systemone'],{cwd,stdout:()=>{},stderr:s=>messages.push(s),runScreenshotTask:execute,env:{RAWSTEP_DECISION_PROVIDER:'vercel-evaluation',RAWSTEP_DECISION_BASE_URL:'https://example.test/v1',RAWSTEP_DECISION_MODEL:'test',RAWSTEP_DECISION_API_KEY:'PRIVATE_KEY'}})).toBe(1);
-    expect(execute).not.toHaveBeenCalled();expect(messages.join('')).not.toContain('PRIVATE_KEY');
-  });
-});
 
 describe('early give-up configuration',()=>{
   it('removes the speech model\'s stuck/uncertain choices only when modelGiveUp is false',async()=>{
@@ -172,27 +137,5 @@ describe('early give-up configuration',()=>{
     const fake=new FakeSystemOneClient(['stop:success']);const policy=new SystemOneSpeechPolicy(fake,undefined,undefined,{modelGiveUp:false});
     expect(await policy.decide(input())).toEqual({stop:'success',stopSource:'model'});
     expect(fake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success']);
-  });
-  it('defaults the CLI repetition guard off for systemone and on for --model-endpoint, with explicit overrides',async()=>{
-    const cwd=await directory();await writeFile(join(cwd,'task.json'),JSON.stringify({mode:'keyboard',url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}}));
-    const env={RAWSTEP_DECISION_PROVIDER:'systemone-http',RAWSTEP_DECISION_BASE_URL:'http://127.0.0.1:8000/v1',RAWSTEP_DECISION_MODEL:'fake',RAWSTEP_DECISION_INPUTS:'text,image'};
-    // Identical pixels eight times: only the repetition guard stops without calling the model (HTTP endpoint 127.0.0.1:1 would refuse).
-    const guardStops=async(flags:string[])=>{
-      let stopped:boolean|undefined;
-      const execute=vi.fn(async(_task:unknown,options:{policy:DecisionPolicy})=>{
-        const obs={kind:'keyboard' as const,screenshot:{pngBase64:png,viewport:{w:1,h:1}},window:input().observation.window};
-        const history=Array.from({length:8},(_,i)=>({step:i+1,decision:{action:{kind:'key' as const,key:'Tab' as const}},observation:obs}));
-        stopped=await Promise.resolve(options.policy.decide({...input(),observation:obs,history,allowedActions:{intents:[],keys:['Tab'],inputKeys:[],replaceText:false}})).then(d=>'stopSource' in d&&d.stopSource==='exploration-guard',()=>false);
-        return {outcome:{status:'success'}} as never;
-      });
-      expect(await runCli(['screenshot-run','task.json',...flags],{cwd,stdout:()=>{},stderr:()=>{},env,createDecisionClient:()=>new FakeSystemOneClient(['key:Tab']),runScreenshotTask:execute as never})).toBe(0);
-      return stopped;
-    };
-    const endpoint=['--model-endpoint','http://127.0.0.1:1/choose'];
-    expect(await guardStops(['--decision','systemone'])).toBe(false);
-    expect(await guardStops(['--decision','systemone','--repetition-guard'])).toBe(true);
-    expect(await guardStops(['--decision','systemone','--no-repetition-guard'])).toBe(false);
-    expect(await guardStops(endpoint)).toBe(true);
-    expect(await guardStops([...endpoint,'--no-repetition-guard'])).toBe(false);
   });
 });

@@ -1,26 +1,21 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
-import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { configSchema, defaultConfig, defaultProfile, defaultModes, parseConfig, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
-import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
-import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
-import { speechChoices } from '@rawstep/policies/systemone';
-import { validateDecision } from '@rawstep/browser/runner';
+import { ProjectStore } from '@rawstep/project/store';
+import { defaultConfig, defaultProfile, defaultModes, type ProjectConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
-import type { ConfigView, DashboardConfig, Experiment, PlanRequest } from '../packages/dashboard/src/shared/config.js';
+import type { Experiment, ConfigView, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import type { OverviewRow, RunEventMessage, RunHintsView, RunStepsView } from '../packages/dashboard/src/shared/api.js';
-import { discover } from '../packages/dashboard/src/server/models.js';
 
 const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];
 afterEach(async () => { await Promise.all(apps.splice(0).map(app => app.close())); await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-')); dirs.push(r); return r; }
 const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
-function setup(): DashboardConfig {
+function setup(): ProjectConfig {
   const config = defaultConfig();
   config.connections.push({ id: 'local', name: 'Local', provider: 'systemone', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
   for (const id of ['a', 'b']) config.models.push({ id, connectionId: 'local', name: id, modelId: id, family: 'SystemOne', protocol: 'systemone-http', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], promptEditable: true });
@@ -29,22 +24,7 @@ function setup(): DashboardConfig {
 }
 const request: PlanRequest = { taskIds: ['task'], modelIds: ['a', 'b'], promptIds: ['baseline', 'careful'], profileIds: ['default'], repeats: 1, mode: 'keyboard' };
 async function waitFor(work: () => Promise<boolean>) { for (let i = 0; i < 100; i++) { if (await work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); }
-describe('dashboard local persistence and permissions', () => {
-  it('detects external writes and keeps keys out of config responses', async () => {
-    const dir = await root(); const store = new ProjectStore(dir); const first = await store.initialize();
-    await writeFile(store.path, JSON.stringify({ ...first.config, machine: { ...first.config.machine, headless: false } }));
-    await expect(store.save(first.config, first.revision)).rejects.toMatchObject({ status: 409 });
-    await store.setCredential('RAWSTEP_TEST_KEY', 'secret-fixture-value');
-    expect(await store.credential('RAWSTEP_TEST_KEY')).toBe('secret-fixture-value');
-    expect(JSON.stringify(await store.read())).not.toContain('secret-fixture-value');
-    const reread = new ProjectStore(dir); expect((await reread.read()).config.machine.headless).toBe(false);
-  });
-  it('rejects paths outside the project and symlink escapes', async () => {
-    const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
-    await expect(store.file('../outside.json')).rejects.toMatchObject({ status: 400 });
-    await symlink(other, join(dir, 'link'));
-    await expect(store.file('link/task.json')).rejects.toMatchObject({ status: 400 });
-  });
+describe('dashboard persistence', () => {
   it('detects changes to external task files before saving or executing', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
     const saved = await store.save(setup(), initial.revision, { file: 'task.json', task });
@@ -53,51 +33,22 @@ describe('dashboard local persistence and permissions', () => {
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     await expect(app.queue.create({ ...request, revision: saved.revision })).rejects.toMatchObject({ status: 409 });
   });
-  it('only confirms advertised model inputs and omits credential echoes', async () => {
-    const server = createServer((_req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'vision-by-name-only' }, { id: 'vision-confirmed', inputs: ['text', 'image'] }, { id: 'PRIVATE_DISCOVERY_KEY' }] })); });
-    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
-    try {
-      const models = await discover({ id: 'local', name: 'local', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 }, 'PRIVATE_DISCOVERY_KEY');
-      expect(models).toHaveLength(2); expect(models[0]!.inputs).toEqual(['text']); expect(models[0]!.capabilitySource).toBe('manual'); expect(models[1]!.inputs).toEqual(['text', 'image']);
-      expect(JSON.stringify(models)).not.toContain('PRIVATE_DISCOVERY_KEY');
-    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
-  });
-  it('sorts discovered models into protocols and ignores a missing decisions route', async () => {
-    const seen: string[] = [];
-    const server = createServer((req, res) => {
-      seen.push(req.url!); res.setHeader('content-type', 'application/json');
-      if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'chat-model', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }, { id: 'gateway/eval', type: 'evaluation' }] }));
-      else if (req.url === '/v1/models?output_modalities=decisions') res.end(JSON.stringify({ data: [{ id: 'one/decider', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] }));
-      else { res.statusCode = 404; res.end('{}'); }
-    });
-    await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
-    try {
-      const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port + '/v1';
-      const models = await discover({ id: 'c', name: 'c', provider: 'openai', baseURL: base, timeoutMs: 1000 });
-      expect(models.map(m => [m.modelId, m.family, m.protocol])).toEqual([['chat-model', 'LLM', 'chat'], ['gateway/eval', 'SystemOne', 'vercel-evaluation'], ['one/decider', 'SystemOne', 'openrouter-decisions']]);
-      expect((await discover({ id: 's', name: 's', provider: 'systemone', baseURL: base, timeoutMs: 1000 })).every(m => m.protocol === 'systemone-http' && m.family === 'SystemOne')).toBe(true);
-      // Servers without the decisions route (LM Studio, Ollama, OpenAI) still list their chat models.
-      seen.length = 0;
-      const plain = createServer((req, res) => { res.setHeader('content-type', 'application/json'); if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'local' }] })); else { res.statusCode = 404; res.end('nope'); } });
-      await new Promise<void>(accept => plain.listen(0, '127.0.0.1', accept));
-      try { expect((await discover({ id: 'p', name: 'p', provider: 'openai', baseURL: 'http://127.0.0.1:' + (plain.address() as { port: number }).port + '/v1', timeoutMs: 1000 })).map(m => [m.modelId, m.protocol])).toEqual([['local', 'chat']]); }
-      finally { plain.closeAllConnections(); await new Promise<void>(accept => plain.close(() => accept())); }
-    } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
-  });
-  it.each([[false, false], [true, false], [false, true], [true, true]])('independently restricts type=%s and replace=%s in candidates and execution', (typeText, replaceText) => {
-    const config = setup(), permissions = resolvePermissions(config, config.profiles[0]!, task, 'keyboard', { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText });
-    for (const candidates of [screenshotChoices(permissions as Required<typeof permissions>), speechChoices(permissions as Required<typeof permissions>)]) {
-      expect(candidates.some(c => c.id === 'type:email')).toBe(typeText);
-      expect(candidates.some(c => c.id === 'replace:email')).toBe(replaceText);
-    }
-    const check = (kind: 'typeText' | 'replaceText') => () => validateDecision({ action: { kind, input: 'email' } }, permissions as Required<typeof permissions>);
-    if (typeText) expect(check('typeText')).not.toThrow(); else expect(check('typeText')).toThrow();
-    if (replaceText) expect(check('replaceText')).not.toThrow(); else expect(check('replaceText')).toThrow();
-    expect(permissions.keys).toEqual([]);
-    expect(resolvePermissions(config, config.profiles[0]!, task, 'keyboard', null).keys).toEqual(config.profiles[0]!.permissions.keyboard.keys);
-  });
 });
 describe('dashboard API and sequential queue', () => {
+  it('creates rawstep.config.json for a new project and answers project errors with their status and Korean text', async () => {
+    const dir = await root(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const config = JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')) as ProjectConfig;
+    expect(config.version).toBe(1);
+    const post = (path: string, method: string, body: unknown) => fetch(app.url + path, { method, headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
+    const stale = await post('/api/config', 'PUT', { config, revision: 'stale' });
+    expect(stale.status).toBe(409); expect(((await stale.json()) as { error: string }).error).toContain('변경');
+    const lost = await post('/api/discover', 'POST', { connection: { id: 'x', name: 'x', provider: 'openai', baseURL: 'http://127.0.0.1:1/v1', timeoutMs: 500 } });
+    expect(lost.status).toBe(502); expect(((await lost.json()) as { error: string }).error).toContain('연결할 수 없습니다');
+    const missing = await post('/api/tasks/import', 'POST', { file: 'nothing.json' });
+    expect(missing.status).toBe(404);
+    const outside = await post('/api/tasks/import', 'POST', { file: '../outside.json' });
+    expect(outside.status).toBe(400); expect(((await outside.json()) as { error: string }).error).toContain('프로젝트 내부');
+  });
   it('runs a two-by-two matrix, snapshots settings, saves real trace files and restores history', async () => {
     const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
     let active = 0, maxActive = 0; const seen: unknown[] = [];
@@ -205,26 +156,6 @@ describe('dashboard API and sequential queue', () => {
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
   });
 });
-describe('dashboard early give-up settings', () => {
-  it('loads a saved config without the new policy fields and defaults them', async () => {
-    const dir = await root(), store = new ProjectStore(dir), first = await store.initialize();
-    const old = JSON.parse(JSON.stringify(first.config)); delete old.profiles[0].policy.repetitionGuard; delete old.profiles[0].policy.modelGiveUp;
-    await writeFile(store.path, JSON.stringify(old));
-    const policy = (await new ProjectStore(dir).read()).config.profiles[0]!.policy;
-    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
-    expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
-    expect(() => configSchema.parse({ ...old, profiles: [{ ...old.profiles[0], policy: { ...old.profiles[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
-  });
-  it('resolves auto by model protocol and honours explicit on/off', () => {
-    const chat = { protocol: 'chat' as const }, decisions = { protocol: 'systemone-http' as const }, choose = { protocol: 'choose' as const };
-    expect(resolveRepetitionGuard('auto', decisions)).toBe(false);
-    expect(resolveRepetitionGuard('auto', { protocol: 'openrouter-decisions' })).toBe(false);
-    expect(resolveRepetitionGuard('auto', chat)).toBe(true);
-    expect(resolveRepetitionGuard('auto', choose)).toBe(true);
-    expect(resolveRepetitionGuard('on', decisions)).toBe(true);
-    expect(resolveRepetitionGuard('off', chat)).toBe(false);
-  });
-});
 describe('dashboard run views and live events', () => {
   const png = (label: string) => Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from(label)]).toString('base64');
   /** One recorded run: a key per step, each followed by a distinct screenshot, ending with the given outcome. */
@@ -323,13 +254,7 @@ describe('dashboard run views and live events', () => {
   });
 });
 
-describe('dashboard config version 2 profiles', () => {
-  it('accepts only version 2 configs', async () => {
-    const config = defaultConfig();
-    expect(parseConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
-    expect(() => parseConfig({ ...config, version: 1 })).toThrow();
-    expect(() => parseConfig({ version: 1, connections: [], models: [], tasks: [], globals: {}, environments: [] })).toThrow();
-  });
+describe('dashboard profiles in plans and runs', () => {
   it('plans one row per requested profile with that profile\'s permissions, or the task profile when omitted', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     const a = defaultProfile('a', 'A'), b = defaultProfile('b', 'B');
@@ -358,7 +283,7 @@ describe('dashboard config version 2 profiles', () => {
     const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['baseline'] });
     const snapshot = e.runs[0]!.snapshot;
     expect(snapshot.globals.policy).toMatchObject({ historyLimit: 5, maxStateVisits: 2 });
-    expect(snapshot.runProfile).toEqual({ id: 'default', name: '기본' }); expect(e.runs[0]!.profileId).toBe('default');
+    expect(snapshot.runProfile).toEqual({ id: 'default', name: 'Default' }); expect(e.runs[0]!.profileId).toBe('default');
     expect(e.runs[0]!.analysisInstructions).toBe('profile focus');
     await waitFor(async () => !!e.runs[0]!.endedAt);
   });

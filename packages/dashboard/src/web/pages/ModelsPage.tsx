@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import type { Model } from '../../shared/config';
+import type { Model } from '@rawstep/project/config';
 import { ModelEditDialog } from '../components/ModelEditDialog';
 import { ModelSetupDialog } from '../components/ModelSetupDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';

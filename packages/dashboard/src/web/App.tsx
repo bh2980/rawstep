@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { ConfigView, DashboardConfig, Experiment } from '../shared/config';
+import type { ProjectConfig } from '@rawstep/project/config';
+import type { ConfigView, Experiment } from '../shared/config';
 import { api } from './api';
 import { useTranslation } from 'react-i18next';
 import { findRun, flattenRuns } from './lib/runs';
@@ -39,7 +40,7 @@ function Dashboard() {
     setBusy(true); setError(''); setNotice('');
     try { await work(); await refresh(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }, [refresh]);
-  const save = useCallback(async (config: DashboardConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
+  const save = useCallback(async (config: ProjectConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
     const state = await api<ConfigView>('/config', { method: 'PUT', body: { config, revision: revision ?? view!.revision, ...(taskWrite ? { taskWrite } : {}) } });
     setView(state); setNotice(t('app.saved'));
     return state;

@@ -6,7 +6,10 @@ export type { AtDriverAction, AtDriverBackendOptions, AtDriverCapabilities, AtDr
 export { loadPolicy, ScriptedPolicy } from './policy/index.js';
 export { FakeSystemOneClient, modelBaseURL, OpenRouterSystemOneClient, SCREENSHOT_DECISION_PROMPT, SPEECH_DECISION_PROMPT, speechChoices, SystemOneHttpClient, SystemOneScreenshotAdapter, SystemOneSpeechPolicy, VercelEvaluationClient } from './systemone/index.js';
 export type { SystemOneCapabilities, SystemOneChoice, SystemOneClient, SystemOneHttpOptions, SystemOneImage, SystemOneInput, SystemOnePrompt, SystemOnePromptEvidence, SystemOneRequest, SystemOneResult } from './systemone/index.js';
-export { runTask } from './runner/index.js';
+// The high-level entry point: run a task from rawstep.config.json. The low-level native runner is `rawstep/runner`.
+export { ProjectError, runTask } from './project/index.js';
+export type { RunTaskOptions, RunTaskResult } from './project/index.js';
+export type { Hint, HintFinding, HintKind, HintReport, HintSource, HintTarget } from './hints/index.js';
 export type { RunOptions } from './runner/index.js';
 export { createRedactor, FileTraceSink, hydrateScreenshots, isScreenshotRef, MemoryTraceSink, readTrace, REDACTED, screenshotSha256, TRACE_SCHEMA_VERSION, traceFilePath, TraceRecorder, validateTrace, writeJsonAtomic } from './trace/index.js';
 export type { AppendEventOptions, CollectionWindow, RunOutcome, RunTrace, ScreenshotRef, TraceEnvironment, TraceEvent, TraceEventType, TraceRecorderOptions, TraceSink, TraceSource, TraceTaskMetadata } from './trace/index.js';
@@ -20,8 +23,6 @@ export { assertScreenshotReplayTaskSafety, diagnoseScreenshotStop, exportScreens
 export type { FocusGateOptions, ScreenshotChoice, ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse, ScreenshotPolicyOptions, ScreenshotReplay, ScreenshotRunOptions, StopReasonReport, VisualExplorationSummary } from './screenshot/index.js';
 export { applyProfile, BUILTIN_PROFILES, collectBrowserDiagnostics, createChromiumTabZoomController, DEFAULT_PROFILE, ProfileApplicationError, resolveEnvironmentProfile, verifyLiveProfile } from './profiles/index.js';
 export type { AppliedProfile, BrowserDiagnostic, DiagnosticFinding, EnvironmentProfile, NativeZoomController, ProfileSetting } from './profiles/index.js';
-export { classifyRun, readMatrix, runEnvironmentMatrix, summarizeMatrixRow, taskFingerprint, validateHumanEvidence } from './matrix/index.js';
-export type { FindingCategory, HumanTestEvidence, MatrixOptions, MatrixReport, MatrixRow } from './matrix/index.js';
 export { mapOrcaAction, ORCA_NATIVE_PROTOCOL, OrcaBackend, OrcaBridgeClient, OrcaBridgeError, orcaBridgePath } from './orca/index.js';
 export type { OrcaBackendOptions, OrcaBridgeOptions, OrcaCommandReceipt, OrcaEvent, OrcaMetadata, OrcaObservation, OrcaOutput, OrcaReceipt, OrcaTransportEvent } from './orca/index.js';
 // Corpus errors come from the data-free root so importing `rawstep` never loads the research corpus (use `rawstep/evidence`).

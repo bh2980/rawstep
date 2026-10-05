@@ -3,7 +3,9 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runCli } from '@rawstep/cli/cli';
+import { resolveTask } from '@rawstep/core/contracts';
+import { OpenRouterSystemOneClient, SystemOneHttpClient, SystemOneScreenshotAdapter } from '@rawstep/policies/systemone';
+import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { readTrace } from '@rawstep/core/trace';
 import { createTestBrowserSession } from './helpers/browser.js';
@@ -28,15 +30,15 @@ it.each(['systemone-http', 'openrouter-systemone'] as const)('runs %s â†’ PNG â†
   const out = await mkdtemp(join(tmpdir(), 'rawstep-multimodal-chrome-')); cleanup.push(() => rm(out, { recursive: true, force: true }));
   let launches = 0, closes = 0;
   const errors: string[] = [];
-  expect(await runCli(['screenshot-run', 'examples/screenshot/openrouter-task.json', '--decision', 'systemone', '--out', out], {
-    cwd: resolve('.'), stdout: () => {}, stderr: message => errors.push(message),
-    env: { RAWSTEP_DECISION_PROVIDER: provider, RAWSTEP_DECISION_BASE_URL: `http://127.0.0.1:${(server.address() as { port: number }).port}/api/v1`,
-      RAWSTEP_DECISION_MODEL: model, RAWSTEP_DECISION_INPUTS: 'text,image', RAWSTEP_DECISION_API_KEY: 'FAKE_HTTP_ONLY' },
-    runScreenshotTask: (task, options) => runScreenshotTask(task, { ...options, browserSessionFactory: async (url, browserOptions) => {
-      launches++; const session = await createTestBrowserSession(url, browserOptions); const close = session.close;
-      return { ...session, close: async () => { await close(); closes++; } };
-    } }),
-  }), errors.join('')).toBe(0);
+  const options = { baseURL: `http://127.0.0.1:${(server.address() as { port: number }).port}/api/v1`, model, apiKey: 'FAKE_HTTP_ONLY', capabilities: { inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2 } };
+  const client = provider === 'openrouter-systemone' ? new OpenRouterSystemOneClient(options) : new SystemOneHttpClient(options);
+  if (client instanceof OpenRouterSystemOneClient) await client.prepare({ signal: AbortSignal.timeout(10000) });
+  const task = resolveTask(JSON.parse(await readFile('examples/screenshot/openrouter-task.json', 'utf8')), resolve('examples/screenshot'));
+  const finished = await runScreenshotTask(task, { outDir: out, policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client) }), browserSessionFactory: async (url, browserOptions) => {
+    launches++; const session = await createTestBrowserSession(url, browserOptions); const close = session.close;
+    return { ...session, close: async () => { await close(); closes++; } };
+  } });
+  expect(finished.outcome?.status, errors.join('')).toBe('success');
   expect(launches).toBe(1); expect(closes).toBe(1); expect(calls).toHaveLength(3);
   expect(calls.every(call => call.path === '/api/v1/systemone')).toBe(true);
   const images = (body: any) => provider === 'openrouter-systemone' ? body.state.filter((part: any) => part.type === 'image_url').map((part: any) => part.image_url.url) : body.media.map((part: any) => part.data);

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Plus, Save, Trash2 } from 'lucide-react';
-import { defaultProfile, type ConfigView, type Mode, type RunProfile } from '../../shared/config';
+import { defaultProfile, type Mode, type RunProfile } from '@rawstep/project/config';
+import type { ConfigView } from '../../shared/config';
 import { EnvironmentFields } from '../components/EnvironmentFields';
 import { Field } from '../components/forms';
 import { PermissionsEditor } from '../components/PermissionsEditor';

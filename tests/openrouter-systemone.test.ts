@@ -5,9 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FakeSystemOneClient, OpenRouterSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy, type ScreenshotModelRequest } from 'rawstep/screenshot';
-import { runCli } from '@rawstep/cli/cli';
-import { createDecisionClient, decisionConfig } from '../packages/cli/src/cli/config.js';
-import { parseCliArguments } from '@rawstep/cli/cli';
 import type { SystemOneCapabilities, SystemOneRequest } from 'rawstep/systemone';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
@@ -144,37 +141,7 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
   });
 });
 
-describe('OpenRouter CLI config and UI-ready prompt injection', () => {
-  const args = () => parseCliArguments(['screenshot-run', 'task.json', '--decision', 'systemone', '--decision-provider', 'openrouter-systemone', '--decision-base-url', 'https://openrouter.ai/api/v1', '--decision-model', 'cloudflare/clef-flash', '--decision-inputs', 'text,image']);
-  it('preserves TypeSafe credentials and requires a separate key for one-off OpenRouter overrides', () => {
-    const env = { RAWSTEP_DECISION_PROVIDER: 'systemone-http', RAWSTEP_DECISION_API_KEY: 'TYPESAFE_PRIVATE', RAWSTEP_DECISION_OPENROUTER_API_KEY: 'OPENROUTER_PRIVATE' };
-    const config = decisionConfig(args(), env); expect(config.apiKey).toBe('OPENROUTER_PRIVATE'); expect(createDecisionClient(config).capabilities.inputs).toEqual(['text', 'image']);
-    expect(createDecisionClient({ ...config, inputs: ['text'] })).toBeInstanceOf(OpenRouterSystemOneClient);
-    expect(decisionConfig(args(), { ...env, RAWSTEP_DECISION_OPENROUTER_API_KEY: undefined }).apiKey).toBeUndefined();
-    expect(decisionConfig(args(), { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_API_KEY: 'DEFAULT_OPENROUTER' }).apiKey).toBe('DEFAULT_OPENROUTER');
-    expect(env.RAWSTEP_DECISION_API_KEY).toBe('TYPESAFE_PRIVATE');
-  });
-  it('rejects a missing key, image-incapable models, and text-only screenshot clients before starting a runner', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'rawstep-openrouter-')); cleanup.push(() => rm(cwd, { recursive: true, force: true }));
-    await writeFile(join(cwd, 'task.json'), JSON.stringify({ mode: 'keyboard', url: 'https://example.test', goal: 'Start', verify: { all: [{ titleIncludes: 'Done' }] } }));
-    const run = vi.fn(); const messages: string[] = [];
-    const code = await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run,
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'cloudflare/clef-flash', RAWSTEP_DECISION_INPUTS: 'text,image' },
-    });
-    expect(code).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).toContain('API key');
-    expect(await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run,
-      createDecisionClient: config => new OpenRouterSystemOneClient({ ...config, capabilities: visual, fetch: async () => Response.json(models) }),
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'typesafe/jev-1.13', RAWSTEP_DECISION_INPUTS: 'text,image', RAWSTEP_DECISION_API_KEY: 'PRIVATE_KEY' },
-    })).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).toContain('confirmed native decision');
-    const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'typesafe/jev-1.13', apiKey: 'PRIVATE_KEY', capabilities: text, fetch: async () => Response.json(models) });
-    expect(await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run, createDecisionClient: () => client,
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'typesafe/jev-1.13', RAWSTEP_DECISION_INPUTS: 'text,image', RAWSTEP_DECISION_API_KEY: 'PRIVATE_KEY' },
-    })).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).not.toContain('PRIVATE_KEY');
-    await expect(readFile(join(cwd, 'trace.json'))).rejects.toThrow();
-  });
+describe('UI-ready prompt injection', () => {
   it('takes a copied instruction config, records its version/hash, and keeps candidates constrained', async () => {
     const prompt = { id: 'custom-visual', version: '2', instructions: 'CUSTOM_INSTRUCTION' };
     const client = new FakeSystemOneClient(['key:Enter']); const adapter = new SystemOneScreenshotAdapter(client, prompt); prompt.instructions = 'MUTATED';

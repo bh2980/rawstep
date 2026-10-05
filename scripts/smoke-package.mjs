@@ -15,7 +15,7 @@ const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const directory = await mkdtemp(join(tmpdir(), "rawstep-package-smoke-"));
 const environment = { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1", npm_config_cache: process.env.RAWSTEP_SMOKE_NPM_CACHE ? resolve(process.env.RAWSTEP_SMOKE_NPM_CACHE) : join(directory, ".npm-cache") };
 for (const key of Object.keys(environment)) {
-  if (/^(?:RAWSTEP_DECISION_|RAWSTEP_ANALYSIS_|AI_|OPENAI_|ANTHROPIC_|AZURE_OPENAI_|GOOGLE_API_KEY$|GEMINI_API_KEY$)/.test(key)) delete environment[key];
+  if (/^(?:AI_|OPENAI_|ANTHROPIC_|AZURE_OPENAI_|GOOGLE_API_KEY$|GEMINI_API_KEY$)/.test(key)) delete environment[key];
 }
 const command = (bin, args, cwd = root) => execFileSync(bin, args, { cwd, encoding: "utf8", env: environment, stdio: ["ignore", "pipe", "pipe"] });
 try {
@@ -37,16 +37,18 @@ try {
   assert.match(await readFile(join(directory, "node_modules/rawstep/fixtures/simple-cta.html"), "utf8"), /Get started/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/fixtures/mock-voiceover-system.html"), "utf8"), /Save again/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/examples/v2/mock-task.json"), "utf8"), /mock-voiceover-system/);
-  assert.match(await readFile(join(directory, "node_modules/rawstep/docs/cli.md"), "utf8"), /DecisionPolicy/);
+  assert.match(await readFile(join(directory, "node_modules/rawstep/docs/cli.md"), "utf8"), /rawstep\.config\.json/);
   assert.match(await readFile(join(directory, "node_modules/rawstep/examples/v2/policy.mjs"), "utf8"), /decide/);
-  assert.deepEqual(Object.keys(manifest.dependencies).sort(), ["@rawstep/core", "@rawstep/policies", "@rawstep/browser", "@rawstep/screenreaders", "@rawstep/reports", "@rawstep/cli"].sort());
+  assert.deepEqual(Object.keys(manifest.dependencies).sort(), ["@rawstep/core", "@rawstep/policies", "@rawstep/browser", "@rawstep/screenreaders", "@rawstep/reports", "@rawstep/project", "@rawstep/cli"].sort());
   const exportedModules = Object.keys(manifest.exports).filter((name) => name !== "./package.json");
   command(process.execPath, ["--input-type=module", "-e", `for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));`], directory);
   const binary = join(directory, "node_modules/rawstep/dist/cli/bin.js");
-  assert.match(command(process.execPath, [binary, "--help"], directory), /No model or API key is required/);
-  if (process.platform !== "win32") assert.match(command(join(directory, "node_modules/.bin/rawstep"), ["--help"], directory), /No model or API key is required/);
+  assert.match(command(process.execPath, [binary, "--help"], directory), /rawstep\.config\.json/);
+  if (process.platform !== "win32") assert.match(command(join(directory, "node_modules/.bin/rawstep"), ["--help"], directory), /rawstep\.config\.json/);
   assert.equal(command(process.execPath, [binary, "--version"], directory).trim(), manifest.version);
-  assert.match(command(process.execPath, [binary, "doctor", "--backend", "nvda"], directory), /Native readiness is unverified/);
+  assert.match(command(process.execPath, [binary, "init"], directory), /Created .*rawstep\.config\.json/);
+  assert.equal(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8")).version, 1);
+  assert.throws(() => command(process.execPath, [binary, "init"], directory), /already exists/);
   const trace = {
     schemaVersion: "2.2", runId: "package-smoke", task: { id: "task" },
     environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "not-used", screenReaderVersion: "unknown", backend: "screenshot-keyboard" },
@@ -72,10 +74,12 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { AtDriverBackend, AT_DRIVER_KEYS, readTrace, runTask } from "rawstep";
+import { AtDriverBackend, AT_DRIVER_KEYS, ScriptedPolicy, readTrace, resolveTask } from "rawstep";
+import { runTask } from "rawstep/runner";
+import { runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { runCli } from "rawstep/cli";
 import { FakeSystemOneClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
-import { ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot';
+import { HttpScreenshotModel, ScreenshotDecisionPolicy, runScreenshotTask } from 'rawstep/screenshot';
 import { mockAtDriverServer } from "./mock-at-driver-server.mjs";
 
 assert.equal(fileURLToPath(import.meta.resolve("rawstep")), join(process.cwd(), "node_modules", "rawstep", "dist", "index.js"));
@@ -97,18 +101,15 @@ try {
     id: "installed-websocket-roundtrip", url: "https://example.test", goal: "Activate the fixture control",
     verify: { all: [{ titleIncludes: "Done" }] }, timeoutMs: 5000,
   }));
-  await writeFile("wire-decisions.json", JSON.stringify([{ action: { kind: "intent", intent: "activate" } }]));
-  const result = await runCli(["run", "wire-task.json", "--script", "wire-decisions.json", "--backend", "voiceover", "--endpoint", server.url, "--out", out], {
-    ...io,
-    createBackend: options => new AtDriverBackend({ ...options, quietMs: 10, maxWaitMs: 100, commandTimeoutMs: 1000, connectTimeoutMs: 1000 }),
+  const wireTrace = await runTask(resolveTask(JSON.parse(await readFile("wire-task.json", "utf8")), process.cwd()), {
+    backend: new AtDriverBackend({ profile: "voiceover", url: server.url, quietMs: 10, maxWaitMs: 100, commandTimeoutMs: 1000, connectTimeoutMs: 1000 }),
+    policy: new ScriptedPolicy([{ action: { kind: "intent", intent: "activate" } }]), outDir: out,
     // This explicit fake browser/verifier proves packaging and the real wire path,
     // not native screen-reader accuracy, browser accessibility, or OS integration.
-    runTask: (task, options) => runTask(task, {
-      ...options,
-      browserSessionFactory: async () => fakeBrowser,
-      verifier: async () => ({ passed: true, failures: [] }),
-    }),
+    browserSessionFactory: async () => fakeBrowser,
+    verifier: async () => ({ passed: true, failures: [] }),
   });
+  const result = wireTrace.outcome?.status === "success" ? 0 : 1;
   assert.equal(result, 0, stderr.join("\n"));
   assert.deepEqual(stderr, []);
   assert.deepEqual(server.commands.map(command => command.method), ["session.new", "interaction.userIntent"]);
@@ -159,8 +160,8 @@ try {
     await writeFile("browser-task.json", JSON.stringify({ id: "installed-real-browser", mode: "keyboard", url: pathToFileURL(join(process.cwd(), "browser-fixture.html")).href, goal: "Activate Start", verify: { all: [{ titleIncludes: "Completed" }] } }));
     await writeFile("browser-decisions.json", JSON.stringify([{ action: { kind: "key", key: "Tab" } }, { action: { kind: "key", key: "Enter" } }]));
     const browserOut = join(process.cwd(), "installed-real-browser");
-    assert.equal(await runCli(["screenshot-run", "browser-task.json", "--script", "browser-decisions.json", "--browser-executable", process.env.RAWSTEP_TEST_BROWSER_PATH, "--out", browserOut], io), 0, stderr.join("\n"));
-    assert.doesNotMatch(stderr.join("\n"), /deprecated/);
+    const browserTask = resolveTask(JSON.parse(await readFile("browser-task.json", "utf8")), process.cwd());
+    await runScreenshotTask(browserTask, { policy: new ScriptedPolicy(JSON.parse(await readFile("browser-decisions.json", "utf8"))), outDir: browserOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH });
     const browserTrace = await readTrace(browserOut);
     assert.equal(browserTrace.outcome.status, "success");
     assert.equal(browserTrace.task.mode, "keyboard");
@@ -190,7 +191,7 @@ try {
     await new Promise(resolve => httpModel.listen(0, '127.0.0.1', resolve));
     try {
       const visualOut = join(process.cwd(), 'installed-screenshot-model');
-      assert.equal(await runCli(['screenshot-run', 'browser-task.json', '--model-endpoint', 'http://127.0.0.1:' + httpModel.address().port + '/choose', '--browser-executable', process.env.RAWSTEP_TEST_BROWSER_PATH, '--out', visualOut], io), 0, stderr.join('\\n'));
+      await runScreenshotTask(browserTask, { policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:' + httpModel.address().port + '/choose' }) }), outDir: visualOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH });
       const visualTrace = await readTrace(visualOut);
       assert.equal(visualTrace.outcome.status, 'success');
       assert.equal(visualTrace.events.filter(event => event.type === 'policy.evidence').length, 2);
@@ -202,7 +203,7 @@ try {
     await writeFile("mock-decisions.json", JSON.stringify([{ action: { kind: "intent", intent: "activate" } }]));
     await writeFile("mock-task.json", JSON.stringify({ id: "installed-mock-browser", url: pathToFileURL(join(process.cwd(), "browser-fixture.html")).href, goal: "Activate Start", verify: { all: [{ titleIncludes: "Completed" }] } }));
     const mockOut = join(process.cwd(), "installed-mock-browser");
-    assert.equal(await runCli(["mock-run", "mock-task.json", "--script", "mock-decisions.json", "--browser-executable", process.env.RAWSTEP_TEST_BROWSER_PATH, "--out", mockOut], io), 0, stderr.join("\n"));
+    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new ScriptedPolicy(JSON.parse(await readFile("mock-decisions.json", "utf8"))), outDir: mockOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {} });
     const mockTrace = await readTrace(mockOut);
     assert.equal(mockTrace.schemaVersion, "2.2");
     assert.equal(mockTrace.outcome.status, "success");

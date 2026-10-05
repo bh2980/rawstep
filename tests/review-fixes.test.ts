@@ -11,7 +11,7 @@ import type { ObserverEvent } from '@rawstep/browser/observer';
 import type { Task, VerifyRule } from '@rawstep/core/contracts';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ExperimentQueue } from '../packages/dashboard/src/server/queue.js';
-import { ProjectStore } from '../packages/dashboard/src/server/store.js';
+import { ProjectStore } from '@rawstep/project/store';
 import { HttpScreenshotModel, SCREENSHOT_KEYS, screenshotChoices, type ScreenshotModelRequest } from 'rawstep/screenshot';
 
 const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];

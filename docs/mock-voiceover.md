@@ -2,31 +2,20 @@
 
 `mockVoiceOver` is an explicit browser-backed simulator for experimenting with policies, runner integration, and ordinary page behavior without a Mac. It launches real Chromium, reads that browser's current accessibility tree, maintains a separate navigation cursor, and lets the page's own handlers change its state. It does not replay fixture answers or hard-code a task outcome.
 
-**This is a small VoiceOver-inspired approximation, not Apple VoiceOver. Its generated output cannot establish native screen-reader behavior, speech fidelity, or accessibility conformance.** Real VoiceOver and NVDA testing still requires the native `run` path and the appropriate host.
+**This is a small VoiceOver-inspired approximation, not Apple VoiceOver. Its generated output cannot establish native screen-reader behavior, speech fidelity, or accessibility conformance.** Real VoiceOver and NVDA testing still requires the native machine backend (`machine.backend` `voiceover` or `nvda`) and the appropriate host.
 
 ## Run the bundled browser fixture
 
-Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS, screen-reader service, model, or API key is required. In a source checkout, create `mock-decisions.json`:
-
-```json
-[
-  { "action": { "kind": "intent", "intent": "activate" } },
-  { "action": { "kind": "intent", "intent": "activate" } },
-  { "stop": "success" }
-]
-```
+Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. A model with the `decision` role must be configured in `rawstep.config.json` (via `npx rawstep ui`; see [SystemOne](./systemone.md) and [config](./config.md)), and a decision model needs its API key in `.env.local`.
 
 ```sh
-npm run rawstep -- mock-run examples/v2/mock-task.json --script mock-decisions.json --out ./runs/mock-demo
-npm run rawstep -- analyze ./runs/mock-demo
-npm run rawstep -- report ./runs/mock-demo --analysis ./runs/mock-demo/analysis.json
+npx rawstep run examples/v2/mock-task.json --mode screenreader --model MODEL
+npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
 The [fixture](../fixtures/mock-voiceover-system.html) starts with a Save button. Its actual click handler changes the button name and status, then changes the document title after two activations. The independent verifier checks that title. The simulator does not know the goal or supply the completion state.
 
-For an installed package, use `npx rawstep mock-run node_modules/rawstep/examples/v2/mock-task.json --script mock-decisions.json --out ./runs/mock-demo`. Task fixture paths resolve relative to the task file. Every run requires a fresh output directory.
-
-`mock-run` accepts exactly one of `--script <decisions.json>` or `--policy <module>`. Add `--headed` to show Chromium, `--browser-executable /path/to/chromium` to use an existing compatible executable, or `--diagnostic-screenshots` to request separate diagnostic images. Default execution is headless. It does not accept native `--backend` or `--endpoint` flags. Existing `run --backend voiceover|nvda` behavior is unchanged.
+Task fixture paths resolve relative to the task file. Each run writes to a new directory under `.rawstep/runs/`. Set `machine.browserExecutablePath` to use an existing compatible Chromium and `machine.headless` to false to show it. The simulation backend does not use the `atEndpoint`.
 
 ## Package API
 
@@ -53,7 +42,7 @@ const trace = await runMockVoiceOverTask(task, {
 
 Your page must supply the actions and completion state used by its task; the snippet's title rule is only an example. `runMockVoiceOverTask` and `MockVoiceOverRunOptions` are also available from the root export. The `rawstep/mock-voiceover` module additionally exports `MockVoiceOverBackend`, `MOCK_VOICEOVER_PROFILE`, `MOCK_VOICEOVER_LIMITATIONS`, and the typed `formatSimulatedSpeech` formatter. `MOCK_VOICEOVER_WARNING` describes the approximation at startup.
 
-The wrapper accepts normal runner options including `policy`, `allowedActions`, budgets from the task, `signal`, `diagnosticScreenshots`, and `browserExecutablePath`; it supplies the simulator backend and defaults `headless` to `true`. A `warn` callback can redirect the startup warning. Advanced injected browser sessions must provide a real compatible Chromium page. Policies receive the same model-neutral screen-reader-shaped observation contract, with `provenance: 'simulation'`, rather than a screenshot or privileged DOM selector. A policy can be scripted, local, remote, or model-backed; no provider is selected by Rawstep.
+The wrapper accepts normal runner options including `policy`, `allowedActions`, budgets from the task, `signal`, `diagnosticScreenshots`, and `browserExecutablePath` (these library options are not exposed as CLI flags); it supplies the simulator backend and defaults `headless` to `true`. A `warn` callback can redirect the startup warning. Advanced injected browser sessions must provide a real compatible Chromium page. Policies receive the same model-neutral screen-reader-shaped observation contract, with `provenance: 'simulation'`, rather than a screenshot or privileged DOM selector. A policy can be scripted, local, remote, or model-backed; no provider is selected by Rawstep.
 
 ## Supported profile
 
@@ -82,7 +71,7 @@ Traces use schema 2.2 (screenshots as `blobs/`) and carry explicit simulation pr
 
 Analysis and reports count readable and redacted simulated output separately from native screen-reader output and screenshots. Observation aggregates and transport acknowledgments do not become additional output evidence. Reports display a simulation warning, preserve independent verifier evidence, and never change the recorded run outcome. A simulated run cannot provide a native conformance verdict.
 
-Task input values are redacted before persistence. The default text-entry privacy boundary conservatively redacts subsequent simulated payloads and withholds subsequent diagnostic screenshots, just as for the native runner. Simulated semantic diagnostics participate in redaction. The programmatic `includeSensitiveInputValues` option is an explicit opt-out; it is not exposed by the CLI. Screenshots and arbitrary page content can contain personal data. Custom policies and analyzers may send their inputs externally; inspect their code and the evidence before using them.
+Task input values are redacted before persistence. The default text-entry privacy boundary conservatively redacts subsequent simulated payloads and withholds subsequent diagnostic screenshots, just as for the native runner. Simulated semantic diagnostics participate in redaction. The programmatic `includeSensitiveInputValues` option is an explicit opt-out; it is not exposed by the CLI or the dashboard. Screenshots and arbitrary page content can contain personal data. Custom policies and analyzers may send their inputs externally; inspect their code and the evidence before using them.
 
 ## Verification boundary
 

@@ -1,19 +1,96 @@
-# 현재 cli 안내
+# CLI 안내
 
-예전 Guidepup/LLMAgent workspace 전용 설정과 명령은 제거되었습니다. 현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 스크린샷 기반 모델 탐색은 `screenshot-run`을 사용합니다. legacy-run은 0.2에서 제거했습니다. [SystemOne 설정](./systemone.md)을 참고하세요.
+`rawstep` 패키지를 설치하면 `npx rawstep`으로 명령을 쓸 수 있습니다. 소스 체크아웃에서는 빌드 후 `npm run rawstep -- <명령>`을 사용합니다. 설정은 모두 프로젝트의 `rawstep.config.json`에 있으며 대시보드와 같은 파일을 읽습니다. 필드는 [설정 안내](./config.ko.md)를 참고하세요. 모든 명령의 옵션은 `rawstep --help`에서 볼 수 있습니다.
 
-`mock-run <task.json> --policy <module>|--script <decisions.json>`은 Chromium 기반 VoiceOver 근사 프로필을 명시적으로 선택합니다. 시뮬레이션 경고를 표시하며 기본값은 headless입니다. `--headed`, `--browser-executable`, `--diagnostic-screenshots`, `--out`을 지원하고 네이티브 endpoint는 사용하지 않습니다. 기존 `run`의 backend는 계속 `voiceover` 또는 `nvda`이며 `--backend mock`은 허용하지 않습니다. [지원 범위와 제한](./mock-voiceover.md)을 참고하세요.
+## 명령
 
-세 실행 명령 모두 SIGINT(Ctrl+C)와 SIGTERM을 받으면 실행을 중단하고 리소스를 닫은 뒤 signal·stage·step이 포함된 `aborted` 결과를 저장합니다. 완료 후에는 signal 처리기를 제거합니다. 종료 코드는 SIGINT 130, SIGTERM 143, 실패한 실행 1, 잘못된 CLI 사용 2입니다. 강제 프로세스 종료는 이러한 정리와 trace 최종 저장을 수행할 수 없습니다.
+| 명령 | 하는 일 |
+|---|---|
+| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(프로필 `Default` 하나, 연결·모델·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
+| `rawstep ui [--port <port>] [--project <dir>]` | 로컬 대시보드를 `127.0.0.1`(기본 포트 4318)에서 엽니다. 설정 파일이 없으면 만듭니다 |
+| `rawstep run <task> [옵션]` | 작업을 실행하고 결과와 발견 사항을 출력합니다 |
+| `rawstep hints <run-dir> [--reference <run-dir>]` | 저장된 실행의 마찰 힌트를 출력하고 `hints.json`을 씁니다 |
+| `rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]` | `report.html`과 `report.json`을 만듭니다 |
+| `rawstep analyze <run-dir> [--model <id\|name>] [--out <dir>] [--project <dir>]` | 저장된 실행을 분석합니다 |
+| `rawstep doctor [--project <dir>]` | 환경을 점검합니다 |
 
-실패한 실행은 기록된 이유·단계·오류와 함께 보고서 생성과 trace 분석 명령을 출력합니다. 네이티브 실행에는 AT Driver 연결 점검 명령도 표시합니다. `doctor`는 실제 연결 오류의 원인을 보여 주고 정리 중 오류가 발생해도 처음 원인을 유지합니다. doctor 성공은 프로토콜 연결만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다. 재실행할 때는 기존 기록을 보존하도록 새 `--out` 디렉터리를 사용하세요.
+## run
 
-중도 중단은 `screenshot-run`과 `matrix`에서 설정할 수 있습니다. `--repetition-guard` / `--no-repetition-guard`는 같은 화면이 반복될 때 멈추는 시각 반복 guard를 켜거나 끕니다. `--decision systemone`에서는 기본이 꺼짐(가볍고 빠른 모델은 이미 `maxSteps`/`timeoutMs`로 제한되고, 헤매는 기록이 마찰 힌트에 쓰임), `--model-endpoint`에서는 기본이 켜짐입니다. `--no-model-give-up`은 모델의 `stop:stuck`, `stop:uncertain` 선택지를 제거하며(`stop:success`는 유지) `--decision systemone`을 쓰는 `run`/`mock-run`에도 적용됩니다. 이 플래그들은 `--decision systemone` 또는 `--model-endpoint`가 필요하고, guard 플래그 둘은 함께 쓸 수 없습니다. 라이브러리는 `ScreenshotDecisionPolicy`의 `repetitionGuard`/`modelGiveUp`(기본 `true`)와 `SystemOneSpeechPolicy`의 `modelGiveUp`을 사용하며, guard를 꺼도 시각 상태는 기록됩니다. 대시보드 전역 설정의 "반복 화면에서 자동 중단"(자동 = SystemOne 모델은 끄기)과 "모델의 중도 포기 선택지 허용"이 같은 값을 제어합니다.
+```sh
+rawstep run <task> [--model <id|name>] [--profile <id|name>] [--mode keyboard|screenreader]
+                   [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
+```
 
-`hints <trace.json|run-dir> [--reference <trace.json|run-dir>]`는 저장된 실행의 마찰 힌트(예: "성공했지만 Tab을 23번 눌렀습니다")를 보여 줍니다. 힌트는 사람이 확인해 볼 단계를 가리킬 뿐 통과/실패 판정이 아닙니다. 힌트 수, 목표 달성 여부, 단계 수(`--reference`를 주면 기준 실행의 단계 수 포함)와 힌트별 한 줄을 출력하고 trace 옆에 `hints.json`을 저장합니다. `analyze`도 `hints.json`을 함께 저장하며(기준 실행 없음), trace 옆에 `hints.json`이 있으면 `report`가 "Friction hints" 섹션을 추가합니다.
+`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 첫 번째 프로필로 실행합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
 
-설치된 패키지의 `npx rawstep` 명령과 저장소의 `npm run rawstep --` 명령은 [번들 예제 안내](../examples/v2/README.md)에 구분되어 있습니다.
+기본값은 다음과 같습니다.
 
-## 스크린샷 키보드 탐색
+- `--model`: `decision` 역할을 가진 모델 중 해당 모드를 지원하는 첫 모델. 키보드 모드는 이미지 입력(`maxImages` 2 이상)이 필요합니다
+- `--profile`: 작업에 지정한 프로필, 없으면 첫 번째 프로필
+- `--mode`: `keyboard`
+- `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
+- `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다
 
-`screenshot-run <task.json> --model-endpoint http://127.0.0.1:8766/choose`는 실제 화면 픽셀과 모델 추론으로 키보드를 조작하는 독립 모드입니다. `--policy <module>`로 모델 어댑터를 바꿀 수 있습니다. DOM/AX와 독립 검증 결과는 정책 입력에 포함하지 않습니다. --script는 결정론적 실행을, --decision systemone은 모델 실행을 명시적으로 선택합니다. [설정, 개인정보와 한계](./screenshot-keyboard.md)를 참고하세요.
+출력은 실행별 블록과 전체 실행에서 모은 발견 사항으로 이루어집니다.
+
+```text
+Run 1 of 2: goal reached · 7 steps
+  <run 폴더 경로>
+Run 2 of 2: goal not reached (<이유>) · 20 steps
+  <run 폴더 경로>
+
+Page
+  button "Add to cart" · focus lost · 2 of 2 runs
+Model
+  link "Skip to content" · repeated state · 1 of 2 runs
+```
+
+실행 결과는 `goal reached`, `goal not reached (이유)`, `inconclusive`, `no outcome recorded` 중 하나입니다. 발견 사항은 `Page`와 `Model`로 묶이고 한 줄이 `<role "이름"> · <종류> · <n> of <N> runs` 형식입니다. Rawstep은 통과/실패 도구가 아니므로 목표에 도달하지 못해도 종료 코드는 0입니다. `--json`을 주면 같은 정보를 `{ runs: [{ runId, outDir, outcome, hints }], findings }` JSON으로 출력합니다.
+
+### run 폴더
+
+| 파일 | 내용 |
+|---|---|
+| `trace.json`, `trace.jsonl`, `blobs/` | 실행 기록. 스크린샷은 `blobs/<sha256>.png`로 한 번만 저장합니다 |
+| `hints.json` | 마찰 힌트 |
+| `analysis.json` | 로컬 요약 |
+| `report.html`, `report.json` | 보고서([보고서 안내](./report.ko.md)) |
+
+## hints, report, analyze
+
+`hints`는 힌트 수, 목표 달성 여부, 단계 수(`--reference`를 주면 기준 실행의 단계 수 포함)와 힌트별 한 줄을 출력합니다. 힌트는 사람이 확인해 볼 단계를 가리킬 뿐 통과/실패 판정이 아닙니다.
+
+`analyze`는 `--model` 없이 실행하면 네트워크를 쓰지 않는 로컬 요약을 만듭니다. `--model`을 주면 `rawstep.config.json`에서 `analysis` 역할을 가진 LLM에게 저장된 이벤트를 보내 분석하며, PNG 바이트는 보내지 않습니다. 두 경우 모두 `hints.json`을 함께 씁니다. `report`는 `analysis.json`을 `--analysis`로 지정하면 보고서에 포함합니다.
+
+## doctor
+
+Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실행할 수 있는지, 각 연결의 `apiKeyEnv`가 설정되어 있는지(값은 출력하지 않습니다)를 확인합니다. `machine.backend`가 `voiceover`나 `nvda`이면 AT Driver 엔드포인트의 응답도 확인합니다. 점검이 하나라도 실패하면 종료 코드 1입니다. 이는 연결과 설정만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다.
+
+## 종료 코드
+
+| 코드 | 의미 |
+|---|---|
+| 0 | 실행이 끝났습니다(목표 달성 여부와 무관) |
+| 1 | 오류(설정 파일 없음, 사용할 모델 없음, 키 누락, 실행 실패, `doctor` 점검 실패) |
+| 2 | 잘못된 사용법 |
+| 130 / 143 | SIGINT(Ctrl+C) / SIGTERM으로 취소. 그때까지 쓴 trace는 보존합니다 |
+
+## 인증 정보
+
+API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결의 `apiKeyEnv`에 적힌 환경변수를 프로세스 환경 또는 프로젝트의 `.env.local`에서 읽으며, 대시보드가 입력받은 키도 `.env.local`(권한 0600)에 씁니다. `.env.local`은 커밋하지 마세요.
+
+## 개인정보
+
+스크린샷에는 페이지의 개인 정보가 담길 수 있습니다. 모델은 픽셀, 목표, 이름 있는 입력 키와 행동 기록만 받고 DOM이나 독립 검증 결과는 받지 않습니다. 저장된 trace에서는 입력값을 가립니다. 이전 결과를 덮어쓰지 않도록 실행마다 새 출력 폴더를 만들며, 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요.
+
+## runTask
+
+같은 실행을 코드에서 부를 수 있습니다. 기본값은 `rawstep run`과 같고 `projectDir`의 기본값은 현재 폴더입니다.
+
+```ts
+import { runTask } from 'rawstep';
+
+const { runs, findings } = await runTask('checkout', { repeat: 3, mode: 'keyboard' });
+```
+
+옵션은 `projectDir`, `model`, `profile`, `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.

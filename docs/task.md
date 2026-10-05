@@ -1,6 +1,6 @@
 # Current task format
 
-Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks use `screenshot-run`; the duplicate `legacy-run` was removed in 0.2.
+Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks run on the screenshot backend (`npx rawstep run <task> --mode keyboard`).
 
 ## Inputs
 

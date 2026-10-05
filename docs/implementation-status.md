@@ -13,7 +13,7 @@ This is an implementation handoff, not a native/model validation receipt. No npm
 | T07 | Speech-only constrained policy; independent runner/verifier; fake backend trace, invalid candidate and input privacy tests. |
 | T08 | Existing screenshot policy bridged to SystemOne; focus/repetition/replay remain. Fake image policy and full CLI/runner/trace tests pass. Real-model gate is pending. |
 | T09 | Explicit SystemOne CLI selection, mutually exclusive selectors, script support and pre-browser capability checks including mock speech. |
-| T10 | Explicit analyze --llm only; full finalized redacted event payload, PNG omission, validated evidence IDs, bounded input/response and failure isolation. |
+| T10 | Explicit `rawstep analyze --model` only; full finalized redacted event payload, PNG omission, validated evidence IDs, bounded input/response and failure isolation. |
 | T11 | Opt-in scripted-then-SystemOne VoiceOver harness and native fixture implemented. **No native pass**: this checkout has no env credentials or listening native/model services. Actual cancellation/disconnection and model-stop native evidence also remain pending. NVDA remains experimental. |
 | T12 | Screenshot input/privacy/verification/cancellation regressions ported and passed before duplicate legacy code, command and exports were removed. Older 2.0/2.1 traces are no longer read. Guidepup was already absent and was not restored. |
 | T13 | Seven-package exports and independent consumer/tarball checks extended for SystemOne, LLM types and removed legacy exports. See verification results below. |

@@ -2,11 +2,11 @@ import { afterEach, expect, it } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ProjectStore } from '../packages/dashboard/src/server/store.js';
+import { ProjectStore } from '@rawstep/project/store';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import type { PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { dashboardFixture } from './helpers/dashboard-fixture.js';
-import { discover } from '../packages/dashboard/src/server/models.js';
+import { discover } from '@rawstep/project/discover';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await work(); });
 it('executes the real Runner over HTTP with two models/two prompts, LLM choices and simulated speech', async () => {

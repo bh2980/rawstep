@@ -9,11 +9,14 @@ import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { connectionSchema, machineSchema, type ConfigView } from '../shared/config.js';
-import { ProjectStore, HttpError, readOptional } from './store.js';
+import { connectionSchema, machineSchema } from '@rawstep/project/config';
+import { ProjectStore, readOptional } from '@rawstep/project/store';
+import { ProjectError } from '@rawstep/project/errors';
+import { backendCapabilities } from '@rawstep/project/plan';
+import { discover } from '@rawstep/project/discover';
+import type { ConfigView } from '../shared/config.js';
+import { HttpError, koreanMessage, record } from './http.js';
 import { ExperimentQueue, type Executor } from './queue.js';
-import { backendCapabilities } from './execution.js';
-import { discover, record } from './models.js';
 import { RunViews } from './views.js';
 import { suggestChecks } from './suggest.js';
 import type { RunEventMessage } from '../shared/api.js';
@@ -46,8 +49,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   const webDir = options.webDir ?? fileURLToPath(new URL('../web', import.meta.url));
   const server = createServer((req, res) => { void handle(req, res).catch(error => {
     if (res.headersSent) { res.end(); return; }
-    const message = error instanceof HttpError ? error.message : error instanceof z.ZodError ? '입력 형식이나 설정이 잘못되었습니다.' : '요청을 처리하지 못했습니다. 프로젝트 파일과 설정을 확인하세요.';
-    res.writeHead(error instanceof HttpError ? error.status : 400, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ error: message }));
+    const mapped = error instanceof ProjectError ? new HttpError(error.status, koreanMessage(error)) : error;
+    const message = mapped instanceof HttpError ? mapped.message : error instanceof z.ZodError ? '입력 형식이나 설정이 잘못되었습니다.' : '요청을 처리하지 못했습니다. 프로젝트 파일과 설정을 확인하세요.';
+    res.writeHead(mapped instanceof HttpError ? mapped.status : 400, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ error: message }));
   }); });
   let url = '';
   async function state(): Promise<ConfigView> {

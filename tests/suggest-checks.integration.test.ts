@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { suggestChecks } from '../packages/dashboard/src/server/suggest.js';
-import type { Connection, Model } from '../packages/dashboard/src/shared/config.js';
+import type { Connection, Model } from '@rawstep/project/config';
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn(); });

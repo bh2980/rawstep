@@ -86,11 +86,6 @@
       "import": "./dist/profiles/index.js",
       "default": "./dist/profiles/index.js"
     },
-    "./matrix": {
-      "types": "./dist/matrix/index.d.ts",
-      "import": "./dist/matrix/index.js",
-      "default": "./dist/matrix/index.js"
-    },
     "./orca": {
       "types": "./dist/orca/index.d.ts",
       "import": "./dist/orca/index.js",
@@ -100,6 +95,16 @@
       "types": "./dist/evidence/index.d.ts",
       "import": "./dist/evidence/index.js",
       "default": "./dist/evidence/index.js"
+    },
+    "./project": {
+      "types": "./dist/project/index.d.ts",
+      "import": "./dist/project/index.js",
+      "default": "./dist/project/index.js"
+    },
+    "./hints": {
+      "types": "./dist/hints/index.d.ts",
+      "import": "./dist/hints/index.js",
+      "default": "./dist/hints/index.js"
     }
   },
   "files": [
@@ -146,7 +151,8 @@
     "@rawstep/browser": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "@rawstep/reports": "workspace:*",
-    "@rawstep/cli": "workspace:*"
+    "@rawstep/cli": "workspace:*",
+    "@rawstep/project": "workspace:*"
   },
   "peerDependencies": {
     "playwright": "^1.59.1"

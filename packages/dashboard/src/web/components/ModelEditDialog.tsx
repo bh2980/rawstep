@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import { connectionProtocols, manualProtocol, type Connection, type Model } from '../../shared/config';
+import { connectionProtocols, manualProtocol, type Connection, type Model } from '@rawstep/project/config';
 import { api } from '../api';
 import { ENV_NAME, generateEnvName, withAnalysis } from '../lib/modelSetup';
 import { useGuardedAct } from '../lib/useGuardedAct';

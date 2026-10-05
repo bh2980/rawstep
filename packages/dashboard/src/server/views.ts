@@ -2,7 +2,8 @@ import { extractHints, selectReference } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Hint, HintReport, OverviewRow, RunHintsView, RunStepsView } from '../shared/api.js';
 import type { RunRecord } from '../shared/config.js';
-import { HttpError, readOptional, type ProjectStore } from './store.js';
+import { readOptional, type ProjectStore } from '@rawstep/project/store';
+import { HttpError } from './http.js';
 import type { ExperimentQueue } from './queue.js';
 import { buildSteps } from './steps.js';
 

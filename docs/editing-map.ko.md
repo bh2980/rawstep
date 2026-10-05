@@ -1,6 +1,6 @@
 # 소스 수정 위치
 
-실제 구현은 7개 엔진 패키지와 비공개 dashboard workspace로 나뉩니다. `rawstep`은 기존 import를 유지하는 reexport facade이며 구현을 복제하지 않습니다.
+실제 구현은 엔진 패키지, 공용 `@rawstep/project` 패키지, 비공개 dashboard workspace로 나뉩니다. `rawstep`은 실행 파일과 reexport를 제공하는 facade이며 구현을 복제하지 않습니다.
 
 | 책임 | 위치 |
 |---|---|
@@ -10,7 +10,8 @@
 | AT Driver·Orca·VoiceOver 시뮬레이션·코퍼스 | `packages/screenreaders/src/` |
 | 선택적인 Python Orca 브리지 | `packages/screenreaders/native/` |
 | 사후 분석·보고서·화면 상태 요약 | `packages/reports/src/` |
-| CLI·환경 matrix 실행 | `packages/cli/src/` |
+| `rawstep.config.json` 스키마·스토어·실행 계획/실행·`runTask`·모델 탐색·LLM | `packages/project/src/` (`config.ts`, `store.ts`, `plan.ts`, `execution.ts`, `run.ts`, `discover.ts`, `llm.ts`) |
+| CLI 명령 | `packages/cli/src/` |
 | 기존 `rawstep/*` 호환 import와 실행 파일 | `packages/rawstep/src/` |
 | 로컬 dashboard UI·shadcn 컴포넌트·JSON UI 카탈로그 | `packages/dashboard/src/` |
 | 공개 API 루트(명시적 export 목록)와 패키지 내부 헬퍼(`src/internal/`) | `packages/*/src/index.ts` (`tests/public-api.test.ts`로 고정) |

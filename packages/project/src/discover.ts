@@ -1,32 +1,33 @@
 import { modelBaseURL } from '@rawstep/policies/systemone';
-import { connectionSchema, type Connection, type Model } from '../shared/config.js';
-import { HttpError } from './store.js';
+import { connectionSchema, type Connection, type Model } from './config.js';
+import { ProjectError } from './errors.js';
 
 export async function boundedJson(response: Response): Promise<unknown> {
-  if (!response.ok) { await response.body?.cancel(); throw new HttpError(502, '모델 서버 HTTP ' + response.status + '. 응답 본문은 표시하지 않습니다.'); }
-  const reader = response.body?.getReader(); if (!reader) throw new HttpError(502, '응답이 없습니다.');
+  if (!response.ok) { await response.body?.cancel(); throw new ProjectError('model-http', 'The model server answered HTTP ' + response.status + '. The response body is not shown.', 502); }
+  const reader = response.body?.getReader(); if (!reader) throw new ProjectError('model-empty', 'The model server sent no response.', 502);
   const chunks: Uint8Array[] = []; let length = 0;
-  try { for (;;) { const r = await reader.read(); if (r.done) break; length += r.value.length; if (length > 2000000) throw new HttpError(502, '모델 응답 크기 제한 초과'); chunks.push(r.value); } }
+  try { for (;;) { const r = await reader.read(); if (r.done) break; length += r.value.length; if (length > 2000000) throw new ProjectError('model-too-large', 'The model response is too large.', 502); chunks.push(r.value); } }
   finally { await reader.cancel().catch(() => {}); }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new HttpError(502, '모델 서버 JSON 형식 오류'); }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new ProjectError('model-json', 'The model server did not send valid JSON.', 502); }
 }
-export const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
+/** A plain object view of untrusted JSON; anything else becomes `{}`. */
+const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export async function discover(connection: Connection, apiKey?: string): Promise<Model[]> {
   connection = connectionSchema.parse(connection);
   const base = modelBaseURL(connection.baseURL);
   async function get(path: string) {
     try { return await boundedJson(await fetch(new URL(path, base), {
       headers: apiKey ? { authorization: 'Bearer ' + apiKey } : {}, redirect: 'error', signal: AbortSignal.timeout(Math.min(connection.timeoutMs, 30000)),
-    })); } catch (e) { if (e instanceof HttpError) throw e; throw new HttpError(502, '모델 서버에 연결할 수 없습니다. 주소와 서버 상태를 확인하세요.'); }
+    })); } catch (e) { if (e instanceof ProjectError) throw e; throw new ProjectError('model-unreachable', 'Cannot reach the model server. Check the address and that the server is running.', 502); }
   }
   if (connection.provider === 'screenshot') {
     const info = record(await get('health')), model = record(info.model);
     const modelId = String(model.id ?? model.model ?? info.modelId ?? '');
-    if (!modelId) throw new HttpError(502, '/health에 모델 ID가 없습니다. 모델 ID를 수동으로 등록하세요.');
+    if (!modelId) throw new ProjectError('model-health-id', '/health has no model ID. Register the model ID by hand.', 502);
     return [{ id: 'discovered-0', connectionId: connection.id, modelId, name: modelId, family: 'SystemOne', protocol: 'choose', inputs: ['text', 'image'], capabilitySource: 'discovery', maxChoices: typeof info.maxChoices === 'number' ? info.maxChoices : 26, maxImages: typeof info.maxImages === 'number' ? info.maxImages : 2, roles: ['decision'], promptEditable: info.promptControl === 'client-v1' }];
   }
   const rows = record(await get('models')).data;
-  if (!Array.isArray(rows)) throw new HttpError(502, '모델 목록 API가 없습니다. 명시적인 모델 ID와 입력 지원을 수동으로 등록하세요.');
+  if (!Array.isArray(rows)) throw new ProjectError('model-list-missing', 'The server has no model list API. Register the model ID and its input support by hand.', 502);
   let all: unknown[] = rows;
   if (connection.provider === 'openai') {
     // OpenRouter lists SystemOne decision models separately; other OpenAI-compatible servers just do not have this route.

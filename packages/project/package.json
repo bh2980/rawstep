@@ -1,0 +1,87 @@
+{
+  "name": "@rawstep/project",
+  "version": "0.2.0",
+  "description": "Rawstep project model: rawstep.config.json, task files, credentials and run assembly shared by the CLI, the dashboard and the API",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js",
+      "default": "./dist/config.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js",
+      "default": "./dist/errors.js"
+    },
+    "./store": {
+      "types": "./dist/store.d.ts",
+      "import": "./dist/store.js",
+      "default": "./dist/store.js"
+    },
+    "./discover": {
+      "types": "./dist/discover.d.ts",
+      "import": "./dist/discover.js",
+      "default": "./dist/discover.js"
+    },
+    "./llm": {
+      "types": "./dist/llm.d.ts",
+      "import": "./dist/llm.js",
+      "default": "./dist/llm.js"
+    },
+    "./plan": {
+      "types": "./dist/plan.d.ts",
+      "import": "./dist/plan.js",
+      "default": "./dist/plan.js"
+    },
+    "./execution": {
+      "types": "./dist/execution.d.ts",
+      "import": "./dist/execution.js",
+      "default": "./dist/execution.js"
+    },
+    "./run": {
+      "types": "./dist/run.d.ts",
+      "import": "./dist/run.js",
+      "default": "./dist/run.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/project"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/screenreaders": "workspace:*",
+    "@rawstep/reports": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "playwright": "^1.59.1"
+  }
+}

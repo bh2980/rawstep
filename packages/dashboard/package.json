@@ -23,6 +23,7 @@
     "@rawstep/browser": "workspace:*",
     "@rawstep/core": "workspace:*",
     "@rawstep/policies": "workspace:*",
+    "@rawstep/project": "workspace:*",
     "@rawstep/reports": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "class-variance-authority": "0.7.1",

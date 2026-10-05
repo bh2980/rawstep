@@ -1,21 +1,71 @@
-# Current commands
+# Command line
 
-Use --policy, --script, --decision systemone, or (screenshots only) --model-endpoint, exactly one. Native run also needs a backend/endpoint or Orca pairing. legacy-run is removed. Only analyze --llm selects the built-in network analyzer. See [SystemOne settings](./systemone.md) and rawstep --help.
+The `rawstep` executable reads [`rawstep.config.json`](./config.md) in the project directory. The dashboard, the CLI and the `runTask` library function share that file. Use `rawstep --help` for the usage text.
 
-`mock-run <task.json> --policy <module>|--script <decisions.json>` explicitly selects the browser-backed simulated VoiceOver profile. It prints a simulation warning, uses headless Chromium by default, accepts `--headed`, `--browser-executable`, `--diagnostic-screenshots`, and `--out`, and needs no native AT Driver endpoint. Native `run` still accepts only `voiceover` or `nvda`; `--backend mock` is not an alias. See [simulation support and limitations](./mock-voiceover.md).
+## Commands
 
-All four run commands handle SIGINT (Ctrl+C) and SIGTERM by cancelling execution, closing resources, and saving an `aborted` outcome with its signal, stage and step. Signal handlers are removed when execution finishes. The CLI exits with 130 for SIGINT, 143 for SIGTERM, 1 for an unsuccessful run, and 2 for invalid command usage. A forced process kill cannot perform graceful cleanup or finalize the trace.
+| Command | Purpose |
+|---|---|
+| `rawstep init [--project <dir>]` | Write a default `rawstep.config.json` (one profile named Default; no connections, models or tasks). An existing file is never overwritten. |
+| `rawstep ui [--port <port>] [--project <dir>]` | Serve the dashboard on `127.0.0.1` (default port 4318). Creates the config file if it is missing. |
+| `rawstep run <task> [options]` | Run a task and print each run's outcome and the findings across runs. |
+| `rawstep hints <run-dir> [--reference <run-dir>]` | List the places worth a look in a saved run and write `hints.json`. |
+| `rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]` | Write `report.html` and `report.json`. |
+| `rawstep analyze <run-dir> [--model <id\|name>] [--out <dir>] [--project <dir>]` | Without `--model`, a local summary with no network access. With `--model`, the named analysis-role model from the config analyzes the saved events (PNG bytes are omitted). Also writes `hints.json`. |
+| `rawstep doctor [--project <dir>]` | Check Node, that the config parses, that a browser can launch, that each connection's `apiKeyEnv` is set (the value is never printed) and, for `voiceover` or `nvda`, that the AT Driver endpoint answers. Exits 1 if a check fails. |
 
-Unsuccessful saved runs print the reason, stage, any recorded error, and commands for creating a report and analyzing the trace. Native runs also print an AT Driver connection check. `doctor` reports the underlying connection cause and keeps it visible if cleanup also fails. A successful doctor probe establishes only a protocol connection; real speech and native host readiness still need to be verified. Retry a run with a fresh `--out` directory to preserve prior evidence.
+`--project` selects the project directory; the default is the current directory.
 
-Early give-up is configurable on `screenshot-run` and `matrix`. `--repetition-guard` / `--no-repetition-guard` toggle the visual repetition guard (stop after repeated identical screenshots); it is off by default with `--decision systemone` (cheap models are already bounded by `maxSteps`/`timeoutMs`, and wandering feeds friction hints) and on with `--model-endpoint`. `--no-model-give-up` removes the model's `stop:stuck` and `stop:uncertain` choices (`stop:success` stays) and also applies to `run`/`mock-run` with `--decision systemone`. These flags require `--decision systemone` or `--model-endpoint`, and the two guard flags conflict. Libraries use `repetitionGuard` / `modelGiveUp` (default `true`) on `ScreenshotDecisionPolicy` and `modelGiveUp` on `SystemOneSpeechPolicy`; visual state is still recorded with the guard off.
+## run
 
-`hints <trace.json|run-dir> [--reference <trace.json|run-dir>]` lists friction hints for a saved run, such as "succeeded, but took 23 Tabs". Hints point at steps worth a human look; they are not a pass/fail verdict. It prints the hint count, whether the goal was reached and the step count (plus the reference step count with `--reference`), one line per hint, and writes `hints.json` next to the trace. `analyze` also writes `hints.json` (without a reference), and `report` adds a "Friction hints" section when a `hints.json` sits next to the trace.
+```sh
+rawstep run <task> [--model <id|name>] [--profile <id|name>] [--mode keyboard|screenreader]
+                   [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
+```
 
-See the [bundled examples](../examples/v2/README.md) for separate installed-package (`npx rawstep`) and repository-checkout (`npm run rawstep --`) commands.
+`<task>` is a task id from `rawstep.config.json` or a path to a task JSON file (see [task files](./task.md)). Relative paths resolve from the project directory. A file that is not registered in the config uses the first profile.
 
-See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
+| Option | Default |
+|---|---|
+| `--model` | The first model with the `decision` role that supports the mode. Keyboard mode needs image input and `maxImages` of at least 2. |
+| `--profile` | The task's profile, otherwise the first profile. |
+| `--mode` | `keyboard` |
+| `--repeat` | `1` (at most 100). Each repeat is compared with the fastest repeat that reached the goal. |
+| `--out` | `<project>/.rawstep/runs/<timestamp>-<id>/`, with one `run-<n>/` directory per repeat. |
 
-## Explicit network proxy
+### Output
 
-Browser run and matrix commands accept `--proxy-server <url>`. Programmatic browser and run options use `proxyServer`. Only credential-free HTTP, HTTPS, SOCKS4 or SOCKS5 server URLs are accepted, with no path, query or fragment. This forwards the explicitly selected route to Playwright; it does not read ambient proxy settings, bypass access barriers or relax TLS/sandbox protections. A certificate or access error remains a blocker.
+Each run prints one line, such as `Run 1 of 2: goal reached · 7 steps`. The other forms are `goal not reached (reason)`, `inconclusive` and `no outcome recorded`. Run-level hints and the run directory follow. After all runs, findings are grouped under `Page` and `Model`. Each line reads `<role "name"> · <kind> · <n> of <N> runs`.
+
+`--json` prints `{ runs: [{ runId, outDir, outcome, hints }], findings }` instead. Hints are friction signals: they point at steps worth a human look and are not a verdict. See [reports](./report.md).
+
+### Run directory
+
+Each `run-<n>/` directory contains `trace.json` (with `trace.jsonl` and `blobs/`), `hints.json`, `analysis.json` (the local summary), `report.html` and `report.json`.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | The runs completed, whether or not the goal was reached. |
+| 1 | An error: no config, no usable model, missing key or a failed run. |
+| 2 | Invalid usage. |
+| 130, 143 | Cancelled by SIGINT or SIGTERM. Traces written so far are kept. |
+
+A forced kill cannot clean up or finalize a trace. Use a fresh `--out` directory to keep earlier evidence.
+
+## Credentials
+
+A connection in `rawstep.config.json` names an environment variable with `apiKeyEnv`. The value is read from the process environment or from `.env.local` in the project directory; the dashboard writes `.env.local` with mode 0600. Keys never appear in the config, traces or reports. Do not commit `.env.local`. See `.env.example`.
+
+## Privacy
+
+Screenshots can expose private page content. The model receives pixels, the goal, named input keys and the action history. It never receives the DOM or verifier results. Saved traces redact input values. A remote model receives these screenshots, so choose the connection with that in mind.
+
+## Library
+
+```ts
+import { runTask } from 'rawstep';
+```
+
+`runTask(task, options?)` takes the same inputs and uses the same defaults as `rawstep run`. Options are `projectDir` (default: the current directory), `model`, `profile`, `mode`, `repeat`, `outDir`, `signal` and `onEvent`. It resolves with `{ runs, findings }` once the runs complete, whatever the outcome. `hints.goalReached` and `hints.steps` describe each run. It rejects with `ProjectError` (exported, with a `.code`) on setup problems and on cancellation. The [README](../README.md#quick-start) has a test example. The native runner is available as `import { runTask } from 'rawstep/runner'`.

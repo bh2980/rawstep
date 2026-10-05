@@ -1,16 +1,24 @@
-import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
-import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
+import { LlmTraceAnalyzer } from '@rawstep/reports';
+import { ProjectError } from '@rawstep/project/errors';
+import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { connectionProtocols, defaultInstructions, planSchema, resolveRunSettings, taskProfile, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
-import { ProjectStore, atomicJson, HttpError } from './store.js';
-import { executeRun, resolvePermissions } from './execution.js';
+import { resolveRunSettings, taskProfile } from '@rawstep/project/config';
+import { ProjectStore, atomicJson } from '@rawstep/project/store';
+import { checkRun, resolvePermissions } from '@rawstep/project/plan';
+import { executeRun } from '@rawstep/project/execution';
+import { finalizeRun } from '@rawstep/project/run';
+import { planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
+import { HttpError, koreanMessage } from './http.js';
 
-export type Executor = typeof executeRun;
+/** Runs one run record; the default executes it for real, tests substitute their own. */
+export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void) => Promise<RunTrace>;
+const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent) => {
+  const { model, connection, prompt, mode, globals, profile } = run.snapshot;
+  return executeRun({ task, model, connection, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...(onEvent ? { onEvent } : {}) });
+};
 export class ExperimentQueue {
   readonly experiments: Experiment[] = [];
   private active?: { experiment: string; run: string; controller: AbortController };
@@ -18,7 +26,7 @@ export class ExperimentQueue {
   private closed = false;
   private writes = Promise.resolve();
   private readonly liveTasks = new Map<string, Task>();
-  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
+  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRecord, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
   async initialize() {
     const directory = await this.store.file('.rawstep/experiments');
     await mkdir(directory, { recursive: true });
@@ -50,29 +58,11 @@ export class ExperimentQueue {
       if (!task || !model || !profile || !prompt || !source) reason = '작업·모델·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
       else {
         try {
-          const settings = resolveRunSettings(config, task, profile);
-          permissions = resolvePermissions(config, profile, source, request.mode, task.modes[request.mode].permissions);
-          if (!model.roles.includes('decision')) throw new Error('분석 전용 모델입니다.');
-          if (request.mode === 'keyboard' && (!model.inputs.includes('image') || model.maxImages < 2)) throw new Error('키보드 실행에는 현재·이전 이미지를 지원하는 모델이 필요합니다.');
-          if (request.mode === 'screenreader' && !model.inputs.includes('text')) throw new Error('스크린리더 실행에는 텍스트 입력 지원이 필요합니다.');
-          const connection = config.connections.find(c => c.id === model.connectionId)!;
-          if (!connectionProtocols[connection.provider].includes(model.protocol) || (model.protocol === 'chat') !== (model.family === 'LLM')) throw new Error('모델의 호출 방식이 연결 종류와 맞지 않습니다. 모델을 다시 등록하세요.');
-          if (model.protocol === 'vercel-evaluation' && request.mode === 'keyboard') throw new Error('Vercel Evaluation 어댑터는 텍스트 입력만 지원합니다.');
-          const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + 3;
-          if (choiceCount > model.maxChoices) throw new Error('선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.');
-          if (model.protocol === 'choose' && request.mode !== 'keyboard') throw new Error('/choose는 키보드 모드 전용입니다.');
-          if (!model.promptEditable && prompt.instructions !== defaultInstructions.keyboard) throw new Error('/choose 서버가 프롬프트 변경을 지원하지 않습니다.');
-          if (model.family === 'LLM' && settings.policy.focusGate) throw new Error('확률 기반 포커스 제한은 SystemOne 모델만 지원합니다. 실행 프로필이나 작업 설정에서 해제하세요.');
-          if (request.mode === 'screenreader' && config.machine.backend === 'voiceover' && process.platform !== 'darwin') throw new Error('VoiceOver는 macOS에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.machine.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.machine.backend !== 'simulation') {
-            const endpoint = new URL(config.machine.atEndpoint);
-            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
-          }
-          const environment = resolveEnvironmentProfile(profile.environment);
-          if (environment.browserZoom !== 1 || environment.nativeMagnifier === 'required' || environment.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');
-          if (request.analysisModelId) { const analyzer = config.models.find(m => m.id === request.analysisModelId); if (!analyzer || analyzer.family !== 'LLM' || !analyzer.roles.includes('analysis')) throw new Error('LLM 분석 모델을 선택하세요.'); }
-          if (request.diagnoseStop && request.mode !== 'keyboard') throw new Error('중단 진단은 마지막 스크린샷을 사용하는 키보드 모드 전용입니다.');
+          const analyzer = request.analysisModelId ? config.models.find(m => m.id === request.analysisModelId) : undefined;
+          const check = checkRun({ config, task: source, taskEntry: task, model, profile, prompt, mode: request.mode, analysisModel: analyzer, diagnoseStop: request.diagnoseStop });
+          permissions = check.permissions;
+          if (check.problem) reason = koreanMessage(check.problem);
+          else if (request.analysisModelId && !analyzer) reason = koreanMessage(new ProjectError('analysis-model-invalid', ''));
         } catch (e) { reason = (e as Error).message; }
       }
       rows.push({ key: [taskId, modelId, promptId, profileId, repeat].join(':'), taskId, modelId, promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
@@ -154,22 +144,14 @@ export class ExperimentQueue {
         const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
         run.outcome = trace.outcome;
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
-        const hints: { hints?: HintReport } = await writeHints(outDir).then(({ report }) => ({ hints: report }), () => ({}));
-        try {
-          let analyzer: LlmTraceAnalyzer | undefined;
-          if (run.analysisModel) {
-            const c = run.analysisConnection; if (!c) throw new Error('분석 모델 연결이 없습니다.');
-            analyzer = new LlmTraceAnalyzer({ baseURL: c.baseURL, model: run.analysisModel.modelId, apiKey: await this.store.credential(c.apiKeyEnv), timeoutMs: c.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
-          }
-          const analysis = await analyzeTrace(trace, analyzer); await atomicJson(join(outDir, 'analysis.json'), analysis);
-          run.analysisStatus = analysis.status === 'failed' ? 'failed' : 'complete';
-          if (analysis.status === 'failed') run.analysisError = analysis.error ?? '분석 실패';
-          await writeReport(await hydrateScreenshots(trace, outDir), analysis, outDir, hints); run.reportStatus = 'complete';
-        } catch {
-          run.analysisStatus = 'failed'; run.analysisError = '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.';
-          try { await writeReport(await hydrateScreenshots(trace, outDir), undefined, outDir, hints); run.reportStatus = 'complete'; }
-          catch { run.reportStatus = 'failed'; run.reportError = '보고서 생성 실패'; }
-        }
+        const done = await finalizeRun(trace, outDir, run.analysisModel ? { createAnalyzer: async () => {
+          const c = run.analysisConnection; if (!c) throw new Error('분석 모델 연결이 없습니다.');
+          return new LlmTraceAnalyzer({ baseURL: c.baseURL, model: run.analysisModel!.modelId, apiKey: await this.store.credential(c.apiKeyEnv), timeoutMs: c.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
+        } } : {});
+        run.analysisStatus = done.analysis.status;
+        if (done.analysis.status === 'failed') run.analysisError = done.analysis.threw ? '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.' : done.analysis.error ?? '분석 실패';
+        run.reportStatus = done.report.status;
+        if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
       } catch {
         run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = '실행 준비 또는 실행이 실패했습니다. 연결과 브라우저 설정을 확인하세요.';
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';

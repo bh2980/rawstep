@@ -3,7 +3,7 @@ import type { DecisionPolicy, Decision } from '@rawstep/core/contracts';
 import { speechChoices } from '@rawstep/policies/systemone';
 import { chooseCandidate, createLlmModel, type LlmModel } from '@rawstep/policies/llm';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
-import type { Connection, Model, Prompt } from '../shared/config.js';
+import type { Connection, Model, Prompt } from './config.js';
 
 export class LlmChoiceClient {
   private readonly llm: LlmModel;
@@ -18,7 +18,7 @@ export class LlmChoiceClient {
         prompt: { id: this.prompt.id, version: this.prompt.version, sha256: createHash('sha256').update(JSON.stringify({ instructions: this.prompt.instructions, choices })).digest('hex') } };
     } catch {
       signal.throwIfAborted();
-      throw new Error('LLM 선택 실패: 연결·응답 형식·후보 ID·모델 ID를 확인하세요. Provider 원문은 표시하지 않습니다.');
+      throw new Error('LLM choice failed: check the connection, the response format, the candidate IDs and the model ID. The provider response is not shown.');
     }
   }
 }

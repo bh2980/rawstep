@@ -4,7 +4,8 @@ import { Save } from 'lucide-react';
 import { api } from '../api';
 import { Choice, Field, Toggle } from '../components/forms';
 import { Button } from '../components/ui/button';
-import type { ConfigView, MachineSettings } from '../../shared/config';
+import type { MachineSettings } from '@rawstep/project/config';
+import type { ConfigView } from '../../shared/config';
 import type { PageProps } from './types';
 
 type Capabilities = ConfigView['capabilities'];

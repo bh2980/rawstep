@@ -1,8 +1,8 @@
 import { access, readFile, readdir } from 'node:fs/promises';
 import { resolve, dirname, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-const order = ['core','policies','browser','screenreaders','reports','cli','rawstep'];
-const dependencyOrder = [...order.slice(0,5), 'dashboard', ...order.slice(5)];
+const order = ['core','policies','browser','screenreaders','reports','project','cli','rawstep'];
+const dependencyOrder = [...order.slice(0,6), 'dashboard', ...order.slice(6)];
 const names = (name:string) => name==='rawstep' ? name : `@rawstep/${name}`;
 async function files(path:string):Promise<string[]> { return (await Promise.all((await readdir(path,{withFileTypes:true})).map(d=>d.isDirectory()?files(`${path}/${d.name}`):[`${path}/${d.name}`]))).flat(); }
 

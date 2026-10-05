@@ -1,4 +1,4 @@
-import { defaultModes } from '../../shared/config';
+import { defaultModes } from '@rawstep/project/config';
 import { ApiError } from '../api';
 import type { PageProps } from '../pages/types';
 

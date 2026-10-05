@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Plus, Copy, Save } from 'lucide-react';
-import { taskProfile, type ManagedTask, type Mode } from '../../shared/config';
+import { taskProfile, type ManagedTask, type Mode } from '@rawstep/project/config';
 import { hostnameOf, slugify, uniqueTaskFile } from '../lib/taskFiles';
 import type { PageProps } from '../pages/types';
 import { Button } from './ui/button';

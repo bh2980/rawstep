@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-const roots = ['@rawstep/core', '@rawstep/policies', '@rawstep/browser', '@rawstep/screenreaders', '@rawstep/reports', '@rawstep/cli', 'rawstep'];
+const roots = ['@rawstep/core', '@rawstep/policies', '@rawstep/browser', '@rawstep/screenreaders', '@rawstep/reports', '@rawstep/project', '@rawstep/cli', 'rawstep'];
 const manifestPath = (name: string) => `packages/${name === 'rawstep' ? name : name.slice(9)}/package.json`;
 const exportNames = async (specifier: string) => Object.keys(await import(specifier)).sort();
 const internalNames = ['isRecord', 'positiveMilliseconds', 'record', 'validInterval', 'pngFor', 'KEYS'];
@@ -142,18 +142,60 @@ describe('public API surface', () => {
       "writeReport",
     ]
   `); });
+  it('pins the project root', async () => { expect(await exportNames('@rawstep/project')).toMatchInlineSnapshot(`
+    [
+      "CONFIG_FILE",
+      "LlmChoiceClient",
+      "LlmScreenshotAdapter",
+      "LlmSpeechPolicy",
+      "ProjectError",
+      "ProjectStore",
+      "assertRunnable",
+      "atomicJson",
+      "backendCapabilities",
+      "boundedJson",
+      "checkRun",
+      "configSchema",
+      "connectionProtocols",
+      "connectionSchema",
+      "defaultConfig",
+      "defaultInstructions",
+      "defaultModes",
+      "defaultProfile",
+      "defaultPrompt",
+      "discover",
+      "executeRun",
+      "finalizeRun",
+      "findByIdOrName",
+      "idSchema",
+      "initProject",
+      "machineSchema",
+      "manualProtocol",
+      "modelProtocolSchema",
+      "modelSchema",
+      "parseConfig",
+      "permissionsSchema",
+      "policySchema",
+      "projectAnalyzer",
+      "promptSchema",
+      "readOptional",
+      "resolvePermissions",
+      "resolveRepetitionGuard",
+      "resolveRunSettings",
+      "runProfileSchema",
+      "runTask",
+      "supportsMode",
+      "taskProfile",
+      "taskSchema",
+    ]
+  `); });
   it('pins the cli root', async () => { expect(await exportNames('@rawstep/cli')).toMatchInlineSnapshot(`
     [
       "CLI_USAGE",
       "CliUsageError",
-      "classifyRun",
+      "formatRunResult",
       "parseCliArguments",
-      "readMatrix",
       "runCli",
-      "runEnvironmentMatrix",
-      "summarizeMatrixRow",
-      "taskFingerprint",
-      "validateHumanEvidence",
     ]
   `); });
   it('pins the rawstep facade root', async () => { expect(await exportNames('rawstep')).toMatchInlineSnapshot(`
@@ -182,6 +224,7 @@ describe('public API surface', () => {
       "OrcaBridgeClient",
       "OrcaBridgeError",
       "ProfileApplicationError",
+      "ProjectError",
       "REDACTED",
       "SCREENSHOT_DECISION_PROMPT",
       "SCREENSHOT_KEYS",
@@ -203,7 +246,6 @@ describe('public API surface', () => {
       "analyzeTrace",
       "applyProfile",
       "assertScreenshotReplayTaskSafety",
-      "classifyRun",
       "collectBrowserDiagnostics",
       "createChromiumTabZoomController",
       "createRedactor",
@@ -222,13 +264,11 @@ describe('public API surface', () => {
       "modelBaseURL",
       "orcaBridgePath",
       "readAnalysis",
-      "readMatrix",
       "readTrace",
       "renderReportHtml",
       "resolveEnvironmentProfile",
       "resolveTask",
       "restrictChoicesByVisualFocus",
-      "runEnvironmentMatrix",
       "runMockVoiceOverTask",
       "runScreenshotReplay",
       "runScreenshotTask",
@@ -237,15 +277,12 @@ describe('public API surface', () => {
       "screenshotReplayTaskHash",
       "screenshotSha256",
       "speechChoices",
-      "summarizeMatrixRow",
       "summarizeTrace",
       "summarizeTraceEvidence",
       "summarizeVisualExploration",
-      "taskFingerprint",
       "traceFilePath",
       "validateAnalysisReport",
       "validateAnalyzerResult",
-      "validateHumanEvidence",
       "validateModelResponse",
       "validateNavigation",
       "validateScreenshotReplay",
@@ -255,6 +292,17 @@ describe('public API surface', () => {
       "writeReport",
     ]
   `); });
+
+  it('exposes the high-level runTask on the facade and keeps the browser-safe project config free of Node imports', async () => {
+    const facade = await import('rawstep'), project = await import('@rawstep/project');
+    expect(facade.runTask).toBe(project.runTask);
+    expect(await exportNames('rawstep/runner')).toContain('runTask');
+    const config = await readFile('packages/project/dist/config.js', 'utf8');
+    expect(config).not.toMatch(/from\s+['"]node:/);
+    expect([...config.matchAll(/^import .* from '([^']+)'/gm)].map(match => match[1]).sort()).toEqual(['@rawstep/core/defaults', 'zod']);
+    const manifest = JSON.parse(await readFile('packages/project/package.json', 'utf8'));
+    expect(Object.keys(manifest.exports)).toEqual(expect.arrayContaining(['.', './config', './store', './plan', './execution', './run', './discover', './llm', './errors']));
+  });
 
   it('keeps package-internal helpers out of every exports-map entry', async () => {
     for (const root of roots) {

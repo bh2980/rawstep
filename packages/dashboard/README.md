@@ -1,6 +1,6 @@
 # Rawstep local dashboard
 
-A separate `@rawstep/dashboard` workspace in the pnpm monorepo. React, Vite and Tailwind provide the browser UI. A loopback Node service manages project files and calls the existing Rawstep Runner through public package exports. No database is required.
+A separate `@rawstep/dashboard` workspace in the pnpm monorepo. React, Vite and Tailwind provide the browser UI. A loopback Node service manages project files and calls the existing Rawstep Runner through `@rawstep/project` and public package exports. No database is required.
 
 Run from the repository root with Node 22.12 or later:
 
@@ -24,7 +24,8 @@ The UI manages connections and discovered models, SystemOne/LLM identity and rol
 | `src/web/components/PermissionsEditor.tsx` | Catalog-validated, state-bound JSON permission forms |
 | `src/web/styles.css` | Shared theme tokens and packaged-component Tailwind scan |
 | `src/server` | File storage, API, model adapters and execution queue |
-| `src/shared/config.ts` | Configuration and request contracts |
+| `src/shared/config.ts` | Dashboard-only experiment and request contracts |
+| `@rawstep/project/config` | `rawstep.config.json` schema and types |
 
 Fixed navigation and domain pages compose local shadcn React components. JSON UI uses `@json-render/core`, `@json-render/react` and `@json-render/shadcn`; its catalog and registry both allow Card, Stack, Heading, Text, Badge, Separator, Checkbox, Switch, Button, Input, Textarea, Select, Table, Progress and Alert. Specs pass `parseDashboardSpec` before rendering. `dashboardCatalog.prompt()` and `dashboardCatalog.jsonSchema()` are ready for a future model-generated UI feature; no generation endpoint is enabled. JSON controls use built-in state bindings; saving and running use explicit application API handlers.
 
@@ -36,9 +37,9 @@ corepack pnpm --filter @rawstep/dashboard exec shadcn add dialog
 
 For a new JSON component, update both the catalog and registry. Keep its implementation based on shadcn and validate its props and structure. `AGENTS.md` preserves these conventions for subsequent development.
 
-Configuration is in `rawstep.dashboard.json`; existing Task JSON retains its engine contract. Keys are stored in `.env.local` and returned only as configured/not-configured status. Runs live in `.rawstep/experiments`. Save conflicts preserve frontend drafts. A server restart marks unfinished runs interrupted and never automatically calls a model again.
+Configuration is in `rawstep.config.json`, the same file `rawstep run` and `runTask` read, so tasks, models and profiles set up in the dashboard run unchanged from the CLI and in tests. Task JSON keeps its engine contract. Keys are stored in `.env.local` and returned only as configured/not-configured status. Runs live in `.rawstep/experiments`. Save conflicts preserve frontend drafts. A server restart marks unfinished runs interrupted and never automatically calls a model again.
 
-Keyboard execution needs a model with confirmed/manual image support; native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. UI supports simulation, VoiceOver and NVDA; Orca remains available through the existing CLI/API. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running. Legacy `/choose` servers own their prompt; `client-v1` servers must return matching prompt identity/version/hash evidence for custom instructions.
+Keyboard execution needs a model with confirmed/manual image support; native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. UI supports simulation, VoiceOver and NVDA; Orca remains available through the library API. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running. Version-1 `/choose` servers own their prompt; `client-v1` servers must return matching prompt identity/version/hash evidence for custom instructions.
 
 Verification:
 

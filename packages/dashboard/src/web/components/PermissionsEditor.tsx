@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createStateStore, JSONUIProvider } from '@json-render/react';
 import { parseDashboardSpec } from '../../shared/ui-catalog';
-import type { Permissions } from '../../shared/config';
+import type { Permissions } from '@rawstep/project/config';
 import { dashboardRegistry } from '../json-ui/registry';
 import { DashboardRenderer } from '../json-ui/DashboardRenderer';
 

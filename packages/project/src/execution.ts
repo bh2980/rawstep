@@ -1,9 +1,9 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { runTask } from '@rawstep/browser/runner';
 import { createHash } from 'node:crypto';
-import { runScreenshotTask, ScreenshotKeyboardBackend } from '@rawstep/browser/screenshot';
-import { runMockVoiceOverTask, MockVoiceOverBackend } from '@rawstep/screenreaders/mock-voiceover';
-import { AtDriverBackend, getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
+import { runScreenshotTask } from '@rawstep/browser/screenshot';
+import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
+import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { SystemOneHttpClient, OpenRouterSystemOneClient, VercelEvaluationClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, type SystemOneClient } from '@rawstep/policies/systemone';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import { validateModelResponse, type ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
@@ -11,25 +11,26 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
-import { boundedJson } from './models.js';
-import { type MachineSettings, type Permissions, type RunProfile, type RunRecord, defaultInstructions, resolveRepetitionGuard } from '../shared/config.js';
+import { boundedJson } from './discover.js';
+import { type Connection, type Mode, type Model, type Permissions, type Prompt, type RunSettings, defaultInstructions, resolveRepetitionGuard } from './config.js';
 
-export function backendCapabilities(config: { machine: Pick<MachineSettings, 'backend'> }, mode: 'keyboard' | 'screenreader') {
-  return mode === 'keyboard' ? new ScreenshotKeyboardBackend().capabilities : config.machine.backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(config.machine.backend).capabilities;
-}
-/** Permissions for one run: the task's per-mode override, otherwise the run profile's, filtered by what the backend and task support. */
-export function resolvePermissions(config: { machine: Pick<MachineSettings, 'backend'> }, profile: Pick<RunProfile, 'permissions'>, task: Task, mode: 'keyboard' | 'screenreader', override: Permissions | null): Permissions {
-  const p = structuredClone(override ?? profile.permissions[mode]), capabilities = backendCapabilities(config, mode);
-  if (p.keys.some(k => !(capabilities.keys as readonly string[]).includes(k)) || p.intents.some(k => !capabilities.intents.includes(k))) throw new Error('이 백엔드가 지원하지 않는 행동이 선택되었습니다.');
-  const keys = Object.keys(task.input ?? {});
-  const requested = p.inputKeys ?? keys;
-  if (requested.some(k => !keys.includes(k))) throw new Error('작업에 없는 입력 이름이 선택되었습니다.');
-  p.inputKeys = capabilities.textEntry && (p.typeText || p.replaceText) ? requested : [];
-  p.typeText &&= capabilities.textEntry; p.replaceText &&= capabilities.replaceText;
-  return p;
-}
-export async function executeRun(run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void): Promise<RunTrace> {
-  const { model, connection, prompt, mode, globals } = run.snapshot;
+/** Everything one run needs, resolved from the project: nothing here is looked up again while the run executes. */
+export type RunSpec = {
+  task: Task; model: Model; connection: Connection; prompt: Prompt; mode: Mode;
+  /** Run profile policy and machine settings in force for this run. */
+  settings: RunSettings;
+  /** The page environment: a profile name or object, resolved by @rawstep/browser/profiles. */
+  environment: unknown;
+  permissions: Permissions;
+  /** Ask the model, after a keyboard run that stopped early, why (never an action or verdict). */
+  diagnoseStop?: boolean;
+};
+export type RunExecution = { outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void };
+/** Runs one RunSpec; replaceable so callers can run without a browser or a model. */
+export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
+
+/** Builds the decision policy for the model's protocol and runs the task on the backend the mode and machine settings select. */
+export const executeRun: RunExecutor = async ({ task, model, connection, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
@@ -47,7 +48,7 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
         headers: { 'content-type': 'application/json', ...(apiKey ? { authorization: 'Bearer ' + apiKey } : {}) },
         body: JSON.stringify(request),
       }));
-      if (apiKey && JSON.stringify(value).includes(apiKey)) throw new Error('모델 응답에 인증 정보가 포함되었습니다.');
+      if (apiKey && JSON.stringify(value).includes(apiKey)) throw new Error('The model response contained the credential.');
       return value;
     };
     let adapter: ScreenshotModelAdapter = { choose: async (request, {signal: inner}) => {
@@ -57,15 +58,15 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
       adapter = { choose: async (request, { signal: inner }) => {
         const response = await fetchChoice({ ...request, promptControl: 'client-v1', instructions: prompt.instructions, prompt: { id: prompt.id, version: prompt.version } }, inner);
         validateModelResponse(response, request.choices);
-        if (response.model.id !== model.modelId) throw new Error('로컬 서버의 모델 ID가 변경되었습니다.');
+        if (response.model.id !== model.modelId) throw new Error('The local server changed its model ID.');
         const hash = createHash('sha256').update(JSON.stringify({ instructions: prompt.instructions, choices: request.choices.map(c => ({ id: c.id, label: c.label })) })).digest('hex');
-        if (response.prompt?.id !== prompt.id || response.prompt.version !== prompt.version || response.prompt.sha256 !== hash) throw new Error('서버가 요청한 프롬프트 적용 근거를 반환하지 않았습니다.');
+        if (response.prompt?.id !== prompt.id || response.prompt.version !== prompt.version || response.prompt.sha256 !== hash) throw new Error('The server did not return proof that it applied the requested prompt.');
         return response;
       } };
     } else {
-      if (prompt.instructions !== defaultInstructions.keyboard) throw new Error('이 /choose 서버는 프롬프트 변경을 지원하지 않습니다.');
+      if (prompt.instructions !== defaultInstructions.keyboard) throw new Error('This /choose server does not support changing the prompt.');
       const original = adapter;
-      adapter = { choose: async (r, o) => { const answer = await original.choose(r, o); if (answer.model.id !== model.modelId) throw new Error('로컬 서버의 모델 ID가 변경되었습니다.'); return answer; } };
+      adapter = { choose: async (r, o) => { const answer = await original.choose(r, o); if (answer.model.id !== model.modelId) throw new Error('The local server changed its model ID.'); return answer; } };
     }
     screenshotModel = adapter;
     policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: adapter });
@@ -79,13 +80,13 @@ export async function executeRun(run: RunRecord, task: Task, outDir: string, api
     policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })
       : new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
   }
-  const common = { policy, outDir, signal, allowedActions: run.permissions, ...(onEvent ? { onEvent } : {}),
+  const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
     browserExecutablePath: globals.browserExecutablePath || undefined };
   setupSignal.throwIfAborted();
-  if (Date.now() >= deadline) throw new Error('실행 준비 중 작업 제한 시간을 초과했습니다.');
-  const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(run.snapshot.profile) };
-  return mode === 'keyboard' ? runScreenshotTask(resolvedTask, { ...common, ...(run.diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, connection.timeoutMs) } : {}) }) : globals.backend === 'simulation'
+  if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
+  const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
+  return mode === 'keyboard' ? runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, connection.timeoutMs) } : {}) }) : globals.backend === 'simulation'
     ? runMockVoiceOverTask(resolvedTask, { ...common, warn: () => {} })
     : runTask(resolvedTask, { ...common, backend: new AtDriverBackend({ profile: globals.backend, url: globals.atEndpoint }) });
-}
+};

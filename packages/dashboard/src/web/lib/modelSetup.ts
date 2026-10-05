@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { manualProtocol, type Connection, type Model } from '../../shared/config';
+import { manualProtocol, type Connection, type Model } from '@rawstep/project/config';
 
 type Provider = Connection['provider'];
 

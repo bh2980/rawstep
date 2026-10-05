@@ -40,14 +40,16 @@ describe('screenshot workflow in real Chromium',()=>{
   expect(Buffer.from(pixels[0]!,'base64').subarray(0,8).toString('hex')).toBe('89504e470d0a1a0a');
   expect(JSON.parse(await readFile(join(outDir,'stop-reason.json'),'utf8'))).toMatchObject({status:'completed',hypothesis:'no-visible-focus'});
  },20000);
- it('runs the installed-style screenshot CLI path without AT or provider injection',async()=>{
-  const root=await out();await writeFile(join(root,'task.json'),JSON.stringify({mode:'keyboard',url:cta,goal:'Start',maxSteps:4,verify:{all:[{titleIncludes:'Completed'}]}}));
-  await writeFile(join(root,'script.json'),JSON.stringify([{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Enter'}}]));
+ it('lets the CLI read back the hints and report of a saved keyboard run',async()=>{
+  const root=await out(),run=join(root,'run');
+  const trace=await runScreenshotTask({url:cta,goal:'Start',maxSteps:4,timeoutMs:15000,verify:{all:[{titleIncludes:'Completed'}]}},{
+    outDir:run,browserSessionFactory:createTestBrowserSession,policy:new ScriptedPolicy([{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Tab'}},{action:{kind:'key',key:'Enter'}}])
+  });
+  expect(trace.outcome?.status).toBe('success');
   const stderr:string[]=[];
-  const args=['screenshot-run',join(root,'task.json'),'--script',join(root,'script.json'),'--out',join(root,'run')];
-  if(process.env.RAWSTEP_TEST_BROWSER_PATH)args.push('--browser-executable',process.env.RAWSTEP_TEST_BROWSER_PATH);
-  expect(await runCli(args,{stdout:()=>{},stderr:value=>stderr.push(value)})).toBe(0);
-  expect(stderr.join('')).not.toContain('deprecated');expect((await readTrace(join(root,'run'))).outcome?.status).toBe('success');
+  expect(await runCli(['hints',run],{stdout:()=>{},stderr:value=>stderr.push(value)})).toBe(0);
+  expect(await runCli(['report',run],{stdout:()=>{},stderr:value=>stderr.push(value)})).toBe(0);
+  expect(stderr).toEqual([]);expect((await readTrace(run)).outcome?.status).toBe('success');expect(await readFile(join(run,'report.html'),'utf8')).toContain('data:image/png;base64,');
  },20000);
  it('types only named task input into a real focused field and suppresses later saved screenshots',async()=>{
   const dir=await out();const html=join(dir,'form.html');

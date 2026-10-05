@@ -40,15 +40,15 @@ python3 examples/screenshot/onejev4b_server.py --llama-url http://127.0.0.1:8768
 
 The default assets directory is next to the bridge. If data was downloaded elsewhere, set `RAWSTEP_ONEJEV_ASSETS` to that directory before starting it. Startup checks that vision is enabled and compares actual runtime tokenization with the pinned official tokenizer. Failure stops startup; it does not switch models.
 
-Then run the built Rawstep source:
+Then register the bridge in `rawstep.config.json` (`npx rawstep ui`): a `screenshot` connection with `baseURL` `http://127.0.0.1:8767/choose` and a model on it with protocol `choose` and image input. Run the built Rawstep source once per environment profile:
 
 ```sh
-npm run rawstep -- matrix examples/profiles/task.json \
-  --profiles default,reflow-text,forced-colors \
-  --model-endpoint http://127.0.0.1:8767/choose --out runs/4b-matrix
+npm run rawstep -- run examples/profiles/task.json --model onejev4b --profile default
+npm run rawstep -- run examples/profiles/task.json --model onejev4b --profile reflow-text
+npm run rawstep -- run examples/profiles/task.json --model onejev4b --profile forced-colors
 ```
 
-Use a new output directory every time. Stop both local servers yourself after the run. Optional receipts contain task text and history; leave `--receipts` off for private work unless you deliberately need and protect that recording.
+Each run writes a new output directory. Stop both local servers yourself after the run. Optional receipts contain task text and history; leave `--receipts` off for private work unless you deliberately need and protect that recording.
 
 ## Decision and validation limits
 

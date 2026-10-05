@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { defaultConfig, defaultModes } from '../../packages/dashboard/src/shared/config.js';
+import { defaultConfig, defaultModes } from '@rawstep/project/config';
 export async function dashboardFixture() {
   const requests: { model: string; instructions: string; state: unknown; choices: string[]; path: string }[] = [];
   const server = createServer((req, res) => { void (async () => {

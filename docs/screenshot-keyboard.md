@@ -1,6 +1,6 @@
 # Screenshot-only keyboard exploration
 
-`screenshot-run` remains first-class and separate from native or simulated screen-reader runs. The duplicate legacy path was removed in 0.2. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for multimodal connections and explicitly selected scripts.
+Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for multimodal model connections.
 
 ## Boundaries
 
@@ -15,20 +15,18 @@ This is an interface boundary, not a sandbox for a trusted user-provided JavaScr
 
 ## Run with a local model
 
-Start a server implementing `rawstep-screenshot-choice-v1`, then:
+Start a server implementing `rawstep-screenshot-choice-v1`, then register it in `rawstep.config.json` (via `npx rawstep ui`): a connection with provider `screenshot` whose `baseURL` is `http://127.0.0.1:8766/choose`, and a model on that connection with family `LLM` or `SystemOne`, protocol `choose`, `inputs: ["text", "image"]` and the `decision` role. Then:
 
 ```sh
-npm run rawstep -- screenshot-run examples/screenshot/task.json \
-  --model-endpoint http://127.0.0.1:8766/choose --out runs/visual-01
-npm run rawstep -- analyze runs/visual-01
-npm run rawstep -- report runs/visual-01 --analysis runs/visual-01/analysis.json
+npx rawstep run examples/screenshot/task.json --model onejev --mode keyboard
+npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
-For an installed package replace `npm run rawstep --` with `npx rawstep` and use task paths in your project. Install Chromium with `npx playwright install chromium`, or specify a trusted installed Chromium using `--browser-executable`. `--headed` shows the browser; headless is the default. Every run needs a new output directory.
+Each run writes a new directory under `.rawstep/runs/` (or `--out`), and `rawstep run` already writes `hints.json`, `analysis.json` and `report.html` there. Install Chromium with `npx playwright install chromium`, or set `machine.browserExecutablePath` to a trusted installed Chromium; `machine.headless` controls whether the browser is shown (headless is the default).
 
-The HTTP adapter only accepts loopback endpoints by default, refuses credentials/query/fragment in endpoint URLs, and refuses redirects. A remote HTTPS endpoint requires `--allow-remote-model` (or `allowRemote: true` in the API). This explicitly transmits screenshot contents, the goal, choice labels and keyboard history to that server. Review the destination and visible page content before enabling it. No endpoint is contacted or model downloaded merely by importing Rawstep.
+The HTTP adapter only accepts loopback endpoints by default, refuses credentials/query/fragment in endpoint URLs, and refuses redirects. A remote HTTPS endpoint requires `allowRemote: true` in the API. This explicitly transmits screenshot contents, the goal, choice labels and keyboard history to that server. Review the destination and visible page content before enabling it. No endpoint is contacted or model downloaded merely by importing Rawstep.
 
-`--policy ./policy.mjs` supports custom decision policies. The [example policy](../examples/screenshot/policy.mjs) configures a model and repetition/history limits. --script explicitly selects deterministic checks; --decision systemone selects a multimodal service. Deterministic fixture adapters in the automated tests are labelled as test doubles, not real model runs.
+Custom decision policies are library code (`ScreenshotDecisionPolicy` or your own policy passed to `runScreenshotTask`, see API below). The [example policy](../examples/screenshot/policy.mjs) configures a model and repetition/history limits. Deterministic fixture adapters in the automated tests are labelled as test doubles, not real model runs.
 
 ## Real OneJev example
 
@@ -61,4 +59,4 @@ PNG observations and model receipts can expose page contents. After named text e
 
 Focus visibility is uncertain unless explicitly assessed from images; the built-in OneJev action scorer currently reports focus assessment as `uncertain`. No hidden `document.activeElement` lookup is used to improve policy choices. A passing task, a model confidence score, changed pixels or an unchanged-pixel stop does not establish accessibility conformance, coverage of all controls or native screen-reader usability.
 
-Schema 2.2 stores each run's screenshots as `blobs/<sha256>.png` next to `trace.json`; observation events keep `{ sha256, blob, bytes, viewport }` references. Replay export reads those hashes directly, `--diagnose-stop` hydrates the final screenshot from the run directory, and `hydrateScreenshots` from `@rawstep/core/trace` restores pixels for other consumers. Saved 2.0/2.1 traces with inline PNGs still work. Screenshots in `blobs/` carry the same privacy caveats as before.
+Schema 2.2 stores each run's screenshots as `blobs/<sha256>.png` next to `trace.json`; observation events keep `{ sha256, blob, bytes, viewport }` references. Replay export reads those hashes directly, stop diagnostics hydrate the final screenshot from the run directory, and `hydrateScreenshots` from `@rawstep/core/trace` restores pixels for other consumers. Screenshots in `blobs/` carry the same privacy caveats as any other screenshot evidence.

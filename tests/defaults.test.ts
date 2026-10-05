@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RAWSTEP_DEFAULTS, isLoopbackHostname, isLoopbackUrl } from '@rawstep/core/defaults';
 import { resolveTask } from '@rawstep/core/contracts';
-import { defaultConfig } from '../packages/dashboard/src/shared/config.js';
+import { defaultConfig } from '@rawstep/project/config';
 
 describe('shared runtime defaults', () => {
   it.each(['http://localhost:1/', 'http://127.0.0.1/', 'http://[::1]:8/'])('treats %s as loopback', url => expect(isLoopbackUrl(url)).toBe(true));

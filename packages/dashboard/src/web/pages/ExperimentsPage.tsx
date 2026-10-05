@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, ListFilter } from 'lucide-react';
-import type { Combination, Experiment, Mode, PlanRequest } from '../../shared/config';
+import type { Mode } from '@rawstep/project/config';
+import type { Combination, Experiment, PlanRequest } from '../../shared/config';
 import { api } from '../api';
 import { Choice, Field, MultiChoice, Toggle } from '../components/forms';
 import { Button } from '../components/ui/button';
