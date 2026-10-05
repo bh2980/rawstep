@@ -1,0 +1,72 @@
+import { useState, type ReactNode } from 'react';
+import { Download, ExternalLink, RotateCcw, Square, X } from 'lucide-react';
+import type { RunHintsView } from '../../shared/api';
+import type { Experiment, RetryPreview } from '../../shared/config';
+import { api } from '../api';
+import { ko, runStateLabel } from '../i18n/ko';
+import { durationSeconds, environmentName, isLive, runPath, runStepCount, type RunRef } from '../lib/runs';
+import type { PageProps } from '../pages/types';
+import { Button } from './ui/button';
+import { RunStateLabel } from './RunStateLabel';
+import { RetryDialog } from './RetryDialog';
+
+type Props = { runRef: RunRef; hints: RunHintsView | undefined; pageProps: PageProps; onOpenRun: (runId: string, taskId: string) => void };
+
+/** Run title, facts (state, steps, duration, vs reference) and run actions. */
+export function RunHeader({ runRef, hints, pageProps, onOpenRun }: Props) {
+  const { run, experiment } = runRef;
+  const [retry, setRetry] = useState<RetryPreview>();
+  const base = runPath(experiment.id, run.id), live = isLive(run);
+  const steps = runStepCount(run), seconds = durationSeconds(run);
+  const extra = hints?.reference && steps !== undefined ? steps - hints.reference.steps : undefined;
+  const environment = environmentName(pageProps.view.config.environments, run.environmentId);
+  const { act, busy } = pageProps;
+  const post = (path: string) => () => void act(() => api(path, { method: 'POST' }));
+  const previewRetry = () => void act(async () => setRetry(await api<RetryPreview>(`${base}/retry`)));
+  const confirmRetry = () => void act(async () => {
+    if (!retry) return;
+    const created = await api<Experiment>(`${base}/retry`, { method: 'POST', body: { revision: retry.revision } });
+    setRetry(undefined);
+    onOpenRun(created.runs[0]!.id, run.taskId);
+  });
+  return <header className="grid gap-4">
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight">{run.snapshot.taskName}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {run.snapshot.model.name} · {run.snapshot.prompt.name} · {environment} · {ko.sidebar.modes[run.snapshot.mode]} · {ko.sidebar.repeat(run.repeat)}
+      </p>
+    </div>
+    <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+      <Fact label={ko.run.facts.state}><RunStateLabel state={run.state} className="font-medium" /></Fact>
+      {steps !== undefined && <Fact label={ko.run.facts.steps}>{ko.run.steps(steps)}</Fact>}
+      {seconds !== undefined && <Fact label={ko.run.facts.duration}>{ko.run.duration(seconds.toFixed(1))}</Fact>}
+      {extra !== undefined && <Fact label={ko.run.facts.reference}><span className="font-medium">{ko.run.versus(extra)}</span></Fact>}
+    </dl>
+    <div className="flex flex-wrap gap-2">
+      {live && <Button variant="outline" size="sm" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{ko.run.cancel}</Button>}
+      {live && <Button variant="ghost" size="sm" disabled={busy} onClick={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{ko.run.stopQueue}</Button>}
+      {!live && <Button variant="outline" size="sm" disabled={busy || !run.taskFile} title={run.taskFile ? undefined : ko.run.noTaskFile} onClick={previewRetry}><RotateCcw aria-hidden="true" />{ko.run.retry}</Button>}
+      {run.reportStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{ko.run.openReport}</a></Button>}
+      {run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{ko.run.downloadTrace}</a></Button>}
+      {run.analysisStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/analysis`}><Download aria-hidden="true" />{ko.run.downloadAnalysis}</a></Button>}
+      {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{ko.run.downloadStopReason}</a></Button>}
+    </div>
+    <RunNotices runRef={runRef} />
+    <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
+  </header>;
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="flex items-baseline gap-2"><dt className="sr-only">{label}</dt><dd>{children}</dd></div>;
+}
+
+function RunNotices({ runRef }: { runRef: RunRef }) {
+  const { run } = runRef;
+  return <div className="grid gap-1 text-sm">
+    {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{ko.run.simulationNotice}</p>}
+    {run.promptSource === 'server' && <p className="text-muted-foreground">{ko.run.serverPromptNotice}</p>}
+    {run.outcome && <p>{ko.run.outcome(runStateLabel(run.state), run.outcome.reason ?? ko.run.noReason)}</p>}
+    {run.error && <p role="alert" className="text-destructive">{run.error}</p>}
+    {run.analysisError && <p role="alert" className="text-destructive">{run.analysisError}</p>}
+  </div>;
+}
