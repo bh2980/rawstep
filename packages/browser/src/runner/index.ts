@@ -1,4 +1,4 @@
-import { RAWSTEP_DEFAULTS, isLoopbackUrl } from '@rawstep/core/defaults';
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile, type NativeZoomController } from '../profiles/index.js';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -80,7 +80,6 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     });
   };
   let browser: BrowserSession | undefined;
-  let expectedNativeTarget: number | undefined;
   let unsubscribe: (() => void) | undefined;
   let active = true;
   // Speech has no reliable completion/causal signal. Taint persists after input for late echoes.
@@ -120,20 +119,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     stage = 'backend-start';
     const metadata = await withinBudget(() => options.backend.start({ signal: controller.signal }));
     append('backend.metadata', metadata, { source: 'runner' });
-    if (metadata && typeof metadata === 'object' && (metadata as {backend?:string}).backend === 'orca-native') {
-      const target = (metadata as {target?:{windowId?:number}}).target?.windowId;
-      if (process.platform !== 'linux' || options.headless || !options.browserSessionFactory || !Number.isSafeInteger(target) || target! < 2) throw new Error('Native Orca requires a visible Linux browser, exact native target and explicit prepaired browserSessionFactory.');
-      expectedNativeTarget = target;
-    }
-    if (!options.browserSessionFactory && metadata && typeof metadata === 'object') {
-      const native = metadata as { backend?: string; profile?: string; endpoint?: string; environment?: { platformName?: string } };
-      if (native.backend === 'at-driver') {
-        const expected = native.profile === 'voiceover' ? 'darwin' : native.profile === 'nvda' ? 'win32' : undefined;
-        if (expected && expected !== process.platform) throw new Error('The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.');
-        if (native.endpoint && !isLoopbackUrl(native.endpoint)) throw new Error('Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.');
-        if (options.headless) throw new Error('Native AT Driver runs require a visible browser; headless is unsupported.');
-      }
-    }
+    // Each backend owns its host, visibility and pairing rules; the runner only supplies the facts.
+    await withinBudget(() => options.backend.preflight?.({ headless: options.headless ?? false, platform: process.platform, customBrowserSession: !!options.browserSessionFactory }));
     if (metadata && typeof metadata === 'object') {
       const value = metadata as { environment?: Record<string, unknown> };
       if (value.environment) trace.updateEnvironment({
@@ -147,7 +134,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     browser = await withinBudget(async () => {
       const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.headless ?? false, executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
-      if (expectedNativeTarget !== undefined && opened.nativeTargetWindowId !== expectedNativeTarget) { await opened.close(); throw new Error('Native browser window does not match the Orca speech/input target.'); }
+      try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
       return opened;
     });
     await withinBudget(() => browser!.page.bringToFront());
@@ -334,7 +321,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // Bound cleanup too. A server disconnect never turns an observed success into failure.
     for (const [name, close] of [['backend', () => options.backend.close()], ['browser', () => browser?.close()]] as const) {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      try { await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup timed out`)), expectedNativeTarget !== undefined && name === 'backend' ? RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend : RAWSTEP_DEFAULTS.cleanupTimeoutMs.default); })]); }
+      try { await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup timed out`)), name === 'backend' ? options.backend.cleanupTimeoutMs ?? RAWSTEP_DEFAULTS.cleanupTimeoutMs.default : RAWSTEP_DEFAULTS.cleanupTimeoutMs.default); })]); }
       catch (error) { bestEffortEvidence(() => append('run.cleanup-warning', { resource: name, message: inputTainted ? 'Cleanup failed; raw error redacted.' : errorMessage(error) }, { redacted: inputTainted })); }
       finally { if (timer) clearTimeout(timer); }
     }

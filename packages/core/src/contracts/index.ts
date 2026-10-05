@@ -99,7 +99,17 @@ export type BackendKeyboardObservation = { kind: 'keyboard'; windowId: string; s
 export type BackendObservation = BackendSpeechObservation | BackendKeyboardObservation;
 /** Generic backend boundary: transport and platform semantics belong in adapters. */
 export type BackendOperationOptions = { signal?: AbortSignal };
+/** What the runner knows about this run's host and browser, for a backend's own preconditions. */
+export type BackendRunContext = { headless: boolean; platform: string; customBrowserSession: boolean };
+/** The opened browser session as a backend sees it; `page` is the automation page (Playwright in Rawstep's browser package). */
+export type BackendSession = { readonly page: unknown; readonly nativeTargetWindowId?: number };
 export interface Backend {
+  /** Called after start(): throw when this run cannot proceed here (platform, visibility, session pairing). */
+  preflight?(context: BackendRunContext): void | Promise<void>;
+  /** Receives the opened browser session before the first observation; throw to refuse a session this backend cannot drive. */
+  attachSession?(session: BackendSession): void | Promise<void>;
+  /** Budget for close(); native bridges may need longer to release OS state. */
+  readonly cleanupTimeoutMs?: number;
   readonly observationKind?: 'screenreader' | 'keyboard';
   /** Missing means unspecified; only explicit simulation may synthesize output. */
   readonly evidenceProvenance?: 'native' | 'simulation';

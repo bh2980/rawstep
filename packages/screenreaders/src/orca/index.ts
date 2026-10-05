@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { Backend, BackendAction, BackendOperationOptions, BackendSpeechObservation } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendOperationOptions, BackendRunContext, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
+import { RawstepError } from '@rawstep/core/errors';
 import { orcaAssumptions, orcaCapabilities, mapOrcaAction } from './profile.js';
 import { ORCA_NATIVE_PROTOCOL, OrcaBridgeClient, OrcaBridgeError, record, validInterval, type OrcaBridgeOptions, type OrcaCommandReceipt, type OrcaTransportEvent } from './transport.js';
 
@@ -44,7 +46,9 @@ export class OrcaBackend implements Backend {
   readonly observationKind = 'screenreader' as const;
   readonly evidenceProvenance = 'native' as const;
   readonly capabilities = orcaCapabilities;
+  readonly cleanupTimeoutMs = RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend;
   private readonly sessionId = randomUUID();
+  private targetWindowId?: number;
   private readonly client: OrcaBridgeClient;
   private readonly quietMs: number;
   private readonly maxWaitMs: number;
@@ -124,6 +128,7 @@ export class OrcaBackend implements Backend {
       const value = (key: string) => typeof result[key] === 'string' && result[key] ? result[key] as string : 'unknown';
       window.acknowledgedAt = receipt.acknowledgedAt;
       this.state = 'ready';
+      this.targetWindowId = result.targetWindowId as number;
       return {
         backend: 'orca-native', profile: 'orca', protocol: ORCA_NATIVE_PROTOCOL, sessionId: this.sessionId,
         capabilities: this.capabilities,
@@ -133,6 +138,13 @@ export class OrcaBackend implements Backend {
         collection: { quietMs: this.quietMs, maxWaitMs: this.maxWaitMs, attribution: 'temporal-only', speechCompletionSignal: false },
       };
     } catch (error) { await this.close(); throw error; }
+  }
+  /** Orca speech and input follow one exact visible Linux window, paired by a trusted session factory. */
+  preflight(context: BackendRunContext): void {
+    if (context.platform !== 'linux' || context.headless || !context.customBrowserSession || !Number.isSafeInteger(this.targetWindowId) || this.targetWindowId! < 2) throw new RawstepError('backend-precondition', 'Native Orca requires a visible Linux browser, exact native target and explicit prepaired browserSessionFactory.');
+  }
+  attachSession(session: BackendSession): void {
+    if (session.nativeTargetWindowId !== this.targetWindowId) throw new RawstepError('backend-precondition', 'Native browser window does not match the Orca speech/input target.');
   }
   async execute(action: BackendAction, options: BackendOperationOptions = {}): Promise<OrcaReceipt> {
     options.signal?.throwIfAborted(); this.assertReady();

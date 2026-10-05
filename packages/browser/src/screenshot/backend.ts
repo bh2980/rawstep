@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import type { Backend, BackendAction, BackendKeyboardObservation, BackendOperationOptions } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendKeyboardObservation, BackendOperationOptions, BackendSession } from '@rawstep/core/contracts';
 
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
 export { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
@@ -13,6 +13,8 @@ export class ScreenshotKeyboardBackend implements Backend {
   private counter = 0;
   private previousScreenshot?: BackendKeyboardObservation['screenshot'];
 
+  attachSession(session: BackendSession): void { this.page = session.page as Page; }
+  /** @deprecated Prefer attachSession; the runner calls it with the opened session. */
   attachPage(page: Page): void { this.page = page; }
   async start(options: BackendOperationOptions = {}): Promise<unknown> {
     options.signal?.throwIfAborted();

@@ -552,3 +552,16 @@ describe("AT Driver backend", () => {
     expect(Object.isFrozen(vo.capabilities.intents)).toBe(true);
   });
 });
+
+describe('AT Driver host preconditions', () => {
+  const make = (url: string, profile: 'voiceover' | 'nvda' = 'voiceover') => new AtDriverBackend({ url, profile, webSocketFactory: () => { throw new Error('preflight must not connect'); } });
+  const ok = { platform: 'darwin', headless: false, customBrowserSession: false };
+  it('requires the same supported host, a loopback endpoint and a visible browser unless a session factory is paired', () => {
+    expect(() => make('ws://localhost/session').preflight(ok)).not.toThrow();
+    expect(() => make('ws://localhost/session').preflight({ ...ok, platform: 'win32' })).toThrow(/same supported host/);
+    expect(() => make('ws://localhost/session', 'nvda').preflight({ ...ok, platform: 'win32' })).not.toThrow();
+    expect(() => make('ws://example.test/session').preflight(ok)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/loopback AT Driver endpoint/) }));
+    expect(() => make('ws://localhost/session').preflight({ ...ok, headless: true })).toThrow(/headless is unsupported/);
+    expect(() => make('ws://example.test/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+  });
+});
