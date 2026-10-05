@@ -1,0 +1,8 @@
+{
+  "id": "mock-voiceover-system-demo",
+  "url": "../../fixtures/mock-voiceover-system.html",
+  "goal": "Activate Save twice.",
+  "maxSteps": 4,
+  "timeoutMs": 120000,
+  "verify": { "all": [{ "titleIncludes": "Mock VoiceOver demo completed" }] }
+}

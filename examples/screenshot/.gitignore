@@ -1,0 +1,9 @@
+.venv/
+model/
+.hf-cache/
+.uv-cache/
+__pycache__/
+*.jsonl
+model-manifest.json
+
+onejev4b-assets/

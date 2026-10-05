@@ -1,0 +1,138 @@
+{
+  "root": "permissions",
+  "elements": {
+    "permissions": {
+      "type": "Card",
+      "props": {
+        "title": "허용 기능",
+        "description": "실행 모드별로 모델이 선택할 행동을 지정합니다.",
+        "maxWidth": "full",
+        "centered": false,
+        "className": "bg-card/40"
+      },
+      "children": [
+        "actions"
+      ]
+    },
+    "actions": {
+      "type": "Stack",
+      "props": {
+        "direction": "vertical",
+        "gap": "lg",
+        "align": "stretch",
+        "justify": "start",
+        "className": null
+      },
+      "children": [
+        "navigation",
+        "forward",
+        "backward",
+        "extraNavigation",
+        "activate",
+        "divider",
+        "input",
+        "textEntry",
+        "replaceText"
+      ]
+    },
+    "navigation": {
+      "type": "Text",
+      "props": {
+        "text": "탐색과 활성화",
+        "variant": "muted"
+      },
+      "children": []
+    },
+    "divider": {
+      "type": "Separator",
+      "props": {},
+      "children": []
+    },
+    "input": {
+      "type": "Text",
+      "props": {
+        "text": "작업 입력값",
+        "variant": "muted"
+      },
+      "children": []
+    },
+    "forward": {
+      "type": "Checkbox",
+      "props": {
+        "label": "다음 항목 탐색",
+        "name": "screenreader-forward",
+        "checked": {
+          "$bindState": "/screenreader/forward"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "backward": {
+      "type": "Checkbox",
+      "props": {
+        "label": "이전 항목 탐색",
+        "name": "screenreader-backward",
+        "checked": {
+          "$bindState": "/screenreader/backward"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "extraNavigation": {
+      "type": "Checkbox",
+      "props": {
+        "label": "제목과 폼 탐색",
+        "name": "screenreader-extraNavigation",
+        "checked": {
+          "$bindState": "/screenreader/extraNavigation"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "activate": {
+      "type": "Checkbox",
+      "props": {
+        "label": "컨트롤 활성화",
+        "name": "screenreader-activate",
+        "checked": {
+          "$bindState": "/screenreader/activate"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "textEntry": {
+      "type": "Switch",
+      "props": {
+        "label": "텍스트 입력 허용",
+        "name": "screenreader-textEntry",
+        "checked": {
+          "$bindState": "/screenreader/textEntry"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    },
+    "replaceText": {
+      "type": "Switch",
+      "props": {
+        "label": "기존 값 교체 허용",
+        "name": "screenreader-replaceText",
+        "checked": {
+          "$bindState": "/screenreader/replaceText"
+        },
+        "checks": null,
+        "validateOn": "change"
+      },
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "@rawstep/cli",
+  "version": "0.2.0",
+  "description": "Rawstep cli workspace",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./cli/args": {
+      "types": "./dist/cli/args.d.ts",
+      "import": "./dist/cli/args.js",
+      "default": "./dist/cli/args.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "default": "./dist/cli/index.js"
+    },
+    "./matrix": {
+      "types": "./dist/matrix/index.d.ts",
+      "import": "./dist/matrix/index.js",
+      "default": "./dist/matrix/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bh2980/rawstep.git",
+    "directory": "packages/cli"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@rawstep/core": "workspace:*",
+    "@rawstep/policies": "workspace:*",
+    "@rawstep/browser": "workspace:*",
+    "@rawstep/screenreaders": "workspace:*",
+    "@rawstep/reports": "workspace:*",
+    "@rawstep/dashboard": "workspace:*"
+  },
+  "bin": {
+    "rawstep": "./dist/cli/bin.js"
+  }
+}

@@ -1,0 +1,32 @@
+import { useState } from 'react';
+import { Field, Choice, SectionHeader } from '../components/forms';
+import { api } from '../api';
+import { EnvironmentFields } from '../components/EnvironmentFields';
+import { PermissionsEditor } from '../components/PermissionsEditor';
+import { Button } from '../components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { Switch } from '../components/ui/switch';
+import { Label } from '../components/ui/label';
+import { defaultConfig, type DashboardConfig } from '../../shared/config';
+import type { PageProps } from './types';
+
+export function SettingsPage(props: PageProps) {
+  const [config, setConfig] = useState<DashboardConfig>(() => structuredClone(props.view.config));
+  const [revision, setRevision] = useState(props.view.revision);
+  const [environments, setEnvironments] = useState(JSON.stringify(config.environments, null, 2));
+  const [capabilities, setCapabilities] = useState(props.view.capabilities);
+  const [backendStatus, setBackendStatus] = useState('');
+  const globals = config.globals;
+  const update = (part: Partial<typeof globals>) => setConfig({ ...config, globals: { ...globals, ...part } });
+  return <>
+    <SectionHeader title="전역 설정" description="각 작업이 상속할 기본 행동, 실행 백엔드와 환경을 설정합니다."><Button variant="outline" onClick={() => { const defaults = defaultConfig(); setConfig({ ...config, globals: defaults.globals }); setEnvironments(JSON.stringify(defaults.environments, null, 2)); setBackendStatus(''); void props.act(async () => setCapabilities(await api<typeof capabilities>('/capabilities', { method: 'POST', body: { globals: defaults.globals } }))); }}>기본값으로 편집</Button><Button disabled={props.busy} onClick={() => void props.act(async () => { const saved = await props.save({ ...config, environments: JSON.parse(environments) }, undefined, revision); setRevision(saved.revision); })}>설정 저장</Button></SectionHeader>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card><CardHeader><CardTitle>키보드 기본 허용 기능</CardTitle></CardHeader><CardContent><PermissionsEditor value={globals.keyboard} onChange={keyboard => update({ keyboard })} capabilities={capabilities.keyboard} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>스크린리더 기본 허용 기능</CardTitle></CardHeader><CardContent><PermissionsEditor value={globals.screenreader} onChange={screenreader => update({ screenreader })} capabilities={capabilities.screenreader} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>실행 환경</CardTitle></CardHeader><CardContent className="grid gap-4"><Choice label="스크린리더 백엔드" value={globals.backend} onChange={backend => { const next = { ...globals, backend: backend as typeof globals.backend }; update({ backend: next.backend }); setBackendStatus(''); void props.act(async () => setCapabilities(await api<typeof capabilities>('/capabilities', { method: 'POST', body: { globals: next } }))); }} options={[{ id: 'simulation', name: '모의 VoiceOver — DOM 기반 시뮬레이션' }, { id: 'voiceover', name: '네이티브 VoiceOver — macOS AT Driver' }, { id: 'nvda', name: '네이티브 NVDA — Windows AT Driver' }]} /><Field label="AT Driver WebSocket 주소" value={globals.atEndpoint} onChange={atEndpoint => update({ atEndpoint })} /><Field label="Chromium 실행 파일 경로" value={globals.browserExecutablePath} onChange={browserExecutablePath => update({ browserExecutablePath })} hint="비워두면 설치한 Playwright Chromium을 사용합니다." /><div className="flex items-center gap-3"><Switch id="headless" checked={globals.headless} onCheckedChange={headless => update({ headless })} /><Label htmlFor="headless">키보드·모의 실행을 headless로 실행</Label></div><Button variant="outline" disabled={props.busy} onClick={() => void props.act(async () => { const result = await api<{ message: string }>('/backend/check', { method: 'POST', body: { globals } }); setBackendStatus(result.message); })}>백엔드 연결 확인</Button>{backendStatus && <p role="status" className="text-sm text-primary">{backendStatus}</p>}<p className="text-xs leading-5 text-muted-foreground">네이티브 AT는 실제 브라우저 창과 준비된 서버가 필요합니다. 시뮬레이션 결과는 네이티브 검증으로 표시하지 않습니다.</p></CardContent></Card>
+      <Card><CardHeader><CardTitle>정책 제한</CardTitle></CardHeader><CardContent className="grid gap-4">{([['historyLimit', '모델에 전달할 이력 수'], ['maxStateVisits', '같은 시각 상태 방문 제한'], ['maxUnchangedTransitions', '화면 변화 없는 전이 제한']] as const).map(([key, label]) => <Field key={key} label={label} type="number" value={String(globals.policy[key])} onChange={s => update({ policy: { ...globals.policy, [key]: Number(s) } })} />)}<div className="flex items-center gap-3"><Switch id="focus-gate" checked={globals.policy.focusGate} onCheckedChange={focusGate => update({ policy: { ...globals.policy, focusGate } })} /><Label htmlFor="focus-gate">SystemOne 확률 기반 시각 포커스 제한</Label></div></CardContent></Card>
+      <Card className="lg:col-span-2"><CardHeader><CardTitle>사후 분석 지침</CardTitle></CardHeader><CardContent><Field label="기본 분석 지침" multiline value={globals.analysisInstructions} onChange={analysisInstructions => update({ analysisInstructions })} hint="LLM 분석에 추가로 전달할 관심 영역을 적습니다. 독립 검증 결과와 근거 규칙은 유지합니다." /></CardContent></Card>
+      <Card className="lg:col-span-2"><CardHeader><CardTitle>비교 환경</CardTitle></CardHeader><CardContent className="grid gap-4"><EnvironmentFields json={environments} onChange={setEnvironments} profiles={props.view.profiles} /><details><summary className="cursor-pointer text-sm">고급 환경 JSON</summary><div className="mt-4"><Field label="환경 목록 JSON" value={environments} multiline onChange={setEnvironments} hint={'예: [{"id":"default","name":"기본","profile":"default"},{"id":"narrow","name":"좁은 화면","profile":"narrow"}]. profile에 사용자 정의 환경 객체를 넣을 수도 있습니다.'} /></div></details><p className="text-xs text-muted-foreground">기본 프로필: {Object.keys(props.view.profiles).join(', ')}</p></CardContent></Card>
+    </div>
+  </>;
+}

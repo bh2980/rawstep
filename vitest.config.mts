@@ -1,19 +1,11 @@
-import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({
-  test: {
-    environment: "node",
-    include: ["tests/**/*.test.ts"]
-  },
-  resolve: {
-    alias: {
-      "@rawstep/action-catalog": resolve(__dirname, "packages/action-catalog/src"),
-      "@rawstep/definition": resolve(__dirname, "packages/definition/src"),
-      "@rawstep/config": resolve(__dirname, "packages/config/src"),
-      "@rawstep/agent": resolve(__dirname, "packages/agent/src"),
-      "@rawstep/runtime": resolve(__dirname, "packages/runtime/src"),
-      "@rawstep/reporter": resolve(__dirname, "packages/reporter/src")
-    }
-  }
-});
+// Browser suites are opt-in and always serial. CI uses test:all, not just npm test.
+const browser = process.env.RAWSTEP_TEST_SUITE === 'browser';
+export default defineConfig({ test: {
+  environment: 'node',
+  include: browser ? ['tests/**/*.integration.test.ts'] : ['tests/**/*.test.ts'],
+  exclude: browser ? [] : ['tests/**/*.integration.test.ts'],
+  maxWorkers: 1, fileParallelism: false, bail: 1,
+  testTimeout: browser ? 30_000 : 10_000, hookTimeout: 15_000,
+} });

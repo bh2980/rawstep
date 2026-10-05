@@ -1,0 +1,1 @@
+{"id":"environment-lab-finish","mode":"keyboard","url":"../../fixtures/environment-lab.html","goal":"Use the keyboard to activate Finish task. Stop when Task completed successfully is visible. An orange outline identifies keyboard focus.","maxSteps":20,"timeoutMs":300000,"verify":{"all":[{"textVisibleExact":"Task completed successfully"}]}}

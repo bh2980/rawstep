@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Native Orca confirmation</title>
+<style>body{font:24px system-ui;margin:3rem;max-width:50rem}button{font:inherit;margin:1rem;padding:.6rem 1rem}:focus{outline:4px solid #065bcd}section{border:2px solid;padding:1rem}</style>
+<h1>Native Orca confirmation</h1>
+<p>This local fixture is used only for the native screen-reader smoke test.</p>
+<button id="continue" autofocus>Continue</button>
+<section id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden>
+<h2 id="dialog-title">Confirm action</h2><button id="confirm">Confirm</button><button id="cancel">Cancel</button>
+</section>
+<p id="result" role="status" aria-live="polite"></p>
+<script>
+const start=document.getElementById('continue'),dialog=document.getElementById('dialog'),confirm=document.getElementById('confirm'),cancel=document.getElementById('cancel'),result=document.getElementById('result');
+start.addEventListener('click',()=>{dialog.hidden=false;start.disabled=true;confirm.focus()});
+confirm.addEventListener('click',()=>{dialog.hidden=true;start.disabled=false;start.focus();result.textContent='Action completed';document.title='Completed native Orca confirmation'});
+cancel.addEventListener('click',()=>{dialog.hidden=true;start.disabled=false;start.focus();result.textContent='Action cancelled'});
+</script></html>

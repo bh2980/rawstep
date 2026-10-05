@@ -1,0 +1,6 @@
+[
+  { "action": { "kind": "key", "key": "Tab" }, "rationale": "Move focus to the first tab stop." },
+  { "action": { "kind": "key", "key": "Tab" }, "rationale": "Move focus to the next tab stop." },
+  { "action": { "kind": "key", "key": "Enter" }, "rationale": "Activate the focused control." },
+  { "stop": "success", "rationale": "Ask the independent verifier to check the result." }
+]

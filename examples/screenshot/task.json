@@ -1,0 +1,9 @@
+{
+  "id": "screenshot-keyboard-lab",
+  "mode": "keyboard",
+  "url": "../../fixtures/screenshot-keyboard.html",
+  "goal": "Use the keyboard to activate the Finish task button. The visible status should become Task completed successfully. An orange outline marks the focused control.",
+  "maxSteps": 16,
+  "timeoutMs": 300000,
+  "verify": { "all": [{ "textVisibleExact": "Task completed successfully" }] }
+}
