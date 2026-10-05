@@ -28,6 +28,11 @@
       "import": "./dist/browser/navigation-boundary.js",
       "default": "./dist/browser/navigation-boundary.js"
     },
+    "./observer": {
+      "types": "./dist/observer/index.d.ts",
+      "import": "./dist/observer/index.js",
+      "default": "./dist/observer/index.js"
+    },
     "./profiles/diagnostics": {
       "types": "./dist/profiles/diagnostics.d.ts",
       "import": "./dist/profiles/diagnostics.js",

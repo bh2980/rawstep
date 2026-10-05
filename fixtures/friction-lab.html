@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Friction lab</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 24px; }
+  button, a { display: block; margin: 8px 0; }
+  .toast { position: fixed; bottom: 16px; right: 16px; background: #222; color: #fff; padding: 8px 12px; }
+  .modal { position: fixed; inset: 20% 30%; background: #fff; border: 2px solid #333; padding: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Friction lab</h1>
+  <p>Each control reproduces one friction pattern for the page observer and hint extractor.</p>
+  <!-- Removes itself on activation, so keyboard focus falls back to the document body. -->
+  <button id="vanish" type="button">Dismiss banner</button>
+  <!-- Opens a modal dialog but leaves focus on the trigger behind it. -->
+  <button id="open-modal" type="button" aria-expanded="false">Open settings</button>
+  <!-- Shows a polite status toast that disappears after 600ms. -->
+  <button id="add" type="button">Add to cart</button>
+  <div id="announcer" role="status" aria-live="polite"></div>
+  <!-- Changes quantity silently: visible change, no live-region announcement. -->
+  <button id="more" type="button">Increase quantity</button>
+  <p>Quantity: <span id="qty">1</span></p>
+  <label><input id="gift" type="checkbox"> Gift wrap</label>
+  <!-- Client-side navigation through history.pushState. -->
+  <a id="next" href="#checkout">Go to checkout</a>
+  <h2 id="checkout-heading" hidden>Checkout</h2>
+</main>
+<script>
+  document.getElementById('vanish').addEventListener('click', (event) => event.currentTarget.remove());
+  document.getElementById('open-modal').addEventListener('click', (event) => {
+    event.currentTarget.setAttribute('aria-expanded', 'true');
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Settings');
+    modal.innerHTML = '<p>Settings</p><button type="button">Close settings</button>';
+    modal.querySelector('button').addEventListener('click', () => { modal.remove(); document.getElementById('open-modal').setAttribute('aria-expanded', 'false'); });
+    document.body.append(modal);
+  });
+  document.getElementById('add').addEventListener('click', () => {
+    const announcer = document.getElementById('announcer');
+    announcer.textContent = 'Added to cart';
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.setAttribute('role', 'alert');
+    toast.textContent = 'Cart updated';
+    document.body.append(toast);
+    setTimeout(() => { toast.remove(); announcer.textContent = ''; }, 600);
+  });
+  document.getElementById('more').addEventListener('click', () => {
+    const qty = document.getElementById('qty');
+    qty.textContent = String(Number(qty.textContent) + 1);
+  });
+  document.getElementById('next').addEventListener('click', (event) => {
+    event.preventDefault();
+    history.pushState({}, '', '#checkout');
+    document.getElementById('checkout-heading').hidden = false;
+    document.title = 'Checkout';
+  });
+</script>
+</body>
+</html>

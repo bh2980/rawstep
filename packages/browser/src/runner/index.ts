@@ -7,6 +7,7 @@ import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlock
 import { resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
+import type { ObserverEvent } from '../observer/index.js';
 
 export type RunOptions = {
   backend: Backend;
@@ -86,6 +87,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const history: HistoryEntry[] = [];
   let latestActivation: VerificationContext['latestActivation'];
   const outputEventIds = new Map<number, string>();
+  // Observer changes keep their structure after text entry so hints still work; only words are withheld.
+  const drainObserver = () => { for (const event of browser?.observer?.take() ?? []) append(`observer.${event.kind}`, inputTainted ? redactObserverEvent(event) : event, { source: 'browser-diagnostic', timestamp: event.at, redacted: inputTainted }); };
   const recordBrowserDiagnostic = (type: string, data: unknown) => append(type, inputTainted ? { message: '[REDACTED]', reason: 'Browser diagnostics may contain delayed or form-encoded task input.' } : data, { source: 'browser-diagnostic', redacted: inputTainted });
   try {
     unsubscribe = options.backend.subscribe((event: unknown) => {
@@ -153,6 +156,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         if (!matches && task.profile.requireApplied) throw new ProfileApplicationError({...browser.appliedProfile,supported:false,settings:[...browser.appliedProfile.settings,{name:'at',requested:task.profile.at,observed:actual??null,status:'mismatch',mechanism:'metadata',detail:'Requested AT name/version/configuration is not proved by the backend handshake.'}]});
       }
     }
+    if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
     append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.headless ?? false }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions });
     const observe = async (): Promise<Observation> => {
@@ -191,6 +195,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       return observation;
     };
     let observation = await observe();
+    drainObserver();
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
       const result = await withinBudget(() => (options.verifier ?? verifyTask)(task, browser!, { latestActivation }));
@@ -233,6 +238,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       let execution: { ok: boolean; error?: string };
       try {
         stage = 'action';
+        browser.observer?.setStep(step);
         if (action.kind === 'typeText' || action.kind === 'replaceText') {
           const editable = await withinBudget(() => isEditable(browser!));
           append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
@@ -254,6 +260,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page)); }
       observation = await observe();
       if (execution.ok && isActivation(action)) latestActivation = { step, action, observation };
+      drainObserver();
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
       if (options.diagnosticScreenshots && inputTainted) append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true });
@@ -298,6 +305,9 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     controller.abort();
     bestEffortEvidence(() => {
     if (browser) {
+      drainObserver();
+      const dropped = browser.observer?.dropped() ?? {};
+      if (Object.keys(dropped).length) append('observer.dropped', { perStep: dropped, reason: 'Per-step observer cap reached; later changes in those steps were not recorded.' }, { source: 'browser-diagnostic' });
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
     }
@@ -362,6 +372,12 @@ function rejectedDecisionDetails(decision: unknown, tainted: boolean): Record<st
   const kind = ['key', 'intent', 'typeText', 'replaceText'].includes(String(action.kind)) ? action.kind : 'invalid';
   if (tainted) return { action: { kind, details: '[REDACTED]' } };
   return { action: { kind, ...Object.fromEntries(['key', 'intent', 'input'].filter(key => typeof action[key] === 'string').map(key => [key, action[key]])) } };
+}
+
+function redactObserverEvent(event: ObserverEvent): Record<string, unknown> {
+  const safe: Record<string, unknown> = { ...event };
+  for (const key of ['name', 'text', 'value', 'url'] as const) if (safe[key] !== undefined && safe[key] !== null) safe[key] = '[REDACTED]';
+  return safe;
 }
 
 function redactVerificationWitness(witness: VerificationWitness): Record<string, unknown> {

@@ -23,6 +23,11 @@
       "import": "./dist/analyze/index.js",
       "default": "./dist/analyze/index.js"
     },
+    "./hints": {
+      "types": "./dist/hints/index.d.ts",
+      "import": "./dist/hints/index.js",
+      "default": "./dist/hints/index.js"
+    },
     "./report": {
       "types": "./dist/report/index.d.ts",
       "import": "./dist/report/index.js",
