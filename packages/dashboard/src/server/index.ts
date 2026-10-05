@@ -61,7 +61,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     const host = req.headers.host;
     if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
     const origin = req.headers.origin;
-    if (origin && origin !== new URL(url).origin && origin !== options.allowedOrigin) throw new HttpError(403, '요청 Origin을 허용하지 않습니다.');
+    if (origin && !sameServerOrigin(origin, url) && origin !== options.allowedOrigin) throw new HttpError(403, '요청 Origin을 허용하지 않습니다.');
     const path = new URL(req.url ?? '/', url).pathname, method = req.method ?? 'GET';
     res.setHeader('x-content-type-options', 'nosniff');
     if (path === '/api/events' && method === 'GET') {
@@ -171,4 +171,15 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     clearInterval(timer); for (const entry of throttles.values()) clearTimeout(entry.timer); throttles.clear(); await queue.close(); for (const res of listeners) res.end(); listeners.clear();
     await new Promise<void>((accept, reject) => server.close(e => e ? reject(e) : accept())); server.closeAllConnections();
   } };
+}
+
+/**
+ * The page may be opened as localhost, 127.0.0.1 or [::1]; module scripts then send that origin.
+ * Any loopback name on this server's port is this server, so only other ports and hosts are foreign.
+ */
+function sameServerOrigin(origin: string, serverUrl: string): boolean {
+  try {
+    const parsed = new URL(origin), server = new URL(serverUrl);
+    return parsed.protocol === 'http:' && isLoopbackHostname(parsed.hostname) && parsed.port === server.port && parsed.origin === origin;
+  } catch { return false; }
 }
