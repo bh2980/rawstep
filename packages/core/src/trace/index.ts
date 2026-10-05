@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { FileTraceSink, extractScreenshots, isScreenshotRef, writeJsonAtomic, type TraceSink } from "./sink.js";
+import { FileTraceSink, extractScreenshots, isScreenshotRef, writeJsonAtomic, type ScreenshotRef, type TraceSink } from "./sink.js";
 export * from "./sink.js";
 import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
@@ -265,7 +265,11 @@ export class TraceRecorder {
     const stored = extractScreenshots(jsonCopy(data), (name, bytes) => this.sink.putBlob(name, bytes));
     const safe = this.redact(stored.value);
     preserveEventStructure(type, stored.value, safe.value);
-    for (const path of stored.paths) setAt(safe.value, path, getAt(stored.value, path));
+    // Only the hash reference is restored (redaction could match inside a hex digest); sibling metadata stays redacted.
+    for (const path of stored.paths) {
+      const { sha256, blob, bytes } = getAt(stored.value, path) as ScreenshotRef;
+      setAt(safe.value, path, { ...(getAt(safe.value, path) as Record<string, unknown>), sha256, blob, bytes });
+    }
     const seq = this.state.events.length + 1;
     const event: TraceEvent = {
       id: `event-${String(seq).padStart(6, "0")}`,

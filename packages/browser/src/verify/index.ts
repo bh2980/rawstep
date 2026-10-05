@@ -83,7 +83,7 @@ async function observeVerifyRule(
   }
 
   if ("focused" in rule) {
-    const latest = [...(context?.timeline ?? [])].reverse().find(event => event.kind === 'focus' || event.kind === 'focus-lost');
+    const latest = currentFocus(context?.timeline ?? []);
     if (!context?.timeline) return unavailable('focused', 'Verification failed: page observer events are unavailable, so focus rules cannot be checked.');
     const matched = latest?.kind === 'focus' && (rule.focused.role === undefined || latest.role === rule.focused.role) && (rule.focused.name === undefined || matchesText(rule.focused.name, latest.name));
     return result('focused', matched ? undefined : `Verification failed: keyboard focus is ${latest?.kind === 'focus' ? 'on a different element' : 'not on any recorded element'}.`, latest ? [observerWitness(latest)] : []);
@@ -217,4 +217,20 @@ function formatResponseFailure(urlIncludes: string, method?: string, status?: nu
 
 function formatActivatedAnnouncementMissingFailure(expected: string): string {
   return `Verification failed: no screenreader activation-window output including "${expected}" was recorded.`;
+}
+
+/**
+ * The focus record that still holds at the end of the timeline. A later focus-lost, a cross-document navigation,
+ * or the page losing focus (without regaining it) ends an earlier focus record.
+ */
+function currentFocus(timeline: readonly ObserverEvent[]): ObserverEvent | undefined {
+  let regained = false;
+  for (let index = timeline.length - 1; index >= 0; index--) {
+    const event = timeline[index]!;
+    if (event.kind === 'focus' || event.kind === 'focus-lost') return event;
+    if (event.kind === 'navigation' && event.sameDocument === false) return event;
+    if (event.kind === 'page-focus') regained = true;
+    else if (event.kind === 'page-blur') { if (!regained) return event; regained = false; }
+  }
+  return undefined;
 }

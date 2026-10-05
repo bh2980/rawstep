@@ -25,7 +25,10 @@ export class ExperimentQueue {
     for (const id of await readdir(directory)) {
       if (!/^[0-9a-f-]{36}$/.test(id)) continue;
       const file = await this.store.file('.rawstep/experiments/' + id + '/experiment.json', true);
-      const experiment = JSON.parse(await readFile(file, 'utf8')) as Experiment;
+      let raw: string;
+      // A crash between creating the directory and renaming experiment.json into it leaves nothing to recover.
+      try { raw = await readFile(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
       let interrupted = false;
       for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { isScreenshotRef } from '@rawstep/core/trace';
-import { resolve, extname, join } from 'node:path';
+import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
@@ -153,7 +153,8 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path.startsWith('/api/')) throw new HttpError(404, 'API를 찾을 수 없습니다.');
     if (method !== 'GET') throw new HttpError(405, 'GET 요청이 필요합니다.');
     const requested = resolve(webDir, '.' + decodeURIComponent(path));
-    if (requested !== resolve(webDir) && !requested.startsWith(resolve(webDir) + '/')) throw new HttpError(403, '잘못된 파일 경로');
+    const inside = relative(resolve(webDir), requested);
+    if (inside === '..' || inside.startsWith('..' + sep) || isAbsolute(inside)) throw new HttpError(403, '잘못된 파일 경로');
     let file = requested;
     try { if (!(await stat(file)).isFile()) file = join(webDir, 'index.html'); } catch { file = join(webDir, 'index.html'); }
     const content = await readFile(file), types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png' };

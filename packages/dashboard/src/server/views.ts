@@ -27,10 +27,15 @@ export class RunViews {
   private async trace(experimentId: string, runId: string): Promise<RunTrace | undefined> {
     return readTrace(await this.dir(experimentId, runId)).catch(() => undefined);
   }
+  /** The initial trace.json plus the journal events read so far; readTrace would reject a half-written last line. */
+  private async liveTrace(experimentId: string, runId: string, events: TraceEvent[]): Promise<RunTrace | undefined> {
+    const raw = await readOptional(await this.store.file('.rawstep/experiments/' + experimentId + '/' + runId + '/trace.json')).catch(() => undefined);
+    try { return raw ? { ...(JSON.parse(raw) as RunTrace), events } : undefined; } catch { return undefined; }
+  }
   async steps(experimentId: string, runId: string): Promise<RunStepsView> {
     const run = this.queue.find(experimentId, runId), events = await this.events(experimentId, runId);
     // Finished runs carry hints.json from the queue; a running run is analysed from its journal on demand.
-    const report = live(run) ? await this.trace(experimentId, runId).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
+    const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
     return buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) });
   }
   /** Hints against the shortest goal-reaching finished run of the same task and mode, from any experiment. */
