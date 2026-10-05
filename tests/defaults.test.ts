@@ -8,8 +8,8 @@ describe('shared runtime defaults', () => {
   it.each(['https://example.com/', 'http://127.0.0.2/', 'not a url'])('rejects %s as non-loopback', url => expect(isLoopbackUrl(url)).toBe(false));
   it('accepts a bare ::1 hostname', () => expect(isLoopbackHostname('::1')).toBe(true));
   it('keeps the dashboard policy defaults in sync', () => {
-    const { focusGate, ...policy } = defaultConfig().globals.policy;
-    expect(focusGate).toBe(false);
+    const { focusGate, repetitionGuard, modelGiveUp, ...policy } = defaultConfig().globals.policy;
+    expect([focusGate, repetitionGuard, modelGiveUp]).toEqual([false, 'auto', true]);
     expect(policy).toEqual(RAWSTEP_DEFAULTS.policy);
   });
   it('resolves task limits from the shared defaults', () => {

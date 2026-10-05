@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { defaultConfig, defaultModes } from '../packages/dashboard/src/shared/config.js';
+import { configSchema, defaultConfig, defaultModes, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
 import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
 import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
 import { speechChoices } from '@rawstep/policies/systemone';
@@ -152,5 +152,24 @@ describe('dashboard API and sequential queue', () => {
       expect(sent?.messages[1]!.content).toContain('Global comparison focus');
       expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
+  });
+});
+describe('dashboard early give-up settings', () => {
+  it('loads a saved config without the new policy fields and defaults them', async () => {
+    const dir = await root(), store = new ProjectStore(dir), first = await store.initialize();
+    const old = JSON.parse(JSON.stringify(first.config)); delete old.globals.policy.repetitionGuard; delete old.globals.policy.modelGiveUp;
+    await writeFile(store.path, JSON.stringify(old));
+    const policy = (await new ProjectStore(dir).read()).config.globals.policy;
+    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(defaultConfig().globals.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(() => configSchema.parse({ ...old, globals: { ...old.globals, policy: { ...old.globals.policy, repetitionGuard: 'sometimes' } } })).toThrow();
+  });
+  it('resolves auto by model family and honours explicit on/off', () => {
+    const llm = { family: 'LLM' as const }, systemOne = { family: 'SystemOne' as const }, hosted = { provider: 'systemone' as const }, local = { provider: 'screenshot' as const };
+    expect(resolveRepetitionGuard('auto', systemOne, hosted)).toBe(false);
+    expect(resolveRepetitionGuard('auto', llm, { provider: 'openai' })).toBe(true);
+    expect(resolveRepetitionGuard('auto', systemOne, local)).toBe(true);
+    expect(resolveRepetitionGuard('on', systemOne, hosted)).toBe(true);
+    expect(resolveRepetitionGuard('off', llm, { provider: 'openai' })).toBe(false);
   });
 });

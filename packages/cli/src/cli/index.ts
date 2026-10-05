@@ -220,12 +220,13 @@ async function selectPolicy(args: CliArguments, cwd: string, dependencies: CliDe
     const config = decisionConfig(args, await loadCliEnvironment(cwd, dependencies.env));
     const base = modelBaseURL(config.baseURL);
     const client = (dependencies.createDecisionClient ?? createDecisionClient)(config);
-    const policy = visual ? new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client) }) : new SystemOneSpeechPolicy(client);
+    const modelGiveUp = !args.options['no-model-give-up'];
+    const policy = visual ? new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(client), repetitionGuard: Boolean(args.options['repetition-guard']), modelGiveUp }) : new SystemOneSpeechPolicy(client, undefined, undefined, { modelGiveUp });
     if (visual && !isLoopbackHostname(base.hostname) && !args.options['allow-remote-model']) throw new CliUsageError('Remote screenshot transmission requires --allow-remote-model.');
     (dependencies.stderr ?? (text => process.stderr.write(text)))('[privacy] SystemOne receives the goal and live speech/images, which may contain displayed or spoken input values. Saved trace redaction does not anonymize live requests.\n');
     return { client, policy };
   }
-  return { policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: String(args.options['model-endpoint']), allowRemote: Boolean(args.options['allow-remote-model']) }) }) };
+  return { policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: String(args.options['model-endpoint']), allowRemote: Boolean(args.options['allow-remote-model']) }), repetitionGuard: !args.options['no-repetition-guard'], modelGiveUp: !args.options['no-model-give-up'] }) };
 }
 async function prepareDecision(client: SystemOneClient | undefined, task: Task, visual: boolean, signal: AbortSignal, backend?: Backend): Promise<void> {
   if (!client) return;

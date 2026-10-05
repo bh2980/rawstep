@@ -37,11 +37,11 @@ export class LlmChoiceClient {
 }
 export class LlmSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
-  constructor(private readonly client: LlmChoiceClient, private readonly historyLimit: number) {}
+  constructor(private readonly client: LlmChoiceClient, private readonly historyLimit: number, private readonly options: { modelGiveUp?: boolean } = {}) {}
   takeDecisionEvidence() { return this.evidence.splice(0); }
   async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
     if (input.observation.kind !== 'screenreader') throw new Error('Speech-only policy required');
-    const choices = speechChoices(input.allowedActions);
+    const choices = speechChoices(input.allowedActions, this.options);
     const started = performance.now();
     const response = await this.client.choose({
       goal: input.goal, speech: input.observation.speech,

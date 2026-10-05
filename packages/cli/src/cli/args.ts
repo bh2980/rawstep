@@ -10,19 +10,20 @@ export class CliUsageError extends Error {
 }
 
 const decisionOptions = ['decision', 'decision-provider', 'decision-base-url', 'decision-model', 'decision-inputs'] as const;
+const guardOptions = ['repetition-guard', 'no-repetition-guard', 'no-model-give-up'] as const;
 const optionsByCommand: Record<Command, readonly string[]> = {
   ui: ['port', 'project'],
   profiles: [],
-  matrix: [...decisionOptions, "diagnose-stop", "stop-reason-endpoint", "profiles", "profile-set", "mode", "policy", "script", "model-endpoint", "allow-remote-model", "out", "headed", "browser-executable", "proxy-server", "human-evidence"],
-  run: [...decisionOptions, "profile", "browser-factory", "orca-target-window", "orca-python", "orca-bridge", "policy", "script", "backend", "endpoint", "out", "diagnostic-screenshots", "browser-executable", "proxy-server"],
-  "mock-run": [...decisionOptions, "profile", "policy", "script", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
-  "screenshot-run": [...decisionOptions, "script", "diagnose-stop", "stop-reason-endpoint", "profile", "policy", "model-endpoint", "allow-remote-model", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
+  matrix: [...decisionOptions, ...guardOptions, "diagnose-stop", "stop-reason-endpoint", "profiles", "profile-set", "mode", "policy", "script", "model-endpoint", "allow-remote-model", "out", "headed", "browser-executable", "proxy-server", "human-evidence"],
+  run: [...decisionOptions, 'no-model-give-up', "profile", "browser-factory", "orca-target-window", "orca-python", "orca-bridge", "policy", "script", "backend", "endpoint", "out", "diagnostic-screenshots", "browser-executable", "proxy-server"],
+  "mock-run": [...decisionOptions, 'no-model-give-up', "profile", "policy", "script", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
+  "screenshot-run": [...decisionOptions, ...guardOptions, "script", "diagnose-stop", "stop-reason-endpoint", "profile", "policy", "model-endpoint", "allow-remote-model", "out", "headed", "diagnostic-screenshots", "browser-executable", "proxy-server"],
   analyze: ["analyzer", "llm", "analysis-provider", "analysis-base-url", "analysis-model", "out"],
   hints: ["reference"],
   report: ["analysis", "out"],
   doctor: ["backend", "endpoint", "orca-target-window", "orca-python", "orca-bridge"],
 };
-const booleanOptions = new Set(["llm", "diagnostic-screenshots", "headed", "allow-remote-model", "diagnose-stop"]);
+const booleanOptions = new Set(["llm", "diagnostic-screenshots", "headed", "allow-remote-model", "diagnose-stop", ...guardOptions]);
 
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   const [name, ...args] = argv;
@@ -89,6 +90,9 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   }
   if (result.options.decision && result.options.decision !== 'systemone') throw new CliUsageError('--decision must be systemone.');
   if (decisionOptions.slice(1).some(option => result.options[option]) && !result.options.decision) throw new CliUsageError('Decision configuration flags require --decision systemone.');
+  if (result.options['repetition-guard'] && result.options['no-repetition-guard']) throw new CliUsageError('Choose --repetition-guard or --no-repetition-guard, not both.');
+  if (guardOptions.some(option => result.options[option]) && !result.options.decision && !result.options['model-endpoint']) throw new CliUsageError('--repetition-guard, --no-repetition-guard and --no-model-give-up require --decision systemone or --model-endpoint.');
+  if ((result.options['repetition-guard'] || result.options['no-repetition-guard']) && (command === 'mock-run' || command === 'run' || (command === 'matrix' && result.options.mode === 'mock'))) throw new CliUsageError('--repetition-guard and --no-repetition-guard apply only to screenshot exploration.');
   if (result.options.llm && result.options.analyzer) throw new CliUsageError('Choose --llm or --analyzer, not both.');
   if (['analysis-provider', 'analysis-base-url', 'analysis-model'].some(option => result.options[option]) && !result.options.llm) throw new CliUsageError('Analysis configuration flags require --llm.');
   if (result.options['diagnose-stop'] && !result.options['model-endpoint'] && !result.options['stop-reason-endpoint']) throw new CliUsageError('--diagnose-stop requires a model endpoint for the optional hypothesis call.');
@@ -136,6 +140,9 @@ Run options:
   --browser-executable <path> Use an explicitly selected installed Chromium binary
   --allow-remote-model      Explicitly send screenshots and task goal/history to a remote HTTPS model endpoint
   --headed                  Show Chromium for screenshot-run or mock-run (headless by default)
+  --repetition-guard        Stop screenshot runs on repeated identical screens (default: on for --model-endpoint, off for --decision systemone)
+  --no-repetition-guard     Never stop on repeated screens; visualState is still recorded
+  --no-model-give-up        Remove the model's stop:stuck and stop:uncertain choices (stop:success stays)
   --decision systemone      Explicit structured decision model; never a generative fallback
   --decision-provider       vercel-evaluation, systemone-http, or openrouter-systemone
   --decision-base-url       API root ending in /v1; provider determines evaluate or systemone route

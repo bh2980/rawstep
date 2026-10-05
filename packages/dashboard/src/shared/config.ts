@@ -50,6 +50,8 @@ export const configSchema = z.object({
       maxStateVisits: z.number().int().min(1).max(10000),
       maxUnchangedTransitions: z.number().int().min(1).max(10000),
       focusGate: z.boolean(),
+      repetitionGuard: z.enum(['auto', 'on', 'off']).default('auto'),
+      modelGiveUp: z.boolean().default(true),
     }).strict(),
   }).strict(),
 }).strict();
@@ -77,6 +79,10 @@ export function defaultModes(): ManagedTask['modes'] {
   return Object.fromEntries((['keyboard', 'screenreader'] as const).map(mode => [mode, {
     permissions: null, prompts: [{ id: 'baseline', name: '기본', version: '1', instructions: defaultInstructions[mode] }],
   }])) as ManagedTask['modes'];
+}
+/** `auto`: off for cheap, fast SystemOne models (bounded by maxSteps/timeoutMs); on for LLMs and the local /choose server. */
+export function resolveRepetitionGuard(setting: DashboardConfig['globals']['policy']['repetitionGuard'], model: Pick<Model, 'family'>, connection: Pick<Connection, 'provider'>): boolean {
+  return setting === 'auto' ? model.family !== 'SystemOne' || connection.provider === 'screenshot' : setting === 'on';
 }
 export function defaultConfig(): DashboardConfig {
   return configSchema.parse({
