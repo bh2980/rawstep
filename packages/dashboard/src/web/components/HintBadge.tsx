@@ -1,5 +1,5 @@
 import { Badge } from './ui/badge';
-import { hintKindLabel } from '../i18n/ko';
+import { hintKindLabel } from '../i18n/labels';
 
 export function HintBadge({ kind, count }: { kind: string; count?: number }) {
   return <Badge variant="outline" className="max-w-full">

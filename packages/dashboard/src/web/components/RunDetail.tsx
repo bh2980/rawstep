@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ko } from '../i18n/ko';
+import { useTranslation } from 'react-i18next';
 import { isFinished, isLive, type RunRef } from '../lib/runs';
 import { rememberHintSummary } from '../hooks/useHintSummaries';
 import { useRunHints, useRunSteps } from '../hooks/useRunData';
@@ -16,6 +16,7 @@ type Props = { runRef: RunRef; route: Route; pageProps: PageProps; navigate: (ch
 
 /** Header plus the hints / steps / compare / events tabs for the selected run. Mount with `key={run.id}`. */
 export function RunDetail({ runRef, route, pageProps, navigate }: Props) {
+  const { t } = useTranslation();
   const { run, experiment } = runRef;
   const hints = useRunHints(experiment.id, run.id);
   const live = isLive(run);
@@ -24,30 +25,29 @@ export function RunDetail({ runRef, route, pageProps, navigate }: Props) {
   }, [hints.data, run.id, run.state]);
   const at = (tab: RunTab, step?: number) => navigate({ task: run.taskId, run: run.id, tab, ...(step !== undefined ? { step } : {}) }, { replace: step === undefined });
   const openRun = (runId: string, taskId = run.taskId) => navigate({ task: taskId, run: runId, tab: route.tab });
-  const tabs = ko.run.tabs;
   return <div className="grid gap-6">
     <RunHeader runRef={runRef} hints={hints.data} pageProps={pageProps} onOpenRun={openRun} />
     <Tabs value={route.tab} onValueChange={tab => at(tab as RunTab)}>
-      <TabsList aria-label={ko.run.tabsLabel}>
-        <TabsTrigger value="hints">{tabs.hints}{hints.data ? ` ${hints.data.hints.length}` : ''}</TabsTrigger>
-        <TabsTrigger value="steps">{tabs.steps}</TabsTrigger>
-        <TabsTrigger value="compare">{tabs.compare}</TabsTrigger>
-        <TabsTrigger value="events">{tabs.events}</TabsTrigger>
+      <TabsList aria-label={t('run.tabsLabel')}>
+        <TabsTrigger value="hints">{t('run.tabs.hints')}{hints.data ? ` ${hints.data.hints.length}` : ''}</TabsTrigger>
+        <TabsTrigger value="steps">{t('run.tabs.steps')}</TabsTrigger>
+        <TabsTrigger value="compare">{t('run.tabs.compare')}</TabsTrigger>
+        <TabsTrigger value="events">{t('run.tabs.events')}</TabsTrigger>
       </TabsList>
       <TabsContent value="hints" className="pt-4">
-        <h2 className="sr-only">{ko.hints.title}</h2>
+        <h2 className="sr-only">{t('hints.title')}</h2>
         <HintsPanel hints={hints.data} error={hints.error} loading={hints.loading} live={live} onJump={step => at('steps', step)} />
       </TabsContent>
       <TabsContent value="steps" className="pt-4">
-        <h2 className="sr-only">{ko.steps.title}</h2>
+        <h2 className="sr-only">{t('steps.title')}</h2>
         <StepsTab experimentId={experiment.id} runId={run.id} highlightStep={route.step} />
       </TabsContent>
       <TabsContent value="compare" className="pt-4">
-        <h2 className="sr-only">{ko.compare.title}</h2>
+        <h2 className="sr-only">{t('compare.title')}</h2>
         <CompareTab experimentId={experiment.id} runId={run.id} hints={hints.data} onOpenRun={id => openRun(id)} />
       </TabsContent>
       <TabsContent value="events" className="pt-4">
-        <h2 className="sr-only">{tabs.events}</h2>
+        <h2 className="sr-only">{t('run.tabs.events')}</h2>
         <EventsPanel experimentId={experiment.id} run={run} />
       </TabsContent>
     </Tabs>

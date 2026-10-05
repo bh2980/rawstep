@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ConfigView, DashboardConfig, Experiment } from '../shared/config';
 import { api } from './api';
-import { ko } from './i18n/ko';
+import { useTranslation } from 'react-i18next';
 import { findRun, flattenRuns } from './lib/runs';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
@@ -24,6 +24,7 @@ export function App() {
 }
 
 function Dashboard() {
+  const { t } = useTranslation();
   const data = useDashboardData();
   const { route, navigate } = useRoute();
   const wide = useMediaQuery('(min-width: 1024px)');
@@ -39,7 +40,7 @@ function Dashboard() {
   }, [refresh]);
   const save = useCallback(async (config: DashboardConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
     const state = await api<ConfigView>('/config', { method: 'PUT', body: { config, revision: revision ?? view!.revision, ...(taskWrite ? { taskWrite } : {}) } });
-    setView(state); setNotice(ko.app.saved);
+    setView(state); setNotice(t('app.saved'));
     return state;
   }, [view, setView]);
   const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
@@ -56,18 +57,18 @@ function Dashboard() {
   };
 
   return <div className="flex h-screen flex-col">
-    <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{ko.app.skip}</a>
+    <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
     <TopBar connected={data.connected} running={running} queued={queued} showNavigation={!wide && !!pageProps}
       onNavigation={() => setNavOpen(true)} onNewExperiment={() => setNewOpen(true)} onSettings={() => setSettingsOpen(true)} />
     <div className="flex min-h-0 flex-1">
-      {wide && pageProps && <aside aria-label={ko.sidebar.label} className="w-80 shrink-0 border-r bg-sidebar text-sidebar-foreground">
+      {wide && pageProps && <aside aria-label={t('sidebar.label')} className="w-80 shrink-0 border-r bg-sidebar text-sidebar-foreground">
         <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} />
       </aside>}
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-5 py-6 outline-none lg:px-8 lg:py-8">
         <div className="mx-auto grid max-w-6xl gap-5">
           {!settingsOpen && !newOpen && banner}
           {!pageProps
-            ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{ko.app.loadingTitle}</h1><p className="text-sm text-muted-foreground">{ko.app.loadingBody}</p></div>
+            ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
             : <Detail pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} />}
         </div>
       </main>
@@ -75,7 +76,7 @@ function Dashboard() {
     {pageProps && <>
       {!wide && <Sheet open={navOpen} onOpenChange={setNavOpen}>
         <SheetContent side="left" className="w-80 gap-0 p-0 data-[side=left]:sm:max-w-80">
-          <SheetHeader className="sr-only"><SheetTitle>{ko.sidebar.label}</SheetTitle><SheetDescription>{ko.sidebar.treeHelp}</SheetDescription></SheetHeader>
+          <SheetHeader className="sr-only"><SheetTitle>{t('sidebar.label')}</SheetTitle><SheetDescription>{t('sidebar.treeHelp')}</SheetDescription></SheetHeader>
           <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} inSheet />
         </SheetContent>
       </Sheet>}
@@ -91,13 +92,14 @@ type DetailProps = {
 };
 
 function Detail({ pageProps, data, runs, route, navigate, editorKey }: DetailProps) {
+  const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
     return runRef
       ? <RunDetail key={runRef.run.id + editorKey} runRef={runRef} route={route} pageProps={pageProps} navigate={navigate} />
       : <div className="grid justify-items-start gap-3 py-10">
-        <p>{ko.run.notFound}</p>
-        <Button variant="outline" onClick={() => navigate({})}>{ko.run.backToOverview}</Button>
+        <p>{t('run.notFound')}</p>
+        <Button variant="outline" onClick={() => navigate({})}>{t('run.backToOverview')}</Button>
       </div>;
   }
   if (route.task) return <TaskDetail key={route.task + editorKey} taskId={route.task} pageProps={pageProps} runs={runs} navigate={navigate} />;

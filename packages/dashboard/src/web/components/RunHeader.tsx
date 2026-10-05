@@ -3,7 +3,8 @@ import { Download, ExternalLink, RotateCcw, Square, X } from 'lucide-react';
 import type { RunHintsView } from '../../shared/api';
 import type { Experiment, RetryPreview } from '../../shared/config';
 import { api } from '../api';
-import { ko, outcomeReasonLabel, runStateLabel } from '../i18n/ko';
+import { useTranslation } from 'react-i18next';
+import { outcomeReasonLabel, runStateLabel, versusLabel } from '../i18n/labels';
 import { durationSeconds, environmentName, isLive, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { Button } from './ui/button';
@@ -14,6 +15,7 @@ type Props = { runRef: RunRef; hints: RunHintsView | undefined; pageProps: PageP
 
 /** Run title, facts (state, steps, duration, vs reference) and run actions. */
 export function RunHeader({ runRef, hints, pageProps, onOpenRun }: Props) {
+  const { t } = useTranslation();
   const { run, experiment } = runRef;
   const [retry, setRetry] = useState<RetryPreview>();
   const base = runPath(experiment.id, run.id), live = isLive(run);
@@ -33,23 +35,23 @@ export function RunHeader({ runRef, hints, pageProps, onOpenRun }: Props) {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">{run.snapshot.taskName}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {run.snapshot.model.name} · {run.snapshot.prompt.name} · {environment} · {ko.sidebar.modes[run.snapshot.mode]} · {ko.sidebar.repeat(run.repeat)}
+        {run.snapshot.model.name} · {run.snapshot.prompt.name} · {environment} · {t(`sidebar.modes.${run.snapshot.mode}`)} · {t('sidebar.repeat', { n: run.repeat })}
       </p>
     </div>
     <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-      <Fact label={ko.run.facts.state}><RunStateLabel state={run.state} className="font-medium" /></Fact>
-      {steps !== undefined && <Fact label={ko.run.facts.steps}>{ko.run.steps(steps)}</Fact>}
-      {seconds !== undefined && <Fact label={ko.run.facts.duration}>{ko.run.duration(seconds.toFixed(1))}</Fact>}
-      {extra !== undefined && <Fact label={ko.run.facts.reference}><span className="font-medium">{ko.run.versus(extra)}</span></Fact>}
+      <Fact label={t('run.facts.state')}><RunStateLabel state={run.state} className="font-medium" /></Fact>
+      {steps !== undefined && <Fact label={t('run.facts.steps')}>{t('run.steps', { n: steps })}</Fact>}
+      {seconds !== undefined && <Fact label={t('run.facts.duration')}>{t('run.duration', { seconds: seconds.toFixed(1) })}</Fact>}
+      {extra !== undefined && <Fact label={t('run.facts.reference')}><span className="font-medium">{versusLabel(extra)}</span></Fact>}
     </dl>
     <div className="flex flex-wrap gap-2">
-      {live && <Button variant="outline" size="sm" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{ko.run.cancel}</Button>}
-      {live && <Button variant="ghost" size="sm" disabled={busy} onClick={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{ko.run.stopQueue}</Button>}
-      {!live && <Button variant="outline" size="sm" disabled={busy || !run.taskFile} title={run.taskFile ? undefined : ko.run.noTaskFile} onClick={previewRetry}><RotateCcw aria-hidden="true" />{ko.run.retry}</Button>}
-      {run.reportStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{ko.run.openReport}</a></Button>}
-      {run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{ko.run.downloadTrace}</a></Button>}
-      {run.analysisStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/analysis`}><Download aria-hidden="true" />{ko.run.downloadAnalysis}</a></Button>}
-      {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{ko.run.downloadStopReason}</a></Button>}
+      {live && <Button variant="outline" size="sm" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('run.cancel')}</Button>}
+      {live && <Button variant="ghost" size="sm" disabled={busy} onClick={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{t('run.stopQueue')}</Button>}
+      {!live && <Button variant="outline" size="sm" disabled={busy || !run.taskFile} title={run.taskFile ? undefined : t('run.noTaskFile')} onClick={previewRetry}><RotateCcw aria-hidden="true" />{t('run.retry')}</Button>}
+      {run.reportStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{t('run.openReport')}</a></Button>}
+      {run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{t('run.downloadTrace')}</a></Button>}
+      {run.analysisStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/analysis`}><Download aria-hidden="true" />{t('run.downloadAnalysis')}</a></Button>}
+      {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></Button>}
     </div>
     <RunNotices runRef={runRef} />
     <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
@@ -61,11 +63,12 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function RunNotices({ runRef }: { runRef: RunRef }) {
+  const { t } = useTranslation();
   const { run } = runRef;
   return <div className="grid gap-1 text-sm">
-    {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{ko.run.simulationNotice}</p>}
-    {run.promptSource === 'server' && <p className="text-muted-foreground">{ko.run.serverPromptNotice}</p>}
-    {run.outcome && <p title={run.outcome.reason}>{ko.run.outcome(runStateLabel(run.state), run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : ko.run.noReason)}</p>}
+    {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
+    {run.promptSource === 'server' && <p className="text-muted-foreground">{t('run.serverPromptNotice')}</p>}
+    {run.outcome && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
     {run.error && <p role="alert" className="text-destructive">{run.error}</p>}
     {run.analysisError && <p role="alert" className="text-destructive">{run.analysisError}</p>}
   </div>;

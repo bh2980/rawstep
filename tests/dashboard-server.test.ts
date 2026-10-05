@@ -126,6 +126,11 @@ describe('dashboard API and sequential queue', () => {
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(app);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://foreign.example' } })).status).toBe(403);
+    // The same server opened as localhost sends that origin for module scripts; another loopback port is still foreign.
+    const port = Number(new URL(app.url).port);
+    expect((await fetch(app.url + '/api/state', { headers: { origin: 'http://localhost:' + port } })).status).toBe(200);
+    expect((await fetch(app.url + '/api/state', { headers: { origin: 'http://localhost:' + (port === 65535 ? 1 : port + 1) } })).status).toBe(403);
+    expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://localhost:' + port } })).status).toBe(403);
     const plan = await app.queue.plan(request);
     expect(plan.rows.filter(r => r.modelId === 'a').every(r => !r.supported && r.reason!.includes('이미지'))).toBe(true);
     await expect(app.queue.create(request)).rejects.toMatchObject({ status: 400 });

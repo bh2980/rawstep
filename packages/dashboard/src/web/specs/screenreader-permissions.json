@@ -4,8 +4,8 @@
     "permissions": {
       "type": "Card",
       "props": {
-        "title": "허용 기능",
-        "description": "실행 모드별로 모델이 선택할 행동을 지정합니다.",
+        "title": "$t:permissions.title",
+        "description": "$t:permissions.description",
         "maxWidth": "full",
         "centered": false,
         "className": "bg-card/40"
@@ -38,7 +38,7 @@
     "navigation": {
       "type": "Text",
       "props": {
-        "text": "탐색과 활성화",
+        "text": "$t:permissions.navigation",
         "variant": "muted"
       },
       "children": []
@@ -51,7 +51,7 @@
     "input": {
       "type": "Text",
       "props": {
-        "text": "작업 입력값",
+        "text": "$t:permissions.input",
         "variant": "muted"
       },
       "children": []
@@ -59,7 +59,7 @@
     "forward": {
       "type": "Checkbox",
       "props": {
-        "label": "다음 항목 탐색",
+        "label": "$t:permissions.screenreader.forward",
         "name": "screenreader-forward",
         "checked": {
           "$bindState": "/screenreader/forward"
@@ -72,7 +72,7 @@
     "backward": {
       "type": "Checkbox",
       "props": {
-        "label": "이전 항목 탐색",
+        "label": "$t:permissions.screenreader.backward",
         "name": "screenreader-backward",
         "checked": {
           "$bindState": "/screenreader/backward"
@@ -85,7 +85,7 @@
     "extraNavigation": {
       "type": "Checkbox",
       "props": {
-        "label": "제목과 폼 탐색",
+        "label": "$t:permissions.screenreader.extraNavigation",
         "name": "screenreader-extraNavigation",
         "checked": {
           "$bindState": "/screenreader/extraNavigation"
@@ -98,7 +98,7 @@
     "activate": {
       "type": "Checkbox",
       "props": {
-        "label": "컨트롤 활성화",
+        "label": "$t:permissions.screenreader.activate",
         "name": "screenreader-activate",
         "checked": {
           "$bindState": "/screenreader/activate"
@@ -111,7 +111,7 @@
     "textEntry": {
       "type": "Switch",
       "props": {
-        "label": "텍스트 입력 허용",
+        "label": "$t:permissions.textEntry",
         "name": "screenreader-textEntry",
         "checked": {
           "$bindState": "/screenreader/textEntry"
@@ -124,7 +124,7 @@
     "replaceText": {
       "type": "Switch",
       "props": {
-        "label": "기존 값 교체 허용",
+        "label": "$t:permissions.replaceText",
         "name": "screenreader-replaceText",
         "checked": {
           "$bindState": "/screenreader/replaceText"

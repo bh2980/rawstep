@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createStateStore, JSONUIProvider } from '@json-render/react';
 import { parseDashboardSpec } from '../../shared/ui-catalog';
 import type { Permissions } from '../../shared/config';
@@ -7,6 +8,7 @@ import { DashboardRenderer } from '../json-ui/DashboardRenderer';
 
 export function PermissionsEditor({ value, onChange, capabilities, inputNames }: { value: Permissions; onChange: (p: Permissions) => void; capabilities: { keys: string[]; intents: string[] }; inputNames?: string[] }) {
   const id = useId();
+  const { t } = useTranslation();
   const options = [...[...new Set([...capabilities.keys, ...value.keys])].map(label => ({ label, kind: 'keys' as const, supported: capabilities.keys.includes(label) })), ...[...new Set([...capabilities.intents, ...value.intents])].map(label => ({ label, kind: 'intents' as const, supported: capabilities.intents.includes(label) })), ...(inputNames ?? []).map(label => ({ label, kind: 'inputKeys' as const, supported: true }))];
   const bits: Record<string, boolean> = Object.fromEntries(options.map((o, i) => ['a' + i, o.kind === 'inputKeys' ? (value.inputKeys ?? inputNames ?? []).includes(o.label) : value[o.kind].includes(o.label)]));
   bits.typeText = value.typeText; bits.replaceText = value.replaceText;
@@ -26,10 +28,10 @@ export function PermissionsEditor({ value, onChange, capabilities, inputNames }:
     const elements: Record<string, unknown> = {};
     const children: string[] = [];
     const parsedOptions = JSON.parse(optionsKey) as typeof options;
-    parsedOptions.forEach((o, i) => { const name = 'a' + i; children.push(name); elements[name] = { type: 'Checkbox', props: { label: (o.kind === 'inputKeys' ? '입력: ' : '') + o.label + (o.supported ? '' : ' (이 백엔드 미지원)'), name: id + '-' + name, checked: { $bindState: '/bits/' + name }, checks: null, validateOn: 'change' }, children: [] }; });
-    for (const [name, label] of [['typeText', '텍스트 입력 허용'], ['replaceText', '기존 값 교체 허용']]) { children.push(name!); elements[name!] = { type: 'Switch', props: { label, name: id + name, checked: { $bindState: '/bits/' + name }, checks: null, validateOn: 'change' }, children: [] }; }
+    parsedOptions.forEach((o, i) => { const name = 'a' + i; children.push(name); elements[name] = { type: 'Checkbox', props: { label: o.supported ? (o.kind === 'inputKeys' ? t('permissions.inputLabel', { label: o.label }) : o.label) : t('permissions.unsupported', { label: o.kind === 'inputKeys' ? t('permissions.inputLabel', { label: o.label }) : o.label }), name: id + '-' + name, checked: { $bindState: '/bits/' + name }, checks: null, validateOn: 'change' }, children: [] }; });
+    for (const [name, label] of [['typeText', t('permissions.textEntry')], ['replaceText', t('permissions.replaceText')]]) { children.push(name!); elements[name!] = { type: 'Switch', props: { label, name: id + name, checked: { $bindState: '/bits/' + name }, checks: null, validateOn: 'change' }, children: [] }; }
     elements.root = { type: 'Stack', props: { direction: 'vertical', gap: 'md', align: 'stretch', justify: 'start', className: null }, children };
     return parseDashboardSpec({ root: 'root', elements });
-  }, [id, optionsKey]);
+  }, [id, optionsKey, t]);
   return <JSONUIProvider registry={dashboardRegistry} store={store}><DashboardRenderer spec={spec} /></JSONUIProvider>;
 }

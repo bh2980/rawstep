@@ -4,8 +4,8 @@
     "permissions": {
       "type": "Card",
       "props": {
-        "title": "허용 기능",
-        "description": "실행 모드별로 모델이 선택할 행동을 지정합니다.",
+        "title": "$t:permissions.title",
+        "description": "$t:permissions.description",
         "maxWidth": "full",
         "centered": false,
         "className": "bg-card/40"
@@ -38,7 +38,7 @@
     "navigation": {
       "type": "Text",
       "props": {
-        "text": "탐색과 활성화",
+        "text": "$t:permissions.navigation",
         "variant": "muted"
       },
       "children": []
@@ -51,7 +51,7 @@
     "input": {
       "type": "Text",
       "props": {
-        "text": "작업 입력값",
+        "text": "$t:permissions.input",
         "variant": "muted"
       },
       "children": []
@@ -59,7 +59,7 @@
     "forward": {
       "type": "Checkbox",
       "props": {
-        "label": "Tab으로 다음 포커스 이동",
+        "label": "$t:permissions.keyboard.forward",
         "name": "keyboard-forward",
         "checked": {
           "$bindState": "/keyboard/forward"
@@ -72,7 +72,7 @@
     "backward": {
       "type": "Checkbox",
       "props": {
-        "label": "Shift+Tab으로 이전 포커스 이동",
+        "label": "$t:permissions.keyboard.backward",
         "name": "keyboard-backward",
         "checked": {
           "$bindState": "/keyboard/backward"
@@ -85,7 +85,7 @@
     "extraNavigation": {
       "type": "Checkbox",
       "props": {
-        "label": "방향키와 페이지 이동",
+        "label": "$t:permissions.keyboard.extraNavigation",
         "name": "keyboard-extraNavigation",
         "checked": {
           "$bindState": "/keyboard/extraNavigation"
@@ -98,7 +98,7 @@
     "activate": {
       "type": "Checkbox",
       "props": {
-        "label": "Enter · Space로 활성화",
+        "label": "$t:permissions.keyboard.activate",
         "name": "keyboard-activate",
         "checked": {
           "$bindState": "/keyboard/activate"
@@ -111,7 +111,7 @@
     "textEntry": {
       "type": "Switch",
       "props": {
-        "label": "텍스트 입력 허용",
+        "label": "$t:permissions.textEntry",
         "name": "keyboard-textEntry",
         "checked": {
           "$bindState": "/keyboard/textEntry"
@@ -124,7 +124,7 @@
     "replaceText": {
       "type": "Switch",
       "props": {
-        "label": "기존 값 교체 허용",
+        "label": "$t:permissions.replaceText",
         "name": "keyboard-replaceText",
         "checked": {
           "$bindState": "/keyboard/replaceText"

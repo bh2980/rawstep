@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronDown, ChevronRight, ListTodo, Layers } from 'lucide-react';
-import { ko } from '../i18n/ko';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import { formatDate, isFinished, runStartedAt, runStepCount } from '../lib/runs';
 import { allNodeIds, flattenTree, type TreeNode } from '../lib/tree';
@@ -31,6 +31,7 @@ function positions(nodes: readonly TreeNode[], parentId?: string, into = new Map
 
 /** WAI-ARIA tree: roving tabindex, Arrow keys, Home/End, Enter or Space to select. */
 export function RunTree({ nodes, selectedId, revealIds, expandAllKey, hintsFor, onSelect }: RunTreeProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(revealIds));
   const [focusId, setFocusId] = useState<string>();
   const items = useRef(new Map<string, HTMLDivElement>());
@@ -87,7 +88,7 @@ export function RunTree({ nodes, selectedId, revealIds, expandAllKey, hintsFor, 
     if (handled) event.preventDefault();
   }
 
-  return <div role="tree" aria-label={ko.sidebar.tree} className="grid gap-px p-1">
+  return <div role="tree" aria-label={t('sidebar.tree')} className="grid gap-px p-1">
     {visible.map(node => <TreeRow key={node.id} node={node} position={where.get(node.id)!}
       active={node.id === activeId} selected={node.id === selectedId}
       expanded={node.children.length ? expanded.has(node.id) : undefined}
@@ -130,11 +131,12 @@ function TreeRow({ node, position, active, selected, expanded, hints, register, 
 }
 
 function GroupRowBody({ node }: { node: TreeNode }) {
+  const { t } = useTranslation();
   const Icon = node.kind === 'task' ? ListTodo : Layers;
   const meta = [
     node.detail,
-    node.runTotal ? ko.sidebar.runCount(node.runTotal) : ko.sidebar.noRuns,
-    node.liveTotal ? ko.sidebar.liveCount(node.liveTotal) : '',
+    node.runTotal ? t('sidebar.runCount', { n: node.runTotal }) : t('sidebar.noRuns'),
+    node.liveTotal ? t('sidebar.liveCount', { n: node.liveTotal }) : '',
   ].filter(Boolean).join(' · ');
   return <span className="grid min-w-0 flex-1 gap-0.5">
     <span className="flex min-w-0 items-center gap-1.5">
@@ -146,6 +148,7 @@ function GroupRowBody({ node }: { node: TreeNode }) {
 }
 
 function RunRowBody({ node, hints }: { node: TreeNode; hints: HintCount[] | undefined }) {
+  const { t } = useTranslation();
   const ref = node.ref!, steps = runStepCount(ref.run);
   return <span className="grid min-w-0 flex-1 gap-1">
     <span className="flex items-baseline justify-between gap-2">
@@ -154,7 +157,7 @@ function RunRowBody({ node, hints }: { node: TreeNode; hints: HintCount[] | unde
     </span>
     <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-normal text-muted-foreground">
       <RunStateLabel state={ref.run.state} />
-      {steps !== undefined && <span className="tabular-nums">{ko.sidebar.steps(steps)}</span>}
+      {steps !== undefined && <span className="tabular-nums">{t('sidebar.steps', { n: steps })}</span>}
     </span>
     {hints && hints.length > 0 && <span className="flex flex-wrap gap-1">
       {hints.slice(0, 2).map(hint => <HintBadge key={hint.kind} kind={hint.kind} count={hint.count} />)}
