@@ -7,7 +7,7 @@ import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlock
 import { resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, type RunOutcome, type RunTrace } from '@rawstep/core/trace';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
-import type { ObserverEvent } from '../observer/index.js';
+import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
 
 export type RunOptions = {
   backend: Backend;
@@ -25,6 +25,8 @@ export type RunOptions = {
   browserExecutablePath?: string;
   proxyServer?: string;
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
+  /** Page observer for hints; on by default. Never visible to the policy. */
+  observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
 };
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
@@ -138,7 +140,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.headless ?? false, executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.headless ?? false, executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       if (expectedNativeTarget !== undefined && opened.nativeTargetWindowId !== expectedNativeTarget) { await opened.close(); throw new Error('Native browser window does not match the Orca speech/input target.'); }
       return opened;
