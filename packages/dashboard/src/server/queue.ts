@@ -6,7 +6,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
 import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { defaultInstructions, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
+import { defaultInstructions, planSchema, resolveRunSettings, taskProfile, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { ProjectStore, atomicJson, HttpError } from './store.js';
 import { executeRun, resolvePermissions } from './execution.js';
 
@@ -30,6 +30,7 @@ export class ExperimentQueue {
       try { raw = await readFile(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
       const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
+      normalizeLegacy(experiment);
       let interrupted = false;
       for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }
       this.experiments.push(experiment);
@@ -41,16 +42,17 @@ export class ExperimentQueue {
     const request = planSchema.parse(raw), { config, revision } = await this.store.read(), tasks = await this.store.tasks(config);
     if (request.revision && request.revision !== revision) throw new HttpError(409, '작업이나 설정이 변경되었습니다. 실행 조합을 다시 확인하세요.');
     const rows: Combination[] = [];
-    for (const taskId of new Set(request.taskIds)) for (const modelId of new Set(request.modelIds)) for (const promptId of new Set(request.promptIds)) for (const environmentId of new Set(request.environmentIds)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+    for (const taskId of new Set(request.taskIds)) for (const modelId of new Set(request.modelIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
       if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-      const task = config.tasks.find(t => t.id === taskId), model = config.models.find(m => m.id === modelId), environment = config.environments.find(e => e.id === environmentId);
+      const task = config.tasks.find(t => t.id === taskId), model = config.models.find(m => m.id === modelId), profile = config.profiles.find(p => p.id === profileId);
       const prompt = task?.modes[request.mode].prompts.find(p => p.id === promptId);
       const source = tasks[taskId];
-      let reason: string | undefined, permissions = structuredClone(config.globals[request.mode]);
-      if (!task || !model || !environment || !prompt || !source) reason = '작업·모델·프롬프트·환경 중 찾을 수 없는 항목이 있습니다.';
+      let reason: string | undefined, permissions = structuredClone((profile ?? config.profiles[0]!).permissions[request.mode]);
+      if (!task || !model || !profile || !prompt || !source) reason = '작업·모델·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
       else {
         try {
-          permissions = resolvePermissions(config, source, request.mode, task.modes[request.mode].permissions);
+          const settings = resolveRunSettings(config, task, profile);
+          permissions = resolvePermissions(config, profile, source, request.mode, task.modes[request.mode].permissions);
           if (!model.roles.includes('decision')) throw new Error('분석 전용 모델입니다.');
           if (request.mode === 'keyboard' && (!model.inputs.includes('image') || model.maxImages < 2)) throw new Error('키보드 실행에는 현재·이전 이미지를 지원하는 모델이 필요합니다.');
           if (request.mode === 'screenreader' && !model.inputs.includes('text')) throw new Error('스크린리더 실행에는 텍스트 입력 지원이 필요합니다.');
@@ -61,20 +63,20 @@ export class ExperimentQueue {
           if (choiceCount > model.maxChoices) throw new Error('선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.');
           if (connection.provider === 'screenshot' && request.mode !== 'keyboard') throw new Error('/choose는 키보드 모드 전용입니다.');
           if (!model.promptEditable && prompt.instructions !== defaultInstructions.keyboard) throw new Error('/choose 서버가 프롬프트 변경을 지원하지 않습니다.');
-          if (model.family === 'LLM' && config.globals.policy.focusGate) throw new Error('확률 기반 포커스 제한은 SystemOne 모델만 지원합니다. 전역 설정에서 해제하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend === 'voiceover' && process.platform !== 'darwin') throw new Error('VoiceOver는 macOS에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend !== 'simulation') {
-            const endpoint = new URL(config.globals.atEndpoint);
+          if (model.family === 'LLM' && settings.policy.focusGate) throw new Error('확률 기반 포커스 제한은 SystemOne 모델만 지원합니다. 실행 프로필이나 작업 설정에서 해제하세요.');
+          if (request.mode === 'screenreader' && config.machine.backend === 'voiceover' && process.platform !== 'darwin') throw new Error('VoiceOver는 macOS에서 실행하세요.');
+          if (request.mode === 'screenreader' && config.machine.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
+          if (request.mode === 'screenreader' && config.machine.backend !== 'simulation') {
+            const endpoint = new URL(config.machine.atEndpoint);
             if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
           }
-          const profile = resolveEnvironmentProfile(environment.profile);
-          if (profile.browserZoom !== 1 || profile.nativeMagnifier === 'required' || profile.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');
+          const environment = resolveEnvironmentProfile(profile.environment);
+          if (environment.browserZoom !== 1 || environment.nativeMagnifier === 'required' || environment.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');
           if (request.analysisModelId) { const analyzer = config.models.find(m => m.id === request.analysisModelId); if (!analyzer || analyzer.family !== 'LLM' || !analyzer.roles.includes('analysis')) throw new Error('LLM 분석 모델을 선택하세요.'); }
           if (request.diagnoseStop && request.mode !== 'keyboard') throw new Error('중단 진단은 마지막 스크린샷을 사용하는 키보드 모드 전용입니다.');
         } catch (e) { reason = (e as Error).message; }
       }
-      rows.push({ key: [taskId, modelId, promptId, environmentId, repeat].join(':'), taskId, modelId, promptId, environmentId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'global' });
+      rows.push({ key: [taskId, modelId, promptId, profileId, repeat].join(':'), taskId, modelId, promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'global' });
     }
     return { request, config, tasks, rows };
   }
@@ -84,13 +86,14 @@ export class ExperimentQueue {
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
     if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new HttpError(400, '지원하는 실행 조합을 선택하세요.');
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
-      const task = config.tasks.find(t => t.id === row.taskId)!, model = config.models.find(m => m.id === row.modelId)!;
-      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, promptSource: model.promptEditable ? 'client' : 'server', taskFile: task.file, analysisInstructions: task.analysisInstructions?.trim() || config.globals.analysisInstructions, snapshot: {
+      const task = config.tasks.find(t => t.id === row.taskId)!, model = config.models.find(m => m.id === row.modelId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
+      const settings = resolveRunSettings(config, task, profile);
+      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, promptSource: model.promptEditable ? 'client' : 'server', taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
         taskName: task.name, model: structuredClone(model), connection: structuredClone(config.connections.find(c => c.id === model.connectionId)!),
         prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
-        mode: request.mode, profile: resolveEnvironmentProfile(config.environments.find(e => e.id === row.environmentId)!.profile),
-        globals: structuredClone(config.globals),
+        mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
+        globals: settings,
       }, ...(request.analysisModelId ? { analysisModel: structuredClone(config.models.find(m => m.id === request.analysisModelId)!), analysisConnection: structuredClone(config.connections.find(c => c.id === config.models.find(m => m.id === request.analysisModelId)!.connectionId)!) } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
@@ -119,11 +122,12 @@ export class ExperimentQueue {
       if (JSON.stringify(task[key])?.includes('[REDACTED]')) Object.assign(task, { [key]: fresh[key] });
     }
     if ((await this.store.read()).revision !== revision) throw new HttpError(409, '작업이 변경되었습니다. 차이를 다시 확인하세요.');
-    resolvePermissions({ ...((await this.store.read()).config), globals: original.snapshot.globals }, task, original.snapshot.mode, original.permissions);
+    const kept = original.snapshot.globals;
+    resolvePermissions({ machine: kept }, { permissions: { keyboard: kept.keyboard, screenreader: kept.screenreader } }, task, original.snapshot.mode, original.permissions);
     const run: RunRecord = { ...structuredClone(original), id: randomUUID(), state: 'queued', repeat: 1, analysisStatus: 'pending', reportStatus: 'pending', retryOf: { experiment: experimentId, run: runId } };
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.task = safeTask(task); this.liveTasks.set(run.id, task);
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], modelIds: [run.modelId], promptIds: [run.promptId], environmentIds: [run.environmentId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], modelIds: [run.modelId], promptIds: [run.promptId], profileIds: [run.profileId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -197,6 +201,15 @@ export class ExperimentQueue {
     this.find(experiment, run);
     return readTrace(await this.store.file('.rawstep/experiments/' + experiment + '/' + run + '/trace.json', true));
   }
+}
+/** History written before config version 2 identifies a run's environment, not its profile; the files are left as they are. */
+function normalizeLegacy(experiment: Experiment) {
+  for (const run of experiment.runs) {
+    const legacy = run as RunRecord & { environmentId?: string };
+    legacy.profileId ??= legacy.environmentId ?? 'default'; delete legacy.environmentId;
+  }
+  const request = experiment.request;
+  if (request.environmentIds) { request.profileIds ??= request.environmentIds; delete request.environmentIds; }
 }
 function safeTask(task: Task): Task {
   const redacted = createRedactor(Object.values(task.input ?? {}))(task).value;

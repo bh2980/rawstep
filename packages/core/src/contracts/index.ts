@@ -10,6 +10,12 @@ export type RequestVerificationRule = { requestSeen: { urlIncludes: string; meth
 export type ResponseVerificationRule = { responseSeen: { urlIncludes: string; method?: string; status?: number } };
 export type ActivatedAnnouncementVerificationRule = { activatedAnnouncementIncludes: string };
 export type DomEventVerificationRule = { domEventSeen: { selector: string; event: string } };
+/**
+ * Reviewed JavaScript for goals the declarative rules cannot express. `source` is a function expression,
+ * `(context) => boolean` (may be async), run in an isolated world against the page DOM at verification time;
+ * `context.timeline` holds the page observer events. Only add code a person has read: it runs with DOM access.
+ */
+export type ScriptVerificationRule = { script: { source: string; description: string } };
 /** A plain string means "includes"; matching is case-sensitive unless a regex flag says otherwise. */
 export type TextMatcher = string | { includes: string } | { equals: string } | { regex: string; flags?: string };
 export type ObservedEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
@@ -19,9 +25,9 @@ export type EventVerificationRule = { event: { kind: ObservedEventKind; role?: s
 export type FocusedVerificationRule = { focused: { role?: string; name?: TextMatcher } };
 export type NotVerificationRule = { not: VerifyRule };
 export type AnyVerificationRule = { any: VerifyRule[] };
-export type VerifyRule = EventVerificationRule | FocusedVerificationRule | NotVerificationRule | AnyVerificationRule | { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
+export type VerifyRule = EventVerificationRule | FocusedVerificationRule | NotVerificationRule | AnyVerificationRule | ScriptVerificationRule | { titleIncludes: string } | { urlIncludes: string } | { textVisible: string } | { textVisibleExact: string } | ActivatedAnnouncementVerificationRule | DomEventVerificationRule | RequestVerificationRule | ResponseVerificationRule;
 export type VerifySpec = { all: VerifyRule[] };
-export type VerifyRuleType = 'event' | 'focused' | 'not' | 'any' | 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
+export type VerifyRuleType = 'event' | 'focused' | 'not' | 'any' | 'script' | 'titleIncludes' | 'urlIncludes' | 'textVisible' | 'textVisibleExact' | 'activatedAnnouncementIncludes' | 'domEventSeen' | 'requestSeen' | 'responseSeen';
 /** Independent observations, never task expectations or policy-visible page context. */
 export type VerificationWitness =
   | { kind: 'title'; title: string }
@@ -30,6 +36,8 @@ export type VerificationWitness =
   | { kind: 'request'; url: string; method: string; timestamp: string }
   | { kind: 'response'; url: string; method: string; status: number; ok: boolean; timestamp: string }
   | { kind: 'dom-event'; selector: string; event: string; url: string; timestamp: string }
+  /** `result` is null when the script could not decide; `error` names why, never the thrown message. */
+  | { kind: 'script'; description: string; result: boolean | null; error?: ScriptCheckError }
   | { kind: 'observer-event'; event: { kind: string; step: number; role?: string | null; name?: string; text?: string; attr?: string; value?: string | null; url?: string; sameDocument?: boolean } }
   | { kind: 'activation-speech'; provenance?: 'native' | 'simulation'; speech: string[]; outputEventIds: string[]; activationStep: number; window: ScreenReaderObservation['window']; association: 'temporal-only' };
 export type VerificationRuleRecord = {
@@ -162,6 +170,8 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   for (const [name, value] of Object.entries((input ?? {}) as Record<string, string>)) {
     const sensitive = (object(inputOptions) && object(inputOptions[name]) ? inputOptions[name].sensitive : undefined) !== false;
     if (sensitive && value.length >= 4 && goal.includes(value)) throw new Error(`Task goal contains the value of input ${name}; refer to the input by name instead.`);
+    // Script sources are saved in traces and reports like the rest of the task.
+    if (sensitive && value.length >= 4 && scriptSources(rules).some(source => source.includes(value))) throw new Error(`A script rule contains the value of input ${name}; check for the field state instead of its value.`);
   }
   const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
@@ -221,6 +231,11 @@ export function matchesText(matcher: TextMatcher, value: string | null | undefin
   if ('includes' in matcher) return value.includes(matcher.includes);
   return new RegExp(matcher.regex, matcher.flags).test(value);
 }
+export const MAX_SCRIPT_SOURCE = 4000;
+function scriptSources(rules: readonly VerifyRule[]): string[] {
+  return rules.flatMap(rule => 'script' in rule ? [rule.script.source] : 'not' in rule ? scriptSources([rule.not]) : 'any' in rule ? scriptSources(rule.any) : []);
+}
+export type ScriptCheckError = 'timeout' | 'threw' | 'not-boolean' | 'not-function' | 'unavailable';
 function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
   if (depth > 4) throw new Error('Verification rules may nest at most four levels.');
   if (object(value) && 'event' in value) {
@@ -248,6 +263,16 @@ function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
   }
   for (const key of ['titleIncludes','urlIncludes','textVisible','textVisibleExact','activatedAnnouncementIncludes']) {
     if (key in value) { text(value[key], key); return value as VerifyRule; }
+  }
+  if ('script' in value) {
+    if (!object(value.script)) throw new Error('script rule needs { source, description }.');
+    onlyKeys(value.script, ['source', 'description'], 'script');
+    const source = text(value.script.source, 'script.source');
+    if (source.length > MAX_SCRIPT_SOURCE) throw new Error(`script.source must be at most ${MAX_SCRIPT_SOURCE} characters.`);
+    if (!/^\s*(?:async\s+)?(?:function\b|\(|[A-Za-z_$][\w$]*\s*=>)/.test(source)) throw new Error('script.source must be a function expression such as (context) => boolean.');
+    const description = text(value.script.description, 'script.description');
+    if (description.length > 300) throw new Error('script.description must be at most 300 characters.');
+    return value as ScriptVerificationRule;
   }
   if ('domEventSeen' in value && object(value.domEventSeen)) {
     onlyKeys(value.domEventSeen, ['selector','event'], 'domEventSeen');

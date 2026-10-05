@@ -28,34 +28,58 @@ export const modelSchema = z.object({
   roles: z.array(z.enum(['decision', 'analysis'])).min(1).max(2),
   promptEditable: z.boolean().default(true),
 }).strict();
+export const policySchema = z.object({
+  historyLimit: z.number().int().min(1).max(10000),
+  maxStateVisits: z.number().int().min(1).max(10000),
+  maxUnchangedTransitions: z.number().int().min(1).max(10000),
+  focusGate: z.boolean(),
+  repetitionGuard: z.enum(['auto', 'on', 'off']).default('auto'),
+  modelGiveUp: z.boolean().default(true),
+}).strict();
+export type Policy = z.infer<typeof policySchema>;
 export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
+  /** Run profile used when an experiment does not pick profiles; the first profile when unset. */
+  profileId: id.optional(),
+  /** Per-mode `permissions` and these policy fields override the run profile for this task only. */
+  policy: policySchema.partial().optional(),
   modes: z.object({ keyboard: modeSchema, screenreader: modeSchema }).strict(),
   analysisInstructions: z.string().max(16384).optional(),
 }).strict();
+/**
+ * A named set of experiment conditions: what the model may do, when a run counts as stuck,
+ * the page environment and how runs are analysed. Experiments compare tasks across profiles.
+ */
+export const runProfileSchema = z.object({
+  id, name: text,
+  permissions: z.object({ keyboard: permissionsSchema, screenreader: permissionsSchema }).strict(),
+  policy: policySchema,
+  /** An environment profile name ('default', …) or object, resolved by @rawstep/browser/profiles. */
+  environment: z.unknown(),
+  analysisInstructions: z.string().max(16384).default(''),
+}).strict();
+export type RunProfile = z.infer<typeof runProfileSchema>;
+/** Settings that belong to the computer running the dashboard, not to an experiment. */
+export const machineSchema = z.object({
+  backend: z.enum(['simulation', 'voiceover', 'nvda']).default('simulation'),
+  atEndpoint: z.string().default('ws://127.0.0.1:9333'),
+  browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
+}).strict();
+export type MachineSettings = z.infer<typeof machineSchema>;
 export const configSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(2),
   connections: z.array(connectionSchema).max(100),
   models: z.array(modelSchema).max(500),
   tasks: z.array(taskSchema).max(500),
-  environments: z.array(z.object({ id, name: text, profile: z.unknown() }).strict()).min(1).max(100),
-  globals: z.object({
-    keyboard: permissionsSchema, screenreader: permissionsSchema,
-    backend: z.enum(['simulation', 'voiceover', 'nvda']).default('simulation'),
-    atEndpoint: z.string().default('ws://127.0.0.1:9333'),
-    browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
-    analysisInstructions: z.string().max(16384).default(''),
-    policy: z.object({
-      historyLimit: z.number().int().min(1).max(10000),
-      maxStateVisits: z.number().int().min(1).max(10000),
-      maxUnchangedTransitions: z.number().int().min(1).max(10000),
-      focusGate: z.boolean(),
-      repetitionGuard: z.enum(['auto', 'on', 'off']).default('auto'),
-      modelGiveUp: z.boolean().default(true),
-    }).strict(),
-  }).strict(),
+  profiles: z.array(runProfileSchema).min(1).max(100),
+  machine: machineSchema,
 }).strict();
 export type DashboardConfig = z.infer<typeof configSchema>;
+/**
+ * The settings one run executes with: its run profile (plus task overrides) and the machine settings.
+ * Run snapshots store this shape as `globals`, the same shape config version 1 kept globally.
+ */
+export type RunSettings = MachineSettings & { keyboard: Permissions; screenreader: Permissions; analysisInstructions: string; policy: Policy };
 export type Connection = z.infer<typeof connectionSchema>;
 export type Model = z.infer<typeof modelSchema>;
 export type ManagedTask = z.infer<typeof taskSchema>;
@@ -64,7 +88,8 @@ export type Mode = 'keyboard' | 'screenreader';
 export const planSchema = z.object({
   taskIds: z.array(id).min(1).max(100), modelIds: z.array(id).min(1).max(100),
   promptIds: z.array(id).min(1).max(50), mode: z.enum(['keyboard', 'screenreader']),
-  environmentIds: z.array(id).min(1).max(100), repeats: z.number().int().min(1).max(100),
+  /** Profiles to compare; omitted means each task's own profile. */
+  profileIds: z.array(id).min(1).max(100).optional(), repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
   analysisModelId: id.optional(),
   revision: z.string().optional(),
@@ -81,27 +106,63 @@ export function defaultModes(): ManagedTask['modes'] {
   }])) as ManagedTask['modes'];
 }
 /** `auto`: off for cheap, fast SystemOne models (bounded by maxSteps/timeoutMs); on for LLMs and the local /choose server. */
-export function resolveRepetitionGuard(setting: DashboardConfig['globals']['policy']['repetitionGuard'], model: Pick<Model, 'family'>, connection: Pick<Connection, 'provider'>): boolean {
+export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'family'>, connection: Pick<Connection, 'provider'>): boolean {
   return setting === 'auto' ? model.family !== 'SystemOne' || connection.provider === 'screenshot' : setting === 'on';
 }
-export function defaultConfig(): DashboardConfig {
-  return configSchema.parse({
-    version: 1, connections: [], models: [], tasks: [],
-    environments: [{ id: 'default', name: '기본 환경', profile: 'default' }],
-    globals: {
+export function defaultProfile(id = 'default', name = '기본'): RunProfile {
+  return runProfileSchema.parse({
+    id, name, environment: 'default',
+    permissions: {
       keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [], typeText: false, replaceText: false },
       screenreader: { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false },
-      backend: 'simulation', atEndpoint: 'ws://127.0.0.1:9333', browserExecutablePath: '', headless: true,
-      policy: { ...RAWSTEP_DEFAULTS.policy, focusGate: false },
     },
+    policy: { ...RAWSTEP_DEFAULTS.policy, focusGate: false },
   });
 }
-export type ConfigView = { config: DashboardConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, Task>; profiles: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
-export type Combination = { key: string; taskId: string; modelId: string; promptId: string; environmentId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'global' | 'task' };
+export function defaultConfig(): DashboardConfig {
+  return configSchema.parse({ version: 2, connections: [], models: [], tasks: [], profiles: [defaultProfile()], machine: {} });
+}
+const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+/**
+ * Upgrades a version 1 file (one global settings block plus environments) to version 2: every environment
+ * becomes a run profile carrying the former global permissions, policy and analysis instructions, and
+ * browser/screen-reader settings move to `machine`. Other input is returned unchanged for the schema to judge.
+ */
+export function migrateConfig(raw: unknown): unknown {
+  if (!isRecord(raw) || raw.version !== 1 || !isRecord(raw.globals)) return raw;
+  const { globals, environments, version: _version, ...rest } = raw;
+  const { keyboard, screenreader, policy, analysisInstructions, backend, atEndpoint, browserExecutablePath, headless } = globals;
+  const list = Array.isArray(environments) && environments.length ? environments.filter(isRecord) : [{ id: 'default', name: '기본', profile: 'default' }];
+  return {
+    ...rest, version: 2,
+    profiles: list.map(env => ({
+      id: env.id, name: env.name === '기본 환경' ? '기본' : env.name, environment: env.profile,
+      permissions: { keyboard, screenreader }, policy, analysisInstructions: analysisInstructions ?? '',
+    })),
+    machine: Object.fromEntries(Object.entries({ backend, atEndpoint, browserExecutablePath, headless }).filter(([, value]) => value !== undefined)),
+  };
+}
+export function parseConfig(raw: unknown): DashboardConfig { return configSchema.parse(migrateConfig(raw)); }
+/** The run profile a task uses by default: its own when it still exists, otherwise the first one. */
+export function taskProfile(config: DashboardConfig, task: Pick<ManagedTask, 'profileId'>): RunProfile {
+  return config.profiles.find(p => p.id === task.profileId) ?? config.profiles[0]!;
+}
+/** Settings for one run: the profile, then the task's policy and analysis overrides, plus machine settings. Permissions are resolved per mode by the server. */
+export function resolveRunSettings(config: DashboardConfig, task: Pick<ManagedTask, 'policy' | 'analysisInstructions'>, profile: RunProfile): RunSettings {
+  return {
+    ...structuredClone(config.machine),
+    keyboard: structuredClone(profile.permissions.keyboard), screenreader: structuredClone(profile.permissions.screenreader),
+    policy: { ...profile.policy, ...task.policy },
+    analysisInstructions: task.analysisInstructions?.trim() || profile.analysisInstructions,
+  };
+}
+export type ConfigView = { config: DashboardConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, Task>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
+export type Combination = { key: string; taskId: string; modelId: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'global' | 'task' };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
-  snapshot: { task: Task; taskName: string; model: Model; connection: Connection; prompt: Prompt; mode: Mode; profile: unknown; globals: DashboardConfig['globals'] };
+  /** `profile` is the resolved page environment; `runProfile` names the run profile (absent in version 1 history). */
+  snapshot: { task: Task; taskName: string; model: Model; connection: Connection; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile?: { id: string; name: string } };
   outcome?: { status: string; reason?: string; steps?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   analysisError?: string; reportError?: string; analysisModel?: Model;
@@ -111,4 +172,5 @@ export type RunRecord = Combination & {
   promptSource?: 'client' | 'server';
 };
 export type RetryPreview = { revision: string; changedFields: string[]; original: RunRecord['snapshot']['task']; current: RunRecord['snapshot']['task'] };
-export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest };
+/** History written before config version 2 has `environmentIds` instead of `profileIds`; runs are normalized on load. */
+export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest & { environmentIds?: string[] } };

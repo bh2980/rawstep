@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { configSchema, defaultConfig, defaultModes, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
+import { configSchema, defaultConfig, defaultProfile, defaultModes, migrateConfig, parseConfig, resolveRepetitionGuard } from '../packages/dashboard/src/shared/config.js';
 import { resolvePermissions } from '../packages/dashboard/src/server/execution.js';
 import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
 import { speechChoices } from '@rawstep/policies/systemone';
@@ -27,17 +27,17 @@ function setup(): DashboardConfig {
   const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
 }
-const request: PlanRequest = { taskIds: ['task'], modelIds: ['a', 'b'], promptIds: ['baseline', 'careful'], environmentIds: ['default'], repeats: 1, mode: 'keyboard' };
+const request: PlanRequest = { taskIds: ['task'], modelIds: ['a', 'b'], promptIds: ['baseline', 'careful'], profileIds: ['default'], repeats: 1, mode: 'keyboard' };
 async function waitFor(work: () => Promise<boolean>) { for (let i = 0; i < 100; i++) { if (await work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); }
 describe('dashboard local persistence and permissions', () => {
   it('detects external writes and keeps keys out of config responses', async () => {
     const dir = await root(); const store = new ProjectStore(dir); const first = await store.initialize();
-    await writeFile(store.path, JSON.stringify({ ...first.config, globals: { ...first.config.globals, headless: false } }));
+    await writeFile(store.path, JSON.stringify({ ...first.config, machine: { ...first.config.machine, headless: false } }));
     await expect(store.save(first.config, first.revision)).rejects.toMatchObject({ status: 409 });
     await store.setCredential('RAWSTEP_TEST_KEY', 'secret-fixture-value');
     expect(await store.credential('RAWSTEP_TEST_KEY')).toBe('secret-fixture-value');
     expect(JSON.stringify(await store.read())).not.toContain('secret-fixture-value');
-    const reread = new ProjectStore(dir); expect((await reread.read()).config.globals.headless).toBe(false);
+    const reread = new ProjectStore(dir); expect((await reread.read()).config.machine.headless).toBe(false);
   });
   it('rejects paths outside the project and symlink escapes', async () => {
     const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
@@ -63,7 +63,7 @@ describe('dashboard local persistence and permissions', () => {
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
   });
   it.each([[false, false], [true, false], [false, true], [true, true]])('independently restricts type=%s and replace=%s in candidates and execution', (typeText, replaceText) => {
-    const config = setup(), permissions = resolvePermissions(config, task, 'keyboard', { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText });
+    const config = setup(), permissions = resolvePermissions(config, config.profiles[0]!, task, 'keyboard', { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText });
     for (const candidates of [screenshotChoices(permissions as Required<typeof permissions>), speechChoices(permissions as Required<typeof permissions>)]) {
       expect(candidates.some(c => c.id === 'type:email')).toBe(typeText);
       expect(candidates.some(c => c.id === 'replace:email')).toBe(replaceText);
@@ -72,7 +72,7 @@ describe('dashboard local persistence and permissions', () => {
     if (typeText) expect(check('typeText')).not.toThrow(); else expect(check('typeText')).toThrow();
     if (replaceText) expect(check('replaceText')).not.toThrow(); else expect(check('replaceText')).toThrow();
     expect(permissions.keys).toEqual([]);
-    expect(resolvePermissions(config, task, 'keyboard', null).keys).toEqual(config.globals.keyboard.keys);
+    expect(resolvePermissions(config, config.profiles[0]!, task, 'keyboard', null).keys).toEqual(config.profiles[0]!.permissions.keyboard.keys);
   });
 });
 describe('dashboard API and sequential queue', () => {
@@ -87,7 +87,7 @@ describe('dashboard API and sequential queue', () => {
     } }); apps.push(app);
     const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(request) });
     expect(response.status).toBe(201); const experiment = await response.json() as Experiment; expect(experiment.runs).toHaveLength(4);
-    const current = await store.read(); await store.save({ ...current.config, globals: { ...current.config.globals, keyboard: { ...current.config.globals.keyboard, keys: [] } } }, current.revision);
+    const current = await store.read(); const emptied = structuredClone(current.config); emptied.profiles[0]!.permissions.keyboard.keys = []; await store.save(emptied, current.revision);
     await waitFor(async () => { const durable = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment; return durable.runs.every(r => r.state === 'success' && !!r.endedAt); });
     expect(maxActive).toBe(1); expect(seen).toHaveLength(4); expect(JSON.stringify(seen)).toContain('private-value');
     const saved = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment;
@@ -96,7 +96,7 @@ describe('dashboard API and sequential queue', () => {
     await app.close(); apps.splice(apps.indexOf(app), 1);
     const restarted = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(restarted);
     expect(restarted.queue.experiments[0]!.runs.every(r => r.state === 'success')).toBe(true);
-    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.globals.keyboard.keys).toEqual([]);
+    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.profiles[0]!.permissions.keyboard.keys).toEqual([]);
     expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
   });
   it('serves blob-backed screenshots from the run directory and embeds them in the run report', async () => {
@@ -170,7 +170,7 @@ describe('dashboard API and sequential queue', () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     config.connections.push({ id: 'analysis', name: 'Analysis', provider: 'openai', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 });
     config.models.push({ ...config.models[0]!, id: 'analysis', connectionId: 'analysis', modelId: 'analyzer', family: 'LLM', roles: ['analysis'] });
-    config.globals.analysisInstructions = 'Global comparison focus';
+    config.profiles[0]!.analysisInstructions = 'Global comparison focus';
     await store.save(config, initial.revision, { file: 'task.json', task });
     try {
       const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
@@ -186,12 +186,12 @@ describe('dashboard API and sequential queue', () => {
 describe('dashboard early give-up settings', () => {
   it('loads a saved config without the new policy fields and defaults them', async () => {
     const dir = await root(), store = new ProjectStore(dir), first = await store.initialize();
-    const old = JSON.parse(JSON.stringify(first.config)); delete old.globals.policy.repetitionGuard; delete old.globals.policy.modelGiveUp;
+    const old = JSON.parse(JSON.stringify(first.config)); delete old.profiles[0].policy.repetitionGuard; delete old.profiles[0].policy.modelGiveUp;
     await writeFile(store.path, JSON.stringify(old));
-    const policy = (await new ProjectStore(dir).read()).config.globals.policy;
+    const policy = (await new ProjectStore(dir).read()).config.profiles[0]!.policy;
     expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
-    expect(defaultConfig().globals.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
-    expect(() => configSchema.parse({ ...old, globals: { ...old.globals, policy: { ...old.globals.policy, repetitionGuard: 'sometimes' } } })).toThrow();
+    expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(() => configSchema.parse({ ...old, profiles: [{ ...old.profiles[0], policy: { ...old.profiles[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
   });
   it('resolves auto by model family and honours explicit on/off', () => {
     const llm = { family: 'LLM' as const }, systemOne = { family: 'SystemOne' as const }, hosted = { provider: 'systemone' as const }, local = { provider: 'screenshot' as const };
@@ -297,5 +297,88 @@ describe('dashboard run views and live events', () => {
     expect(Object.keys(received[0]!.message).sort()).toEqual(['experimentId', 'runId', 'seq', 'type']);
     for (let i = 1; i < received.length; i++) expect(received[i]!.at - received[i - 1]!.at).toBeGreaterThanOrEqual(200);
     expect(seqs.at(-1)).toBeGreaterThan(seqs[0]! + 30);
+  });
+});
+
+const v1Config = () => ({
+  version: 1, connections: [], models: [], tasks: [],
+  globals: {
+    keyboard: { keys: ['Tab'], intents: [], typeText: false, replaceText: false },
+    screenreader: { keys: [], intents: ['next'], typeText: false, replaceText: false },
+    policy: { historyLimit: 7, maxStateVisits: 3, maxUnchangedTransitions: 4, focusGate: true },
+    analysisInstructions: 'Compare carefully', backend: 'voiceover', atEndpoint: 'ws://127.0.0.1:9444', browserExecutablePath: '/opt/chrome', headless: false,
+  },
+  environments: [{ id: 'default', name: '기본 환경', profile: 'default' }, { id: 'zoom', name: 'Zoomed', profile: 'zoom-200' }],
+});
+describe('dashboard config version 2 profiles', () => {
+  it('migrates a version 1 config into one profile per environment and machine settings', async () => {
+    const migrated = parseConfig(v1Config());
+    expect(migrated.version).toBe(2); expect(migrated.profiles.map(p => p.id)).toEqual(['default', 'zoom']);
+    expect(migrated.profiles.map(p => p.name)).toEqual(['기본', 'Zoomed']);
+    for (const profile of migrated.profiles) {
+      expect(profile.permissions.keyboard.keys).toEqual(['Tab']); expect(profile.permissions.screenreader.intents).toEqual(['next']);
+      expect(profile.policy).toMatchObject({ historyLimit: 7, maxStateVisits: 3, focusGate: true, repetitionGuard: 'auto', modelGiveUp: true });
+      expect(profile.analysisInstructions).toBe('Compare carefully');
+    }
+    expect(migrated.profiles[1]!.environment).toBe('zoom-200');
+    expect(migrated.machine).toEqual({ backend: 'voiceover', atEndpoint: 'ws://127.0.0.1:9444', browserExecutablePath: '/opt/chrome', headless: false });
+    expect(migrateConfig(migrated)).toBe(migrated);
+    const dir = await root(), store = new ProjectStore(dir); await store.initialize();
+    const raw = JSON.stringify(v1Config()); await writeFile(store.path, raw);
+    const read = await store.read();
+    expect(read.config.profiles).toHaveLength(2); expect(read.config.machine.backend).toBe('voiceover');
+    expect(await readFile(store.path, 'utf8')).toBe(raw);
+    expect((await store.save(read.config, read.revision)).config.version).toBe(2);
+    expect(JSON.parse(await readFile(store.path, 'utf8')).version).toBe(2);
+  });
+  it('plans one row per requested profile with that profile\'s permissions, or the task profile when omitted', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    const a = defaultProfile('a', 'A'), b = defaultProfile('b', 'B');
+    a.permissions.keyboard.keys = ['Tab']; b.permissions.keyboard.keys = ['Tab', 'Enter'];
+    config.profiles = [a, b]; config.tasks[0]!.profileId = 'b';
+    const saved = await store.save(config, initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const base = { ...request, modelIds: ['a'], promptIds: ['baseline'] };
+    const both = (await app.queue.plan({ ...base, profileIds: ['a', 'b'], revision: saved.revision })).rows;
+    expect(both.map(r => [r.profileId, r.permissions.keys, r.permissionSource])).toEqual([['a', ['Tab'], 'global'], ['b', ['Tab', 'Enter'], 'global']]);
+    expect(new Set(both.map(r => r.key)).size).toBe(2); expect(both.every(r => r.key.includes(r.profileId))).toBe(true);
+    const { profileIds: _omit, ...withoutProfiles } = base;
+    const own = (await app.queue.plan(withoutProfiles)).rows;
+    expect(own).toHaveLength(1); expect(own[0]).toMatchObject({ profileId: 'b', supported: true });
+    const unknown = (await app.queue.plan({ ...base, profileIds: ['missing'] })).rows;
+    expect(unknown[0]).toMatchObject({ supported: false, profileId: 'missing' });
+  });
+  it('applies a task policy override to the run snapshot and the profile\'s analysis instructions', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.profiles[0]!.policy.historyLimit = 5; config.profiles[0]!.analysisInstructions = 'profile focus';
+    config.tasks[0]!.policy = { maxStateVisits: 2 };
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const e = await app.queue.create({ ...request, modelIds: ['a'], promptIds: ['baseline'] });
+    const snapshot = e.runs[0]!.snapshot;
+    expect(snapshot.globals.policy).toMatchObject({ historyLimit: 5, maxStateVisits: 2 });
+    expect(snapshot.runProfile).toEqual({ id: 'default', name: '기본' }); expect(e.runs[0]!.profileId).toBe('default');
+    expect(e.runs[0]!.analysisInstructions).toBe('profile focus');
+    await waitFor(async () => !!e.runs[0]!.endedAt);
+  });
+  it('rejects tasks pointing at an unknown profile and configs without unique profile ids', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.tasks[0]!.profileId = 'ghost';
+    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400 });
+    config.tasks[0]!.profileId = 'default'; config.profiles.push(defaultProfile());
+    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400 });
+    expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), environment: 'no-such-environment' }] })).toThrow();
+  });
+  it('normalizes version 1 history in memory when it is loaded', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
+    await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const id = randomUUID(), path = join(dir, '.rawstep/experiments', id, 'experiment.json');
+    const legacy = { id, createdAt: new Date().toISOString(), stopped: false, request: { ...request, profileIds: undefined, environmentIds: ['default'] }, runs: [{ id: randomUUID(), environmentId: 'default', state: 'success', key: 'k', taskId: 'task', modelId: 'a', promptId: 'baseline', repeat: 1, supported: true, permissions: {}, permissionSource: 'global' }] };
+    await (await import('node:fs/promises')).mkdir(join(dir, '.rawstep/experiments', id), { recursive: true }); await writeFile(path, JSON.stringify(legacy));
+    const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    expect(app.queue.experiments[0]!.runs[0]!.profileId).toBe('default'); expect(app.queue.experiments[0]!.request.profileIds).toEqual(['default']);
+    expect(JSON.parse(await readFile(path, 'utf8')).runs[0].environmentId).toBe('default');
   });
 });

@@ -49,6 +49,12 @@ export function modeOf(run: RunRecord): Mode {
   return run.snapshot.mode;
 }
 
-export function environmentName(environments: readonly { id: string; name: string }[], id: string): string {
-  return environments.find(environment => environment.id === id)?.name ?? id;
+/** Name of a run profile by id; the id itself when the profile no longer exists. */
+export function profileName(profiles: readonly { id: string; name: string }[], id: string): string {
+  return profiles.find(profile => profile.id === id)?.name ?? id;
+}
+
+/** The profile name a run executed with: the name recorded in its snapshot, else the current profile name, else the id. */
+export function runProfileName(profiles: readonly { id: string; name: string }[], run: Pick<RunRecord, 'profileId' | 'snapshot'>): string {
+  return run.snapshot.runProfile?.name ?? profileName(profiles, run.profileId);
 }

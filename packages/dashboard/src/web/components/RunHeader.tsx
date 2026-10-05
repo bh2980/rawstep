@@ -5,7 +5,7 @@ import type { Experiment, RetryPreview } from '../../shared/config';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
 import { outcomeReasonLabel, runStateLabel, versusLabel } from '../i18n/labels';
-import { durationSeconds, environmentName, isLive, runPath, runStepCount, type RunRef } from '../lib/runs';
+import { durationSeconds, isLive, runPath, runProfileName, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { Button } from './ui/button';
 import { RunStateLabel } from './RunStateLabel';
@@ -21,7 +21,7 @@ export function RunHeader({ runRef, hints, pageProps, onOpenRun }: Props) {
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run);
   const extra = hints?.reference && steps !== undefined ? steps - hints.reference.steps : undefined;
-  const environment = environmentName(pageProps.view.config.environments, run.environmentId);
+  const profile = runProfileName(pageProps.view.config.profiles, run);
   const { act, busy } = pageProps;
   const post = (path: string) => () => void act(() => api(path, { method: 'POST' }));
   const previewRetry = () => void act(async () => setRetry(await api<RetryPreview>(`${base}/retry`)));
@@ -35,7 +35,7 @@ export function RunHeader({ runRef, hints, pageProps, onOpenRun }: Props) {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">{run.snapshot.taskName}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {run.snapshot.model.name} · {run.snapshot.prompt.name} · {environment} · {t(`sidebar.modes.${run.snapshot.mode}`)} · {t('sidebar.repeat', { n: run.repeat })}
+        {run.snapshot.model.name} · {run.snapshot.prompt.name} · {profile} · {t(`sidebar.modes.${run.snapshot.mode}`)} · {t('sidebar.repeat', { n: run.repeat })}
       </p>
     </div>
     <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">

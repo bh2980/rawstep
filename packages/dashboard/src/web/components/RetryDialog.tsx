@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 type Props = { preview: RetryPreview | undefined; busy: boolean; onConfirm: () => void; onClose: () => void };
 
-/** Confirms re-running with the original model, prompt, permissions and environment. */
+/** Confirms re-running with the original model, prompt, permissions and run profile. */
 export function RetryDialog({ preview, busy, onConfirm, onClose }: Props) {
   const { t } = useTranslation();
   const changed = preview?.changedFields ?? [];

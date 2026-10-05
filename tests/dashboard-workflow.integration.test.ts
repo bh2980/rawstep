@@ -14,7 +14,7 @@ it('executes the real Runner over HTTP with two models/two prompts, LLM choices 
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-browser-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
-  const request: PlanRequest = { taskIds: ['fixture-task'], modelIds: ['fixture-a', 'fixture-b'], promptIds: ['baseline', 'careful'], mode: 'keyboard', environmentIds: ['default'], repeats: 1 };
+  const request: PlanRequest = { taskIds: ['fixture-task'], modelIds: ['fixture-a', 'fixture-b'], promptIds: ['baseline', 'careful'], mode: 'keyboard', profileIds: ['default'], repeats: 1 };
   const experiment = await app.queue.create(request);
   await expect.poll(() => experiment.runs.every(r => !!r.endedAt), { timeout: 20000 }).toBe(true);
   expect(experiment.runs.map(r => r.state)).toEqual(['success', 'success', 'success', 'success']);
@@ -43,7 +43,7 @@ it('negotiates /choose prompt control and rejects ignored instructions before ac
   fixture.config.connections = [connection]; fixture.config.models = await discover(connection); fixture.config.models[0]!.id = 'choose';
   const store = new ProjectStore(dir), initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
-  const request = { taskIds: ['fixture-task'], modelIds: ['choose'], promptIds: ['careful'], mode: 'keyboard', environmentIds: ['default'], repeats: 1 };
+  const request = { taskIds: ['fixture-task'], modelIds: ['choose'], promptIds: ['careful'], mode: 'keyboard', profileIds: ['default'], repeats: 1 };
   const good = await app.queue.create(request); await expect.poll(() => !!good.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(good.runs[0]!.state).toBe('success'); expect(fixture.requests[0]!.instructions).toContain('Fixture careful variant');
   const config = await store.read(); config.config.connections[0]!.baseURL += '/bad'; await store.save(config.config, config.revision);

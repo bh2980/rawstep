@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/systemone';
-import { configSchema, defaultConfig, type DashboardConfig } from '../shared/config.js';
+import { configSchema, defaultConfig, parseConfig, type DashboardConfig } from '../shared/config.js';
 
 export class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 export async function readOptional(path: string): Promise<string | undefined> {
@@ -30,21 +30,22 @@ export class ProjectStore {
   }
   async read() {
     const raw = await readFile(await this.file('rawstep.dashboard.json', true), 'utf8');
-    const config = configSchema.parse(JSON.parse(raw));
+    const config = parseConfig(JSON.parse(raw));
     this.validateReferences(config);
     const files = await Promise.all(config.tasks.map(async t => [t.file, digest(await readFile(await this.file(t.file, true), 'utf8'))]));
     return { config, revision: digest(JSON.stringify({ raw, files })) };
   }
   validateReferences(config: DashboardConfig) {
     for (const connection of config.connections) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.models, config.tasks, config.environments]) {
+    for (const group of [config.connections, config.models, config.tasks, config.profiles]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new HttpError(400, 'ID가 중복되었습니다.');
     }
     for (const model of config.models) if (!config.connections.some(c => c.id === model.connectionId)) throw new HttpError(400, '모델의 연결을 찾을 수 없습니다.');
     for (const model of config.models) if (model.family === 'SystemOne' && model.roles.includes('analysis')) throw new HttpError(400, '사후 분석에는 LLM 모델을 선택하세요.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new HttpError(400, '작업 파일 경로가 중복되었습니다.');
     for (const task of config.tasks) for (const mode of Object.values(task.modes)) if (new Set(mode.prompts.map(p => p.id)).size !== mode.prompts.length) throw new HttpError(400, '프롬프트 ID가 중복되었습니다.');
-    for (const env of config.environments) resolveEnvironmentProfile(env.profile);
+    for (const profile of config.profiles) resolveEnvironmentProfile(profile.environment);
+    for (const task of config.tasks) if (task.profileId !== undefined && !config.profiles.some(p => p.id === task.profileId)) throw new HttpError(400, '작업의 실행 프로필을 찾을 수 없습니다.');
   }
   async file(path: string, mustExist = false): Promise<string> {
     const target = resolve(this.root, path), rel = relative(this.root, target);

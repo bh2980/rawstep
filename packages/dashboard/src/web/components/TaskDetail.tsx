@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ManagedTask } from '../../shared/config';
 import { useTranslation } from 'react-i18next';
-import { formatDate, isFinished, runStartedAt, runStepCount, environmentName, type RunRef } from '../lib/runs';
+import { formatDate, isFinished, runStartedAt, runStepCount, runProfileName, type RunRef } from '../lib/runs';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';
 import type { RouteChange } from '../hooks/useRoute';
 import type { PageProps } from '../pages/types';
@@ -25,7 +25,7 @@ export function TaskDetail({ taskId, pageProps, runs, navigate }: Props) {
   const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === taskId), [runs, taskId]);
   return <div className="grid gap-6">
     <h1 className="text-2xl font-semibold tracking-tight">{managed?.name ?? taskRuns[0]?.run.snapshot.taskName ?? t('sidebar.unnamedTask')}</h1>
-    {taskRuns.length > 0 && <TaskRuns runs={taskRuns} environments={config.environments} navigate={navigate} />}
+    {taskRuns.length > 0 && <TaskRuns runs={taskRuns} profiles={config.profiles} navigate={navigate} />}
     {managed
       ? <TaskEditor key={managed.id} {...pageProps} managed={managed} initial={draft ? draft.json : pageProps.view.tasks[managed.id]}
         onSaved={id => { setDraft(undefined); navigate({ task: id }); }} onDuplicate={(task, json) => setDraft({ task, json })} />
@@ -33,7 +33,7 @@ export function TaskDetail({ taskId, pageProps, runs, navigate }: Props) {
   </div>;
 }
 
-function TaskRuns({ runs, environments, navigate }: { runs: RunRef[]; environments: { id: string; name: string }[]; navigate: Props['navigate'] }) {
+function TaskRuns({ runs, profiles, navigate }: { runs: RunRef[]; profiles: { id: string; name: string }[]; navigate: Props['navigate'] }) {
   const { t } = useTranslation();
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })));
@@ -49,7 +49,7 @@ function TaskRuns({ runs, environments, navigate }: { runs: RunRef[]; environmen
           </TableRow></TableHeader>
           <TableBody>{runs.map(ref => {
             const { run } = ref, steps = runStepCount(run), hints = hintsFor(run.id) ?? [];
-            const condition = `${run.snapshot.model.name} · ${run.snapshot.prompt.name} · ${environmentName(environments, run.environmentId)}`;
+            const condition = `${run.snapshot.model.name} · ${run.snapshot.prompt.name} · ${runProfileName(profiles, run)}`;
             return <TableRow key={run.id}>
               <TableCell><Button variant="link" className="h-auto p-0 tabular-nums" onClick={() => navigate({ task: run.taskId, run: run.id })}>{formatDate(runStartedAt(ref))}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Button></TableCell>
               <TableCell className="whitespace-normal">{condition}</TableCell>

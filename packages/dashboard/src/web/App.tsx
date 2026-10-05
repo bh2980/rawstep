@@ -6,8 +6,9 @@ import { findRun, flattenRuns } from './lib/runs';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
-import { useRoute } from './hooks/useRoute';
+import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
+import { NewTaskPage } from './components/NewTaskPage';
 import { NewExperimentDialog } from './components/NewExperimentDialog';
 import { OverviewTable } from './components/OverviewTable';
 import { RunDetail } from './components/RunDetail';
@@ -102,6 +103,7 @@ function Detail({ pageProps, data, runs, route, navigate, editorKey }: DetailPro
         <Button variant="outline" onClick={() => navigate({})}>{t('run.backToOverview')}</Button>
       </div>;
   }
+  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
   if (route.task) return <TaskDetail key={route.task + editorKey} taskId={route.task} pageProps={pageProps} runs={runs} navigate={navigate} />;
   return <OverviewTable rows={data.overview} runs={runs} error={data.overviewError} navigate={navigate} />;
 }

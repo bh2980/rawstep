@@ -10,14 +10,14 @@ export type TreeNode = {
 export type TreeInput = {
   tasks: readonly { id: string; name: string }[];
   runs: readonly RunRef[];
-  environmentName: (id: string) => string;
+  profileName: (ref: RunRef) => string;
   filter: TreeFilter;
   query: string;
   hintCount: (runId: string) => number | undefined;
 };
 
 export const taskNodeId = (taskId: string) => `task:${taskId}`;
-export const comboNodeId = (taskId: string, ref: RunRef) => `combo:${taskId}:${ref.run.snapshot.mode}:${ref.run.modelId}:${ref.run.promptId}:${ref.run.environmentId}`;
+export const comboNodeId = (taskId: string, ref: RunRef) => `combo:${taskId}:${ref.run.snapshot.mode}:${ref.run.modelId}:${ref.run.promptId}:${ref.run.profileId}`;
 export const runNodeId = (runId: string) => `run:${runId}`;
 
 function matchesFilter(ref: RunRef, filter: TreeFilter, hintCount: TreeInput['hintCount']): boolean {
@@ -27,7 +27,7 @@ function matchesFilter(ref: RunRef, filter: TreeFilter, hintCount: TreeInput['hi
   return true;
 }
 
-/** Task → combination (model · prompt · environment) → runs, newest first. Orphaned runs keep the task name they were recorded with. */
+/** Task → combination (model · prompt · profile) → runs, newest first. Orphaned runs keep the task name they were recorded with. */
 export function buildTree(input: TreeInput): TreeNode[] {
   const query = input.query.trim().toLowerCase();
   const tasks = new Map(input.tasks.map(task => [task.id, task.name]));
@@ -36,7 +36,7 @@ export function buildTree(input: TreeInput): TreeNode[] {
   const nodes: TreeNode[] = [];
   for (const [taskId, taskName] of tasks) {
     const taskRuns = input.runs.filter(ref => ref.run.taskId === taskId);
-    const visibleRuns = taskRuns.filter(ref => matchesFilter(ref, input.filter, input.hintCount) && (!query || searchText(ref, taskName, input.environmentName).includes(query)));
+    const visibleRuns = taskRuns.filter(ref => matchesFilter(ref, input.filter, input.hintCount) && (!query || searchText(ref, taskName, input.profileName).includes(query)));
     const taskMatches = !query || taskName.toLowerCase().includes(query);
     if (!visibleRuns.length && (narrowed || !taskMatches)) continue;
     const taskNode: TreeNode = {
@@ -51,7 +51,7 @@ export function buildTree(input: TreeInput): TreeNode[] {
         const { run } = ref;
         combo = {
           id, kind: 'combo', level: 2, taskId, parentId: taskNode.id, children: [], runTotal: 0, liveTotal: 0,
-          label: `${run.snapshot.model.name} · ${run.snapshot.prompt.name} · ${input.environmentName(run.environmentId)}`,
+          label: `${run.snapshot.model.name} · ${run.snapshot.prompt.name} · ${input.profileName(ref)}`,
           detail: t(`sidebar.modes.${run.snapshot.mode}`),
         };
         combos.set(id, combo);
@@ -66,9 +66,9 @@ export function buildTree(input: TreeInput): TreeNode[] {
   return nodes;
 }
 
-function searchText(ref: RunRef, taskName: string, environmentName: (id: string) => string): string {
+function searchText(ref: RunRef, taskName: string, profileName: (ref: RunRef) => string): string {
   const { run } = ref;
-  return [taskName, run.snapshot.model.name, run.snapshot.prompt.name, environmentName(run.environmentId), run.id].join(' ').toLowerCase();
+  return [taskName, run.snapshot.model.name, run.snapshot.prompt.name, profileName(ref), run.id].join(' ').toLowerCase();
 }
 
 /** Visible nodes in tree order given the expanded ids; the unit of keyboard navigation. */

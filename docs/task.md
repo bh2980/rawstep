@@ -38,6 +38,7 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 | `{ "focused": { "role"?, "name"? } }` | Keyboard focus is now on an element with that role and/or name. At least one of the two is required. |
 | `{ "not": <rule> }` | The inner rule does not hold. |
 | `{ "any": [<rule>, ...] }` | At least one of 1 to 20 inner rules holds. |
+| `{ "script": { "source": "...", "description": "..." } }` | The reviewed function in `source` returns `true`. See below. |
 
 `event.kind` is one of `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur` (keyboard focus left the page for browser UI or another window), `page-focus`. `role` and `attr` are compared exactly, `value` must equal the recorded value, and `name`, `text` and `url` take a text matcher. Every listed field must match the same recorded change. `attr` and `value` apply to `state` changes, `url` to `navigation`, and `text` to changes that carry text such as `live-region`.
 
@@ -54,6 +55,12 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 **Baseline and hint.** Before step 1 the runner evaluates the rules once with the built-in verifier and records a `verifier.baseline` trace event, for example `{ "passed": false, "rules": [{ "ruleIndex": 0, "ruleType": "event", "passed": false }, ...] }`. Only rule indexes, types and pass flags are kept, never witnesses or failure text; if evaluating throws, only the error name is stored. It never decides the outcome, and it is skipped when a custom `verifier` is supplied. `rawstep hints` turns it into a `goal-met-at-start` hint: `observed` when every rule already held before the first action, `suspected` when only some did. `not` rules are ignored because they hold at the start by design. A goal that was already met at load makes the later success weak evidence about the steps taken.
 
 **Screenshot replay export.** `event` rules are accepted for exact-pixel replay export when their final verification carries a matching `observer-event` witness. `focused`, `not` and `any` rules are not accepted for replay export.
+
+**`script`.** For goals the rules above cannot express. `source` is a JavaScript function expression, `(context) => boolean` (it may be `async`), and `description` says in plain words what it checks (at most 300 characters). It runs at verification time in an isolated world of the page: it reads the page DOM but cannot see or change the page's own JavaScript, and `context.timeline` lists the page observer events (`{ kind, role, name, text, attr, value, url }`). Each run is limited to 2 seconds, and a script that times out, throws or does not return a boolean fails the rule. Network APIs are removed from that world, but this is a guard, not a sandbox: the DOM can still load resources. Treat the code as untrusted until a person has read it. Never save a script written by a model or another person without reviewing it, and never put sensitive input values (passwords, tokens) in it. The dashboard shows the code read-only and asks for confirmation before it accepts a suggested script.
+
+```json
+{ "script": { "description": "The cart badge shows 1", "source": "() => document.querySelector('[data-cart-count]')?.textContent.trim() === '1'" } }
+```
 
 Example, run on `fixtures/friction-lab.html` with the keys `Tab, Tab, Tab, Enter`:
 

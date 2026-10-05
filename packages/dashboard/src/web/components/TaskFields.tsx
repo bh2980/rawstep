@@ -1,7 +1,10 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { PageProps } from '../pages/types';
+import { CheckSuggestions } from './CheckSuggestions';
 import { Field, Choice, Section } from './forms';
+import { RuleCard } from './RuleCard';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -27,8 +30,11 @@ function Invalid() {
   return <p role="status" className="text-sm text-muted-foreground">{t('taskFields.invalidJson')}</p>;
 }
 
-/** The fields everyone needs: start URL, goal and the completion check. Advanced rule kinds only appear in the select when `advanced` or already used. */
-export function TaskBasicFields({ advanced, ...props }: Props & { advanced: boolean }): ReactNode {
+/**
+ * The fields everyone needs: start URL, goal and the completion check. Advanced rule kinds only appear in the select when `advanced` or already used.
+ * Rules this editor cannot edit (event, focused, any, not, script, …) show as a read-only sentence card; edit those in the Task JSON.
+ */
+export function TaskBasicFields({ advanced, view, ...props }: Props & { advanced: boolean; view: PageProps['view'] }): ReactNode {
   const { t } = useTranslation();
   const parsed = useTaskJson(props);
   if (!parsed) return <Invalid />;
@@ -46,6 +52,10 @@ export function TaskBasicFields({ advanced, ...props }: Props & { advanced: bool
       <p className="text-xs leading-5 text-muted-foreground">{t('taskFields.verifyHint')}</p>
       {all.map((value, i) => {
         const kind = Object.keys(value)[0] ?? 'textVisible', detail = object(value[kind]);
+        if (!simpleKinds.includes(kind) && !advancedKinds.includes(kind)) return <div key={i} className="grid gap-2 border-t pt-3">
+          <RuleCard rule={value} n={i + 1} removeDisabled={all.length <= 1} onRemove={() => update({ verify: { all: all.filter((_, n) => n !== i) } })} />
+          <p className="text-xs leading-5 text-muted-foreground">{t('ruleText.editInJson')}</p>
+        </div>;
         return <div key={i} className="grid gap-3 border-t pt-3">
           <Choice label={t('taskFields.ruleKindLabel', { n: i + 1 })} value={kind} options={kindOptions(kind)}
             onChange={next => rule(i, { [next]: ['requestSeen', 'responseSeen'].includes(next) ? { urlIncludes: '' } : next === 'domEventSeen' ? { selector: '', event: 'click' } : '' })} />
@@ -67,6 +77,8 @@ export function TaskBasicFields({ advanced, ...props }: Props & { advanced: bool
         </div>;
       })}
       <Button variant="outline" className="justify-self-start" onClick={() => update({ verify: { all: [...all, { textVisible: '' }] } })}>{t('taskFields.addRule')}</Button>
+      <CheckSuggestions view={view} url={String(task.url ?? '')} goal={String(task.goal ?? '')}
+        onUse={next => update({ verify: { all: [next] } })} onAdd={next => update({ verify: { all: [...all, next] } })} />
     </div>
   </div>;
 }

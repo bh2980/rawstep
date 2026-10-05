@@ -2,6 +2,7 @@
  * Dashboard API contract between the local Node service and the web UI.
  * Type-only imports keep this file free of Node code so the browser bundle can use it.
  */
+import type { VerifyRule } from '@rawstep/core/contracts';
 import type { Hint, HintReport } from '@rawstep/reports/hints';
 
 export type { Hint, HintReport };
@@ -78,3 +79,15 @@ export type OverviewRow = {
 
 /** Server-sent event on /api/events, `event: run-event`: a trace event was recorded for a running run. */
 export type RunEventMessage = { experimentId: string; runId: string; seq: number; type: string };
+
+/** One proposed completion check. Nothing is applied until a person picks it. */
+export type CheckSuggestion = {
+  title: string;
+  why: string;
+  rule: VerifyRule;
+  /** `true` when the rule already holds on the start page, so it cannot tell a finished task from an unstarted one. */
+  trueAtStart?: boolean;
+  /** False for rules that are not tried on the start page (event, focus, negated and script rules). */
+  checkedAtStart: boolean;
+};
+export type SuggestionResult = { page: { title: string; url: string }; suggestions: CheckSuggestion[]; dropped: number };

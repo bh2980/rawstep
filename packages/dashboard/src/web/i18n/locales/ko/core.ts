@@ -95,7 +95,15 @@ export const core = {
   },
   newTask: {
     title: '새 작업',
-    description: '시작 주소와 목표, 완료를 확인할 문구만 입력하면 만들 수 있습니다. 나머지는 나중에 고급 설정에서 바꿀 수 있습니다.',
+    description: '시작 주소와 목표, 완료를 확인할 문구만 입력하면 만들 수 있습니다. 나머지는 나중에 작업 화면의 고급 설정에서 바꿀 수 있습니다.',
+    whatTitle: '무엇을 해 볼까요?',
+    whatDescription: '사용자가 시작할 페이지와 달성해야 할 일을 적습니다.',
+    verifyTitle: '완료 확인',
+    verifyDescription: '목표를 달성했는지 rawstep이 스스로 확인할 간단한 조건입니다. 모델에게는 전달하지 않습니다.',
+    optionsTitle: '이름과 실행 조건',
+    profile: '실행 프로필',
+    profileHint: '실험에서 따로 고르지 않으면 이 프로필의 조건(허용 행동, 막힘 감지, 화면 환경)으로 실행합니다.',
+    cancel: '취소',
     url: '시작 URL',
     goal: '목표',
     goalHint: '완료할 일을 한두 문장으로 설명합니다. 예: 상품을 장바구니에 담는다',
@@ -325,11 +333,11 @@ export const core = {
   },
   newExperiment: {
     title: '새 실험',
-    description: '작업 × 모델 × 프롬프트 × 환경을 조합해 같은 조건에서 비교합니다.',
+    description: '작업 × 모델 × 프롬프트 × 실행 프로필을 조합해 같은 조건에서 비교합니다.',
   },
   settings: {
     title: '설정',
-    description: '사용할 모델과 실행 환경을 정합니다.',
+    description: '사용할 모델, 실험 조건(실행 프로필), 이 컴퓨터의 실행 설정을 정합니다.',
     tabsLabel: '설정 구역',
   },
   live: {

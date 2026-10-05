@@ -1,25 +1,61 @@
+import { useEffect, useState } from 'react';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { Field, Choice } from './forms';
 import { useTranslation } from 'react-i18next';
-import { Button } from './ui/button';
-import type { DashboardConfig } from '../../shared/config';
-const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
-export function EnvironmentFields({ json, onChange, profiles }: { json: string; onChange: (value: string) => void; profiles: Record<string, unknown> }) {
+import { Advanced, Choice, Field } from './forms';
+
+type Json = Record<string, unknown>;
+const object = (v: unknown): Json => v && typeof v === 'object' && !Array.isArray(v) ? v as Json : {};
+const format = (value: unknown) => JSON.stringify(value, null, 2);
+
+type Props = {
+  /** An environment preset name ('default', 'narrow', …) or a custom environment object. */
+  value: unknown;
+  onChange: (value: unknown) => void;
+  /** Built-in presets from the server; editing a field turns a preset into a custom object based on it. */
+  presets: Record<string, unknown>;
+  /** Id written into a custom environment object. */
+  id: string;
+};
+
+/** Edits the one page environment of a run profile: a preset, screen size, text scale and color settings, plus raw JSON. */
+export function EnvironmentFields({ value, onChange, presets, id }: Props) {
   const { t } = useTranslation();
-  let environments: DashboardConfig['environments'];
-  try { const value: unknown = JSON.parse(json); if (!Array.isArray(value) || value.some(v => !v || typeof v !== 'object' || typeof v.id !== 'string' || typeof v.name !== 'string')) throw new Error(); environments = value; }
-  catch { return <p role="status" className="text-sm text-muted-foreground">{t('environmentFields.invalidJson')}</p>; }
-  const save = (next: typeof environments) => onChange(JSON.stringify(next, null, 2));
-  const update = (index: number, part: Partial<typeof environments[number]>) => save(environments.map((e, i) => i === index ? { ...e, ...part } : e));
-  return <div className="grid gap-6">{environments.map((environment, index) => {
-    const preset = typeof environment.profile === 'string' ? environment.profile : 'custom';
-    const profile = typeof environment.profile === 'string' ? object(profiles[environment.profile]) : object(environment.profile);
-    const changeProfile = (part: Record<string, unknown>) => update(index, { profile: { ...profile, id: environment.id, ...part } });
-    const viewport = { ...RAWSTEP_DEFAULTS.viewport, ...object(profile.viewport) };
-    return <div key={index} className="grid gap-4 border-t pt-4"><div className="grid gap-4 sm:grid-cols-2"><Field label={t('environmentFields.environmentId', { n: index + 1 })} value={environment.id} onChange={id => update(index, { id })} /><Field label={t('environmentFields.environmentName', { n: index + 1 })} value={environment.name} onChange={name => update(index, { name })} /></div><Choice label={t('environmentFields.baseProfile', { n: index + 1 })} value={preset} options={[...Object.keys(profiles).map(id => ({ id, name: id })), { id: 'custom', name: t('environmentFields.custom') }]} onChange={value => update(index, { profile: value === 'custom' ? { ...profile, id: environment.id } : value })} />
-      <div className="grid gap-4 sm:grid-cols-3"><Field label={t('environmentFields.viewportWidth', { n: index + 1 })} type="number" value={String(viewport.width)} onChange={width => changeProfile({ viewport: { ...viewport, width: Number(width) } })} /><Field label={t('environmentFields.viewportHeight', { n: index + 1 })} type="number" value={String(viewport.height)} onChange={height => changeProfile({ viewport: { ...viewport, height: Number(height) } })} /><Field label={t('environmentFields.textScale', { n: index + 1 })} type="number" value={String(profile.textScale ?? 1)} onChange={textScale => changeProfile({ textScale: Number(textScale) })} /></div>
-      <div className="grid gap-4 sm:grid-cols-2"><Choice label={t('environmentFields.colorScheme', { n: index + 1 })} value={String(profile.colorScheme ?? 'light')} options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} onChange={colorScheme => changeProfile({ colorScheme })} /><Choice label={t('environmentFields.forcedColors', { n: index + 1 })} value={String(profile.forcedColors ?? 'none')} options={[{ id: 'none', name: t('environmentFields.forcedNone') }, { id: 'active', name: t('environmentFields.forcedActive') }]} onChange={forcedColors => changeProfile({ forcedColors })} /><Choice label={t('environmentFields.contrast', { n: index + 1 })} value={String(profile.contrast ?? 'no-preference')} options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'more', name: t('environmentFields.contrastMore') }]} onChange={contrast => changeProfile({ contrast })} /><Choice label={t('environmentFields.reducedMotion', { n: index + 1 })} value={String(profile.reducedMotion ?? 'no-preference')} options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} onChange={reducedMotion => changeProfile({ reducedMotion })} /></div>
-      <Button variant="outline" className="justify-self-start" disabled={environments.length <= 1} aria-label={t('environmentFields.deleteAria', { n: index + 1 })} onClick={() => save(environments.filter((_, i) => i !== index))}>{t('environmentFields.delete')}</Button>
-    </div>;
-  })}<Button variant="outline" className="justify-self-start" onClick={() => save([...environments, { id: crypto.randomUUID(), name: t('environmentFields.newEnvironment'), profile: 'default' }])}>{t('environmentFields.add')}</Button><p className="text-xs text-muted-foreground">{t('environmentFields.note')}</p></div>;
+  const preset = typeof value === 'string' ? value : 'custom';
+  const resolved = typeof value === 'string' ? { ...object(presets[value]), id: value } : object(value);
+  const custom = (part: Json) => onChange({ ...resolved, id, ...part });
+  const viewport = { ...RAWSTEP_DEFAULTS.viewport, ...object(resolved.viewport) };
+  const [text, setText] = useState(() => format(value));
+  const [invalid, setInvalid] = useState(false);
+  useEffect(() => {
+    let same = false;
+    try { same = JSON.stringify(JSON.parse(text)) === JSON.stringify(value); } catch { /* keep the draft the user is typing */ }
+    if (!same && !invalid) setText(format(value));
+  }, [value]);
+  const editJson = (next: string) => {
+    setText(next);
+    try { const parsed: unknown = JSON.parse(next); setInvalid(false); onChange(parsed); } catch { setInvalid(true); }
+  };
+  return <div className="grid gap-5">
+    <Choice label={t('environmentFields.preset')} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name })), { id: 'custom', name: t('environmentFields.custom') }]}
+      onChange={next => onChange(next === 'custom' ? { ...resolved, id } : next)} />
+    <p className="-mt-2 text-xs leading-5 text-muted-foreground">{preset === 'custom' ? t('environmentFields.customHint') : t('environmentFields.presetHint')}</p>
+    <div className="grid gap-4 sm:grid-cols-3">
+      <Field label={t('environmentFields.viewportWidth')} type="number" value={String(viewport.width)} onChange={width => custom({ viewport: { ...viewport, width: Number(width) } })} />
+      <Field label={t('environmentFields.viewportHeight')} type="number" value={String(viewport.height)} onChange={height => custom({ viewport: { ...viewport, height: Number(height) } })} />
+      <Field label={t('environmentFields.textScale')} type="number" value={String(resolved.textScale ?? 1)} onChange={textScale => custom({ textScale: Number(textScale) })} hint={t('environmentFields.textScaleHint')} />
+    </div>
+    <Choice label={t('environmentFields.colorScheme')} value={String(resolved.colorScheme ?? 'light')} onChange={colorScheme => custom({ colorScheme })}
+      options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} />
+    <Advanced description={t('environmentFields.note')}>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Choice label={t('environmentFields.forcedColors')} value={String(resolved.forcedColors ?? 'none')} onChange={forcedColors => custom({ forcedColors })}
+          options={[{ id: 'none', name: t('environmentFields.forcedNone') }, { id: 'active', name: t('environmentFields.forcedActive') }]} />
+        <Choice label={t('environmentFields.contrast')} value={String(resolved.contrast ?? 'no-preference')} onChange={contrast => custom({ contrast })}
+          options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'more', name: t('environmentFields.contrastMore') }]} />
+        <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
+          options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
+      </div>
+      <Field label={t('environmentFields.json')} multiline value={text} onChange={editJson} hint={invalid ? t('environmentFields.invalidJson') : t('environmentFields.jsonHint')} />
+    </Advanced>
+  </div>;
 }

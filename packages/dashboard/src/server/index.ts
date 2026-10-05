@@ -9,12 +9,13 @@ import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { configSchema, connectionSchema, type ConfigView } from '../shared/config.js';
+import { connectionSchema, machineSchema, type ConfigView } from '../shared/config.js';
 import { ProjectStore, HttpError, readOptional } from './store.js';
 import { ExperimentQueue, type Executor } from './queue.js';
 import { backendCapabilities } from './execution.js';
 import { discover, record } from './models.js';
 import { RunViews } from './views.js';
+import { suggestChecks } from './suggest.js';
 import type { RunEventMessage } from '../shared/api.js';
 
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
@@ -53,10 +54,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     const { config, revision } = await store.read();
     const credentialStatus = Object.fromEntries(await Promise.all(config.connections.map(async c => [c.id, !!await store.credential(c.apiKeyEnv)])));
     const keyboard = backendCapabilities(config, 'keyboard'), screenreader = backendCapabilities(config, 'screenreader');
-    return { config, revision, credentialStatus, tasks: await store.tasks(config), profiles: BUILTIN_PROFILES,
+    return { config, revision, credentialStatus, tasks: await store.tasks(config), environmentPresets: BUILTIN_PROFILES,
       capabilities: { keyboard: { keys: [...keyboard.keys], intents: [...keyboard.intents] }, screenreader: { keys: [...screenreader.keys], intents: [...screenreader.intents] } } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
+  let suggesting = false;
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = req.headers.host;
     if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
@@ -70,18 +72,17 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/state' && method === 'GET') return send(res, await state());
     if (path === '/api/capabilities' && method === 'POST') {
-      const globals = configSchema.shape.globals.parse(record(await jsonBody(req)).globals);
-      const config = { ...(await store.read()).config, globals };
+      const config = { machine: machineSchema.parse(record(await jsonBody(req)).machine) };
       return send(res, { keyboard: backendCapabilities(config, 'keyboard'), screenreader: backendCapabilities(config, 'screenreader') });
     }
     if (path === '/api/backend/check' && method === 'POST') {
-      const globals = configSchema.shape.globals.parse(record(await jsonBody(req)).globals);
-      if (globals.backend === 'simulation') {
-        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: globals.browserExecutablePath || undefined });
+      const machine = machineSchema.parse(record(await jsonBody(req)).machine);
+      if (machine.backend === 'simulation') {
+        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined });
         await browser.close(); return send(res, { message: 'Chromium 연결 확인 완료. 스크린리더 출력은 DOM 기반 모의 관찰입니다.' });
       }
-      if ((globals.backend === 'voiceover' && process.platform !== 'darwin') || (globals.backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
-      const backend = new AtDriverBackend({ profile: globals.backend, url: globals.atEndpoint });
+      if ((machine.backend === 'voiceover' && process.platform !== 'darwin') || (machine.backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
+      const backend = new AtDriverBackend({ profile: machine.backend, url: machine.atEndpoint });
       try { const metadata = await backend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: 'AT Driver 세션 연결과 프로필 협상 확인 완료. 실제 발화와 브라우저 행동은 별도 실행으로 확인하세요.', metadata }); }
       catch { throw new HttpError(502, 'AT Driver 연결을 확인하지 못했습니다. 주소와 서버·스크린리더 상태를 확인하세요.'); }
       finally { await backend.close(); }
@@ -102,6 +103,22 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path === '/api/discover' && method === 'POST') {
       const body = z.object({ connection: connectionSchema }).strict().parse(await jsonBody(req));
       return send(res, await discover(body.connection, await store.credential(body.connection.apiKeyEnv)));
+    }
+    if (path === '/api/suggest-checks' && method === 'POST') {
+      const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000), modelId: z.string() }).strict().parse(await jsonBody(req));
+      const { config } = await store.read();
+      const model = config.models.find(m => m.id === body.modelId);
+      if (!model || model.family !== 'LLM' || !model.roles.includes('analysis')) throw new HttpError(400, '사후 분석 역할의 LLM 모델을 선택하세요.');
+      const connection = config.connections.find(c => c.id === model.connectionId)!;
+      // One page at a time: each suggestion opens a browser.
+      if (suggesting) throw new HttpError(409, '다른 완료 확인 제안이 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+      suggesting = true;
+      try {
+        return send(res, await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, connection, apiKey: await store.credential(connection.apiKeyEnv), machine: config.machine }));
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        throw new HttpError(400, error instanceof Error && error.message.startsWith('완료 확인 제안 실패') ? error.message : '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.');
+      } finally { suggesting = false; }
     }
     if (path === '/api/tasks/import' && method === 'POST') {
       const body = z.object({ file: z.string() }).strict().parse(await jsonBody(req));

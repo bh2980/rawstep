@@ -23,10 +23,10 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
  * Registers a new managed task and writes its Task JSON. A 409 means the file already exists on disk
  * (or the config changed), so retry once with a random suffix. Returns the new task id.
  */
-export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown }): Promise<string> {
+export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown; profileId?: string }): Promise<string> {
   const id = crypto.randomUUID();
   const write = (file: string) => props.save(
-    { ...props.view.config, tasks: [...props.view.config.tasks, { id, name: input.name, file, modes: defaultModes() }] },
+    { ...props.view.config, tasks: [...props.view.config.tasks, { id, name: input.name, file, ...(input.profileId ? { profileId: input.profileId } : {}), modes: defaultModes() }] },
     { file, task: input.task },
   );
   const used = new Set(props.view.config.tasks.map(task => task.file));

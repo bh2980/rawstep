@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { FileInput, Plus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { findRun, flattenRuns, environmentName, isFinished, type RunRef } from '../lib/runs';
+import { findRun, flattenRuns, runProfileName, isFinished, type RunRef } from '../lib/runs';
 import { allNodeIds, ancestorIds, buildTree, runNodeId, taskNodeId, type TreeFilter, type TreeNode } from '../lib/tree';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';
-import type { Route, RouteChange } from '../hooks/useRoute';
+import { NEW_TASK, type Route, type RouteChange } from '../hooks/useRoute';
 import type { PageProps } from '../pages/types';
 import type { Experiment } from '../../shared/config';
 import { Button } from './ui/button';
@@ -12,7 +12,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { RunTree } from './RunTree';
-import { NewTaskDialog } from './NewTaskDialog';
 import { TaskImportDialog } from './TaskImportDialog';
 
 type SidebarProps = {
@@ -31,16 +30,16 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<TreeFilter>('all');
-  const [importing, setImporting] = useState(false), [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const config = pageProps.view.config;
   const runs = useMemo(() => flattenRuns(experiments), [experiments]);
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(filter === 'hints' ? runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })) : []);
   const nodes = useMemo(() => buildTree({
     tasks: config.tasks, runs, filter, query,
-    environmentName: id => environmentName(config.environments, id),
+    profileName: ref => runProfileName(config.profiles, ref.run),
     hintCount: runId => hintsFor(runId)?.reduce((sum, hint) => sum + hint.count, 0),
-  }), [config.tasks, config.environments, runs, filter, query, hintsFor]);
+  }), [config.tasks, config.profiles, runs, filter, query, hintsFor]);
   const selected: RunRef | undefined = findRun(runs, route.run);
   const taskId = selected?.run.taskId ?? route.task;
   const selectedId = selected ? runNodeId(selected.run.id) : taskId ? taskNodeId(taskId) : undefined;
@@ -57,7 +56,7 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
         <h2 className="text-sm font-semibold">{t('sidebar.tasks')}</h2>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.importTask')} title={t('sidebar.importTask')} onClick={() => setImporting(true)}><FileInput aria-hidden="true" /></Button>
-          <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.addTask')} title={t('sidebar.addTask')} onClick={() => setCreating(true)}><Plus aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" aria-label={t('sidebar.addTask')} title={t('sidebar.addTask')} onClick={() => navigate({ task: NEW_TASK })}><Plus aria-hidden="true" /></Button>
         </div>
       </div>
       <div className="relative">
@@ -76,7 +75,6 @@ export function Sidebar({ pageProps, experiments, route, navigate, inSheet }: Si
         : <p className="p-4 text-xs leading-5 text-muted-foreground">{narrowed ? t('sidebar.emptyFiltered') : t('sidebar.empty')}</p>}
     </div>
     <p className="border-t p-3 text-[11px] leading-4 text-muted-foreground">{t('sidebar.treeHelp')}</p>
-    <NewTaskDialog {...pageProps} open={creating} onOpenChange={setCreating} onCreated={id => navigate({ task: id })} />
     <TaskImportDialog {...pageProps} open={importing} onOpenChange={setImporting} onImported={id => navigate({ task: id })} />
   </div>;
 }

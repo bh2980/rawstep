@@ -106,22 +106,36 @@ export function validateProxyServer(value: string): string {
   return proxy.href.replace(/\/$/, '');
 }
 
+/**
+ * An explicit executable is used as given. Otherwise Playwright's own Chromium is tried first and then the
+ * installed Google Chrome, so a fresh machine works without `playwright install` when Chrome is present.
+ */
+async function launchChromium(launch: Parameters<typeof chromium.launch>[0], executablePath?: string): Promise<Browser> {
+  if (executablePath) return chromium.launch({ ...launch, executablePath });
+  try { return await chromium.launch(launch); }
+  catch (bundled) {
+    try { return await chromium.launch({ ...launch, channel: "chrome" }); }
+    catch {
+      throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: bundled });
+    }
+  }
+}
+
 export async function createBrowserSession(
   url: string,
   options: CreateBrowserSessionOptions = {}
 ): Promise<BrowserSession> {
   const proxyServer = options.proxyServer === undefined ? undefined : validateProxyServer(options.proxyServer);
   const browserLaunchStartedAt = Date.now();
-  const browser = await chromium.launch({
+  const browser = await launchChromium({
     headless: options.headless ?? true,
     // Rawstep owns cancellation and must finalize its trace before exiting.
     // Playwright's SIGINT handler calls process.exit(130) after closing Chrome.
     handleSIGINT: false,
     handleSIGTERM: false,
     chromiumSandbox: true,
-    ...(proxyServer ? { proxy: { server: proxyServer } } : {}),
-    ...(options.executablePath ? { executablePath: options.executablePath } : {})
-  });
+    ...(proxyServer ? { proxy: { server: proxyServer } } : {})
+  }, options.executablePath);
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
   const pageLoadStartedAt = Date.now();
   const blockedNavigations: BlockedNavigationRecord[] = [];

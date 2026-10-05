@@ -5,6 +5,9 @@ export type RunTab = (typeof runTabs)[number];
 export type Route = { task?: string; run?: string; tab: RunTab; step?: number };
 export type RouteChange = { task?: string | undefined; run?: string | undefined; tab?: RunTab | undefined; step?: number | undefined };
 
+/** `?task=new` shows the new-task page instead of an existing task. */
+export const NEW_TASK = 'new';
+
 const EVENT = 'rawstep:navigate';
 let cachedSearch: string | undefined;
 let cachedRoute: Route = { tab: 'hints' };

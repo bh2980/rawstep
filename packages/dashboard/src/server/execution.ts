@@ -12,13 +12,14 @@ import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
 import { boundedJson } from './models.js';
-import { type DashboardConfig, type Permissions, type RunRecord, defaultInstructions, resolveRepetitionGuard } from '../shared/config.js';
+import { type MachineSettings, type Permissions, type RunProfile, type RunRecord, defaultInstructions, resolveRepetitionGuard } from '../shared/config.js';
 
-export function backendCapabilities(config: DashboardConfig, mode: 'keyboard' | 'screenreader') {
-  return mode === 'keyboard' ? new ScreenshotKeyboardBackend().capabilities : config.globals.backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(config.globals.backend).capabilities;
+export function backendCapabilities(config: { machine: Pick<MachineSettings, 'backend'> }, mode: 'keyboard' | 'screenreader') {
+  return mode === 'keyboard' ? new ScreenshotKeyboardBackend().capabilities : config.machine.backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(config.machine.backend).capabilities;
 }
-export function resolvePermissions(config: DashboardConfig, task: Task, mode: 'keyboard' | 'screenreader', override: Permissions | null): Permissions {
-  const p = structuredClone(override ?? config.globals[mode]), capabilities = backendCapabilities(config, mode);
+/** Permissions for one run: the task's per-mode override, otherwise the run profile's, filtered by what the backend and task support. */
+export function resolvePermissions(config: { machine: Pick<MachineSettings, 'backend'> }, profile: Pick<RunProfile, 'permissions'>, task: Task, mode: 'keyboard' | 'screenreader', override: Permissions | null): Permissions {
+  const p = structuredClone(override ?? profile.permissions[mode]), capabilities = backendCapabilities(config, mode);
   if (p.keys.some(k => !(capabilities.keys as readonly string[]).includes(k)) || p.intents.some(k => !capabilities.intents.includes(k))) throw new Error('이 백엔드가 지원하지 않는 행동이 선택되었습니다.');
   const keys = Object.keys(task.input ?? {});
   const requested = p.inputKeys ?? keys;

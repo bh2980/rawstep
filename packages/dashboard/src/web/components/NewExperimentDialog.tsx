@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void; pageProps: PageProps; banner: ReactNode; editorKey: number; onCreated: (experiment: Experiment) => void };
 
-/** The experiment planning form (task × model × prompt × environment) in a dialog. */
+/** The experiment planning form (task × model × prompt × run profile) in a dialog. */
 export function NewExperimentDialog({ open, onOpenChange, pageProps, banner, editorKey, onCreated }: Props) {
   const { t } = useTranslation();
   return <Dialog open={open} onOpenChange={onOpenChange}>
