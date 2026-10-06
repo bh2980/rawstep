@@ -43,8 +43,8 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
       return visits.length ? t('findings.repeatedState', { max: Math.max(...visits) }) : undefined;
     }
     case 'model-hesitation': {
-      const probabilities = numbers(finding, 'probability');
-      return probabilities.length ? t('findings.modelHesitation', { score: mean(probabilities).toFixed(2) }) : t('findings.modelHesitationPlain');
+      const probabilities = numbers(finding, 'probability'), runnerUps = numbers(finding, 'runnerUp');
+      return probabilities.length && runnerUps.length ? t('findings.modelHesitation', { score: mean(probabilities).toFixed(2), runnerUp: mean(runnerUps).toFixed(2) }) : t('findings.modelHesitationPlain');
     }
     case 'early-stop':
       if (str(detail.stopSource) === 'exploration-guard') return t('findings.earlyStopGuard');

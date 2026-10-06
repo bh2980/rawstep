@@ -55,12 +55,15 @@ export type HintThresholds = {
   backtrackReversals: number;
   /** Visits to the same screenshot state. */
   repeatedStateVisits: number;
-  /** Model choice probability below this, or margin over the runner-up below hesitationMargin. */
-  hesitationProbability: number; hesitationMargin: number;
+  /**
+   * The model hesitated when the runner-up scored at least this share of the chosen candidate's score. Relative, because a
+   * decision model spreads its scores over every candidate: 0.42 against 0.10 is a clear choice, 0.42 against 0.38 is not.
+   */
+  hesitationRunnerUpRatio: number;
 };
 export const DEFAULT_HINT_THRESHOLDS: Readonly<HintThresholds> = Object.freeze({
   slowRunStepRatio: 1.5, slowRunMinExtraSteps: 3, keystrokesToTarget: 10, backtrackReversals: 2,
-  repeatedStateVisits: 3, hesitationProbability: 0.5, hesitationMargin: 0.1,
+  repeatedStateVisits: 3, hesitationRunnerUpRatio: 0.8,
 });
 export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial<HintThresholds> };
 
@@ -223,7 +226,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     const probabilities = item.data.probabilities as number[], choices = item.data.choices as { id?: string }[];
     const index = choices.findIndex(c => c.id === item.data.choiceId); if (index < 0) continue;
     const chosen = probabilities[index]!, runnerUp = Math.max(0, ...probabilities.filter((_, i) => i !== index));
-    if (chosen < t.hesitationProbability || chosen - runnerUp < t.hesitationMargin) add({ kind: 'model-hesitation', certainty: 'suspected', steps: [item.step],
+    if (chosen > 0 && runnerUp >= chosen * t.hesitationRunnerUpRatio) add({ kind: 'model-hesitation', certainty: 'suspected', steps: [item.step],
       summary: `The model chose ${String(item.data.choiceId)} with ${(chosen * 100).toFixed(0)}% (runner-up ${(runnerUp * 100).toFixed(0)}%).`,
       detail: { choiceId: item.data.choiceId, probability: chosen, runnerUp }, evidence: [item.id] }, focusBefore(item.step - 1));
   }

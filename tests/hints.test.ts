@@ -184,12 +184,13 @@ describe("friction hints", () => {
     expect(kinds([frame(frameA), decide(1, "Tab"), result(1), frame(frameA)])).not.toContain("invisible-focus-change");
   });
 
-  it("reports a low-margin or low-probability model choice but not a confident one", () => {
+  it("reports a choice whose runner-up scored close to it, not a clear one with low absolute scores", () => {
     const evidence = (probabilities: number[]): Pair => ["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }, { id: "key:Enter" }], choiceId: "key:Tab", probabilities } }];
     const [hint] = find(extractHints(trace([evidence([0.45, 0.4])])), "model-hesitation");
     expect(hint).toMatchObject({ certainty: "suspected", steps: [3], detail: { choiceId: "key:Tab", probability: 0.45, runnerUp: 0.4 } });
-    expect(kinds([evidence([0.52, 0.45])])).toContain("model-hesitation"); // above 0.5 but within the 0.1 margin
+    expect(kinds([evidence([0.52, 0.45])])).toContain("model-hesitation");
     expect(kinds([evidence([0.9, 0.1])])).not.toContain("model-hesitation");
+    expect(kinds([evidence([0.42, 0.1])])).not.toContain("model-hesitation"); // low in absolute terms, but four times the runner-up
     expect(kinds([["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }], choiceId: "key:Missing", probabilities: [0.1] } }]])).toEqual([]);
   });
 

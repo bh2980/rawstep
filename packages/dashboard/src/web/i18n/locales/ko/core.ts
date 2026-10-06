@@ -124,7 +124,7 @@ export const core = {
       missingAnnouncement: '{{action}}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.',
       invisibleFocusChange: '포커스가 {{target}}(으)로 이동했지만 화면은 바뀌지 않았습니다.',
       /** Scores are passed already formatted with two decimals; they are model scores, not percentages. */
-      modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{score}}로 골랐습니다. 차순위 점수는 {{runnerUp}}였습니다.',
+      modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{score}}로 골랐지만, 차순위 후보도 {{runnerUp}}로 비슷했습니다.',
       earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
       earlyStopStuck: '모델이 막혔다고 답해 실행이 멈췄습니다.',
       earlyStopUncertain: '모델이 확신하지 못한다고 답해 실행이 멈췄습니다.',
