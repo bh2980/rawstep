@@ -213,7 +213,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
-    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.headless ?? false }, { source: 'browser-diagnostic' });
+    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions });
     const observe = async (): Promise<Observation> => {
       stage = 'observation';

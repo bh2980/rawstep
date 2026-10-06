@@ -116,12 +116,20 @@ export function isBotCheckUrl(url: string): boolean {
     return BOT_CHECK_HOSTS.test(parsed.hostname) || (parsed.hostname === 'www.google.com' && parsed.pathname.startsWith('/recaptcha')) || parsed.search.includes('__cf_chl');
   } catch { return false; }
 }
-/** Whether the page is showing a human check instead of the site: its address, its title, or a challenge frame. */
+/**
+ * Whether the page is showing a human check instead of the site: its address, a challenge frame, its title, or the marks a
+ * Cloudflare challenge page carries even when the site brands it (its challenge-platform script and a short page with a Ray ID).
+ */
 export async function isBotCheckPage(page: Page): Promise<boolean> {
   if (isBotCheckUrl(page.url())) return true;
   if (page.frames().some(frame => frame !== page.mainFrame() && isBotCheckUrl(frame.url()))) return true;
   const title = await page.title().catch(() => '');
-  return /just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title);
+  if (/just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title)) return true;
+  return await page.evaluate(() => {
+    if (document.querySelector('script[src*="/cdn-cgi/challenge-platform/"], iframe[src*="challenges.cloudflare.com"], #challenge-form, #cf-challenge-running')) return true;
+    const text = document.body?.innerText ?? '';
+    return text.length < 3000 && /ray[ _]?id/i.test(text);
+  }).catch(() => false);
 }
 
 export function validateProxyServer(value: string): string {
@@ -300,7 +308,9 @@ export async function createBrowserSession(
         }
       });
 
-      await installDocumentNavigationGuard(page, {
+      // A person passing a human check needs the site's scripts untouched: the checks inspect window.location and fail when its
+      // methods are wrapped. The native (CDP) boundary above still guards every navigation, so only this in-page layer is left out.
+      if (!options.userDataDir) await installDocumentNavigationGuard(page, {
         allowedOrigin,
         startUrlPrefix,
         policy: navigationPolicy,

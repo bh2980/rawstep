@@ -31,7 +31,8 @@ function fixture() {
   return {backend,browser,browserSessionFactory,verifier};
 }
 describe('human checks passed by a person',()=>{
-  const checking=(f:ReturnType<typeof fixture>,challengeCalls:number)=>{let calls=0;Object.assign(f.browser.page,{url:()=>++calls<=challengeCalls?'https://example.com/task?__cf_chl_rt_tk=x':'https://example.com/task',frames:()=>[],mainFrame:()=>undefined,title:async()=>'Shop',waitForLoadState:async()=>{}});};
+  // `branded`: a site-branded challenge page with a normal address and title, recognised by its challenge script or Ray ID.
+  const checking=(f:ReturnType<typeof fixture>,challengeCalls:number,branded=false)=>{let calls=0;const inPage=f.browser.page.evaluate;Object.assign(f.browser.page,{url:()=>++calls<=challengeCalls&&!branded?'https://example.com/task?__cf_chl_rt_tk=x':'https://example.com/task',frames:()=>[],mainFrame:()=>undefined,title:async()=>'Shop',waitForLoadState:async()=>{},evaluate:vi.fn(async(fn:unknown,...rest:unknown[])=>String(fn).includes('challenge-platform')?branded&&calls<=challengeCalls:(inPage as any)(fn,...rest))});};
   it('opens a kept profile in a visible browser, waits while the page is a check, then continues and adds the wait back to the budget',async()=>{
     const f=fixture();checking(f,2);
     const trace=await runTask(task,{...f,headless:true,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
@@ -44,6 +45,12 @@ describe('human checks passed by a person',()=>{
     const f=fixture();checking(f,1000);
     const trace=await runTask(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(trace.events.some(e=>e.type==='run.person-check-timeout')).toBe(true);
+    expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
+  });
+  it('recognises a site-branded challenge page by its challenge script or Ray ID, not only by address or title',async()=>{
+    const f=fixture();checking(f,1000,true);
+    const trace=await runTask(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(trace.events.some(e=>e.type==='run.waiting-for-person')).toBe(true);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
   it('does not look for checks without the setting',async()=>{
