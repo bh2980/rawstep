@@ -1,5 +1,6 @@
 import { defaultModes } from '@rawstep/project/config';
 import { ApiError } from '../api';
+import type { ConfigView } from '../../shared/config';
 import type { PageProps } from '../pages/types';
 
 /** Lowercase a-z0-9 and hyphens, at most 40 characters; empty when nothing usable remains. */
@@ -21,19 +22,18 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
 
 /**
  * Registers a new managed task and writes its Task JSON. A 409 means the file already exists on disk
- * (or the config changed), so retry once with a random suffix. Returns the new task id.
+ * (or the config changed), so retry once with a random suffix. Returns the new task id and the project state that includes it.
  */
-export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown; profileId?: string }): Promise<string> {
+export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown; profileId?: string }): Promise<{ id: string; view: ConfigView }> {
   const id = crypto.randomUUID();
   const write = (file: string) => props.save(
     { ...props.view.config, tasks: [...props.view.config.tasks, { id, name: input.name, file, ...(input.profileId ? { profileId: input.profileId } : {}), modes: defaultModes() }] },
     { file, task: input.task },
   );
   const used = new Set(props.view.config.tasks.map(task => task.file));
-  try { await write(uniqueTaskFile(input.slug, used)); }
+  try { return { id, view: await write(uniqueTaskFile(input.slug, used)) }; }
   catch (error) {
     if (!(error instanceof ApiError) || error.status !== 409) throw error;
-    await write('tasks/' + (input.slug || 'task') + '-' + crypto.randomUUID().slice(0, 6) + '.json');
+    return { id, view: await write('tasks/' + (input.slug || 'task') + '-' + crypto.randomUUID().slice(0, 6) + '.json') };
   }
-  return id;
 }

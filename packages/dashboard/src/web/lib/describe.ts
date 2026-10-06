@@ -95,7 +95,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'model-hesitation': {
       const choice = str(d.choiceId), probability = num(d.probability), runnerUp = num(d.runnerUp);
       if (!choice || probability === undefined || runnerUp === undefined) break;
-      return t('hints.text.modelHesitation', { choiceId: choice, probability: Math.round(probability * 100), runnerUp: Math.round(runnerUp * 100) });
+      return t('hints.text.modelHesitation', { choiceId: choiceLabel(choice), probability: Math.round(probability * 100), runnerUp: Math.round(runnerUp * 100) });
     }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
@@ -114,4 +114,10 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     }
   }
   return hint.summary;
+}
+
+/** Candidate ids look like `key:Tab` or `intent:next`; people read the key or command. */
+export function choiceLabel(id: string): string {
+  const [kind, value] = id.split(/:(.*)/s);
+  return value && (kind === 'key' || kind === 'intent') ? value : id;
 }

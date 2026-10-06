@@ -4,22 +4,22 @@ export const views = ['home', 'tasks', 'runs', 'settings'] as const;
 export type View = (typeof views)[number];
 export const sections = ['models', 'profiles', 'machine'] as const;
 export type Section = (typeof sections)[number];
-export const runTabs = ['hints', 'steps', 'compare', 'events'] as const;
-export type RunTab = (typeof runTabs)[number];
+export const taskTabs = ['overview', 'check', 'settings'] as const;
+export type TaskTab = (typeof taskTabs)[number];
 
 /**
  * `view` is the left-navigation entry the page belongs to: a task, a new task or a run is always under 작업.
- * `section` is the settings page section; `tab` and `step` belong to an open run.
+ * `section` is the settings page section; `tab` belongs to a task page and `step` to an open run.
  */
-export type Route = { view: View; section: Section; task?: string; run?: string; tab: RunTab; step?: number };
-export type RouteChange = { view?: View | undefined; section?: Section | undefined; task?: string | undefined; run?: string | undefined; tab?: RunTab | undefined; step?: number | undefined };
+export type Route = { view: View; section: Section; task?: string; run?: string; tab: TaskTab; step?: number };
+export type RouteChange = { view?: View | undefined; section?: Section | undefined; task?: string | undefined; run?: string | undefined; tab?: TaskTab | undefined; step?: number | undefined };
 
 /** `?task=new` shows the new-task page instead of an existing task. */
 export const NEW_TASK = 'new';
 
 const EVENT = 'rawstep:navigate';
 let cachedSearch: string | undefined;
-let cachedRoute: Route = { view: 'home', section: 'models', tab: 'hints' };
+let cachedRoute: Route = { view: 'home', section: 'models', tab: 'overview' };
 
 export function parseRoute(search: string): Route {
   const params = new URLSearchParams(search);
@@ -29,8 +29,8 @@ export function parseRoute(search: string): Route {
     section: sections.find(s => s === params.get('section')) ?? 'models',
     ...(task ? { task } : {}),
     ...(task && params.get('run') ? { run: params.get('run')! } : {}),
-    tab: runTabs.find(t => t === params.get('tab')) ?? 'hints',
-    ...(params.has('step') && Number.isInteger(step) && step >= 0 ? { step } : {}),
+    tab: taskTabs.find(t => t === params.get('tab')) ?? 'overview',
+    ...(task && params.get('run') && params.has('step') && Number.isInteger(step) && step >= 0 ? { step } : {}),
   };
 }
 
@@ -41,9 +41,8 @@ export function routeSearch(route: RouteChange): string {
     params.set('task', route.task);
     if (route.run) {
       params.set('run', route.run);
-      if (route.tab && route.tab !== 'hints') params.set('tab', route.tab);
       if (route.step !== undefined) params.set('step', String(route.step));
-    }
+    } else if (route.tab && route.tab !== 'overview') params.set('tab', route.tab);
   } else if (route.view && route.view !== 'home') {
     params.set('view', route.view);
     if (route.view === 'settings') params.set('section', route.section ?? 'models');

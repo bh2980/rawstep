@@ -207,7 +207,8 @@ describe('dashboard run views and live events', () => {
     const { app, experiment, get } = await launch([script(['Tab', 'Enter'], 'success'), 'throw']);
     const ok = await experiment(['a']), broken = await experiment(['a']);
     const view = await (await get(ok, 0, 'steps')).json() as RunStepsView;
-    expect(view).toMatchObject({ experimentId: ok.id, runId: ok.runs[0]!.id, live: false });
+    expect(view).toMatchObject({ experimentId: ok.id, runId: ok.runs[0]!.id, live: false, modelKind: 'decision' });
+    expect(Array.isArray(view.hints)).toBe(true);
     expect(view.steps.map(s => s.step)).toEqual([0, 1, 2]);
     expect(view.steps[1]).toMatchObject({ action: { kind: 'key', key: 'Tab' }, ok: true });
     expect(view.steps.every(s => /^[a-f0-9]{64}$/.test(s.screenshot!.sha256))).toBe(true);

@@ -27,7 +27,7 @@ export function TaskImportDialog({ open, onOpenChange, onImported, ...props }: P
     const base = file.name.replace(/\.json$/i, '');
     const goal = typeof (parsed as { goal?: unknown } | null)?.goal === 'string' ? (parsed as { goal: string }).goal.trim() : '';
     const name = goal ? (goal.length > NAME_LIMIT ? goal.slice(0, NAME_LIMIT - 1) + '…' : goal) : base || t('task.importFallbackName');
-    finish(await createManagedTask(props, { name, slug: slugify(base), task: parsed }));
+    finish((await createManagedTask(props, { name, slug: slugify(base), task: parsed })).id);
   }
   const picked = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

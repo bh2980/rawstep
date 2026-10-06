@@ -70,7 +70,7 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage models by type and provider with model discovery, task prompts and permissions, experiments across tasks, models, prompts and profiles, and persisted comparison. Configuration and results use project files, with no database. Components use shadcn and the official json-render shadcn catalog/registry. See the [dashboard guide](./docs/dashboard-plan.ko.md).
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage models by type and provider with model discovery, task prompts and permissions, experiments across tasks, models, prompts and profiles, and persisted comparison. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
 ### Models
 
@@ -115,7 +115,7 @@ Focus order, possible occlusion, clipping, overlaps and error-state changes are 
 | `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |
 | `@rawstep/reports` | Saved-trace analysis, hints and reports |
 | `@rawstep/project` | Project model shared by UI, CLI and API: `rawstep.config.json`, task files, credentials and run assembly |
-| `@rawstep/dashboard` | shadcn/json-render UI, local API and experiment queue |
+| `@rawstep/dashboard` | shadcn/ui dashboard, local API and experiment queue |
 | `@rawstep/cli` | The `init`, `ui`, `run`, `hints`, `report`, `analyze` and `doctor` commands |
 | `rawstep` | Facade and executable |
 

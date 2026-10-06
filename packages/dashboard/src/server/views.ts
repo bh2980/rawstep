@@ -38,7 +38,7 @@ export class RunViews {
     const run = this.queue.find(experimentId, runId), events = await this.events(experimentId, runId);
     // Finished runs carry hints.json from the queue; a running run is analysed from its journal on demand.
     const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
-    return buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) });
+    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.model.kind, hints: report?.hints ?? [] };
   }
   /** Hints against the shortest goal-reaching finished run of the same task and mode, from any experiment. */
   async hints(experimentId: string, runId: string): Promise<RunHintsView> {
@@ -60,7 +60,8 @@ export class RunViews {
       .sort((a, b) => a.at.localeCompare(b.at) || a.run.repeat - b.run.repeat);
   }
   private async taskData(taskId: string) {
-    const entries = this.taskEntries(taskId), done = entries.filter(entry => finished(entry.run));
+    // A run that never got going (the browser or model could not start) is not evidence about the page.
+    const entries = this.taskEntries(taskId), done = entries.filter(entry => finished(entry.run) && entry.run.outcome?.reason !== 'error');
     const steps = (run: RunRecord) => typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
     const reached = done.filter(entry => entry.run.outcome?.status === 'success');
     const fastest = reached.reduce<typeof reached[number] | undefined>((best, entry) => steps(entry.run) !== undefined && (!best || steps(entry.run)! < steps(best.run)!) ? entry : best, undefined);

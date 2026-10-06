@@ -2,13 +2,13 @@
 
 Rawstep 작업을 여러 모델과 프롬프트 변형으로 실행하고 비교하는 로컬 대시보드를 만든다. 사용자는 코드나 CLI 옵션을 수정하는 대신 작업, 모델 연결, 프롬프트, 환경, 허용 행동을 화면에서 관리한다. 전역 기본값과 작업별 설정을 지원하고, 각 실행에 실제 적용한 설정을 기록한다.
 
-이 문서는 구현 범위와 검증 기준을 기록한다. `packages/dashboard`를 별도 workspace로 구성했고, shadcn과 json-render 기반 UI, 로컬 Node API, 파일 저장, 실행 큐와 비교 화면, `rawstep ui`를 연결했다. 루트에서 `npm run build` 후 `npm run rawstep -- ui` 또는 `npm run dashboard`로 실행한다. 개발용 명령은 `npm run dashboard:dev`이다.
+이 문서는 구현 범위와 검증 기준을 기록한다. `packages/dashboard`를 별도 workspace로 구성했고, shadcn 기반 UI, 로컬 Node API, 파일 저장, 실행 큐와 비교 화면, `rawstep ui`를 연결했다. 루트에서 `npm run build` 후 `npm run rawstep -- ui` 또는 `npm run dashboard`로 실행한다. 개발용 명령은 `npm run dashboard:dev`이다.
 
 첫 완료 단위는 연결 등록부터 실제 결과 확인까지 이어지는 한 번의 실행이다. 그다음 여러 모델과 프롬프트의 실행 큐와 비교 화면을 붙인다. 최종 완료 기준은 동일한 작업을 모델 두 개와 프롬프트 두 개로 실행해 네 결과를 비교하고, 설정과 결과를 로컬 서버 재시작 후에도 다시 열 수 있는 것이다. 키보드와 스크린리더 모드는 지원하는 모델과 백엔드 조합에서 각각 확인한다.
 
 기술 구성은 React와 TypeScript UI, Vite 빌드, 로컬 Node.js 서버로 정한다. Node 서버가 설정 파일과 기존 Runner를 다루고, 브라우저는 같은 서버의 API로 저장과 실행을 요청한다. 진행 상태는 SSE로 전달한다. React의 [직접 앱 구성 안내](https://react.dev/learn/build-a-react-app-from-scratch)와 Vite의 [백엔드 통합 안내](https://vite.dev/guide/backend-integration)를 바탕으로 구성하며, 라이브러리 버전은 구현 시점에 저장소의 Node 조건과 맞춰 고정한다.
 
-UI 컴포넌트는 shadcn/ui로 통일한다. 고정된 앱 셸과 탐색은 로컬 shadcn 소스로 작성하고, JSON으로 정의하거나 생성하는 UI는 `@json-render/core`, `@json-render/react`, `@json-render/shadcn`으로 렌더링한다. 공식 [shadcn 연동](https://github.com/vercel-labs/json-render/tree/main/packages/shadcn)의 정의와 구현을 catalog와 registry에 등록했다. 같은 테마 토큰을 사용하고 `packages/dashboard/AGENTS.md`에 이후 개발에서도 shadcn을 사용하도록 명시했다.
+UI 컴포넌트는 shadcn/ui로 통일한다. 앱 셸, 탐색과 페이지는 로컬 shadcn 소스로 작성한다. 같은 테마 토큰을 사용하고 `packages/dashboard/AGENTS.md`에 이후 개발에서도 shadcn을 사용하도록 명시했다.
 
 별도 DB는 도입하지 않는다. 개발 중에는 Vite 개발 서버와 Node API를 함께 실행하고, 빌드 후에는 Node가 UI 정적 파일과 API를 함께 제공한다. 실행 명령은 현재 CLI 흐름에 맞춰 `npm run rawstep -- ui`로 추가한다.
 
@@ -79,7 +79,7 @@ UI 컴포넌트는 shadcn/ui로 통일한다. 고정된 앱 셸과 탐색은 로
 
 | 단계 | 구현 범위 | 완료 기준 |
 |---|---|---|
-| 1 설정과 기반 | 구성한 workspace와 shadcn 및 json-render UI 기반 위에 로컬 서버, 설정 계약과 파일 저장, 전역과 작업별 허용 행동 해석, 입력과 값 교체 제한 추가 | 재시작 후 저장한 설정이 유지되고 허용 목록이 후보 생성과 Runner 검증에 동일하게 적용됨 |
+| 1 설정과 기반 | 구성한 workspace와 shadcn UI 기반 위에 로컬 서버, 설정 계약과 파일 저장, 전역과 작업별 허용 행동 해석, 입력과 값 교체 제한 추가 | 재시작 후 저장한 설정이 유지되고 허용 목록이 후보 생성과 Runner 검증에 동일하게 적용됨 |
 | 2 실제 한 번 실행 | 연결 등록과 SystemOne 모델 조회, 작업 가져오기와 편집, 프롬프트 저장, 키보드 실행, 진행 상태와 기본 결과 | 실제 모델이 저장한 지침과 허용 목록으로 작업을 실행하고 독립 검증 결과와 trace를 UI에서 확인할 수 있음 |
 | 3 모드와 모델 확장 | 모드별 작업 편집, 모의 및 실제 스크린리더 연결 검사, 환경 편집, 일반 LLM 행동 선택, 결정 모델 연동 | 지원하는 각 경로에서 지침이 실제 요청에 반영됨. 미지원 모드나 모델은 실행 전에 이유를 표시함 |
 | 4 실행 큐 | 조합 생성, 반복 횟수, 개별과 전체 실행, 취소와 새 실행 재시도, 설정 스냅샷, 서버 재시작 처리 | 작업과 모드와 환경을 각각 하나, 반복을 1회로 선택하면 모델 두 개와 프롬프트 두 개가 네 독립 실행으로 생성됨. 중지한 큐의 다음 항목이 실행되지 않음 |
@@ -119,4 +119,4 @@ UI 컴포넌트는 shadcn/ui로 통일한다. 고정된 앱 셸과 탐색은 로
 - 실제 설정된 SystemOne HTTP `jev-1.13.0`로 버튼 활성화 작업을 실행해 독립 검증 성공과 분석·보고서 생성을 확인했다. 발화 관찰은 모의 VoiceOver이며 네이티브 스크린리더 증거가 아니다. 기록은 `.rawstep/dashboard-real-model-5516cf53-af6a-4824-abfa-069d35461e4c`에 보관했다.
 - UI는 모의 VoiceOver, VoiceOver와 NVDA 연결을 제공한다. Orca는 기존 CLI/API 경로를 유지한다. 네이티브 VoiceOver·NVDA·Orca의 실제 발화 검증은 준비된 대응 환경에서만 수행하며 이번 대시보드 검사에서 완료했다고 주장하지 않는다.
 
-모델이 JSON UI를 생성하는 API는 첫 버전에 포함하지 않았다. 승인한 shadcn catalog와 registry, `prompt()`·`jsonSchema()` 및 런타임 검증은 준비되어 있다. 고정된 화면 전체를 JSON으로 바꾸지 않고 허용 기능 폼에서 JSON 렌더링을 실제 사용한다.
+작업 화면은 개요(페이지에서 되풀이된 문제와 모델이 헤맨 지점), 완료 확인 편집기, 설정으로 나누고, 실행 화면은 행동마다 점을 찍은 타임라인과 선택한 행동 하나를 보여 준다.

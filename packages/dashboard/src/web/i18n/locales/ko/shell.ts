@@ -64,7 +64,7 @@ export const shell = {
     count: '실행 {{count}}번',
     compare: '여러 조건으로 실행',
     caption: '실행 목록',
-    columns: { started: '시작', task: '작업', condition: '모델 · 프로필', result: '결과', steps: '행동 수', duration: '시간', hints: '살펴볼 지점' },
+    columns: { number: '번호', started: '시작', task: '작업', condition: '모델 · 프로필', result: '결과', steps: '행동 수', duration: '시간', hints: '살펴볼 지점' },
     noHints: '없음',
     filters: { task: '작업', model: '모델', result: '결과' },
     all: '전체',

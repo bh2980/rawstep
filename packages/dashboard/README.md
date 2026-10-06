@@ -19,15 +19,14 @@ The UI manages models by type (LLM or decision), provider and key, discovered mo
 |---|---|
 | `src/web/components/ui` | Local shadcn source components |
 | `components.json` | Pinned CLI aliases and theme configuration |
-| `src/shared/ui-catalog.ts` | Approved JSON components, runtime validation, generation prompt and JSON Schema |
-| `src/web/json-ui/registry.ts` | Official json-render shadcn implementations |
-| `src/web/components/PermissionsEditor.tsx` | Catalog-validated, state-bound JSON permission forms |
-| `src/web/styles.css` | Shared theme tokens and packaged-component Tailwind scan |
+| `src/web/pages` | One page per route: home, tasks, task, run, new task, run history, settings |
+| `src/web/lib` | Pure logic with unit tests: completion-check editor mapping, finding text, step dots, route parsing |
+| `src/web/styles.css` | Shared theme tokens |
 | `src/server` | File storage, API, model adapters and execution queue |
 | `src/shared/config.ts` | Dashboard-only experiment and request contracts |
 | `@rawstep/project/config` | `rawstep.config.json` schema and types |
 
-Fixed navigation and domain pages compose local shadcn React components. JSON UI uses `@json-render/core`, `@json-render/react` and `@json-render/shadcn`; its catalog and registry both allow Card, Stack, Heading, Text, Badge, Separator, Checkbox, Switch, Button, Input, Textarea, Select, Table, Progress and Alert. Specs pass `parseDashboardSpec` before rendering. `dashboardCatalog.prompt()` and `dashboardCatalog.jsonSchema()` are ready for a future model-generated UI feature; no generation endpoint is enabled. JSON controls use built-in state bindings; saving and running use explicit application API handlers.
+Pages and domain components compose local shadcn React components. The route lives in the URL (`?view=`, `?task=&tab=`, `?task=&run=&step=`, `?task=new`), so reload and the back button restore the page. A task page shows the recurring findings of its runs (`GET /api/tasks/:id/findings`), the completion-check editor (its element picker uses `POST /api/page-elements`) and the task settings. A run page shows a dot timeline and one step at a time, and follows a live run through the SSE run events.
 
 Add components using the pinned workspace CLI:
 
@@ -35,7 +34,7 @@ Add components using the pinned workspace CLI:
 corepack pnpm --filter @rawstep/dashboard exec shadcn add dialog
 ```
 
-For a new JSON component, update both the catalog and registry. Keep its implementation based on shadcn and validate its props and structure. `AGENTS.md` preserves these conventions for subsequent development.
+`AGENTS.md` preserves these conventions for subsequent development.
 
 Configuration is in `rawstep.config.json`, the same file `rawstep run` and `runTask` read, so tasks, models and profiles set up in the dashboard run unchanged from the CLI and in tests. Task JSON keeps its engine contract. Keys are stored in `.env.local` and returned only as configured/not-configured status. Runs live in `.rawstep/experiments`. Save conflicts preserve frontend drafts. A server restart marks unfinished runs interrupted and never automatically calls a model again.
 
@@ -46,7 +45,7 @@ Verification:
 ```sh
 npm run dashboard:build
 npm run typecheck
-corepack pnpm exec vitest run tests/dashboard-catalog.test.ts tests/dashboard-server.test.ts
+corepack pnpm exec vitest run tests/dashboard-*.test.ts
 RAWSTEP_TEST_BROWSER_PATH=/path/to/chromium npm run test:integration
 npm run test:package
 ```

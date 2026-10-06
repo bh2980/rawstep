@@ -10,9 +10,10 @@ import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-export function Field({ label, value, onChange, multiline, type, hint, placeholder }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; type?: string; hint?: string; placeholder?: string }) {
+/** A labelled text input; `multiline` is a code-style textarea unless `plain` asks for ordinary text. */
+export function Field({ label, value, onChange, multiline, plain, type, hint, placeholder }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; placeholder?: string }) {
   const id = useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={5} className="font-mono text-xs leading-6" /> : <Input id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
 }
 export function Choice({ label, value, onChange, options }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[] }) {
   const id = useId();
@@ -42,5 +43,18 @@ export function Advanced({ children, description }: { children: ReactNode; descr
       <Button variant="ghost" size="sm" className="justify-self-start px-2"><ChevronDown aria-hidden="true" className={'transition-transform' + (open ? ' rotate-180' : '')} />{t('forms.advanced')}</Button>
     </CollapsibleTrigger>
     <CollapsibleContent className="grid gap-5">{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}{children}</CollapsibleContent>
+  </Collapsible>;
+}
+/** A bordered block that opens and closes: a title with a short description, and its content when open. */
+export function Panel({ title, description, children, defaultOpen }: { title: string; description?: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen === true);
+  return <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border">
+    <CollapsibleTrigger asChild>
+      <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-left">
+        <span className="min-w-0"><span className="text-sm font-medium">{title}</span>{description && <span className="ml-2 text-xs text-muted-foreground">{description}</span>}</span>
+        <ChevronDown aria-hidden="true" className={'size-4 shrink-0 transition-transform' + (open ? ' rotate-180' : '')} />
+      </button>
+    </CollapsibleTrigger>
+    <CollapsibleContent className="grid gap-5 border-t px-4 py-4">{children}</CollapsibleContent>
   </Collapsible>;
 }

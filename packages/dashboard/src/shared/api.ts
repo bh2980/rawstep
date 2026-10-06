@@ -3,6 +3,7 @@
  * Type-only imports keep this file free of Node code so the browser bundle can use it.
  */
 import type { VerifyRule } from '@rawstep/core/contracts';
+import type { ModelKind } from '@rawstep/project/config';
 import type { Hint, HintFinding, HintReport } from '@rawstep/reports/hints';
 
 export type { Hint, HintFinding, HintReport };
@@ -54,6 +55,10 @@ export type RunStepsView = {
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
   /** The run is still recording; more steps will arrive. */
   live: boolean;
+  /** Kind of the model that decided the actions. Decision models give calibrated-looking probabilities (uncalibrated scores), LLMs give none. */
+  modelKind: ModelKind;
+  /** Every hint of the run with its details; `StepView.hints` only has the kinds. Run-level hints have no steps. */
+  hints: Hint[];
 };
 
 /** Hints for one run, compared against the shortest goal-reaching run of the same task and mode, if any. */

@@ -1,4 +1,4 @@
-import type { Experiment, RunRecord } from '../../shared/config';
+import type { Experiment, RunRecord } from '../../shared/config.js';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
 
@@ -47,4 +47,20 @@ export function profileName(profiles: readonly { id: string; name: string }[], i
 /** The profile name a run executed with: the name recorded in its snapshot, else the current profile name, else the id. */
 export function runProfileName(profiles: readonly { id: string; name: string }[], run: Pick<RunRecord, 'profileId' | 'snapshot'>): string {
   return run.snapshot.runProfile?.name ?? profileName(profiles, run.profileId);
+}
+
+/** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */
+export function taskRunNumbers(runs: readonly RunRef[], taskId: string): Map<string, number> {
+  const mine = runs.filter(ref => ref.run.taskId === taskId).sort((a, b) => runStartedAt(a) - runStartedAt(b) || a.run.repeat - b.run.repeat);
+  return new Map(mine.map((ref, index) => [ref.run.id, index + 1]));
+}
+
+/** The finished run that reached the goal in the fewest actions; the first one wins a tie. */
+export function fastestRun(runs: readonly RunRef[]): { ref: RunRef; steps: number } | undefined {
+  let best: { ref: RunRef; steps: number } | undefined;
+  for (const ref of runs) {
+    const steps = runStepCount(ref.run);
+    if (ref.run.state === 'success' && steps !== undefined && (!best || steps < best.steps)) best = { ref, steps };
+  }
+  return best;
 }

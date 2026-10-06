@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RunHintsView, RunStepsView } from '../../shared/api';
+import type { RunStepsView } from '../../shared/api';
 import { api } from '../api';
 import { runPath } from '../lib/runs';
 import { useRunRefresh } from './useLiveEvents';
@@ -22,7 +22,6 @@ function useRunResource<T>(experimentId: string, runId: string, resource: string
 }
 
 export const useRunSteps = (experimentId: string, runId: string) => useRunResource<RunStepsView>(experimentId, runId, 'steps');
-export const useRunHints = (experimentId: string, runId: string) => useRunResource<RunHintsView>(experimentId, runId, 'hints');
 export const useRunEvents = (experimentId: string, runId: string) => useRunResource<RawEvent[]>(experimentId, runId, 'events');
 
 export type RawEvent = { id: string; seq: number; type: string; timestamp: string; data: unknown; redacted: boolean };

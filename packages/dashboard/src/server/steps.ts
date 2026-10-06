@@ -10,7 +10,7 @@ const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).ma
 export type StepsInput = { experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
 
 /** Folds recorded trace events into one view per policy step. Step 0 is the initial page; steps are keyed by policy.decision.step. */
-export function buildSteps({ experimentId, runId, events, hints = [], live }: StepsInput): RunStepsView {
+export function buildSteps({ experimentId, runId, events, hints = [], live }: StepsInput): Omit<RunStepsView, 'modelKind' | 'hints'> {
   const byStep = new Map<number, StepView>();
   const step = (n: number, at?: string): StepView => {
     let view = byStep.get(n);

@@ -1,6 +1,6 @@
 # Current task format
 
-Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks run on the screenshot backend (`npx rawstep run <task> --mode keyboard`).
+Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative start URLs resolve from the project root for tasks registered in `rawstep.config.json`, and from the task file's directory for a task file run directly. Keyboard tasks run on the screenshot backend (`npx rawstep run <task> --mode keyboard`).
 
 ## Inputs
 

@@ -5,9 +5,10 @@ import { editor } from './locales/ko/editor.js';
 import { settings } from './locales/ko/settings.js';
 import { shell } from './locales/ko/shell.js';
 import { suggest } from './locales/ko/suggest.js';
+import { taskUi } from './locales/ko/task.js';
 
 /** One namespace; top-level keys of the locale files must not collide. */
-export const resources = { ko: { translation: { ...core, ...editor, ...settings, ...shell, ...suggest } } } as const;
+export const resources = { ko: { translation: { ...core, ...editor, ...settings, ...shell, ...suggest, ...taskUi } } } as const;
 
 // Synchronous init with bundled resources: the first render already has every string.
 void i18n.use(initReactI18next).init({

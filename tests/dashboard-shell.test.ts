@@ -12,13 +12,21 @@ describe('routes', () => {
     expect(routeSearch({ view: 'settings', section: 'profiles' })).toBe('?view=settings&section=profiles');
     expect(routeSearch({ view: 'settings' })).toBe('?view=settings&section=models');
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
-    expect(routeSearch({ task: 'abc', run: 'r1', tab: 'steps', step: 3 })).toBe('?task=abc&run=r1&tab=steps&step=3');
-    expect(parseRoute('')).toMatchObject({ view: 'home', section: 'models', tab: 'hints' });
+    expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
+    expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
+    expect(routeSearch({ task: 'abc', tab: 'overview' })).toBe('?task=abc');
+    // A tab belongs to the task page and a step to a run; neither is kept on the other.
+    expect(routeSearch({ task: 'abc', run: 'r1', tab: 'settings' })).toBe('?task=abc&run=r1');
+    expect(routeSearch({ task: 'abc', tab: 'settings', step: 2 })).toBe('?task=abc&tab=settings');
+    expect(parseRoute('')).toMatchObject({ view: 'home', section: 'models', tab: 'overview' });
     expect(parseRoute('?view=settings&section=machine')).toMatchObject({ view: 'settings', section: 'machine' });
     expect(parseRoute('?view=nonsense&section=nonsense')).toMatchObject({ view: 'home', section: 'models' });
-    expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', section: 'models', task: 'abc', run: 'r1', tab: 'hints', step: 2 });
+    expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', section: 'models', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
+    expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
+    expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
+    expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=settings&section=machine', '?task=new', '?task=a&run=b&tab=events&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=tasks', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 

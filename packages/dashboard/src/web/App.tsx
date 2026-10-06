@@ -4,22 +4,22 @@ import type { ConfigView, Experiment } from '../shared/config';
 import { api } from './api';
 import { useTranslation } from 'react-i18next';
 import { findRun, flattenRuns } from './lib/runs';
-import { startDefaultRun } from './lib/quickRun';
+import { startRun, type RunOptions } from './lib/quickRun';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
 import { HomePage } from './pages/HomePage';
+import { NewTaskPage } from './pages/NewTaskPage';
+import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
 import { NewExperimentDialog } from './components/NewExperimentDialog';
-import { NewTaskPage } from './components/NewTaskPage';
-import { RunDetail } from './components/RunDetail';
 import { StatusBanner } from './components/StatusBanner';
-import { TaskDetail } from './components/TaskDetail';
 import { TopBar } from './components/TopBar';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './components/ui/sheet';
@@ -62,7 +62,9 @@ function Dashboard() {
     setCompare({ open: false });
     if (first) go({ task: first.taskId, run: first.id });
   };
-  const runDefault = (taskId: string) => void act(async () => openRun(await startDefaultRun(view!, taskId)));
+  /** Starts a run of a task (in the given project state, which may be newer than `view`) and opens the first one. */
+  const startAndOpen = async (state: ConfigView, taskId: string, options?: RunOptions) => openRun(await startRun(state, taskId, options));
+  const runTask = (taskId: string, options?: RunOptions) => void act(() => startAndOpen(view!, taskId, options));
 
   return <div className="flex h-screen flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
@@ -74,7 +76,7 @@ function Dashboard() {
           {!compare.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunDefault={runDefault} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} startAndOpen={startAndOpen} />}
         </div>
       </main>
     </div>
@@ -93,25 +95,26 @@ function Dashboard() {
 type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
-  onCompare: (taskId?: string) => void; onRunDefault: (taskId: string) => void;
+  onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options?: RunOptions) => void;
+  startAndOpen: (view: ConfigView, taskId: string) => Promise<void>;
 };
 
 /** Chooses the page for the URL: a run, a task or the new-task page, otherwise the list or settings page of the current view. */
-function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunDefault }: PageSwitchProps) {
+function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask, startAndOpen }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
     return runRef
-      ? <RunDetail key={runRef.run.id + editorKey} runRef={runRef} route={route} pageProps={pageProps} navigate={navigate} />
+      ? <RunPage key={runRef.run.id + editorKey} runRef={runRef} runs={runs} route={route} pageProps={pageProps} navigate={navigate} />
       : <div className="grid justify-items-start gap-3 py-10">
         <p>{t('run.notFound')}</p>
         <Button variant="outline" onClick={() => navigate({ view: 'runs' })}>{t('run.backToRuns')}</Button>
       </div>;
   }
-  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.task) return <TaskDetail key={route.task + editorKey} taskId={route.task} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} />;
+  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
+  if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
-  if (route.view === 'tasks') return <TasksPage {...lists} onRunDefault={onRunDefault} />;
+  if (route.view === 'tasks') return <TasksPage {...lists} onRunDefault={taskId => onRunTask(taskId)} />;
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
   if (route.view === 'settings') return <SettingsPage pageProps={pageProps} section={route.section} navigate={navigate} editorKey={editorKey} />;
   return <HomePage {...lists} />;

@@ -23,7 +23,7 @@ export function profileSummary(profile: Pick<RunProfile, 'permissions' | 'policy
 
 /** The policy values shown as "inherited" on a task that does not override them. */
 export function policyInheritedSummary(policy: Policy): string {
-  return t('taskEditor.inheritedPolicy', {
+  return t('taskSettings.inheritedPolicy', {
     stuck: stuckSummary(policy), history: policy.historyLimit, visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions,
     giveUp: policy.modelGiveUp ? t('profiles.on') : t('profiles.off'), focusGate: policy.focusGate ? t('profiles.on') : t('profiles.off'),
   });

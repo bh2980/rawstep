@@ -34,13 +34,6 @@ export function outcomeReasonLabel(reason: string): string {
   return has(core.run.outcomeReasons, reason) ? lookup(`run.outcomeReasons.${reason}`) : reason;
 }
 
-/** Korean text for a known limitation sentence; unknown ones are shown as recorded. */
-export function limitationLabel(text: string): string {
-  // Looked up in the core object, not through t: the keys are English sentences containing '.', ';' and ':'.
-  const texts: Record<string, string> = core.hints.limitationTexts;
-  return has(texts, text) ? texts[text]! : text;
-}
-
 export function runStateLabel(state: string): string {
   return has(core.runStates, state) ? lookup(`runStates.${state}`) : state;
 }
@@ -48,12 +41,6 @@ export function runStateLabel(state: string): string {
 /** Label for a recorded intent such as 'next'; unknown intents are shown as recorded. */
 export function intentLabel(intent: string): string {
   return has(core.steps.intents, intent) ? lookup(`steps.intents.${intent}`) : intent;
-}
-
-/** Step difference against the reference run: `extra` is this run's steps minus the reference's. */
-export function versusLabel(extra: number): string {
-  if (extra === 0) return t('run.versusSame');
-  return extra > 0 ? t('run.versusMore', { extra }) : t('run.versusLess', { extra });
 }
 
 /** Short text for one page-observer change, for chips in the step timeline. */

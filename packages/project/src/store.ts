@@ -85,9 +85,10 @@ export class ProjectStore {
     try { return await readFile(await this.file(file, true), 'utf8'); }
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new ProjectError('task-file-missing', `Task file ${file} was not found.`, 404); throw e; }
   }
+  /** Registered tasks resolve relative start URLs (project HTML files) against the project root, as the dashboard describes them. */
   async task(file: string): Promise<Task> {
-    const source = await this.taskSource(file), path = await this.file(file, true);
-    return resolveTask(JSON.parse(source), dirname(path));
+    const source = await this.taskSource(file);
+    return resolveTask(JSON.parse(source), this.root);
   }
   async tasks(config: ProjectConfig): Promise<Record<string, Task>> {
     return Object.fromEntries(await Promise.all(config.tasks.map(async t => [t.id, await this.task(t.file)])));
@@ -101,7 +102,7 @@ export class ProjectStore {
         if (['package.json', CONFIG_FILE].includes(taskWrite.file) || taskWrite.file.startsWith('.rawstep/')) throw new ProjectError('task-file-reserved', 'Configuration, package and run files cannot be used as a task.');
         if (!taskWrite.file.endsWith('.json') || !config.tasks.some(t => t.file === taskWrite.file)) throw new ProjectError('task-file-not-registered', 'A registered task JSON path is required.');
         const path = await this.file(taskWrite.file);
-        resolveTask(taskWrite.task, dirname(path));
+        resolveTask(taskWrite.task, this.root);
         await this.tasks({ ...config, tasks: config.tasks.filter(t => t.file !== taskWrite.file) });
         if (!current.config.tasks.some(t => t.file === taskWrite.file) && await readOptional(path) !== undefined) throw new ProjectError('task-file-exists', 'A file already exists at this path. Import the existing JSON or choose a new path.', 409);
         await atomicJson(path, taskWrite.task, 0o644);
