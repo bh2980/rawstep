@@ -3,9 +3,9 @@
  * Type-only imports keep this file free of Node code so the browser bundle can use it.
  */
 import type { VerifyRule } from '@rawstep/core/contracts';
-import type { Hint, HintReport } from '@rawstep/reports/hints';
+import type { Hint, HintFinding, HintReport } from '@rawstep/reports/hints';
 
-export type { Hint, HintReport };
+export type { Hint, HintFinding, HintReport };
 
 /** A trace event reduced to what a person reads in the step timeline. Redacted fields are omitted, never guessed. */
 export type ObservedChange = {
@@ -59,23 +59,38 @@ export type RunStepsView = {
 /** Hints for one run, compared against the shortest goal-reaching run of the same task and mode, if any. */
 export type RunHintsView = HintReport & { referenceRun?: { experimentId: string; runId: string } };
 
-/** One task × model cell of the overview. */
-export type OverviewRow = {
+/** Facts and recurring hint findings of one task over its finished runs (any model, mode and experiment). */
+export type TaskFindings = {
   taskId: string;
-  taskName: string;
-  modelId: string;
-  modelName: string;
-  mode: 'keyboard' | 'screenreader';
-  runs: number;
-  finished: number;
-  goalReached: number;
-  /** Median steps over finished runs. */
-  medianSteps: number | null;
-  /** Steps of the shortest goal-reaching run (the reference). */
-  referenceSteps: number | null;
-  /** Most frequent hint kinds across finished runs. */
-  topHints: { kind: Hint['kind']; count: number }[];
+  facts: {
+    /** Finished runs of the task. */
+    runs: number;
+    /** Finished runs that reached the goal. */
+    reached: number;
+    /** Median action count over finished runs that have one; null when none do. */
+    medianSteps: number | null;
+    /** The goal-reaching run with the fewest actions. */
+    fastest: { experimentId: string; runId: string; steps: number } | null;
+  };
+  /** Hints grouped by kind and page element across the runs whose hints.json could be read; run-level hints are left out. */
+  findings: HintFinding[];
 };
+
+/** One row of the task table: how a task's runs went and what recurs, without the detail of `TaskFindings`. */
+export type TaskSummary = {
+  taskId: string;
+  facts: TaskFindings['facts'];
+  /** The last 10 finished runs, oldest first. */
+  recent: { experimentId: string; runId: string; steps: number | null; reached: boolean }[];
+  /** The most frequent finding about the page itself (source 'page'), if any. */
+  topFinding: Pick<HintFinding, 'kind' | 'target' | 'runs' | 'totalRuns'> | null;
+  /** Start time of the newest run in any state; null when the task was never run. */
+  lastRunAt: string | null;
+};
+
+/** A page element a completion check can point at, as the accessibility tree names it. */
+export type PageElement = { role: string; name?: string };
+export type PageElements = { page: { title: string; url: string }; elements: PageElement[] };
 
 /** Server-sent event on /api/events, `event: run-event`: a trace event was recorded for a running run. */
 export type RunEventMessage = { experimentId: string; runId: string; seq: number; type: string };

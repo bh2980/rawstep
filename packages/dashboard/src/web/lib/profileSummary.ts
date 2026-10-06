@@ -1,20 +1,24 @@
 import { t } from '../i18n';
-import type { Permissions, Policy } from '@rawstep/project/config';
-
-/** "Tab·Shift+Tab·Enter" for the allowed actions of one mode; a "none" label when nothing is allowed. */
-export function permissionsSummary(permissions: Permissions): string {
-  const actions = [...permissions.keys, ...permissions.intents];
-  return actions.length ? actions.join('·') : t('profiles.noActions');
-}
+import type { Permissions, Policy, RunProfile } from '@rawstep/project/config';
+import { keyboardPreset, screenreaderPreset, type ActionCapabilities } from './presets';
 
 /** One short phrase describing how stuck detection behaves, e.g. the automatic setting. */
 export function stuckSummary(policy: Pick<Policy, 'repetitionGuard'>): string {
   return t(`profiles.stuck.${policy.repetitionGuard}`);
 }
 
-/** One-line summary of a run profile for lists. */
-export function profileSummary(profile: { permissions: { keyboard: Permissions }; policy: Policy }): string {
-  return t('profiles.summary', { keyboard: permissionsSummary(profile.permissions.keyboard), stuck: stuckSummary(profile.policy) });
+const keyboardName = (permissions: Permissions) => {
+  const preset = keyboardPreset(permissions);
+  return preset === 'custom' ? t('presets.keyboard.custom.summary', { count: permissions.keys.length }) : t(`presets.keyboard.${preset}.name`);
+};
+const screenreaderName = (permissions: Permissions, capabilities: ActionCapabilities) => {
+  const preset = screenreaderPreset(permissions, capabilities);
+  return preset === 'custom' ? t('presets.screenreader.custom.summary', { count: permissions.intents.length }) : t(`presets.screenreader.${preset}.name`);
+};
+
+/** One-line summary of a run profile for lists: the allowed-action presets and the stuck detection. */
+export function profileSummary(profile: Pick<RunProfile, 'permissions' | 'policy'>, screenreaderCapabilities: ActionCapabilities): string {
+  return t('profiles.summary', { keyboard: keyboardName(profile.permissions.keyboard), screenreader: screenreaderName(profile.permissions.screenreader, screenreaderCapabilities), stuck: stuckSummary(profile.policy) });
 }
 
 /** The policy values shown as "inherited" on a task that does not override them. */

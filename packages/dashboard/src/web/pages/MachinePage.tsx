@@ -28,9 +28,9 @@ export function MachinePage({ onCapabilities, ...props }: PageProps & { onCapabi
   });
   // Only this slice is written, on top of the latest config, so edits made in other settings tabs are kept.
   const save = () => void props.act(async () => { await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
-  return <div className="grid max-w-2xl gap-6">
+  return <div className="grid max-w-2xl gap-4">
     <div><h2 className="text-lg font-semibold tracking-tight">{t('machine.heading')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('machine.intro')}</p></div>
-    <div className="grid gap-6">
+    <div className="grid gap-5 rounded-lg border p-4">
       <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless} onChange={show => update({ headless: !show })} />
       <div className="grid gap-2">
         <Choice label={t('machine.backend')} value={machine.backend} onChange={changeBackend}
@@ -47,7 +47,7 @@ export function MachinePage({ onCapabilities, ...props }: PageProps & { onCapabi
       <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => update({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} hint={t('machine.browserPathHint')} />
     </div>
     <div className="flex flex-wrap items-center gap-3">
-      <Button disabled={props.busy} onClick={save}><Save aria-hidden="true" />{t('machine.save')}</Button>
+      <Button size="xl" disabled={props.busy} onClick={save}><Save aria-hidden="true" />{t('machine.save')}</Button>
       <p className="text-xs text-muted-foreground">{t('machine.saveHint')}</p>
     </div>
   </div>;

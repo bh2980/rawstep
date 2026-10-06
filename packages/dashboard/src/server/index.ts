@@ -20,6 +20,7 @@ import { HttpError, koreanMessage, record } from './http.js';
 import { ExperimentQueue, type Executor } from './queue.js';
 import { RunViews } from './views.js';
 import { suggestChecks } from './suggest.js';
+import { inspectStartPage } from './structure.js';
 import type { RunEventMessage } from '../shared/api.js';
 
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
@@ -63,7 +64,13 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       capabilities: { keyboard: { keys: [...keyboard.keys], intents: [...keyboard.intents] }, screenreader: { keys: [...screenreader.keys], intents: [...screenreader.intents] } } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
-  let suggesting = false;
+  /** Reading a start page opens a browser, so only one page read (a suggestion or the element picker) runs at a time. */
+  let readingPage = false;
+  const exclusivePageRead = async <T>(work: () => Promise<T>): Promise<T> => {
+    if (readingPage) throw new HttpError(409, '다른 페이지 읽기가 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+    readingPage = true;
+    try { return await work(); } finally { readingPage = false; }
+  };
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = req.headers.host;
     if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
@@ -124,15 +131,22 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const model = config.models.find(m => m.id === body.modelId);
       if (!model || model.kind !== 'llm' || !model.roles.includes('analysis')) throw new HttpError(400, '사후 분석 역할의 LLM 모델을 선택하세요.');
       const apiKey = await requireKey(store, model);
-      // One page at a time: each suggestion opens a browser.
-      if (suggesting) throw new HttpError(409, '다른 완료 확인 제안이 진행 중입니다. 끝난 뒤 다시 시도하세요.');
-      suggesting = true;
-      try {
-        return send(res, await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }));
-      } catch (error) {
-        if (error instanceof HttpError) throw error;
-        throw new HttpError(400, error instanceof Error && error.message.startsWith('완료 확인 제안 실패') ? error.message : '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.');
-      } finally { suggesting = false; }
+      return send(res, await exclusivePageRead(async () => {
+        try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }); }
+        catch (error) {
+          throw new HttpError(400, error instanceof Error && error.message.startsWith('완료 확인 제안 실패') ? error.message : '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.');
+        }
+      }));
+    }
+    if (path === '/api/page-elements' && method === 'POST') {
+      const body = z.object({ url: z.string().min(1).max(2000) }).strict().parse(await jsonBody(req));
+      const { config } = await store.read();
+      return send(res, await exclusivePageRead(async () => {
+        try {
+          const read = await inspectStartPage({ url: body.url, projectDir: store.root, machine: config.machine });
+          return { page: { title: read.title, url: read.url }, elements: read.elements };
+        } catch { throw new HttpError(400, '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.'); }
+      }));
     }
     if (path === '/api/tasks/import' && method === 'POST') {
       const body = z.object({ file: z.string() }).strict().parse(await jsonBody(req));
@@ -140,7 +154,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/plan' && method === 'POST') return send(res, (await queue.plan(await jsonBody(req))).rows);
     if (path === '/api/experiments' && method === 'GET') return send(res, queue.experiments);
-    if (path === '/api/overview' && method === 'GET') return send(res, await views.overview());
+    if (path === '/api/tasks-summary' && method === 'GET') return send(res, await views.taskSummaries());
+    const findings = path.match(/^\/api\/tasks\/([^/]+)\/findings$/);
+    if (findings && method === 'GET') return send(res, await views.findings(decodeURIComponent(findings[1]!)));
     if (path === '/api/experiments' && method === 'POST') return send(res, await queue.create(await jsonBody(req)), 201);
     const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|stop-reason|report|png)(?:\/([^/]+))?)?$/);
     if (match) {

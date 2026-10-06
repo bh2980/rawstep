@@ -1,4 +1,3 @@
-import type { Mode } from '@rawstep/project/config';
 import type { Experiment, RunRecord } from '../../shared/config';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
@@ -32,22 +31,12 @@ export function runStepCount(run: RunRecord): number | undefined {
   return typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
 }
 
-export function formatDate(ms: number): string {
-  if (!ms) return '—';
-  const d = new Date(ms), pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function runPath(experimentId: string, runId: string): string {
   return `/experiments/${experimentId}/runs/${runId}`;
 }
 
 export function screenshotUrl(experimentId: string, runId: string, eventId: string): string {
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
-}
-
-export function modeOf(run: RunRecord): Mode {
-  return run.snapshot.mode;
 }
 
 /** Name of a run profile by id; the id itself when the profile no longer exists. */

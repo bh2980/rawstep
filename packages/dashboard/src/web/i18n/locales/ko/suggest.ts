@@ -13,7 +13,6 @@ export const suggest = {
     pageUntitled: '(제목 없음)',
     empty: '사용할 수 있는 제안이 없습니다. 목표를 더 구체적으로 적고 다시 시도해 보세요.',
     dropped: '형식이 맞지 않는 제안 {{n}}개는 제외했습니다.',
-    why: '이유',
     meaning: '확인 내용',
     rawJson: '원본 JSON 보기',
     trueAtStart: '시작 화면에서 이미 참이라 완료 여부를 구분하기 어렵습니다',

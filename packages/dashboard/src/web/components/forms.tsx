@@ -24,9 +24,6 @@ export function MultiChoice({ label, items, selected, onChange }: { label: strin
   const { t } = useTranslation();
   return <fieldset className="grid gap-3"><legend className="mb-3 text-sm font-medium">{label}</legend>{items.length ? items.map((o, i) => <div key={o.id} className="flex items-center gap-2"><Checkbox id={id + i} checked={selected.includes(o.id)} onCheckedChange={v => onChange(v ? [...selected, o.id] : selected.filter(x => x !== o.id))} /><Label htmlFor={id + i} className="font-normal leading-5">{o.name}</Label></div>) : <p className="text-xs text-muted-foreground">{t('forms.noItems')}</p>}</fieldset>;
 }
-export function SectionHeader({ title, description, children }: { title: string; description: string; children?: ReactNode }) {
-  return <div className="mb-8 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p></div><div className="flex flex-wrap gap-2">{children}</div></div>;
-}
 /** A titled block inside the advanced settings; sections are separated by a rule. */
 export function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return <section className="grid gap-4 border-t pt-6"><div className="grid gap-1"><h3 className="font-medium">{title}</h3>{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}</div>{children}</section>;

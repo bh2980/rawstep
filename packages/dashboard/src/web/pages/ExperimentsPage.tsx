@@ -14,10 +14,10 @@ import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import type { PageProps } from './types';
 
-export function ExperimentsPage({ onRun, ...props }: PageProps & { onRun: (e: Experiment) => void }) {
+export function ExperimentsPage({ onRun, initialTaskId, ...props }: PageProps & { onRun: (e: Experiment) => void; initialTaskId: string | undefined }) {
   const { t } = useTranslation();
   const config = props.view.config;
-  const [request, setRequest] = useState<PlanRequest>({ taskIds: config.tasks.slice(0, 1).map(task => task.id), modelIds: config.models.filter(m => m.roles.includes('decision')).slice(0, 1).map(m => m.id), promptIds: ['baseline'], mode: 'keyboard', repeats: 1 });
+  const [request, setRequest] = useState<PlanRequest>({ taskIds: initialTaskId ? [initialTaskId] : config.tasks.slice(0, 1).map(task => task.id), modelIds: config.models.filter(m => m.roles.includes('decision')).slice(0, 1).map(m => m.id), promptIds: ['baseline'], mode: 'keyboard', repeats: 1 });
   const [rows, setRows] = useState<Combination[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [plannedRequest, setPlannedRequest] = useState<PlanRequest>();

@@ -1,10 +1,11 @@
 import { resolveTask, type VerifyRule } from '@rawstep/core/contracts';
-import { closeBrowserSession, createBrowserSession } from '@rawstep/browser/browser';
+import { closeBrowserSession } from '@rawstep/browser/browser';
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
 import { createLlmModel, generateStructured } from '@rawstep/policies/llm';
 import { resolveBaseURL, type MachineSettings, type Model } from '@rawstep/project/config';
 import { record } from './http.js';
+import { openStartPage, readPageStructure } from './structure.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
 const MAX_STRUCTURE = 14_000;
@@ -44,23 +45,10 @@ export async function suggestChecks(options: {
   url: string; goal: string; projectDir: string; model: Model; apiKey?: string;
   machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath'>; signal?: AbortSignal;
 }): Promise<SuggestionResult> {
-  // Resolves project-relative HTML paths the same way a task does, and rejects unusable URLs early.
-  const startUrl = resolveTask({ url: options.url, goal: options.goal, verify: { all: [{ titleIncludes: '-' }] } }, options.projectDir).url;
-  const session = await createBrowserSession(startUrl, { headless: true, executablePath: options.machine.browserExecutablePath || undefined });
+  const session = await openStartPage({ url: options.url, projectDir: options.projectDir, machine: options.machine });
   try {
-    const page = session.page;
-    await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => undefined);
-    const title = await page.title(), url = page.url();
-    const aria = await page.locator('body').ariaSnapshot({ timeout: 10_000 }).catch(() => '');
-    const extras = await page.evaluate(() => {
-      const label = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80);
-      return {
-        liveRegions: Array.from(document.querySelectorAll('[aria-live], [role=status], [role=alert], [role=log], output')).slice(0, 20).map(el => ({ role: el.getAttribute('role'), live: el.getAttribute('aria-live'), text: label(el) })),
-        dialogs: Array.from(document.querySelectorAll('dialog, [role=dialog], [role=alertdialog]')).slice(0, 10).map(el => ({ name: label(el), open: el instanceof HTMLDialogElement ? el.open : el.getAttribute('aria-hidden') !== 'true' })),
-        forms: Array.from(document.forms).slice(0, 10).map(form => ({ action: form.getAttribute('action'), method: form.method, fields: Array.from(form.elements).slice(0, 15).map(el => el.getAttribute('name') || el.getAttribute('aria-label') || el.tagName.toLowerCase()) })),
-      };
-    }).catch(() => ({}));
-    const structure = structureLimit(JSON.stringify({ title, url, accessibilityTree: aria, ...extras }));
+    const { title, url, accessibilityTree, liveRegions, dialogs, forms } = await readPageStructure(session);
+    const structure = structureLimit(JSON.stringify({ title, url, accessibilityTree, liveRegions, dialogs, forms }));
     const raw = await askModel(options, options.goal, structure);
     const suggestions: CheckSuggestion[] = [];
     let dropped = 0;

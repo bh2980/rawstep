@@ -44,16 +44,18 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
       <Field label={t('environmentFields.viewportHeight')} type="number" value={String(viewport.height)} onChange={height => custom({ viewport: { ...viewport, height: Number(height) } })} />
       <Field label={t('environmentFields.textScale')} type="number" value={String(resolved.textScale ?? 1)} onChange={textScale => custom({ textScale: Number(textScale) })} hint={t('environmentFields.textScaleHint')} />
     </div>
-    <Choice label={t('environmentFields.colorScheme')} value={String(resolved.colorScheme ?? 'light')} onChange={colorScheme => custom({ colorScheme })}
-      options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} />
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Choice label={t('environmentFields.colorScheme')} value={String(resolved.colorScheme ?? 'light')} onChange={colorScheme => custom({ colorScheme })}
+        options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} />
+      <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
+        options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
+    </div>
     <Advanced description={t('environmentFields.note')}>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Choice label={t('environmentFields.forcedColors')} value={String(resolved.forcedColors ?? 'none')} onChange={forcedColors => custom({ forcedColors })}
           options={[{ id: 'none', name: t('environmentFields.forcedNone') }, { id: 'active', name: t('environmentFields.forcedActive') }]} />
         <Choice label={t('environmentFields.contrast')} value={String(resolved.contrast ?? 'no-preference')} onChange={contrast => custom({ contrast })}
           options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'more', name: t('environmentFields.contrastMore') }]} />
-        <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
-          options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
       </div>
       <Field label={t('environmentFields.json')} multiline value={text} onChange={editJson} hint={invalid ? t('environmentFields.invalidJson') : t('environmentFields.jsonHint')} />
     </Advanced>

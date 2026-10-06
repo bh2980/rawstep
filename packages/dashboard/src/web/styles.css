@@ -9,6 +9,9 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --color-positive: var(--positive);
+    --color-warning: var(--warning);
+    --color-focus: var(--focus);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -61,13 +64,17 @@
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
+    --muted-foreground: oklch(0.5 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
+    /* Status colours as text and as bar fill: at least 4.5:1 against the page and card backgrounds. */
+    --positive: oklch(0.45 0.12 155);
+    --warning: oklch(0.5 0.13 55);
+    --focus: oklch(0.45 0.13 165);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -103,6 +110,9 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
+    --positive: oklch(0.8 0.15 160);
+    --warning: oklch(0.82 0.14 65);
+    --focus: oklch(0.83 0.13 165);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -128,4 +138,10 @@
   html {
     @apply font-sans;
     }
+}
+
+/* A visible keyboard focus indicator everywhere, in addition to the component rings. Menu options show their own highlight. */
+:focus-visible:not([role='option']):not([role='menuitem']) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }

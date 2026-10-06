@@ -9,7 +9,7 @@ import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, ConfigView, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
-import type { OverviewRow, RunEventMessage, RunHintsView, RunStepsView } from '../packages/dashboard/src/shared/api.js';
+import type { RunEventMessage, RunHintsView, RunStepsView } from '../packages/dashboard/src/shared/api.js';
 
 const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];
 afterEach(async () => { await Promise.all(apps.splice(0).map(app => app.close())); await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
@@ -232,15 +232,6 @@ describe('dashboard run views and live events', () => {
     expect((await (await get(middle, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(short.runs[0]!.id);
     // The reference run itself is compared with the next shortest goal-reaching run, never with itself.
     expect((await (await get(short, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(middle.runs[0]!.id);
-  });
-  it('aggregates the overview by task and model from run records and saved hints', async () => {
-    const back = ['Tab', 'Shift+Tab', 'Tab', 'Shift+Tab'];
-    const { app, experiment } = await launch([script(['Tab', 'Enter'], 'success'), script([...back, 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab'], 'failure'), 'throw', script(['Enter'], 'success')]);
-    await experiment(['a'], 3); await experiment(['a']); await experiment(['b']);
-    const rows = await (await fetch(app.url + '/api/overview')).json() as OverviewRow[];
-    expect(rows.map(r => [r.modelId, r.runs, r.finished, r.goalReached, r.medianSteps, r.referenceSteps])).toEqual([['a', 4, 4, 2, 4, 2], ['b', 1, 1, 1, 1, 1]]); // the crashed run is finished but has no step count for the median
-    expect(rows[0]).toMatchObject({ taskId: 'task', taskName: 'Fixture', modelName: 'a', mode: 'keyboard' });
-    expect(rows[0]!.topHints).toEqual([{ kind: 'backtracking', count: 1 }]); expect(rows[1]!.topHints).toEqual([]);
   });
   it('broadcasts throttled run-event messages while a run records', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });

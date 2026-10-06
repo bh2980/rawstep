@@ -159,26 +159,10 @@ export const editor = {
     noItems: '등록한 항목이 없습니다.',
   },
   permissions: {
-    title: '허용 기능',
-    description: '실행 모드별로 모델이 선택할 행동을 지정합니다.',
-    navigation: '탐색과 활성화',
-    input: '작업 입력값',
     inputLabel: '입력: {{label}}',
     unsupported: '{{label}} (이 백엔드 미지원)',
     textEntry: '텍스트 입력 허용',
     replaceText: '기존 값 교체 허용',
-    keyboard: {
-      forward: 'Tab으로 다음 포커스 이동',
-      backward: 'Shift+Tab으로 이전 포커스 이동',
-      extraNavigation: '방향키와 페이지 이동',
-      activate: 'Enter · Space로 활성화',
-    },
-    screenreader: {
-      forward: '다음 항목 탐색',
-      backward: '이전 항목 탐색',
-      extraNavigation: '제목과 폼 탐색',
-      activate: '컨트롤 활성화',
-    },
   },
   apiErrors: {
     requestFailed: '요청 실패',

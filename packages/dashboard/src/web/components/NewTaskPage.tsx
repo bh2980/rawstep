@@ -113,7 +113,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
         </BigField>
       </CardContent>
       <CardFooter className="justify-end gap-3">
-        <Button type="button" variant="outline" onClick={() => navigate({})}>{t('newTask.cancel')}</Button>
+        <Button type="button" variant="outline" onClick={() => navigate({ view: 'tasks' })}>{t('newTask.cancel')}</Button>
         <Button type="submit" size="lg" disabled={props.busy || !ready}>{t('newTask.create')}</Button>
       </CardFooter>
     </Card>

@@ -1,6 +1,7 @@
 import type { ObservedChange } from '../../shared/api.js';
 import { i18n, t } from './index.js';
 import { core } from './locales/ko/core.js';
+import { shell } from './locales/ko/shell.js';
 
 /** Own-property check so recorded values like 'constructor' never resolve to inherited members. */
 const has = (table: object, key: string) => Object.hasOwn(table, key);
@@ -10,6 +11,22 @@ const lookup = (key: string): string => i18n.t(key as 'app.title');
 
 export function hintKindLabel(kind: string): string {
   return has(core.hints.kinds, kind) ? lookup(`hints.kinds.${kind}`) : kind;
+}
+
+/** Korean word for an accessibility role such as 'button'; unknown roles are shown as recorded. */
+export function roleLabel(role: string): string {
+  return has(shell.roles, role) ? lookup(`roles.${role}`) : role;
+}
+
+/** The page element a finding or hint is about: `버튼 “Checkout”`, or just the role when it has no name. */
+export function targetLabel(target: { role: string; name?: string } | undefined): string {
+  if (!target) return t('taskList.wholePage');
+  return target.name ? t('hints.text.targetNamed', { role: roleLabel(target.role), name: target.name }) : roleLabel(target.role);
+}
+
+/** What kind of friction a finding is and where: `키 입력 과다 · 버튼 “Checkout”`. */
+export function findingLabel(finding: { kind: string; target?: { role: string; name?: string } }): string {
+  return t('taskList.finding', { kind: hintKindLabel(finding.kind), target: targetLabel(finding.target) });
 }
 
 /** Korean label for a recorded outcome reason; unknown reasons are shown as recorded. */
