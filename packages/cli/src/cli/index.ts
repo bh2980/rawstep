@@ -1,5 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
@@ -32,6 +34,16 @@ export interface CliDependencies {
   };
 }
 
+/** The version of the package this code ships in: the nearest package.json above it, in a checkout and in the bundled `rawstep` package. */
+async function packageVersion(): Promise<string> {
+  let directory = dirname(fileURLToPath(import.meta.url));
+  for (let depth = 0; depth < 4; depth++, directory = dirname(directory)) {
+    const manifest = join(directory, 'package.json');
+    if (existsSync(manifest)) return (JSON.parse(await readFile(manifest, 'utf8')) as { version: string }).version;
+  }
+  throw new Error('Cannot locate the package manifest to read the version from.');
+}
+
 export async function runCli(argv: string[] = process.argv.slice(2), dependencies: CliDependencies = {}): Promise<number> {
   const stdout = dependencies.stdout ?? (text => process.stdout.write(text));
   const stderr = dependencies.stderr ?? (text => process.stderr.write(text));
@@ -39,8 +51,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
   try {
     if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) { stdout(CLI_USAGE); return 0; }
     if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-v')) {
-      const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string };
-      stdout(`${manifest.version}\n`); return 0;
+      stdout(`${await packageVersion()}\n`); return 0;
     }
     const args = parseCliArguments(argv);
     const projectDir = resolve(cwd, String(args.options.project ?? '.'));
@@ -88,10 +99,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
 }
 
 async function ui(args: CliArguments, projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
-  const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard').catch((error: unknown) => {
-    if ((error as { code?: unknown } | null)?.code === 'ERR_MODULE_NOT_FOUND' && String((error as { message?: unknown }).message).includes('@rawstep/dashboard')) throw new CliUsageError('rawstep ui needs the optional @rawstep/dashboard package. Install it next to rawstep to use the dashboard.');
-    throw error;
-  })).startDashboard;
+  const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard')).startDashboard;
   const app = await startDashboard({ projectDir, port: Number(args.options.port ?? 4318) });
   stdout('Rawstep dashboard: ' + app.url + '\n');
   const signals = dependencies.signals ?? process;

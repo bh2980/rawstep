@@ -18,7 +18,7 @@ try{
   run(process.platform==='win32'?'npm.cmd':'npm',['run','check'],extracted);
   run(process.platform==='win32'?'npm.cmd':'npm',['run','test:orca-native'],extracted);
   assert.equal(await readFile(join(extracted,'pnpm-lock.yaml'),'utf8'),originalLock);
-  const bytes=await readFile(archive),receipt={result:'passed',archiveBytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),checks:['fresh source extraction','frozen-lockfile install','clean workspace build','all source/test typechecks','full behavior tests','each-package isolated local dependency-closure installation','facade browser/protocol/cancellation/report roundtrip','native Python unit tests'],nativeScreenreaderValidated:false};
+  const bytes=await readFile(archive),receipt={result:'passed',archiveBytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),checks:['fresh source extraction','frozen-lockfile install','clean workspace build','all source/test typechecks','full behavior tests','single rawstep tarball isolated installation (CLI, ui, imports, TypeScript consumer)','installed protocol/cancellation/report roundtrip','native Python unit tests'],nativeScreenreaderValidated:false};
   await mkdir(join(root,'artifacts'),{recursive:true});await writeFile(join(root,'artifacts','source-verification.json'),JSON.stringify(receipt,null,2)+'\n');
   console.log(JSON.stringify(receipt,null,2));
 }finally{if(process.env.RAWSTEP_KEEP_SOURCE_SMOKE!=='1')await rm(directory,{recursive:true,force:true});else console.log(`Source smoke retained: ${directory}`)}

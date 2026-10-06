@@ -92,6 +92,8 @@ npm run rawstep -- --help
 
 ## 패키지
 
+사용자는 `rawstep` 패키지 하나만 설치합니다. 이 패키지의 dist에 CLI, 대시보드(UI와 서버), API가 모두 들어 있고 내부 workspace는 번들에 인라인됩니다. 아래 workspace는 개발 구조(의존 방향을 강제)이며 모두 `private`이라 게시하지 않습니다.
+
 | 패키지 | 역할 |
 |---|---|
 | `@rawstep/core` | 계약, 작업·프로필 스키마, trace 기록 |
@@ -102,22 +104,20 @@ npm run rawstep -- --help
 | `@rawstep/project` | `rawstep.config.json` 스키마와 저장소(작업 파일, `.env.local` 키), 실행 조립·실행, `runTask`, 모델 조회. 대시보드·CLI·API가 공유 |
 | `@rawstep/dashboard` | UI, 로컬 API, 실험 큐와 실행 이력 |
 | `@rawstep/cli` | `init`, `ui`, `run`, `hints`, `report`, `analyze`, `doctor` 명령 |
-| `rawstep` | 위 패키지를 묶은 facade와 실행 파일. 사용자는 이 패키지만 설치합니다 |
+| `rawstep` | 게시되는 유일한 패키지. 위 workspace를 묶고 실행 파일과 공개 진입점을 제공합니다 |
 
-각 구현은 `packages/<이름>/src`에 있고, 각 패키지가 자기 빌드 결과와 의존성을 소유합니다. 빌드 순서는 core, policies, browser, screenreaders, reports, project, dashboard, cli, rawstep입니다. `rawstep`의 하위 경로(`rawstep/runner`, `rawstep/trace`, `rawstep/report`, `rawstep/hints`, `rawstep/project`, `rawstep/orca` 등)로 저수준 API를 쓸 수 있고, facade에 구현을 복제하지 않습니다.
+각 구현은 `packages/<이름>/src`에 있습니다. 빌드 순서는 core, policies, browser, screenreaders, reports, project, dashboard, cli이고, 마지막에 `rawstep`이 나머지를 번들합니다. `rawstep`의 하위 경로(`rawstep/runner`, `rawstep/trace`, `rawstep/report`, `rawstep/hints`, `rawstep/project`, `rawstep/orca` 등)로 저수준 API를 쓸 수 있습니다. 서드파티 런타임 의존성(`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`)은 `rawstep`의 일반 dependencies이며 프로젝트에는 `@rawstep/*`가 설치되지 않습니다.
 
 ### npm 게시 없이 다른 프로젝트에서 쓰기
 
 ```sh
-npm run pack:all
-# 별도의 프로젝트에서 로컬 패키지 묶음을 설치합니다
-npm install /절대/경로/rawstep/artifacts/*.tgz
+npm run pack:rawstep
+# 별도의 프로젝트에서 tarball 하나만 설치합니다
+npm install /절대/경로/rawstep/artifacts/rawstep-<버전>.tgz
 npx rawstep --help
 ```
 
-`artifacts/INSTALL.md`, `packages.json`, `SHA256SUMS`에 패키지 묶음과 해시가 저장됩니다. 아직 npm에 없는 내부 의존성을 내려받을 수는 없으므로, 의존하는 tarball 하나만 설치하지 말고 안내된 로컬 의존성 묶음을 함께 설치해야 합니다. core·policies·reports만 사용하는 경우에는 해당 묶음만 설치할 수 있고 Playwright가 필수는 아닙니다.
-
-모델 가중치, Python 환경, 네이티브 AT 서버와 브라우저 바이너리는 별도 설치입니다. npm 설치·import만으로 다운로드하거나 실행하지 않습니다.
+`npm run test:package`는 임시 프로젝트에서 이 과정을 수행하고 CLI, `rawstep ui`, import, TypeScript 타입을 검사합니다. 모델 가중치, Python 환경, 네이티브 AT 서버와 브라우저 바이너리는 별도 설치입니다. npm 설치·import만으로 다운로드하거나 실행하지 않습니다.
 
 ## 개인정보와 안전
 

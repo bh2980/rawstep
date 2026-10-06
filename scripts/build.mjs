@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, rmSync } from 'node:fs';
+import { chmodSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { root, buildPackages } from './workspace.mjs';
+import { bundleRawstep } from './bundle-rawstep.mjs';
 const require = createRequire(import.meta.url);
 rmSync(join(root, 'dist'), { recursive: true, force: true });
 for (const pkg of buildPackages) rmSync(join(pkg.path, 'dist'), { recursive: true, force: true });
 for (const pkg of buildPackages) {
   console.log(`Building ${pkg.name}`);
+  // `rawstep` is the one published package: it bundles all the others instead of compiling its own sources with tsc.
+  if (pkg.directory === 'rawstep') { bundleRawstep(); continue; }
   const result = spawnSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json'], { cwd: pkg.path, stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
@@ -23,10 +26,4 @@ for (const pkg of buildPackages) {
     if (bundled.error) throw bundled.error;
     if (bundled.status !== 0) process.exit(bundled.status ?? 1);
   }
-}
-// Documentation/examples are release assets, never runtime source dependencies.
-const facade = join(root, 'packages/rawstep');
-for (const asset of ['docs', 'examples', 'fixtures', 'README.md', 'README.ko.md']) {
-  rmSync(join(facade, asset), { recursive: true, force: true });
-  cpSync(join(root, asset), join(facade, asset), { recursive: true });
 }

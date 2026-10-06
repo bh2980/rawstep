@@ -23,8 +23,10 @@ describe('physical workspace ownership and aggregate verification contract',()=>
     expect(dashboard.name).toBe('@rawstep/dashboard');expect(dashboard.private).toBe(true);
     for(const name of order){
       const manifest=JSON.parse(await readFile(`packages/${name}/package.json`,'utf8'));
-      expect(manifest.name).toBe(names(name)); expect(manifest.private).not.toBe(true);
-      expect(manifest.files).toContain('dist');
+      expect(manifest.name).toBe(names(name));
+      // `rawstep` is the only published package; the internal workspaces enforce dependency direction and are bundled into it.
+      if(name==='rawstep'){ expect(manifest.private).not.toBe(true); expect(manifest.files).toContain('dist'); expect(manifest.files).toContain('native'); }
+      else { expect(manifest.private).toBe(true); expect(manifest.files).toBeUndefined(); expect(manifest.publishConfig).toBeUndefined(); }
       expect(JSON.stringify(manifest.dependencies)).not.toMatch(/guidepup|virtual-screen-reader|onnxruntime|transformers|torch|python/);
       const config=JSON.parse(await readFile(`packages/${name}/tsconfig.json`,'utf8'));
       expect(config.compilerOptions.rootDir).toBe('src');expect(config.compilerOptions.outDir).toBe('dist');expect(config.compilerOptions.paths).toBeUndefined();expect(config.include).toEqual(['src/**/*.ts']);
@@ -40,13 +42,27 @@ describe('physical workspace ownership and aggregate verification contract',()=>
           if(specifier!.startsWith('.'))expect(relative(base,resolve(dirname(file),specifier!))).not.toMatch(/^\.\./);
           else if(!specifier!.startsWith('node:')){
             const dep=specifier!.startsWith('@')?specifier!.split('/').slice(0,2).join('/'):specifier!.split('/')[0]!;
-            // Peers count as declared: consumers own playwright and the optional dashboard.
-            expect([...Object.keys(manifest.dependencies??{}),...Object.keys(manifest.peerDependencies??{})],`${file}: ${specifier}`).toContain(dep);
+            // Peers count as declared; the published `rawstep` inlines every internal workspace, so only third-party packages must be declared there.
+            const internal=name==='rawstep'&&dep.startsWith('@rawstep/');
+            if(!internal)expect([...Object.keys(manifest.dependencies??{}),...Object.keys(manifest.peerDependencies??{})],`${file}: ${specifier}`).toContain(dep);
             if(dep.startsWith('@rawstep/')){const other=JSON.parse(await readFile(`packages/${dep.slice(9)}/package.json`,'utf8'));expect(Object.keys(other.exports)).toContain(specifier===dep?'.':'./'+specifier!.slice(dep.length+1));}
           }
         }
       }
     }
+  });
+  it('publishes one self-contained package whose dependencies are exactly the internal workspaces\' third-party runtime dependencies',async()=>{
+    const published=JSON.parse(await readFile('packages/rawstep/package.json','utf8')),expected:Record<string,string>={};
+    for(const name of [...order.slice(0,7)]){
+      const manifest=JSON.parse(await readFile(`packages/${name}/package.json`,'utf8'));
+      for(const [dep,version] of Object.entries<string>(manifest.dependencies??{}))if(!dep.startsWith('@rawstep/'))expected[dep]=version;
+      for(const [dep,version] of Object.entries<string>(manifest.devDependencies??{}))if(dep==='playwright')expected[dep]=version;
+    }
+    expect(published.dependencies).toEqual(Object.fromEntries(Object.entries(expected).sort(([a],[b])=>a.localeCompare(b))));
+    expect(JSON.stringify(published)).not.toMatch(/@rawstep\/|workspace:/);
+    expect(published.peerDependencies).toBeUndefined();
+    expect(published.bin).toEqual({rawstep:'./dist/cli/bin.js'});
+    for(const key of Object.keys(published.exports).filter(key=>key!=='./package.json'))expect(published.exports[key].import).toMatch(/^\.\/dist\/.*\.js$/);
   });
   it('keeps every behavior test in aggregate execution and typechecking',async()=>{
     const ts=JSON.parse(await readFile('tsconfig.tests.json','utf8'));expect(ts.include).toContain('tests/**/*.ts');expect(ts.exclude).toBeUndefined();

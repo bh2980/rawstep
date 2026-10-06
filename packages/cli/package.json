@@ -1,5 +1,6 @@
 {
   "name": "@rawstep/cli",
+  "private": true,
   "version": "0.2.0",
   "description": "Rawstep command line: init, ui, run, hints, report, analyze and doctor",
   "license": "MIT",
@@ -27,42 +28,23 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "engines": {
     "node": ">=22.12.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bh2980/rawstep.git",
-    "directory": "packages/cli"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@rawstep/core": "workspace:*",
     "@rawstep/browser": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "@rawstep/reports": "workspace:*",
-    "@rawstep/project": "workspace:*"
+    "@rawstep/project": "workspace:*",
+    "@rawstep/dashboard": "workspace:*"
   },
   "peerDependencies": {
-    "playwright": "^1.59.1",
-    "@rawstep/dashboard": "workspace:^"
-  },
-  "peerDependenciesMeta": {
-    "@rawstep/dashboard": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@rawstep/dashboard": "workspace:*"
+    "playwright": "^1.59.1"
   },
   "bin": {
     "rawstep": "./dist/cli/bin.js"

@@ -225,6 +225,7 @@ describe('public API surface', () => {
       "FOCUS_CONTEXT_CHOICES",
       "FakeSystemOneClient",
       "FileTraceSink",
+      "HINTS_SCHEMA_VERSION",
       "LlmTraceAnalyzer",
       "MAX_SCRIPT_SOURCE",
       "MOCK_VOICEOVER_LIMITATIONS",
@@ -254,6 +255,7 @@ describe('public API surface', () => {
       "TRACE_SCHEMA_VERSION",
       "TraceRecorder",
       "UnsupportedCorpusPatternError",
+      "aggregateHints",
       "analyzeSavedTrace",
       "analyzeTrace",
       "applyProfile",
@@ -266,6 +268,7 @@ describe('public API surface', () => {
       "deterministicAnalyzer",
       "diagnoseScreenshotStop",
       "exportScreenshotReplay",
+      "extractHints",
       "formatSimulatedSpeech",
       "getAtDriverProfile",
       "hydrateScreenshots",
@@ -303,14 +306,19 @@ describe('public API surface', () => {
       "validateScreenshotReplay",
       "validateTrace",
       "verifyLiveProfile",
+      "writeHints",
       "writeJsonAtomic",
       "writeReport",
     ]
   `); });
 
   it('exposes the high-level runTask on the facade and keeps the browser-safe project config free of Node imports', async () => {
+    // `rawstep` bundles the internal workspaces: it exposes the same behaviour, not the same module instance.
     const facade = await import('rawstep'), project = await import('@rawstep/project');
-    expect(facade.runTask).toBe(project.runTask);
+    expect(facade.runTask).toBeTypeOf('function');
+    expect(facade.runTask.name).toBe(project.runTask.name);
+    expect(facade.ProjectError.name).toBe(project.ProjectError.name);
+    expect(await exportNames('rawstep/project')).toEqual(await exportNames('@rawstep/project'));
     expect(await exportNames('rawstep/runner')).toContain('runTask');
     const config = await readFile('packages/project/dist/config.js', 'utf8');
     expect(config).not.toMatch(/from\s+['"]node:/);

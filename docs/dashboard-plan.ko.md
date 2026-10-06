@@ -14,7 +14,7 @@ UI 컴포넌트는 shadcn/ui로 통일한다. 앱 셸, 탐색과 페이지는 �
 
 새 workspace는 `packages/dashboard` 하나로 시작한다. 내부에 `src/web`, `src/server`, `src/shared`를 두어 UI, 파일 저장과 실행 서비스, 브라우저에서도 사용할 수 있는 계약을 구분한다. 서버는 `core`, `policies`, `browser`, `screenreaders`, `reports`의 공개 API를 사용하고 CLI에 의존하지 않는다. CLI는 `ui` 명령에서 대시보드를 로드해 실행하도록 연결한다.
 
-현재 workspace의 빌드 순서는 [workspace.mjs](/Users/bh2980/Desktop/rawstep/scripts/workspace.mjs:4)에 명시되어 있다. 새 패키지를 추가할 때 빌드, 타입 검사, 정적 파일 복사, tarball 생성, 격리 설치 검사까지 함께 수정해야 한다. UI는 `dist`나 다른 workspace의 소스 파일을 직접 참조하지 않는다.
+현재 workspace의 빌드 순서는 [workspace.mjs](/Users/bh2980/Desktop/rawstep/scripts/workspace.mjs:4)에 명시되어 있다. 새 패키지를 추가할 때 빌드, 타입 검사, 정적 파일 복사, `rawstep` 번들(`scripts/bundle-rawstep.mjs`: 대시보드 웹 자산을 `dist/dashboard-web`으로 복사), 단일 tarball 생성, 격리 설치 검사까지 함께 수정해야 한다. UI는 `dist`나 다른 workspace의 소스 파일을 직접 참조하지 않는다.
 
 화면 구성은 다음과 같이 정한다. 프롬프트는 작업 안에서 관리하고 전역 설정은 별도 설정 화면에 둔다.
 

@@ -95,7 +95,7 @@ npm run typecheck
 npm test                  # browser-free
 npm run test:integration  # real browsers, one worker, serial, fail-fast
 npm run test:all
-npm run test:package      # isolated tarballs/consumers; no publication
+npm run test:package      # installs only the rawstep tarball into a temp project; no publication
 ```
 
 Set RAWSTEP_TEST_BROWSER_PATH to an already installed Chrome executable for integration/package/native harness runs if no Playwright browser is installed. This does not download or install a browser. On macOS: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.

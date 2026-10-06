@@ -107,6 +107,8 @@ Focus order, possible occlusion, clipping, overlaps and error-state changes are 
 
 ## Library and package layout
 
+You install one package, `rawstep`. Its dist contains the CLI, the dashboard UI and server, and the API, with the internal workspaces inlined. The workspaces below are the development structure (they enforce the dependency direction) and are `private`: they are never published.
+
 | Workspace | Responsibility |
 |---|---|
 | `@rawstep/core` | Contracts, task/profile schema, trace data and persistence |
@@ -117,20 +119,20 @@ Focus order, possible occlusion, clipping, overlaps and error-state changes are 
 | `@rawstep/project` | Project model shared by UI, CLI and API: `rawstep.config.json`, task files, credentials and run assembly |
 | `@rawstep/dashboard` | shadcn/ui dashboard, local API and experiment queue |
 | `@rawstep/cli` | The `init`, `ui`, `run`, `hints`, `report`, `analyze` and `doctor` commands |
-| `rawstep` | Facade and executable |
+| `rawstep` | The published package: bundles all of the above, plus the executable and the public entry points |
 
-Code lives in `packages/<name>/src`; each package owns its compiled output and declared dependencies. `import { runTask } from 'rawstep'` is the main entry point. Subpaths such as `rawstep/runner`, `rawstep/screenshot`, `rawstep/trace` and `rawstep/orca` stay available for advanced use. The facade is not a second implementation.
+Code lives in `packages/<name>/src`. `import { runTask } from 'rawstep'` is the main entry point. Subpaths such as `rawstep/runner`, `rawstep/screenshot`, `rawstep/trace`, `rawstep/hints`, `rawstep/project` and `rawstep/orca` stay available for advanced use. Third-party runtime dependencies (`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`) are ordinary dependencies of `rawstep`; nothing under `@rawstep/*` is installed in a project.
 
-### Local tarballs without publishing
+### Local tarball without publishing
 
 ```sh
-npm run pack:all
-# In another project, install the full local dependency closure:
-npm install /absolute/path/to/rawstep/artifacts/*.tgz
+npm run pack:rawstep
+# In another project:
+npm install /absolute/path/to/rawstep/artifacts/rawstep-<version>.tgz
 npx rawstep --help
 ```
 
-`artifacts/INSTALL.md`, `packages.json` and `SHA256SUMS` describe the generated package set. Unpublished sibling packages cannot be fetched from npm by installing only a dependent tarball. Selective consumers can install a package's documented local dependency closure. Core, policies and reports do not require Playwright merely for their own imports.
+`npm run test:package` does this in a temporary project and checks the CLI, `rawstep ui`, imports and TypeScript types. Browser executables, Python/model runtimes and native screen readers are separate prerequisites; installing does not start or download them.
 
 ## Privacy and safety
 

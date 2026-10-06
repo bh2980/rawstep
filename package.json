@@ -22,9 +22,9 @@
     "test:all": "npm test && npm run test:integration",
     "test:integration": "node scripts/test-browser.mjs",
     "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
-    "pack:all": "node scripts/pack-workspace.mjs",
     "test:source": "node scripts/smoke-source.mjs",
-    "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev"
+    "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",
+    "pack:rawstep": "node scripts/pack-rawstep.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
@@ -32,6 +32,7 @@
     "@rawstep/browser": "workspace:*",
     "@rawstep/cli": "workspace:*",
     "@rawstep/core": "workspace:*",
+    "@rawstep/dashboard": "workspace:*",
     "@rawstep/policies": "workspace:*",
     "@rawstep/project": "workspace:*",
     "@rawstep/reports": "workspace:*",
@@ -42,6 +43,7 @@
     "jsdom": "30.1.1",
     "playwright": "1.59.1",
     "rawstep": "workspace:*",
+    "tsdown": "0.23.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "4.1.4",

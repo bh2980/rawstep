@@ -1,5 +1,6 @@
 {
   "name": "@rawstep/project",
+  "private": true,
   "version": "0.2.0",
   "description": "Rawstep project model: rawstep.config.json, task files, credentials and run assembly shared by the CLI, the dashboard and the API",
   "license": "MIT",
@@ -55,23 +56,12 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "engines": {
     "node": ">=22.12.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bh2980/rawstep.git",
-    "directory": "packages/project"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@rawstep/core": "workspace:*",

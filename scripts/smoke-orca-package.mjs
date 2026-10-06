@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { OrcaBackend, orcaBridgePath } from 'rawstep/orca';
-const bridge=orcaBridgePath();assert.ok(bridge.startsWith(process.cwd()+'/node_modules/@rawstep/screenreaders/'));assert.ok(existsSync(bridge));
+const bridge=orcaBridgePath();assert.ok(bridge.startsWith(process.cwd()+'/node_modules/rawstep/native/'));assert.ok(existsSync(bridge));
 const fixture=String.raw`
 const readline=require('node:readline');let session;
 const send=o=>process.stdout.write(JSON.stringify(o)+'\n');

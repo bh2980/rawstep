@@ -1,6 +1,6 @@
 # Source editing map
 
-Rawstep has engine packages, the shared `@rawstep/project` package and one private dashboard workspace. The `rawstep` facade has reexports and the executable only; each implementation has one owning package and a declared dependency graph.
+Rawstep has engine packages, the shared `@rawstep/project` package and one private dashboard workspace. `rawstep` is the only published package: its `src/` has reexports and the executable only and `tsdown` bundles every workspace into it; each implementation has one owning package and a declared dependency graph.
 
 | Responsibility | Source owner | Verification |
 |---|---|---|
@@ -31,4 +31,4 @@ Rawstep has engine packages, the shared `@rawstep/project` package and one priva
 
 Root `examples/` and `fixtures/` contain runnable inputs. Optional model programs stay in examples and are not mandatory npm runtime dependencies. Generated corpus source remains reproducible through the evidence scripts; do not silently edit calibration results by hand.
 
-Use `npm run check` for the aggregate and `npm run test:source` for a clean source reproduction. Package-local compilation must never resolve a sibling's unbuilt source via a path alias. Install local tarball dependency closures to test packages outside the checkout.
+Use `npm run check` for the aggregate and `npm run test:source` for a clean source reproduction. Package-local compilation must never resolve a sibling's unbuilt source via a path alias. Run `npm run test:package` to install the single `rawstep` tarball outside the checkout.

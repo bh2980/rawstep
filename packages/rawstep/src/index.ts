@@ -9,6 +9,7 @@ export type { DecisionClientOptions, DecisionProviderName, SystemOneCapabilities
 // The high-level entry point: run a task from rawstep.config.json. The low-level native runner is `rawstep/runner`.
 export { ProjectError, runTask } from './project/index.js';
 export type { RunTaskOptions, RunTaskResult } from './project/index.js';
+export { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, writeHints } from './hints/index.js';
 export type { Hint, HintFinding, HintKind, HintReport, HintSource, HintTarget } from './hints/index.js';
 export type { RunOptions } from './runner/index.js';
 export { createRedactor, FileTraceSink, hydrateScreenshots, isScreenshotRef, MemoryTraceSink, readTrace, REDACTED, screenshotSha256, TRACE_SCHEMA_VERSION, traceFilePath, TraceRecorder, validateTrace, writeJsonAtomic } from './trace/index.js';

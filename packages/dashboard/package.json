@@ -1,7 +1,7 @@
 {
   "name": "@rawstep/dashboard",
-  "version": "0.2.0",
   "private": true,
+  "version": "0.2.0",
   "type": "module",
   "description": "Local Rawstep dashboard UI workspace",
   "scripts": {
@@ -54,11 +54,6 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "peerDependencies": {
     "playwright": "^1.59.1"
   }

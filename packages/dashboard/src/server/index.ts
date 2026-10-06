@@ -5,6 +5,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { isScreenshotRef } from '@rawstep/core/trace';
 import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
@@ -22,6 +23,12 @@ import { RunViews } from './views.js';
 import { suggestChecks } from './suggest.js';
 import { inspectStartPage } from './structure.js';
 import type { RunEventMessage } from '../shared/api.js';
+
+/** Built UI: `dist/web` in a checkout, `dist/dashboard-web` inside the single `rawstep` package (whichever chunk this code was bundled into). */
+function defaultWebDir(): string {
+  const candidates = ['./dashboard-web', '../dashboard-web', '../web'].map(path => fileURLToPath(new URL(path, import.meta.url)));
+  return candidates.find(directory => existsSync(join(directory, 'index.html'))) ?? candidates[candidates.length - 1]!;
+}
 
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
 async function jsonBody(req: IncomingMessage) {
@@ -48,7 +55,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   };
   const queue = new ExperimentQueue(store, changed, options.execute, runEvent); await queue.initialize();
   const views = new RunViews(store, queue);
-  const webDir = options.webDir ?? fileURLToPath(new URL('../web', import.meta.url));
+  const webDir = options.webDir ?? defaultWebDir();
   const server = createServer((req, res) => { void handle(req, res).catch(error => {
     if (res.headersSent) { res.end(); return; }
     const mapped = error instanceof ProjectError ? new HttpError(error.status, koreanMessage(error)) : error;

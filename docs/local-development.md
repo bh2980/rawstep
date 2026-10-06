@@ -1,6 +1,6 @@
 # 소스 수령 후 로컬 실행 / Local development
 
-이 저장소는 엔진·프로젝트 패키지(`@rawstep/project` 포함)와 비공개 dashboard workspace로 구성됩니다. npm 게시, 원격 배포 또는 사용자 컴퓨터에 대한 원격 접근 없이 소스를 받아 로컬에서 실행할 수 있습니다.
+이 저장소는 모두 `private`인 내부 workspace(`@rawstep/core`, `policies`, `browser`, `screenreaders`, `reports`, `project`, `cli`, `dashboard`)와, 이들을 번들해 게시하는 단일 패키지 `rawstep`으로 구성됩니다. npm 게시, 원격 배포 또는 사용자 컴퓨터에 대한 원격 접근 없이 소스를 받아 로컬에서 실행할 수 있습니다.
 
 ## 1. 설치와 빌드
 
@@ -104,28 +104,29 @@ npm run rawstep -- report runs/first/run-1
 
 ## 6. 라이브러리로 설치하기
 
-소스에서 모든 로컬 배포물을 생성합니다.
+사용자가 설치하는 패키지는 `rawstep` 하나입니다. `npm run build`가 workspace를 순서대로 빌드한 뒤 `tsdown`(루트 devDependency)으로 `packages/rawstep`을 번들합니다. 내부 `@rawstep/*`는 `dist`에 인라인되고, 서드파티 런타임 의존성(`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`)만 `rawstep`의 dependencies로 남습니다. 대시보드 웹 자산은 `dist/dashboard-web`, 네이티브 헬퍼는 `native/`로 복사됩니다(`scripts/bundle-rawstep.mjs`).
 
 ```sh
-npm run pack:all
+npm run pack:rawstep
 ```
 
-결과는 `artifacts/`의 tarball과 `packages.json`, `SHA256SUMS`, `INSTALL.md`입니다. 별도 소비 프로젝트에서:
+결과는 `artifacts/rawstep-<버전>.tgz`와 `SHA256SUMS`입니다. 별도 소비 프로젝트에서:
 
 ```sh
 npm init -y
-npm install /absolute/path/to/rawstep/artifacts/*.tgz
+npm install /absolute/path/to/rawstep/artifacts/rawstep-<version>.tgz
 npx rawstep --help
 ```
 
-로컬 경로를 실제 경로로 바꾸세요. 내부 패키지는 npm에 게시되어 있지 않으므로 의존하는 tarball 하나만 넣고 npm이 나머지를 받으리라 가정하지 않습니다. 독립 패키지를 선택적으로 쓸 때도 `INSTALL.md`에 적힌 의존성 묶음을 함께 제공합니다.
-
 ```js
+import { runTask, aggregateHints } from 'rawstep';
 import { runScreenshotTask } from 'rawstep/screenshot';
-import { TraceRecorder } from '@rawstep/core/trace';
+import { TraceRecorder } from 'rawstep/trace';
 ```
 
-배포 대상 workspace는 `@rawstep/core`, `@rawstep/policies`, `@rawstep/browser`, `@rawstep/screenreaders`, `@rawstep/reports`, `@rawstep/project`, `@rawstep/cli`, `rawstep`입니다. 마지막 패키지는 `rawstep` 실행 파일과 `runTask`를 제공하는 facade입니다. 각 패키지의 import는 선언된 패키지 exports를 사용하며 다른 패키지의 소스 경로를 직접 참조하지 않습니다. 비공개 `@rawstep/dashboard`는 전체 빌드·타입 검사에 포함되며 엔진 tarball 묶음에서는 제외됩니다.
+공개 하위 경로는 `packages/rawstep/package.json`의 exports와 `packages/rawstep/src/<이름>/index.ts`(번들 entry)가 정의합니다. 내부 workspace는 `private`이라 게시하지 않으며 설치된 프로젝트의 `node_modules`에 `@rawstep/*`가 나타나지 않습니다. 각 workspace는 선언된 패키지 exports만 사용하고 다른 패키지의 소스 경로를 직접 참조하지 않습니다(의존 방향 검사는 `tests/source-graph-migration.test.ts`). 번들에 서드파티 import가 새로 생기면 `rawstep`의 dependencies와 `packages/rawstep/tsdown.config.ts`의 `deps.onlyImport`에 함께 추가해야 빌드가 통과합니다.
+
+`npm run test:package`는 tarball만 임시 프로젝트에 npm으로 설치하고 `rawstep --help`/`init`, `rawstep ui`(시작, `index.html`·asset 요청, 종료), `import` 해석, TypeScript 소비자 컴파일, AT Driver·취소·Orca 자산 왕복을 검사하며 `@rawstep/*`가 설치되지 않았음을 확인합니다.
 
 ## 7. 전체 검사와 깨끗한 소스 재현
 
@@ -135,7 +136,7 @@ npm run test:orca-native
 npm run test:source
 ```
 
-- `check`: workspace 빌드, 모든 소스·테스트 타입 검사, 테스트 전체, 외부 폴더에서 각 패키지의 독립 의존성 설치, facade 통합 검사
+- `check`: workspace 빌드, 모든 소스·테스트 타입 검사, 테스트 전체, `rawstep` tarball 하나만 외부 폴더에 설치해 CLI·대시보드·import·타입을 검사
 - `test:orca-native`: Python 프로토콜·입력 경계 단위 검사. 실제 Orca 발화 성공을 뜻하지 않음
 - `test:source`: 소스를 깨끗한 외부 경로로 옮겨 frozen-lock 설치·전체 검사·네이티브 Python 단위 검사를 확인하는 재현 검사
 
@@ -157,4 +158,4 @@ RAWSTEP_TEST_BROWSER_PATH=/absolute/path/to/chromium npm run check
 
 ## Restricted/offline verification environments
 
-`COREPACK_HOME` can select an existing writable cache containing the pinned pnpm version. Package smoke checks normally use a fresh npm cache; for an explicitly offline environment, set `RAWSTEP_SMOKE_NPM_CACHE` to a pre-populated npm cache and `RAWSTEP_SMOKE_OFFLINE=1`. Installed test projects remain isolated from the checkout and receive only their declared local tarball dependency closure. Missing cached dependencies fail rather than silently changing the test or downloading them.
+`COREPACK_HOME` can select an existing writable cache containing the pinned pnpm version. Package smoke checks normally use a fresh npm cache; for an explicitly offline environment, set `RAWSTEP_SMOKE_NPM_CACHE` to a pre-populated npm cache and `RAWSTEP_SMOKE_OFFLINE=1`. The installed test project remains isolated from the checkout and receives only the single `rawstep` tarball (plus its third-party dependencies from npm). Missing cached dependencies fail rather than silently changing the test or downloading them.
