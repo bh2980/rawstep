@@ -152,11 +152,14 @@ describe('actual HTTP protocols through the AI SDK decide API, not real model in
 });
 
 describe('early give-up configuration',()=>{
-  it('removes the speech model\'s stuck/uncertain choices only when modelGiveUp is false',async()=>{
+  it('offers the speech model\'s stuck/uncertain choices only when modelGiveUp is true',async()=>{
     const allowed=input().allowedActions,stops=(o?:{modelGiveUp?:boolean})=>speechChoices(allowed,o).map(c=>c.id).filter(id=>id.startsWith('stop:'));
-    expect(stops()).toEqual(['stop:success','stop:stuck','stop:uncertain']);expect(stops({modelGiveUp:false})).toEqual(['stop:success']);
-    const fake=new FakeSystemOneClient(['stop:success']);const policy=new SystemOneSpeechPolicy(fake,undefined,undefined,{modelGiveUp:false});
+    expect(stops()).toEqual(['stop:success']);expect(stops({modelGiveUp:false})).toEqual(['stop:success']);expect(stops({modelGiveUp:true})).toEqual(['stop:success','stop:stuck','stop:uncertain']);
+    const fake=new FakeSystemOneClient(['stop:success']);const policy=new SystemOneSpeechPolicy(fake);
     expect(await policy.decide(input())).toEqual({stop:'success',stopSource:'model'});
     expect(fake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success']);
+    const giveUpFake=new FakeSystemOneClient(['stop:stuck']);const giveUp=new SystemOneSpeechPolicy(giveUpFake,undefined,undefined,{modelGiveUp:true});
+    expect(await giveUp.decide(input())).toEqual({stop:'stuck',stopSource:'model'});
+    expect(giveUpFake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success','stop:stuck','stop:uncertain']);
   });
 });

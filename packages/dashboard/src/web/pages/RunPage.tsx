@@ -5,6 +5,7 @@ import { RailLegend, TraceRail } from '../components/trace/TraceRail';
 import { StepPager } from '../components/trace/StepPager';
 import { StepDetail } from '../components/StepDetail';
 import { RunDiagnosis } from '../components/RunDiagnosis';
+import { RunExplanation } from '../components/RunExplanation';
 import { RunHeader } from '../components/RunHeader';
 import { EmptyState } from '../components/layout/EmptyState';
 import { ErrorState } from '../components/layout/ErrorState';
@@ -65,6 +66,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
     </section>
     {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} previous={previous} before={index > 0 ? view.steps[index - 1] : undefined}
       hints={view.hints.filter(hint => hint.steps.includes(step.step))} baselineMet={step.step === 0 ? baselineMet : undefined} live={live && step.step === latest?.step} />}
+    {view?.explanation && <RunExplanation explanation={view.explanation} model={run.analysisModel?.name} onSelect={select} />}
     {view && step && view.steps.length > 1 && <StepPager position={step.step} total={latest?.step ?? step.step} hasPrevious={index > 0} hasNext={index < view.steps.length - 1}
       onPrevious={() => select(view.steps[index - 1]!.step)} onNext={() => select(view.steps[index + 1]!.step)} />}
   </div>;

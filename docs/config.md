@@ -84,7 +84,7 @@ A run profile is a named set of conditions.
 "model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2 }
 ```
 
-`repetitionGuard: auto` is on for `llm` models and off for `decision` models. `modelGiveUp: false` removes the model's `stop:stuck` and `stop:uncertain` choices.
+`repetitionGuard: auto` is on for `llm` models and off for `decision` models. `modelGiveUp` is `false` by default, so the model is offered only `stop:success`; `true` adds its `stop:stuck` and `stop:uncertain` choices.
 
 ## machine
 

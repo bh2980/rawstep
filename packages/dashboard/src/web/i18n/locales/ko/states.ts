@@ -65,10 +65,10 @@ export const states = {
       verification: { what: '완료 확인을 하는 중에 멈췄습니다.', next: '완료 확인의 내용이 이 페이지에서 확인할 수 있는 것인지 보세요.' },
     },
     after: {
-      analysisWhat: '실행 뒤 분석을 마치지 못했습니다.',
+      analysisWhat: 'LLM 해설을 쓰지 못했습니다.',
       reportWhat: '보고서를 만들지 못했습니다.',
       progress: '실행의 결과와 행동 기록은 그대로 남아 있습니다.',
-      next: '분석 모델의 연결을 확인하고, 필요하면 같은 조건으로 다시 실행하세요.',
+      next: '실행 프로필의 LLM 해설 모델과 그 연결을 확인하세요. 해설이 없어도 실행 결과와 힌트는 그대로입니다.',
     },
     api: {
       connectionWhat: '로컬 서버와 연결이 끊겼습니다.',

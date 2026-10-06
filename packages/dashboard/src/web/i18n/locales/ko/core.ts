@@ -64,7 +64,6 @@ export const core = {
     duration: '{{seconds}}초',
     openReport: '보고서 열기',
     downloadTrace: 'trace 다운로드',
-    downloadAnalysis: '분석 다운로드',
     downloadStopReason: '중단 진단 다운로드',
     stopQueue: '남은 실행도 모두 중지',
     simulationNotice: '모의 VoiceOver 실행입니다. 실제 네이티브 발화 검증 결과가 아닙니다.',

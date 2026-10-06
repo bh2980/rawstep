@@ -85,7 +85,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 "model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2 }
 ```
 
-허용 행동은 후보 생성과 실행 직전 검사에 모두 적용하고, 실제 백엔드가 지원하지 않는 항목은 쓰지 않습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다. `repetitionGuard`의 `auto`는 `decision` 모델에서는 끄고 `llm` 모델에서는 켭니다.
+허용 행동은 후보 생성과 실행 직전 검사에 모두 적용하고, 실제 백엔드가 지원하지 않는 항목은 쓰지 않습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다. `repetitionGuard`의 `auto`는 `decision` 모델에서는 끄고 `llm` 모델에서는 켭니다. `modelGiveUp`은 기본값이 `false`라 모델에는 `stop:success`만 제시하고, `true`로 두면 모델의 `stop:stuck`·`stop:uncertain` 선택지가 더해집니다.
 
 ## machine
 

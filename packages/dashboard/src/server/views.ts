@@ -1,11 +1,12 @@
 import { aggregateHints, extractHints, selectReference, type HintFinding } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
-import type { HintReport, RunHintsView, RunStepsView, TaskFindings, TaskSummary } from '../shared/api.js';
+import type { AnalysisReport } from '@rawstep/reports';
+import type { HintReport, RunExplanation, RunHintsView, RunStepsView, TaskFindings, TaskSummary } from '../shared/api.js';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
 import { HttpError } from './http.js';
 import type { ExperimentQueue } from './queue.js';
-import { buildSteps } from './steps.js';
+import { buildSteps, eventSteps } from './steps.js';
 
 const live = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 const finished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
@@ -38,7 +39,21 @@ export class RunViews {
     const run = this.queue.find(experimentId, runId), events = await this.events(experimentId, runId);
     // Finished runs carry hints.json from the queue; a running run is analysed from its journal on demand.
     const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
-    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.model.kind, hints: report?.hints ?? [] };
+    const explanation = live(run) || !run.analysisModel ? undefined : await this.explanation(experimentId, runId, events);
+    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.model.kind, hints: report?.hints ?? [], ...(explanation ? { explanation } : {}) };
+  }
+  /** The LLM's analysis.json of a run, with each finding's cited events turned into steps. The rule-based analysis is not shown here: hints cover it. */
+  private async explanation(experimentId: string, runId: string, events: TraceEvent[]): Promise<RunExplanation | undefined> {
+    const raw = await readOptional(await this.store.file('.rawstep/experiments/' + experimentId + '/' + runId + '/analysis.json')).catch(() => undefined);
+    let report: Partial<AnalysisReport>;
+    try { report = raw ? JSON.parse(raw) as Partial<AnalysisReport> : {}; } catch { return undefined; }
+    if (!report.analyzer?.id.startsWith('rawstep/llm')) return undefined;
+    if (report.status !== 'completed') return { status: 'failed', summary: '', findings: [] };
+    const at = eventSteps(events);
+    return { status: 'completed', summary: String(report.summary ?? ''), findings: (report.findings ?? []).map(finding => ({
+      title: finding.title, description: finding.description, severity: finding.severity,
+      steps: [...new Set(finding.evidenceEventIds.flatMap(id => at.get(id) ?? []))].sort((a, b) => a - b),
+    })) };
   }
   /** Hints against the shortest goal-reaching finished run of the same task and mode, from any experiment. */
   async hints(experimentId: string, runId: string): Promise<RunHintsView> {

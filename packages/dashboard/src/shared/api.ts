@@ -55,11 +55,21 @@ export type StepView = {
  * task's navigation range blocked. `hosts` are the distinct hosts involved, `count` how often it happened.
  */
 export type RunNotice = { kind: 'bot-check' | 'navigation-blocked'; step: number; hosts: string[]; count: number };
+/**
+ * What an LLM wrote about a finished run: a summary and hypotheses, each pointing at the steps of the events it cites. Never a verdict;
+ * absent when the run profile has no LLM for this.
+ */
+export type RunExplanation = {
+  status: 'completed' | 'failed';
+  summary: string;
+  findings: { title: string; description: string; severity: 'info' | 'warning' | 'error'; steps: number[] }[];
+};
 export type RunStepsView = {
   experimentId: string;
   runId: string;
   steps: StepView[];
   notices: RunNotice[];
+  explanation?: RunExplanation;
   /** Goal rules that already held before the first action (from verifier.baseline). */
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
   /** The run is still recording; more steps will arrive. */

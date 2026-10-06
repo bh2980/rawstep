@@ -42,6 +42,17 @@ function noticesOf(events: readonly TraceEvent[]): RunNotice[] {
   return [...found.values()];
 }
 
+/** The step each event belongs to, the same way the steps view folds them: its own step, otherwise the decision before it. */
+export function eventSteps(events: readonly TraceEvent[]): Map<string, number> {
+  const steps = new Map<string, number>(); let current = 0;
+  for (const event of events) {
+    const data = record(event.data) ? event.data : {}, own = typeof data.step === 'number' ? data.step : undefined;
+    if (event.type === 'policy.decision' && own !== undefined) current = own;
+    steps.set(event.id, own ?? current);
+  }
+  return steps;
+}
+
 export type StepsInput = { experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
 
 /** Folds recorded trace events into one view per policy step. Step 0 is the initial page; steps are keyed by policy.decision.step. */

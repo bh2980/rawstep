@@ -17,7 +17,7 @@ export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: 
       ...(allowed.typeText !== false ? [{ id: `type:${input}`, label: `Type the named input ${input} into the focused editable field`, decision: { action: { kind: 'typeText' as const, input } } }] : []),
       ...(allowed.replaceText ? [{ id: `replace:${input}`, label: `Replace the focused field with the named input ${input}`, decision: { action: { kind: 'replaceText' as const, input } } }] : []),
     ]),
-    ...(options.modelGiveUp === false ? ['success'] as const : ['success', 'stuck', 'uncertain'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
+    ...(options.modelGiveUp === true ? ['success', 'stuck', 'uncertain'] as const : ['success'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
   ];
 }
 export class SystemOneSpeechPolicy implements DecisionPolicy {

@@ -47,7 +47,7 @@ export const editor = {
     compareProfilesOn: '고른 프로필마다 같은 작업을 실행합니다. 모델끼리 비교하려면 모델만 다른 프로필을 고르세요.',
     profiles: '실행 프로필',
     repeats: '조합별 반복 횟수',
-    analysisFromProfile: '사후 분석은 각 프로필의 설정을 따릅니다. 규칙 기반 분석은 항상 돌고, 프로필에 분석 모델이 있으면 LLM 분석이 더해집니다.',
+    analysisFromProfile: 'LLM 해설은 각 프로필의 설정을 따릅니다. 프로필에 해설 모델이 있을 때만 씁니다.',
     diagnoseStop: '중단 시 선택적 모델 진단',
     diagnoseStopNote: '마지막 스크린샷에 대한 가설을 추가로 요청합니다. 원래 검증 결과는 유지합니다.',
     checkCombinations: '조합 확인',

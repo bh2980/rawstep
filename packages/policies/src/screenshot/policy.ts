@@ -20,7 +20,7 @@ export function screenshotChoices(allowed: AllowedActions, options: { modelGiveU
     if (allowed.replaceText) choices.push({ id: `replace:${input}`, label: `Replace the currently focused editable field with task input named ${input}`, decision: { action: { kind: 'replaceText', input } } });
   }
   choices.push({ id: 'stop:success', label: 'Stop: the visible goal appears complete (independent verifier will check)', decision: { stop: 'success' } });
-  if (options.modelGiveUp !== false) choices.push({ id: 'stop:uncertain', label: 'Stop: uncertain whether further keyboard actions are appropriate or whether the goal is complete', decision: { stop: 'uncertain' } },
+  if (options.modelGiveUp === true) choices.push({ id: 'stop:uncertain', label: 'Stop: uncertain whether further keyboard actions are appropriate or whether the goal is complete', decision: { stop: 'uncertain' } },
     { id: 'stop:stuck', label: 'Stop: unable to progress with the available keyboard actions', decision: { stop: 'stuck' } });
   return choices;
 }
@@ -62,7 +62,7 @@ export type ScreenshotPolicyOptions = {
   historyLimit?: number;
   /** Default true. False never stops on repetition; visualState is still computed and reported. */
   repetitionGuard?: boolean;
-  /** Default true. False removes the model's stop:stuck and stop:uncertain choices (stop:success stays). */
+  /** Default false: only stop:success is offered. True adds the model's stop:stuck and stop:uncertain choices. */
   modelGiveUp?: boolean;
 };
 
@@ -71,7 +71,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly options: Required<Omit<ScreenshotPolicyOptions, 'model' | 'focusGate'>> & Pick<ScreenshotPolicyOptions, 'model' | 'focusGate'>;
   constructor(options: ScreenshotPolicyOptions) {
-    this.options = { ...RAWSTEP_DEFAULTS.policy, ...options, repetitionGuard: options.repetitionGuard ?? true, modelGiveUp: options.modelGiveUp ?? true };
+    this.options = { ...RAWSTEP_DEFAULTS.policy, ...options, repetitionGuard: options.repetitionGuard ?? true, modelGiveUp: options.modelGiveUp ?? false };
     for (const key of ['maxStateVisits', 'maxUnchangedTransitions', 'historyLimit'] as const) {
       if (!Number.isSafeInteger(this.options[key]) || this.options[key] < 1 || this.options[key] > 10_000) throw new Error(`${key} must be an integer from 1 to 10000.`);
     }

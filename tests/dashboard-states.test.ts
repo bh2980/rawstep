@@ -169,7 +169,7 @@ describe('settings helpers', () => {
     expect(bare[0]!.value).toContain('이대로는 실행할 수 없습니다');
     expect(bare[1]!.value).toContain('기본 키보드');
     expect(bare[3]!.value).toBe('1280 × 800');
-    expect(bare[4]!.value).toBe('규칙 기반 분석만');
+    expect(bare[4]!.value).toBe('쓰지 않음');
     const full = { ...profileWith('p', 'jev', 'jev-latest', 'Full'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' } };
     const conditions = profileConditions(full, screenreader, presets, connections);
     expect(conditions[0]!.value).toBe('Jev server · jev-latest');

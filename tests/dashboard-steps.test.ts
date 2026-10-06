@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { TraceEvent } from '@rawstep/core/trace';
-import { buildSteps } from '../packages/dashboard/src/server/steps.js';
+import { buildSteps, eventSteps } from '../packages/dashboard/src/server/steps.js';
 
 type Pair = readonly [type: string, data: Record<string, unknown>, redacted?: boolean];
 const events = (pairs: readonly Pair[]): TraceEvent[] => pairs.map(([type, data, redacted], i) => ({
@@ -109,5 +109,25 @@ describe('dashboard step view', () => {
     expect(build([]).steps).toEqual([]);
     const view = build([['run.started', {}], ['observer.metadata', { available: true }], ['policy.decision', { step: 1, decision: 'nonsense' }], ['verifier.baseline', { error: 'Error' }]]);
     expect(view.steps.map(s => s.step)).toEqual([0, 1]); expect(view.baseline).toBeUndefined(); expect(view.steps[1]!.action).toBeUndefined();
+  });
+});
+
+describe('event steps and run notices', () => {
+  it('puts each event on its own step, otherwise on the decision before it, so LLM explanations can point at steps', () => {
+    const list = events([['simulation.observation', { speech: ['A'] }], ['policy.decision', { step: 1, decision: { action: { kind: 'key', key: 'Tab' } } }], ['action.result', { step: 1, ok: true }], ['observer.focus', { kind: 'focus' }], ['policy.decision', { step: 2, decision: { stop: 'success' } }]]);
+    expect([...eventSteps(list).values()]).toEqual([0, 1, 1, 1, 2]);
+  });
+
+  it('names a bot check page and other blocked navigations once each, with their hosts', () => {
+    const view = build([
+      ['observer.navigation', { kind: 'navigation', url: 'https://shop.example/item?__cf_chl_rt_tk=x' }],
+      ['browser.navigation-blocked', { url: 'https://challenges.cloudflare.com/turnstile' }],
+      ['browser.navigation-blocked', { url: 'https://example.org/' }],
+      ['browser.navigation-blocked', { url: 'https://example.org/again' }],
+    ]);
+    expect(view.notices).toEqual([
+      { kind: 'bot-check', step: 0, hosts: ['shop.example', 'challenges.cloudflare.com'], count: 2 },
+      { kind: 'navigation-blocked', step: 0, hosts: ['example.org'], count: 2 },
+    ]);
   });
 });

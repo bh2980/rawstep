@@ -112,7 +112,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
     <div className="flex flex-wrap gap-2">
       {run.reportStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{t('run.openReport')}</a></Button>}
       {run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{t('run.downloadTrace')}</a></Button>}
-      {run.analysisStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/analysis`}><Download aria-hidden="true" />{t('run.downloadAnalysis')}</a></Button>}
+
       {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></Button>}
     </div>
     <div className="grid gap-1 text-sm">

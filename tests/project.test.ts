@@ -241,8 +241,8 @@ describe('project config', () => {
     const old = JSON.parse(JSON.stringify(first.config)); delete old.profiles[0].policy.repetitionGuard; delete old.profiles[0].policy.modelGiveUp;
     await writeFile(store.path, JSON.stringify(old));
     const policy = (await new ProjectStore(dir).read()).config.profiles[0]!.policy;
-    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
-    expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: true });
+    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
+    expect(defaultConfig().profiles[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
     expect(() => configSchema.parse({ ...old, profiles: [{ ...old.profiles[0], policy: { ...old.profiles[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
   });
   it('resolves auto by model kind and honours explicit on/off', () => {

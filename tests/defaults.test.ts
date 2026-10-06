@@ -9,7 +9,7 @@ describe('shared runtime defaults', () => {
   it('accepts a bare ::1 hostname', () => expect(isLoopbackHostname('::1')).toBe(true));
   it('keeps the dashboard policy defaults in sync', () => {
     const { focusGate, repetitionGuard, modelGiveUp, ...policy } = defaultConfig().profiles[0]!.policy;
-    expect([focusGate, repetitionGuard, modelGiveUp]).toEqual([false, 'auto', true]);
+    expect([focusGate, repetitionGuard, modelGiveUp]).toEqual([false, 'auto', false]);
     expect(policy).toEqual(RAWSTEP_DEFAULTS.policy);
   });
   it('resolves task limits from the shared defaults', () => {

@@ -3,6 +3,16 @@
  * Voice (spec §42): state what was observed, never judge. Uppercase labels (ACTION, PAGE RESPONSE …) are the product's fixed technical labels.
  */
 export const traceUi = {
+  explanation: {
+    title: 'LLM 해설',
+    note: '실행 프로필의 LLM이 기록을 읽고 쓴 요약과 가설입니다. 결론이 아니므로 근거 단계를 열어 직접 확인하세요. 실행 결과와 힌트에는 영향을 주지 않습니다.',
+    count: '가설 {{count}}개',
+    failed: 'LLM 해설을 쓰지 못했습니다. 실행 결과와 힌트는 그대로입니다.',
+    failedShort: '쓰지 못함',
+    severity: { info: '참고', warning: '확인 권장', error: '중요' },
+    step: '{{n}}번째 판단',
+    startStep: '시작 페이지',
+  },
   diagnosis: {
     title: '실행 진단',
     modelStop: '모델이 {{n}}번째 판단에서 "{{reason}}"을(를) 골라 실행을 멈췄습니다.',

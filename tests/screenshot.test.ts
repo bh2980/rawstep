@@ -22,7 +22,7 @@ describe('first-class screenshot model policy', () => {
     expect(policy.takeDecisionEvidence()).toEqual([]);
   });
   it('distinguishes a model-selected stop from an exploration guard', async () => {
-    const policy = new ScreenshotDecisionPolicy({ model: { choose: async () => response('stop:stuck') } });
+    const policy = new ScreenshotDecisionPolicy({ modelGiveUp: true, model: { choose: async () => response('stop:stuck') } });
     expect(await policy.decide(input())).toEqual({ stop: 'stuck', stopSource: 'model' });
     expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ kind: 'model-inference', choiceId: 'stop:stuck' })]);
   });
@@ -74,22 +74,25 @@ describe('configurable early give-up', () => {
     expect(await policy.decide(identical(8))).toEqual({ action: { kind: 'key', key: 'Tab' } });
     const req = (choose.mock.calls[0] as unknown as [ScreenshotModelRequest])[0];
     expect(req.visualState).toEqual({ sha256: screenshotHash(observation.screenshot), visits: 9, unchangedTransitions: 8 });
-    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ kind: 'model-inference', visualState: req.visualState, earlyStop: { repetitionGuard: false, modelGiveUp: true } })]);
+    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ kind: 'model-inference', visualState: req.visualState, earlyStop: { repetitionGuard: false, modelGiveUp: false } })]);
   });
   it('keeps the guard on by default and records effective settings', async () => {
     const policy = new ScreenshotDecisionPolicy({ maxUnchangedTransitions: 2, model: { choose: async () => response() } });
     expect(await policy.decide(identical(2))).toMatchObject({ stop: 'stuck', stopSource: 'exploration-guard' });
     await policy.decide(input());
-    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ earlyStop: { repetitionGuard: true, modelGiveUp: true } })]);
+    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ earlyStop: { repetitionGuard: true, modelGiveUp: false } })]);
   });
-  it('removes stop:stuck and stop:uncertain but keeps stop:success when modelGiveUp is false', async () => {
+  it('offers only stop:success by default and adds stop:stuck and stop:uncertain only when modelGiveUp is true', async () => {
     const ids = (options?: { modelGiveUp?: boolean }) => screenshotChoices(input().allowedActions, options).map(c => c.id).filter(id => id.startsWith('stop:'));
-    expect(ids()).toEqual(['stop:success', 'stop:uncertain', 'stop:stuck']); expect(ids({ modelGiveUp: true })).toEqual(ids());
-    expect(ids({ modelGiveUp: false })).toEqual(['stop:success']);
-    const choose = vi.fn(async () => response('stop:success')); const policy = new ScreenshotDecisionPolicy({ modelGiveUp: false, model: { choose } });
+    expect(ids()).toEqual(['stop:success']); expect(ids({ modelGiveUp: false })).toEqual(['stop:success']);
+    expect(ids({ modelGiveUp: true })).toEqual(['stop:success', 'stop:uncertain', 'stop:stuck']);
+    const choose = vi.fn(async () => response('stop:success')); const policy = new ScreenshotDecisionPolicy({ model: { choose } });
     expect(await policy.decide(input())).toEqual({ stop: 'success', stopSource: 'model' });
     expect((choose.mock.calls[0] as unknown as [ScreenshotModelRequest])[0].choices.map(c => c.id)).not.toContain('stop:stuck');
-    const giveUp = new ScreenshotDecisionPolicy({ modelGiveUp: false, model: { choose: async () => response('stop:stuck') } });
-    await expect(giveUp.decide(input())).rejects.toThrow();
+    const refused = new ScreenshotDecisionPolicy({ model: { choose: async () => response('stop:stuck') } });
+    await expect(refused.decide(input())).rejects.toThrow();
+    const chooseGiveUp = vi.fn(async () => response('stop:uncertain')); const giveUp = new ScreenshotDecisionPolicy({ modelGiveUp: true, model: { choose: chooseGiveUp } });
+    expect(await giveUp.decide(input())).toEqual({ stop: 'uncertain', stopSource: 'model' });
+    expect((chooseGiveUp.mock.calls[0] as unknown as [ScreenshotModelRequest])[0].choices.map(c => c.id)).toEqual(expect.arrayContaining(['stop:stuck', 'stop:uncertain']));
   });
 });
