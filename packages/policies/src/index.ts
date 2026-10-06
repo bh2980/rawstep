@@ -1,6 +1,7 @@
-export { loadPolicy, ScriptedPolicy } from './policy/index.js';
+export { loadPolicy, ScriptedPolicy, SpeechDecisionPolicy, speechChoices } from './policy/index.js';
+export type { ChoiceModel, ChoiceRequest, ChoiceResult, ModelHistoryEntry, SpeechPolicyOptions } from './policy/index.js';
 export type { AllowedActions, Decision, DecisionPolicy, PolicyAction } from './policy/index.js';
-export { DecisionClient, decisionError, FakeSystemOneClient, listGatewayDecisionModels, modelBaseURL, SCREENSHOT_DECISION_PROMPT, SPEECH_DECISION_PROMPT, speechChoices, SystemOneDecisionModel, systemOneProviderOptions, SystemOneScreenshotAdapter, SystemOneSpeechPolicy } from './systemone/index.js';
+export { DecisionClient, decisionError, FakeSystemOneClient, listGatewayDecisionModels, modelBaseURL, SCREENSHOT_DECISION_PROMPT, SPEECH_DECISION_PROMPT, SystemOneChoiceModel, SystemOneDecisionModel, systemOneProviderOptions, SystemOneScreenshotAdapter } from './systemone/index.js';
 export type { DecisionClientOptions, DecisionProviderName, SystemOneCapabilities, SystemOneChoice, SystemOneClient, SystemOneDecisionModelOptions, SystemOneDialect, SystemOneImage, SystemOneInput, SystemOnePrompt, SystemOnePromptEvidence, SystemOneRequest, SystemOneResult } from './systemone/index.js';
 export { SCREENSHOT_MODEL_PROTOCOL, validateModelResponse } from './screenshot/model.js';
 export type { ScreenshotChoice, ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse } from './screenshot/model.js';

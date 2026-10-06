@@ -61,7 +61,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
   it('retains input gate and suppresses saved screenshots plus model evidence after named input', async () => {
     const outDir = await directory(); const choices = ['key:Tab', 'key:Tab', 'key:Tab', 'type:name', 'stop:stuck']; let index = 0;
     const trace = await runScreenshotTask({ url: fixture, goal: 'Enter name', maxSteps: 8, input: { name: 'PRIVATE_NAME_329' }, verify: { all: [{ titleIncludes: 'Never satisfied' }] } }, {
-      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: { choose: async () => ({ choiceId: choices[index++]!, model: { id: 'fixture-adapter', runtime: 'vitest-only' }, focusAssessment: { visibility: 'visible', note: 'PRIVATE_NAME_329' } }) } }) });
+      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ modelGiveUp: true, model: { choose: async () => ({ choiceId: choices[index++]!, model: { id: 'fixture-adapter', runtime: 'vitest-only' }, focusAssessment: { visibility: 'visible', note: 'PRIVATE_NAME_329' } }) } }) });
     const serialized = await readFile(join(outDir, 'trace.json'), 'utf8'); expect(serialized).not.toContain('PRIVATE_NAME_329');
     expect(trace.events.some(e => e.type === 'privacy.input-taint')).toBe(true);
     expect(trace.events.filter(e => e.type === 'keyboard.observation').at(-1)).toMatchObject({ redacted: true, data: { screenshot: '[REDACTED]' } });
@@ -80,14 +80,14 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
     const trace = await runScreenshotTask({ url: fixture, goal: 'Explore', maxSteps: 2, verify: { all: [{ titleIncludes: 'Never' }] } }, { outDir: await directory(), browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: { choose: async () => ({ choiceId: 'key:Tab', model: { id: 'fixture-adapter', runtime: 'vitest-only' } }) } }) });
     expect(trace.outcome?.status).toBe('failure'); expect(trace.events.some(e => e.type === 'action.result')).toBe(false);
   });
-  it('keeps rejected DOM editability-gate outcomes outside subsequent model requests', async () => {
+  it('tells the model a rejected text entry only as a failure code, never the DOM gate details', async () => {
     const requests: ScreenshotModelRequest[] = [];
     const trace = await runScreenshotTask({ url: fixture, goal: 'Inspect', maxSteps: 3, input: { name: 'safe-test-value' }, verify: { all: [{ titleIncludes: 'Never' }] } }, {
-      outDir: await directory(), browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: { choose: async request => { requests.push(request); return { choiceId: requests.length === 1 ? 'type:name' : 'stop:stuck', model: { id: 'fixture-adapter', runtime: 'vitest-only' } }; } } }) });
+      outDir: await directory(), browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ modelGiveUp: true, model: { choose: async request => { requests.push(request); return { choiceId: requests.length === 1 ? 'type:name' : 'stop:stuck', model: { id: 'fixture-adapter', runtime: 'vitest-only' } }; } } }) });
     expect(trace.events.find(e => e.type === 'browser.input-gate')?.data).toMatchObject({ editable: false });
     expect(trace.events.find(e => e.type === 'action.result')?.data).toMatchObject({ ok: false });
-    expect(requests[1]!.history).toEqual([{ step: 1, decision: { action: { kind: 'typeText', input: 'name' } } }]);
-    expect(JSON.stringify(requests)).not.toMatch(/"editable":|"execution":|"verifier":|safe-test-value/);
+    expect(requests[1]!.history).toEqual([{ step: 1, decision: { action: { kind: 'typeText', input: 'name' } }, execution: { ok: false, failure: 'not-editable' }, changed: false }]);
+    expect(JSON.stringify(requests)).not.toMatch(/"editable":|"error":|"verifier":|safe-test-value/);
   });
   it('does not persist malformed successful HTTP response bodies in run errors', async () => {
     const outDir = await directory();

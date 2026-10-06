@@ -85,7 +85,13 @@ export type KeyboardObservation = {
   window: { id: string; startedAt: string; endedAt: string; reason: string };
 };
 export type Observation = ScreenReaderObservation | KeyboardObservation;
-export type HistoryEntry = { step: number; decision: Decision; observation: Observation; execution?: { ok: boolean; error?: string } };
+/**
+ * Why the runner could not carry out an action, in words Rawstep chose: `not-editable` when text entry found no editable
+ * focused field, `backend` for anything the screen reader or browser refused. Models see this code, never the raw error.
+ */
+export type ExecutionFailure = 'not-editable' | 'backend';
+export type ActionExecution = { ok: boolean; error?: string; failure?: ExecutionFailure };
+export type HistoryEntry = { step: number; decision: Decision; observation: Observation; execution?: ActionExecution };
 export interface DecisionPolicy {
   /** Optional policy-owned inference diagnostics; saved as policy evidence, never verifier evidence. */
   takeDecisionEvidence?(): readonly unknown[];

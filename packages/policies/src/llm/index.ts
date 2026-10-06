@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
+import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
@@ -99,4 +101,24 @@ export async function chooseCandidate(request: LlmCallOptions & {
     schema: z.object({ choiceId: z.enum(ids) }),
   });
   return { choiceId: object.choiceId, modelId };
+}
+
+/**
+ * An LLM as a policy's choice model: the prompt's instructions are the system message and the reply must name one
+ * supplied candidate. Provider failures surface as one fixed message, so credentials and page text never reach errors.
+ */
+export class LlmChoiceModel implements ChoiceModel {
+  constructor(readonly llm: LlmModel, readonly prompt: Readonly<{ id: string; version: string; instructions: string }>, readonly inputs: readonly ('text' | 'image')[] = ['text']) {}
+  async choose(request: ChoiceRequest, { signal }: { signal: AbortSignal }): Promise<ChoiceResult> {
+    signal.throwIfAborted();
+    const candidates = request.choices.map(({ id, label }) => ({ id, label }));
+    try {
+      const { choiceId } = await chooseCandidate({ model: this.llm, system: this.prompt.instructions, state: request.state, candidates, ...(request.images?.length ? { images: request.images } : {}), signal });
+      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: 'openai-compatible-generative-choice' },
+        prompt: { id: this.prompt.id, version: this.prompt.version, sha256: createHash('sha256').update(JSON.stringify({ instructions: this.prompt.instructions, choices: candidates })).digest('hex') } };
+    } catch {
+      signal.throwIfAborted();
+      throw new Error('LLM choice failed: check the connection, the response format, the candidate IDs and the model ID. The provider response is not shown.');
+    }
+  }
 }

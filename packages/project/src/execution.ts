@@ -3,13 +3,14 @@ import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { DecisionClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, type DecisionProviderName } from '@rawstep/policies/systemone';
+import { DecisionClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type DecisionProviderName } from '@rawstep/policies/systemone';
+import { SpeechDecisionPolicy } from '@rawstep/policies/policy';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
-import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
+import { llmChoiceModel, LlmScreenshotAdapter } from './llm.js';
 import { type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
 import { ensureAtDriver } from './atdriver.js';
 
@@ -40,13 +41,13 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
   const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
-  const speechGuard = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions };
+  const speechOptions = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions, historyLimit: limits.historyLimit };
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
   if (model.kind === 'llm') {
-    const client = new LlmChoiceClient(model, prompt, apiKey);
-    screenshotModel = new LlmScreenshotAdapter(client);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, speechGuard);
+    const chooser = llmChoiceModel(model, prompt, apiKey);
+    screenshotModel = new LlmScreenshotAdapter(chooser);
+    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new SpeechDecisionPolicy(chooser, speechOptions);
   } else {
     const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
       capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
@@ -55,7 +56,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
       screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
       policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
     } else {
-      policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, speechGuard);
+      policy = new SpeechDecisionPolicy(new SystemOneChoiceModel(client, prompt), speechOptions);
     }
   }
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),

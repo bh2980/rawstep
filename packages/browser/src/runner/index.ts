@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
+import { describeInputs, resolveTask, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
@@ -39,6 +39,8 @@ export type RunOptions = {
   personCheck?: { userDataDir: string; timeoutMs?: number };
 };
 const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
+/** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
+class NotEditableError extends Error { constructor() { super('Text entry requires an editable focused field.'); this.name = 'NotEditableError'; } }
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
@@ -339,7 +341,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         break;
       }
       const action = decision.action;
-      let execution: { ok: boolean; error?: string };
+      let execution: ActionExecution;
       // Watched from before the action, so a request sent at the moment of the click counts.
       const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
       try {
@@ -348,7 +350,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         if (action.kind === 'typeText' || action.kind === 'replaceText') {
           const editable = await withinBudget(() => isEditable(browser!));
           append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
-          if (!editable) throw new Error('Text entry requires an editable focused field.');
+          if (!editable) throw new NotEditableError();
           // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
           if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
             inputTainted = true;
@@ -361,7 +363,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         // An error that names its own run outcome ends the run instead of becoming a failed action.
         if (error instanceof RawstepError && error.outcome) throw error;
         if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw evidenceFailure ?? controller.signal.reason ?? error;
-        execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error) };
+        execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error), failure: error instanceof NotEditableError ? 'not-editable' : 'backend' };
       }
       append('action.result', { step, action, ...execution });
       history.push({ step, decision, observation, execution });

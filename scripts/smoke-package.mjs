@@ -125,7 +125,8 @@ try {
   await writeFile(join(directory, 'consumer.ts'), [
     'import { ScriptedPolicy, runTask, aggregateHints, type DecisionPolicy, type Task, type TraceAnalyzer, type RunTaskOptions, type RunTaskResult, type HintReport, type RunTrace } from "rawstep";',
     'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
-    'import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
+    'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
+    'import { SpeechDecisionPolicy } from "rawstep/policy";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
@@ -135,7 +136,7 @@ try {
     'const model: ScreenshotModelAdapter = new SystemOneScreenshotAdapter(new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { inputs: ["text", "image"], maxChoices: 255, maxImages: 2 } }));',
     'const screenshotPolicy = new ScreenshotDecisionPolicy({ model });',
     'const client: SystemOneClient = new FakeSystemOneClient(["stop:uncertain"]);',
-    'const speechPolicy = new SystemOneSpeechPolicy(client);',
+    'const speechPolicy = new SpeechDecisionPolicy(new SystemOneChoiceModel(client));',
     'const llm = new LlmTraceAnalyzer({ baseURL: "http://127.0.0.1:31415/v1", model: "auto" });',
     'const options: RunTaskOptions = { projectDir: ".", mode: "keyboard" };',
     'const run: Promise<RunTaskResult> = runTask("task", options);',

@@ -67,7 +67,7 @@ For image-capable native models such as Clef Flash, the adapter serializes state
 
 ### Prompt configuration without a UI dependency
 
-`SystemOneSpeechPolicy(client, historyLimit, prompt)` and `SystemOneScreenshotAdapter(client, prompt)` accept a copied `{ id, version, instructions }` configuration. Defaults are available as `SPEECH_DECISION_PROMPT` and `SCREENSHOT_DECISION_PROMPT`. In the dashboard, a task's per-mode `prompts` supply the same prompt objects. Prompts cannot introduce arbitrary execution candidates or change runner permissions.
+`SpeechDecisionPolicy(new SystemOneChoiceModel(client, prompt), { historyLimit })` and `SystemOneScreenshotAdapter(client, prompt)` accept a copied `{ id, version, instructions }` configuration. Defaults are available as `SPEECH_DECISION_PROMPT` and `SCREENSHOT_DECISION_PROMPT`. In the dashboard, a task's per-mode `prompts` supply the same prompt objects. Prompts cannot introduce arbitrary execution candidates or change runner permissions.
 
 Each SystemOne policy inference records prompt ID/version and a SHA-256 over instructions plus candidate wording, separately from requested/resolved model identity. Live observations and API keys are excluded from this hash. Custom prompt versions must be retained by the caller to reproduce their content; the hash is a fingerprint, not storage of the prompt itself.
 

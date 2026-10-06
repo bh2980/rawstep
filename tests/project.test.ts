@@ -4,7 +4,7 @@ import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { screenshotChoices } from '@rawstep/policies/screenshot/policy';
-import { speechChoices } from '@rawstep/policies/systemone';
+import { speechChoices } from '@rawstep/policies/policy';
 import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
