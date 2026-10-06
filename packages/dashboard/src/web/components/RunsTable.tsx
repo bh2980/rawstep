@@ -3,7 +3,7 @@ import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSumma
 import type { RouteChange } from '../hooks/useRoute';
 import { formatDate } from '../lib/format';
 import { displayState, resultLabel, runGlyphKind } from '../lib/runStrip';
-import { isFinished, runProfileName, runStartedAt, runStepCount, durationSeconds, type RunRef } from '../lib/runs';
+import { isFinished, runProfileName, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf } from '../lib/runs';
 import { HintBadge } from './HintBadge';
 import { Link } from './Link';
 import { RunGlyph } from './trace/RunStrip';
@@ -19,6 +19,8 @@ type Props = {
   showHints?: boolean;
   /** Names the run profile next to the model. */
   showProfile?: boolean;
+  /** Current task names, so a renamed task shows its new name. */
+  tasks?: readonly { id: string; name: string }[];
 };
 
 const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
@@ -28,7 +30,7 @@ const cell = 'px-3 py-0 text-[13px]';
  * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, mode, result, actions and duration,
  * one 36px line each. The result is a glyph and its words; the colour only reinforces them.
  */
-export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHints, showProfile }: Props) {
+export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHints, showProfile, tasks = [] }: Props) {
   const { t } = useTranslation();
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(showHints ? runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })) : []);
@@ -53,7 +55,7 @@ export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHin
           {numbers && <TableCell className={cell + ' tabular-nums'}><Link to={open} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">#{numbers.get(run.id) ?? '—'}</Link></TableCell>}
           <TableCell className={cell + ' font-mono tabular-nums whitespace-nowrap text-muted-foreground'}>{formatDate(runStartedAt(ref))}</TableCell>
           {!hideTask && <TableCell className={cell + ' font-medium'}>
-            <Link to={open} navigate={navigate} className="rounded-sm hover:underline">{run.snapshot.taskName}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
+            <Link to={open} navigate={navigate} className="rounded-sm hover:underline">{taskNameOf(run, tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
           </TableCell>}
           <TableCell className={cell + ' whitespace-nowrap'}>{run.snapshot.model.name}{showProfile && <span className="text-muted-foreground"> · {runProfileName(profiles, run)}</span>}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.mode}`)}</TableCell>

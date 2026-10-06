@@ -13,7 +13,7 @@ import { Button } from '../components/ui/button';
 import { NEW_TASK } from '../hooks/useRoute';
 import { providerTextKey } from '../lib/modelSetup';
 import { displayState, recentRuns } from '../lib/runStrip';
-import { isFinished, isLive, runStepCount, taskRunNumbers } from '../lib/runs';
+import { isFinished, isLive, runStepCount, taskRunNumbers, taskNameOf } from '../lib/runs';
 import type { ListProps } from './types';
 
 const RECENT_TASKS = 3, RECENT_RUNS = 8;
@@ -43,12 +43,13 @@ export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
       <SectionHead id="home-live" title={t('home.live')} aside={t('home.liveCount', { count: live.length })} />
       <ul className="divide-y divide-edge border-b border-edge">{live.map(({ run }) => <li key={run.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm">
         <RunStateLabel state={run.state} className="w-24 font-medium" />
-        <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 rounded-sm font-medium hover:underline">{run.snapshot.taskName}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
+        <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 rounded-sm font-medium hover:underline">{taskNameOf(run, config.tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
         <span className="text-muted-foreground">{t(`sidebar.modes.${run.snapshot.mode}`)} · {run.snapshot.model.name}</span>
       </li>)}</ul>
     </section>}
 
-    <SetupRail steps={steps} navigate={navigate} compact={hasRun} />
+    {/* Getting started is for the first visit only: once every step is done it leaves the home page. */}
+    {steps.some(step => !step.done) && <SetupRail steps={steps} navigate={navigate} />}
 
     {recent.length > 0 && <section aria-labelledby="home-tasks" className="grid gap-2">
       <SectionHead id="home-tasks" title={t('home.tasks')} aside={<Link to={{ view: 'tasks' }} navigate={navigate} className="rounded-sm text-trace underline-offset-4 hover:underline">{t('home.allTasks')}</Link>} />
@@ -68,7 +69,7 @@ export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
     {hasRun || live.length > 0
       ? <section aria-labelledby="home-runs" className="grid gap-2">
         <SectionHead id="home-runs" title={t('home.runs')} aside={<Link to={{ view: 'runs' }} navigate={navigate} className="rounded-sm text-trace underline-offset-4 hover:underline">{t('home.allRuns')}</Link>} />
-        <RunsTable runs={runs.slice(0, RECENT_RUNS)} profiles={config.profiles} navigate={navigate} />
+        <RunsTable runs={runs.slice(0, RECENT_RUNS)} profiles={config.profiles} tasks={config.tasks} navigate={navigate} />
       </section>
       : config.tasks.length > 0 && <EmptyState title={t('empty.runs.title')} why={t('empty.runs.why')}
         action={<Button asChild variant="outline"><Link to={{ view: 'tasks' }} navigate={navigate}>{t('empty.runs.action')}</Link></Button>} />}

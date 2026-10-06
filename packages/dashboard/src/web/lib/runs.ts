@@ -64,3 +64,8 @@ export function fastestRun(runs: readonly RunRef[]): { ref: RunRef; steps: numbe
   }
   return best;
 }
+
+/** The task's current name (it may have been renamed after the run); the name recorded with the run when the task is gone. */
+export function taskNameOf(run: Pick<RunRecord, 'taskId' | 'snapshot'>, tasks: readonly { id: string; name: string }[]): string {
+  return tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;
+}

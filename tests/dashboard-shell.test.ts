@@ -26,7 +26,7 @@ describe('routes', () => {
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=tasks', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 

@@ -7,7 +7,7 @@ import { describeFinding, evidenceRefs, splitEvidence } from '../../lib/findings
 import { cn } from '../../lib/utils';
 import { ElementIdentity } from './ElementIdentity';
 import { EvidenceLink } from './EvidenceLink';
-import { SourceLabel, SourceMarker } from './SourceMarker';
+import { SourceMarker } from './SourceMarker';
 
 type Props = {
   findings: HintFinding[]; taskId: string;
@@ -31,6 +31,8 @@ function Evidence({ finding, taskId, numbers, navigate }: { finding: HintFinding
   </ul>;
 }
 
+/** Element · what happened · where to look: shared by both ledgers so their columns line up. */
+const LEDGER_COLUMNS = 'md:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)_auto]';
 const isSuspected = (finding: HintFinding) => finding.occurrences.every(occurrence => occurrence.certainty === 'suspected');
 
 /**
@@ -40,7 +42,7 @@ const isSuspected = (finding: HintFinding) => finding.occurrences.every(occurren
 export function PageEvidenceLedger({ findings, taskId, numbers, navigate }: Props) {
   const { t } = useTranslation();
   return <ul className="divide-y rounded-md border border-l-4 border-edge-strong border-l-foreground bg-card">
-    {findings.map((finding, index) => <li key={index} className="grid gap-x-8 gap-y-2 px-4 py-3.5 md:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)_auto]">
+    {findings.map((finding, index) => <li key={index} className={cn('grid gap-x-8 gap-y-2 py-3.5 pr-4 pl-5', LEDGER_COLUMNS)}>
       <ElementIdentity role={finding.target?.role} name={finding.target?.name} fallback={hintKindLabel(finding.kind)} className="text-base" />
       <div className="grid content-start gap-1">
         <p className="text-sm leading-6">{describeFinding(finding) ?? hintKindLabel(finding.kind)}</p>
@@ -55,26 +57,25 @@ export function PageEvidenceLedger({ findings, taskId, numbers, navigate }: Prop
 }
 
 /**
- * What the model did while deciding, drawn with a different grammar from the page ledger: no card, a weak tint, an inset with an
- * open marker, the source named on every row and "추정" written out. It never reads as a defect of the page.
+ * What the model did while deciding. Same columns as the page ledger so the two read side by side, but lighter: no card and no
+ * solid rail, an open marker before the element, and "추정" written out. It never reads as a defect of the page.
  */
 export function ModelBehaviorList({ findings, taskId, numbers, navigate }: Props) {
   const { t } = useTranslation();
-  return <ul className="divide-y divide-dashed divide-model/40">
-    {findings.map((finding, index) => <li key={index} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 py-3 md:grid-cols-[auto_minmax(9rem,13rem)_minmax(0,1fr)_auto] md:gap-x-6">
-      <SourceMarker source="model" className="mt-1.5 md:row-span-1" />
-      <div className="grid gap-0.5">
-        <SourceLabel source="model" />
+  return <ul className="divide-y divide-edge border-y border-edge">
+    {findings.map((finding, index) => <li key={index} className={cn('grid gap-x-8 gap-y-2 py-3.5 pr-4 pl-5', LEDGER_COLUMNS)}>
+      <div className="flex items-start gap-2.5">
+        <SourceMarker source="model" className="mt-1" />
         <ElementIdentity role={finding.target?.role} name={finding.target?.name} fallback={hintKindLabel(finding.kind)} weight="regular" />
       </div>
-      <div className="col-start-2 grid content-start gap-1 md:col-start-auto">
+      <div className="grid content-start gap-1">
         <p className="text-sm leading-6">{describeFinding(finding) ?? hintKindLabel(finding.kind)}</p>
         <p className="flex flex-wrap items-center gap-x-3 text-[13px]">
           <span className="tabular-nums">{t('taskPage.frequency', { total: finding.totalRuns, runs: finding.runs })}</span>
           {isSuspected(finding) && <span className="text-xs font-medium text-model">{t('taskPage.suspected')}</span>}
         </p>
       </div>
-      <div className={cn('col-start-2 md:col-start-auto')}><Evidence finding={finding} taskId={taskId} numbers={numbers} navigate={navigate} /></div>
+      <Evidence finding={finding} taskId={taskId} numbers={numbers} navigate={navigate} />
     </li>)}
   </ul>;
 }

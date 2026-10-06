@@ -74,7 +74,8 @@ export function TraceRail({ steps, modelKind, selected, remaining, live, onSelec
       <span className="flex items-center gap-px rounded-[3px] border border-trace bg-trace-soft px-0.5" style={{ flex: `${end - start} 1 0`, minWidth: (end - start) * 3 + 8, maxWidth: (end - start) * 7 + 6 }}>{ticks.slice(start, end)}</span>
       {ticks.slice(end)}
     </div>
-    <div className="flex items-start overflow-x-auto pb-1">
+    {/* A scroll box clips anything outside it, so it is padded to hold the focus outline (2px + 2px offset). */}
+    <div className="flex items-start overflow-x-auto p-1.5">
       {start > 0 && <span aria-hidden="true" className="px-1 pt-0.5 text-muted-foreground">‹</span>}
       {Array.from({ length: end - start }, (_, offset) => {
         const i = start + offset, step = steps[i];

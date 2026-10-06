@@ -64,10 +64,10 @@ export function TaskOverview({ taskId, runs, numbers, findings, profiles, naviga
           ? <EmptyState compact title={t('empty.findings.title')} why={t('empty.findings.why')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.findings.action')}</Button>} />
           : <PageEvidenceLedger findings={page} {...shared} />}
       </section>
-      <section aria-labelledby="findings-model" className="ml-3 grid gap-2 border-l border-dashed border-model bg-model-soft/50 py-3 pr-4 pl-4 md:ml-8">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 id="findings-model" className="flex items-center gap-2 text-[15px] font-medium text-model"><SourceMarker source="model" />{t('taskPage.modelTitle')}</h2>
-          <Count n={model.length} className="text-model" />
+      <section aria-labelledby="findings-model" className="grid gap-2">
+        <div className="flex items-baseline justify-between gap-3 border-b border-edge-strong pb-1.5">
+          <h2 id="findings-model" className="flex items-center gap-2 text-base font-semibold"><SourceMarker source="model" />{t('taskPage.modelTitle')}</h2>
+          <Count n={model.length} />
         </div>
         <p className="text-[13px] leading-5 text-muted-foreground">{t('taskPage.modelNote')}</p>
         {model.length === 0 ? <p className="text-sm text-muted-foreground">{t('taskPage.modelEmpty')}</p> : <ModelBehaviorList findings={model} {...shared} />}

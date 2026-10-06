@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, ExternalLink, RotateCcw, Square, X } from 'lucide-react';
+import { Download, ExternalLink, RotateCcw, Square, X, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { RunStepsView } from '../../shared/api';
@@ -34,6 +34,8 @@ type Props = {
 export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate }: Props) {
   const { t } = useTranslation();
   const { run, experiment } = runRef;
+  // The task may have been renamed since this run; the link says where it goes now.
+  const taskName = pageProps.view.config.tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;
   const [retry, setRetry] = useState<RetryPreview>();
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run), fastest = fastestRun(taskRuns);
@@ -55,8 +57,10 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const newest = view?.steps.at(-1);
   const failure = describeRunFailure(run), afterRun = describeAfterRunFailure(run);
   return <header className="grid gap-3">
-    <nav aria-label={t('runPage.breadcrumb')} className="text-[13px] text-muted-foreground">
-      <Link to={{ task: run.taskId }} navigate={navigate} className="rounded-sm underline-offset-2 hover:underline">{run.snapshot.taskName}</Link> / {t('runPage.number', { n: own(run.id) ?? '' })}
+    <nav aria-label={t('runPage.breadcrumb')}>
+      <Link to={{ task: run.taskId, tab: 'runs' }} navigate={navigate} className="inline-flex min-h-9 items-center gap-1.5 rounded-sm text-sm font-medium text-trace underline-offset-4 hover:underline">
+        <ArrowLeft aria-hidden="true" className="size-4" />{t('runPage.backToTask')}<span className="font-normal text-muted-foreground">· {taskName}</span>
+      </Link>
     </nav>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="grid gap-1.5">

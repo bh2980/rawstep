@@ -22,7 +22,9 @@ export const taskUi = {
   },
   taskPage: {
     tabsLabel: '작업 보기',
-    tabs: { overview: '개요', check: '완료 확인', settings: '세부 설정' },
+    tabs: { overview: '개요', runs: '실행', check: '완료 확인', settings: '세부 설정' },
+    runsTabEmpty: '아직 이 작업을 실행한 적이 없습니다.',
+    runsTabNote: '행을 누르면 그 실행의 단계별 기록으로 이동합니다.',
     chipsLabel: '작업 조건',
     actionsLabel: '작업 관리',
     checkFact: '완료 확인 {{count}}개',
@@ -187,6 +189,7 @@ export const taskUi = {
   },
   runPage: {
     breadcrumb: '경로',
+    backToTask: '작업으로 돌아가기',
     number: '실행 #{{n}}',
     stop: '중지',
     rerun: '같은 조건으로 다시 실행',

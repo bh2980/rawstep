@@ -1,4 +1,4 @@
-import { readFile, writeFile, rename, mkdir, realpath, unlink } from 'node:fs/promises';
+import { readFile, readdir, stat, writeFile, rename, mkdir, realpath, unlink } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -94,6 +94,32 @@ export class ProjectStore {
    * Each registered task's JSON as written in its file, for editing: relative URLs and omitted defaults stay as
    * they are, so saving an edit never bakes machine paths or defaults into the file. Every file is still validated.
    */
+  /**
+   * Task JSON files already in the project that are not registered yet, so a person can pick one instead of typing its path.
+   * A file counts when it parses as a task; dependency, build and run-output folders are skipped, and the walk is bounded.
+   */
+  async findTaskFiles(config: ProjectConfig): Promise<{ file: string; goal: string; url: string }[]> {
+    const registered = new Set(config.tasks.map(t => t.file)), found: { file: string; goal: string; url: string }[] = [];
+    const skip = new Set(['node_modules', '.git', '.rawstep', 'dist', 'build', 'coverage', '.next', '.turbo', '.cache']);
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      if (depth > 5 || found.length >= 200) return;
+      let entries; try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.startsWith('.')) continue;
+        const path = resolve(dir, entry.name), rel = relative(this.root, path).split('\\').join('/');
+        if (entry.isDirectory()) { if (!skip.has(entry.name)) await walk(path, depth + 1); continue; }
+        if (!entry.isFile() || !entry.name.endsWith('.json') || registered.has(rel) || /^(package(-lock)?|tsconfig.*|rawstep\.config)\.json$/.test(entry.name)) continue;
+        try {
+          if ((await stat(path)).size > 256 * 1024) continue;
+          const json: unknown = JSON.parse(await readFile(path, 'utf8'));
+          const task = resolveTask(json, this.root), raw = json as { url?: unknown };
+          found.push({ file: rel, goal: task.goal, url: typeof raw.url === 'string' ? raw.url : task.url });
+        } catch { /* not a task file */ }
+      }
+    };
+    await walk(this.root, 0);
+    return found.sort((a, b) => a.file.localeCompare(b.file));
+  }
   async taskFiles(config: ProjectConfig): Promise<Record<string, unknown>> {
     return Object.fromEntries(await Promise.all(config.tasks.map(async t => {
       const source = await this.taskSource(t.file), json: unknown = JSON.parse(source);

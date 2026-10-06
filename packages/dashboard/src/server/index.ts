@@ -193,6 +193,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         } catch { throw new HttpError(400, '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.'); }
       }));
     }
+    if (path === '/api/tasks/candidates' && method === 'GET') return send(res, await store.findTaskFiles((await store.read()).config));
     if (path === '/api/tasks/import' && method === 'POST') {
       const body = z.object({ file: z.string() }).strict().parse(await jsonBody(req));
       return send(res, await store.task(body.file));

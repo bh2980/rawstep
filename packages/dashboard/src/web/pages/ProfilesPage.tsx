@@ -89,8 +89,8 @@ export function ProfilesPage({ capabilities, ...props }: PageProps & { capabilit
 function ProfileTabs({ profile, update, capabilities, presets }: { profile: RunProfile; update: (part: Partial<RunProfile>) => void; capabilities: ConfigView['capabilities']; presets: Record<string, unknown> }) {
   const { t } = useTranslation();
   return <Tabs defaultValue="permissions" className="gap-4">
-    <TabsList variant="line" aria-label={t('profiles.tabsLabel')} className="h-9 w-full justify-start gap-1 border-b">
-      {(['permissions', 'stuck', 'environment', 'analysis'] as const).map(tab => <TabsTrigger key={tab} value={tab} className="h-9 flex-none px-3">{t(`profiles.tabs.${tab}`)}</TabsTrigger>)}
+    <TabsList variant="line" aria-label={t('profiles.tabsLabel')}>
+      {(['permissions', 'stuck', 'environment', 'analysis'] as const).map(tab => <TabsTrigger key={tab} value={tab}>{t(`profiles.tabs.${tab}`)}</TabsTrigger>)}
     </TabsList>
     <TabsContent value="permissions"><PermissionPresets value={profile.permissions} onChange={permissions => update({ permissions })} capabilities={capabilities} /></TabsContent>
     <TabsContent value="stuck" className="grid gap-4">

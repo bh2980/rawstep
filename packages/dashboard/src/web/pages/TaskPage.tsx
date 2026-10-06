@@ -1,3 +1,4 @@
+import { RunsTable } from '../components/RunsTable';
 import { useMemo, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -106,10 +107,16 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
     <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-4">
-      <TabsList variant="line" aria-label={t('taskPage.tabsLabel')} className="h-9 w-full justify-start gap-1 border-b">
-        {taskTabs.map(id => <TabsTrigger key={id} value={id} className="h-9 flex-none px-3 text-sm">{t(`taskPage.tabs.${id}`)}</TabsTrigger>)}
+      <TabsList variant="line" aria-label={t('taskPage.tabsLabel')}>
+        {taskTabs.map(id => <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}</TabsTrigger>)}
       </TabsList>
       <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} profiles={config.profiles} navigate={navigate} onRun={focusRunControl} /></TabsContent>
+      <TabsContent value="runs">
+        <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
+          <p className="text-[13px] leading-5 text-muted-foreground">{taskRuns.length ? t('taskPage.runsTabNote') : t('taskPage.runsTabEmpty')}</p>
+          {taskRuns.length > 0 && <RunsTable runs={taskRuns} profiles={config.profiles} navigate={navigate} hideTask numbers={numbers} showProfile showHints />}
+        </section>
+      </TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>
       <TabsContent value="settings"><TaskSettings task={task} onTask={setTask} json={json} onJson={setJson} view={view} onEdit={() => setEditing(true)} /></TabsContent>
     </Tabs>

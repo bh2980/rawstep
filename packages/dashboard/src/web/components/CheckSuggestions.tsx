@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
@@ -25,6 +25,8 @@ type Props = {
   onAdd: (rule: VerifyRule) => void;
   /** Titles the panel as a reference list beside the task specification (the new task page). */
   reference?: boolean;
+  /** Ask for suggestions as soon as the panel appears (it was opened by an explicit "AI 제안받기" button). */
+  autoStart?: boolean;
 };
 
 /**
@@ -71,7 +73,7 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
  * "AI 제안": a reference list of conditions an analysis model proposes from the start page's structure. It is not a chat; nothing changes
  * until a person adds a candidate.
  */
-export function CheckSuggestions({ view, url, goal, onAdd, reference }: Props) {
+export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
   const models = view.config.models.filter(model => model.kind === 'llm' && model.roles.includes('analysis'));
@@ -90,7 +92,10 @@ export function CheckSuggestions({ view, url, goal, onAdd, reference }: Props) {
     } finally { setLoading(false); }
   }
   const add = (suggestion: CheckSuggestion, key: string) => { onAdd(suggestion.rule); setAdded(new Set([...added, key])); };
-  return <section aria-labelledby={modelId + '-title'} className="grid min-w-0 gap-3 border-t-2 border-foreground pt-3">
+  // Opened by its own button: that click is the request, so ask once right away instead of a second click.
+  const started = useRef(false);
+  useEffect(() => { if (autoStart && ready && !started.current) { started.current = true; void suggest(); } });
+  return <section aria-labelledby={modelId + '-title'} className="grid min-w-0 gap-3">
     <div className="grid gap-1">
       <h3 id={modelId + '-title'} className="text-base font-semibold">{t('checkSuggest.title')}</h3>
       <p className="text-[13px] leading-5 text-muted-foreground">{reference ? t('checkSuggest.referenceNote') : t('checkSuggest.description')}</p>

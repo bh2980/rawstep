@@ -24,4 +24,17 @@ describe('task files for editing', () => {
     expect((await store.task('tasks/pay.json')).url).toBe(pathToFileURL(join(dir, 'shop.html')).href);
     expect(JSON.parse(await readFile(join(dir, 'tasks/pay.json'), 'utf8'))).toEqual(task);
   });
+
+  it('finds unregistered task files in the project and skips dependencies and non-task JSON', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rawstep-find-tasks-')); dirs.push(dir);
+    const store = new ProjectStore(dir); await store.initialize();
+    const task = (goal: string) => JSON.stringify({ url: 'https://example.com', goal, verify: { all: [{ textVisible: 'Done' }] } });
+    await mkdir(join(dir, 'tests/a11y'), { recursive: true }); await mkdir(join(dir, 'node_modules/pkg'), { recursive: true });
+    await writeFile(join(dir, 'tests/a11y/checkout.json'), task('Pay'));
+    await writeFile(join(dir, 'node_modules/pkg/task.json'), task('Hidden'));
+    await writeFile(join(dir, 'package.json'), '{"name":"x"}');
+    await writeFile(join(dir, 'settings.json'), '{"theme":"dark"}');
+    const found = await store.findTaskFiles((await store.read()).config);
+    expect(found).toEqual([{ file: 'tests/a11y/checkout.json', goal: 'Pay', url: 'https://example.com' }]);
+  });
 });

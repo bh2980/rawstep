@@ -8,7 +8,7 @@ import { Link } from '../components/Link';
 import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
 import { displayState } from '../lib/runStrip';
-import { isFinished, isLive } from '../lib/runs';
+import { isFinished, isLive, taskNameOf } from '../lib/runs';
 import type { ListProps } from './types';
 
 const PAGE = 50;
@@ -25,11 +25,11 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
   const { config } = pageProps.view;
-  const tasks = useMemo(() => [...new Map(runs.map(ref => [ref.run.taskId, ref.run.snapshot.taskName])).entries()], [runs]);
+  const tasks = useMemo(() => [...new Map(runs.map(ref => [ref.run.taskId, taskNameOf(ref.run, config.tasks)])).entries()], [runs, config.tasks]);
   const models = useMemo(() => [...new Map(runs.map(ref => [ref.run.modelId, ref.run.snapshot.model.name])).entries()], [runs]);
   const needle = query.trim().toLowerCase();
   const matching = runs.filter(({ run }) => (task === ALL || run.taskId === task) && (model === ALL || run.modelId === model)
-    && (!needle || run.snapshot.taskName.toLowerCase().includes(needle) || run.snapshot.model.name.toLowerCase().includes(needle))
+    && (!needle || taskNameOf(run, config.tasks).toLowerCase().includes(needle) || run.snapshot.model.name.toLowerCase().includes(needle))
     && (outcome === 'all' || (outcome === 'live' ? isLive(run) : isFinished(run) && displayState(run) === outcome)));
   const options = (items: [string, string][]) => [{ id: ALL, name: t('runList.all') }, ...items.map(([id, name]) => ({ id, name }))];
   const narrow = (apply: () => void) => { apply(); setShown(PAGE); };
@@ -47,7 +47,7 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
       : matching.length === 0
         ? <p className="border-l-2 border-edge-strong pl-4 text-sm text-muted-foreground">{t('runList.noMatch')}</p>
         : <>
-          <RunsTable runs={matching.slice(0, shown)} profiles={config.profiles} navigate={navigate} />
+          <RunsTable runs={matching.slice(0, shown)} profiles={config.profiles} tasks={config.tasks} navigate={navigate} />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>{t('runList.shown', { shown: Math.min(shown, matching.length), total: matching.length })}</span>
             {matching.length > shown && <Button variant="outline" onClick={() => setShown(shown + PAGE)}>{t('runList.more')}</Button>}

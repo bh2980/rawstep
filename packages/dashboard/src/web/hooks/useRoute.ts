@@ -4,7 +4,7 @@ export const views = ['home', 'tasks', 'runs', 'settings'] as const;
 export type View = (typeof views)[number];
 export const sections = ['models', 'profiles', 'machine'] as const;
 export type Section = (typeof sections)[number];
-export const taskTabs = ['overview', 'check', 'settings'] as const;
+export const taskTabs = ['overview', 'runs', 'check', 'settings'] as const;
 export type TaskTab = (typeof taskTabs)[number];
 
 /**

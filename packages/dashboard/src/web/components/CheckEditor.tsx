@@ -19,18 +19,19 @@ type Props = {
 };
 
 /**
- * The completion check as a goal boundary (spec §19). First the boundary as it stands, in words: "아래 조건이 모두 맞으면 목표에 닿은
- * 것으로 봅니다" and each condition ticked. Then the editor, which asks "무엇을 확인할까요?" with plain-language choices as large rows,
- * advanced kinds folded away. A condition can be loaded back into the editor to change it. AI suggestions are added by their own panel.
+ * The completion check as a goal boundary (spec §19): the boundary as it stands, in words, each condition ticked. The editor ("무엇을
+ * 확인할까요?") opens only when a person adds a condition or edits one, and closes again when they apply or cancel; it starts open only
+ * when there is no condition yet. AI suggestions are added by their own panel.
  */
 export function CheckEditor({ rules, onChange, url, keepOne }: Props) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<RuleDraft>(() => blankDraft('textVisible'));
   const [editing, setEditing] = useState<number>();
+  const [formOpen, setFormOpen] = useState(rules.length === 0);
   const [picking, setPicking] = useState<{ roles: readonly string[] | undefined; apply: (element: PageElement) => void }>();
   const missing = draftMissing(draft);
   const pick: PickElement = (roles, apply) => setPicking({ roles, apply });
-  const reset = () => { setDraft(blankDraft('textVisible')); setEditing(undefined); };
+  const reset = () => { setDraft(blankDraft('textVisible')); setEditing(undefined); setFormOpen(false); };
   const submit = () => {
     const rule = ruleFromDraft(draft);
     if (!rule) return;
@@ -52,19 +53,20 @@ export function CheckEditor({ rules, onChange, url, keepOne }: Props) {
         {rules.map((rule, index) => {
           const loaded = draftFromRule(rule);
           return <RuleCard key={index + JSON.stringify(rule)} rule={rule} n={index + 1} editing={editing === index} removeDisabled={keepOne && rules.length <= 1}
-            onRemove={() => remove(index)} onEdit={loaded ? () => { setDraft(loaded); setEditing(index); } : undefined} />;
+            onRemove={() => remove(index)} onEdit={loaded ? () => { setDraft(loaded); setEditing(index); setFormOpen(true); } : undefined} />;
         })}
       </ul>}
     </section>
-    <form className="grid gap-4" aria-label={editing === undefined ? t('ruleEditor.addTitle') : t('ruleEditor.editTitle', { n: editing + 1 })}
+    {!formOpen && <Button type="button" variant="outline" className="justify-self-start" onClick={() => { setDraft(blankDraft('textVisible')); setEditing(undefined); setFormOpen(true); }}><Plus aria-hidden="true" />{t('ruleEditor.add')}</Button>}
+    {formOpen && <form className="grid gap-4 border-t border-edge pt-5" aria-label={editing === undefined ? t('ruleEditor.addTitle') : t('ruleEditor.editTitle', { n: editing + 1 })}
       onSubmit={event => { event.preventDefault(); submit(); }}>
       <RuleDraftFields draft={draft} onChange={setDraft} onPick={pick} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="lg" disabled={!!missing} aria-describedby="check-editor-missing">{editing === undefined ? <><Plus aria-hidden="true" />{t('ruleEditor.add')}</> : t('ruleEditor.applyEdit')}</Button>
-        {editing !== undefined && <Button type="button" size="lg" variant="outline" onClick={reset}>{t('ruleEditor.cancelEdit')}</Button>}
+        {(editing !== undefined || rules.length > 0) && <Button type="button" size="lg" variant="outline" onClick={reset}>{t('ruleEditor.cancelEdit')}</Button>}
         <p id="check-editor-missing" className="text-xs text-muted-foreground">{missing ? t(`ruleEditor.missing.${missing}`) : ''}</p>
       </div>
-    </form>
+    </form>}
     <ElementPicker open={picking !== undefined} onOpenChange={open => { if (!open) setPicking(undefined); }} url={url} roles={picking?.roles}
       onPick={element => picking?.apply(element)} />
   </div>;
