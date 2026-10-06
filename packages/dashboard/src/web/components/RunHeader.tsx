@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, ExternalLink, RotateCcw, Square, X, ArrowLeft } from 'lucide-react';
+import { Download, ExternalLink, RotateCcw, Square, Trash2, X, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { RunStepsView } from '../../shared/api';
@@ -16,6 +16,7 @@ import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCo
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
+import { DeleteRunsDialog } from './DeleteRunsDialog';
 import { Link } from './Link';
 import { RetryDialog } from './RetryDialog';
 import { FactLine } from './trace/FactLine';
@@ -36,7 +37,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const { run, experiment } = runRef;
   // The task may have been renamed since this run; the link says where it goes now.
   const taskName = pageProps.view.config.tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;
-  const [retry, setRetry] = useState<RetryPreview>();
+  const [retry, setRetry] = useState<RetryPreview>(), [deleting, setDeleting] = useState(false);
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run), fastest = fastestRun(taskRuns);
   const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
@@ -50,6 +51,11 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
     setRetry(undefined);
     navigate({ task: run.taskId, run: created.runs[0]!.id });
   });
+  const remove = () => { setDeleting(false); void act(async () => {
+    await api(base, { method: 'DELETE' });
+    navigate({ task: run.taskId, tab: 'runs' });
+    pageProps.notify(t('runDelete.done', { count: 1 }));
+  }); };
   const own = (id: string) => numbers.get(id);
   const runLevel = view?.hints.filter(hint => hint.steps.length === 0) ?? [];
   const now = useNow(live && run.state === 'running');
@@ -72,10 +78,13 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
         </div>
         <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), model: run.snapshot.model.name, profile })}</p>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid justify-items-end gap-1.5"><div className="flex flex-wrap justify-end gap-2">
         {live && <Button variant="outline" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('runPage.stop')}</Button>}
         {live && <Button variant="ghost" disabled={busy} onClick={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{t('run.stopQueue')}</Button>}
         {!live && <Button variant="outline" disabled={busy || !run.taskFile} title={run.taskFile ? undefined : t('run.noTaskFile')} onClick={previewRetry}><RotateCcw aria-hidden="true" />{t('runPage.rerun')}</Button>}
+        <Button variant="ghost" disabled={busy || live} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runDelete.action')}</Button>
+      </div>
+        {live && <p className="max-w-xs text-right text-xs leading-5 text-muted-foreground">{t('runDelete.liveReason')}</p>}
       </div>
     </div>
     {live && <div className="grid gap-1 border-l-2 border-trace pl-3">
@@ -112,6 +121,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
     </div>
     {failure && <ErrorState view={failure} navigate={navigate} />}
     {afterRun && <ErrorState view={afterRun} />}
+    <DeleteRunsDialog open={deleting} onOpenChange={setDeleting} count={1} onConfirm={remove} />
     <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
   </header>;
 }

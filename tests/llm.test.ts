@@ -76,7 +76,7 @@ describe('shared AI SDK LLM module', () => {
 });
 
 describe('LlmChoiceClient', () => {
-  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', inputs: ['text', 'image'], capabilitySource: 'manual', maxChoices: 255, maxImages: 2, roles: ['decision'], timeoutMs: 5000 };
+  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2, timeoutMs: 5000 };
   const prompt = { id: 'baseline', name: 'b', version: '1', instructions: defaultInstructions.keyboard };
   it('returns the choice with model and prompt evidence', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'stop:success' }));

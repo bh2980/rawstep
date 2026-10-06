@@ -9,7 +9,7 @@ import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { ProjectError } from '@rawstep/project/errors';
-import { credentialRequirements } from '@rawstep/project/config';
+import { atEndpointOf, credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
@@ -73,7 +73,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       }
       case 'analyze': {
         const input = resolve(cwd, args.positionals[0]!), outDir = args.options.out ? resolve(cwd, String(args.options.out)) : await traceDirectory(input);
-        const analyzer = args.options.model ? (await projectAnalyzer(projectDir, { model: String(args.options.model) })).analyzer : undefined;
+        const analyzer = args.options.profile ? (await projectAnalyzer(projectDir, { profile: String(args.options.profile) })).analyzer : undefined;
         const analysis = await analyzeSavedTrace(input, { analyzer, outDir });
         stdout(`Analysis: ${analysis.status}\nSaved: ${resolve(outDir, 'analysis.json')}\n`);
         stdout(`Hints saved: ${(await writeHints(input)).path}\n`);
@@ -118,7 +118,6 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
       projectDir, mode, repeat, signal,
-      ...(options.model ? { model: String(options.model) } : {}),
       ...(options.profile ? { profile: String(options.profile) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
@@ -166,7 +165,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     read = await store.read();
     const c = read.config;
-    report(true, 'Config', `${store.path} (${c.models.length} models, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
+    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined;
   try {
@@ -177,10 +176,10 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;
       if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }
-      const present = !!await store.credential(key.model);
+      const present = !!await store.credential(key.connection);
       report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
     }
-    const { backend, atEndpoint } = read.config.machine;
+    const { backend } = read.config.machine, atEndpoint = atEndpointOf(read.config.machine);
     if (backend === 'simulation') report(undefined, 'Screen reader', 'machine.backend is simulation; no native screen reader to check');
     else {
       try {

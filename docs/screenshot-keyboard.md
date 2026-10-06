@@ -1,6 +1,6 @@
 # Screenshot-only keyboard exploration
 
-Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for registering models.
+Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for connections and run profiles.
 
 ## Boundaries
 
@@ -15,15 +15,15 @@ This is an interface boundary, not a sandbox for a trusted user-provided JavaScr
 
 ## Run with a model
 
-Keyboard mode sends images, so it needs a model that takes them. Register one in `rawstep.config.json` (via `npx rawstep ui`):
+Keyboard mode sends images, so the run profile needs a model that takes them. Add a connection in `rawstep.config.json` (via `npx rawstep ui`) and pick the model in the profile:
 
-- an `llm` model with image input (OpenAI, Anthropic, Google, OpenRouter or a custom OpenAI-compatible server such as LM Studio), or
-- a `decision` model on a provider that carries images: `typesafe`, `openrouter` or `custom` (a `/systemone` server you run). The Vercel AI Gateway is text only and cannot run keyboard mode.
+- an `llm` connection with a model that has image input (OpenAI, Anthropic, Google, OpenRouter or a custom OpenAI-compatible server such as LM Studio), or
+- a `decision` connection on a provider that carries images: `typesafe`, `openrouter` or `custom` (a `/systemone` server you run). The Vercel AI Gateway is text only and cannot run keyboard mode.
 
-Give the model `inputs: ["text", "image"]` and the `decision` role. Then:
+Give the profile's `model` `inputs: ["text", "image"]` and a `maxImages` of at least 2. Then:
 
 ```sh
-npx rawstep run examples/screenshot/task.json --model MODEL --mode keyboard
+npx rawstep run examples/screenshot/task.json --profile PROFILE --mode keyboard
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 

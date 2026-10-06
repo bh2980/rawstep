@@ -3,6 +3,22 @@
  * Voice (spec §42): state what was observed, never judge. Uppercase labels (ACTION, PAGE RESPONSE …) are the product's fixed technical labels.
  */
 export const traceUi = {
+  diagnosis: {
+    title: '실행 진단',
+    modelStop: '모델이 {{n}}번째 판단에서 "{{reason}}"을(를) 골라 실행을 멈췄습니다.',
+    modelStopAllowed: '이 선택지는 실행 프로필의 "모델의 중도 포기 허용"이 켜져 있어서 주어졌습니다. 끄면 모델은 목표에 닿았다는 판단 외에는 스스로 멈출 수 없습니다. 그 판단에서 모델이 받은 화면이나 발화를 열어 확인하세요.',
+    successStopFailed: '모델이 {{n}}번째 판단에서 목표에 닿았다고 보고 멈췄지만, 완료 확인은 맞지 않았습니다.',
+    successStopFailedNote: '모델이 받은 화면이나 발화를 열어, 모델이 무엇을 목표 달성으로 착각했는지 확인하세요.',
+    guardStop: 'Rawstep의 반복 감시가 {{n}}번째 판단에서 실행을 멈췄습니다.',
+    guardStopNote: '같은 화면이 정해 둔 횟수만큼 반복되었습니다. 실행 프로필의 막힘 감지에서 바꿀 수 있습니다.',
+    maxSteps: '최대 행동 수에 닿아 멈췄습니다.',
+    timeout: '제한 시간이 지나 멈췄습니다.',
+    'bot-check': '페이지가 봇 확인 화면을 띄웠습니다 ({{hosts}}).',
+    'bot-checkNote': '모델은 실제 페이지 대신 이 확인 화면을 보고 판단했을 수 있습니다. Rawstep은 봇 확인을 통과하지 않습니다. 봇 차단이 없는 테스트·스테이징 주소로 실행하세요.',
+    'navigation-blocked': '작업의 이동 범위 밖으로 가는 이동을 {{count}}번 막았습니다 ({{hosts}}).',
+    'navigation-blockedNote': '페이지 스크립트가 다른 사이트로 이동하려 했습니다. 작업의 이동 범위(세부 설정)에서 허용할 수 있습니다.',
+    openStep: '{{n}}번째 판단 보기',
+  },
   trace: {
     unnamed: '(이름 없음)',
     wholePage: '페이지 전체',
@@ -23,6 +39,10 @@ export const traceUi = {
   },
   stepDetail: {
     screen: 'SCREEN',
+    screenReference: '· 참고용 화면, 모델에게 보내지 않음',
+    screenStart: '첫 행동 전 시작 페이지',
+    stopEvidence: '중단을 고를 때 모델이 받은 상태입니다 ({{n}}번째 행동 뒤).',
+    stopEvidenceStart: '중단을 고를 때 모델이 받은 상태입니다 (첫 행동 전 시작 페이지).',
     screenReaderOutput: 'SCREEN READER OUTPUT',
     noSpeech: '이 행동 뒤에 기록된 발화가 없습니다.',
     focus: 'FOCUS',

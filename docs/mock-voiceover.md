@@ -6,16 +6,16 @@
 
 ## Run the bundled browser fixture
 
-Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. A model with the `decision` role must be configured in `rawstep.config.json` (via `npx rawstep ui`; see [SystemOne](./systemone.md) and [config](./config.md)), and a decision model needs its API key in `.env.local`.
+Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a `model` must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
 
 ```sh
-npx rawstep run examples/v2/mock-task.json --mode screenreader --model MODEL
+npx rawstep run examples/v2/mock-task.json --mode screenreader --profile PROFILE
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
 The [fixture](../fixtures/mock-voiceover-system.html) starts with a Save button. Its actual click handler changes the button name and status, then changes the document title after two activations. The independent verifier checks that title. The simulator does not know the goal or supply the completion state.
 
-Task fixture paths resolve relative to the task file. Each run writes to a new directory under `.rawstep/runs/`. Set `machine.browserExecutablePath` to use an existing compatible Chromium and `machine.headless` to false to show it. The simulation backend does not use the `atEndpoint`.
+Task fixture paths resolve relative to the task file. Each run writes to a new directory under `.rawstep/runs/`. Set `machine.browserExecutablePath` to use an existing compatible Chromium and `machine.headless` to false to show it. The simulation backend does not use the `atEndpoint`. Screen reader runs save a reference screenshot per step (`diagnostics/step-<n>.png`) for people to look at; the model never sees them.
 
 ## Package API
 

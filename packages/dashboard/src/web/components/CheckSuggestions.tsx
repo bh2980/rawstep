@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
+import { profileAnalysisModel } from '@rawstep/project/config';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
 import { describeRule } from '../lib/describeRule';
@@ -76,7 +77,8 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
 export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
-  const models = view.config.models.filter(model => model.kind === 'llm' && model.roles.includes('analysis'));
+  // The analysis LLM of a run profile writes the suggestions; only profiles that have one are offered.
+  const models = view.config.profiles.flatMap(profile => { const model = profileAnalysisModel(view.config, profile); return model ? [{ id: profile.id, name: `${profile.name} · ${model.name}` }] : []; });
   const [picked, setPicked] = useState('');
   const [loading, setLoading] = useState(false), [error, setError] = useState<ErrorView>();
   const [result, setResult] = useState<SuggestionResult>(), [added, setAdded] = useState<ReadonlySet<string>>(new Set());
@@ -86,7 +88,7 @@ export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart 
     if (!selected) return;
     setLoading(true); setError(undefined); setResult(undefined); setAdded(new Set());
     try {
-      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim(), modelId: selected.id } }));
+      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim(), profileId: selected.id } }));
     } catch (failure) {
       setError(describeApiError(failure, 'start'));
     } finally { setLoading(false); }

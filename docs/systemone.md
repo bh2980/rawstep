@@ -2,9 +2,9 @@
 
 SystemOne is a model category, not a Jev-specific API. A decision model answers a question with a probability for every candidate. Runtime choices are constrained candidates, not generated commands. The DecisionPolicy/Backend/Observation/TraceAnalyzer contracts stay the extension points; the decision client is exported from rawstep/systemone and @rawstep/policies/systemone.
 
-## Registering a decision model
+## Setting up a decision model
 
-Models are configured in `rawstep.config.json` (see [config](./config.md)), normally through the dashboard (`npx rawstep ui`: type, then provider, then model). A decision model is a `models[]` entry with `kind: "decision"` and the `decision` role. Its `provider` says where it runs:
+Connections and run profiles are configured in `rawstep.config.json` (see [config](./config.md)), normally through the dashboard (`npx rawstep ui`: a connection under 연결, then the model in a run profile under 실행 프로필). A decision model is reached through a `connections[]` entry with `kind: "decision"`; a run profile picks the model on it. The connection's `provider` says where it runs:
 
 | `provider` | Server | Images | Key variable |
 |---|---|---|---|
@@ -13,16 +13,18 @@ Models are configured in `rawstep.config.json` (see [config](./config.md)), norm
 | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | yes | `RAWSTEP_OPENROUTER_API_KEY` |
 | `custom` | any `/systemone`-compatible server you run, `baseURL` such as `http://127.0.0.1:8000/v1` | as declared | optional, `apiKeyEnv` |
 
-Declare the inputs the model accepts (`text`, and `image` for visual models) with `inputs`. Capabilities are explicitly declared or discovered from the provider's model list (OpenRouter lists input modalities; the Gateway lists decision models), never inferred from a model name. There is no hardcoded default decision model.
+Declare the inputs the model accepts (`text`, and `image` for visual models) with `inputs` in the profile's `model`. Capabilities are explicitly declared or discovered from the provider's model list (OpenRouter lists input modalities; the Gateway lists decision models), never inferred from a model name. There is no hardcoded default decision model.
 
-The API key never goes into `rawstep.config.json`. Each preset provider reads its key from the variable above, and the value lives in `.env.local` (the dashboard writes it with mode 0600) or the process environment. Do not commit `.env.local`.
+The API key never goes into `rawstep.config.json`. Each preset provider reads its key from the variable above (a custom connection names its own with `apiKeyEnv`), and the value lives in `.env.local` (the dashboard writes it with mode 0600) or the process environment. Do not commit `.env.local`.
 
 ```json
 {
-  "models": [
-    { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "modelId": "jev-latest",
-      "inputs": ["text"], "capabilitySource": "manual", "maxChoices": 255, "maxImages": 0,
-      "roles": ["decision"], "timeoutMs": 60000 }
+  "connections": [
+    { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
+  ],
+  "profiles": [
+    { "id": "default", "name": "Default", "...": "...",
+      "model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0 } }
   ]
 }
 ```
@@ -32,11 +34,11 @@ The API key never goes into `rawstep.config.json`. Each preset provider reads it
 RAWSTEP_TYPESAFE_API_KEY=YOUR_PRIVATE_KEY
 ```
 
-Run a task with the model:
+Run a task with the profile's model:
 
 ```sh
-npx rawstep run checkout --model jev --mode screenreader
-npx rawstep analyze .rawstep/runs/RUN_DIR --model ANALYSIS_MODEL   # optional post-run LLM analysis
+npx rawstep run checkout --profile default --mode screenreader
+npx rawstep analyze .rawstep/runs/RUN_DIR --profile PROFILE   # LLM analysis with that profile's analysis model
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
@@ -53,11 +55,11 @@ The adapter keeps the checks of the original clients: responses are capped at 1 
 
 ### OpenRouter native text and image decisions
 
-Register the model with `provider: "openrouter"` and `kind: "decision"`. The key is the same `RAWSTEP_OPENROUTER_API_KEY` that OpenRouter LLM models use.
+Use a connection with `provider: "openrouter"` and `kind: "decision"`. The key is the same `RAWSTEP_OPENROUTER_API_KEY` that OpenRouter LLM models use.
 
 Real Clef Flash probes established image delivery through **content parts inside `state`**. Red and blue were correctly distinguished, reversing the image order changed the answer to a first-image question, and a broken image returned HTTP 422. See [image delivery investigation and repair](./openrouter-image-delivery.md).
 
-Jev on OpenRouter is text-only: register it with `inputs: ["text"]` (for example `modelId` `typesafe/jev-1.13`). A visual model such as `cloudflare/clef-flash` is registered with `inputs: ["text", "image"]`.
+Jev on OpenRouter is text-only: give the profile's `model` `inputs: ["text"]` (for example `modelId` `typesafe/jev-1.13`). A visual model such as `cloudflare/clef-flash` takes `inputs: ["text", "image"]`.
 
 The adapter calls native [`/api/v1/systemone`](https://openrouter.ai/docs/api/api-reference/systemone/submit-a-system-one-request), not Chat Completions. Preflight reads `models?output_modalities=decisions`, confirms declared inputs, resolves `canonical_slug`, and pins inference to that ID. Only that exact response ID is accepted. Thus `typesafe/jev-1.13` can resolve to a dated Jev ID without weakening the identity check. Provider fallback is disabled; credentials and server error bodies are never trace evidence.
 
@@ -85,7 +87,7 @@ Speech policies send goal, speech and decision-only history. Visual policies sen
 
 SystemOne chooses navigation, activation, named entry or stop. It does not prove actual focus, conformance or final success. Independent verification remains authoritative. Focus gates only narrow choices; repeat guards only stop and never invent replacement actions. The visual repetition guard (`repetitionGuard`) is `auto` by default and can be set `on` or `off` per run profile, and the model's `stuck`/`uncertain` choices can be removed with the profile's `modelGiveUp` setting; see [config](./config.md). Probability is not measured accuracy; native speech association remains temporal-only.
 
-`rawstep analyze --model` requires a finalized input-redacted trace. Every saved event is included; PNG bytes are explicitly omitted, never captioned. Oversized input fails without silent truncation. Invalid IDs/JSON, timeout and analysis errors cannot change the original trace or outcome. `rawstep run` and `runTask` never automatically invoke this LLM analyzer; the local deterministic summary is the default. Trusted custom modules remain caller-controlled.
+`rawstep analyze --profile` requires a finalized input-redacted trace and uses that run profile's `analysisModel` (an LLM connection). Every saved event is included; PNG bytes are explicitly omitted, never captioned. Oversized input fails without silent truncation. Invalid IDs/JSON, timeout and analysis errors cannot change the original trace or outcome. Rawstep's rule-based deterministic analysis always runs after each run; when the run profile has an `analysisModel`, `rawstep run` and `runTask` add this LLM analysis too, and without one everything still works. Trusted custom modules remain caller-controlled.
 
 ## Tests and remaining evidence gates
 
@@ -106,7 +108,7 @@ Rawstep, not Playwright's process-exiting SIGINT handler, owns SIGINT/SIGTERM ca
 
 Mac Chrome's OS-native collapsed select popup did not respond to Playwright/CDP keys in headed or headless checks. That specific integration case is skipped on macOS; renderer-owned listbox arrow navigation is tested instead. This is a transport/platform limitation, not evidence of an accessibility defect or native VoiceOver behavior.
 
-Native VoiceOver runs need macOS, prepared Automation Voice/permissions and a loopback AT Driver (`machine.backend` `voiceover`; `npx rawstep doctor` checks the endpoint). NVDA remains experimental pending Windows evidence.
+Native VoiceOver runs need macOS, prepared Automation Voice/permissions and a loopback AT Driver (`machine.backend` `voiceover`; `machine.atEndpoint` empty means the Bocoup server's usual `ws://localhost:4382/session`; Rawstep can start the server with the command in `.env.local` `RAWSTEP_AT_DRIVER_COMMAND`, see [config](./config.md#starting-the-at-driver-server); `npx rawstep doctor` checks the endpoint). NVDA remains experimental pending Windows evidence.
 
 Native VoiceOver evidence is separate from screenshot evidence. The OpenRouter image probes used real configured inference, whereas browser regression tests with fake HTTP models prove only transport/action/verifier wiring. Neither proves model accuracy or accessibility conformance. No Guidepup restoration, model download or publish is used to bypass a native evidence gate.
 

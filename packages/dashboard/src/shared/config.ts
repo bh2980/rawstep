@@ -3,22 +3,24 @@ import type { Task } from '@rawstep/core/contracts';
 import { idSchema as id, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunSettings } from '@rawstep/project/config';
 
 export const planSchema = z.object({
-  taskIds: z.array(id).min(1).max(100), modelIds: z.array(id).min(1).max(100),
+  taskIds: z.array(id).min(1).max(100),
   promptIds: z.array(id).min(1).max(50), mode: z.enum(['keyboard', 'screenreader']),
-  /** Profiles to compare; omitted means each task's own profile. */
+  /** Profiles to compare (each brings its model, analysis model and conditions); omitted means each task's own profile. */
   profileIds: z.array(id).min(1).max(100).optional(), repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
-  analysisModelId: id.optional(),
   revision: z.string().optional(),
   diagnoseStop: z.boolean().optional(),
 }).strict();
 export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */
 export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
-export type Combination = { key: string; taskId: string; modelId: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'profile' | 'task' };
+/** One run to make. `modelName` is the profile's model, absent when the profile has none (then `reason` says so). */
+export type Combination = { key: string; taskId: string; modelName?: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'profile' | 'task' };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
+  /** Why a run could not start or failed without a recorded outcome: the error's code and its message, with keys and input values redacted. */
+  errorDetail?: { code?: string; message: string };
   /** `profile` is the resolved page environment; `runProfile` names the run profile. */
   snapshot: { task: Task; taskName: string; model: Model; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
   /** `stage` and `step` say how far a failed run got; nothing else of the recorded outcome (its raw error text) is kept. */

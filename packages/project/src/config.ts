@@ -58,7 +58,7 @@ export const PROVIDERS = {
 export function providersOf(kind: ModelKind): { id: ProviderId; preset: ProviderPreset }[] {
   return Object.entries(PROVIDERS[kind]).map(([id, preset]) => ({ id: id as ProviderId, preset }));
 }
-export function providerPreset(model: Pick<Model, 'kind' | 'provider'>): ProviderPreset {
+export function providerPreset(model: Pick<Connection, 'kind' | 'provider'>): ProviderPreset {
   return (PROVIDERS[model.kind] as Record<string, ProviderPreset>)[model.provider]!;
 }
 /** The key variable of a provider that has a fixed one (everything except `custom`). */
@@ -66,26 +66,36 @@ export const providerKeyEnv = (kind: ModelKind, provider: ProviderId): string | 
 /** Preset providers with a key, once each: OpenRouter serves both kinds with one key. */
 export const KEYED_PROVIDERS: readonly { provider: ProviderId; label: string; keyEnv: string }[] = [...new Map(
   (['llm', 'decision'] as const).flatMap(kind => providersOf(kind)).filter(p => p.preset.keyEnv).map(p => [p.id, { provider: p.id, label: p.preset.label, keyEnv: p.preset.keyEnv! }] as const)).values()];
-export const modelSchema = z.object({
-  id, name: text, kind: modelKindSchema, provider: providerSchema, modelId: text,
+/**
+ * Where a kind of model is reached: a provider preset (fixed address and key variable) or a custom server.
+ * A connection holds no model: run profiles pick the model ID on a connection.
+ */
+export const connectionSchema = z.object({
+  id, name: text, kind: modelKindSchema, provider: providerSchema,
   /** Only for `custom`: the OpenAI-compatible (llm) or /systemone (decision) server address. */
   baseURL: z.url().optional(),
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
+  timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
+}).strict().superRefine((connection, ctx) => {
+  const preset = (PROVIDERS[connection.kind] as Record<string, ProviderPreset>)[connection.provider];
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  if (!preset) return issue('provider', `${connection.provider} is not a provider of ${connection.kind} models.`);
+  if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
+  if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
+});
+export type Connection = z.infer<typeof connectionSchema>;
+/** The model a run profile decides with: a model ID on a connection and what that model can take. */
+export const modelChoiceSchema = z.object({
+  connectionId: id, modelId: text,
   inputs: z.array(z.enum(['text', 'image'])).min(1).max(2),
-  capabilitySource: z.enum(['discovery', 'manual']),
   maxChoices: z.number().int().min(1).max(10000).default(255),
   maxImages: z.number().int().min(0).max(10).default(2),
-  roles: z.array(z.enum(['decision', 'analysis'])).min(1).max(2),
-  timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
-}).strict().superRefine((model, ctx) => {
-  const preset = (PROVIDERS[model.kind] as Record<string, ProviderPreset>)[model.provider];
-  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
-  if (!preset) return issue('provider', `${model.provider} is not a provider of ${model.kind} models.`);
-  if (model.provider === 'custom' ? !model.baseURL : model.baseURL !== undefined) issue('baseURL', 'Only custom models have a baseURL, and they need one.');
-  if (model.provider !== 'custom' && model.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom models name their own key variable.');
-  if (!preset.images && model.inputs.includes('image')) issue('inputs', `${preset.label} cannot take images.`);
-});
+}).strict();
+export type ModelChoice = z.infer<typeof modelChoiceSchema>;
+/** The LLM a run profile analyses finished runs with. */
+export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text }).strict();
+export type AnalysisChoice = z.infer<typeof analysisChoiceSchema>;
 export const policySchema = z.object({
   historyLimit: z.number().int().min(1).max(10000),
   maxStateVisits: z.number().int().min(1).max(10000),
@@ -112,32 +122,55 @@ export const runProfileSchema = z.object({
   id, name: text,
   permissions: z.object({ keyboard: permissionsSchema, screenreader: permissionsSchema }).strict(),
   policy: policySchema,
+  /** The model runs of this profile decide with; a profile without one cannot run yet. */
+  model: modelChoiceSchema.optional(),
   /** An environment profile name ('default', …) or object, resolved by @rawstep/browser/profiles. */
   environment: z.unknown(),
+  /** An LLM that writes a hypothesis about each finished run; without one, only the built-in rule-based analysis runs. */
+  analysisModel: analysisChoiceSchema.optional(),
   analysisInstructions: z.string().max(16384).default(''),
 }).strict();
 export type RunProfile = z.infer<typeof runProfileSchema>;
 /** Settings that belong to the computer running Rawstep, not to a task or a profile. */
 export const machineSchema = z.object({
   backend: z.enum(['simulation', 'voiceover', 'nvda']).default('simulation'),
-  atEndpoint: z.string().default('ws://127.0.0.1:9333'),
+  /** The AT Driver WebSocket address; empty means the usual address of the chosen screen reader's server (`atEndpointOf`). */
+  atEndpoint: z.string().default(''),
   browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
 }).strict();
 export type MachineSettings = z.infer<typeof machineSchema>;
+/** Where each native screen reader's AT Driver server listens unless told otherwise: Bocoup's macOS server and the PAC NVDA server. */
+export const AT_DRIVER_DEFAULTS = { voiceover: 'ws://localhost:4382/session', nvda: 'ws://localhost:3031/session' } as const;
+/** The AT Driver address a native screen reader run connects to. */
+export const atEndpointOf = (machine: Pick<MachineSettings, 'backend' | 'atEndpoint'>): string => machine.atEndpoint.trim() || (machine.backend === 'simulation' ? '' : AT_DRIVER_DEFAULTS[machine.backend]);
+/** The .env.local variable holding the command that starts the AT Driver server on this computer (never in the shared config: it runs a program). */
+export const AT_DRIVER_COMMAND_ENV = 'RAWSTEP_AT_DRIVER_COMMAND';
 export const configSchema = z.object({
   version: z.literal(1),
-  models: z.array(modelSchema).max(500),
+  connections: z.array(connectionSchema).max(100),
   tasks: z.array(taskSchema).max(500),
   profiles: z.array(runProfileSchema).min(1).max(100),
   machine: machineSchema,
-}).strict();
+}).strict().superRefine((config, ctx) => {
+  const ids = new Set<string>();
+  config.connections.forEach((c, i) => { if (ids.has(c.id)) ctx.addIssue({ code: 'custom', path: ['connections', i, 'id'], message: `Connection id ${c.id} is used twice.` }); ids.add(c.id); });
+  config.profiles.forEach((profile, i) => {
+    if (profile.model && !ids.has(profile.model.connectionId)) ctx.addIssue({ code: 'custom', path: ['profiles', i, 'model', 'connectionId'], message: `Profile ${profile.name} uses a connection that does not exist.` });
+    const analysis = profile.analysisModel && config.connections.find(c => c.id === profile.analysisModel!.connectionId);
+    if (profile.analysisModel && analysis?.kind !== 'llm') ctx.addIssue({ code: 'custom', path: ['profiles', i, 'analysisModel', 'connectionId'], message: `Profile ${profile.name} must analyse with an LLM connection.` });
+  });
+});
 export type ProjectConfig = z.infer<typeof configSchema>;
 /**
  * The settings one run executes with: its run profile (plus task overrides) and the machine settings.
  * Run snapshots store this shape as `globals`.
  */
 export type RunSettings = MachineSettings & { keyboard: Permissions; screenreader: Permissions; analysisInstructions: string; policy: Policy };
-export type Model = z.infer<typeof modelSchema>;
+/**
+ * A model as a run calls it: a connection plus the model ID and capabilities a profile picked. `id` is the connection's,
+ * so keys and checks are per connection.
+ */
+export type Model = Pick<Connection, 'id' | 'kind' | 'provider' | 'baseURL' | 'apiKeyEnv' | 'timeoutMs'> & { name: string; modelId: string; inputs: ('text' | 'image')[]; maxChoices: number; maxImages: number };
 export type ManagedTask = z.infer<typeof taskSchema>;
 export type Prompt = z.infer<typeof promptSchema>;
 export type Mode = 'keyboard' | 'screenreader';
@@ -155,31 +188,37 @@ export function defaultModes(): ManagedTask['modes'] {
 export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'kind'>): boolean {
   return setting === 'auto' ? model.kind === 'llm' : setting === 'on';
 }
-/** Where the model is called: the preset address of its provider, or the address a custom model carries. */
-export const resolveBaseURL = (model: Pick<Model, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
-/** The environment variable that holds the model's key, if it has one. */
-export const modelKeyEnv = (model: Pick<Model, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;
-export const modelKeyRequired = (model: Pick<Model, 'kind' | 'provider'>): boolean => providerPreset(model).keyRequired;
-/** The key a model uses, as shown in `credentialStatus`: one per preset provider, one per custom model. */
-export const credentialId = (model: Pick<Model, 'id' | 'provider'>): string => model.provider === 'custom' ? `model:${model.id}` : `provider:${model.provider}`;
-/** Every key the config's models use, once per variable, for status displays and `rawstep doctor`. */
-export function credentialRequirements(config: Pick<ProjectConfig, 'models'>): { id: string; label: string; env?: string; required: boolean; model: Model }[] {
-  const seen = new Map<string, { id: string; label: string; env?: string; required: boolean; model: Model }>();
-  for (const model of config.models) {
-    const id = credentialId(model), env = modelKeyEnv(model);
-    if (!seen.has(id)) seen.set(id, { id, label: model.provider === 'custom' ? model.name : providerPreset(model).label, ...(env ? { env } : {}), required: modelKeyRequired(model), model });
+/** Where the model is called: the preset address of its provider, or the address a custom connection carries. */
+export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
+/** The environment variable that holds the connection's key, if it has one. */
+export const modelKeyEnv = (model: Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;
+export const modelKeyRequired = (model: Pick<Connection, 'kind' | 'provider'>): boolean => providerPreset(model).keyRequired;
+/** The key a connection uses, as shown in `credentialStatus`: one per preset provider, one per custom connection. */
+export const credentialId = (connection: Pick<Connection, 'id' | 'provider'>): string => connection.provider === 'custom' ? `connection:${connection.id}` : `provider:${connection.provider}`;
+/** Every key the config's connections use, once per variable, for status displays and `rawstep doctor`. */
+export function credentialRequirements(config: Pick<ProjectConfig, 'connections'>): { id: string; label: string; env?: string; required: boolean; connection: Connection }[] {
+  const seen = new Map<string, { id: string; label: string; env?: string; required: boolean; connection: Connection }>();
+  for (const connection of config.connections) {
+    const id = credentialId(connection), env = modelKeyEnv(connection);
+    if (!seen.has(id)) seen.set(id, { id, label: connection.provider === 'custom' ? connection.name : providerPreset(connection).label, ...(env ? { env } : {}), required: modelKeyRequired(connection), connection });
   }
   return [...seen.values()];
 }
-/** A model with plain defaults: text input, the decision role and the standard limits. Discovery and manual entry both build models this way. */
-export function buildModel(init: Pick<Model, 'id' | 'name' | 'kind' | 'provider' | 'modelId'> & Partial<Pick<Model, 'baseURL' | 'apiKeyEnv' | 'inputs' | 'capabilitySource' | 'maxChoices' | 'roles' | 'timeoutMs'>>): Model {
-  const inputs = init.inputs ?? ['text'];
-  return {
-    id: init.id, name: init.name, kind: init.kind, provider: init.provider, modelId: init.modelId,
-    ...(init.baseURL ? { baseURL: init.baseURL.trim() } : {}), ...(init.apiKeyEnv ? { apiKeyEnv: init.apiKeyEnv } : {}),
-    inputs, capabilitySource: init.capabilitySource ?? 'manual', maxChoices: init.maxChoices ?? 255, maxImages: inputs.includes('image') ? 2 : 0,
-    roles: init.roles ?? ['decision'], timeoutMs: init.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs,
-  };
+/** What a model takes when nothing is known about it: images where the provider passes them (keyboard mode needs two). */
+export function defaultInputs(connection: Pick<Connection, 'kind' | 'provider'>): ModelChoice['inputs'] {
+  return providerPreset(connection).images ? ['text', 'image'] : ['text'];
+}
+/** The model a profile decides with, joined with its connection; undefined when the profile has none or its connection is gone. */
+export function profileModel(config: Pick<ProjectConfig, 'connections'>, profile: Pick<RunProfile, 'model'>): Model | undefined {
+  const choice = profile.model, connection = choice && config.connections.find(c => c.id === choice.connectionId);
+  if (!choice || !connection) return undefined;
+  return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: [...choice.inputs], maxChoices: choice.maxChoices, maxImages: choice.inputs.includes('image') ? choice.maxImages : 0 };
+}
+/** The LLM a profile analyses runs with, joined with its connection; undefined when it has none, the connection is gone or is not an LLM. */
+export function profileAnalysisModel(config: Pick<ProjectConfig, 'connections'>, profile: Pick<RunProfile, 'analysisModel'>): Model | undefined {
+  const choice = profile.analysisModel, connection = choice && config.connections.find(c => c.id === choice.connectionId);
+  if (!choice || !connection || connection.kind !== 'llm') return undefined;
+  return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: ['text'], maxChoices: 255, maxImages: 0 };
 }
 /** What a person picks to look up models: a kind, a provider and, for custom, the address. */
 export const discoverRequestSchema = z.object({ kind: modelKindSchema, provider: providerSchema, baseURL: z.url().optional(), apiKey: z.string().max(16384).optional() }).strict();
@@ -195,7 +234,7 @@ export function defaultProfile(id = 'default', name = 'Default'): RunProfile {
   });
 }
 export function defaultConfig(): ProjectConfig {
-  return configSchema.parse({ version: 1, models: [], tasks: [], profiles: [defaultProfile()], machine: {} });
+  return configSchema.parse({ version: 1, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
 }
 export function parseConfig(raw: unknown): ProjectConfig { return configSchema.parse(raw); }
 /** The run profile a task uses by default: its own when it still exists, otherwise the first one. */
@@ -211,7 +250,7 @@ export function resolveRunSettings(config: ProjectConfig, task: Pick<ManagedTask
     analysisInstructions: task.analysisInstructions?.trim() || profile.analysisInstructions,
   };
 }
-/** A model, profile or other configured entry by its id, otherwise by its (case-sensitive) name. */
+/** A connection, profile or other configured entry by its id, otherwise by its (case-sensitive) name. */
 export function findByIdOrName<T extends { id: string; name: string }>(list: readonly T[], reference: string): T | undefined {
   return list.find(item => item.id === reference) ?? list.find(item => item.name === reference);
 }

@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { t } from '../i18n/index.js';
-import type { Permissions, Policy, RunProfile } from '@rawstep/project/config';
+import type { Connection, Permissions, Policy, RunProfile } from '@rawstep/project/config';
 import { keyboardPreset, screenreaderPreset, type ActionCapabilities } from './presets.js';
 
 /** One short phrase describing how stuck detection behaves, e.g. the automatic setting. */
@@ -40,18 +40,26 @@ export function profileViewport(profile: Pick<RunProfile, 'environment'>, preset
   return { width: positive(viewport.width, RAWSTEP_DEFAULTS.viewport.width), height: positive(viewport.height, RAWSTEP_DEFAULTS.viewport.height) };
 }
 
-export type ProfileCondition = { id: 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
+export type ProfileCondition = { id: 'model' | 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
+
+/** "connection · model ID" of a model choice, or undefined when there is none or its connection is gone. */
+export function choiceName(choice: { connectionId: string; modelId: string } | undefined, connections: readonly Connection[]): string | undefined {
+  const connection = choice && connections.find(c => c.id === choice.connectionId);
+  return connection && choice.modelId ? `${connection.name} · ${choice.modelId}` : undefined;
+}
 
 /**
- * A run profile read as an experiment condition: what the model may do, when a run counts as blocked, the page it runs on and how it
- * is analysed. These four lines are what two runs of the same task differ by when only the profile differs.
+ * A run profile read as an experiment condition: the model, what it may do, when a run counts as blocked, the page it runs on and how
+ * it is analysed. These lines are what two runs of the same task differ by when only the profile differs.
  */
-export function profileConditions(profile: Pick<RunProfile, 'permissions' | 'policy' | 'environment' | 'analysisInstructions'>, screenreader: ActionCapabilities, presets: Record<string, unknown>): ProfileCondition[] {
+export function profileConditions(profile: Pick<RunProfile, 'model' | 'analysisModel' | 'permissions' | 'policy' | 'environment' | 'analysisInstructions'>, screenreader: ActionCapabilities, presets: Record<string, unknown>, connections: readonly Connection[]): ProfileCondition[] {
   const { width, height } = profileViewport(profile, presets), { policy } = profile;
+  const analysis = choiceName(profile.analysisModel, connections);
   return [
+    { id: 'model', value: choiceName(profile.model, connections) ?? t('profiles.condition.noModel') },
     { id: 'actions', value: t('profiles.condition.actions', { keyboard: keyboardName(profile.permissions.keyboard), screenreader: screenreaderName(profile.permissions.screenreader, screenreader) }) },
-    { id: 'stuck', value: t('profiles.condition.stuck', { guard: stuckSummary(policy), visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions }) },
+    { id: 'stuck', value: t('profiles.condition.stuck', { guard: stuckSummary(policy), visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions, giveUp: t(policy.modelGiveUp ? 'profiles.condition.giveUpOn' : 'profiles.condition.giveUpOff') }) },
     { id: 'viewport', value: t('profiles.condition.viewport', { width, height }) },
-    { id: 'analysis', value: profile.analysisInstructions.trim() ? t('profiles.condition.analysisCustom') : t('profiles.condition.analysisDefault') },
+    { id: 'analysis', value: analysis ? t('profiles.condition.analysisLlm', { model: analysis }) : t('profiles.condition.analysisRules') },
   ];
 }

@@ -5,11 +5,13 @@ import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { CONCEPTS_KEY, dismissConcept, readDismissed } from '../packages/dashboard/src/web/lib/concepts.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
-import { keyStatus } from '../packages/dashboard/src/web/lib/modelSetup.js';
-import { profileConditions, profileViewport } from '../packages/dashboard/src/web/lib/profileSummary.js';
+import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
+import { choiceName, profileConditions, profileViewport } from '../packages/dashboard/src/web/lib/profileSummary.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
-import { publicOutcome } from '../packages/dashboard/src/server/queue.js';
-import { buildModel, defaultProfile } from '@rawstep/project/config';
+import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
+import { ProjectError } from '@rawstep/project/errors';
+import { defaultProfile } from '@rawstep/project/config';
+import { connection, profileWith } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
 type Run = Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>;
@@ -19,11 +21,11 @@ describe('error states', () => {
   it('tells the five kinds of trouble apart from how a run ended', () => {
     // Start failure: the executor threw before any trace existed, or the runner stopped while starting.
     expect(describeRunFailure(run('failure', undefined, RUN_ERROR.start))?.kind).toBe('start');
-    expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'browser-start' }))).toMatchObject({ kind: 'start', link: { to: { view: 'settings', section: 'machine' } } });
+    expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'browser-start' }))).toMatchObject({ kind: 'start', link: { to: { view: 'settings' } } });
     expect(describeRunFailure(run('inconclusive', { status: 'inconclusive', reason: 'access-blocked' }))?.kind).toBe('start');
     // Runtime failure: it got going and stopped, and says how far.
     const runtime = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'policy', step: 4, steps: 4 }));
-    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'settings', section: 'models' } } });
+    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'connections' } } });
     expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'verification', steps: 2 }))).toMatchObject({ kind: 'runtime', link: { to: { task: 't', tab: 'check' } } });
     expect(describeRunFailure(run('interrupted', undefined, RUN_ERROR.restarted))?.kind).toBe('runtime');
     // Setup error: a condition cannot be applied here.
@@ -55,6 +57,17 @@ describe('error states', () => {
     expect(describeRunFailure({ ...run('failure', stored), error: RUN_ERROR.start })?.raw).not.toContain('sk-secret');
     expect(publicOutcome(undefined)).toBeUndefined();
     expect(publicOutcome({ status: 'success', steps: 3, extra: 1 })).toEqual({ status: 'success', steps: 3 });
+  });
+
+  it('adds the recorded cause of a run that threw, with keys and input values redacted', () => {
+    const detail = failureDetail(new Error('Request to https://x failed for sk-secret-123 and private-value'), ['sk-secret-123', 'private-value', 'ab']);
+    expect(detail!.message).not.toMatch(/sk-secret-123|private-value/); expect(detail!.message).toContain('Request to');
+    expect(failureDetail(new Error('x'.repeat(2000)), [])!.message.length).toBeLessThanOrEqual(600);
+    expect(failureDetail(new ProjectError('missing-credential', 'English text'), [])).toMatchObject({ code: 'missing-credential', message: expect.stringMatching(hangul) });
+    const failed = { ...run('failure', undefined, RUN_ERROR.start), errorDetail: { code: 'missing-credential', message: '연결의 인증키가 설정되지 않았습니다.' } };
+    expect(describeRunFailure(failed)).toMatchObject({ kind: 'start', cause: '연결의 인증키가 설정되지 않았습니다.' });
+    expect(describeRunFailure(failed)!.raw).toContain('code: missing-credential');
+    expect(describeRunFailure(run('failure', undefined, RUN_ERROR.start))).not.toHaveProperty('cause');
   });
 
   it('reports an analysis or report that could not be written without touching the run\'s own outcome', () => {
@@ -123,29 +136,47 @@ describe('result and run strip helpers', () => {
 });
 
 describe('settings helpers', () => {
-  it('reads a model\'s key as missing, set or nothing to check without asking anyone', () => {
-    const preset = buildModel({ id: 'p', name: 'p', kind: 'llm', provider: 'openai', modelId: 'gpt' });
+  it('reads a connection\'s key as missing, set or nothing to check without asking anyone', () => {
+    const preset = connection('p', { kind: 'llm', provider: 'openai' });
     expect(keyStatus(preset, {})).toBe('missing');
     expect(keyStatus(preset, { 'provider:openai': true })).toBe('set');
-    const local = buildModel({ id: 'l', name: 'l', kind: 'llm', provider: 'custom', modelId: 'm', baseURL: 'http://127.0.0.1:1234/v1' });
+    const local = connection('l', { kind: 'llm', baseURL: 'http://127.0.0.1:1234/v1' });
     expect(keyStatus(local, {})).toBe('unchecked');
-    const keyed = buildModel({ id: 'k', name: 'k', kind: 'llm', provider: 'custom', modelId: 'm', baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY' });
-    expect(keyStatus(keyed, { 'model:k': true })).toBe('set');
+    const keyed = connection('k', { kind: 'llm', baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY' });
+    expect(keyStatus(keyed, { 'connection:k': true })).toBe('set');
     expect(keyStatus(keyed, {})).toBe('unchecked');
   });
 
-  it('states a run profile as four experiment conditions', () => {
+  it('names a custom key variable that no other connection uses', () => {
+    const list = [connection('a', { apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY' }), connection('b', { apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY_2' })];
+    expect(generateEnvName([])).toBe('RAWSTEP_CUSTOM_API_KEY');
+    expect(generateEnvName(list)).toBe('RAWSTEP_CUSTOM_API_KEY_3');
+    expect(generateEnvName(list, 'a')).toBe('RAWSTEP_CUSTOM_API_KEY');
+    expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
+  });
+
+  it('states a run profile as five experiment conditions, the model first', () => {
     const profile = defaultProfile('p', 'Plain');
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
+    const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
     expect(profileViewport(profile, presets)).toEqual({ width: 1280, height: 800 });
     expect(profileViewport({ environment: 'narrow' }, presets)).toEqual({ width: 375, height: 667 });
     expect(profileViewport({ environment: { id: 'x', viewport: { width: 800, height: 600 } } }, presets)).toEqual({ width: 800, height: 600 });
     expect(profileViewport({ environment: { viewport: { width: -1, height: 'x' } } }, presets)).toEqual({ width: 1280, height: 800 });
-    const conditions = profileConditions(profile, { keys: [], intents: ['next', 'previous', 'activate'] }, presets);
-    expect(conditions.map(condition => condition.id)).toEqual(['actions', 'stuck', 'viewport', 'analysis']);
-    expect(conditions[0]!.value).toContain('기본 키보드');
-    expect(conditions[2]!.value).toBe('1280 × 800');
-    expect(conditions[3]!.value).toBe('기본');
-    expect(profileConditions({ ...profile, analysisInstructions: '조작 순서를 본다' }, { keys: [], intents: [] }, presets)[3]!.value).toBe('추가 지침 있음');
+    const screenreader = { keys: [], intents: ['next', 'previous', 'activate'] };
+    const bare = profileConditions(profile, screenreader, presets, connections);
+    expect(bare.map(condition => condition.id)).toEqual(['model', 'actions', 'stuck', 'viewport', 'analysis']);
+    expect(bare[0]!.value).toContain('이대로는 실행할 수 없습니다');
+    expect(bare[1]!.value).toContain('기본 키보드');
+    expect(bare[3]!.value).toBe('1280 × 800');
+    expect(bare[4]!.value).toBe('규칙 기반 분석만');
+    const full = { ...profileWith('p', 'jev', 'jev-latest', 'Full'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' } };
+    const conditions = profileConditions(full, screenreader, presets, connections);
+    expect(conditions[0]!.value).toBe('Jev server · jev-latest');
+    expect(conditions[4]!.value).toContain('Writer · gpt-fixture');
+    expect(choiceName(full.model, connections)).toBe('Jev server · jev-latest');
+    // A model on a connection that no longer exists reads as none.
+    expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();
+    expect(choiceName(undefined, connections)).toBeUndefined();
   });
 });

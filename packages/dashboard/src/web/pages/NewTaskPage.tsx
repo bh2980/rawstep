@@ -2,9 +2,12 @@ import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { VerifyRule } from '@rawstep/core/contracts';
+import type { Mode } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
+import type { RunOptions } from '../lib/quickRun';
 import { CheckEditor } from '../components/CheckEditor';
 import { CheckSuggestions } from '../components/CheckSuggestions';
+import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
 import { PageHeader } from '../components/layout/PageHeader';
 import { RadioRows } from '../components/layout/RadioRows';
@@ -15,13 +18,14 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
 import { profileSummary } from '../lib/profileSummary';
+import { inputProblems } from '../lib/taskInputs';
 import { createManagedTask, hostnameOf, slugify } from '../lib/taskFiles';
 import type { PageProps } from './types';
 
 type Props = PageProps & {
   navigate: (change: RouteChange) => void;
   /** Starts the default run of a task in the given project state and opens it. */
-  startRun: (view: ConfigView, taskId: string) => Promise<void>;
+  startRun: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
 /** One numbered part of the specification: a heading that is also the label of its input, and what it holds. */
@@ -42,20 +46,21 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
   const id = useId();
   const profiles = props.view.config.profiles;
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
-  const [rules, setRules] = useState<VerifyRule[]>([]);
+  const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({});
   const [profileId, setProfileId] = useState(profiles[0]!.id);
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
-  const ready = url.trim() !== '' && goal.trim() !== '' && rules.length > 0;
+  const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, undefined, goal).size === 0, ready = filled && inputsOk;
+  const [mode, setMode] = useState<Mode>('keyboard');
   async function create(run: boolean) {
     const task = {
       url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
-      verify: { all: rules },
+      verify: { all: rules }, ...(Object.keys(input).length ? { input } : {}),
     };
     const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, profileId });
     if (!run) { navigate({ task: created.id }); return; }
     // The task exists now; a failed start leaves the person on the task with the reason in the banner.
-    try { await startRun(created.view, created.id); } catch (error) { navigate({ task: created.id }); throw error; }
+    try { await startRun(created.view, created.id, { mode }); } catch (error) { navigate({ task: created.id }); throw error; }
   }
   const submit = (run: boolean) => { if (ready && !props.busy) void props.act(() => create(run), { as: 'start' }); };
   return <div className="grid gap-6">
@@ -75,6 +80,9 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
           <p className="text-[13px] leading-5 text-muted-foreground">{t('newTask.verifyDescription')}</p>
           <CheckEditor rules={rules} onChange={setRules} url={url} />
         </Part>
+        <Panel title={t('taskInputs.title')} description={Object.keys(input).length ? t('newTask.inputsCount', { count: Object.keys(input).length }) : t('taskInputs.optional')}>
+          <TaskInputsField input={input} goal={goal} onChange={fields => setInput(fields.input ?? {})} />
+        </Panel>
         <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, profile: profiles.find(profile => profile.id === profileId)?.name ?? '' })}>
           <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
           <div className="grid gap-2">
@@ -84,13 +92,19 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
             <p className="text-xs leading-5 text-muted-foreground">{t('newTask.profileHint')}</p>
           </div>
         </Panel>
-        <div className="grid gap-2 border-t border-edge-strong pt-4">
+        <div className="grid gap-3 border-t border-edge-strong pt-4">
+          <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <legend className="float-left mr-2 text-sm font-medium">{t('newTask.runMode')}</legend>
+            {(['keyboard', 'screenreader'] as const).map(value => <label key={value} className="flex items-center gap-2 text-sm">
+              <input type="radio" name={id + '-mode'} value={value} checked={mode === value} onChange={() => setMode(value)} className="size-4 accent-[var(--trace)]" />{t(`sidebar.modes.${value}`)}
+            </label>)}
+          </fieldset>
           <div className="flex flex-wrap items-center gap-2.5">
-            <Button size="xl" disabled={props.busy || !ready} onClick={() => submit(true)}>{t('newTask.createAndRun')}</Button>
+            <Button size="xl" disabled={props.busy || !ready} onClick={() => submit(true)}>{t('newTask.createAndRunMode', { mode: t(`sidebar.modes.${mode}`) })}</Button>
             <Button size="xl" variant="outline" disabled={props.busy || !ready} onClick={() => submit(false)}>{t('newTask.createOnly')}</Button>
             <Button size="xl" variant="ghost" onClick={() => navigate({ view: 'tasks' })}>{t('newTask.cancel')}</Button>
           </div>
-          {!ready && <p role="status" className="text-xs leading-5 text-muted-foreground">{t('newTask.notReady')}</p>}
+          {!ready && <p role="status" className="text-xs leading-5 text-muted-foreground">{filled ? t('newTask.inputInvalid') : t('newTask.notReady')}</p>}
         </div>
       </div>
       <aside aria-label={t('labels.ideas')} className="grid min-w-0 gap-3">

@@ -6,10 +6,10 @@ import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } f
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { findByIdOrName, modelKeyEnv, modelKeyRequired, resolveBaseURL, taskProfile, type Mode, type Model, type ProjectConfig } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileAnalysisModel, resolveBaseURL, taskProfile, type Mode, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
 import { ProjectStore, atomicJson } from './store.js';
-import { assertRunnable, checkRun, defaultPrompt, supportsMode } from './plan.js';
+import { assertRunnable, checkRun, defaultPrompt } from './plan.js';
 import { executeRun, type RunExecutor, type RunSpec } from './execution.js';
 
 export type FinalizeOptions = {
@@ -44,9 +44,7 @@ export async function finalizeRun(trace: RunTrace, outDir: string, options: Fina
 export type RunTaskOptions = {
   /** The directory holding rawstep.config.json. Defaults to the current directory. */
   projectDir?: string;
-  /** A model id or name from the config. Defaults to the first decision model that supports the mode. */
-  model?: string;
-  /** A run profile id or name. Defaults to the task's profile, then the first profile. */
+  /** A run profile id or name: it picks the model, the analysis model and the run conditions. Defaults to the task's profile, then the first profile. */
   profile?: string;
   /** Defaults to 'keyboard'. */
   mode?: Mode;
@@ -103,12 +101,12 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const store = new ProjectStore(projectDir), { config } = await store.read();
   const { entry, task: source } = await loadTask(store, config, task, projectDir);
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : entry ? taskProfile(config, entry) : config.profiles[0]!;
-  const model = options.model !== undefined ? pick('model', config.models, options.model) : config.models.find(m => supportsMode(m, mode));
-  if (!model) throw new ProjectError('no-model', `No model in rawstep.config.json can run ${mode} mode. It needs the decision role${mode === 'keyboard' ? ' and image input' : ''}. Add one with \`rawstep ui\`.`);
   const prompt = defaultPrompt(entry, mode);
-  const { settings, permissions } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, model, profile, mode }));
-  const apiKey = await requireKey(store, model);
-  const spec: RunSpec = { task: source, model, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions };
+  const { settings, permissions, model, analysisModel } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, profile, mode }));
+  const apiKey = await requireKey(store, model!);
+  const analysisKey = analysisModel ? await requireKey(store, analysisModel) : undefined;
+  const atDriverCommand = mode === 'screenreader' && settings.backend !== 'simulation' ? await store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
+  const spec: RunSpec = { task: source, model: model!, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions };
   const root = options.outDir ? resolve(options.outDir) : join(projectDir, '.rawstep', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`);
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');
@@ -116,7 +114,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   for (let i = 1; i <= repeat; i++) {
     if (signal.aborted) throw cancelled();
     const outDir = join(root, `run-${i}`);
-    const trace = await execute(spec, { outDir, apiKey, signal, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
+    const trace = await execute(spec, { outDir, apiKey, signal, atDriverCommand, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
     if (signal.aborted) throw cancelled();
     done.push({ outDir, trace });
   }
@@ -125,7 +123,8 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const referenceDir = reference ? done.find(d => d.trace === reference)?.outDir : undefined;
   const runs: RunTaskResult['runs'] = [];
   for (const { outDir, trace } of done) {
-    const { hints } = await finalizeRun(trace, outDir, referenceDir ? { referenceDir } : {});
+    const { hints } = await finalizeRun(trace, outDir, { ...(referenceDir ? { referenceDir } : {}),
+      ...(analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, analysisKey, settings.analysisInstructions, signal) } : {}) });
     runs.push({ runId: trace.runId, outDir, outcome: trace.outcome, hints: hints ?? extractHints(trace, reference ? { reference } : {}) });
   }
   return { runs, findings: aggregateHints(runs.map(r => r.hints)) };
@@ -134,16 +133,20 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
 /** The key a model needs (`undefined` for a server that takes none); a missing required key stops the run before anything starts. */
 export async function requireKey(store: ProjectStore, model: Model): Promise<string | undefined> {
   const apiKey = await store.credential(model), env = modelKeyEnv(model);
-  if (modelKeyRequired(model) && !apiKey) throw new ProjectError('missing-credential', env ? `The key ${env} for model "${model.name}" is not set. Add ${env}=... to .env.local or export it.` : `Model "${model.name}" needs a key, but no environment variable is named for it.`);
+  if (modelKeyRequired(model) && !apiKey) throw new ProjectError('missing-credential', env ? `The key ${env} for "${model.name}" is not set. Add ${env}=... to .env.local or export it.` : `"${model.name}" needs a key, but no environment variable is named for it.`);
   return apiKey;
 }
+/** The trace analyzer of an LLM model. */
+export function llmAnalyzer(model: Model, apiKey: string | undefined, instructions?: string, signal?: AbortSignal): LlmTraceAnalyzer {
+  return new LlmTraceAnalyzer({ baseURL: resolveBaseURL(model), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
+}
 
-/** An analysis-role LLM from the config (by id or name; the first one by default) as a trace analyzer. */
-export async function projectAnalyzer(projectDir: string, options: { model?: string; signal?: AbortSignal } = {}): Promise<{ analyzer: LlmTraceAnalyzer; modelName: string }> {
+/** The analysis LLM of a run profile (by id or name; by default the first profile that has one) as a trace analyzer. */
+export async function projectAnalyzer(projectDir: string, options: { profile?: string; signal?: AbortSignal } = {}): Promise<{ analyzer: LlmTraceAnalyzer; modelName: string }> {
   const store = new ProjectStore(resolve(projectDir)), { config } = await store.read();
-  const model = options.model !== undefined ? pick('model', config.models, options.model) : config.models.find(m => m.kind === 'llm' && m.roles.includes('analysis'));
-  if (!model) throw new ProjectError('no-analysis-model', 'No model in rawstep.config.json has the analysis role. Add an LLM with that role in `rawstep ui`.');
-  if (model.kind !== 'llm' || !model.roles.includes('analysis')) throw new ProjectError('analysis-model-invalid', `Model "${model.name}" cannot analyze runs. Choose an LLM with the analysis role.`);
+  const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : config.profiles.find(p => p.analysisModel);
+  const model = profile && profileAnalysisModel(config, profile);
+  if (!model) throw new ProjectError('no-analysis-model', profile ? `Run profile "${profile.name}" has no analysis model. Pick an LLM for analysis in the profile with \`rawstep ui\`.` : 'No run profile has an analysis model. Pick an LLM for analysis in a profile with `rawstep ui`.');
   const apiKey = await requireKey(store, model);
-  return { analyzer: new LlmTraceAnalyzer({ baseURL: resolveBaseURL(model), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(options.signal ? { signal: options.signal } : {}) }), modelName: model.name };
+  return { analyzer: llmAnalyzer(model, apiKey, profile!.analysisInstructions, options.signal), modelName: model.name };
 }

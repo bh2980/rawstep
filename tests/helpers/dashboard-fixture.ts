@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { defaultConfig, defaultModes } from '@rawstep/project/config';
+import { defaultConfig, defaultModes, defaultProfile } from '@rawstep/project/config';
 export async function dashboardFixture() {
   const requests: { model: string; instructions: string; state: unknown; choices: string[]; path: string }[] = [];
   const server = createServer((req, res) => { void (async () => {
@@ -22,8 +22,13 @@ export async function dashboardFixture() {
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('Fixture bind failed');
   const url = 'http://127.0.0.1:' + address.port;
   const config = defaultConfig();
-  config.models = ['fixture-a', 'fixture-b'].map(id => ({ id, kind: 'decision' as const, provider: 'custom' as const, baseURL: url, modelId: id, name: id + ' (테스트 응답)', inputs: ['text' as const, 'image' as const], capabilitySource: 'discovery' as const, maxChoices: 255, maxImages: 2, roles: ['decision' as const], timeoutMs: 5000 }));
-  config.models.push({ ...config.models[0]!, id: 'fixture-llm', kind: 'llm', modelId: 'fixture-llm', name: 'LLM fixture (테스트 응답)' });
+  // One decision server and one LLM at the fixture address. Each profile picks a model on them: comparing models means comparing profiles.
+  config.connections = [
+    { id: 'fixture', name: 'Fixture decision server', kind: 'decision', provider: 'custom', baseURL: url, timeoutMs: 5000 },
+    { id: 'fixture-llm', name: 'Fixture LLM', kind: 'llm', provider: 'custom', baseURL: url, timeoutMs: 5000 },
+  ];
+  const profileOn = (id: string, connectionId: string, modelId: string) => ({ ...defaultProfile(id, id), model: { connectionId, modelId, inputs: ['text' as const, 'image' as const], maxChoices: 255, maxImages: 2 } });
+  config.profiles = [profileOn('fixture-a', 'fixture', 'fixture-a'), profileOn('fixture-b', 'fixture', 'fixture-b'), profileOn('fixture-llm', 'fixture-llm', 'fixture-llm')];
   const modes = defaultModes(); modes.keyboard.prompts.push({ ...modes.keyboard.prompts[0]!, id: 'careful', name: '신중하게', version: '2', instructions: 'Fixture careful variant. Select a permitted candidate.' });
   config.tasks = [{ id: 'fixture-task', name: '버튼 활성화 fixture', file: 'task.json', modes }];
   config.machine.browserExecutablePath = process.env.RAWSTEP_TEST_BROWSER_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';

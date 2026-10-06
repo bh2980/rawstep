@@ -70,7 +70,8 @@ describe('real WebSocket adapter to runner to saved artifacts',()=>{
     expect(inputCommands.length).toBe(5);expect(inputCommands.every(e=>e.redacted)).toBe(true);
     expect(inputCommands.every(e=>!(e.data as any).raw && !(e.data as any).rawText)).toBe(true);
     expect(trace.events.filter(e=>e.type==='screen-reader.observation').slice(1).every(e=>e.redacted)).toBe(true);
-    expect(page.page.screenshot).not.toHaveBeenCalled();
+    // Only the page before any action is captured; nothing after text entry.
+    expect(page.page.screenshot).toHaveBeenCalledTimes(1);expect((page.page.screenshot as any).mock.calls[0][0].path).toMatch(/step-0\.png$/);
     expect(trace.events.filter(e=>e.collectionWindow).every(e=>!Number.isNaN(Date.parse(e.collectionWindow!.startedAt)))).toBe(true);
   });
 });

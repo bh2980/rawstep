@@ -36,15 +36,17 @@ describe('explicit finalized-trace LLM analysis',()=>{
     expect((await analyzeTrace(trace, new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:fetcher}))).failure).toBe('analyzer-error');
     expect((await analyzeTrace(trace, { id: 'bad', analyze: () => ({ summary: 'x', findings: [{ id: 'f', title: 't', description: 'd', severity: 'info', evidenceEventIds: ['missing'] }] }) })).failure).toBe('invalid-result');
   });
-  it('calls actual local HTTP only on analyze --model and preserves execution artifacts',async()=>{
+  it('calls actual local HTTP only on analyze --profile and preserves execution artifacts',async()=>{
     const {dir,trace}=await fixture();const original=await readFile(join(dir,'trace.json'),'utf8');const sent:any[]=[];
     const server=createServer(async(req,res)=>{const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));sent.push(JSON.parse(Buffer.concat(chunks).toString()));res.setHeader('content-type','application/json');res.end(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result(trace.events[1]!.id))}}]}));});
     await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));cleanup.push(async()=>{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
-    const config=defaultConfig();config.models=[{id:'judge',kind:'llm',provider:'custom',baseURL:`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`,modelId:'fixture',name:'Judge',inputs:['text'],capabilitySource:'manual',maxChoices:255,maxImages:0,roles:['analysis'],timeoutMs:5000}];
+    const config=defaultConfig();config.connections=[{id:'judge',kind:'llm',provider:'custom',baseURL:`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`,name:'Judge',timeoutMs:5000}];
+    config.profiles[0]!.analysisModel={connectionId:'judge',modelId:'fixture'};
     await writeFile(join(dir,'rawstep.config.json'),JSON.stringify(config));
     const options={cwd:dir,stdout:()=>{},stderr:()=>{}};
     expect(await runCli(['analyze',dir],options)).toBe(0);expect(sent).toHaveLength(0);
-    expect(await runCli(['analyze',dir,'--model','Judge'],options)).toBe(0);expect(sent).toHaveLength(1);
+    expect(await runCli(['analyze',dir,'--profile','Default'],options)).toBe(0);expect(sent).toHaveLength(1);
+    expect(sent[0].model).toBe('fixture');
     expect(JSON.stringify(sent)).not.toMatch(/DO_NOT_SEND_PNG|PRIVATE_INPUT/);
     expect(JSON.parse(sent[0].messages[1].content).trace.events.map((e:any)=>e.id)).toEqual(trace.events.map(e=>e.id));
     expect(await readFile(join(dir,'trace.json'),'utf8')).toBe(original);

@@ -40,7 +40,7 @@ npx rawstep run checkout --profile reflow-text --repeat 3
 npx rawstep run checkout --profile forced-colors --repeat 3
 ```
 
-The dashboard's experiment queue runs tasks × models × prompts × profiles in one batch and keeps the history under `.rawstep/experiments/`. Every run uses the same resolved task, independent verifier specification and named inputs, with a separate fresh browser/runner. Native machine backends need an explicit AT Driver endpoint (`machine.atEndpoint`); Rawstep does not guess native window associations. Different model trajectories imply different coverage: a worse action count or failed task is not automatically an environment-caused defect.
+The dashboard's experiment queue runs tasks × prompts × profiles in one batch (a profile carries its model, so comparing models means comparing profiles that differ only in model) and keeps the history under `.rawstep/experiments/`. Every run uses the same resolved task, independent verifier specification and named inputs, with a separate fresh browser/runner. Native machine backends connect to the AT Driver server at `machine.atEndpoint`, or at the chosen screen reader's usual address when it is empty; Rawstep does not guess native window associations. Different model trajectories imply different coverage: a worse action count or failed task is not automatically an environment-caused defect.
 
 Outcomes distinguish task completion, model failure (only with recorded model provenance), runtime errors, unsupported environments and inconclusive outcomes. A model's `success`, `stuck` and `uncertain` stops remain separate from an exploration guard. Independent verification is required for success; uncertainty with unmet verification yields `inconclusive`.
 

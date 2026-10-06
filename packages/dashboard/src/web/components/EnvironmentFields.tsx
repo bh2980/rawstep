@@ -24,7 +24,6 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
   const resolved = typeof value === 'string' ? { ...object(presets[value]), id: value } : object(value);
   const custom = (part: Json) => onChange({ ...resolved, id, ...part });
   const viewport = { ...RAWSTEP_DEFAULTS.viewport, ...object(resolved.viewport) };
-  const zoom = typeof resolved.browserZoom === 'number' ? resolved.browserZoom : 1;
   const [text, setText] = useState(() => format(value));
   const [invalid, setInvalid] = useState(false);
   useEffect(() => {
@@ -48,13 +47,11 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
       <Field label={t('environmentFields.viewportHeight')} type="number" value={String(viewport.height)} onChange={height => custom({ viewport: { ...viewport, height: Number(height) } })} />
       <Field label={t('environmentFields.textScale')} type="number" value={String(resolved.textScale ?? 1)} onChange={textScale => custom({ textScale: Number(textScale) })} />
     </div>
-    <div className="grid items-end gap-4 sm:grid-cols-3">
+    <div className="grid items-end gap-4 sm:grid-cols-2">
       <Choice label={t('environmentFields.colorScheme')} value={String(resolved.colorScheme ?? 'light')} onChange={colorScheme => custom({ colorScheme })}
         options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} />
       <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
         options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
-      <Choice label={t('environmentFields.browserZoom')} value={String(zoom)} onChange={browserZoom => custom({ browserZoom: Number(browserZoom) })}
-        options={[...new Set([1, 2, 4, zoom])].sort((a, b) => a - b).map(factor => ({ id: String(factor), name: `${Math.round(factor * 100)}%` }))} />
     </div>
     <Advanced description={t('environmentFields.note')}>
       <div className="grid gap-4 sm:grid-cols-2">

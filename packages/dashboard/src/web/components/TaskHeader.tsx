@@ -9,7 +9,7 @@ import { FactLine } from './trace/FactLine';
 import { Button } from './ui/button';
 
 type Props = {
-  name: string; url: string; goal: string;
+  taskId: string; name: string; url: string; goal: string;
   /** How many completion checks the task has, and the name of its run profile. */
   checkCount: number; profileName: string;
   view: ConfigView; busy: boolean; active: RunRef[];
@@ -22,7 +22,7 @@ type Props = {
  * The head of the task sheet (spec §15). On the left what the task is: name, address, goal and `완료 확인 2개 · 기본 키보드`, with the
  * actions that change the task itself. On the right the run control, inside the same header and divided from it by a rule.
  */
-export function TaskHeader({ name, url, goal, checkCount, profileName, view, busy, active, navigate, onRun, onCompare, onEdit, onDuplicate, onDelete }: Props) {
+export function TaskHeader({ taskId, name, url, goal, checkCount, profileName, view, busy, active, navigate, onRun, onCompare, onEdit, onDuplicate, onDelete }: Props) {
   const { t } = useTranslation();
   return <header className="grid gap-5 border-b border-edge-strong pb-5 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-0">
     <div className="grid min-w-0 content-start gap-1.5 lg:pr-8">
@@ -40,7 +40,7 @@ export function TaskHeader({ name, url, goal, checkCount, profileName, view, bus
       </div>
     </div>
     <div className="border-t border-edge-strong pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
-      <RunControl view={view} busy={busy} active={active} navigate={navigate} onRun={onRun} onCompare={onCompare} />
+      <RunControl view={view} busy={busy} taskId={taskId} active={active} navigate={navigate} onRun={onRun} onCompare={onCompare} />
     </div>
   </header>;
 }

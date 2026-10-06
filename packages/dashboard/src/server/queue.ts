@@ -1,23 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import { LlmTraceAnalyzer } from '@rawstep/reports';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { modelKeyRequired, resolveBaseURL, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileAnalysisModel, profileModel, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { checkRun, resolvePermissions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
-import { finalizeRun } from '@rawstep/project/run';
+import { finalizeRun, llmAnalyzer } from '@rawstep/project/run';
 import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
-export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void) => Promise<RunTrace>;
-const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent) => {
+export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, atDriverCommand?: string) => Promise<RunTrace>;
+const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, atDriverCommand) => {
   const { model, prompt, mode, globals, profile } = run.snapshot;
-  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...(onEvent ? { onEvent } : {}) });
+  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, atDriverCommand, ...(onEvent ? { onEvent } : {}) });
 };
 /**
  * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
@@ -33,6 +32,19 @@ export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
     ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
     ...(typeof o.step === 'number' ? { step: o.step } : {}),
   };
+}
+const DETAIL_LIMIT = 600;
+/**
+ * What a run that threw before it had an outcome is shown with: the error's code and message, keys and the task's input values
+ * replaced, cut to a readable length. A project error gets the dashboard's own sentence.
+ */
+export function failureDetail(error: unknown, secrets: readonly string[]): RunRecord['errorDetail'] {
+  const code = error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : undefined;
+  // A project error gets the dashboard's sentence and keeps its own detail (for example the last output of the AT Driver command).
+  const raw = error instanceof ProjectError ? `${koreanMessage(error)} ${error.message}` : error instanceof Error ? error.message : String(error);
+  const { value } = createRedactor(secrets.filter(secret => secret.length >= 4))(raw);
+  const message = value.length > DETAIL_LIMIT ? value.slice(0, DETAIL_LIMIT - 1) + '…' : value;
+  return { ...(code ? { code } : {}), message };
 }
 export class ExperimentQueue {
   readonly experiments: Experiment[] = [];
@@ -67,24 +79,23 @@ export class ExperimentQueue {
     const rows: Combination[] = [];
     const keyed = new Map<string, boolean>();
     const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
-    for (const taskId of new Set(request.taskIds)) for (const modelId of new Set(request.modelIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+    for (const taskId of new Set(request.taskIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
       if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-      const task = config.tasks.find(t => t.id === taskId), model = config.models.find(m => m.id === modelId), profile = config.profiles.find(p => p.id === profileId);
+      const task = config.tasks.find(t => t.id === taskId), profile = config.profiles.find(p => p.id === profileId);
       const prompt = task?.modes[request.mode].prompts.find(p => p.id === promptId);
       const source = tasks[taskId];
-      let reason: string | undefined, permissions = structuredClone((profile ?? config.profiles[0]!).permissions[request.mode]);
-      if (!task || !model || !profile || !prompt || !source) reason = '작업·모델·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
+      let reason: string | undefined, modelName: string | undefined, permissions = structuredClone((profile ?? config.profiles[0]!).permissions[request.mode]);
+      if (!task || !profile || !prompt || !source) reason = '작업·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
       else {
         try {
-          const analyzer = request.analysisModelId ? config.models.find(m => m.id === request.analysisModelId) : undefined;
-          const check = checkRun({ config, task: source, taskEntry: task, model, profile, mode: request.mode, analysisModel: analyzer, diagnoseStop: request.diagnoseStop });
-          permissions = check.permissions;
+          const check = checkRun({ config, task: source, taskEntry: task, profile, mode: request.mode, diagnoseStop: request.diagnoseStop });
+          permissions = check.permissions; modelName = check.model?.name;
           if (check.problem) reason = koreanMessage(check.problem);
-          else if (!await hasKey(model)) reason = koreanMessage(new ProjectError('missing-credential', ''));
-          else if (request.analysisModelId && !analyzer) reason = koreanMessage(new ProjectError('analysis-model-invalid', ''));
+          else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
+          else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
         } catch (e) { reason = (e as Error).message; }
       }
-      rows.push({ key: [taskId, modelId, promptId, profileId, repeat].join(':'), taskId, modelId, promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
+      rows.push({ key: [taskId, promptId, profileId, repeat].join(':'), taskId, ...(modelName ? { modelName } : {}), promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
     }
     return { request, config, tasks, rows };
   }
@@ -94,15 +105,15 @@ export class ExperimentQueue {
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
     if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new HttpError(400, '지원하는 실행 조합을 선택하세요.');
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
-      const task = config.tasks.find(t => t.id === row.taskId)!, model = config.models.find(m => m.id === row.modelId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
-      const settings = resolveRunSettings(config, task, profile);
+      const task = config.tasks.find(t => t.id === row.taskId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
+      const settings = resolveRunSettings(config, task, profile), model = profileModel(config, profile)!, analysisModel = profileAnalysisModel(config, profile);
       const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
         taskName: task.name, model: structuredClone(model),
         prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
         mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
         globals: settings,
-      }, ...(request.analysisModelId ? { analysisModel: structuredClone(config.models.find(m => m.id === request.analysisModelId)!) } : {}) };
+      }, ...(analysisModel ? { analysisModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
     }) };
@@ -135,7 +146,7 @@ export class ExperimentQueue {
     const run: RunRecord = { ...structuredClone(original), id: randomUUID(), state: 'queued', repeat: 1, analysisStatus: 'pending', reportStatus: 'pending', retryOf: { experiment: experimentId, run: runId } };
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.task = safeTask(task); this.liveTasks.set(run.id, task);
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], modelIds: [run.modelId], promptIds: [run.promptId], profileIds: [run.profileId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], promptIds: [run.promptId], profileIds: [run.profileId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -159,20 +170,24 @@ export class ExperimentQueue {
       const controller = new AbortController(); this.active = { experiment: experiment.id, run: run.id, controller };
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
+      const task = this.liveTasks.get(run.id)!;
+      let apiKey: string | undefined;
       try {
-        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.model), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
+        apiKey = await this.store.credential(run.snapshot.model);
+        const atDriverCommand = run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
+        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), atDriverCommand);
         run.outcome = publicOutcome(trace.outcome);
+        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
-        const done = await finalizeRun(trace, outDir, run.analysisModel ? { createAnalyzer: async () => {
-          const m = run.analysisModel!;
-          return new LlmTraceAnalyzer({ baseURL: resolveBaseURL(m), model: m.modelId, apiKey: await this.store.credential(m), timeoutMs: m.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
-        } } : {});
+        const analysisModel = run.analysisModel;
+        const done = await finalizeRun(trace, outDir, analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {});
         run.analysisStatus = done.analysis.status;
         if (done.analysis.status === 'failed') run.analysisError = done.analysis.threw ? '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.' : done.analysis.error ?? '분석 실패';
         run.reportStatus = done.report.status;
         if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
-      } catch {
+      } catch (error) {
         run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = RUN_ERROR.start;
+        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [apiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
       } finally {
         run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); this.active = undefined; await this.persist(experiment); this.changed();
@@ -188,10 +203,50 @@ export class ExperimentQueue {
     await this.persist(experiment); this.changed(); return experiment;
   }
   async close() { this.closed = true; this.active?.controller.abort('requested'); await this.draining; }
+  /** Runs file work after every earlier write, so a late save cannot bring back a directory that was just removed. */
+  private serialize<T>(work: () => Promise<T>) {
+    const result = this.writes.then(work);
+    this.writes = result.then(() => {}, () => {}); return result;
+  }
   async persist(experiment: Experiment) {
     const snapshot = structuredClone(experiment);
-    const work = this.writes.then(async () => atomicJson(await this.store.file('.rawstep/experiments/' + experiment.id + '/experiment.json'), snapshot));
-    this.writes = work.then(() => {}, () => {}); return work;
+    return this.serialize(async () => atomicJson(await this.store.file('.rawstep/experiments/' + experiment.id + '/experiment.json'), snapshot));
+  }
+  /**
+   * Removes recorded runs (all of the experiment's when `runIds` is omitted) with their files. Queued and running runs are never
+   * removed. An experiment left without runs goes too. Returns how many runs were removed.
+   */
+  async deleteRuns(experimentId: string, runIds?: readonly string[]) {
+    const removed = await this.removeRuns([{ experimentId, runIds }]); this.changed(); return removed;
+  }
+  /** Removes runs of several experiments in one go; nothing is removed unless every one of them may be. */
+  async deleteMany(refs: readonly { experiment: string; run: string }[]) {
+    const groups = new Map<string, string[]>();
+    for (const ref of refs) groups.set(ref.experiment, [...groups.get(ref.experiment) ?? [], ref.run]);
+    const removed = await this.removeRuns([...groups].map(([experimentId, runIds]) => ({ experimentId, runIds }))); this.changed(); return removed;
+  }
+  private async removeRuns(requests: { experimentId: string; runIds?: readonly string[] | undefined }[]) {
+    const plans = requests.map(({ experimentId, runIds }) => {
+      const experiment = this.experiments.find(e => e.id === experimentId); if (!experiment) throw new HttpError(404, '실험을 찾을 수 없습니다.');
+      const ids = new Set(runIds ?? experiment.runs.map(r => r.id));
+      if ([...ids].some(id => !experiment.runs.some(r => r.id === id))) throw new HttpError(404, '실행을 찾을 수 없습니다.');
+      return { experiment, ids };
+    });
+    if (plans.some(({ experiment, ids }) => experiment.runs.some(r => ids.has(r.id) && ['queued', 'running'].includes(r.state)))) throw new HttpError(409, '진행 중이거나 대기 중인 실행은 삭제할 수 없습니다. 끝나거나 중지한 뒤 삭제하세요.');
+    let removed = 0;
+    for (const { experiment, ids } of plans) {
+      removed += ids.size;
+      const rest = experiment.runs.filter(r => !ids.has(r.id));
+      if (!rest.length) {
+        this.experiments.splice(this.experiments.indexOf(experiment), 1);
+        await this.serialize(async () => rm(await this.store.file('.rawstep/experiments/' + experiment.id), { recursive: true, force: true }));
+      } else {
+        experiment.runs = rest;
+        await this.serialize(async () => { for (const id of ids) await rm(await this.store.file('.rawstep/experiments/' + experiment.id + '/' + id), { recursive: true, force: true }); });
+        await this.persist(experiment);
+      }
+    }
+    return removed;
   }
   find(experiment: string, run: string) {
     const found = this.experiments.find(e => e.id === experiment)?.runs.find(r => r.id === run);

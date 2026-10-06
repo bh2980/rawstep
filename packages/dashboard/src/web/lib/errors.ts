@@ -15,6 +15,8 @@ export type ErrorView = {
   kind: ErrorKind;
   /** What happened, in one sentence. */
   what: string;
+  /** The recorded cause in its own words (keys and input values redacted), when there is one. */
+  cause?: string;
   /** How far it got. */
   progress?: string;
   /** What a person can do next. */
@@ -33,16 +35,17 @@ const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[
 /** The words for a stage: what stopped and what to do. */
 const stageText = (stage: Stage) => ({ what: t(`errors.stage.${stage}.what`), next: t(`errors.stage.${stage}.next`) });
 
-const goMachine: ErrorView['link'] = { to: { view: 'settings', section: 'machine' }, label: t('errors.go.machine') };
-const goModels: ErrorView['link'] = { to: { view: 'settings', section: 'models' }, label: t('errors.go.models') };
-const goProfiles: ErrorView['link'] = { to: { view: 'settings', section: 'profiles' }, label: t('errors.go.profiles') };
+const goMachine: ErrorView['link'] = { to: { view: 'settings' }, label: t('errors.go.machine') };
+const goModels: ErrorView['link'] = { to: { view: 'connections' }, label: t('errors.go.models') };
+const goProfiles: ErrorView['link'] = { to: { view: 'profiles' }, label: t('errors.go.profiles') };
 
 /** The recorded codes of a run's end, for the "원본 오류 보기" block: the state, reason, stage, action number and the server's own message. */
-export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error'>): string {
+export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail'>): string {
   const { outcome } = run;
   return [
     `state: ${run.state}`, outcome?.status ? `status: ${outcome.status}` : '', outcome?.reason ? `reason: ${outcome.reason}` : '',
     outcome?.stage ? `stage: ${outcome.stage}` : '', outcome?.step !== undefined ? `step: ${outcome.step}` : '', run.error ? `message: ${run.error}` : '',
+    run.errorDetail?.code ? `code: ${run.errorDetail.code}` : '', run.errorDetail ? `cause: ${run.errorDetail.message}` : '',
   ].filter(Boolean).join('\n');
 }
 
@@ -55,7 +58,11 @@ const progressOf = (run: Pick<RunRecord, 'outcome'>): string => {
  * Tells a run that went wrong from one that simply ended: a limit, a stop the model chose or a goal that was not reached are outcomes
  * and return nothing. A run that stopped on an error, could not start, lost its records or was cut off becomes an error view.
  */
-export function describeRunFailure(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>): ErrorView | undefined {
+export function describeRunFailure(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail' | 'taskId'>): ErrorView | undefined {
+  const view = failureView(run);
+  return view && run.errorDetail ? { ...view, cause: run.errorDetail.message } : view;
+}
+function failureView(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail' | 'taskId'>): ErrorView | undefined {
   const reason = run.outcome?.reason, stage = run.outcome?.stage, raw = rawRunRecord(run);
   if (run.error === RUN_ERROR.storage || reason === 'trace-persistence-error') {
     return { kind: 'data', what: t('errors.run.dataWhat'), progress: progressOf(run), next: t('errors.run.dataNext'), raw };

@@ -1,7 +1,7 @@
 import { RawstepError } from '@rawstep/core/errors';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { providerPreset, resolveBaseURL, type MachineSettings, type Model } from '@rawstep/project/config';
+import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
 import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
@@ -33,6 +33,19 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
     const listed = await discover({ kind: model.kind, provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
     if (listed.length === 0) return result('unverified', via);
     return result(listed.some(candidate => candidate.modelId === model.modelId) ? 'ready' : 'model-not-listed', via);
+  } catch (error) {
+    return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
+  }
+}
+
+/** Whether a connection answers with its key, without a model: its model list. A list-less server is `unverified` until a model is checked. */
+export async function checkConnection(connection: Pick<Connection, 'kind' | 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
+  const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
+  if (preset.keyRequired && !key) return result('missing-key', 'none');
+  const via = connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  try {
+    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? 15000, ...(options.fetch ? { fetch: options.fetch } : {}) });
+    return result('ready', via);
   } catch (error) {
     return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
   }

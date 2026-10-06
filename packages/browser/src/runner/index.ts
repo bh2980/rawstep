@@ -220,6 +220,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     };
     let observation = await observe();
     drainObserver();
+    /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the page before the first action. */
+    const diagnosticScreenshot = async (step: number) => {
+      if (!options.diagnosticScreenshots) return;
+      if (inputTainted) { append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true }); return; }
+      await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
+      const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
+      await withinBudget(() => browser!.page.screenshot({ path }));
+      append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
+    };
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
       drainObserver();
@@ -248,6 +257,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       // Error text can carry page URLs or echoed values; keep only its type.
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
+    await diagnosticScreenshot(0);
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
@@ -302,13 +312,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       drainObserver();
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
-      if (options.diagnosticScreenshots && inputTainted) append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true });
-      if (options.diagnosticScreenshots && !inputTainted) {
-        await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
-        const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
-        await withinBudget(() => browser!.page.screenshot({ path }));
-        append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
-      }
+      await diagnosticScreenshot(step);
       if ((await verify(step)).passed) { outcome = { status: 'success', reason: 'verified' }; break; }
     }
   } catch (error) {

@@ -12,10 +12,10 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'model', 'profile', 'mode', 'repeat', 'out', 'json'],
+  run: ['project', 'profile', 'mode', 'repeat', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
-  analyze: ['project', 'model', 'out'],
+  analyze: ['project', 'profile', 'out'],
   doctor: ['project'],
 };
 const booleanOptions = new Set(['json']);
@@ -73,34 +73,35 @@ export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web
 Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
-  rawstep run <task> [--model <id|name>] [--profile <id|name>] [--mode keyboard|screenreader]
+  rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader]
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
-  rawstep analyze <run-dir> [--model <id|name>] [--out <dir>] [--project <dir>]
+  rawstep analyze <run-dir> [--profile <id|name>] [--out <dir>] [--project <dir>]
   rawstep doctor [--project <dir>]
 
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
-  ui        Open the dashboard to set up models, tasks and profiles, and to run experiments.
-  run       Run a task from rawstep.config.json (by id) or a task JSON file, then print each run's outcome
-            and the findings gathered across the runs, grouped as Page and Model.
+  ui        Open the dashboard to set up connections, tasks and profiles, and to run experiments.
+  run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile's model, then
+            print each run's outcome and the findings gathered across the runs, grouped as Page and Model.
+            When the profile has an analysis model, each run is also analysed by that LLM.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
-  analyze   Analyze a saved run. Without --model the analysis is a local summary; --model sends the saved
-            events (PNG bytes omitted) to that analysis model from rawstep.config.json.
+  analyze   Analyze a saved run. Without --profile the analysis is a local summary; --profile sends the saved
+            events (PNG bytes omitted) to that run profile's analysis model.
   doctor    Check that a browser can launch, the config parses, credentials are set and, for a native
             screen reader, that its AT Driver endpoint answers.
 
 Configuration:
-  Everything lives in rawstep.config.json in the project directory: models, tasks, run profiles
-  and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
+  Everything lives in rawstep.config.json in the project directory: connections (where models are
+  reached), tasks, run profiles (which model to run and analyse with, and the run conditions) and
+  machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.
 
 Run defaults:
-  --model    the first model with the decision role that supports the mode (keyboard needs image input)
-  --profile  the task's profile, otherwise the first profile
+  --profile  the task's profile, otherwise the first profile; the profile picks the model
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat

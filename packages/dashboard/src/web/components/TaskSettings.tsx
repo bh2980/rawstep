@@ -5,11 +5,13 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { taskProfile, type ManagedTask, type Mode } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { policyInheritedSummary } from '../lib/profileSummary';
+import { taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJson';
 import { Choice, Field, Panel, Toggle } from './forms';
 import { ErrorState } from './layout/ErrorState';
 import { PermissionPresets } from './PermissionPresets';
 import { PolicyFields } from './PolicyFields';
+import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
@@ -50,7 +52,7 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
     <ErrorState alert view={{ kind: 'data', what: t('taskSettings.invalidJson'), progress: t('taskSettings.invalidJsonProgress'), next: t('taskSettings.invalidJsonNext') }} />
     <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} />
   </div>;
-  const inputs = Object.entries(asObject(parsed.input)), navigation = asObject(parsed.navigation);
+  const navigation = asObject(parsed.navigation);
   const overridden = task.modes.keyboard.permissions !== null || task.modes.screenreader.permissions !== null;
   const permissions = { keyboard: task.modes.keyboard.permissions ?? profile.permissions.keyboard, screenreader: task.modes.screenreader.permissions ?? profile.permissions.screenreader };
   return <div className="grid max-w-3xl gap-1">
@@ -107,13 +109,7 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
     </Panel>
 
     <Panel title={t('taskSettings.inputsTitle')} description={t('taskSettings.inputsSummary')}>
-      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.inputsHint')}</p>
-      {inputs.map(([key, value], i) => <div key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
-        <Field label={t('taskSettings.inputName', { n: i + 1 })} value={key} onChange={name => { const copy = inputs.slice(); copy[i] = [name, value]; update({ input: Object.fromEntries(copy) }); }} />
-        <Field label={t('taskSettings.inputValue', { n: i + 1 })} type="password" value={String(value)} onChange={text => update({ input: { ...asObject(parsed.input), [key]: text } })} />
-        <Button variant="outline" aria-label={t('taskSettings.deleteInputAria', { n: i + 1 })} onClick={() => update({ input: Object.fromEntries(inputs.filter((_, n) => n !== i)) })}>{t('taskSettings.delete')}</Button>
-      </div>)}
-      <Button variant="outline" className="justify-self-start" onClick={() => { let name = 'input' + (inputs.length + 1); while (Object.hasOwn(asObject(parsed.input), name)) name += '_'; update({ input: { ...asObject(parsed.input), [name]: '' } }); }}><Plus aria-hidden="true" />{t('taskSettings.addInput')}</Button>
+      <TaskInputsField input={taskInputs(parsed)} options={taskInputOptions(parsed)} goal={String(parsed.goal ?? '')} onChange={update} />
     </Panel>
 
     <Panel title={t('taskSettings.fileTitle')} description={task.file}>

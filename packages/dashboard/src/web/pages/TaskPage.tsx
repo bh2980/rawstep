@@ -19,6 +19,7 @@ import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
 import { isLive, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { RunOptions } from '../lib/quickRun';
 import { createManagedTask } from '../lib/taskFiles';
+import { inputFields, taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../lib/taskJson';
 import type { PageProps } from './types';
 
@@ -55,9 +56,9 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
   const profile = taskProfile(config, saved), savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
   const draftProfile = taskProfile(config, task);
-  // What the 세부 설정 tab changed, apart from the four things the sheet owns.
+  // What the 세부 설정 tab changed, apart from what the sheet owns (the inputs are edited in both, so the sheet saves them with the rest).
   const otherChanges = JSON.stringify({ ...task, name: saved.name, profileId: saved.profileId }) !== JSON.stringify(saved)
-    || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal }), savedJson);
+    || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal, input: savedParsed.input, inputOptions: savedParsed.inputOptions }), savedJson);
 
   /** Writes a task entry and its file against `base`, then starts the draft again from what the server stored. */
   async function write(next: { task: ManagedTask; json: string }, base: string, current = config) {
@@ -77,11 +78,11 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     await pageProps.act(async () => {
       try {
         if (rebase) {
-          // The project as it is now with only these four edits on top, saved against its own revision.
+          // The project as it is now with only these edits on top, saved against its own revision.
           const latest = pageProps.view, entry = latest.config.tasks.find(item => item.id === taskId);
           if (!entry) throw new Error(t('task.unknown'));
-          await write({ task: { ...entry, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(JSON.stringify(latest.tasks[taskId] ?? {}, null, 2), { url: basics.url, goal: basics.goal }) }, latest.revision, latest.config);
-        } else await write({ task: { ...task, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(json, { url: basics.url, goal: basics.goal }) }, revision);
+          await write({ task: { ...entry, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(JSON.stringify(latest.tasks[taskId] ?? {}, null, 2), { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, latest.revision, latest.config);
+        } else await write({ task: { ...task, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(json, { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, revision);
         pageProps.notify(t('taskEdit.saved'));
       } catch (error) { result = { ok: false, conflict: error instanceof ApiError && error.status === 409, error }; }
     });
@@ -102,7 +103,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
 
   const active = taskRuns.filter(ref => isLive(ref.run));
   return <div className="grid gap-5">
-    <TaskHeader name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={profile.name}
+    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={profile.name}
       view={view} busy={pageProps.busy} active={active} navigate={navigate} onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)}
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
@@ -128,7 +129,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     </div>}
 
     <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} view={view} rules={rules} otherChanges={otherChanges} onSave={saveBasics}
-      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), profileId: draftProfile.id }}
+      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), profileId: draftProfile.id, input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
       onOpenCheck={() => { setEditing(false); navigate({ task: taskId, tab: 'check' }); }} />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;

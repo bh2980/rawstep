@@ -2,16 +2,16 @@
 
 These examples and `fixtures/simple-cta.html` are bundled in the npm package. `task.json` resolves the fixture relative to its own directory, so run it from its installed location or preserve the same directory layout when copying it. Your own task JSON can use an absolute HTTP(S) URL or a file path relative to that JSON file.
 
-Start the appropriate native AT Driver server yourself, then substitute its actual WebSocket URL. For real VoiceOver runs, use macOS on the same host as the server and visible browser; for NVDA, use Windows. `doctor` probes the endpoint but does not establish native speech readiness.
+Start the appropriate native AT Driver server yourself, or let Rawstep start it with the command in `.env.local` (`RAWSTEP_AT_DRIVER_COMMAND`, see [config](../../docs/config.md#starting-the-at-driver-server)). For real VoiceOver runs, use macOS on the same host as the server and visible browser; for NVDA, use Windows. `doctor` probes the endpoint but does not establish native speech readiness.
 
 ## Running the example
 
-Set `machine.backend` to `voiceover` (macOS) or `nvda` (Windows) and `machine.atEndpoint` to the server's WebSocket URL in `rawstep.config.json` (for example `ws://127.0.0.1:4382/session`; `npx rawstep ui` edits it). Register a decision model in the same file; see [SystemOne](../../docs/systemone.md) and [config](../../docs/config.md). Then check the setup and run the bundled task in screen-reader mode:
+Set `machine.backend` to `voiceover` (macOS) or `nvda` (Windows) in `rawstep.config.json` (`npx rawstep ui` edits it). Leave `machine.atEndpoint` empty to use the usual address of the screen reader's server (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA), or set the WebSocket URL of the server you run. Set up a connection and give a run profile a `model` in the same file; see [SystemOne](../../docs/systemone.md) and [config](../../docs/config.md). Then check the setup and run the bundled task in screen-reader mode:
 
 ```sh
 npx rawstep doctor
-npx rawstep run node_modules/rawstep/examples/v2/task.json --mode screenreader --model MODEL --out .rawstep/example
-npx rawstep analyze .rawstep/example/run-1
+npx rawstep run node_modules/rawstep/examples/v2/task.json --mode screenreader --profile PROFILE --out .rawstep/example
+npx rawstep analyze .rawstep/example/run-1 --profile PROFILE   # LLM analysis; omit --profile for the local rule-based summary
 npx rawstep report .rawstep/example/run-1
 ```
 

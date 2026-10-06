@@ -14,7 +14,7 @@ export const states = {
   },
   /** What is missing, why it is needed, what to do next. */
   empty: {
-    models: { title: '등록된 모델이 없습니다', why: '작업을 실행하려면 다음 행동을 고를 모델이 필요합니다.', action: '모델 연결' },
+    connections: { title: '등록한 연결이 없습니다', why: '작업을 실행하려면 모델을 부를 곳(제공자와 인증키, 또는 직접 운영하는 서버)이 필요합니다.', action: '연결 추가' },
     tasks: { title: '등록된 작업이 없습니다', why: '작업은 시작 URL과 목표, 목표에 닿았는지 알려 주는 완료 확인으로 이루어지며, 실행은 이 작업을 기준으로 기록됩니다.', action: '새 작업' },
     runs: { title: '실행한 기록이 없습니다', why: '실행이 있어야 행동 순서와 페이지의 반응이 기록되고, 같은 작업을 여러 번 돌려 비교할 수 있습니다.', action: '작업 목록으로' },
     taskRuns: { title: '이 작업을 실행한 기록이 없습니다', why: '같은 작업을 여러 번 실행해야 페이지에서 되풀이되는 현상이 이 자리에 모입니다.', action: '실행 설정으로' },
@@ -29,10 +29,11 @@ export const states = {
   /** What happened, how far it got, what to do, and the original record. */
   errors: {
     kinds: { setup: '설정 문제', start: '시작 실패', runtime: '실행 중 멈춤', data: '기록 문제', connection: '연결 끊김' },
+    cause: '원인',
     progress: '어디까지',
     next: '다음에 할 일',
     raw: '원본 오류 보기',
-    rawNote: '서버가 정리한 메시지와 기록된 코드만 보여 줍니다. 모델 제공자가 보낸 원문은 저장하거나 표시하지 않습니다.',
+    rawNote: '기록된 코드와 오류 메시지입니다. 인증키와 작업 입력값은 가려서 저장합니다.',
     go: { machine: '이 컴퓨터 설정 열기', models: '모델 설정 열기', profiles: '실행 프로필 열기', check: '완료 확인 열기' },
     run: {
       progressSteps: '행동 {{n}}번까지 기록되었습니다.',
@@ -87,7 +88,7 @@ export const states = {
   /** One sentence the first time a concept appears (spec §38). */
   concepts: {
     dismiss: '알겠습니다',
-    profile: { term: '실행 프로필', text: '모델이 쓸 수 있는 행동, 막힘을 알아보는 기준, 화면 환경, 분석 지침을 묶어 둔 실험 조건입니다.' },
+    profile: { term: '실행 프로필', text: '어떤 모델로 실행하고 분석할지, 모델이 쓸 수 있는 행동, 멈춤 조건, 화면 환경을 묶어 둔 실험 조건입니다.' },
     check: { term: '완료 확인', text: '실행이 목표에 닿았는지 알려 주는 조건입니다. 모델에게는 전달하지 않고, 살펴볼 지점은 완료 여부와 상관없이 기록됩니다.' },
     decisionModel: { term: '결정 모델', text: '행동 후보마다 점수를 매기고 하나를 고르는 모델입니다. 점수는 확률로 보정된 값이 아닙니다.' },
     inspect: { term: '살펴볼 지점', text: '실행 기록에서 사람이 근거를 확인할 만한 위치입니다. 결론이 아니라 확인할 자리를 가리킵니다.' },

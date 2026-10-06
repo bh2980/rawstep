@@ -5,6 +5,7 @@ import '../packages/dashboard/src/web/i18n/index.js';
 import { describeFinding, firstOccurrence, stepRange } from '../packages/dashboard/src/web/lib/findings.js';
 import { eventsByStep } from '../packages/dashboard/src/web/lib/rawEvents.js';
 import { fastestRun, taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
+import { inputFields, inputProblems, taskInputOptions, taskInputs } from '../packages/dashboard/src/web/lib/taskInputs.js';
 import { defaultStep, dotKind, dotLabel, isUnsure } from '../packages/dashboard/src/web/lib/stepDots.js';
 
 const hangul = /[가-힣]/;
@@ -73,13 +74,13 @@ describe('step dots', () => {
     expect(dotKind(step(5, undefined, { stop: { stop: 'success' } }))).toBe('press');
   });
 
-  it('marks a Decision model\'s pick as low certainty below 0.5 and never an LLM\'s', () => {
-    const chose = (probability: number | undefined): StepView => step(1, { kind: 'key', key: 'Tab' }, { model: { choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', ...(probability === undefined ? {} : { probability }) }, { id: 'key:Enter', probability: 0.9 }] } });
-    expect(isUnsure(chose(0.46), 'decision')).toBe(true);
-    expect(isUnsure(chose(0.5), 'decision')).toBe(false);
-    expect(isUnsure(chose(0.9), 'decision')).toBe(false);
+  it('marks a Decision model\'s pick as hesitant when the runner-up scored close to it, not for a low but clear pick, and never an LLM\'s', () => {
+    const chose = (probability: number | undefined, runnerUp = 0.1): StepView => step(1, { kind: 'key', key: 'Tab' }, { model: { choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', ...(probability === undefined ? {} : { probability }) }, { id: 'key:Enter', probability: runnerUp }] } });
+    expect(isUnsure(chose(0.45, 0.4), 'decision')).toBe(true);
+    expect(isUnsure(chose(0.42, 0.1), 'decision')).toBe(false); // low in absolute terms, four times the runner-up
+    expect(isUnsure(chose(0.9, 0.05), 'decision')).toBe(false);
     expect(isUnsure(chose(undefined), 'decision')).toBe(false);
-    expect(isUnsure(chose(0.1), 'llm')).toBe(false);
+    expect(isUnsure(chose(0.45, 0.4), 'llm')).toBe(false);
     expect(isUnsure(step(1), 'decision')).toBe(false);
     expect(isUnsure(step(1, undefined, { model: { choiceId: 'missing', candidates: [{ id: 'a', probability: 0.1 }] } }), 'decision')).toBe(false);
   });
@@ -129,5 +130,24 @@ describe('run numbers and the fastest run', () => {
     expect(fastestRun(mine)).toMatchObject({ steps: 4, ref: { run: { id: 'c' } } });
     expect(fastestRun([mine[1]!, mine[3]!])).toBeUndefined();
     expect(fastestRun([])).toBeUndefined();
+  });
+});
+
+describe('task inputs', () => {
+  it('flags a blank name and a sensitive value of four or more characters that the goal spells out', () => {
+    const goal = 'Log in with hunter22 and open the account page';
+    expect([...inputProblems({ password: 'hunter22', pin: '12', '': 'x' }, undefined, goal)]).toEqual([['password', 'goal'], ['', 'name']]);
+    // A short value cannot be told apart from ordinary words, and an input marked not sensitive may be written in the goal.
+    expect(inputProblems({ word: 'the' }, undefined, goal).size).toBe(0);
+    expect(inputProblems({ password: 'hunter22' }, { password: { sensitive: false } }, goal).size).toBe(0);
+  });
+
+  it('reads inputs from a task and writes them back so that empty ones are removed and options follow existing names', () => {
+    const task = { input: { user: 'ann', n: 3 }, inputOptions: { user: { description: 'Login name' } } };
+    expect(taskInputs(task)).toEqual({ user: 'ann', n: '' });
+    expect(taskInputOptions(task)).toEqual({ user: { description: 'Login name' } });
+    expect(taskInputOptions({})).toBeUndefined();
+    expect(inputFields({ user: 'ann' }, { user: { description: 'Login name' }, gone: { sensitive: false } })).toEqual({ input: { user: 'ann' }, inputOptions: { user: { description: 'Login name' } } });
+    expect(inputFields({}, { user: {} })).toEqual({ input: undefined, inputOptions: undefined });
   });
 });

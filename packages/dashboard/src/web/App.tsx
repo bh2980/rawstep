@@ -15,7 +15,9 @@ import { HomePage } from './pages/HomePage';
 import { NewTaskPage } from './pages/NewTaskPage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { ConnectionsPage } from './pages/ConnectionsPage';
+import { MachinePage } from './pages/MachinePage';
+import { ProfilesPage } from './pages/ProfilesPage';
 import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
@@ -68,8 +70,8 @@ function Dashboard() {
     if (first) go({ task: first.taskId, run: first.id });
   };
   /** Starts a run of a task (in the given project state, which may be newer than `view`) and opens the first one. */
-  const startAndOpen = async (state: ConfigView, taskId: string, options?: RunOptions) => openRun(await startRun(state, taskId, options));
-  const runTask = (taskId: string, options?: RunOptions) => void act(() => startAndOpen(view!, taskId, options), { as: 'start' });
+  const startAndOpen = async (state: ConfigView, taskId: string, options: RunOptions) => openRun(await startRun(state, taskId, options));
+  const runTask = (taskId: string, options: RunOptions) => void act(() => startAndOpen(view!, taskId, options), { as: 'start' });
 
   return <div className="flex h-screen flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
@@ -100,8 +102,8 @@ function Dashboard() {
 type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
-  onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options?: RunOptions) => void;
-  startAndOpen: (view: ConfigView, taskId: string) => Promise<void>;
+  onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options: RunOptions) => void;
+  startAndOpen: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
 /** Chooses the page for the URL: a run, a task or the new-task page, otherwise the list or settings page of the current view. */
@@ -119,8 +121,10 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
   if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
   if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
-  if (route.view === 'tasks') return <TasksPage {...lists} onRunDefault={taskId => onRunTask(taskId)} />;
+  if (route.view === 'tasks') return <TasksPage {...lists} onRun={onRunTask} />;
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
-  if (route.view === 'settings') return <SettingsPage pageProps={pageProps} section={route.section} navigate={navigate} editorKey={editorKey} />;
+  if (route.view === 'profiles') return <ProfilesPage key={editorKey} {...pageProps} navigate={navigate} />;
+  if (route.view === 'connections') return <ConnectionsPage key={editorKey} {...pageProps} navigate={navigate} />;
+  if (route.view === 'settings') return <MachinePage key={editorKey} {...pageProps} />;
   return <HomePage {...lists} />;
 }

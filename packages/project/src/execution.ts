@@ -10,7 +10,8 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { LlmChoiceClient, LlmScreenshotAdapter, LlmSpeechPolicy } from './llm.js';
-import { type Mode, type Model, type Permissions, type Prompt, type RunSettings, resolveBaseURL, resolveRepetitionGuard } from './config.js';
+import { type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
+import { ensureAtDriver } from './atdriver.js';
 
 /** Everything one run needs, resolved from the project: nothing here is looked up again while the run executes. */
 export type RunSpec = {
@@ -23,12 +24,16 @@ export type RunSpec = {
   /** Ask the model, after a keyboard run that stopped early, why (never an action or verdict). */
   diagnoseStop?: boolean;
 };
-export type RunExecution = { outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void };
+export type RunExecution = {
+  outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
+  /** The command that starts the AT Driver server on this computer, for native screen reader runs when none is running yet. */
+  atDriverCommand?: string | undefined;
+};
 /** Runs one RunSpec; replaceable so callers can run without a browser or a model. */
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent, atDriverCommand }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
@@ -43,9 +48,12 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
     const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
       capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
     await client.prepare({ signal: setupSignal });
-    screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel })
-      : new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
+    if (mode === 'keyboard') {
+      screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
+      policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
+    } else {
+      policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
+    }
   }
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
@@ -53,7 +61,10 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   setupSignal.throwIfAborted();
   if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
   const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
-  return mode === 'keyboard' ? runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) }) : globals.backend === 'simulation'
-    ? runMockVoiceOverTask(resolvedTask, { ...common, warn: () => {} })
-    : runTask(resolvedTask, { ...common, backend: new AtDriverBackend({ profile: globals.backend, url: globals.atEndpoint }) });
+  if (mode === 'keyboard') return runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) });
+  // Screen reader runs keep a screenshot per step for people reading the run; the model never sees it.
+  if (globals.backend === 'simulation') return runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
+  const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
+  try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
+  finally { await driver.stop(); }
 };

@@ -21,6 +21,8 @@ type Props = {
   step: StepView; experimentId: string; run: RunRecord; modelKind: ModelKind;
   /** The nearest earlier step with a screenshot, for the Before view of the evidence. */
   previous: StepView | undefined;
+  /** The step just before this one: a stop has no evidence of its own, so it shows what the model was looking at when it chose. */
+  before?: StepView | undefined;
   /** The hints that point at this step, with their details. */
   hints: Hint[];
   /** Goal rules that were already true before the first action; shown on step 0 only. */
@@ -36,13 +38,18 @@ const label = 'text-[11px] leading-4 font-medium tracking-[0.08em] uppercase';
  * response, the places worth a look, and only then the model's candidates and the raw record, both closed.
  * Wide: evidence 3fr beside analysis 2fr. Narrow: the action first, then evidence, response, inspect.
  */
-export function StepDetail({ step, experimentId, run, modelKind, previous, hints, baselineMet, live }: Props) {
+export function StepDetail({ step, experimentId, run, modelKind, previous, before, hints, baselineMet, live }: Props) {
   const { t } = useTranslation();
   const speechFirst = run.snapshot.mode === 'screenreader';
   return <section aria-label={t('runPage.stepLabel')} className="motion-reveal grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <Action step={step} baselineMet={baselineMet} />
     <div className="min-w-0 lg:col-start-1 lg:row-span-6 lg:row-start-1">
-      <StepEvidence step={step} previous={previous} experimentId={experimentId} runId={run.id} speechFirst={speechFirst} live={live} />
+      {step.stop && !step.speech && !step.screenshot && before
+        ? <div className="grid gap-2">
+          <p className="text-xs leading-5 text-muted-foreground">{before.step === 0 ? t('stepDetail.stopEvidenceStart') : t('stepDetail.stopEvidence', { n: before.step })}</p>
+          <StepEvidence step={before} previous={undefined} experimentId={experimentId} runId={run.id} speechFirst={speechFirst} live={false} />
+        </div>
+        : <StepEvidence step={step} previous={previous} experimentId={experimentId} runId={run.id} speechFirst={speechFirst} live={live} />}
     </div>
     <PageResponse step={step} />
     {hints.length > 0 && <Inspect hints={hints} />}
@@ -63,7 +70,7 @@ function Action({ step, baselineMet }: { step: StepView; baselineMet: number | u
     <h3 className={cn(label, 'text-muted-foreground')}>{first ? t('stepDetail.actionStart') : t('stepDetail.action', { n: String(step.step).padStart(2, '0') })}</h3>
     <p className="font-mono text-2xl leading-8 font-semibold break-words">{describeStep(step)}</p>
     {step.ok === false && <p className="w-fit rounded-sm border border-edge-strong px-1.5 text-xs">{t('steps.actionFailed')}</p>}
-    {step.stop?.source && <p className="text-xs text-muted-foreground">{t('steps.stopSource', { source: step.stop.source })}</p>}
+    {step.stop?.source && <p className="text-xs text-muted-foreground">{t('steps.stopSource', { source: t(`steps.stopSources.${step.stop.source}`, { defaultValue: step.stop.source }) })}</p>}
     {first && baselineMet !== undefined && <p className="text-sm text-muted-foreground">{baselineMet > 0 ? t('steps.baselineTrue', { n: baselineMet }) : t('steps.baselineNone')}</p>}
     {step.redacted && <p className="text-xs text-muted-foreground">{t('steps.redactedBody')}</p>}
   </div>;

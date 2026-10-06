@@ -10,12 +10,12 @@ Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawst
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # set up models and tasks in the dashboard
+npx rawstep ui          # set up connections, run profiles and tasks in the dashboard
 # or: npx rawstep init  # write rawstep.config.json, then edit it by hand
 npx rawstep run checkout --repeat 2
 ```
 
-Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: each provider reads its key from a fixed environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; a custom server names its own), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
+Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: each provider reads its key from a fixed environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; a custom connection names its own), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
 
 Example output:
 
@@ -70,20 +70,22 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage models by type and provider with model discovery, task prompts and permissions, experiments across tasks, models, prompts and profiles, and persisted comparison. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage connections by type and provider (with model discovery), run profiles (each with the model it runs and, optionally, the LLM that analyses its runs), task prompts and permissions, experiments across tasks, prompts and profiles, and persisted comparison. The sidebar has 실행 프로필 and 연결 pages; 설정 covers only this computer. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
-### Models
+### Connections and models
 
-Register a model as type, provider, then model: `npx rawstep ui` walks through it, or write the `models[]` entry yourself ([configuration reference](./docs/config.md)).
+A connection is where models are reached (type and provider, plus an address for a custom server); a run profile picks the model on a connection. `npx rawstep ui` walks through both, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)). A profile without a model cannot run. To compare models, compare profiles that differ only in the model.
 
-- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It also runs post-run analysis and completion-check suggestions.
+- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It can also be a profile's analysis model and run completion-check suggestions.
 - **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
 
-Keyboard mode sends screenshots, so it needs an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
+Keyboard mode sends screenshots, so the profile's model must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
 
 ```sh
-npx rawstep run <task>
+npx rawstep run <task> --profile PROFILE
 ```
+
+Rawstep's rule-based analysis always runs after a run. If the profile has an analysis model, an LLM analysis is added; without one everything still works.
 
 The dashboard's experiment dialog has a diagnose-stop option: a separate bounded reason-choice call after a suitable stop. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions. The CLI does not offer it.
 

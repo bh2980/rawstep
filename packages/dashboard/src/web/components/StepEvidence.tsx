@@ -45,10 +45,10 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
   const focus = focusStep.observed.filter(change => change.kind === 'focus').at(-1), rect = primary ? focusRectOf(focusStep.observed) : undefined;
   const viewport = shown.viewport, size = natural?.src === src ? natural : undefined;
   const box = rect && viewport && size ? scaleFocusRect(rect, { width: viewport.w, height: viewport.h }, size) : undefined;
-  const caption = showBefore ? t('stepDetail.screenBefore', { n: step.step, prev: previous!.step }) : live ? t('runPage.screenLive') : t('stepDetail.screenAfter', { n: step.step });
+  const caption = showBefore ? t('stepDetail.screenBefore', { n: step.step, prev: previous!.step }) : live ? t('runPage.screenLive') : step.step === 0 ? t('stepDetail.screenStart') : t('stepDetail.screenAfter', { n: step.step });
   return <figure className="grid gap-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className={cn(label, primary ? 'text-foreground' : 'text-muted-foreground')}>{t('stepDetail.screen')}</span>
+      <span className={cn(label, primary ? 'text-foreground' : 'text-muted-foreground')}>{t('stepDetail.screen')}{shown.reference && <span className="ml-2 normal-case tracking-normal">{t('stepDetail.screenReference')}</span>}</span>
       {primary && previous?.screenshot && <div role="group" aria-label={t('stepDetail.timeLabel')} className="inline-flex rounded-md border border-edge-strong p-0.5 text-xs">
         {(['before', 'after'] as const).map(option => <button key={option} type="button" aria-pressed={time === option} onClick={() => setTime(option)}
           className={cn('h-6 rounded-[3px] px-2.5', time === option ? 'bg-trace-soft font-medium text-trace' : 'text-muted-foreground hover:bg-raised')}>{t(option === 'before' ? 'stepDetail.timeBefore' : 'stepDetail.timeAfter')}</button>)}

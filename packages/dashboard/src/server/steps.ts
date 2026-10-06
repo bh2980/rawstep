@@ -1,5 +1,5 @@
 import { screenshotSha256, type TraceEvent } from '@rawstep/core/trace';
-import type { Hint, ObservedChange, RunStepsView, StepView } from '../shared/api.js';
+import type { Hint, ObservedChange, RunNotice, RunStepsView, StepView } from '../shared/api.js';
 
 const REDACTED = '[REDACTED]';
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -15,6 +15,32 @@ const viewportOf = (screenshot: unknown): { w: number; h: number } | undefined =
   record(screenshot) && record(screenshot.viewport) && finite(screenshot.viewport.w) && finite(screenshot.viewport.h) && screenshot.viewport.w > 0 && screenshot.viewport.h > 0
     ? { w: screenshot.viewport.w, h: screenshot.viewport.h } : undefined;
 const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).map(r => ({ ruleIndex: Number(r.ruleIndex), ruleType: String(r.ruleType), passed: r.passed === true })) : [];
+
+/** Where the runner writes a screen reader run's diagnostic screenshots, relative to the run directory. */
+export const DIAGNOSTIC_PATH = /^diagnostics\/step-\d{1,5}\.png$/;
+/** Hosts and markers of bot checks a run cannot get past; Rawstep never tries to. */
+const BOT_CHECK = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$|^www\.google\.com$/;
+const hostOf = (url: unknown) => { try { return typeof url === 'string' ? new URL(url).hostname : undefined; } catch { return undefined; } };
+const isBotCheck = (url: unknown) => {
+  const host = hostOf(url);
+  return !!host && (BOT_CHECK.test(host) && (host !== 'www.google.com' || String(url).includes('/recaptcha')) || String(url).includes('__cf_chl'));
+};
+/** Bot checks and blocked navigations, one notice per kind with every host it involved. */
+function noticesOf(events: readonly TraceEvent[]): RunNotice[] {
+  const found = new Map<RunNotice['kind'], RunNotice>(); let step = 0;
+  const note = (kind: RunNotice['kind'], url: unknown) => {
+    const host = hostOf(url) ?? '?', notice = found.get(kind) ?? { kind, step, hosts: [], count: 0 };
+    notice.count++; if (!notice.hosts.includes(host)) notice.hosts.push(host);
+    found.set(kind, notice);
+  };
+  for (const event of events) {
+    const data = record(event.data) ? event.data : {};
+    if (event.type === 'policy.decision' && typeof data.step === 'number') step = data.step;
+    if (event.type === 'browser.navigation-blocked') note(isBotCheck(data.url) ? 'bot-check' : 'navigation-blocked', data.url);
+    else if (event.type === 'observer.navigation' && isBotCheck(data.url)) note('bot-check', data.url);
+  }
+  return [...found.values()];
+}
 
 export type StepsInput = { experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
 
@@ -46,6 +72,8 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
     } else if (event.type === 'keyboard.observation') {
       const sha256 = screenshotSha256(data.screenshot);
       if (sha256 && !target.screenshot) target.screenshot = { eventId: event.id, sha256, ...(viewportOf(data.screenshot) ? { viewport: viewportOf(data.screenshot)! } : {}) };
+    } else if (event.type === 'browser.screenshot' && text(data.path) && DIAGNOSTIC_PATH.test(text(data.path)!)) {
+      if (!target.screenshot) target.screenshot = { eventId: event.id, reference: true };
     } else if (event.type === 'screen-reader.observation' || event.type === 'simulation.observation') {
       const lines = Array.isArray(data.speech) ? data.speech.map(text).filter((l): l is string => !!l) : [];
       if (lines.length) {
@@ -78,5 +106,5 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
     const view = byStep.get(n);
     if (view && !view.hints.includes(hint.kind)) view.hints.push(hint.kind);
   }
-  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), ...(baseline ? { baseline } : {}), live };
+  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), notices: noticesOf(events), ...(baseline ? { baseline } : {}), live };
 }

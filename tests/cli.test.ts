@@ -38,10 +38,10 @@ describe("CLI argument contract", () => {
   it("parses the seven commands and their options", () => {
     expect(parseCliArguments(["init"]).command).toBe("init");
     expect(parseCliArguments(["ui", "--port=5432", "--project", "project"]).options).toEqual({ port: "5432", project: "project" });
-    expect(parseCliArguments(["run", "login", "--model", "fast", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
-      command: "run", positionals: ["login"], options: { model: "fast", profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
+    expect(parseCliArguments(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
+      command: "run", positionals: ["login"], options: { profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
     });
-    expect(parseCliArguments(["analyze", "run-1", "--model", "judge"]).options).toEqual({ model: "judge" });
+    expect(parseCliArguments(["analyze", "run-1", "--profile", "judge"]).options).toEqual({ profile: "judge" });
     expect(parseCliArguments(["hints", "run", "--reference", "other"])).toMatchObject({ command: "hints", positionals: ["run"], options: { reference: "other" } });
     expect(parseCliArguments(["report", "run", "--analysis", "analysis.json", "--out", "x"]).command).toBe("report");
     expect(parseCliArguments(["doctor"]).command).toBe("doctor");
@@ -50,7 +50,7 @@ describe("CLI argument contract", () => {
     ["ui", "--port", "0"], ["ui", "--port", "65536"], ["ui", "--port", "1", "--port", "2"], ["ui", "task.json"],
     ["init", "extra"], ["doctor", "--backend", "nvda"],
     ["run"], ["run", "a", "b"], ["run", "a", "--mode", "mock"], ["run", "a", "--repeat", "0"], ["run", "a", "--repeat", "101"], ["run", "a", "--repeat", "two"],
-    ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--out", "x", "--out", "y"],
+    ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
     // Options of the removed commands and of the environment-variable configuration are gone.
     ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
     ["analyze", "run", "--llm"], ["analyze", "run", "--analyzer", "a.mjs"], ["analyze"],
@@ -113,8 +113,8 @@ const result: RunTaskResult = {
 describe("run", () => {
   it("passes the options to runTask, prints outcomes and findings grouped as Page and Model, and exits 0 whatever the outcome", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
-    expect(await runCli(["run", "login", "--model", "fast", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
-    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, model: "fast", profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
+    expect(await runCli(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
+    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
     expect(out).toContain("Run 1 of 2: goal reached · 7 steps");
     expect(out).toContain("Run 2 of 2: goal not reached (max-steps) · 40 steps");
@@ -127,7 +127,7 @@ describe("run", () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
     expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, mode: "keyboard", repeat: 1 })]);
-    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model");
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
   });
   it("prints the result object with --json", async () => {
     const io = output(await temporaryDirectory());
@@ -183,15 +183,17 @@ describe("offline analysis and reports", () => {
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
     expect(text(io.stderr)).toMatch(/run|trace/i);
   });
-  it("needs the analysis model named by --model to exist in rawstep.config.json", async () => {
+  it("needs the run profile named by --profile to exist and to have an analysis model", async () => {
     const directory = await temporaryDirectory();
     await writeFile(join(directory, "trace.json"), JSON.stringify(fixtureTrace()));
     const io = output(directory);
-    expect(await runCli(["analyze", "trace.json", "--model", "judge"], io)).toBe(1);
+    expect(await runCli(["analyze", "trace.json", "--profile", "judge"], io)).toBe(1);
     expect(text(io.stderr)).toContain("rawstep.config.json was not found");
     await initProject(directory);
-    expect(await runCli(["analyze", "trace.json", "--model", "judge"], io)).toBe(1);
-    expect(text(io.stderr)).toContain('No model "judge"');
+    expect(await runCli(["analyze", "trace.json", "--profile", "judge"], io)).toBe(1);
+    expect(text(io.stderr)).toContain('No profile "judge"');
+    expect(await runCli(["analyze", "trace.json", "--profile", "default"], io)).toBe(1);
+    expect(text(io.stderr)).toContain('Run profile "Default" has no analysis model');
   });
 });
 
@@ -284,15 +286,15 @@ describe("doctor", () => {
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
     expect(text(io.stdout)).toContain("FAIL  Config");
   });
-  it("checks that the key of each provider and keyed custom model is set, without printing it", async () => {
+  it("checks that the key of each provider and keyed custom connection is set, without printing it", async () => {
     const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY", optional = "RAWSTEP_DOCTOR_OPTIONAL_KEY";
-    const base = { kind: "llm" as const, inputs: ["text" as const], capabilitySource: "manual" as const, maxChoices: 255, maxImages: 0, roles: ["decision" as const], timeoutMs: 1000 };
+    const base = { kind: "llm" as const, timeoutMs: 1000 };
     const directory = await project(config => {
-      config.models.push(
-        { ...base, id: "a", name: "With key", provider: "custom", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present, modelId: "a" },
-        { ...base, id: "b", name: "Optional key", provider: "custom", baseURL: "http://127.0.0.1:1235/v1", apiKeyEnv: optional, modelId: "b" },
-        { ...base, id: "c", name: "Local", provider: "custom", baseURL: "http://127.0.0.1:1236/v1", modelId: "c" },
-        { ...base, id: "d", name: "Hosted", provider: "anthropic", modelId: "claude-fixture" },
+      config.connections.push(
+        { ...base, id: "a", name: "With key", provider: "custom", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present },
+        { ...base, id: "b", name: "Optional key", provider: "custom", baseURL: "http://127.0.0.1:1235/v1", apiKeyEnv: optional },
+        { ...base, id: "c", name: "Local", provider: "custom", baseURL: "http://127.0.0.1:1236/v1" },
+        { ...base, id: "d", name: "Hosted", provider: "anthropic" },
       );
     });
     await writeFile(join(directory, ".env.local"), `${present}="secret-doctor-value"\n`);

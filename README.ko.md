@@ -10,11 +10,11 @@ Rawstep은 웹 페이지에서 키보드 또는 스크린리더 작업을 모델
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # 대시보드에서 모델·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
+npx rawstep ui          # 대시보드에서 연결·실행 프로필·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
 npx rawstep run checkout
 ```
 
-`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 모델과 작업을 등록한 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
+`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 연결(모델에 닿는 곳)과 작업을 등록하고 실행 프로필에서 모델을 고른 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
 
 ```text
 Run 1 of 2: goal reached · 7 steps
@@ -41,12 +41,12 @@ const { runs, findings } = await runTask('checkout', { repeat: 3 });
 expect(findings.filter((f) => f.source === 'page')).toEqual([]);
 ```
 
-`runTask`는 실행이 끝나면 목표 달성 여부와 상관없이 결과를 돌려 줍니다. 설정 문제(설정 파일 없음, 알 수 없는 모델·프로필, 사용할 수 있는 모델 없음, 키 누락)와 취소는 `ProjectError`로 거부됩니다. 자세한 사용법은 [CLI 안내](./docs/cli.ko.md)와 [설정 안내](./docs/config.ko.md)를 참고하세요.
+`runTask`는 실행이 끝나면 목표 달성 여부와 상관없이 결과를 돌려 줍니다. 설정 문제(설정 파일 없음, 알 수 없는 프로필, 모델이 없는 프로필, 키 누락)와 취소는 `ProjectError`로 거부됩니다. 자세한 사용법은 [CLI 안내](./docs/cli.ko.md)와 [설정 안내](./docs/config.ko.md)를 참고하세요.
 
 ## 두 가지 모드
 
 - **keyboard**: 실제 화면 픽셀을 이미지 입력을 지원하는 모델에게 보여 주고, 모델이 고른 키 입력으로 페이지를 조작합니다. DOM·접근성 트리·독립 검증 결과는 모델에게 넘기지 않습니다.
-- **screenreader**: 스크린리더가 읽어 주는 음성 출력만 보고 다음 동작을 고릅니다. `rawstep.config.json`의 `machine.backend`가 `simulation`이면 Chromium 기반의 시뮬레이션 스크린리더를 쓰며, 만들어진 문구는 trace에서 항상 시뮬레이션으로 표시합니다. `voiceover`나 `nvda`는 해당 OS에서 별도로 실행한 네이티브 AT Driver 서버에 연결합니다. Orca는 라이브러리 수준의 고급 백엔드로만 제공합니다.
+- **screenreader**: 스크린리더가 읽어 주는 음성 출력만 보고 다음 동작을 고릅니다. `rawstep.config.json`의 `machine.backend`가 `simulation`이면 Chromium 기반의 시뮬레이션 스크린리더를 쓰며, 만들어진 문구는 trace에서 항상 시뮬레이션으로 표시합니다. `voiceover`나 `nvda`는 해당 OS의 네이티브 AT Driver 서버에 연결하며, `machine.atEndpoint`를 비워 두면 서버의 일반적인 주소를 씁니다. 응답하는 서버가 없으면 이 컴퓨터의 `.env.local`에 둔 `RAWSTEP_AT_DRIVER_COMMAND`로 서버를 시작할 수 있습니다. Orca는 라이브러리 수준의 고급 백엔드로만 제공합니다.
 
 모드는 `rawstep run <task> --mode keyboard|screenreader`로 고릅니다(기본값은 `keyboard`).
 
@@ -62,7 +62,7 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 
 ## 실행 프로필
 
-화면 크기, 확대, 색상 조건 같은 환경과 허용 행동, 멈춤 기준을 묶은 것이 실행 프로필입니다. `rawstep.config.json`의 `profiles`에 정의하고 같은 작업을 프로필만 바꿔 실행하면 환경 간 차이를 비교할 수 있습니다.
+화면 크기, 확대, 색상 조건 같은 환경과 허용 행동, 멈춤 기준, 실행할 모델(필수)과 분석 모델(선택)을 묶은 것이 실행 프로필입니다. `rawstep.config.json`의 `profiles`에 정의하고 같은 작업을 프로필만 바꿔 실행하면 환경 간 차이를 비교할 수 있으며, 모델만 다른 프로필끼리 비교하면 모델을 비교할 수 있습니다. 매 실행 뒤 Rawstep의 규칙 기반 분석은 항상 실행되고, 프로필에 분석 모델이 있으면 LLM 분석이 더해집니다.
 
 ```sh
 npx rawstep run checkout --profile narrow
@@ -73,7 +73,7 @@ npx rawstep run checkout --profile zoom-200
 
 ## 설정 파일
 
-프로젝트 폴더의 `rawstep.config.json` 하나에 모델, 작업, 실행 프로필, 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 제공자마다 정해진 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, 사용자 지정 서버는 직접 지정)에서 읽고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
+프로젝트 폴더의 `rawstep.config.json` 하나에 연결, 작업, 실행 프로필(실행할 모델 포함), 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 제공자마다 정해진 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, 사용자 지정 연결은 직접 지정)에서 읽고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
 
 ## 소스에서 실행
 

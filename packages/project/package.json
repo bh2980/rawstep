@@ -54,7 +54,12 @@
       "import": "./dist/run.js",
       "default": "./dist/run.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./atdriver": {
+      "types": "./dist/atdriver.d.ts",
+      "import": "./dist/atdriver.js",
+      "default": "./dist/atdriver.js"
+    }
   },
   "engines": {
     "node": ">=22.12.0"

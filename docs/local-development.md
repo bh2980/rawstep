@@ -60,30 +60,30 @@ Orca의 입력은 특정 X11 창·프로세스·포커스를 확인한 후에만
 
 ## 3. 기본 예제와 모델 예제
 
-모델은 `rawstep.config.json`에 등록합니다(`npm run rawstep -- ui`). 연결·모델 등록 방법은 [SystemOne](./systemone.md)과 [config](./config.md)를 참고하세요. 등록한 뒤:
+연결은 `rawstep.config.json`에 등록하고 실행 프로필에서 모델을 고릅니다(`npm run rawstep -- ui`). 연결과 프로필 설정 방법은 [SystemOne](./systemone.md)과 [config](./config.md)를 참고하세요. 등록한 뒤:
 
 ```sh
-npm run rawstep -- run examples/profiles/task.json --model MODEL --out runs/first
+npm run rawstep -- run examples/profiles/task.json --profile PROFILE --out runs/first
 ```
 
 `examples/profiles/task.json`은 함께 제공되는 환경 fixture에 맞춰져 있습니다. 실제 사이트의 탐색 정책으로 사용하지 마세요. 모델 없이 고정 행동을 쓰는 회귀 테스트는 라이브러리(`runScreenshotTask`와 `ScriptedPolicy` 등)로 작성하며, 실제 모델 추론이라고 표현하지 않습니다.
 
-키보드 모드는 화면 이미지를 모델에 보내므로 이미지 입력을 지원하는 모델이 필요합니다. `npx rawstep ui`에서 이미지를 받는 LLM, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델을 등록하세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 등록합니다.
+키보드 모드는 화면 이미지를 모델에 보내므로 이미지 입력을 지원하는 모델이 필요합니다. `npx rawstep ui`에서 이미지를 받는 LLM, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델 연결을 만들고 실행 프로필의 모델로 고르세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 연결합니다.
 
 ```sh
-npm run rawstep -- run examples/screenshot/task.json --model MODEL --mode keyboard
+npm run rawstep -- run examples/screenshot/task.json --profile PROFILE --mode keyboard
 ```
 
 기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없으며, 원격 모델은 스크린샷을 받는다는 점에 유의하세요. 예제 작업 파일은 `examples/screenshot/README.md`에 있습니다.
 
 ## 4. 환경 비교
 
-`rawstep.config.json`에 환경별 실행 프로필(예: `default`, `reflow-text`, `forced-colors`)을 두고 같은 작업을 프로필마다 실행합니다. 대시보드의 실험 큐는 작업×모델×프롬프트×프로필 조합을 한 번에 실행합니다.
+`rawstep.config.json`에 환경별 실행 프로필(예: `default`, `reflow-text`, `forced-colors`)을 두고 같은 작업을 프로필마다 실행합니다. 대시보드의 실험 큐는 작업×프롬프트×프로필 조합을 한 번에 실행하며, 모델은 프로필이 정하므로 모델을 비교하려면 모델만 다른 프로필을 둡니다.
 
 ```sh
-npm run rawstep -- run examples/profiles/task.json --profile default --model MODEL
-npm run rawstep -- run examples/profiles/task.json --profile reflow-text --model MODEL
-npm run rawstep -- run examples/profiles/task.json --profile forced-colors --model MODEL
+npm run rawstep -- run examples/profiles/task.json --profile default
+npm run rawstep -- run examples/profiles/task.json --profile reflow-text
+npm run rawstep -- run examples/profiles/task.json --profile forced-colors
 ```
 
 각 프로필은 새 실행으로 기록됩니다. 강제색·대비·모션 미디어, 페이지 글자 확대와 실제 OS 기능을 구분하세요. 사용 불가능한 브라우저 줌/OS 돋보기를 viewport·CSS 확대·핀치로 대체해 통과 처리하지 않습니다. 자세한 계약은 [환경 프로필 문서](./environment-profiles.md)에 있습니다.

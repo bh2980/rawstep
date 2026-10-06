@@ -9,10 +9,10 @@ export type CheckState = { state: 'running' } | { state: 'done'; result: ModelCh
 const kindOf = (check: CheckState): CheckKind | 'running' | 'connection' => check.state === 'running' ? 'running' : check.state === 'failed' ? (check.connection ? 'connection' : 'failed') : check.result.kind;
 
 /**
- * The result of checking a model: a mark, a headline (`Ready` or what did not work) and the reason in a sentence. The mark differs by shape
+ * The result of checking a connection or a model: a mark, a headline (`Ready` or what did not work) and the reason in a sentence. The mark differs by shape
  * as well as colour, and the words always say it.
  */
-export function ModelStatus({ check, className }: { check: CheckState; className?: string }) {
+export function CheckStatus({ check, className }: { check: CheckState; className?: string }) {
   const { t } = useTranslation();
   const kind = kindOf(check), ready = kind === 'ready', unverified = kind === 'unverified';
   const Icon = kind === 'running' ? LoaderCircle : ready ? CircleCheck : unverified ? CircleHelp : CircleAlert;

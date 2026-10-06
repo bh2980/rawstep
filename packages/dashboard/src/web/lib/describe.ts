@@ -5,7 +5,7 @@ import { intentLabel } from '../i18n/labels.js';
 /** Human label for the action or stop recorded at a step. */
 export function describeStep(step: Pick<StepView, 'step' | 'action' | 'stop'>): string {
   if (step.step === 0 && !step.action && !step.stop) return t('steps.start');
-  if (step.stop) return t('steps.stop', { reason: step.stop.stop });
+  if (step.stop) return t('steps.stop', { reason: t(`steps.stopReasons.${step.stop.stop}`, { defaultValue: step.stop.stop }) });
   const action = step.action;
   if (!action) return t('steps.unknownAction');
   if (action.kind === 'typeText') return action.input ? t('steps.typeTextNamed', { name: action.input }) : t('steps.typeText');

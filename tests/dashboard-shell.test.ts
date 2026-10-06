@@ -9,8 +9,8 @@ describe('routes', () => {
     expect(routeSearch({})).toBe('/');
     expect(routeSearch({ view: 'tasks' })).toBe('?view=tasks');
     expect(routeSearch({ view: 'runs' })).toBe('?view=runs');
-    expect(routeSearch({ view: 'settings', section: 'profiles' })).toBe('?view=settings&section=profiles');
-    expect(routeSearch({ view: 'settings' })).toBe('?view=settings&section=models');
+    // Profiles and connections are pages of their own; settings are this computer's only.
+    for (const view of ['profiles', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
     expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
     expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
@@ -18,15 +18,16 @@ describe('routes', () => {
     // A tab belongs to the task page and a step to a run; neither is kept on the other.
     expect(routeSearch({ task: 'abc', run: 'r1', tab: 'settings' })).toBe('?task=abc&run=r1');
     expect(routeSearch({ task: 'abc', tab: 'settings', step: 2 })).toBe('?task=abc&tab=settings');
-    expect(parseRoute('')).toMatchObject({ view: 'home', section: 'models', tab: 'overview' });
-    expect(parseRoute('?view=settings&section=machine')).toMatchObject({ view: 'settings', section: 'machine' });
-    expect(parseRoute('?view=nonsense&section=nonsense')).toMatchObject({ view: 'home', section: 'models' });
-    expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', section: 'models', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
+    expect(parseRoute('')).toEqual({ view: 'home', tab: 'overview' });
+    expect(parseRoute('?view=connections')).toMatchObject({ view: 'connections' });
+    expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', tab: 'overview' });
+    expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'home' });
+    expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
     expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=tasks', '?view=profiles', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 

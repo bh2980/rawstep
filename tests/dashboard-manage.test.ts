@@ -5,7 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { buildModel, defaultConfig, defaultModes, type ProjectConfig } from '@rawstep/project/config';
+import { defaultConfig, defaultModes, type ProjectConfig } from '@rawstep/project/config';
+import { connection } from './helpers/project-config.js';
+import type { DiscoveredModel } from '@rawstep/project/discover';
 import type { BrowserCheck, ModelCheck } from '../packages/dashboard/src/shared/api.js';
 import type { ConfigView, DeleteTaskResult } from '../packages/dashboard/src/shared/config.js';
 
@@ -62,7 +64,7 @@ describe('deleting a task', () => {
     expect(((await unknown.json()) as { error: string }).error).toContain('작업');
     expect((await call(app.url, 'DELETE', '/api/tasks/owned', {})).status).toBe(400);
     // A queued run of the task blocks deleting it.
-    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], modelIds: [], promptIds: [], repeats: 1, mode: 'keyboard' }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
+    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], promptIds: [], repeats: 1, mode: 'keyboard' }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
     const busy = await call(app.url, 'DELETE', '/api/tasks/owned', { revision });
     expect(busy.status).toBe(409);
     expect(((await busy.json()) as { error: string }).error).toContain('진행 중');
@@ -83,49 +85,62 @@ async function modelServer(status: number, models: string[]): Promise<{ url: str
   return { url: `http://127.0.0.1:${address.port}/v1`, requests };
 }
 
-describe('checking a model', () => {
-  const body = (baseURL: string, modelId: string, extra: Record<string, unknown> = {}) => ({ kind: 'llm', provider: 'custom', modelId, baseURL, ...extra });
+describe('checking a connection', () => {
+  const check = (url: string, body: unknown) => call(url, 'POST', '/api/connections/check', body);
+  const typed = (baseURL: string, extra: Record<string, unknown> = {}) => ({ kind: 'llm', provider: 'custom', baseURL, ...extra });
 
   it('asks the model list once and answers ready, or says why not, by kind', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const ok = await modelServer(200, ['alpha', 'beta']);
-    const ready = await (await call(app.url, 'POST', '/api/models/check', body(ok.url, 'alpha'))).json() as ModelCheck;
-    expect(ready).toMatchObject({ ok: true, kind: 'ready', via: 'model-list' });
+    // Without a model ID the connection itself is checked: the server answers and accepts the key.
+    expect(await (await check(app.url, typed(ok.url))).json()).toMatchObject({ ok: true, kind: 'ready', via: 'model-list' });
     expect(ok.requests).toHaveLength(1);
     expect(ok.requests[0]!.url).toBe('/v1/models');
-    expect(await (await call(app.url, 'POST', '/api/models/check', body(ok.url, 'gamma'))).json()).toMatchObject({ ok: false, kind: 'model-not-listed' });
+    // With a model ID the answer is about that model.
+    expect(await (await check(app.url, typed(ok.url, { modelId: 'alpha' }))).json()).toMatchObject({ ok: true, kind: 'ready', via: 'model-list' });
+    expect(await (await check(app.url, typed(ok.url, { modelId: 'gamma' }))).json()).toMatchObject({ ok: false, kind: 'model-not-listed' });
     const empty = await modelServer(200, []);
-    expect(await (await call(app.url, 'POST', '/api/models/check', body(empty.url, 'alpha'))).json()).toMatchObject({ ok: true, kind: 'unverified' });
+    expect(await (await check(app.url, typed(empty.url, { modelId: 'alpha' }))).json()).toMatchObject({ ok: true, kind: 'unverified' });
     const refused = await modelServer(401, []);
-    const rejected = await (await call(app.url, 'POST', '/api/models/check', body(refused.url, 'alpha'))).text();
-    expect(JSON.parse(rejected)).toMatchObject({ ok: false, kind: 'rejected' });
-    expect(rejected).not.toContain('provider-secret-text');
-    expect(await (await call(app.url, 'POST', '/api/models/check', body('http://127.0.0.1:1/v1', 'alpha'))).json()).toMatchObject({ ok: false, kind: 'unreachable' });
-    expect(await (await call(app.url, 'POST', '/api/models/check', body('http://example.com/v1', 'alpha'))).json()).toMatchObject({ ok: false, kind: 'invalid-address' });
+    for (const extra of [{}, { modelId: 'alpha' }]) {
+      const rejected = await (await check(app.url, typed(refused.url, extra))).text();
+      expect(JSON.parse(rejected)).toMatchObject({ ok: false, kind: 'rejected' });
+      expect(rejected).not.toContain('provider-secret-text');
+    }
+    expect(await (await check(app.url, typed('http://127.0.0.1:1/v1'))).json()).toMatchObject({ ok: false, kind: 'unreachable' });
+    expect(await (await check(app.url, typed('http://127.0.0.1:1/v1', { modelId: 'alpha' }))).json()).toMatchObject({ ok: false, kind: 'unreachable' });
+    expect(await (await check(app.url, typed('http://example.com/v1'))).json()).toMatchObject({ ok: false, kind: 'invalid-address' });
+    expect(await (await check(app.url, typed('http://example.com/v1', { modelId: 'alpha' }))).json()).toMatchObject({ ok: false, kind: 'invalid-address' });
   });
 
   it('needs the key of a keyed provider before it asks anyone, and never stores a key typed for a custom server', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
-    const missing = await (await call(app.url, 'POST', '/api/models/check', { kind: 'llm', provider: 'anthropic', modelId: 'claude' })).json() as ModelCheck;
-    expect(missing).toMatchObject({ ok: false, kind: 'missing-key', via: 'none' });
+    for (const extra of [{}, { modelId: 'claude' }])
+      expect(await (await check(app.url, { kind: 'llm', provider: 'anthropic', ...extra })).json() as ModelCheck).toMatchObject({ ok: false, kind: 'missing-key', via: 'none' });
     const server = await modelServer(200, ['alpha']);
-    await call(app.url, 'POST', '/api/models/check', body(server.url, 'alpha', { apiKey: 'typed-key-123' }));
+    await check(app.url, typed(server.url, { apiKey: 'typed-key-123' }));
     expect(server.requests[0]!.headers.authorization).toBe('Bearer typed-key-123');
     expect(await exists(join(dir, '.env.local'))).toBe(false);
   });
 
-  it('checks a registered model by its id with the key stored for it', async () => {
+  it('checks a saved connection by its id with the key stored for it, and lists its models', async () => {
     const { dir } = await project(), store = new ProjectStore(dir), server = await modelServer(200, ['alpha']);
     const current = await store.read(), config = structuredClone(current.config);
-    config.models.push(buildModel({ id: 'm1', name: 'M1', kind: 'llm', provider: 'custom', modelId: 'alpha', baseURL: server.url, apiKeyEnv: 'RAWSTEP_MANAGE_TEST_KEY' }));
+    config.connections.push(connection('c1', { name: 'C1', kind: 'llm', baseURL: server.url, apiKeyEnv: 'RAWSTEP_MANAGE_TEST_KEY' }));
     await store.save(config, current.revision);
-    await store.setCredential(config.models[0]!, 'stored-key-456');
+    await store.setCredential(config.connections[0]!, 'stored-key-456');
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
-    expect(await (await call(app.url, 'POST', '/api/models/check', { id: 'm1' })).json()).toMatchObject({ ok: true, kind: 'ready' });
+    expect(await (await check(app.url, { connectionId: 'c1' })).json()).toMatchObject({ ok: true, kind: 'ready' });
     expect(server.requests[0]!.headers.authorization).toBe('Bearer stored-key-456');
-    expect((await call(app.url, 'POST', '/api/models/check', { id: 'ghost' })).status).toBe(404);
-    expect((await call(app.url, 'POST', '/api/models/check', { kind: 'llm', provider: 'typesafe', modelId: 'x' })).status).toBe(400);
-    expect((await call(app.url, 'POST', '/api/models/check', { kind: 'llm', provider: 'custom', modelId: 'x' })).status).toBe(400);
+    expect(await (await check(app.url, { connectionId: 'c1', modelId: 'missing-model' })).json()).toMatchObject({ ok: false, kind: 'model-not-listed' });
+    const models = await (await call(app.url, 'POST', '/api/connections/models', { connectionId: 'c1' })).json() as DiscoveredModel[];
+    expect(models).toEqual([{ modelId: 'alpha', name: 'alpha', inputs: ['text', 'image'], inputsKnown: false }]);
+    expect(server.requests.at(-1)!.headers.authorization).toBe('Bearer stored-key-456');
+    expect((await check(app.url, { connectionId: 'ghost' })).status).toBe(404);
+    expect((await call(app.url, 'POST', '/api/connections/models', { connectionId: 'ghost' })).status).toBe(404);
+    expect((await check(app.url, { kind: 'llm', provider: 'typesafe' })).status).toBe(400);
+    expect((await check(app.url, { kind: 'llm', provider: 'custom' })).status).toBe(400);
+    expect((await call(app.url, 'POST', '/api/connections/models', { kind: 'llm', provider: 'custom' })).status).toBe(400);
   });
 });
 

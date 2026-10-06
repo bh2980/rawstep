@@ -30,7 +30,8 @@ export type StepView = {
   /** Whether the backend accepted the action; undefined for the initial page and stops. */
   ok?: boolean;
   /** Screenshot after this step, served by GET .../png/:eventId. */
-  screenshot?: { eventId: string; sha256: string; /** The viewport in CSS pixels when it was taken; the focus box is in these units. */ viewport?: { w: number; h: number } };
+  /** What the screen showed. `reference`: a screen reader run's diagnostic screenshot, kept for people and never sent to the model (no hash). */
+  screenshot?: { eventId: string; sha256?: string; reference?: true; /** The viewport in CSS pixels when it was taken; the focus box is in these units. */ viewport?: { w: number; h: number } };
   /** Screen-reader speech collected after this step (simulated or native, see provenance). */
   speech?: { lines: string[]; provenance: 'native' | 'simulation' | 'unspecified' };
   model?: {
@@ -49,10 +50,16 @@ export type StepView = {
   redacted: boolean;
 };
 
+/**
+ * Something the page did that explains a run without being a step: a bot check page (Cloudflare and the like) or navigations the
+ * task's navigation range blocked. `hosts` are the distinct hosts involved, `count` how often it happened.
+ */
+export type RunNotice = { kind: 'bot-check' | 'navigation-blocked'; step: number; hosts: string[]; count: number };
 export type RunStepsView = {
   experimentId: string;
   runId: string;
   steps: StepView[];
+  notices: RunNotice[];
   /** Goal rules that already held before the first action (from verifier.baseline). */
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
   /** The run is still recording; more steps will arrive. */

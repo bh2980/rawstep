@@ -18,17 +18,20 @@ export function dotKind(step: Pick<StepView, 'step' | 'action' | 'stop' | 'obser
   return action.kind === 'intent' && action.intent && NAVIGATION_INTENTS.has(action.intent) ? 'move' : 'press';
 }
 
-/** Below this score a Decision model's pick is marked as low certainty. */
-export const UNSURE_BELOW = 0.5;
+/** The same rule as the model-hesitation hint: the runner-up scored at least this share of the chosen option. */
+export const UNSURE_RUNNER_UP_RATIO = 0.8;
 
 /**
- * Whether the model's chosen option scored under 0.5, for a Decision model. LLMs give no scores, so they are never unsure here;
- * a step without a recorded choice or score is not either.
+ * Whether a Decision model hesitated at this step: the runner-up scored close to its pick. A low score alone is not hesitation —
+ * scores are spread over every candidate, so 0.42 against 0.10 is a clear choice. LLMs give no scores, so they are never unsure here;
+ * a step without a recorded choice or scores is not either.
  */
 export function isUnsure(step: Pick<StepView, 'model'>, modelKind: ModelKind): boolean {
-  if (modelKind !== 'decision' || !step.model) return false;
-  const chosen = step.model.candidates?.find(candidate => candidate.id === step.model!.choiceId);
-  return chosen?.probability !== undefined && chosen.probability < UNSURE_BELOW;
+  if (modelKind !== 'decision' || !step.model?.candidates) return false;
+  const chosen = step.model.candidates.find(candidate => candidate.id === step.model!.choiceId)?.probability;
+  if (chosen === undefined || chosen <= 0) return false;
+  const runnerUp = Math.max(0, ...step.model.candidates.filter(candidate => candidate.id !== step.model!.choiceId).map(candidate => candidate.probability ?? 0));
+  return runnerUp >= chosen * UNSURE_RUNNER_UP_RATIO;
 }
 
 /**

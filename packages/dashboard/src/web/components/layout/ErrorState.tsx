@@ -37,6 +37,7 @@ export function ErrorState({ view, navigate, actions, alert, className }: Props)
     <p id={id} className={cn('text-xs font-semibold tracking-wide', tone[view.kind].label)}>{t(`errors.kinds.${view.kind}`)}</p>
     <p className="text-[15px] leading-6 font-semibold">{view.what}</p>
     <dl className="grid gap-x-4 gap-y-1 text-sm leading-6 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
+      {view.cause && <><dt className="text-muted-foreground">{t('errors.cause')}</dt><dd className="font-mono text-[13px] leading-5 break-words">{view.cause}</dd></>}
       {view.progress && <><dt className="text-muted-foreground">{t('errors.progress')}</dt><dd>{view.progress}</dd></>}
       <dt className="text-muted-foreground">{t('errors.next')}</dt>
       <dd>{view.next}{view.link && navigate && <> <Link to={view.link.to} navigate={navigate} className="whitespace-nowrap text-trace underline underline-offset-2">{view.link.label}</Link></>}</dd>

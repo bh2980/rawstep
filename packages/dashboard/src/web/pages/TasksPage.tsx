@@ -1,6 +1,6 @@
 import { taskUrl } from '../lib/taskJson';
 import { useMemo, useState } from 'react';
-import { FileInput, Play, Plus } from 'lucide-react';
+import { FileInput, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TaskSummary } from '../../shared/api';
 import { ErrorState } from '../components/layout/ErrorState';
@@ -8,6 +8,7 @@ import { EmptyState } from '../components/layout/EmptyState';
 import { FilterBar, FilterSearch, FilterSegments } from '../components/layout/FilterBar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
+import { RunModeButtons } from '../components/RunModeButtons';
 import { TaskImportDialog } from '../components/TaskImportDialog';
 import { ReachLine } from '../components/trace/ReachLine';
 import { RunStrip } from '../components/trace/RunStrip';
@@ -19,6 +20,7 @@ import { dataFailureView } from '../lib/errors';
 import { formatSteps } from '../lib/format';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { runStepCount, taskRunNumbers } from '../lib/runs';
+import type { RunOptions } from '../lib/quickRun';
 import type { ListProps } from './types';
 
 type Filter = 'all' | 'findings' | 'missed';
@@ -30,7 +32,7 @@ const cell = 'px-3 py-0 text-[13px]';
  * The route index (spec §14): one 40px line per task, to scan and compare. How often the goal was reached, the median and fastest action
  * counts, the last ten runs as a strip, how many page elements recur and the most repeated one. Detail is on the task page.
  */
-export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, onRunDefault }: ListProps & { onRunDefault: (taskId: string) => void }) {
+export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, onRun }: ListProps & { onRun: (taskId: string, options: RunOptions) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [filter, setFilter] = useState<Filter>('all'), [importing, setImporting] = useState(false);
   const { config, tasks } = pageProps.view, byTask = useMemo(() => new Map(summaries.map(row => [row.taskId, row])), [summaries]);
@@ -78,7 +80,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                 : <span className="text-muted-foreground">—</span>}</TableCell>
               <TableCell className={cell + ' max-w-56'}><Finding row={row} ran={ran} /></TableCell>
               <TableCell className={cell + ' text-right'}>
-                <Button variant="outline" size="sm" className="h-7" disabled={pageProps.busy} aria-label={t('taskList.runLabel', { name: task.name })} onClick={() => onRunDefault(task.id)}><Play aria-hidden="true" />{t('taskList.run')}</Button>
+                <RunModeButtons name={task.name} disabled={pageProps.busy} onRun={mode => onRun(task.id, { mode })} />
               </TableCell>
             </TableRow>;
           })}</TableBody>

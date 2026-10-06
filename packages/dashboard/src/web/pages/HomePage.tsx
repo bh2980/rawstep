@@ -11,7 +11,7 @@ import { SetupRail, type SetupStep } from '../components/SetupRail';
 import { RunStrip } from '../components/trace/RunStrip';
 import { Button } from '../components/ui/button';
 import { NEW_TASK } from '../hooks/useRoute';
-import { providerTextKey } from '../lib/modelSetup';
+import { profileModel } from '@rawstep/project/config';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { isFinished, isLive, runStepCount, taskRunNumbers, taskNameOf } from '../lib/runs';
 import type { ListProps } from './types';
@@ -25,10 +25,10 @@ const RECENT_TASKS = 3, RECENT_RUNS = 8;
 export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
   const { t } = useTranslation();
   const { config, tasks } = pageProps.view, byTask = useMemo(() => new Map(summaries.map(row => [row.taskId, row])), [summaries]);
-  const model = config.models[0], finished = runs.filter(ref => isFinished(ref.run)), live = runs.filter(ref => isLive(ref.run));
+  const ready = config.profiles.map(profile => profileModel(config, profile)).find(Boolean), finished = runs.filter(ref => isFinished(ref.run)), live = runs.filter(ref => isLive(ref.run));
   const hasRun = finished.length > 0;
   const steps: SetupStep[] = [
-    { id: 'model', done: config.models.length > 0, detail: model ? t('home.start.modelDone', { model: model.name, provider: t(`modelSetup.providers.${providerTextKey(model.kind, model.provider)}.name`) }) : t('home.start.modelTodo'), to: { view: 'settings', section: 'models' } },
+    { id: 'model', done: !!ready, detail: ready ? t('home.start.modelDone', { model: ready.name }) : config.connections.length ? t('home.start.modelPick') : t('home.start.modelTodo'), to: { view: config.connections.length ? 'profiles' : 'connections' } },
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('home.start.taskDone', { count: config.tasks.length }) : t('home.start.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: hasRun, detail: hasRun ? t('home.start.runDone', { count: finished.length }) : t('home.start.runTodo'), to: { view: 'tasks' } },
   ];
