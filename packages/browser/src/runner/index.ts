@@ -3,7 +3,7 @@ import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, isBotCheckPage, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
@@ -38,7 +38,7 @@ export type RunOptions = {
    */
   personCheck?: { userDataDir: string; timeoutMs?: number };
 };
-const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000;
+const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
@@ -153,32 +153,58 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     browser = await withinBudget(async () => {
       const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { userDataDir: options.personCheck.userDataDir } : {}), executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
-      try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
+      // A page opened bare for a human check gets its guards and the backend only after the check is passed.
+      if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
       return opened;
     });
     await withinBudget(() => browser!.page.bringToFront());
+    const taskOrigin = new URL(task.url).origin;
     /**
-     * While the page shows a human check, wait for the person to pass it in the visible window. The waiting is recorded and
-     * added back to the time budget; a check nobody passes in time ends the run as access-blocked.
+     * While the page shows a human check, wait for the person to pass it in the visible window. The check counts as passed only
+     * after it has been gone for PERSON_CHECK_CLEAR_MS in a row (a check page reloading with a new token is not a pass). A page that
+     * leaves for neither the task's site nor a check host, or a check nobody passes in time, ends the run as access-blocked. The
+     * waiting is recorded and added back to the time budget. On a page opened bare, the guards and the backend are attached only
+     * now, and a site that shows its check again once they are attached rejects this browser.
      */
     const waitForPerson = async (step: number) => {
-      if (!options.personCheck || !(await withinBudget(() => isBotCheckPage(browser!.page)))) return;
-      const started = Date.now(), limit = options.personCheck.timeoutMs ?? PERSON_CHECK_TIMEOUT_MS;
-      append('run.waiting-for-person', { step, reason: 'bot-check', timeoutMs: limit }, { source: 'runner' });
-      for (;;) {
-        if (evidenceFailure) throw evidenceFailure;
-        controller.signal.throwIfAborted();
-        await new Promise(resolve => setTimeout(resolve, PERSON_CHECK_POLL_MS));
-        if (!(await isBotCheckPage(browser!.page).catch(() => true))) break;
-        if (Date.now() - started > limit) {
-          append('run.person-check-timeout', { step, waitedMs: Date.now() - started }, { source: 'runner' });
-          throw new BrowserAccessBlockedError(browser!.page.url(), undefined, 'The human check was not passed in time; Rawstep does not answer checks itself.');
+      if (!options.personCheck) return;
+      const bare = !!browser!.armGuards;
+      let waited = false;
+      if (await withinBudget(() => isBotCheckPage(browser!.page))) {
+        waited = true;
+        const started = Date.now(), limit = options.personCheck.timeoutMs ?? PERSON_CHECK_TIMEOUT_MS;
+        append('run.waiting-for-person', { step, reason: 'bot-check', timeoutMs: limit }, { source: 'runner' });
+        let clearSince: number | undefined;
+        for (;;) {
+          if (evidenceFailure) throw evidenceFailure;
+          controller.signal.throwIfAborted();
+          await new Promise(resolve => setTimeout(resolve, PERSON_CHECK_POLL_MS));
+          const at = browser!.page.url();
+          if (/^https?:/.test(at) && new URL(at).origin !== taskOrigin && !isBotCheckUrl(at)) {
+            append('run.person-check-left', { step, host: new URL(at).host }, { source: 'runner' });
+            throw new BrowserAccessBlockedError(at, undefined, 'The human check sent the page away from the task site; Rawstep does not follow it.');
+          }
+          if (await isBotCheckPage(browser!.page).catch(() => true)) clearSince = undefined;
+          else if ((clearSince ??= Date.now()) <= Date.now() - PERSON_CHECK_CLEAR_MS) break;
+          if (Date.now() - started > limit) {
+            append('run.person-check-timeout', { step, waitedMs: Date.now() - started }, { source: 'runner' });
+            throw new BrowserAccessBlockedError(at, undefined, 'The human check was not passed in time; Rawstep does not answer checks itself.');
+          }
         }
+        const waitedMs = Date.now() - started;
+        deadline += waitedMs;
+        append('run.person-resumed', { step, waitedMs }, { source: 'runner' });
       }
-      const waitedMs = Date.now() - started;
-      deadline += waitedMs;
-      await withinBudget(() => settlePage(browser!.page));
-      append('run.person-resumed', { step, waitedMs }, { source: 'runner' });
+      if (bare) {
+        await withinBudget(() => browser!.armGuards!());
+        if (await withinBudget(() => isBotCheckPage(browser!.page))) {
+          append('run.person-check-rejected', { step }, { source: 'runner' });
+          throw new BrowserAccessBlockedError(browser!.page.url(), undefined, 'The site showed its human check again once Rawstep attached to the page; it rejects this browser.');
+        }
+        await withinBudget(() => options.backend.attachSession?.(browser!));
+        append('run.guards-armed', { step }, { source: 'runner' });
+      }
+      if (bare || waited) await withinBudget(() => settlePage(browser!.page));
     };
     await waitForPerson(0);
     // Keys must reach the page, not browser UI or another window. A real user starts on the document with nothing focused

@@ -74,6 +74,11 @@ export type BrowserSession = {
   takeBlockedNavigations(): BlockedNavigationRecord[];
   takeNavigationGuardWarnings(): NavigationGuardWarningRecord[];
   close(): Promise<void>;
+  /**
+   * Present while a person may still be passing a human check: the page was opened bare, with nothing attached. Arming installs
+   * the observer, profile, routing and navigation guards and reloads the start address; it removes itself once called.
+   */
+  armGuards?: () => Promise<void>;
 };
 
 export class BrowserAccessBlockedError extends RawstepError {
@@ -188,7 +193,6 @@ export async function createBrowserSession(
   const browser = persistent ? undefined : await launchChromium(launch, options.executablePath);
   const closeBrowser = async () => { await (persistent ?? browser)!.close(); };
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
-  const pageLoadStartedAt = Date.now();
   const blockedNavigations: BlockedNavigationRecord[] = [];
   const navigationGuardWarnings: NavigationGuardWarningRecord[] = [];
   let stopNavigationGuard = () => {};
@@ -198,9 +202,6 @@ export async function createBrowserSession(
     // A persistent profile opens with a tab of its own; use it, and close any others it restored.
     const page = persistent ? persistent.pages()[0] ?? await persistent.newPage() : await context.newPage();
     if (persistent) for (const extra of persistent.pages().filter(other => other !== page)) await extra.close().catch(() => undefined);
-    if (options.profile) await installProfileStyles(page, options.profile);
-    // Before the first navigation, so the initial document is observed too.
-    observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
     const network: NetworkLog = {
       requests: [],
       responses: []
@@ -225,13 +226,6 @@ export async function createBrowserSession(
       });
     });
 
-    await installDomEventRecorder(page, {
-      verify: options.verify,
-      onDomEvent: (event) => {
-        domEvents.push(event);
-      }
-    });
-
     const navigationPolicy = options.navigation ?? DEFAULT_NAVIGATION_POLICY;
     const allowedOrigin = getAllowedOrigin(url);
     const startUrlPrefix = stripHash(url);
@@ -249,96 +243,11 @@ export async function createBrowserSession(
       navigationGuardWarnings.push(warning);
     };
 
-    {
-      await context.route("**/*", async (route) => {
-        const request = route.request();
-        if (options.navigation?.readOnly && !['GET','HEAD','OPTIONS'].includes(request.method())) {
-          recordBlockedNavigation(request.url(), `Read-only run blocked ${request.method()} request before transmission.`); await route.abort('blockedbyclient'); return;
-        }
-        if (matchesDeniedUrl(request.url(), options.navigation?.denyUrlIncludes ?? [])) {
-          recordBlockedNavigation(request.url(), 'Request URL matches an explicitly excluded flow.'); await route.abort('blockedbyclient'); return;
-        }
-        if (!request.isNavigationRequest()) {
-          await route.continue();
-          return;
-        }
-        let frame;
-        try { frame = request.frame(); }
-        catch {
-          recordBlockedNavigation(request.url(), "Navigation has no verifiable frame; blocked before sending.");
-          await route.abort("aborted");
-          return;
-        }
-        // Block the first popup request before it leaves the browser, not only after page creation.
-        if (frame.page() !== page) {
-          recordBlockedNavigation(request.url(), getPopupBlockReason(request.url()));
-          await route.abort("aborted");
-          return;
-        }
-        if (frame !== page.mainFrame()) {
-          await route.continue();
-          return;
-        }
-
-        const reason = getNavigationBlockReason(request.url(), {
-          allowedOrigin,
-          startUrlPrefix,
-          policy: navigationPolicy,
-          allowBotChecks: !!options.userDataDir
-        });
-        if (!reason) {
-          // The independent native boundary below checks every redirect hop.
-          // Preserve Chromium's real navigation rather than fetching/fulfilling.
-          await route.continue();
-          return;
-        }
-
-        recordBlockedNavigation(request.url(), reason);
-        await route.abort("aborted");
-      });
-
-      stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
-        blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
-          allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: !!options.userDataDir
-        }),
-        onBlocked: recordBlockedNavigation,
-        onFailure: (error) => {
-          recordBlockedNavigation(page.url(), "Navigation guard failed; the browser context was closed to prevent unguarded navigation.");
-          recordNavigationGuardWarning(createNavigationGuardInstallWarning("CDP", "Native navigation interception failed.", error));
-        }
-      });
-
-      // A person passing a human check needs the site's scripts untouched: the checks inspect window.location and fail when its
-      // methods are wrapped. The native (CDP) boundary above still guards every navigation, so only this in-page layer is left out.
-      if (!options.userDataDir) await installDocumentNavigationGuard(page, {
-        allowedOrigin,
-        startUrlPrefix,
-        policy: navigationPolicy,
-        allowBotChecks: !!options.userDataDir,
-        onBlockedNavigation: recordBlockedNavigation,
-        onInstallWarning: recordNavigationGuardWarning
-      });
-    }
-
-    context.on("page", (opened) => {
-      if (opened === page) return;
-      recordBlockedNavigation(opened.url(), getPopupBlockReason(opened.url()));
-      void opened.close().catch(() => undefined);
-    });
-    const initialResponse=await page.goto(url, { waitUntil: "load" });
-    if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
-    await waitForNetworkIdleBestEffort(page);
-    if(options.navigation?.readOnly && !options.userDataDir){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
-    const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
-    const pageLoadMs = Date.now() - pageLoadStartedAt;
-
-    return {
+    const session: BrowserSession = {
       ...(browser ? { browser } : {}),
-      ...(appliedProfile ? { appliedProfile } : {}),
       context,
       page,
       network,
-      ...(observer ? { observer } : {}),
       domEvents,
       navigation: {
         policy: navigationPolicy,
@@ -349,7 +258,7 @@ export async function createBrowserSession(
       },
       setupTimings: {
         browserLaunchMs,
-        pageLoadMs
+        pageLoadMs: 0
       },
       takeBlockedNavigations: () => blockedNavigations.splice(0, blockedNavigations.length),
       takeNavigationGuardWarnings: () => navigationGuardWarnings.splice(0, navigationGuardWarnings.length),
@@ -363,13 +272,126 @@ export async function createBrowserSession(
         }
       }
     };
+
+    /**
+     * Everything Rawstep attaches to the page — profile styles, the observer, the DOM event recorder, request routing and the
+     * native and in-page navigation guards — and then the start address, so the first document is observed and guarded.
+     */
+    const arm = async () => {
+      if (options.profile) await installProfileStyles(page, options.profile);
+      // Before the first navigation, so the initial document is observed too.
+      observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
+      await installDomEventRecorder(page, {
+        verify: options.verify,
+        onDomEvent: (event) => {
+          domEvents.push(event);
+        }
+      });
+      {
+        await context.route("**/*", async (route) => {
+          const request = route.request();
+          if (options.navigation?.readOnly && !['GET','HEAD','OPTIONS'].includes(request.method())) {
+            recordBlockedNavigation(request.url(), `Read-only run blocked ${request.method()} request before transmission.`); await route.abort('blockedbyclient'); return;
+          }
+          if (matchesDeniedUrl(request.url(), options.navigation?.denyUrlIncludes ?? [])) {
+            recordBlockedNavigation(request.url(), 'Request URL matches an explicitly excluded flow.'); await route.abort('blockedbyclient'); return;
+          }
+          if (!request.isNavigationRequest()) {
+            await route.continue();
+            return;
+          }
+          let frame;
+          try { frame = request.frame(); }
+          catch {
+            recordBlockedNavigation(request.url(), "Navigation has no verifiable frame; blocked before sending.");
+            await route.abort("aborted");
+            return;
+          }
+          // Block the first popup request before it leaves the browser, not only after page creation.
+          if (frame.page() !== page) {
+            recordBlockedNavigation(request.url(), getPopupBlockReason(request.url()));
+            await route.abort("aborted");
+            return;
+          }
+          if (frame !== page.mainFrame()) {
+            await route.continue();
+            return;
+          }
+
+          const reason = getNavigationBlockReason(request.url(), {
+            allowedOrigin,
+            startUrlPrefix,
+            policy: navigationPolicy,
+            allowBotChecks: !!options.userDataDir
+          });
+          if (!reason) {
+            // The independent native boundary below checks every redirect hop.
+            // Preserve Chromium's real navigation rather than fetching/fulfilling.
+            await route.continue();
+            return;
+          }
+
+          recordBlockedNavigation(request.url(), reason);
+          await route.abort("aborted");
+        });
+
+        stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
+          blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
+            allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: !!options.userDataDir
+          }),
+          onBlocked: recordBlockedNavigation,
+          onFailure: (error) => {
+            recordBlockedNavigation(page.url(), "Navigation guard failed; the browser context was closed to prevent unguarded navigation.");
+            recordNavigationGuardWarning(createNavigationGuardInstallWarning("CDP", "Native navigation interception failed.", error));
+          }
+        });
+
+        await installDocumentNavigationGuard(page, {
+          allowedOrigin,
+          startUrlPrefix,
+          policy: navigationPolicy,
+          allowBotChecks: !!options.userDataDir,
+          onBlockedNavigation: recordBlockedNavigation,
+          onInstallWarning: recordNavigationGuardWarning
+        });
+      }
+
+      context.on("page", (opened) => {
+        if (opened === page) return;
+        recordBlockedNavigation(opened.url(), getPopupBlockReason(opened.url()));
+        void opened.close().catch(() => undefined);
+      });
+      const pageLoadStartedAt = Date.now();
+      const initialResponse=await page.goto(url, { waitUntil: "load" });
+      if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
+      await waitForNetworkIdleBestEffort(page);
+      if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
+      const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
+      if (appliedProfile) session.appliedProfile = appliedProfile;
+      if (observer) session.observer = observer;
+      session.setupTimings!.pageLoadMs = Date.now() - pageLoadStartedAt;
+    };
+
+    // A person passing a human check gets the bare page: nothing is attached until the check is gone, and arming then reloads
+    // the start address with every guard in place. Nothing is hidden and no check is answered.
+    if (options.userDataDir) {
+      await page.goto(url, { waitUntil: "load" });
+      await waitForNetworkIdleBestEffort(page);
+      session.armGuards = async () => { delete session.armGuards; try { await arm(); } catch (error) { throw await setupFailed(error); } };
+      return session;
+    }
+    await arm();
+    return session;
   } catch (error) {
+    throw await setupFailed(error);
+  }
+  async function setupFailed(error: unknown): Promise<BrowserSetupError> {
     stopNavigationGuard();
     await closeBrowser().catch(() => undefined);
     // Preserve an explicit access barrier even if its challenge page also attempted
     // a blocked POST. A secondary request must not hide the actual HTTP barrier.
     const message = error instanceof BrowserAccessBlockedError ? error.message : blockedNavigations.at(-1)?.reason ?? (error instanceof Error ? error.message : String(error));
-    throw new BrowserSetupError(message, blockedNavigations, navigationGuardWarnings, error);
+    return new BrowserSetupError(message, blockedNavigations, navigationGuardWarnings, error);
   }
 }
 

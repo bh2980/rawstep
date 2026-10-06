@@ -56,7 +56,9 @@ export type StepView = {
  */
 export type RunNotice = { kind: 'bot-check' | 'navigation-blocked'; step: number; hosts: string[]; count: number }
   /** A person passed a human check; `waitedMs` is how long, taken out of the run's time budget. */
-  | { kind: 'person-check'; step: number; waitedMs: number; hosts: string[]; count: number };
+  | { kind: 'person-check'; step: number; waitedMs: number; hosts: string[]; count: number }
+  /** The check sent the page to another site (`hosts`), or showed itself again once Rawstep attached: the site rejects this browser. */
+  | { kind: 'person-check-left' | 'person-check-rejected'; step: number; hosts: string[]; count: number };
 /**
  * What an LLM wrote about a finished run: a summary and hypotheses, each pointing at the steps of the events it cites. Never a verdict;
  * absent when the run profile has no LLM for this.

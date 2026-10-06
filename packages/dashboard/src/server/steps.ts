@@ -38,6 +38,10 @@ function noticesOf(events: readonly TraceEvent[]): RunNotice[] {
     if (event.type === 'policy.decision' && typeof data.step === 'number') step = data.step;
     if (event.type === 'browser.navigation-blocked') note(isBotCheck(data.url) ? 'bot-check' : 'navigation-blocked', data.url);
     else if (event.type === 'observer.navigation' && isBotCheck(data.url)) note('bot-check', data.url);
+    else if (event.type === 'run.person-check-left' || event.type === 'run.person-check-rejected') {
+      const kind = event.type === 'run.person-check-left' ? 'person-check-left' : 'person-check-rejected';
+      found.set(kind, { kind, step: typeof data.step === 'number' ? data.step : step, hosts: typeof data.host === 'string' ? [data.host] : [], count: 1 });
+    }
     else if (event.type === 'run.person-resumed' && typeof data.waitedMs === 'number') {
       const notice = found.get('person-check') as Extract<RunNotice, { kind: 'person-check' }> | undefined;
       if (notice) { notice.waitedMs += data.waitedMs; notice.count++; } else found.set('person-check', { kind: 'person-check', step: typeof data.step === 'number' ? data.step : step, waitedMs: data.waitedMs, hosts: [], count: 1 });

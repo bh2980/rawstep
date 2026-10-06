@@ -134,7 +134,7 @@ export const settings = {
     backendHintSimulation: '화면 구조로 스크린리더 출력을 흉내 냅니다. 실제 스크린리더의 음성 결과가 아닙니다.',
     backendHintNative: '실제 스크린리더를 AT Driver로 제어합니다. 스크린리더와 AT Driver 서버가 먼저 실행 중이어야 하며, 시뮬레이션 결과를 실제 검증으로 표시하지 않습니다.',
     personCheck: '봇 확인은 사람이 통과',
-    personCheckHint: '실제 사이트처럼 Cloudflare 등의 봇 확인이 있는 곳에서 씁니다. 실행할 때 설치된 Chrome 창을 띄우고(프로필은 .rawstep/browser-profile에 유지), 봇 확인이 나오면 사람이 그 창에서 통과할 때까지 기다렸다가 이어서 실행합니다. Rawstep이 확인을 대신 풀지는 않으며, 통과 기록이 프로필에 남아 다음 실행부터는 보통 다시 묻지 않습니다.',
+    personCheckHint: '실제 사이트처럼 Cloudflare 등의 봇 확인이 있는 곳에서 씁니다. 설치된 Chrome 창을 띄우고(프로필은 .rawstep/browser-profile에 유지) 시작 주소만 엽니다. 확인이 나오면 사람이 그 창에서 통과할 때까지 Rawstep은 페이지에 아무것도 붙이지 않고 기다리며, 확인이 3초 이상 사라지면 기록 장치를 붙이고 모델을 시작합니다. 확인을 대신 풀거나 자동화 표시를 숨기지는 않으므로, 그 뒤에도 사이트가 확인을 다시 띄우면 실행은 접근 차단으로 끝납니다.',
     atEndpoint: 'AT Driver 주소',
     atEndpointHint: '비워 두면 선택한 스크린리더 서버의 기본 주소를 씁니다.',
     atCommand: 'AT Driver 서버 실행 명령',

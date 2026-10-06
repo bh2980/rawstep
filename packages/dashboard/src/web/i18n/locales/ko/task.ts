@@ -235,7 +235,7 @@ export const taskUi = {
     screenOpen: '행동 {{n}} 화면을 새 탭에서 크게 보기',
     screenLive: '현재 화면 (실시간)',
     waitingForPerson: '봇 확인 화면이 떴습니다. 열린 브라우저 창에서 직접 통과해 주세요.',
-    waitingForPersonNote: '통과하면 실행이 자동으로 이어집니다. 기다리는 시간은 실행 시간 제한에 넣지 않으며, 5분 안에 통과하지 않으면 실행을 끝냅니다.',
+    waitingForPersonNote: '확인이 3초 이상 사라지면 실행이 자동으로 이어집니다. 그동안 Rawstep은 페이지에 아무것도 붙이지 않고, 기다리는 시간은 실행 시간 제한에 넣지 않습니다. 5분 안에 통과하지 않으면 실행을 끝냅니다.',
     modelHintNote: '이 항목은 페이지 문제라고 단정할 수 없습니다. 모델이 반복하거나 확신이 낮았던 위치입니다.',
     rawLoading: '불러오는 중…',
     rawDescription: '이 행동에 속한 기록 {{count}}개입니다.',

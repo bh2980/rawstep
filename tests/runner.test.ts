@@ -53,6 +53,46 @@ describe('human checks passed by a person',()=>{
     expect(trace.events.some(e=>e.type==='run.waiting-for-person')).toBe(true);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
+  // A page whose state follows a timeline of [from ms, state]: 'check', 'site' or a URL it left for.
+  const scripted=(f:ReturnType<typeof fixture>,timeline:[number,string][],bare=true)=>{
+    const started=Date.now();const now=()=>[...timeline].reverse().find(([at])=>Date.now()-started>=at)![1];const order:string[]=[];
+    const inPage=f.browser.page.evaluate;
+    Object.assign(f.browser.page,{url:()=>{const st=now();return st==='check'?'https://example.com/task?__cf_chl_rt_tk=x':st==='site'?'https://example.com/task':st;},frames:()=>[],mainFrame:()=>undefined,
+      title:async()=>now()==='check'?'Just a moment...':'Shop',waitForLoadState:async()=>{},
+      evaluate:vi.fn(async(fn:unknown,...rest:unknown[])=>String(fn).includes('challenge-platform')?false:(inPage as any)(fn,...rest))});
+    if(bare)(f.browser as any).armGuards=vi.fn(async()=>{order.push('arm');delete (f.browser as any).armGuards;});
+    (f.backend as any).attachSession=vi.fn(async()=>{order.push('attach');});
+    return order;
+  };
+  it('opens the page bare and arms guards, then the backend, only after the check has been gone for three seconds',async()=>{
+    const f=fixture();const order=scripted(f,[[0,'check'],[1500,'site']]);
+    const trace=await runTask({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(order).toEqual(['arm','attach']);
+    const types=trace.events.map(e=>e.type);
+    expect(types.indexOf('run.person-resumed')).toBeLessThan(types.indexOf('run.guards-armed'));
+    expect(trace.events.find(e=>e.type==='run.person-resumed')?.data).toMatchObject({step:0});
+    expect((trace.events.find(e=>e.type==='run.person-resumed')!.data as any).waitedMs).toBeGreaterThanOrEqual(3000);
+    expect(trace.outcome?.status).toBe('success');
+  });
+  it('does not take a check page that reloads with a new token for a pass',async()=>{
+    const f=fixture();const order=scripted(f,[[0,'check'],[1000,'site'],[2500,'check'],[3500,'site'],[5000,'check']]);
+    const trace=await runTask({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:6000},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(order).toEqual([]);expect(trace.events.some(e=>e.type==='run.person-resumed')).toBe(false);
+    expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
+  });
+  it('ends as access-blocked when the check sends the page to another site, without arming anything',async()=>{
+    const f=fixture();const order=scripted(f,[[0,'check'],[1500,'https://example.org/']]);
+    const trace=await runTask({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(order).toEqual([]);expect(trace.events.find(e=>e.type==='run.person-check-left')?.data).toMatchObject({host:'example.org'});
+    expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
+  });
+  it('ends as access-blocked when the site shows its check again once guards are attached',async()=>{
+    const f=fixture();const order=scripted(f,[[0,'site']]);
+    (f.browser as any).armGuards=vi.fn(async()=>{order.push('arm');delete (f.browser as any).armGuards;Object.assign(f.browser.page,{url:()=>'https://example.com/task?__cf_chl_rt_tk=y'});});
+    const trace=await runTask({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(order).toEqual(['arm']);expect(trace.events.some(e=>e.type==='run.person-check-rejected')).toBe(true);
+    expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
+  });
   it('does not look for checks without the setting',async()=>{
     const f=fixture();checking(f,1000);
     const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
