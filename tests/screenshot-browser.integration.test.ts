@@ -8,7 +8,8 @@ import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { DecisionClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
 import { renderReportHtml } from '@rawstep/reports/report';
 import { analyzeTrace } from '@rawstep/reports/analyze';
-import { TraceRecorder } from '@rawstep/core/trace';
+// The runner comes from the bundled rawstep, so the spied recorder must be that copy too.
+import { TraceRecorder } from 'rawstep/trace';
 import { createTestBrowserSession } from './helpers/browser.js';
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const fn of cleanup.splice(0).reverse()) await fn(); });

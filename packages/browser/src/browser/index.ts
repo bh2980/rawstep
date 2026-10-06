@@ -76,10 +76,12 @@ export type BrowserSession = {
 };
 
 export class BrowserAccessBlockedError extends RawstepError {
+  static override readonly errorName = 'BrowserAccessBlockedError';
   constructor(readonly url:string,readonly status:number|undefined,reason:string){super('access-blocked',reason,{outcome:{status:'inconclusive',reason:'access-blocked'}});this.name='BrowserAccessBlockedError';}
 }
 
 export class BrowserSetupError extends RawstepError {
+  static override readonly errorName = 'BrowserSetupError';
   constructor(message: string, readonly blockedNavigations: BlockedNavigationRecord[], readonly warnings: NavigationGuardWarningRecord[], cause: unknown) {
     super("browser-setup", message, { cause });
     this.name = "BrowserSetupError";
