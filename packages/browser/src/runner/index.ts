@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { describeInputs, resolveTask, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
+import { describeInputs, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
@@ -323,7 +323,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       stage = 'policy';
       const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
       for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
-        append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.' } : { step, evidence }, { source: 'policy', redacted: inputTainted });
+        append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
       }
       try { validateDecision(decision, allowedActions); }
       catch (error) {
@@ -336,7 +336,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         const verification = await verify(step);
         outcome = verification.passed ? { status: 'success', reason: 'verified', policyStop: decision.stop } : { status: 'failure', reason: decision.stop === 'success' ? 'verification-failed' : decision.stop === 'uncertain' ? 'policy-uncertain' : 'policy-stuck' };
         if (!verification.passed && decision.stop === 'uncertain') outcome.status = 'inconclusive';
-        if (decision.stopSource === 'model' || decision.stopSource === 'exploration-guard') outcome.policyStopSource = decision.stopSource;
+        if (decision.stopSource && STOP_SOURCES.includes(decision.stopSource)) outcome.policyStopSource = decision.stopSource;
         history.push({ step, decision, observation });
         break;
       }
@@ -459,6 +459,23 @@ export function validateDecision(decision: unknown, allowed: AllowedActions): as
   throw new Error('Policy action is not allowed by the task and backend capabilities.');
 }
 function isActivation(action: PolicyAction): boolean { return (action.kind === 'intent' && action.intent === 'activate') || (action.kind === 'key' && ['Enter','Space'].includes(action.key)); }
+const SAFE_TOKEN = /^[A-Za-z0-9._:-]{1,64}$/;
+/**
+ * What survives of policy evidence after a secret was typed: the evidence kind, role, plan bookkeeping (versions, task ids and
+ * statuses, triggers, counts) and the chosen candidate id — opaque tokens and numbers only, never plan wording or speech.
+ */
+function evidenceSummary(evidence: unknown): Record<string, unknown> {
+  if (!evidence || typeof evidence !== 'object') return {};
+  const source = evidence as Record<string, unknown>, out: Record<string, unknown> = {};
+  for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
+  for (const key of ['version', 'planVersion', 'replans', 'maxReplans', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
+  const ending = source.ending;
+  if (ending && typeof ending === 'object') {
+    const e = ending as Record<string, unknown>;
+    out.ending = Object.fromEntries(Object.entries({ reason: e.reason, step: e.step, verified: e.verified }).filter(([, v]) => typeof v === 'number' || (typeof v === 'string' && SAFE_TOKEN.test(v))));
+  }
+  return out;
+}
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 async function isEditable(browser: BrowserSession): Promise<boolean> {
   return browser.page.evaluate(() => {

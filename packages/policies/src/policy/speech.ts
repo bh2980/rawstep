@@ -77,7 +77,7 @@ export class SpeechDecisionPolicy implements DecisionPolicy {
     }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (!choices.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
-    this.evidence.push({ kind: 'model-inference', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
+    this.evidence.push({ kind: 'model-inference', role: 'executor', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
       observationSource: input.observation.provenance === 'simulation' ? 'simulated-speech-only' : 'screen-reader-output-only',
       choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}),
       noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });

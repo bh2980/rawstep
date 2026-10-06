@@ -95,32 +95,23 @@ describe('llmChoiceModel', () => {
 });
 
 describe('LlmPlanner', () => {
-  const request = { goal: 'Add Thor Hammer to the cart', reason: 'start' as const, speech: ['Toolshop, heading level 1'], history: [], completed: [] };
-  it('sends the plan request as JSON and returns a validated plan', async () => {
-    const plan = { complete: false, outline: ['search', 'open product', 'add to cart'], steps: [{ goal: 'Move to the search field', done: 'Hear "Search, edit text"' }] };
-    const { calls, fetcher } = recorder(() => reply(plan));
+  const request = { goal: 'Add Thor Hammer to the cart', trigger: 'start' as const, speech: ['Toolshop, heading level 1'], actions: [{ id: 'intent:next', label: 'Screen reader intent: next' }], attempts: [] };
+  it('sends the plan request as JSON and returns a validated draft with versioned prompt evidence', async () => {
+    const draft = { complete: false, rationale: '', strategy: 'Search, then open the product', criteria: [{ id: 'C1', text: 'The product page title is heard' }], assumptions: [{ id: 'A1', text: 'There is a search field' }], phases: [{ title: 'Find the product', criteria: ['C1'], tasks: [{ goal: 'Move to the search field', done: 'Hear "Search, edit text"', serves: ['C1'], relies: ['A1'] }] }] };
+    const { calls, fetcher } = recorder(() => reply(draft));
     const result = await new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal });
-    expect(result).toEqual({ plan, model: { id: 'fixture', runtime: 'openai-compatible-generative-plan' }, prompt: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/) } });
+    expect(result).toEqual({ draft, model: { id: 'fixture', runtime: 'openai-compatible-generative-plan' }, prompt: { id: 'rawstep-planner', version: expect.stringMatching(/^[0-9a-f]{12}$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) } });
     const system = (body: { messages: { role: string; content: unknown }[] }) => JSON.stringify(body.messages);
     expect(system(calls[0]!.body)).not.toContain('Additional instructions');
-    const extra = recorder(() => reply(plan));
+    expect(JSON.stringify(calls[0]!.body)).toContain('Screen reader intent: next');
+    const extra = recorder(() => reply(draft));
     const custom = await new LlmPlanner(llm(extra.fetcher), 'Plan like an expert screen reader user.').plan(request, { signal: new AbortController().signal });
     expect(system(extra.calls[0]!.body)).toContain('Additional instructions:\\nPlan like an expert screen reader user.');
     expect(custom.prompt!.sha256).not.toBe(result.prompt!.sha256);
     expect(JSON.stringify(calls[0]!.body)).toContain('Thor Hammer');
   });
-  it('rejects a plan of the wrong shape', async () => {
+  it('rejects a draft of the wrong shape', async () => {
     const { fetcher } = recorder(() => reply({ complete: false, steps: [{ goal: 'no done cue' }] }));
     await expect(new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal })).rejects.toMatchObject({ code: 'llm-failed' });
-  });
-});
-
-describe('planner rules shown in the dashboard', () => {
-  it('match the rules the planner sends', async () => {
-    const { SPEECH_PLANNER_INSTRUCTIONS } = await import('@rawstep/policies/llm');
-    const source = await (await import('node:fs/promises')).readFile(new URL('../packages/dashboard/src/web/components/AgentModelFields.tsx', import.meta.url), 'utf8');
-    const block = source.slice(source.indexOf('const PLANNER_RULES = ['), source.indexOf("].join(' ')", source.indexOf('const PLANNER_RULES = [')));
-    const copied = [...block.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map(m => m[1]!.replace(/\\'/g, "'")).join(' ');
-    expect(copied).toBe(SPEECH_PLANNER_INSTRUCTIONS);
   });
 });

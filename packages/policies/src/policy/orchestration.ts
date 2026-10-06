@@ -1,79 +1,85 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import type { Decision, DecisionPolicy } from '@rawstep/core/contracts';
-import type { ChoiceModel } from './choice.js';
+import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
+import type { ChoiceCandidate, ChoiceModel } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
+import { applyDraft, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, verifyCue,
+  type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
-/** One small step the executor works on: what to do and what it hears when the step is done. */
-export type PlanStep = { goal: string; done: string };
-/**
- * A planner's answer. `outline` is the rough route from common UI conventions: expectations, not facts about this page.
- * `complete` says the goal already appears done, so the run stops and the independent verifier decides.
- */
-export type Plan = { outline: string[]; steps: PlanStep[]; complete: boolean };
-/** Why the planner was called: the first plan, or what went wrong with the current one. */
-export type PlanReason = 'start' | 'help' | 'failures' | 'no-change' | 'step-limit' | 'plan-finished';
+/** One past action as the planner reads it: the task it belonged to and what happened. */
+export type TaskAttempt = ModelHistoryEntry & { taskId: string; planVersion: number };
 export type PlanRequest = {
   goal: string;
-  reason: PlanReason;
+  trigger: PlanTrigger;
+  /** Why the executor asked for help, when it did. */
+  help?: HelpReason;
   /** What the screen reader says now. */
   speech: string[];
-  /** Recent steps with their results, as the executor sees them. */
-  history: ModelHistoryEntry[];
-  /** Small steps already finished, oldest first. */
-  completed: string[];
-  /** The plan being replaced and the step that was in progress. */
-  previous?: { plan: Plan; step: number };
+  /** What the executor can actually do: action candidates and named inputs (secret values never included). */
+  actions: ChoiceCandidate[];
+  /** The plan so far: statuses, completion checks and revision history. Absent for the first plan. */
+  document?: PlanDocument;
+  /** Every action taken under a plan so far, with the task it served and its result. */
+  attempts: TaskAttempt[];
 };
-/** `prompt.sha256` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
-export type PlanResult = { plan: Plan; model: { id: string; runtime: string }; prompt?: { sha256: string } };
-/** Makes and revises plans. Called a few times per run, so it can be a slower model than the executor. */
+/** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
+export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string } };
+/** Drafts and revises the plan document. Called a few times per run, so it can be a slower model than the executor. */
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
 }
 
 export type OrchestrationOptions = SpeechPolicyOptions & {
-  /** New plans after the first one before the run stops as stuck (default 4). */
+  /** New plans after the first before the run stops (default 4). */
   maxReplans?: number;
-  /** Actions on one small step before asking for a new plan (default 12). */
+  /** Actions on one task before a new plan is requested (default 12). */
   stepActionLimit?: number;
-  /** Failed actions in a row before asking for a new plan (default 2). */
+  /** Failed actions in a row on one task before a new plan is requested (default 2). */
   failureLimit?: number;
-  /** Actions in a row that changed nothing before asking for a new plan (default 3). */
+  /** Actions in a row on one task that changed nothing before a new plan is requested (default 3). */
   noChangeLimit?: number;
-  /** Past steps the planner sees (default 30). */
+  /** Past actions the planner sees (default 60). */
   plannerHistoryLimit?: number;
 };
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 30, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit };
-/** Executor calls in one runner step at most: finishing steps or replanning never loops without an action. */
+const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit };
+/** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
-const STEP_DONE = 'step:done', STEP_HELP = 'step:help';
+const TASK_DONE = 'task:done';
+const HELP: Record<HelpReason, string> = {
+  'no-cue': 'Ask for a new plan: the completion cue of the current task cannot be found',
+  'no-effect': 'Ask for a new plan: actions have no effect here',
+  'already-done': 'Ask for a new plan: the current task already looks done, or the page is not what the plan expected',
+};
 
-/** Added to the executor's prompt: how to read the current step and when to use the two plan choices. */
-export const ORCHESTRATED_EXECUTOR_GUIDE = 'You carry out one small step of a plan at a time: work toward currentStep.goal while keeping the overall goal in mind. ' +
-  'Choose "Current step done" only when the speech or history shows currentStep.done. Choose "Ask for a new plan" when the available actions cannot achieve the step. ' +
-  'Each history entry says whether the action ran (execution.ok) and whether the speech changed afterwards (changed).';
+/** Added to the executor's prompt: how to read the plan and when to use the task choices. */
+export const ORCHESTRATED_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: work toward currentTask.goal while keeping the overall goal in mind; plan shows where the run is. ' +
+  'Choose "Current task done" only when the speech shows currentTask.done. Choose an "Ask for a new plan" option, with the matching reason, when the task cannot be done with the available actions. ' +
+  'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
 /** The run's prompt with the executor guide appended; a new ID keeps its evidence apart from the plain prompt's. */
 export function orchestratedPrompt<P extends { id: string; version: string; instructions: string }>(prompt: P): P {
   return { ...prompt, id: `${prompt.id}.orchestrated`.slice(0, 128), instructions: `${prompt.instructions}\n${ORCHESTRATED_EXECUTOR_GUIDE}` };
 }
 
+type Input = Parameters<DecisionPolicy['decide']>[0];
+
 /**
- * Screen reader decisions split between a planner and a fast executor. The planner (an LLM, called rarely) gives a rough
- * plan and small steps; the executor (a decision model, called every step) works on the current step only and may say the
- * step is done or ask for help. Rawstep also asks for a new plan when actions keep failing, change nothing, or a step runs
- * long. Every plan, finished step and replan is policy evidence: where the executor needed help is where the page was hard.
+ * Screen reader decisions split between a planner and an executor around a plan document (plan-document.ts). The planner (an LLM,
+ * called rarely) drafts and revises phases of tasks; Rawstep owns the document — task statuses, the current task, versions and
+ * history — and links every action to its task. The executor (a fast decision model, called every step) only sees the current
+ * task, may claim it done (Rawstep checks the cue) or ask for a new plan with a reason. Rawstep also replans when a task's actions
+ * keep failing, change nothing or run long. Every plan, task change and model call is policy evidence.
  */
 export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly limits: typeof DEFAULTS;
-  private plan?: Plan;
-  private stepIndex = 0;
-  private stepActions = 0;
+  private doc?: PlanDocument;
   private replans = 0;
-  private completed: string[] = [];
-  /** History length when the current plan was made: triggers only look at what happened since. */
+  /** History length when the current plan version was made: the repetition guard only looks at what happened since. */
   private planFrom = 0;
+  /** History length when the current task started. */
+  private taskFrom = 0;
+  /** The task and plan version each executed step served, by runner step. */
+  private readonly served = new Map<number, { taskId: string; planVersion: number }>();
   constructor(readonly planner: Planner, readonly executor: ChoiceModel, private readonly options: OrchestrationOptions = {}) {
     if (!executor.inputs.includes('text')) throw new Error('The executor needs a model that takes text.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
@@ -82,81 +88,121 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     }
   }
   takeDecisionEvidence(): readonly unknown[] { return this.evidence.splice(0); }
+  /** The plan document as it stands, for callers that save it (a copy). */
+  planDocument(): PlanDocument | undefined { return this.doc && structuredClone(this.doc); }
 
-  async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
+  async decide(input: Input): Promise<Decision> {
     this.evidence = []; input.signal.throwIfAborted();
     if (input.observation.kind !== 'screenreader') throw new Error('The orchestrated speech policy requires screen reader observations.');
-    const guarded = speechGuardStop(this.options, input);
+    const guarded = speechGuardStop(this.options, { ...input, history: input.history.slice(this.planFrom) });
     if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
-    if (!this.plan) await this.replan(input, 'start');
+    const step = (input.history.at(-1)?.step ?? 0) + 1;
+    if (!this.doc) await this.replan(input, step, 'start');
     else {
       const trigger = this.trigger(input);
-      if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(trigger); await this.replan(input, trigger); }
+      if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
     }
     for (let call = 0; call < MAX_CALLS_PER_STEP; call++) {
-      const plan = this.plan!;
-      if (plan.complete) return { stop: 'success', stopSource: 'model' };
-      if (this.stepIndex >= plan.steps.length) {
-        if (this.replans >= this.limits.maxReplans) return this.giveUp('plan-finished');
-        await this.replan(input, 'plan-finished'); continue;
+      const doc = this.doc!;
+      if (doc.complete) return { stop: 'success', stopSource: 'planner' };
+      const task = currentTask(doc);
+      if (!task) {
+        if (this.replans >= this.limits.maxReplans) return this.giveUp(step, 'plan-finished');
+        const unreviewed = doc.phases.filter(needsCheckpoint).map(p => p.title);
+        await this.replan(input, step, 'plan-finished');
+        for (const title of unreviewed) markCheckpoint(this.doc!, title, step);
+        continue;
       }
-      const step = plan.steps[this.stepIndex]!;
       const actions = speechChoices(input.allowedActions, this.options, input.inputs);
-      const candidates = [...actions.map(({ id, label }) => ({ id, label })),
-        { id: STEP_DONE, label: `Current step done: ${step.done}` },
-        { id: STEP_HELP, label: 'Ask for a new plan: the current step cannot be done with these actions' }];
+      const candidates: ChoiceCandidate[] = [...actions.map(({ id, label }) => ({ id, label })),
+        { id: TASK_DONE, label: `Current task done: ${task.done}` },
+        ...(Object.keys(HELP) as HelpReason[]).map(reason => ({ id: `help:${reason}`, label: HELP[reason] }))];
+      const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {
-        goal: input.goal, currentStep: step, completedSteps: [...this.completed],
+        goal: input.goal, plan: planOutline(doc),
+        currentTask: { goal: task.goal, done: task.done, actions: task.actions, actionLimit: this.limits.stepActionLimit }, ...(next ? { nextTask: next.goal } : {}),
+        taskAttempts: modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom),
         speech: [...input.observation.speech], history: modelHistory(input.history, input.observation, this.limits.historyLimit),
       }, choices: candidates }, { signal: input.signal });
       input.signal.throwIfAborted();
       if (!candidates.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
       this.evidence.push({ kind: 'model-inference', role: 'executor', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
         observationSource: input.observation.provenance === 'simulation' ? 'simulated-speech-only' : 'screen-reader-output-only',
-        stepGoal: step.goal, choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}),
+        taskId: task.id, planVersion: doc.version, stepGoal: task.goal, choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}),
         noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });
-      if (response.choiceId === STEP_DONE) {
-        this.evidence.push({ kind: 'orchestration-step-done', step: this.stepIndex, goal: step.goal, actions: this.stepActions });
-        this.completed.push(step.goal); this.stepIndex++; this.stepActions = 0;
+      if (response.choiceId === TASK_DONE) {
+        const last = input.history.at(-1)?.observation;
+        const heard = [...input.observation.speech, ...(last?.kind === 'screenreader' ? last.speech : [])];
+        const phase = phaseOf(doc, task.id);
+        const done = finishCurrent(doc, step, verifyCue(task.done, heard))!;
+        this.taskEvent(done, 'active');
+        // A finished phase is reviewed before the next one starts (with nothing left, the final review below covers it).
+        if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); continue; }
+        this.startTask(input);
         continue;
       }
-      if (response.choiceId === STEP_HELP) {
-        if (this.replans >= this.limits.maxReplans) return this.giveUp('help');
-        await this.replan(input, 'help'); continue;
+      if (response.choiceId.startsWith('help:')) {
+        const help = response.choiceId.slice(5) as HelpReason;
+        if (this.replans >= this.limits.maxReplans) return this.giveUp(step, 'help');
+        await this.replan(input, step, 'help', help); continue;
       }
-      this.stepActions++;
+      task.actions++;
+      this.served.set(step, { taskId: task.id, planVersion: doc.version });
       const decision = structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
       return 'stop' in decision ? { ...decision, stopSource: 'model' } : decision;
     }
-    return this.giveUp('no-action');
+    return this.giveUp(step, 'plan-finished');
   }
 
-  /** What went wrong since the current plan was made, if anything warrants a new one. */
-  private trigger(input: Parameters<DecisionPolicy['decide']>[0]): PlanReason | undefined {
-    const since = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.planFrom).filter(h => 'action' in h.decision);
+  /** What went wrong on the current task, if anything warrants a new plan. */
+  private trigger(input: Input): PlanTrigger | undefined {
+    const task = this.doc && currentTask(this.doc);
+    if (!task) return undefined;
+    const since = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom).filter(h => 'action' in h.decision);
     const last = (n: number) => since.length >= n ? since.slice(-n) : undefined;
     if (last(this.limits.failureLimit)?.every(h => h.execution?.ok === false)) return 'failures';
     if (last(this.limits.noChangeLimit)?.every(h => h.changed === false)) return 'no-change';
-    if (this.stepActions >= this.limits.stepActionLimit) return 'step-limit';
+    if (task.actions >= this.limits.stepActionLimit) return 'task-limit';
     return undefined;
   }
-  private async replan(input: Parameters<DecisionPolicy['decide']>[0], reason: PlanReason): Promise<void> {
-    if (input.observation.kind !== 'screenreader') return;
-    const previous = this.plan ? { plan: structuredClone(this.plan), step: this.stepIndex } : undefined;
-    const started = performance.now();
-    const { plan, model, prompt } = await this.planner.plan({ goal: input.goal, reason, speech: [...input.observation.speech],
-      history: modelHistory(input.history, input.observation, this.limits.plannerHistoryLimit), completed: [...this.completed], ...(previous ? { previous } : {}) }, { signal: input.signal });
-    input.signal.throwIfAborted();
-    if (!plan.complete && !plan.steps.length) throw new Error('The planner returned no steps for an unfinished goal.');
-    if (reason !== 'start') this.replans++;
-    this.plan = structuredClone(plan); this.stepIndex = 0; this.stepActions = 0; this.planFrom = input.history.length;
-    this.evidence.push({ kind: 'orchestration-plan', reason, replans: this.replans, plan: structuredClone(plan), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
-      uncertainty: 'The outline comes from common UI conventions and is an expectation, not a fact about this page.' });
+  private attempts(history: readonly HistoryEntry[], input: Input): TaskAttempt[] {
+    const entries = modelHistory(history, input.observation, Number.MAX_SAFE_INTEGER);
+    return entries.flatMap(entry => { const served = this.served.get(entry.step); return served ? [{ ...entry, ...served }] : []; }).slice(-this.limits.plannerHistoryLimit);
   }
-  private giveUp(reason: PlanReason | 'no-action'): Decision {
-    this.evidence.push({ kind: 'orchestration-limit', reason, replans: this.replans, maxReplans: this.limits.maxReplans,
+  private async replan(input: Input, step: number, trigger: PlanTrigger, help?: HelpReason): Promise<void> {
+    if (input.observation.kind !== 'screenreader') return;
+    const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
+    const started = performance.now();
+    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], actions,
+      ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
+    input.signal.throwIfAborted();
+    if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
+    const before = this.doc && new Map(planTasks(this.doc).map(t => [t.id, t.status]));
+    // A checkpoint is the plan working as intended; only corrections and running out of tasks count toward maxReplans.
+    if (trigger !== 'start' && trigger !== 'checkpoint') this.replans++;
+    this.doc = applyDraft(this.doc, draft, { goal: input.goal, step, trigger, ...(help ? { help } : {}) });
+    this.planFrom = input.history.length;
+    this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, ...(help ? { help } : {}), version: this.doc.version, replans: this.replans,
+      revision: structuredClone(this.doc.revisions.at(-1)), document: structuredClone(this.doc), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
+      uncertainty: 'The plan comes from common UI conventions and what was heard; it is an expectation, not a fact about this page.' });
+    for (const task of this.doc.retired) if (before?.get(task.id) && before.get(task.id) !== task.status) this.taskEvent(task, before.get(task.id)!);
+    this.startTask(input);
+  }
+  /** The current task (if any) starts now: its attempts count from here. */
+  private startTask(input: Input): void {
+    this.taskFrom = input.history.length;
+    const task = this.doc && currentTask(this.doc);
+    if (task && task.actions === 0) this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: 'pending', toStatus: 'active', actions: 0 });
+  }
+  private taskEvent(task: PlanTask, from: string): void {
+    this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: from, toStatus: task.status, actions: task.actions, ...(task.ending ? { ending: structuredClone(task.ending) } : {}) });
+  }
+  private giveUp(step: number, reason: PlanTrigger): Decision {
+    const task = this.doc && currentTask(this.doc);
+    if (this.doc && task) { failCurrent(this.doc, step); this.taskEvent(task, 'active'); }
+    this.evidence.push({ kind: 'orchestration-limit', reason, replans: this.replans, maxReplans: this.limits.maxReplans, ...(this.doc ? { document: structuredClone(this.doc) } : {}),
       uncertainty: 'The planner and executor could not make progress within the limits; this ends exploration, it does not establish an accessibility defect.' });
-    return { stop: 'stuck', stopSource: 'exploration-guard' };
+    return { stop: 'stuck', stopSource: 'orchestration-limit' };
   }
 }

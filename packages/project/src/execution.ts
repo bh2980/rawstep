@@ -4,7 +4,10 @@ import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { DecisionClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { OrchestratedSpeechPolicy, orchestratedPrompt, SpeechDecisionPolicy, type ChoiceModel } from '@rawstep/policies/policy';
+import { OrchestratedSpeechPolicy, orchestratedPrompt, renderPlanMarkdown, SpeechDecisionPolicy, type ChoiceModel } from '@rawstep/policies/policy';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { atomicJson } from './store.js';
 import { createLlmModel, LlmPlanner } from '@rawstep/policies/llm';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
@@ -80,8 +83,19 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
   if (mode === 'keyboard') return runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) });
   // Screen reader runs keep a screenshot per step for people reading the run; the model never sees it.
-  if (globals.backend === 'simulation') return runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
-  const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
-  try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
-  finally { await driver.stop(); }
+  try {
+    if (globals.backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
+    const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
+    try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
+    finally { await driver.stop(); }
+  } finally { if (policy instanceof OrchestratedSpeechPolicy) await savePlan(policy, outDir); }
 };
+/**
+ * The final plan document next to the trace: plan.json for tools, plan.md as a readable checklist. The trace keeps every version
+ * as policy evidence; these files are the end state. A failure to write them never changes the run.
+ */
+async function savePlan(policy: OrchestratedSpeechPolicy, outDir: string): Promise<void> {
+  const doc = policy.planDocument();
+  if (!doc) return;
+  try { await atomicJson(join(outDir, 'plan.json'), doc); await writeFile(join(outDir, 'plan.md'), renderPlanMarkdown(doc)); } catch { /* the trace still holds every plan version */ }
+}

@@ -111,7 +111,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
       const originalChoices = choices;
       choices = restrictChoicesByVisualFocus(choices, focus, this.options.focusGate);
       request.choices = structuredClone(choices);
-      this.evidence.push({ kind: 'visual-focus-gate', startedAt: gateStartedAt, elapsedMs: performance.now() - gateStarted,
+      this.evidence.push({ kind: 'visual-focus-gate', role: 'focus', startedAt: gateStartedAt, elapsedMs: performance.now() - gateStarted,
         ...(focus.prompt ? { prompt: { ...focus.prompt } } : {}),
         model: { id: focus.model.id, runtime: focus.model.runtime, ...(focus.model.requestedId ? { requestedId: focus.model.requestedId } : {}), ...(focus.model.revision ? { revision: focus.model.revision } : {}) },
         choiceId: focus.choiceId, probabilities: focus.probabilities ? [...focus.probabilities] : undefined,
@@ -125,7 +125,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
     const response = await this.options.model.choose(request, { signal: input.signal });
     input.signal.throwIfAborted();
     validateModelResponse(response, choices);
-    this.evidence.push({ kind: 'model-inference', model: { id: response.model.id, runtime: response.model.runtime, ...(response.model.requestedId ? { requestedId: response.model.requestedId } : {}), ...(response.model.revision ? { revision: response.model.revision } : {}) },
+    this.evidence.push({ kind: 'model-inference', role: 'executor', model: { id: response.model.id, runtime: response.model.runtime, ...(response.model.requestedId ? { requestedId: response.model.requestedId } : {}), ...(response.model.revision ? { revision: response.model.revision } : {}) },
       ...(response.prompt ? { prompt: { ...response.prompt } } : {}),
       startedAt, endedAt: new Date().toISOString(), elapsedMs: performance.now() - started,
       ...(response.inferenceMs !== undefined ? { inferenceMs: response.inferenceMs } : {}),

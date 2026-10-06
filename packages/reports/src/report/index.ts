@@ -38,7 +38,7 @@ function renderSummary(trace: RunTrace, summary: ReportSummary): string {
   const failure = summary.firstFailure;
   return `<section aria-labelledby="outcome"><h2 id="outcome">Recorded run outcome</h2>
 <p class="outcome">${e(outcome?.status ?? "unfinished")}${outcome?.reason ? `: ${e(outcome.reason)}` : ""}</p>
-${outcome?.policyStopSource === "model" || outcome?.policyStopSource === "exploration-guard" ? `<p>Stop source: ${e(outcome.policyStopSource)}</p>` : ""}
+${typeof outcome?.policyStopSource === "string" && ["model", "planner", "exploration-guard", "orchestration-limit"].includes(outcome.policyStopSource) ? `<p>Stop source: ${e(outcome.policyStopSource)}</p>` : ""}
 ${typeof outcome?.error === "string" ? `<p>${e(outcome.error)}</p>` : ""}
 ${typeof outcome?.stage === "string" ? `<p>Stage: ${e(outcome.stage)}${typeof outcome.step === "number" ? ` · step ${outcome.step}` : ""}</p>` : ""}
 ${typeof cancellation.signal === "string" ? `<p>Cancellation: ${e(cancellation.signal)}</p>` : ""}

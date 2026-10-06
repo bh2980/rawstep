@@ -102,10 +102,12 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
     } else if (event.type === 'policy.evidence') {
       const e = record(data.evidence) ? data.evidence : {};
       const plan = () => target.plan ??= { events: [] };
-      if (e.kind === 'orchestration-plan' && record(e.plan)) {
-        const strings = (value: unknown) => Array.isArray(value) ? value.map(text).filter((v): v is string => !!v) : [];
-        plan().events.push({ kind: 'plan', reason: text(e.reason) ?? 'start', outline: strings(e.plan.outline), steps: Array.isArray(e.plan.steps) ? e.plan.steps.filter(record).map(s => text(s.goal)).filter((v): v is string => !!v) : [] });
-      } else if (e.kind === 'orchestration-step-done' && text(e.goal)) plan().events.push({ kind: 'step-done', goal: text(e.goal)! });
+      if (e.kind === 'orchestration-plan' && record(e.document)) {
+        const doc = e.document, phases = Array.isArray(doc.phases) ? doc.phases.filter(record) : [];
+        const tasks = phases.flatMap(p => Array.isArray(p.tasks) ? p.tasks.filter(record) : []);
+        plan().events.push({ kind: 'plan', reason: text(e.trigger) ?? 'start', outline: text(doc.strategy) ? [text(doc.strategy)!] : [],
+          steps: tasks.map(t => [text(t.number), text(t.goal)].filter(Boolean).join(' ')).filter(Boolean) });
+      } else if (e.kind === 'orchestration-task' && e.toStatus === 'done' && text(e.taskId)) plan().events.push({ kind: 'step-done', goal: text(e.taskId)! });
       else if (e.kind === 'orchestration-limit') plan().events.push({ kind: 'limit', reason: text(e.reason) ?? 'help' });
       if (e.kind === 'model-inference' && text(e.stepGoal)) plan().stepGoal = text(e.stepGoal)!;
       if (e.kind === 'model-inference' && text(e.choiceId)) {

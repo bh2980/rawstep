@@ -47,21 +47,22 @@ describe('dashboard step view', () => {
     expect(JSON.stringify(view)).not.toContain('private reasoning');
     expect(view.steps.every(s => !s.redacted)).toBe(true);
   });
-  it('shows the planner\'s small step and plan events on the step where they happened', () => {
+  it('shows the planner\'s current task and plan events on the step where they happened', () => {
+    const doc = (version: number, tasks: [string, string][]) => ({ version, strategy: 'Search, then add', phases: [{ title: 'Find', tasks: tasks.map(([number, goal]) => ({ number, goal })) }] });
     const view = build([
-      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', reason: 'start', plan: { outline: ['search', 'add to cart'], steps: [{ goal: 'Find search', done: 'Search, edit text' }], complete: false } } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', stepGoal: 'Find search', choiceId: 'step:done', choices: [], model: { id: 'jev' } } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-step-done', step: 0, goal: 'Find search' } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', reason: 'plan-finished', plan: { outline: [], steps: [{ goal: 'Type the term', done: 'typed' }], complete: false } } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', stepGoal: 'Type the term', choiceId: 'intent:next', choices: [], model: { id: 'jev' } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'start', version: 1, document: doc(1, [['1.1', 'Find search']]) } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', role: 'executor', stepGoal: 'Find search', taskId: 't1', choiceId: 'task:done', choices: [], model: { id: 'jev' } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-task', taskId: 't1', fromStatus: 'active', toStatus: 'done', actions: 0 } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'plan-finished', version: 2, document: doc(2, [['1.1', 'Find search'], ['1.2', 'Type the term']]) } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', role: 'executor', stepGoal: 'Type the term', taskId: 't2', choiceId: 'intent:next', choices: [], model: { id: 'jev' } } }],
       ['policy.decision', { step: 1, decision: { action: { kind: 'intent', intent: 'next' } } }],
       ['policy.evidence', { step: 2, evidence: { kind: 'orchestration-limit', reason: 'help' } }],
-      ['policy.decision', { step: 2, decision: { stop: 'stuck', stopSource: 'exploration-guard' } }],
+      ['policy.decision', { step: 2, decision: { stop: 'stuck', stopSource: 'orchestration-limit' } }],
     ]);
     expect(view.steps[1]!.plan).toEqual({ stepGoal: 'Type the term', events: [
-      { kind: 'plan', reason: 'start', outline: ['search', 'add to cart'], steps: ['Find search'] },
-      { kind: 'step-done', goal: 'Find search' },
-      { kind: 'plan', reason: 'plan-finished', outline: [], steps: ['Type the term'] },
+      { kind: 'plan', reason: 'start', outline: ['Search, then add'], steps: ['1.1 Find search'] },
+      { kind: 'step-done', goal: 't1' },
+      { kind: 'plan', reason: 'plan-finished', outline: ['Search, then add'], steps: ['1.1 Find search', '1.2 Type the term'] },
     ] });
     expect(view.steps[2]!.plan).toEqual({ events: [{ kind: 'limit', reason: 'help' }] });
     expect(view.steps[0]!.plan).toBeUndefined();

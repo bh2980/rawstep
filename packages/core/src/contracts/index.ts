@@ -66,7 +66,13 @@ export type Task = {
   navigation?: NavigationPolicy;
 };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
-export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: 'model' | 'exploration-guard' };
+/**
+ * Who ended a run early: the executor model (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
+ * (`exploration-guard`), or orchestration running out of new plans (`orchestration-limit`).
+ */
+export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'orchestration-limit';
+export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'orchestration-limit']);
+export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: StopSource };
 export type AllowedActions = { intents: readonly string[]; keys: readonly string[]; inputKeys: readonly string[]; typeText?: boolean; replaceText: boolean };
 export type ScreenReaderObservation = {
   kind: 'screenreader';
