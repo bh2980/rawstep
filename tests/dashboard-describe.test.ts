@@ -25,7 +25,7 @@ describe('describeHint', () => {
     ['modal-focus-outside dialog', hint('modal-focus-outside', { dialog: { role: 'dialog', name: 'Confirm' } }, { certainty: 'suspected' }), ['dialog “Confirm”', '이동하지 않았습니다']],
     ['missing-announcement', hint('missing-announcement', { pixelsChanged: true, changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
     ['invisible-focus-change', hint('invisible-focus-change', { target: { role: 'tab', name: 'Two' } }), ['tab “Two”', '바뀌지 않았습니다']],
-    ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '42%', '38%']],
+    ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '0.42', '0.38']],
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],

@@ -23,18 +23,21 @@ describe('finding descriptions', () => {
   });
 
   it('chooses the sentence from what the first occurrence recorded', () => {
-    expect(describeFinding(finding('focus-lost', [{ reason: 'removed' }]))).toContain('사라지면서');
+    expect(describeFinding(finding('focus-lost', [{ reason: 'removed' }]))).toContain('사라진 뒤');
     expect(describeFinding(finding('focus-lost', [{ reason: 'blur' }]))).toContain('벗어나');
     expect(describeFinding(finding('focus-not-visible', [{ visible: false }]))).toContain('보이지 않았습니다');
     expect(describeFinding(finding('focus-not-visible', [{ inViewport: false }]))).toContain('화면 밖');
+    expect(describeFinding(finding('focus-left-page', [{}]))).toBe('키보드 포커스가 페이지 밖으로 이동했습니다.');
     expect(describeFinding(finding('modal-focus-outside', [{ dialog: { role: 'dialog' } }]))).toContain('안으로 이동하지 않았습니다');
     expect(describeFinding(finding('early-stop', [{ reason: 'policy-uncertain' }]))).toContain('확신하지');
   });
 
   it('uses the largest or average number across occurrences for model findings', () => {
-    expect(describeFinding(finding('backtracking', [{ reversals: 2 }, { reversals: 5 }]))).toContain('최대 5번');
+    expect(describeFinding(finding('backtracking', [{ reversals: 2 }, { reversals: 5 }]))).toBe('같은 두 요소 사이를 한 실행에서 최대 5번 이동했습니다.');
     expect(describeFinding(finding('repeated-state', [{ visits: 3 }, { visits: 4 }]))).toContain('최대 4번');
-    expect(describeFinding(finding('model-hesitation', [{ probability: 0.4 }, { probability: 0.5 }]))).toContain('45%');
+    const hesitation = describeFinding(finding('model-hesitation', [{ probability: 0.4 }, { probability: 0.5 }]))!;
+    expect(hesitation).toContain('0.45');
+    expect(hesitation).not.toContain('%');
     expect(describeFinding(finding('model-hesitation', [{}]))).toMatch(hangul);
   });
 
@@ -70,7 +73,7 @@ describe('step dots', () => {
     expect(dotKind(step(5, undefined, { stop: { stop: 'success' } }))).toBe('press');
   });
 
-  it('draws a Decision model\'s pick hollow below 0.5 and never an LLM\'s', () => {
+  it('marks a Decision model\'s pick as low certainty below 0.5 and never an LLM\'s', () => {
     const chose = (probability: number | undefined): StepView => step(1, { kind: 'key', key: 'Tab' }, { model: { choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', ...(probability === undefined ? {} : { probability }) }, { id: 'key:Enter', probability: 0.9 }] } });
     expect(isUnsure(chose(0.46), 'decision')).toBe(true);
     expect(isUnsure(chose(0.5), 'decision')).toBe(false);
@@ -90,8 +93,9 @@ describe('step dots', () => {
   });
 
   it('labels a dot with its number, action and whether it is worth a look', () => {
-    const label = dotLabel(step(4, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }), true);
-    expect(label).toContain('행동 4'); expect(label).toContain('Tab'); expect(label).toContain('살펴볼 지점'); expect(label).toContain('점수 낮음');
+    expect(dotLabel(step(4, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }), true)).toBe('행동 4: Tab, 살펴볼 지점, 모델 확신 낮음');
+    expect(dotLabel(step(7, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }), false)).toBe('행동 7: Tab, 살펴볼 지점');
+    expect(dotLabel(step(2, { kind: 'key', key: 'Enter' }), false)).toBe('행동 2: Enter');
     expect(dotLabel(step(0), false)).toBe('시작 화면');
   });
 });

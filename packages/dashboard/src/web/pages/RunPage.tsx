@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { DotLegend, StepDots } from '../components/StepDots';
+import { RailLegend, TraceRail } from '../components/trace/TraceRail';
+import { StepPager } from '../components/trace/StepPager';
 import { StepDetail } from '../components/StepDetail';
 import { RunHeader } from '../components/RunHeader';
 import { Skeleton } from '../components/ui/skeleton';
@@ -35,7 +36,8 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const picked = route.step !== undefined && view?.steps.some(step => step.step === route.step) ? route.step : undefined;
   const selected = picked ?? (view ? defaultStep({ steps: view.steps, live }) : undefined);
   const step = view?.steps.find(item => item.step === selected);
-  const following = live && picked === undefined;
+  const index = view && step ? view.steps.indexOf(step) : -1;
+  const previous = view && index > 0 ? view.steps.slice(0, index).reverse().find(item => item.screenshot) : undefined;
   const select = (next: number) => navigate({ task: run.taskId, run: run.id, ...(live && next === latest?.step ? {} : { step: next }) }, { replace: true });
   const spoken = useThrottledMessage(live && latest ? announcement(latest) : '');
   const maxSteps = run.snapshot.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
@@ -48,12 +50,14 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
       {view && (view.steps.length === 0
         ? <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">{live ? t('runPage.waiting') : t('steps.empty')}</p>
         : <>
-          <StepDots steps={view.steps} modelKind={view.modelKind} selected={selected} follow={following} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
-          <DotLegend modelKind={view.modelKind} />
+          <TraceRail steps={view.steps} modelKind={view.modelKind} selected={selected} live={live} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
+          <RailLegend modelKind={view.modelKind} live={live} />
         </>)}
       <p role="status" aria-live="polite" className="sr-only">{spoken}</p>
     </section>
-    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind}
+    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} previous={previous}
       hints={view.hints.filter(hint => hint.steps.includes(step.step))} baselineMet={step.step === 0 ? baselineMet : undefined} live={live && step.step === latest?.step} />}
+    {view && step && view.steps.length > 1 && <StepPager position={step.step} total={latest?.step ?? step.step} hasPrevious={index > 0} hasNext={index < view.steps.length - 1}
+      onPrevious={() => select(view.steps[index - 1]!.step)} onNext={() => select(view.steps[index + 1]!.step)} />}
   </div>;
 }

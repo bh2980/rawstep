@@ -44,7 +44,7 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
     }
     case 'model-hesitation': {
       const probabilities = numbers(finding, 'probability');
-      return probabilities.length ? t('findings.modelHesitation', { percent: Math.round(mean(probabilities) * 100) }) : t('findings.modelHesitationPlain');
+      return probabilities.length ? t('findings.modelHesitation', { score: mean(probabilities).toFixed(2) }) : t('findings.modelHesitationPlain');
     }
     case 'early-stop':
       if (str(detail.stopSource) === 'exploration-guard') return t('findings.earlyStopGuard');
@@ -65,4 +65,27 @@ export function stepRange(steps: readonly number[]): string | undefined {
   if (!steps.length) return undefined;
   const from = steps[0]!, to = steps[steps.length - 1]!;
   return from === to ? String(from) : `${from}–${to}`;
+}
+
+/** Where one occurrence of a finding can be inspected: the run and its earliest step. */
+export type EvidenceRef = { runId: string; number: number | undefined; step: number | undefined };
+
+/**
+ * The runs (and the action in each) that show a finding, oldest run first, each place once.
+ * `numbers` gives the "run #n" of every run of the task; a run without a number goes last.
+ */
+export function evidenceRefs(finding: Pick<HintFinding, 'occurrences'>, numbers: ReadonlyMap<string, number>): EvidenceRef[] {
+  const seen = new Set<string>(), refs: EvidenceRef[] = [];
+  for (const occurrence of finding.occurrences) {
+    const step = occurrence.steps.length ? Math.min(...occurrence.steps) : undefined, key = `${occurrence.runId}:${step ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.push({ runId: occurrence.runId, number: numbers.get(occurrence.runId), step });
+  }
+  return refs.sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity) || (a.step ?? -1) - (b.step ?? -1));
+}
+
+/** The first `limit` places to show and how many more there are (`+n`). */
+export function splitEvidence<T>(refs: readonly T[], limit = 3): { shown: T[]; hidden: T[] } {
+  return { shown: refs.slice(0, limit), hidden: refs.slice(limit) };
 }

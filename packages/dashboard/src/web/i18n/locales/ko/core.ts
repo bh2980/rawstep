@@ -24,6 +24,8 @@ export const core = {
     reconnecting: '재연결 중',
     counts: '{{running}} 실행 중 · {{queued}} 대기',
     openNavigation: '메뉴 열기',
+    theme: '화면 테마: {{current}}. 눌러서 바꿉니다.',
+    themes: { system: '시스템 설정을 따름', light: '밝게', dark: '어둡게' },
   },
   sidebar: {
     repeat: '반복 #{{n}}',
@@ -117,8 +119,8 @@ export const core = {
       dialogFocusNotMoved: '{{dialog}}이(가) 열렸지만 포커스가 그 안으로 이동하지 않았습니다.',
       missingAnnouncement: '{{action}}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.',
       invisibleFocusChange: '포커스가 {{target}}(으)로 이동했지만 화면은 바뀌지 않았습니다.',
-      /** Percentages are passed already rounded. */
-      modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{probability}}%로 선택했습니다. 차순위는 {{runnerUp}}%였습니다.',
+      /** Scores are passed already formatted with two decimals; they are model scores, not percentages. */
+      modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{score}}로 골랐습니다. 차순위 점수는 {{runnerUp}}였습니다.',
       earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
       earlyStopStuck: '모델이 막혔다고 판단해 중단했습니다.',
       earlyStopUncertain: '모델이 확신하지 못해 중단했습니다.',

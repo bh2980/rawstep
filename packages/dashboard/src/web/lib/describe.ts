@@ -95,7 +95,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'model-hesitation': {
       const choice = str(d.choiceId), probability = num(d.probability), runnerUp = num(d.runnerUp);
       if (!choice || probability === undefined || runnerUp === undefined) break;
-      return t('hints.text.modelHesitation', { choiceId: choiceLabel(choice), probability: Math.round(probability * 100), runnerUp: Math.round(runnerUp * 100) });
+      return t('hints.text.modelHesitation', { choiceId: choiceLabel(choice), score: probability.toFixed(2), runnerUp: runnerUp.toFixed(2) });
     }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
