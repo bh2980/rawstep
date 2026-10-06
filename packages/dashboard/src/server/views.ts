@@ -40,7 +40,7 @@ export class RunViews {
     // Finished runs carry hints.json from the queue; a running run is analysed from its journal on demand.
     const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
     const explanation = live(run) || !run.analysisModel ? undefined : await this.explanation(experimentId, runId, events);
-    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.model.kind, hints: report?.hints ?? [], ...(explanation ? { explanation } : {}) };
+    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.spec.model.kind, hints: report?.hints ?? [], ...(explanation ? { explanation } : {}) };
   }
   /** The LLM's analysis.json of a run, with each finding's cited events turned into steps. The rule-based analysis is not shown here: hints cover it. */
   private async explanation(experimentId: string, runId: string, events: TraceEvent[]): Promise<RunExplanation | undefined> {
@@ -59,7 +59,7 @@ export class RunViews {
   async hints(experimentId: string, runId: string): Promise<RunHintsView> {
     const run = this.queue.find(experimentId, runId), trace = await this.trace(experimentId, runId);
     if (!trace) throw new HttpError(404, '이 실행의 추적 기록이 아직 없습니다.');
-    const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.snapshot.mode === run.snapshot.mode && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
+    const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.mode === run.mode && r.structure === run.structure && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
       .sort((a, b) => (a.run.outcome?.steps ?? Infinity) - (b.run.outcome?.steps ?? Infinity));
     let reference: { experimentId: string; runId: string; trace: RunTrace } | undefined;
     for (const c of candidates) {

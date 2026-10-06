@@ -28,6 +28,8 @@ export type RunOptions = {
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
   /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
   onEvent?: (event: TraceEvent) => void;
+  /** The experiment conditions this run was made with (model combo, action set, environments, run rules), recorded at `run.started`. */
+  conditions?: Record<string, unknown>;
   /** Page observer for hints; on by default. Never visible to the policy. */
   observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
@@ -242,7 +244,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
     append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
-    append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions });
+    append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
     const observe = async (): Promise<Observation> => {
       stage = 'observation';
       if (task.profile) {

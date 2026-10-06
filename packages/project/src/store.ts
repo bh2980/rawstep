@@ -46,7 +46,11 @@ export class ProjectStore {
     try { raw = await readFile(await this.file(CONFIG_FILE, true), 'utf8'); }
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new ProjectError('no-config', NO_CONFIG, 404); throw e; }
     let config: ProjectConfig;
-    try { config = parseConfig(JSON.parse(raw)); }
+    let json: unknown;
+    try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
+    const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
+    if (version === 1 || version === 2) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}. Convert it once with \`node scripts/migrate-config.mjs <project-dir>\` from the Rawstep checkout (backups are kept as .bak files).`);
+    try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
     const files = await Promise.all(config.tasks.map(async t => [t.file, digest(await this.taskSource(t.file))]));
@@ -54,20 +58,32 @@ export class ProjectStore {
   }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.tasks, config.agents, config.environments]) {
+    for (const group of [config.connections, config.tasks, config.combos, config.actionSets, config.pageEnvironments, config.atEnvironments, config.presets]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
     }
     const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
-    for (const agent of config.agents) {
-      for (const executor of Object.values(agent.executors)) if (executor && !kindOf(executor.connectionId)) throw new ProjectError('agent-connection-missing', 'An agent uses a connection that does not exist.');
-      if (agent.planner && kindOf(agent.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+    for (const combo of config.combos) {
+      for (const executor of Object.values(combo.executors)) if (executor && !kindOf(executor.connectionId)) throw new ProjectError('combo-connection-missing', 'A model combo uses a connection that does not exist.');
+      if (combo.planner && kindOf(combo.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+      if (combo.analysis && kindOf(combo.analysis.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     }
-    if (config.analysis.model && kindOf(config.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
+    if (config.project.analysis.model && kindOf(config.project.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
-    for (const environment of config.environments) resolveEnvironmentProfile(environment.profile);
-    for (const task of config.tasks) {
-      if (task.agentId !== undefined && !config.agents.some(a => a.id === task.agentId)) throw new ProjectError('task-agent-missing', 'A task refers to an agent that does not exist.');
-      if (task.environmentId !== undefined && !config.environments.some(e => e.id === task.environmentId)) throw new ProjectError('task-environment-missing', 'A task refers to an environment that does not exist.');
+    for (const environment of config.pageEnvironments) resolveEnvironmentProfile(environment.profile);
+    const taskIds = new Set(config.tasks.map(t => t.id));
+    for (const item of [...config.combos, ...config.actionSets, ...config.pageEnvironments]) {
+      if (item.owner && !taskIds.has(item.owner)) throw new ProjectError('owner-missing', 'A task-only copy belongs to a task that does not exist.');
+    }
+    const refs: [string, keyof ProjectConfig & ('combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'), 'comboId' | 'actionSetId' | 'pageEnvironmentId' | 'atEnvironmentId' | 'presetId'][] = [
+      ['combo', 'combos', 'comboId'], ['action-set', 'actionSets', 'actionSetId'], ['page-environment', 'pageEnvironments', 'pageEnvironmentId'], ['at-environment', 'atEnvironments', 'atEnvironmentId'], ['preset', 'presets', 'presetId']];
+    for (const task of config.tasks) for (const [code, list, field] of refs) {
+      const ref = task[field], item = ref === undefined ? undefined : (config[list] as { id: string; owner?: string }[]).find(i => i.id === ref);
+      if (ref !== undefined && !item) throw new ProjectError(`task-${code}-missing`, `A task refers to a ${code.replace('-', ' ')} that does not exist.`);
+      if (item?.owner && item.owner !== task.id) throw new ProjectError('task-copy-foreign', 'A task uses another task\'s task-only copy.');
+    }
+    for (const preset of config.presets) for (const [code, list, field] of refs.slice(0, 4)) {
+      const ref = preset[field as 'comboId'];
+      if (ref !== undefined && !(config[list] as { id: string }[]).some(i => i.id === ref)) throw new ProjectError(`preset-${code}-missing`, `A preset refers to a ${code.replace('-', ' ')} that does not exist.`);
     }
   }
   /** Resolves a project-relative path and refuses anything that leaves the project, including through symlinks. */

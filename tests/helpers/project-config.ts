@@ -1,4 +1,4 @@
-import { defaultAgent, type Agent, type Connection } from '@rawstep/project/config';
+import { defaultCombo, type Combo, type Connection } from '@rawstep/project/config';
 
 /** A connection with the defaults tests do not care about: a decision server on this computer unless `extra` says otherwise. Only custom connections carry an address. */
 export const connection = (id: string, extra: Partial<Connection> = {}): Connection => {
@@ -7,8 +7,11 @@ export const connection = (id: string, extra: Partial<Connection> = {}): Connect
 };
 /** Instructions tests give executors unless they care about the wording. */
 export const instructions = { keyboard: 'Keyboard fixture instructions.', screenreader: 'Screen reader fixture instructions.' } as const;
-/** An agent whose executor in both modes is `modelId` on `connectionId`, taking text and images. */
-export const agentWith = (id: string, connectionId: string, modelId = 'm-' + connectionId, name = id): Agent => {
-  const model = { connectionId, modelId, inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2 };
-  return { ...defaultAgent(id, name), executors: { keyboard: { ...model, instructions: instructions.keyboard }, screenreader: { ...model, instructions: instructions.screenreader } } };
+/** A solo model combo whose executor in both modes is `modelId` on `connectionId`, taking text and images. */
+export const comboWith = (id: string, connectionId: string, modelId = 'm-' + connectionId, name = id): Combo => {
+  const model = { connectionId, modelId, inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2, historyLimit: 12, focusGate: false };
+  return { ...defaultCombo(id, name), executors: { keyboard: { ...model, instructions: instructions.keyboard }, screenreader: { ...model, instructions: instructions.screenreader } } };
 };
+/** The same combo planning with `plannerModelId` on the LLM connection `plannerConnectionId`. */
+export const plannedWith = (combo: Combo, plannerConnectionId: string, plannerModelId = 'planner', plannerInstructions = ''): Combo =>
+  ({ ...combo, structure: 'planned', planner: { connectionId: plannerConnectionId, modelId: plannerModelId, instructions: plannerInstructions } });

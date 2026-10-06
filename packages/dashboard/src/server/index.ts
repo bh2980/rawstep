@@ -11,7 +11,7 @@ import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { AT_DRIVER_COMMAND_ENV, atEndpointOf, defaultInputs, machineSchema, modelKeyEnv, modelKindSchema, projectAnalysisModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, type Mode, defaultInputs, machineSchema, modelKeyEnv, modelKindSchema, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
@@ -78,9 +78,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   async function state(): Promise<ConfigView> {
     const { config, revision } = await store.read();
     const credentialStatus = await store.credentialStatus(config);
-    const keyboard = backendCapabilities(config, 'keyboard'), screenreader = backendCapabilities(config, 'screenreader');
+    const actions = (backend: AtBackend, mode: Mode) => { const c = backendCapabilities(backend, mode); return { keys: [...c.keys], intents: [...c.intents] }; };
     return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: RUNNABLE_PRESETS,
-      capabilities: { keyboard: { keys: [...keyboard.keys], intents: [...keyboard.intents] }, screenreader: { keys: [...screenreader.keys], intents: [...screenreader.intents] } } };
+      capabilities: { keyboard: actions('simulation', 'keyboard'), screenreader: { simulation: actions('simulation', 'screenreader'), voiceover: actions('voiceover', 'screenreader'), nvda: actions('nvda', 'screenreader') } } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
   async function savedConnection(id: string): Promise<Connection> {
@@ -115,23 +115,19 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       res.write('event: changed\ndata: {}\n\n'); listeners.add(res); req.on('close', () => listeners.delete(res)); return;
     }
     if (path === '/api/state' && method === 'GET') return send(res, await state());
-    if (path === '/api/capabilities' && method === 'POST') {
-      const config = { machine: machineSchema.parse(record(await jsonBody(req)).machine) };
-      return send(res, { keyboard: backendCapabilities(config, 'keyboard'), screenreader: backendCapabilities(config, 'screenreader') });
-    }
     if (path === '/api/backend/check' && method === 'POST') {
-      const machine = machineSchema.parse(record(await jsonBody(req)).machine);
-      if (machine.backend === 'simulation') {
+      const body = record(await jsonBody(req)), machine = machineSchema.parse(body.machine), backend = atBackendSchema.parse(body.backend);
+      if (backend === 'simulation') {
         const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined });
         await browser.close(); return send(res, { message: 'Chromium 연결 확인 완료. 스크린리더 출력은 DOM 기반 모의 관찰입니다.' });
       }
-      if ((machine.backend === 'voiceover' && process.platform !== 'darwin') || (machine.backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
+      if ((backend === 'voiceover' && process.platform !== 'darwin') || (backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
       // The check starts the server with the saved command when nothing answers yet, just as a run would, and stops it again.
-      const url = atEndpointOf(machine), driver = await ensureAtDriver({ endpoint: url, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: store.root, signal: AbortSignal.timeout(35000) });
-      const backend = new AtDriverBackend({ profile: machine.backend, url });
-      try { const metadata = await backend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: driver.started ? 'AT Driver 서버를 실행해 세션 연결과 프로필 협상까지 확인했습니다. 실행할 때도 같은 명령으로 서버를 띄웁니다.' : 'AT Driver 세션 연결과 프로필 협상 확인 완료. 실제 발화와 브라우저 행동은 별도 실행으로 확인하세요.', metadata }); }
+      const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: store.root, signal: AbortSignal.timeout(35000) });
+      const driverBackend = new AtDriverBackend({ profile: backend, url });
+      try { const metadata = await driverBackend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: driver.started ? 'AT Driver 서버를 실행해 세션 연결과 프로필 협상까지 확인했습니다. 실행할 때도 같은 명령으로 서버를 띄웁니다.' : 'AT Driver 세션 연결과 프로필 협상 확인 완료. 실제 발화와 브라우저 행동은 별도 실행으로 확인하세요.', metadata }); }
       catch { throw new HttpError(502, 'AT Driver 서버는 응답했지만 세션을 열지 못했습니다. 스크린리더가 켜져 있는지와 OS 접근성 권한을 확인하세요.'); }
-      finally { await backend.close(); await driver.stop(); }
+      finally { await driverBackend.close(); await driver.stop(); }
     }
     if (path === '/api/machine/at-driver-command') {
       if (method === 'GET') return send(res, { command: (await store.localValue(AT_DRIVER_COMMAND_ENV)) ?? '' });
@@ -198,9 +194,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path === '/api/suggest-checks' && method === 'POST') {
       const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000) }).strict().parse(await jsonBody(req));
       const { config } = await store.read();
-      // The project's analysis LLM.
-      const model = projectAnalysisModel(config);
-      if (!model) throw new HttpError(400, '프로젝트 설정에서 사후 분석 모델(LLM)을 지정하세요.');
+      // The project's suggestion model, otherwise its analysis model.
+      const model = suggestionModel(config);
+      if (!model) throw new HttpError(400, '설정 → 프로젝트에서 완료 확인 제안 모델이나 해설 모델(LLM)을 지정하세요.');
       const apiKey = await requireKey(store, model);
       return send(res, await exclusivePageRead(async () => {
         try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }); }

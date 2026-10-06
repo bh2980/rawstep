@@ -118,8 +118,15 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
       projectDir, mode, repeat, signal,
-      ...(options.agent ? { agent: String(options.agent) } : {}),
-      ...(options.environment ? { environment: String(options.environment) } : {}),
+      ...(options.preset ? { preset: String(options.preset) } : {}),
+      ...(options.combo ? { combo: String(options.combo) } : {}),
+      ...(options.actions ? { actionSet: String(options.actions) } : {}),
+      ...(options.environment ? { pageEnvironment: String(options.environment) } : {}),
+      ...(options.at ? { atEnvironment: String(options.at) } : {}),
+      ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
+      ...(options['max-replans'] !== undefined || options['max-task-actions'] !== undefined ? { runRules: {
+        ...(options['max-replans'] !== undefined ? { maxReplans: Number(options['max-replans']) } : {}),
+        ...(options['max-task-actions'] !== undefined ? { stepActionLimit: Number(options['max-task-actions']) } : {}) } } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
   } catch (error) {
@@ -139,14 +146,21 @@ const elementText = (finding: HintFinding) => finding.target ? `${finding.target
 /** One block per run, then the findings gathered across runs: Page findings first, then Model. */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
+  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
+  if (c.combo) {
+    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? '?'} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
+      `  actions ${c.actionSet?.name ?? '?'} · page ${c.pageEnvironment?.name ?? '?'} · ${c.atEnvironment?.name ?? '?'}`);
+    for (const warning of result.warnings) lines.push(`  note: ${warning}`);
+    lines.push('');
+  }
   result.runs.forEach((run, index) => {
     lines.push(`Run ${index + 1} of ${result.runs.length}: ${outcomeText(run.outcome)} · ${run.hints.steps} steps`);
     for (const hint of run.hints.hints.filter(h => h.source === 'run')) lines.push(`  ${hint.summary}`);
     lines.push(`  ${run.outDir}`);
   });
   lines.push('');
-  const groups: [string, HintFinding['source']][] = [['Page', 'page'], ['Model', 'model']];
-  if (!result.findings.length) lines.push('No page or model findings.');
+  const groups: [string, HintFinding['source']][] = [['Page', 'page'], ['Run', 'run'], ['Model', 'model']];
+  if (!result.findings.length) lines.push('No findings.');
   for (const [title, source] of groups) {
     const findings = result.findings.filter(f => f.source === source);
     if (!findings.length) continue;
@@ -172,7 +186,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     read = await store.read();
     const c = read.config;
-    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.agents.length} agents, ${c.environments.length} environments)`);
+    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.combos.length} model combos, ${c.actionSets.length} action sets, ${c.pageEnvironments.length} page environments)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined;
   try {
@@ -186,9 +200,10 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       const present = !!await store.credential(key.connection);
       report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
     }
-    const { backend } = read.config.machine, atEndpoint = atEndpointOf(read.config.machine);
-    if (backend === 'simulation') report(undefined, 'Screen reader', 'machine.backend is simulation; no native screen reader to check');
-    else {
+    const natives = [...new Set(read.config.atEnvironments.map(a => a.backend).filter(b => b !== 'simulation'))];
+    if (!natives.length) report(undefined, 'Screen reader', 'only the simulation is configured; no native screen reader to check');
+    for (const backend of natives) {
+      const atEndpoint = atEndpointOf(read.config.machine, backend);
       try {
         await (dependencies.checkNativeBackend ?? (async options => { const b = new AtDriverBackend(options); try { return await b.start({ signal: AbortSignal.timeout(5000) }); } finally { await b.close(); } }))({ profile: backend, url: atEndpoint });
         report(true, 'Screen reader', `${backend} AT Driver answered at ${atEndpoint}. This checks the protocol connection only; verify real speech on the target host`);

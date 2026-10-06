@@ -12,13 +12,13 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'agent', 'environment', 'mode', 'repeat', 'out', 'json'],
+  run: ['project', 'preset', 'combo', 'actions', 'environment', 'at', 'mode', 'repeat', 'max-replans', 'max-task-actions', 'diagnose-stop', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
   analyze: ['project', 'llm', 'out'],
   doctor: ['project'],
 };
-const booleanOptions = new Set(['json', 'llm']);
+const booleanOptions = new Set(['json', 'llm', 'diagnose-stop']);
 const positionalsByCommand: Record<Command, { count: number; noun: string }> = {
   init: { count: 0, noun: '' }, ui: { count: 0, noun: '' }, doctor: { count: 0, noun: '' },
   run: { count: 1, noun: 'task id or task JSON file' },
@@ -64,6 +64,10 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   if (command === 'run') {
     if (result.options.mode !== undefined && !['keyboard', 'screenreader'].includes(String(result.options.mode))) throw new CliUsageError('--mode must be keyboard or screenreader.');
     if (result.options.repeat !== undefined && (!/^[0-9]+$/.test(String(result.options.repeat)) || Number(result.options.repeat) < 1 || Number(result.options.repeat) > 100)) throw new CliUsageError('--repeat must be an integer from 1 to 100.');
+    for (const [option, min, max] of [['max-replans', 0, 100], ['max-task-actions', 1, 1000]] as const) {
+      const value = result.options[option];
+      if (value !== undefined && (!/^[0-9]+$/.test(String(value)) || Number(value) < min || Number(value) > max)) throw new CliUsageError(`--${option} must be an integer from ${min} to ${max}.`);
+    }
   }
   return result;
 }
@@ -73,7 +77,8 @@ export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web
 Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
-  rawstep run <task> [--agent <id|name>] [--environment <id|name>] [--mode keyboard|screenreader]
+  rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
+                     [--at <id|name>] [--mode keyboard|screenreader] [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
@@ -83,9 +88,10 @@ Usage:
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
   ui        Open the dashboard to set up connections, agents, environments and tasks, and to run experiments.
-  run       Run a task from rawstep.config.json (by id) or a task JSON file with an agent in an environment,
-            then print each run's outcome and the findings gathered across the runs, grouped as Page and Model.
-            When the project has an analysis model, each run is also analysed by that LLM.
+  run       Run a task from rawstep.config.json (by id) or a task JSON file under experiment conditions (model combo,
+            action set, page environment, assistive technology), then print the conditions, each run's outcome and the
+            findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned combo also write
+            plan.json and plan.md. With an analysis model (the combo's or the project's) each run is also analysed.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
@@ -95,14 +101,16 @@ Commands:
 
 Configuration:
   Everything lives in rawstep.config.json in the project directory: connections (where models are
-  reached), agents (planner, executor per mode, actions and limits), environments (page conditions),
-  tasks, the analysis model and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
+  reached), model combos (who plans and who acts), action sets, page and assistive-technology environments,
+  run rules, presets, tasks, project models (analysis, check suggestions) and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.
 
 Run defaults:
-  --agent        the task's agent, otherwise the first agent
-  --environment  the task's environment, otherwise the first environment
+  --preset, --combo, --actions, --environment (page), --at (assistive technology)
+                 each the task's own, then its preset's, then the first shared one
+  --max-replans, --max-task-actions
+                 override the run rules for these runs
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat

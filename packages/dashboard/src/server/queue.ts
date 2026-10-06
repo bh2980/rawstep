@@ -4,9 +4,9 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, taskAgent, taskEnvironment, type Model } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, taskConditions, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
-import { assertRunnable, checkRun, resolvePermissions } from '@rawstep/project/plan';
+import { assertRunnable, checkRun, resolvePermissions, runSpecOf, type RunConditions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
 import { finalizeRun, llmAnalyzer } from '@rawstep/project/run';
 import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
@@ -14,11 +14,8 @@ import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
 export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined; plannerApiKey?: string | undefined }) => Promise<RunTrace>;
-const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) => {
-  const { model, prompt, mode, globals, environment } = run.snapshot;
-  return executeRun({ task, model, prompt, mode, settings: globals, environment, permissions: run.permissions, diagnoseStop: run.diagnoseStop, ...(run.plannerModel ? { plannerModel: run.plannerModel, plannerInstructions: run.plannerInstructions ?? '' } : {}) },
-    { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
-};
+const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) =>
+  executeRun({ ...run.snapshot.spec, task }, { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
 /**
  * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
  * the raw error text, which can quote a provider's reply, so nothing else is passed on.
@@ -77,27 +74,29 @@ export class ExperimentQueue {
   async plan(raw: unknown) {
     const request = planSchema.parse(raw), { config, revision } = await this.store.read(), tasks = await this.store.tasks(config);
     if (request.revision && request.revision !== revision) throw new HttpError(409, '작업이나 설정이 변경되었습니다. 실행 조합을 다시 확인하세요.');
-    const rows: Combination[] = [];
+    const rows: (Combination & { conditions?: RunConditions })[] = [];
     const keyed = new Map<string, boolean>();
     const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
     for (const taskId of new Set(request.taskIds)) {
-      const task = config.tasks.find(t => t.id === taskId);
-      for (const agentId of new Set(request.agentIds ?? [taskAgent(config, task ?? {}).id])) for (const environmentId of new Set(request.environmentIds ?? [taskEnvironment(config, task ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+      const task = config.tasks.find(t => t.id === taskId), source = tasks[taskId];
+      for (const conditions of conditionSets(config, task ?? {}, request)) for (const mode of new Set(request.modes)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
         if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-        const agent = config.agents.find(a => a.id === agentId), environment = config.environments.find(e => e.id === environmentId), source = tasks[taskId];
-        let reason: string | undefined, modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone((agent ?? config.agents[0]!).permissions[request.mode]);
-        if (!task || !agent || !environment || !source) reason = '작업·에이전트·환경 중 찾을 수 없는 항목이 있습니다.';
+        const ids = { comboId: conditions.combo.id, actionSetId: conditions.actionSet.id, pageEnvironmentId: conditions.pageEnvironment.id, atEnvironmentId: conditions.atEnvironment.id, ...(conditions.preset ? { presetId: conditions.preset.id } : {}) };
+        const key = [taskId, mode, ids.comboId, ids.actionSetId, ids.pageEnvironmentId, ids.atEnvironmentId, repeat].join(':');
+        let reason: string | undefined, warnings: string[] = [], modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone(conditions.actionSet[mode]);
+        if (!task || !source) reason = '작업을 찾을 수 없습니다.';
         else {
           try {
-            const check = checkRun({ config, task: source, taskEntry: task, agent, environment, mode: request.mode, diagnoseStop: request.diagnoseStop });
-            permissions = check.permissions; modelName = check.model?.name; plannerName = check.plannerModel?.name;
+            const check = checkRun({ config, task: source, taskEntry: { ...task, runRules: { ...task.runRules, ...request.runRules } }, mode, ...conditions, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) });
+            permissions = check.permissions; modelName = check.model?.name; plannerName = check.plannerModel?.name; warnings = check.warnings.map(koreanWarning);
             if (check.problem) reason = koreanMessage(check.problem);
             else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
-            else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
             else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = koreanMessage(new ProjectError('missing-planner-credential', ''));
+            else if (check.analysisModel && !await hasKey(check.analysisModel)) warnings.push('해설 모델의 인증키가 없어 규칙 기반 분석만 합니다.');
           } catch (e) { reason = (e as Error).message; }
         }
-        rows.push({ key: [taskId, agentId, environmentId, repeat].join(':'), taskId, agentId, environmentId, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}), repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.permissions[request.mode] ? 'task' : 'agent' });
+        rows.push({ key, taskId, mode, repeat, ...ids, structure: conditions.combo.structure, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}),
+          supported: !reason, ...(reason ? { reason } : {}), warnings, permissions, conditions });
       }
     }
     return { request, config, tasks, rows };
@@ -107,20 +106,20 @@ export class ExperimentQueue {
     const { request, config, tasks, rows } = await this.plan(raw);
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
     if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new HttpError(400, '지원하는 실행 조합을 선택하세요.');
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
-      const task = config.tasks.find(t => t.id === row.taskId)!, agent = config.agents.find(a => a.id === row.agentId)!, environment = config.environments.find(e => e.id === row.environmentId)!;
-      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: task, agent, environment, mode: request.mode, diagnoseStop: request.diagnoseStop }));
-      const { settings, analysisModel, plannerModel, plannerInstructions } = check;
-      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
-        task: safeTask(tasks[row.taskId]!),
-        taskName: task.name, model: structuredClone(check.model!), prompt: structuredClone(check.prompt!),
-        mode: request.mode, environment: resolveEnvironmentProfile(environment.profile),
-        agent: { id: agent.id, name: agent.name }, environmentRef: { id: environment.id, name: environment.name },
-        globals: settings,
-      }, ...(analysisModel ? { analysisModel } : {}), ...(plannerModel ? { plannerModel, plannerInstructions } : {}) };
+    const keyed = new Map<string, string | undefined>();
+    const runs: RunRecord[] = [];
+    for (const { conditions, ...row } of selected) {
+      const task = config.tasks.find(t => t.id === row.taskId)!;
+      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: { ...task, runRules: { ...task.runRules, ...request.runRules } }, mode: row.mode, ...conditions!, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) }));
+      const analysisModel = check.analysisModel;
+      if (analysisModel && !keyed.has(analysisModel.id)) keyed.set(analysisModel.id, !modelKeyRequired(analysisModel) || await this.store.credential(analysisModel) ? analysisModel.id : undefined);
+      const spec = runSpecOf(safeTask(tasks[row.taskId]!), row.mode, conditions!, check, request.diagnoseStop);
+      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', taskFile: task.file, analysisInstructions: check.settings.analysisInstructions,
+        snapshot: { taskName: task.name, spec }, ...(analysisModel && keyed.get(analysisModel.id) ? { analysisModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
-      return run;
-    }) };
+      runs.push(run);
+    }
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start();
     return experiment;
   }
@@ -129,9 +128,9 @@ export class ExperimentQueue {
     if (!original.taskFile) throw new HttpError(400, '이 기록에는 원본 작업 파일이 없습니다. 새 실험을 구성하세요.');
     const current = safeTask(await this.store.task(original.taskFile));
     const { revision } = await this.store.read();
-    const fields = new Set([...Object.keys(original.snapshot.task), ...Object.keys(current)]);
-    const changedFields = [...fields].filter(key => JSON.stringify(original.snapshot.task[key as keyof Task]) !== JSON.stringify(current[key as keyof Task]));
-    return { revision, changedFields, original: original.snapshot.task, current };
+    const fields = new Set([...Object.keys(original.snapshot.spec.task), ...Object.keys(current)]);
+    const changedFields = [...fields].filter(key => JSON.stringify(original.snapshot.spec.task[key as keyof Task]) !== JSON.stringify(current[key as keyof Task]));
+    return { revision, changedFields, original: original.snapshot.spec.task, current };
   }
   async retry(experimentId: string, runId: string, revision: string) {
     if (this.closed) throw new HttpError(503, '서버 종료 중입니다.');
@@ -140,17 +139,18 @@ export class ExperimentQueue {
     if (preview.revision !== revision) throw new HttpError(409, '작업이 변경되었습니다. 차이를 다시 확인하세요.');
     const fresh = await this.store.task(original.taskFile!);
     // Re-read secrets from the task file, retaining the original public execution conditions.
-    const task = { ...structuredClone(original.snapshot.task), input: fresh.input };
+    const task = { ...structuredClone(original.snapshot.spec.task), input: fresh.input };
     for (const key of Object.keys(task) as (keyof Task)[]) {
       if (JSON.stringify(task[key])?.includes('[REDACTED]')) Object.assign(task, { [key]: fresh[key] });
     }
     if ((await this.store.read()).revision !== revision) throw new HttpError(409, '작업이 변경되었습니다. 차이를 다시 확인하세요.');
-    const kept = original.snapshot.globals;
-    resolvePermissions({ machine: kept }, { permissions: { keyboard: kept.keyboard, screenreader: kept.screenreader } }, task, original.snapshot.mode, original.permissions);
+    const spec = original.snapshot.spec;
+    resolvePermissions(spec.backend, { keyboard: original.permissions, screenreader: original.permissions }, task, spec.mode);
     const run: RunRecord = { ...structuredClone(original), id: randomUUID(), state: 'queued', repeat: 1, analysisStatus: 'pending', reportStatus: 'pending', retryOf: { experiment: experimentId, run: runId } };
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
-    run.snapshot.task = safeTask(task); this.liveTasks.set(run.id, task);
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], agentIds: [run.agentId], environmentIds: [run.environmentId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
+    run.snapshot.spec.task = safeTask(task); this.liveTasks.set(run.id, task);
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, runs: [run],
+      request: { taskIds: [run.taskId], modes: [run.mode], comboIds: [run.comboId], actionSetIds: [run.actionSetId], pageEnvironmentIds: [run.pageEnvironmentId], atEnvironmentIds: [run.atEnvironmentId], repeats: 1 } };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -177,10 +177,11 @@ export class ExperimentQueue {
       const task = this.liveTasks.get(run.id)!;
       let apiKey: string | undefined, plannerApiKey: string | undefined;
       try {
-        apiKey = await this.store.credential(run.snapshot.model);
-        const atDriverCommand = run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
+        const spec = run.snapshot.spec;
+        apiKey = await this.store.credential(spec.model);
+        const atDriverCommand = spec.mode === 'screenreader' && spec.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
         const browserProfileDir = await this.store.file('.rawstep/browser-profile');
-        plannerApiKey = run.plannerModel ? await this.store.credential(run.plannerModel) : undefined;
+        plannerApiKey = spec.plannerModel ? await this.store.credential(spec.plannerModel) : undefined;
         const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir, plannerApiKey });
         run.outcome = publicOutcome(trace.outcome);
         if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
@@ -267,3 +268,24 @@ function safeTask(task: Task): Task {
   const redacted = createRedactor(Object.values(task.input ?? {}))(task).value;
   return { ...redacted, ...(task.id ? { id: task.id } : {}), mode: task.mode, input: Object.fromEntries(Object.keys(task.input ?? {}).map(k => [k, '[REDACTED]'])) };
 }
+
+/** The condition sets of a task in an experiment: the cross product of what the request lists, each list defaulting to the task's own. */
+function conditionSets(config: ProjectConfig, task: Partial<Parameters<typeof taskConditions>[1]>, request: { presetIds?: string[] | undefined; comboIds?: string[] | undefined; actionSetIds?: string[] | undefined; pageEnvironmentIds?: string[] | undefined; atEnvironmentIds?: string[] | undefined }): RunConditions[] {
+  const presets = request.presetIds?.map(id => config.presets.find(p => p.id === id)).filter(p => !!p) ?? [undefined];
+  const sets: RunConditions[] = [];
+  for (const preset of presets) {
+    const base = taskConditions(config, preset ? { ...task, presetId: preset.id, comboId: preset.comboId ?? task.comboId, actionSetId: preset.actionSetId ?? task.actionSetId, pageEnvironmentId: preset.pageEnvironmentId ?? task.pageEnvironmentId, atEnvironmentId: preset.atEnvironmentId ?? task.atEnvironmentId } : task);
+    const list = <T extends { id: string }>(all: readonly T[], ids: string[] | undefined, fallback: T): T[] => ids ? ids.map(id => all.find(i => i.id === id)).filter((i): i is T => !!i) : [fallback];
+    for (const combo of list(config.combos, request.comboIds, base.combo)) for (const actionSet of list(config.actionSets, request.actionSetIds, base.actionSet))
+      for (const pageEnvironment of list(config.pageEnvironments, request.pageEnvironmentIds, base.pageEnvironment)) for (const atEnvironment of list(config.atEnvironments, request.atEnvironmentIds, base.atEnvironment))
+        sets.push({ combo, actionSet, pageEnvironment, atEnvironment, ...(base.preset ? { preset: base.preset } : {}) });
+  }
+  return sets;
+}
+/** Korean wording of the run check's English warnings. */
+function koreanWarning(warning: string): string {
+  if (warning.startsWith('Keyboard runs do not use the planner')) return '키보드 모드에서는 계획 모델을 쓰지 않고 실행 모델이 혼자 결정합니다.';
+  if (warning.startsWith('The analysis model is not on an LLM connection')) return '해설 모델이 LLM 연결이 아니어서 규칙 기반 분석만 합니다.';
+  return warning;
+}
+export type { Mode };

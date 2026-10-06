@@ -233,6 +233,18 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       description: 'Repeated screenshot pixels reached a configured exploration limit. This may indicate a keyboard trap or an unobservable focus change, but does not establish either. Review actions and saved screenshots.',
       evidenceEventIds: visual.repetitionLimitEventIds
     });
+    const policyEvidence = (kind: string) => trace.events.filter(event => event.type === 'policy.evidence' && (isRecord(dataOf(event).evidence) ? (dataOf(event).evidence as Record<string, unknown>).kind : (isRecord(dataOf(event).summary) ? (dataOf(event).summary as Record<string, unknown>).kind : undefined)) === kind);
+    const speechGuard = policyEvidence('repetition-guard'), planLimit = policyEvidence('orchestration-limit'), plans = policyEvidence('orchestration-plan');
+    if (speechGuard.length) findings.push({
+      id: 'speech-repetition-limit', title: 'Speech repetition guard stopped exploration', severity: 'warning',
+      description: 'The same action kept producing the same speech until the configured limit. This may indicate a dead end or a loop on the page, or a model that kept repeating itself; it does not establish either.',
+      evidenceEventIds: speechGuard.map(event => event.id)
+    });
+    if (planLimit.length) findings.push({
+      id: 'orchestration-limit', title: 'The planner ran out of new plans', severity: 'warning',
+      description: 'The executor kept needing new plans until the replanning limit. Review where the plan changed and which assumptions turned out wrong before attributing a cause to the page or to the models.',
+      evidenceEventIds: [...planLimit, ...plans.slice(1)].map(event => event.id)
+    });
     const unseenFocus = visual.modelFocusObservations.filter(item => item.visibility === 'not-visible');
     if (unseenFocus.length) findings.push({
       id: 'model-focus-not-visible', title: 'Model reported no visible focus indicator', severity: 'warning',
@@ -253,6 +265,7 @@ export const deterministicAnalyzer: TraceAnalyzer = {
     if (evidence.modalities.includes('simulation')) {
       observationSummary.push(`${evidence.readableSimulationOutputEvents.length} readable simulated VoiceOver output events`, `${evidence.redactedSimulationOutputEvents.length} redacted simulated output events`, 'simulated output is not native VoiceOver evidence');
     }
+    if (plans.length) observationSummary.push(`${plans.length} plan versions (${Math.max(0, plans.length - 1)} revisions)`);
     if (evidence.modalities.includes('keyboard')) {
       observationSummary.push(`${screenshots.length} readable keyboard screenshot observations`, `${visual.states.length} distinct pixel states`, `${visual.inferenceEventIds.length} recorded model inferences`, `${redactedScreenshots.length} keyboard screenshot observations removed for privacy`);
     }

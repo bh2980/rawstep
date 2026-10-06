@@ -15,20 +15,27 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { llmChoiceModel, LlmScreenshotAdapter } from './llm.js';
-import { type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
+import { type AtBackend, type Executor, type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
 import { ensureAtDriver } from './atdriver.js';
 
 /** Everything one run needs, resolved from the project: nothing here is looked up again while the run executes. */
 export type RunSpec = {
-  task: Task; model: Model; prompt: Prompt; mode: Mode;
-  /** Run profile policy and machine settings in force for this run. */
+  task: Task; mode: Mode;
+  /** The executor for the mode, its instructions and how it reads the run. */
+  model: Model; prompt: Prompt; executor: Pick<Executor, 'historyLimit' | 'focusGate'>;
+  /** This computer's settings, the run rules and the analysis instructions in force for this run. */
   settings: RunSettings;
   /** The page environment: a profile name or object, resolved by @rawstep/browser/profiles. */
   environment: unknown;
+  /** Screen reader runs: the simulation or a native screen reader. */
+  backend: AtBackend;
+  /** The action set's actions for the mode. */
   permissions: Permissions;
+  /** The conditions as recorded in the trace at `run.started`. */
+  conditions?: Record<string, unknown>;
   /** Ask the model, after a keyboard run that stopped early, why (never an action or verdict). */
   diagnoseStop?: boolean;
-  /** Screen reader runs only: the LLM that plans small steps for `model` to carry out, and the agent's added planner instructions. */
+  /** Screen reader runs of a planned combo: the LLM that writes the plan document for `model` to carry out, and its added instructions. */
   plannerModel?: Model; plannerInstructions?: string;
 };
 export type RunExecution = {
@@ -44,18 +51,19 @@ export type RunExecution = {
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop, plannerModel, plannerInstructions }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, executor, mode, settings, environment, backend, permissions, conditions, diagnoseStop, plannerModel, plannerInstructions }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
-  const { repetitionGuard: guardSetting, modelGiveUp, maxReplans, stepActionLimit, ...limits } = globals.policy;
-  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
-  const speechOptions = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions, historyLimit: limits.historyLimit };
+  const { machine, runRules: rules } = settings;
+  const early = { repetitionGuard: resolveRepetitionGuard(rules.repetitionGuard, model, mode), modelGiveUp: rules.modelGiveUp };
+  const limits = { maxStateVisits: rules.maxStateVisits, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
+  const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
   // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
   const planner = mode === 'screenreader' && plannerModel
     ? new LlmPlanner(createLlmModel({ baseURL: resolveBaseURL(plannerModel), modelId: plannerModel.modelId, apiKey: plannerApiKey, timeoutMs: plannerModel.timeoutMs, name: 'rawstep-planner' }), plannerInstructions)
     : undefined;
   const speechPolicy = (chooser: ChoiceModel): DecisionPolicy => planner
-    ? new OrchestratedSpeechPolicy(planner, chooser, { ...speechOptions, maxReplans, stepActionLimit })
+    ? new OrchestratedSpeechPolicy(planner, chooser, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit })
     : new SpeechDecisionPolicy(chooser, speechOptions);
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
@@ -69,24 +77,24 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
     await client.prepare({ signal: setupSignal });
     if (mode === 'keyboard') {
       screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
-      policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
+      policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: executor.focusGate ? {} : undefined, model: screenshotModel });
     } else {
       policy = speechPolicy(new SystemOneChoiceModel(client, planner ? orchestratedPrompt(prompt) : prompt));
     }
   }
-  const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
-    headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
-    browserExecutablePath: globals.browserExecutablePath || undefined,
-    ...(globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
+  const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
+    headless: mode === 'screenreader' && backend !== 'simulation' ? false : machine.headless,
+    browserExecutablePath: machine.browserExecutablePath || undefined,
+    ...(machine.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
   setupSignal.throwIfAborted();
   if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
   const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
   if (mode === 'keyboard') return runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) });
   // Screen reader runs keep a screenshot per step for people reading the run; the model never sees it.
   try {
-    if (globals.backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
-    const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
-    try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
+    if (backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
+    const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
+    try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
     finally { await driver.stop(); }
   } finally { if (policy instanceof OrchestratedSpeechPolicy) await savePlan(policy, outDir); }
 };
