@@ -156,10 +156,16 @@ export function formatRunResult(result: RunTaskResult): string {
   return lines.join('\n') + '\n';
 }
 
+/** Whether a Node version (`22.11.0`) meets the package's `>=22.12.0`: the minor version counts, not only the major. */
+export function nodeSupported(version: string): boolean {
+  const [major = 0, minor = 0] = version.split('.').map(Number);
+  return major > 22 || (major === 22 && minor >= 12);
+}
+
 async function doctor(projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
   let failed = false;
   const report = (ok: boolean | undefined, label: string, detail: string) => { if (ok === false) failed = true; stdout(`${ok === undefined ? 'skip' : ok ? 'ok  ' : 'FAIL'}  ${label}: ${detail}\n`); };
-  report(Number(process.versions.node.split('.')[0]) >= 22, 'Node', `${process.version} (needs >= 22.12)`);
+  report(nodeSupported(process.versions.node), 'Node', `${process.version} (needs >= 22.12)`);
   const store = new ProjectStore(projectDir);
   let read: Awaited<ReturnType<ProjectStore['read']>> | undefined;
   try {

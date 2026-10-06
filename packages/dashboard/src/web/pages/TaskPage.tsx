@@ -1,5 +1,5 @@
 import { RunsTable } from '../components/RunsTable';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { taskProfile, type ManagedTask } from '@rawstep/project/config';
@@ -48,6 +48,13 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   const saved = config.tasks.find(item => item.id === taskId), savedJson = JSON.stringify(view.tasks[taskId] ?? {}, null, 2);
   const [task, setTask] = useState<ManagedTask | undefined>(() => saved && structuredClone(saved));
   const [json, setJson] = useState(savedJson), [revision, setRevision] = useState(view.revision);
+  // What the draft started from, to tell an edit from a change made elsewhere (another window, a file edit, the CLI).
+  const [base, setBase] = useState(() => ({ task: JSON.stringify(saved ?? null), json: savedJson }));
+  const adopt = () => { if (!saved) return; setTask(structuredClone(saved)); setJson(savedJson); setRevision(view.revision); setBase({ task: JSON.stringify(saved), json: savedJson }); };
+  const edited = !!task && (JSON.stringify(task) !== base.task || !sameTaskJson(json, base.json));
+  // A newer project revision is taken over at once when nothing was edited; an edited draft stays and is marked as behind.
+  useEffect(() => { if (revision !== view.revision && !edited) adopt(); }, [view.revision]);
+  const behind = revision !== view.revision;
   const [editing, setEditing] = useState(false), [deleting, setDeleting] = useState(false);
   const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === taskId), [runs, taskId]);
   const numbers = useMemo(() => taskRunNumbers(runs, taskId), [runs, taskId]);
@@ -66,12 +73,16 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     if (!body) throw new Error(t('taskSettings.invalidJson'));
     const state = await pageProps.save({ ...current, tasks: current.tasks.map(item => item.id === next.task.id ? next.task : item) }, { file: next.task.file, task: body }, base);
     const stored = state.config.tasks.find(item => item.id === next.task.id);
+    const storedJson = JSON.stringify(state.tasks[taskId] ?? body, null, 2);
     setRevision(state.revision);
     if (stored) setTask(structuredClone(stored));
-    setJson(JSON.stringify(state.tasks[taskId] ?? body, null, 2));
+    setJson(storedJson);
+    setBase({ task: JSON.stringify(stored ?? next.task), json: storedJson });
   }
   const save = () => write({ task, json }, revision);
-  const discard = () => { setTask(structuredClone(saved)); setJson(savedJson); };
+  /** Saves this draft on top of the project as it is now: other tasks and settings stay as they are, this task becomes the draft. */
+  const saveOnLatest = () => write({ task, json }, view.revision, view.config);
+  const discard = adopt;
 
   const saveBasics = async (basics: TaskBasics, rebase: boolean): Promise<BasicsSave> => {
     let result: BasicsSave = { ok: true };
@@ -123,9 +134,11 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     </Tabs>
 
     {dirty && tab !== 'overview' && <div role="region" aria-label={t('taskPage.saveBar')} className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-edge-strong bg-background/95 py-3 backdrop-blur">
-      <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(save)}><Save aria-hidden="true" />{t('taskPage.save')}</Button>
-      <Button variant="outline" size="xl" disabled={pageProps.busy} onClick={discard}><RotateCcw aria-hidden="true" />{t('taskPage.discard')}</Button>
-      <p role="status" className="text-xs text-muted-foreground">{t('taskPage.unsaved')}</p>
+      {behind
+        ? <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(saveOnLatest)}><Save aria-hidden="true" />{t('taskPage.saveOnLatest')}</Button>
+        : <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(save)}><Save aria-hidden="true" />{t('taskPage.save')}</Button>}
+      <Button variant="outline" size="xl" disabled={pageProps.busy} onClick={discard}><RotateCcw aria-hidden="true" />{behind ? t('taskPage.takeLatest') : t('taskPage.discard')}</Button>
+      <p role="status" className="text-xs text-muted-foreground">{behind ? t('taskPage.behind') : t('taskPage.unsaved')}</p>
     </div>}
 
     <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} view={view} rules={rules} otherChanges={otherChanges} onSave={saveBasics}

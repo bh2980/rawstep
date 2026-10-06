@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runCli, parseCliArguments, formatRunResult, type CliDependencies } from "@rawstep/cli/cli";
+import { runCli, parseCliArguments, formatRunResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
 import { ProjectError } from "@rawstep/project/errors";
 import { ProjectStore, initProject } from "@rawstep/project/store";
 import { defaultConfig } from "@rawstep/project/config";
@@ -315,5 +315,15 @@ describe("doctor", () => {
     const failing = output(directory);
     expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => {}, checkNativeBackend: async () => { throw new Error("ECONNREFUSED"); } })).toBe(1);
     expect(text(failing.stdout)).toContain("FAIL  Screen reader: voiceover AT Driver at ws://127.0.0.1:9333: ECONNREFUSED");
+  });
+});
+
+describe("doctor Node check", () => {
+  it("needs 22.12 or later, comparing the minor version too", () => {
+    expect(nodeSupported("22.11.0")).toBe(false);
+    expect(nodeSupported("22.0.0")).toBe(false);
+    expect(nodeSupported("21.99.0")).toBe(false);
+    expect(nodeSupported("22.12.0")).toBe(true);
+    expect(nodeSupported("24.19.0")).toBe(true);
   });
 });

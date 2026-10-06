@@ -59,6 +59,9 @@ export const taskUi = {
     save: '저장',
     discard: '되돌리기',
     unsaved: '저장하지 않은 변경이 있습니다. 저장해야 다음 실행부터 적용됩니다.',
+    behind: '편집하는 동안 프로젝트가 다른 곳에서 바뀌었습니다. 내 변경으로 저장하면 이 작업은 지금 편집한 내용이 되고, 다른 작업과 설정은 바뀐 그대로 둡니다.',
+    saveOnLatest: '내 변경으로 저장',
+    takeLatest: '편집 버리고 최신으로',
     saveBar: '저장',
   },
   taskEdit: {
