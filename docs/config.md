@@ -94,6 +94,7 @@ A run profile is a named set of conditions.
 | `atEndpoint` | AT Driver WebSocket URL. Empty (the default) means the usual address of the chosen screen reader's server: `ws://localhost:4382/session` for VoiceOver (Bocoup macOS server) and `ws://localhost:3031/session` for NVDA (PAC server). Loopback only. |
 | `browserExecutablePath` | Optional path to a trusted Chromium. Empty uses the bundled one. |
 | `headless` | Run the browser without a window (default true). |
+| `personCheck` | For real sites with a human check (Cloudflare and the like). Runs use a visible Chrome with a profile kept in `.rawstep/browser-profile`. When a check appears, the run pauses until a person passes it in that window (up to 5 minutes; the wait does not count against the time limit). Rawstep never answers a check itself. Default `false`. |
 
 ### Starting the AT Driver server
 

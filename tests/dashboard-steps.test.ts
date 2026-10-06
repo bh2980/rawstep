@@ -130,4 +130,12 @@ describe('event steps and run notices', () => {
       { kind: 'navigation-blocked', step: 0, hosts: ['example.org'], count: 2 },
     ]);
   });
+
+  it('says a live run waits for a person, and a finished one how long the person took', () => {
+    const waiting: Pair[] = [['run.waiting-for-person', { step: 0, reason: 'bot-check' }]];
+    expect(build(waiting, { live: true }).waitingForPerson).toBe(true);
+    const passed = build([...waiting, ['run.person-resumed', { step: 0, waitedMs: 12000 }]]);
+    expect(passed.waitingForPerson).toBeUndefined();
+    expect(passed.notices).toEqual([{ kind: 'person-check', step: 0, waitedMs: 12000, hosts: [], count: 1 }]);
+  });
 });

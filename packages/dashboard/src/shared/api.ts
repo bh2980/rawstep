@@ -54,7 +54,9 @@ export type StepView = {
  * Something the page did that explains a run without being a step: a bot check page (Cloudflare and the like) or navigations the
  * task's navigation range blocked. `hosts` are the distinct hosts involved, `count` how often it happened.
  */
-export type RunNotice = { kind: 'bot-check' | 'navigation-blocked'; step: number; hosts: string[]; count: number };
+export type RunNotice = { kind: 'bot-check' | 'navigation-blocked'; step: number; hosts: string[]; count: number }
+  /** A person passed a human check; `waitedMs` is how long, taken out of the run's time budget. */
+  | { kind: 'person-check'; step: number; waitedMs: number; hosts: string[]; count: number };
 /**
  * What an LLM wrote about a finished run: a summary and hypotheses, each pointing at the steps of the events it cites. Never a verdict;
  * absent when the run profile has no LLM for this.
@@ -69,6 +71,8 @@ export type RunStepsView = {
   runId: string;
   steps: StepView[];
   notices: RunNotice[];
+  /** The run is paused until a person passes a human check in the browser window. */
+  waitingForPerson?: boolean;
   explanation?: RunExplanation;
   /** Goal rules that already held before the first action (from verifier.baseline). */
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };

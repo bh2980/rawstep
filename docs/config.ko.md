@@ -97,6 +97,7 @@ Rawstep을 실행하는 컴퓨터에 속한 설정입니다.
 | `atEndpoint` | 네이티브 AT Driver의 loopback 주소. 비워 두면(기본) 고른 스크린리더 서버의 일반적인 주소를 씁니다. VoiceOver(Bocoup macOS 서버)는 `ws://localhost:4382/session`, NVDA(PAC 서버)는 `ws://localhost:3031/session`입니다 |
 | `browserExecutablePath` | 쓸 Chromium 경로. 비우면 Playwright의 Chromium |
 | `headless` | 브라우저를 화면 없이 실행할지(기본 `true`) |
+| `personCheck` | Cloudflare 같은 봇 확인이 있는 실제 사이트용. 설치된 Chrome 창을 띄우고 프로필을 `.rawstep/browser-profile`에 유지하며, 봇 확인이 나오면 사람이 그 창에서 통과할 때까지(최대 5분, 실행 시간 제한에서 제외) 기다립니다. Rawstep이 확인을 대신 풀지는 않습니다. 기본 `false` |
 
 `voiceover`와 `nvda`는 해당 OS에서 AT Driver 서버가 필요하며, `rawstep doctor`가 엔드포인트 응답을 확인합니다. 해당 주소에 응답하는 서버가 없으면 Rawstep이 명령으로 서버를 시작할 수 있습니다. 이 명령은 프로그램을 실행하므로 공유 설정 파일에는 두지 않고, 이 컴퓨터의 `.env.local`에만 `RAWSTEP_AT_DRIVER_COMMAND`로 저장합니다.
 

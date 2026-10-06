@@ -114,7 +114,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   for (let i = 1; i <= repeat; i++) {
     if (signal.aborted) throw cancelled();
     const outDir = join(root, `run-${i}`);
-    const trace = await execute(spec, { outDir, apiKey, signal, atDriverCommand, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
+    const trace = await execute(spec, { outDir, apiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
     if (signal.aborted) throw cancelled();
     done.push({ outDir, trace });
   }

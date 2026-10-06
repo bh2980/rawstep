@@ -13,10 +13,10 @@ import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecor
 import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
-export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, atDriverCommand?: string) => Promise<RunTrace>;
-const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, atDriverCommand) => {
+export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined }) => Promise<RunTrace>;
+const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) => {
   const { model, prompt, mode, globals, profile } = run.snapshot;
-  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, atDriverCommand, ...(onEvent ? { onEvent } : {}) });
+  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
 };
 /**
  * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
@@ -175,7 +175,8 @@ export class ExperimentQueue {
       try {
         apiKey = await this.store.credential(run.snapshot.model);
         const atDriverCommand = run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
-        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), atDriverCommand);
+        const browserProfileDir = await this.store.file('.rawstep/browser-profile');
+        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir });
         run.outcome = publicOutcome(trace.outcome);
         if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';

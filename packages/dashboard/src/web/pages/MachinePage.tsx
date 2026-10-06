@@ -72,7 +72,7 @@ export function MachinePage(props: PageProps) {
   const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
   const viewport = profileViewport(props.view.config.profiles[0]!, props.view.environmentPresets);
   // A native screen reader run always opens a visible window.
-  const visible = native || !machine.headless;
+  const visible = native || machine.personCheck || !machine.headless;
   return <div className="grid max-w-3xl gap-7">
     <PageHeader title={t('machine.heading')} description={t('machine.intro')} />
 
@@ -105,7 +105,8 @@ export function MachinePage(props: PageProps) {
         <Field label={t('machine.atEndpoint')} value={machine.atEndpoint} placeholder={atEndpointOf({ ...machine, atEndpoint: '' })} hint={t('machine.atEndpointHint')} onChange={atEndpoint => update({ atEndpoint })} />
         <Field label={t('machine.atCommand')} value={command} placeholder={t(`machine.atCommandPlaceholder.${machine.backend}`)} hint={t('machine.atCommandHint')} onChange={next => { setCommand(next); setDriver({ kind: 'unchecked' }); }} />
       </>}
-      <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless} onChange={show => update({ headless: !show })} />
+      <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck} disabled={machine.personCheck} onChange={show => update({ headless: !show })} />
+      <Toggle label={t('machine.personCheck')} hint={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => update({ personCheck })} />
     </section>
     <div className="flex flex-wrap items-center gap-3 border-t border-edge-strong pt-4">
       <Button size="xl" disabled={props.busy} onClick={save}><Save aria-hidden="true" />{t('machine.save')}</Button>

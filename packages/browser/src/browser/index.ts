@@ -49,7 +49,8 @@ export type DomEventRecord = {
 };
 
 export type BrowserSession = {
-  browser: Browser;
+  /** Absent for a persistent profile, whose context is the browser. */
+  browser?: Browser;
   context: BrowserContext;
   page: Page;
   network: NetworkLog;
@@ -99,7 +100,29 @@ export type CreateBrowserSessionOptions = {
   verify?: VerifySpec;
   /** Page observer is on by default; false skips it, an object tunes its limits. */
   observe?: boolean | ObserverOptions;
+  /**
+   * A browser profile directory kept between runs (cookies, storage). Used when a person passes a site's own human check in the
+   * visible window: the installed Chrome is preferred, and the check's pages are let through the navigation guard. Nothing is
+   * spoofed and no check is answered automatically.
+   */
+  userDataDir?: string;
 };
+
+/** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
+const BOT_CHECK_HOSTS = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/;
+export function isBotCheckUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return BOT_CHECK_HOSTS.test(parsed.hostname) || (parsed.hostname === 'www.google.com' && parsed.pathname.startsWith('/recaptcha')) || parsed.search.includes('__cf_chl');
+  } catch { return false; }
+}
+/** Whether the page is showing a human check instead of the site: its address, its title, or a challenge frame. */
+export async function isBotCheckPage(page: Page): Promise<boolean> {
+  if (isBotCheckUrl(page.url())) return true;
+  if (page.frames().some(frame => frame !== page.mainFrame() && isBotCheckUrl(frame.url()))) return true;
+  const title = await page.title().catch(() => '');
+  return /just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title);
+}
 
 export function validateProxyServer(value: string): string {
   let proxy: URL;
@@ -112,6 +135,16 @@ export function validateProxyServer(value: string): string {
  * An explicit executable is used as given. Otherwise Playwright's own Chromium is tried first and then the
  * installed Google Chrome, so a fresh machine works without `playwright install` when Chrome is present.
  */
+/** A persistent profile: the installed Google Chrome first (what a person uses), then Playwright's Chromium. */
+async function launchPersistent(userDataDir: string, launch: Parameters<typeof chromium.launchPersistentContext>[1], executablePath?: string): Promise<BrowserContext> {
+  if (executablePath) return chromium.launchPersistentContext(userDataDir, { ...launch, executablePath });
+  try { return await chromium.launchPersistentContext(userDataDir, { ...launch, channel: "chrome" }); }
+  catch (installed) {
+    try { return await chromium.launchPersistentContext(userDataDir, launch); }
+    catch { throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: installed }); }
+  }
+}
+
 async function launchChromium(launch: Parameters<typeof chromium.launch>[0], executablePath?: string): Promise<Browser> {
   if (executablePath) return chromium.launch({ ...launch, executablePath });
   try { return await chromium.launch(launch); }
@@ -129,7 +162,7 @@ export async function createBrowserSession(
 ): Promise<BrowserSession> {
   const proxyServer = options.proxyServer === undefined ? undefined : validateProxyServer(options.proxyServer);
   const browserLaunchStartedAt = Date.now();
-  const browser = await launchChromium({
+  const launch = {
     headless: options.headless ?? true,
     // Rawstep owns cancellation and must finalize its trace before exiting.
     // Playwright's SIGINT handler calls process.exit(130) after closing Chrome.
@@ -137,7 +170,15 @@ export async function createBrowserSession(
     handleSIGTERM: false,
     chromiumSandbox: true,
     ...(proxyServer ? { proxy: { server: proxyServer } } : {})
-  }, options.executablePath);
+  };
+  const contextOptions = {
+    serviceWorkers: "block" as const,
+    ...(options.profile ? { colorScheme: options.profile.colorScheme, forcedColors: options.profile.forcedColors, contrast: options.profile.contrast, reducedMotion: options.profile.reducedMotion } : {}),
+    viewport: options.profile?.viewport ?? { width: DEFAULT_VIEWPORT.w, height: DEFAULT_VIEWPORT.h }
+  };
+  const persistent = options.userDataDir ? await launchPersistent(options.userDataDir, { ...launch, ...contextOptions }, options.executablePath) : undefined;
+  const browser = persistent ? undefined : await launchChromium(launch, options.executablePath);
+  const closeBrowser = async () => { await (persistent ?? browser)!.close(); };
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
   const pageLoadStartedAt = Date.now();
   const blockedNavigations: BlockedNavigationRecord[] = [];
@@ -145,15 +186,10 @@ export async function createBrowserSession(
   let stopNavigationGuard = () => {};
   let observer: PageObserver | undefined;
   try {
-    const context = await browser.newContext({
-      serviceWorkers: "block",
-      ...(options.profile ? { colorScheme: options.profile.colorScheme, forcedColors: options.profile.forcedColors, contrast: options.profile.contrast, reducedMotion: options.profile.reducedMotion } : {}),
-      viewport: options.profile?.viewport ?? {
-        width: DEFAULT_VIEWPORT.w,
-        height: DEFAULT_VIEWPORT.h
-      }
-    });
-    const page = await context.newPage();
+    const context = persistent ?? await browser!.newContext(contextOptions);
+    // A persistent profile opens with a tab of its own; use it, and close any others it restored.
+    const page = persistent ? persistent.pages()[0] ?? await persistent.newPage() : await context.newPage();
+    if (persistent) for (const extra of persistent.pages().filter(other => other !== page)) await extra.close().catch(() => undefined);
     if (options.profile) await installProfileStyles(page, options.profile);
     // Before the first navigation, so the initial document is observed too.
     observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
@@ -239,7 +275,8 @@ export async function createBrowserSession(
         const reason = getNavigationBlockReason(request.url(), {
           allowedOrigin,
           startUrlPrefix,
-          policy: navigationPolicy
+          policy: navigationPolicy,
+          allowBotChecks: !!options.userDataDir
         });
         if (!reason) {
           // The independent native boundary below checks every redirect hop.
@@ -254,7 +291,7 @@ export async function createBrowserSession(
 
       stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
         blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
-          allowedOrigin, startUrlPrefix, policy: navigationPolicy
+          allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: !!options.userDataDir
         }),
         onBlocked: recordBlockedNavigation,
         onFailure: (error) => {
@@ -267,6 +304,7 @@ export async function createBrowserSession(
         allowedOrigin,
         startUrlPrefix,
         policy: navigationPolicy,
+        allowBotChecks: !!options.userDataDir,
         onBlockedNavigation: recordBlockedNavigation,
         onInstallWarning: recordNavigationGuardWarning
       });
@@ -280,12 +318,12 @@ export async function createBrowserSession(
     const initialResponse=await page.goto(url, { waitUntil: "load" });
     if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
     await waitForNetworkIdleBestEffort(page);
-    if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
+    if(options.navigation?.readOnly && !options.userDataDir){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
     const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
     const pageLoadMs = Date.now() - pageLoadStartedAt;
 
     return {
-      browser,
+      ...(browser ? { browser } : {}),
       ...(appliedProfile ? { appliedProfile } : {}),
       context,
       page,
@@ -311,13 +349,13 @@ export async function createBrowserSession(
         try {
           await context.close();
         } finally {
-          await browser.close();
+          await closeBrowser().catch(() => undefined);
         }
       }
     };
   } catch (error) {
     stopNavigationGuard();
-    await browser.close().catch(() => undefined);
+    await closeBrowser().catch(() => undefined);
     // Preserve an explicit access barrier even if its challenge page also attempted
     // a blocked POST. A secondary request must not hide the actual HTTP barrier.
     const message = error instanceof BrowserAccessBlockedError ? error.message : blockedNavigations.at(-1)?.reason ?? (error instanceof Error ? error.message : String(error));
@@ -494,8 +532,11 @@ function getNavigationBlockReason(
     allowedOrigin: string;
     startUrlPrefix: string;
     policy: ResolvedNavigationPolicy;
+    /** A person passes human checks in this run, so the check's own pages must load. */
+    allowBotChecks?: boolean;
   }
 ): string | undefined {
+  if (context.allowBotChecks && isBotCheckUrl(targetUrl)) return undefined;
   try {
     const target = new URL(targetUrl);
     if (!["http:", "https:", "file:"].includes(target.protocol) || target.username || target.password) {
@@ -554,6 +595,7 @@ async function installDocumentNavigationGuard(
     onInstallWarning: (warning: NavigationGuardWarningRecord) => void;
     allowedOrigin: string;
     startUrlPrefix: string;
+    allowBotChecks?: boolean;
   }
 ): Promise<void> {
   const bindingName = "__rawstepReportNavigationGuardEvent";

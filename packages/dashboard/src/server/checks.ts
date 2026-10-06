@@ -76,7 +76,7 @@ export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecut
   let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
   try {
     session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
-    return { ok: true, name: 'Chromium', version: session.browser.version(), source };
+    return { ok: true, name: 'Chromium', version: session.browser?.version() ?? 'unknown', source };
   } catch (error) {
     return { ok: false, kind: source === 'auto' && error instanceof RawstepError && error.code === 'browser-setup' ? 'not-found' : 'launch-failed', source };
   } finally { await session?.close().catch(() => undefined); }

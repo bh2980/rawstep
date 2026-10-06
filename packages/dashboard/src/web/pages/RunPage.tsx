@@ -51,6 +51,10 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const baselineMet = view?.baseline?.rules.filter(rule => rule.passed).length;
   return <div className="grid gap-5">
     <RunHeader runRef={runRef} taskRuns={taskRuns} numbers={numbers} view={view} pageProps={pageProps} navigate={navigate} />
+    {view?.waitingForPerson && <section role="status" className="grid gap-1 border-l-4 border-l-inspect bg-inspect-soft py-3 pr-4 pl-4">
+      <p className="text-[15px] leading-6 font-semibold">{t('runPage.waitingForPerson')}</p>
+      <p className="text-[13px] leading-5">{t('runPage.waitingForPersonNote')}</p>
+    </section>}
     {view && !live && <RunDiagnosis run={run} steps={view.steps} notices={view.notices} onSelect={select} />}
     <section aria-label={t('runPage.timelineSection')} className="grid gap-2">
       {loading && !view && <div aria-busy="true" className="grid gap-3"><Skeleton className="h-10" /><Skeleton className="h-64" /></div>}

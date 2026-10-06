@@ -3,7 +3,7 @@ import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { createBrowserSession, isBotCheckPage, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
@@ -31,7 +31,14 @@ export type RunOptions = {
   /** Page observer for hints; on by default. Never visible to the policy. */
   observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
+  /**
+   * A person passes the site's own human checks: the run uses a visible browser with this kept profile, and whenever the page
+   * shows a check it waits (up to `timeoutMs`, default 5 minutes) until the page is the site again. The wait does not count
+   * against the task's time budget. Rawstep never answers a check itself.
+   */
+  personCheck?: { userDataDir: string; timeoutMs?: number };
 };
+const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000;
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
@@ -58,7 +65,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
-  const deadline = Date.now() + task.timeoutMs!;
+  // Moved later by the time a person spends passing a human check.
+  let deadline = Date.now() + task.timeoutMs!;
   let stage = 'initialization';
   let activeStep = 0;
   let evidenceFailure: Error | undefined;
@@ -143,12 +151,36 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.headless ?? false, executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { userDataDir: options.personCheck.userDataDir } : {}), executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
       return opened;
     });
     await withinBudget(() => browser!.page.bringToFront());
+    /**
+     * While the page shows a human check, wait for the person to pass it in the visible window. The waiting is recorded and
+     * added back to the time budget; a check nobody passes in time ends the run as access-blocked.
+     */
+    const waitForPerson = async (step: number) => {
+      if (!options.personCheck || !(await withinBudget(() => isBotCheckPage(browser!.page)))) return;
+      const started = Date.now(), limit = options.personCheck.timeoutMs ?? PERSON_CHECK_TIMEOUT_MS;
+      append('run.waiting-for-person', { step, reason: 'bot-check', timeoutMs: limit }, { source: 'runner' });
+      for (;;) {
+        if (evidenceFailure) throw evidenceFailure;
+        controller.signal.throwIfAborted();
+        await new Promise(resolve => setTimeout(resolve, PERSON_CHECK_POLL_MS));
+        if (!(await isBotCheckPage(browser!.page).catch(() => true))) break;
+        if (Date.now() - started > limit) {
+          append('run.person-check-timeout', { step, waitedMs: Date.now() - started }, { source: 'runner' });
+          throw new BrowserAccessBlockedError(browser!.page.url(), undefined, 'The human check was not passed in time; Rawstep does not answer checks itself.');
+        }
+      }
+      const waitedMs = Date.now() - started;
+      deadline += waitedMs;
+      await withinBudget(() => settlePage(browser!.page));
+      append('run.person-resumed', { step, waitedMs }, { source: 'runner' });
+    };
+    await waitForPerson(0);
     // Keys must reach the page, not browser UI or another window. A real user starts on the document with nothing focused
     // (unless the page uses autofocus), so the runner never moves focus to an element itself.
     const readInitialFocus = () => browser!.page.evaluate(() => {
@@ -305,6 +337,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       append('action.result', { step, action, ...execution });
       history.push({ step, decision, observation, execution });
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page)); }
+      await waitForPerson(step);
       observation = await observe();
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);

@@ -70,7 +70,7 @@ describe('reviewed dynamic profile and focus identity cases',()=>{
 describe('nonsecure-page diagnostics',()=>{
   it('keeps document and control identities stable on about:blank without page randomUUID',async()=>{
     const s=await createTestBrowserSession(fixture);cleanups.push(()=>s.close());
-    const context=await s.browser.newContext();const page=await context.newPage();await page.setContent('<!doctype html><button>one</button><button>two</button>');
+    const context=await s.browser!.newContext();const page=await context.newPage();await page.setContent('<!doctype html><button>one</button><button>two</button>');
     expect(await page.evaluate(()=>isSecureContext)).toBe(false);
     expect(await page.evaluate(()=>typeof crypto.randomUUID)).toBe('undefined');
     await page.locator('button').first().focus();const first=await collectBrowserDiagnostics(page),again=await collectBrowserDiagnostics(page);

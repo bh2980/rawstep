@@ -28,7 +28,7 @@ const isBotCheck = (url: unknown) => {
 /** Bot checks and blocked navigations, one notice per kind with every host it involved. */
 function noticesOf(events: readonly TraceEvent[]): RunNotice[] {
   const found = new Map<RunNotice['kind'], RunNotice>(); let step = 0;
-  const note = (kind: RunNotice['kind'], url: unknown) => {
+  const note = (kind: 'bot-check' | 'navigation-blocked', url: unknown) => {
     const host = hostOf(url) ?? '?', notice = found.get(kind) ?? { kind, step, hosts: [], count: 0 };
     notice.count++; if (!notice.hosts.includes(host)) notice.hosts.push(host);
     found.set(kind, notice);
@@ -38,6 +38,10 @@ function noticesOf(events: readonly TraceEvent[]): RunNotice[] {
     if (event.type === 'policy.decision' && typeof data.step === 'number') step = data.step;
     if (event.type === 'browser.navigation-blocked') note(isBotCheck(data.url) ? 'bot-check' : 'navigation-blocked', data.url);
     else if (event.type === 'observer.navigation' && isBotCheck(data.url)) note('bot-check', data.url);
+    else if (event.type === 'run.person-resumed' && typeof data.waitedMs === 'number') {
+      const notice = found.get('person-check') as Extract<RunNotice, { kind: 'person-check' }> | undefined;
+      if (notice) { notice.waitedMs += data.waitedMs; notice.count++; } else found.set('person-check', { kind: 'person-check', step: typeof data.step === 'number' ? data.step : step, waitedMs: data.waitedMs, hosts: [], count: 1 });
+    }
   }
   return [...found.values()];
 }
@@ -117,5 +121,7 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
     const view = byStep.get(n);
     if (view && !view.hints.includes(hint.kind)) view.hints.push(hint.kind);
   }
-  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), notices: noticesOf(events), ...(baseline ? { baseline } : {}), live };
+  const waits = events.filter(event => event.type === 'run.waiting-for-person' || event.type === 'run.person-resumed' || event.type === 'run.person-check-timeout');
+  const waitingForPerson = live && waits.at(-1)?.type === 'run.waiting-for-person';
+  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), notices: noticesOf(events), ...(waitingForPerson ? { waitingForPerson } : {}), ...(baseline ? { baseline } : {}), live };
 }

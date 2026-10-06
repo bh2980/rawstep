@@ -30,6 +30,28 @@ function fixture() {
   const verifier = vi.fn(async (): Promise<VerificationRecord> => ({passed:true,failures:[]}));
   return {backend,browser,browserSessionFactory,verifier};
 }
+describe('human checks passed by a person',()=>{
+  const checking=(f:ReturnType<typeof fixture>,challengeCalls:number)=>{let calls=0;Object.assign(f.browser.page,{url:()=>++calls<=challengeCalls?'https://example.com/task?__cf_chl_rt_tk=x':'https://example.com/task',frames:()=>[],mainFrame:()=>undefined,title:async()=>'Shop',waitForLoadState:async()=>{}});};
+  it('opens a kept profile in a visible browser, waits while the page is a check, then continues and adds the wait back to the budget',async()=>{
+    const f=fixture();checking(f,2);
+    const trace=await runTask(task,{...f,headless:true,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(f.browserSessionFactory).toHaveBeenCalledWith(task.url,expect.objectContaining({userDataDir:'/tmp/profile',headless:false}));
+    expect(trace.events.map(e=>e.type)).toEqual(expect.arrayContaining(['run.waiting-for-person','run.person-resumed']));
+    expect(trace.events.find(e=>e.type==='run.person-resumed')?.data).toMatchObject({step:0});
+    expect(trace.outcome?.status).toBe('success');
+  });
+  it('ends the run as access-blocked when nobody passes the check in time, and never answers it',async()=>{
+    const f=fixture();checking(f,1000);
+    const trace=await runTask(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(trace.events.some(e=>e.type==='run.person-check-timeout')).toBe(true);
+    expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
+  });
+  it('does not look for checks without the setting',async()=>{
+    const f=fixture();checking(f,1000);
+    const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+    expect(trace.events.some(e=>e.type==='run.waiting-for-person')).toBe(false);
+  });
+});
 describe('model-neutral runner',()=>{
   describe('initial page focus',()=>{
     const unfocused=(f:ReturnType<typeof fixture>,afterFocus:boolean)=>{let focused=false;vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>{const source=String(fn);if(source.includes('window.focus')){focused=afterFocus;return undefined;}if(source.includes('documentHasFocus'))return {documentHasFocus:focused,focused:null};return true;}) as never);};

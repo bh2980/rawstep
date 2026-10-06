@@ -138,6 +138,11 @@ export const machineSchema = z.object({
   /** The AT Driver WebSocket address; empty means the usual address of the chosen screen reader's server (`atEndpointOf`). */
   atEndpoint: z.string().default(''),
   browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
+  /**
+   * For real sites with a human check (Cloudflare and the like): runs use a visible Chrome with a profile kept in
+   * `.rawstep/browser-profile`, and pause while a person passes the check in that window. Rawstep never answers a check itself.
+   */
+  personCheck: z.boolean().default(false),
 }).strict();
 export type MachineSettings = z.infer<typeof machineSchema>;
 /** Where each native screen reader's AT Driver server listens unless told otherwise: Bocoup's macOS server and the PAC NVDA server. */

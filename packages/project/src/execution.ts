@@ -28,12 +28,14 @@ export type RunExecution = {
   outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
   /** The command that starts the AT Driver server on this computer, for native screen reader runs when none is running yet. */
   atDriverCommand?: string | undefined;
+  /** Where the kept browser profile lives when the machine setting `personCheck` is on (`<project>/.rawstep/browser-profile`). */
+  browserProfileDir?: string | undefined;
 };
 /** Runs one RunSpec; replaceable so callers can run without a browser or a model. */
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent, atDriverCommand }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
@@ -57,7 +59,8 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   }
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
-    browserExecutablePath: globals.browserExecutablePath || undefined };
+    browserExecutablePath: globals.browserExecutablePath || undefined,
+    ...(globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
   setupSignal.throwIfAborted();
   if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
   const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };

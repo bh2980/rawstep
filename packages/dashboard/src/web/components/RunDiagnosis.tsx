@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { OctagonAlert, ShieldAlert, Signpost } from 'lucide-react';
+import { OctagonAlert, ShieldAlert, Signpost, UserCheck } from 'lucide-react';
 import type { RunNotice, StepView } from '../../shared/api';
 import type { RunRecord } from '../../shared/config';
 import { Button } from './ui/button';
@@ -28,10 +28,11 @@ export function RunDiagnosis({ run, steps, notices, onSelect }: Props) {
   } else if (reason === 'maxSteps' || reason === 'timeout') {
     lines.push({ key: 'stop', icon: OctagonAlert, text: t(`diagnosis.${reason}`) });
   }
+  const personPassed = notices.some(notice => notice.kind === 'person-check');
   for (const notice of notices) lines.push({
-    key: notice.kind, icon: notice.kind === 'bot-check' ? ShieldAlert : Signpost, step: notice.step,
-    text: t(`diagnosis.${notice.kind}`, { hosts: notice.hosts.join(', '), count: notice.count }),
-    note: t(`diagnosis.${notice.kind}Note`),
+    key: notice.kind, icon: notice.kind === 'bot-check' ? ShieldAlert : notice.kind === 'person-check' ? UserCheck : Signpost, step: notice.step,
+    text: t(`diagnosis.${notice.kind}`, { hosts: notice.hosts.join(', '), count: notice.count, seconds: notice.kind === 'person-check' ? Math.round(notice.waitedMs / 1000) : 0 }),
+    note: notice.kind === 'bot-check' && personPassed ? t('diagnosis.bot-checkPassedNote') : t(`diagnosis.${notice.kind}Note`, { setting: t('machine.personCheck') }),
   });
   if (!lines.length) return null;
   return <section aria-labelledby="run-diagnosis" className="grid gap-1.5">

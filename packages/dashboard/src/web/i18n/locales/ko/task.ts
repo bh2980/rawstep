@@ -234,6 +234,8 @@ export const taskUi = {
     noScreen: '이 행동 뒤의 화면 기록이 없습니다.',
     screenOpen: '행동 {{n}} 화면을 새 탭에서 크게 보기',
     screenLive: '현재 화면 (실시간)',
+    waitingForPerson: '봇 확인 화면이 떴습니다. 열린 브라우저 창에서 직접 통과해 주세요.',
+    waitingForPersonNote: '통과하면 실행이 자동으로 이어집니다. 기다리는 시간은 실행 시간 제한에 넣지 않으며, 5분 안에 통과하지 않으면 실행을 끝냅니다.',
     modelHintNote: '이 항목은 페이지 문제라고 단정할 수 없습니다. 모델이 반복하거나 확신이 낮았던 위치입니다.',
     rawLoading: '불러오는 중…',
     rawDescription: '이 행동에 속한 기록 {{count}}개입니다.',
