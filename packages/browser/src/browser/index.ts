@@ -399,10 +399,54 @@ export async function closeBrowserSession(session: BrowserSession): Promise<void
   await session.close();
 }
 
-export async function settlePage(page: Page): Promise<void> {
-  await waitForNetworkIdleBestEffort(page);
+/** Request kinds that stay open by design (live feeds, beacons); they never mean "the page is still answering the action". */
+const LONG_LIVED = new Set(["eventsource", "websocket", "ping"]);
+export type PageActivity = {
+  /** Resolves once the page has been still for `quietMs` — no request in flight, no address change, no DOM change — or after `maxMs`. */
+  settle(options: { quietMs: number; maxMs: number }): Promise<void>;
+  stop(): void;
+};
+/**
+ * Watches what a page does in answer to an action: the requests it starts (a route's code, its data) and its address changing.
+ * Start it before the action so a request sent at the moment of the click is seen; then settle on those signals instead of a fixed wait.
+ */
+export function watchPageActivity(page: Page): PageActivity {
+  const pending = new Set<unknown>();
+  let last = Date.now();
+  const touch = () => { last = Date.now(); };
+  const started = (request: { resourceType(): string }) => { if (!LONG_LIVED.has(request.resourceType())) { pending.add(request); touch(); } };
+  const ended = (request: unknown) => { if (pending.delete(request)) touch(); };
+  const navigated = (frame: unknown) => { if (frame === page.mainFrame()) touch(); };
+  page.on("request", started); page.on("requestfinished", ended); page.on("requestfailed", ended); page.on("framenavigated", navigated);
+  const stop = () => { page.off("request", started); page.off("requestfinished", ended); page.off("requestfailed", ended); page.off("framenavigated", navigated); };
+  return {
+    stop,
+    async settle({ quietMs, maxMs }) {
+      const deadline = Date.now() + maxMs;
+      try {
+        // Network and navigation first, then the DOM: a route renders after its code arrives.
+        while (Date.now() < deadline && (pending.size > 0 || Date.now() - last < quietMs)) await new Promise(resolve => setTimeout(resolve, 50));
+        const left = deadline - Date.now();
+        if (left > 0) await Promise.resolve().then(() => page.evaluate(({ ms, maxMs }) => new Promise<void>(resolve => {
+          let timer: ReturnType<typeof setTimeout>;
+          const done = () => { observer.disconnect(); clearTimeout(timer); clearTimeout(cap); resolve(); };
+          const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(done, ms); });
+          observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+          timer = setTimeout(done, ms);
+          const cap = setTimeout(done, maxMs);
+        }), { ms: quietMs, maxMs: left })).catch(() => undefined);
+      } finally { stop(); }
+    },
+  };
+}
+
+export async function settlePage(page: Page, activity?: PageActivity): Promise<void> {
+  if (activity) await activity.settle({ quietMs: ACTIVITY_QUIET_MS, maxMs: ACTIVITY_MAX_MS });
+  else await waitForNetworkIdleBestEffort(page);
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 }
+/** After an activation: still for this long counts as settled; never wait longer than the cap (live feeds, polling). */
+const ACTIVITY_QUIET_MS = 300, ACTIVITY_MAX_MS = 3000;
 
 type DomEventRecorderConfig = {
   selector: string;

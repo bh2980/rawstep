@@ -39,13 +39,14 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
-  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model), modelGiveUp };
+  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
+  const speechGuard = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions };
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
   if (model.kind === 'llm') {
     const client = new LlmChoiceClient(model, prompt, apiKey);
     screenshotModel = new LlmScreenshotAdapter(client);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, { modelGiveUp });
+    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, speechGuard);
   } else {
     const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
       capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
@@ -54,7 +55,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
       screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
       policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
     } else {
-      policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, { modelGiveUp });
+      policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, speechGuard);
     }
   }
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),

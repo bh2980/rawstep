@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices } from 'rawstep/systemone';
+import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices, speechRepetition } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
@@ -161,5 +161,26 @@ describe('early give-up configuration',()=>{
     const giveUpFake=new FakeSystemOneClient(['stop:stuck']);const giveUp=new SystemOneSpeechPolicy(giveUpFake,undefined,undefined,{modelGiveUp:true});
     expect(await giveUp.decide(input())).toEqual({stop:'stuck',stopSource:'model'});
     expect(giveUpFake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success','stop:stuck','stop:uncertain']);
+  });
+});
+
+describe('speech repetition guard', () => {
+  const said = (speech: string[]) => ({ kind: 'screenreader' as const, provenance: 'simulation' as const, speech, outputEventIds: [], window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'fixture' } });
+  const next = { action: { kind: 'intent' as const, intent: 'next' } };
+  const atEnd = (n: number) => Array.from({ length: n }, (_, i) => ({ step: i + 1, decision: next, observation: said(['End of content']) }));
+  it('stops as stuck without asking the model when the same action keeps producing the same speech', async () => {
+    const fake = new FakeSystemOneClient(['intent:next']);
+    const policy = new SystemOneSpeechPolicy(fake, 12, undefined, { repetitionGuard: true, maxUnchangedTransitions: 4 });
+    const decision = await policy.decide({ ...input(), allowedActions: { intents: ['next'], keys: [], inputKeys: [], replaceText: false }, history: atEnd(4), observation: said(['End of content']) });
+    expect(decision).toEqual({ stop: 'stuck', stopSource: 'exploration-guard' });
+    expect(fake.requests).toHaveLength(0);
+    expect(policy.takeDecisionEvidence()[0]).toMatchObject({ kind: 'repetition-guard', repeated: { speech: 'End of content', times: 4 } });
+  });
+  it('lets the model decide when the speech changed, the actions differ, or the guard is off', () => {
+    const last = said(['End of content']);
+    expect(speechRepetition(atEnd(3), last, 4)).toBeUndefined();
+    expect(speechRepetition([...atEnd(3), { step: 4, decision: next, observation: said(['link, Home']) }], last, 4)).toBeUndefined();
+    expect(speechRepetition([...atEnd(3), { step: 4, decision: { action: { kind: 'intent' as const, intent: 'previous' } }, observation: last }], last, 4)).toBeUndefined();
+    expect(speechRepetition(atEnd(4), last, 4)).toMatchObject({ times: 4 });
   });
 });

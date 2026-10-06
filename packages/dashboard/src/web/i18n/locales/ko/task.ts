@@ -185,9 +185,9 @@ export const taskUi = {
     jsonHint: 'url·goal·verify.all·input·maxSteps·timeoutMs·navigation을 편집합니다. 모델 선택에는 goal과 관찰만 전달하며 verify는 Runner의 독립 검증에 쓰입니다.',
   },
   findings: {
-    excessKeystrokes: '여기까지 탐색 키를 평균 {{mean}}번 눌렀습니다 (가장 적게 {{min}}번, 가장 많게 {{max}}번).',
-    excessKeystrokesOnce: '여기까지 탐색 키를 {{count}}번 눌렀습니다.',
-    excessKeystrokesPlain: '이 요소를 활성화하기 전에 탐색 키를 여러 번 눌렀습니다.',
+    excessKeystrokes: '여기에 닿을 때까지 이동만 평균 {{mean}}번 했습니다 (가장 적게 {{min}}번, 가장 많게 {{max}}번).',
+    excessKeystrokesOnce: '여기에 닿을 때까지 이동만 {{count}}번 했습니다.',
+    excessKeystrokesPlain: '이 요소를 누르기 전까지 이동만 여러 번 했습니다.',
     focusLostRemoved: '이 요소가 사라진 뒤 포커스가 페이지 처음으로 돌아갔습니다.',
     focusLostLeft: '이 요소에서 포커스가 벗어나 페이지 처음으로 돌아갔습니다.',
     focusLeftPage: '키보드 포커스가 페이지 밖으로 이동했습니다.',

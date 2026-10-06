@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DecisionPolicy, Decision } from '@rawstep/core/contracts';
-import { speechChoices } from '@rawstep/policies/systemone';
+import { speechChoices, speechGuardStop, type SpeechGuard } from '@rawstep/policies/systemone';
 import { chooseCandidate, createLlmModel, type LlmModel } from '@rawstep/policies/llm';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
 import { resolveBaseURL, type Model, type Prompt } from './config.js';
@@ -24,10 +24,12 @@ export class LlmChoiceClient {
 }
 export class LlmSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
-  constructor(private readonly client: LlmChoiceClient, private readonly historyLimit: number, private readonly options: { modelGiveUp?: boolean } = {}) {}
+  constructor(private readonly client: LlmChoiceClient, private readonly historyLimit: number, private readonly options: { modelGiveUp?: boolean } & SpeechGuard = {}) {}
   takeDecisionEvidence() { return this.evidence.splice(0); }
   async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
     if (input.observation.kind !== 'screenreader') throw new Error('Speech-only policy required');
+    const guarded = speechGuardStop(this.options, input);
+    if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
     const choices = speechChoices(input.allowedActions, this.options);
     const started = performance.now();
     const response = await this.client.choose({

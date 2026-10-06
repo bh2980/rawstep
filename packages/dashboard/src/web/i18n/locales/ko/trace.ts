@@ -20,7 +20,7 @@ export const traceUi = {
     successStopFailed: '모델이 {{n}}번째 판단에서 목표에 닿았다고 보고 멈췄지만, 완료 확인은 맞지 않았습니다.',
     successStopFailedNote: '모델이 받은 화면이나 발화를 열어, 모델이 무엇을 목표 달성으로 착각했는지 확인하세요.',
     guardStop: 'Rawstep의 반복 감시가 {{n}}번째 판단에서 실행을 멈췄습니다.',
-    guardStopNote: '같은 화면이 정해 둔 횟수만큼 반복되었습니다. 실행 프로필의 막힘 감지에서 바꿀 수 있습니다.',
+    guardStopNote: '같은 행동에 같은 화면이나 발화가 정해 둔 횟수만큼 반복되었습니다. 실행 프로필의 멈춤 조건에서 바꿀 수 있습니다.',
     maxSteps: '최대 행동 수에 닿아 멈췄습니다.',
     timeout: '제한 시간이 지나 멈췄습니다.',
     'bot-check': '페이지가 봇 확인 화면을 띄웠습니다 ({{hosts}}).',

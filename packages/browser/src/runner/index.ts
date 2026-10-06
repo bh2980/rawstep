@@ -3,7 +3,7 @@ import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
@@ -340,6 +340,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
       const action = decision.action;
       let execution: { ok: boolean; error?: string };
+      // Watched from before the action, so a request sent at the moment of the click counts.
+      const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
       try {
         stage = 'action';
         browser.observer?.setStep(step);
@@ -362,7 +364,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
       append('action.result', { step, action, ...execution });
       history.push({ step, decision, observation, execution });
-      if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page)); }
+      // An activation may start a route change that renders a moment later: settle on what the page does, not on a fixed wait.
+      if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
       await waitForPerson(step);
       observation = await observe();
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.

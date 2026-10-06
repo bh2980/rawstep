@@ -106,8 +106,8 @@ export const core = {
       slowRun: '가장 빨랐던 실행({{referenceSteps}}번)보다 행동이 {{extra}}번 많아 {{steps}}번을 썼습니다.',
       /** Appended to slowRun after a space when both durations were recorded. */
       slowRunDuration: '걸린 시간은 {{duration}}초로, 가장 빨랐던 실행은 {{referenceDuration}}초였습니다.',
-      excessKeystrokes: '{{target}}을(를) 활성화하기 전에 탐색 키를 {{n}}번 눌렀습니다.',
-      excessKeystrokesWithKeys: '{{target}}을(를) 활성화하기 전에 탐색 키를 {{n}}번 눌렀습니다. ({{keys}})',
+      excessKeystrokes: '{{target}}을(를) 누르기 전까지 {{n}}번의 행동 동안 이동만 했습니다.',
+      excessKeystrokesWithKeys: '{{target}}을(를) 누르기 전까지 {{n}}번의 행동 동안 이동만 했습니다 ({{keys}}). 행동마다 모델에 한 번씩 물었습니다.',
       backtracking: '탐색 방향이 {{n}}번 뒤바뀌었습니다.',
       repeatedState: '같은 화면을 {{n}}번 마주쳤습니다.',
       /** The focused element disappeared. */

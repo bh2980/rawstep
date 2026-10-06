@@ -190,9 +190,13 @@ export function defaultModes(): ManagedTask['modes'] {
     permissions: null, prompts: [{ id: 'baseline', name: 'Default', version: '1', instructions: defaultInstructions[mode] }],
   }])) as ManagedTask['modes'];
 }
-/** `auto`: off for cheap, fast decision models (bounded by maxSteps/timeoutMs); on for LLMs. */
-export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'kind'>): boolean {
-  return setting === 'auto' ? model.kind === 'llm' : setting === 'on';
+/**
+ * `auto` in keyboard mode: off for cheap, fast decision models (bounded by maxSteps/timeoutMs), on for LLMs — repeated pixels can be
+ * an animation or a legitimate cycle. In screen reader mode `auto` is on for every model: the same action producing the same exact
+ * speech (for example `next` answering "End of content") is a loop, never page progress.
+ */
+export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model: Pick<Model, 'kind'>, mode: Mode = 'keyboard'): boolean {
+  return setting === 'auto' ? mode === 'screenreader' || model.kind === 'llm' : setting === 'on';
 }
 /** Where the model is called: the preset address of its provider, or the address a custom connection carries. */
 export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;

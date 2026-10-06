@@ -251,6 +251,9 @@ describe('project config', () => {
     expect(resolveRepetitionGuard('auto', llm)).toBe(true);
     expect(resolveRepetitionGuard('on', decision)).toBe(true);
     expect(resolveRepetitionGuard('off', llm)).toBe(false);
+    // Speech repeats exactly, so auto guards screen reader runs for every model.
+    expect(resolveRepetitionGuard('auto', decision, 'screenreader')).toBe(true);
+    expect(resolveRepetitionGuard('off', decision, 'screenreader')).toBe(false);
   });
   it('accepts only version 1 configs', () => {
     const config = defaultConfig();
