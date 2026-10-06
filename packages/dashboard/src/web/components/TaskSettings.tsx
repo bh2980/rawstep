@@ -1,15 +1,16 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { taskAgent, taskEnvironment, type ManagedTask, type Mode } from '@rawstep/project/config';
+import { resolveRunRules, taskConditions, type ManagedTask } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
-import { agentModelsLine, policyInheritedSummary } from '../lib/agentSummary';
+import { comboSummary } from '../lib/conditions';
+import { CONDITION_KINDS, FIELD, type TaskConditionIds } from '../lib/taskConditions';
 import { taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJson';
-import { Choice, Field, Panel, Toggle } from './forms';
+import { Choice, Field, Panel } from './forms';
+import { RunRulesEditor } from './conditions/RunRulesEditor';
+import { TaskConditionFields } from './TaskConditionFields';
 import { ErrorState } from './layout/ErrorState';
-import { PermissionPresets } from './PermissionPresets';
-import { PolicyFields } from './PolicyFields';
 import { ReachCheck } from './ReachCheck';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
@@ -25,28 +26,31 @@ type Props = {
   onEdit: () => void;
 };
 
-const MODES = ['keyboard', 'screenreader'] as const satisfies readonly Mode[];
-
 /**
  * The "세부 설정" tab: what a run does beyond the basics, in closed sections. The name, address and goal are shown here as they are
- * but edited only in the 작업 수정 sheet. The default agent and environment can be picked here too. Instructions belong to the
- * agent's executors, so a task has none of its own; it can only narrow or widen actions per mode, change the policy and replace the
+ * but edited only in the 작업 수정 sheet. The default conditions (preset, model combo, action set, environments) can be picked here
+ * too; the conditions themselves are edited in the run box or under 실험 조건. A task can override any run rule and replace the
  * project's analysis instructions.
  */
 export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const parsed = parseTaskJson(json);
-  const { config } = view, agent = taskAgent(config, task), environment = taskEnvironment(config, task);
+  const { config } = view, conditions = taskConditions(config, task);
+  const preset = conditions.preset, inherited = resolveRunRules(config, preset?.runRules);
   const update = (part: Json) => onJson(updateTaskJson(json, part));
-  const setPermissions = (m: Mode, permissions: ManagedTask['permissions'][Mode]) => onTask({ ...task, permissions: { ...task.permissions, [m]: permissions } });
+  const ids: TaskConditionIds = Object.fromEntries((['presetId', ...CONDITION_KINDS.map(kind => FIELD[kind])] as const).flatMap(key => task[key] ? [[key, task[key]]] : []));
+  const setConditions = (next: TaskConditionIds) => {
+    const rest = { ...task };
+    for (const key of ['presetId', ...CONDITION_KINDS.map(kind => FIELD[kind])] as const) delete rest[key];
+    onTask({ ...rest, ...next });
+  };
   if (!parsed) return <div className="grid gap-4">
     <ErrorState alert view={{ kind: 'data', what: t('taskSettings.invalidJson'), progress: t('taskSettings.invalidJsonProgress'), next: t('taskSettings.invalidJsonNext') }} />
     <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} />
   </div>;
   const navigation = asObject(parsed.navigation);
-  const overridden = MODES.some(m => task.permissions[m] !== null);
-  const permissions = { keyboard: task.permissions.keyboard ?? agent.permissions.keyboard, screenreader: task.permissions.screenreader ?? agent.permissions.screenreader };
+  const overrides = Object.keys(task.runRules ?? {}).length;
   return <div className="grid max-w-3xl gap-1">
     <section aria-labelledby="task-basics" className="grid gap-3 pb-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -57,42 +61,18 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
         <dt className="text-muted-foreground">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.url')}</dt><dd className="font-mono text-[13px] break-all">{String(parsed.url ?? '')}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.goal')}</dt><dd className="leading-6">{String(parsed.goal ?? '')}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.agentModels')}</dt><dd className="break-words">{agentModelsLine(agent, config.connections)}</dd>
+        <dt className="text-muted-foreground">{t('runConditions.combo')}</dt><dd className="break-words">{conditions.combo.name} <span className="text-muted-foreground">· {comboSummary(conditions.combo, config.connections)}</span></dd>
       </dl>
       <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.basicsHint')}</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid content-start gap-1.5">
-          <Choice label={t('taskSettings.agent')} value={agent.id} options={config.agents.map(({ id, name }) => ({ id, name }))} onChange={agentId => onTask({ ...task, agentId })} />
-          <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.agentHint')}</p>
-        </div>
-        <div className="grid content-start gap-1.5">
-          <Choice label={t('taskSettings.environment')} value={environment.id} options={config.environments.map(({ id, name }) => ({ id, name }))} onChange={environmentId => onTask({ ...task, environmentId })} />
-          <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.environmentHint')}</p>
-        </div>
-      </div>
+      <TaskConditionFields config={config} taskId={task.id} value={ids} onChange={setConditions} />
     </section>
 
     <Panel title={t('taskSettings.overrideTitle')} description={t('taskSettings.overrideSummary')}>
-      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.overrideDescription', { agent: agent.name })}</p>
       <div className="grid gap-3">
-        <h4 className="text-sm font-semibold">{t('taskSettings.permissionsTitle')}</h4>
-        {MODES.map(m => { const mode = t(`sidebar.modes.${m}`), on = task.permissions[m] !== null;
-          return <Toggle key={m} label={t('taskSettings.permissionsToggle', { mode })} checked={on}
-            hint={on ? t('taskSettings.permissionsCustom', { mode }) : t('taskSettings.permissionsInherited', { agent: agent.name, mode })}
-            onChange={next => setPermissions(m, next ? structuredClone(agent.permissions[m]) : null)} />; })}
-        {/* Both modes are shown together; changing a mode that still follows the agent starts overriding that mode only. */}
-        {overridden && <PermissionPresets value={permissions} capabilities={view.capabilities}
-          onChange={next => onTask({ ...task, permissions: {
-            keyboard: task.permissions.keyboard !== null || JSON.stringify(next.keyboard) !== JSON.stringify(permissions.keyboard) ? next.keyboard : null,
-            screenreader: task.permissions.screenreader !== null || JSON.stringify(next.screenreader) !== JSON.stringify(permissions.screenreader) ? next.screenreader : null,
-          } })} />}
-      </div>
-      <div className="grid gap-3 border-t pt-4">
-        <h4 className="text-sm font-semibold">{t('taskSettings.policyTitle')}</h4>
-        <Toggle label={t('taskSettings.policyToggle')} checked={task.policy !== undefined}
-          hint={task.policy ? t('taskSettings.policyCustom') : t('taskSettings.policyInherited', { agent: agent.name, values: policyInheritedSummary(agent.policy) })}
-          onChange={on => { const copy = { ...task }; if (on) copy.policy = { ...agent.policy }; else delete copy.policy; onTask(copy); }} />
-        {task.policy && <PolicyFields value={{ ...agent.policy, ...task.policy }} onChange={policy => onTask({ ...task, policy })} />}
+        <h4 className="text-sm font-semibold">{t('runConditions.runRules')}</h4>
+        <p className="text-xs leading-5 text-muted-foreground">{overrides ? t('taskSettings.runRulesCustom', { count: overrides }) : t('taskSettings.runRulesInherited')}</p>
+        <RunRulesEditor value={task.runRules ?? {}} inherited={inherited} inheritedLabel={preset ? t('taskSettings.fromPreset', { name: preset.name }) : t('taskSettings.fromProject')}
+          onChange={runRules => { const copy = { ...task }; if (Object.keys(runRules).length) copy.runRules = runRules; else delete copy.runRules; onTask(copy); }} />
       </div>
       <div className="grid gap-3 border-t pt-4">
         <h4 className="text-sm font-semibold">{t('taskSettings.limitsTitle')}</h4>

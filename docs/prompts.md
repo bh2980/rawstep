@@ -4,8 +4,10 @@ Rawstep no longer ships LLM prompt templates, provider adapters, planning/reflec
 
 See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
 
-## Agent instructions
+## Executor and planner instructions
 
-Prompts belong to an agent's executors in [`rawstep.config.json`](./config.md#agents): `agents[].executors.<mode>.instructions` is the instruction text given to the model that picks each action in that mode. Tasks no longer carry prompts. Each run records the executor instructions as prompt id `<agentId>.<mode>`, with a content hash as its version, so runs with changed instructions can be told apart. To compare prompts, compare agents that differ only in `instructions`.
+Prompts belong to a model combo in [`rawstep.config.json`](./config.md#combos): `combos[].executors.<mode>.instructions` is the instruction text given to the model that picks each action in that mode. Tasks carry no prompts. Each run records the executor instructions as prompt id `<comboId>.<mode>`, with a content hash as its version, so runs with changed instructions can be told apart. To compare prompts, compare model combos that differ only in `instructions`.
 
-A planner has its own `agents[].planner.instructions` (screen reader mode only). They are added to Rawstep's planner rules, never replacing them, and are fingerprinted (sha256) in the plan evidence. Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance is fine. See [Planner and executor](./config.md#planner-and-executor-orchestration).
+A planned combo has its own `combos[].planner.instructions` (screen reader mode only). They are added to Rawstep's planner rules (the plan document format, planning only from what was heard and with the listed actions), never replacing them, and are fingerprinted (sha256) in the plan evidence. Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance is fine. See [Planner and executor](./config.md#planner-and-executor-orchestration).
+
+Analysis instructions (`project.analysis.instructions`, or a task's `analysisInstructions`) tell the analysis model what to focus on after a run. They never change an outcome.

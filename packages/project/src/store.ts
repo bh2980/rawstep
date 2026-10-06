@@ -185,7 +185,10 @@ export class ProjectStore {
       if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
       const task = current.config.tasks.find(t => t.id === taskId);
       if (!task) throw new ProjectError('task-not-found', `There is no task "${taskId}" in ${CONFIG_FILE}.`, 404);
-      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId) };
+      // The task's own copies go with it; presets cannot point at them (presets only use shared items).
+      const shared = <T extends { owner?: string | undefined }>(list: T[]) => list.filter(item => item.owner !== taskId);
+      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId),
+        combos: shared(current.config.combos), actionSets: shared(current.config.actionSets), pageEnvironments: shared(current.config.pageEnvironments) };
       this.validateReferences(config);
       await atomicJson(this.path, config, 0o644);
       let fileRemoved = false;

@@ -2,20 +2,20 @@
 
 `mockVoiceOver` is an explicit browser-backed simulator for experimenting with policies, runner integration, and ordinary page behavior without a Mac. It launches real Chromium, reads that browser's current accessibility tree, maintains a separate navigation cursor, and lets the page's own handlers change its state. It does not replay fixture answers or hard-code a task outcome.
 
-**This is a small VoiceOver-inspired approximation, not Apple VoiceOver. Its generated output cannot establish native screen-reader behavior, speech fidelity, or accessibility conformance.** Real VoiceOver and NVDA testing still requires the native machine backend (`machine.backend` `voiceover` or `nvda`) and the appropriate host.
+**This is a small VoiceOver-inspired approximation, not Apple VoiceOver. Its generated output cannot establish native screen-reader behavior, speech fidelity, or accessibility conformance.** Real VoiceOver and NVDA testing still requires the native machine backend (an assistive-technology environment with `backend` `voiceover` or `nvda`) and the appropriate host.
 
 ## Run the bundled browser fixture
 
-Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. An agent with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the agent's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
+Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the assistive-technology environment with `backend: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A model combo with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the combo's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
 
 ```sh
-npx rawstep run examples/v2/mock-task.json --mode screenreader --agent AGENT
+npx rawstep run examples/v2/mock-task.json --mode screenreader --combo COMBO
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
 The [fixture](../fixtures/mock-voiceover-system.html) starts with a Save button. Its actual click handler changes the button name and status, then changes the document title after two activations. The independent verifier checks that title. The simulator does not know the goal or supply the completion state.
 
-Task fixture paths resolve relative to the task file. Each run writes to a new directory under `.rawstep/runs/`. Set `machine.browserExecutablePath` to use an existing compatible Chromium and `machine.headless` to false to show it. The simulation backend does not use the `atEndpoint`. Screen reader runs save a reference screenshot per step (`diagnostics/step-<n>.png`) for people to look at; the model never sees them.
+Task fixture paths resolve relative to the task file. Each run writes to a new directory under `.rawstep/runs/`. Set `machine.browserExecutablePath` to use an existing compatible Chromium and `machine.headless` to false to show it. The simulation backend (the default assistive technology) does not use `machine.atEndpoints`. Screen reader runs save a reference screenshot per step (`diagnostics/step-<n>.png`) for people to look at; the model never sees them.
 
 ## Package API
 

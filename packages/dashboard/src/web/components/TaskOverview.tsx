@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { ProjectConfig } from '@rawstep/project/config';
 import type { TaskFindings } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { dataFailureView } from '../lib/errors';
@@ -25,8 +26,8 @@ type Props = {
   /** Runs of this task, newest first. */
   runs: RunRef[]; numbers: ReadonlyMap<string, number>;
   findings: { data?: TaskFindings; error: string; loading: boolean };
-  agents: { id: string; name: string }[];
-  environments: { id: string; name: string }[];
+  /** The project's conditions, for names a run did not record. */
+  config: Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>;
   navigate: (change: RouteChange) => void;
   /** Takes a person to the run control of the task header. */
   onRun: () => void;
@@ -36,7 +37,7 @@ type Props = {
  * The "개요" tab, an investigation sheet: one fact line, the page evidence ledger, the model's behaviour as a separate weaker layer,
  * and the run history in a closed block.
  */
-export function TaskOverview({ taskId, runs, numbers, findings, agents, environments, navigate, onRun }: Props) {
+export function TaskOverview({ taskId, runs, numbers, findings, config, navigate, onRun }: Props) {
   const { t } = useTranslation();
   const { data } = findings;
   const page = data?.findings.filter(finding => finding.source === 'page') ?? [], model = data?.findings.filter(finding => finding.source === 'model') ?? [];
@@ -74,7 +75,7 @@ export function TaskOverview({ taskId, runs, numbers, findings, agents, environm
         {model.length === 0 ? <p className="text-sm text-muted-foreground">{t('taskPage.modelEmpty')}</p> : <ModelBehaviorList findings={model} {...shared} />}
       </section>
     </>}
-    <History taskId={taskId} runs={runs} numbers={numbers} agents={agents} environments={environments} navigate={navigate} />
+    <History taskId={taskId} runs={runs} numbers={numbers} config={config} navigate={navigate} />
   </div>;
 }
 
@@ -85,7 +86,7 @@ function Count({ n, className }: { n: number; className?: string }) {
 }
 
 /** One bar per finished run with its action count written beside it, above the table of all the task's runs. Closed until opened. */
-function History({ taskId, runs, numbers, agents, environments, navigate }: Pick<Props, 'taskId' | 'runs' | 'numbers' | 'agents' | 'environments' | 'navigate'>) {
+function History({ taskId, runs, numbers, config, navigate }: Pick<Props, 'taskId' | 'runs' | 'numbers' | 'config' | 'navigate'>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const bars = useMemo(() => runs.filter(ref => isFinished(ref.run)).reverse(), [runs]);
@@ -110,7 +111,7 @@ function History({ taskId, runs, numbers, agents, environments, navigate }: Pick
           </li>;
         })}
       </ol>}
-      <RunsTable runs={runs} agents={agents} environments={environments} navigate={navigate} hideTask numbers={numbers} showAgent showHints />
+      <RunsTable runs={runs} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
     </CollapsibleContent>
   </Collapsible>;
 }

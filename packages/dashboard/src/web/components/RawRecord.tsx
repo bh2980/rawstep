@@ -18,7 +18,7 @@ export function RawRecord({ experimentId, run, step }: { experimentId: string; r
     </details>)}
     <details className="rounded-md border px-3 py-2">
       <summary className="cursor-pointer text-xs">{t('events.settings')}</summary>
-      <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">{JSON.stringify({ ...run.snapshot, analysisInstructions: run.analysisInstructions, permissions: run.permissions, permissionSource: run.permissionSource }, null, 2)}</pre>
+      <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">{JSON.stringify({ ...run.snapshot, analysisInstructions: run.analysisInstructions }, null, 2)}</pre>
     </details>
   </div>;
 }

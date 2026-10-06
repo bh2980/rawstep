@@ -1,6 +1,6 @@
 # Screenshot-only keyboard exploration
 
-Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for connections and agents.
+Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for connections and model combos.
 
 ## Boundaries
 
@@ -15,7 +15,7 @@ This is an interface boundary, not a sandbox for a trusted user-provided JavaScr
 
 ## Run with a model
 
-Keyboard mode sends images, so the agent needs a keyboard executor with a model that takes them. Add a connection in `rawstep.config.json` (via `npx rawstep ui`) and pick the model in the agent's keyboard executor:
+Keyboard mode sends images, so the model combo needs a keyboard executor with a model that takes them. Add a connection in `rawstep.config.json` (via `npx rawstep ui`) and pick the model in the combo's keyboard executor (실험 조건 > 모델 조합):
 
 - an `llm` connection with a model that has image input (OpenAI, Anthropic, Google, OpenRouter or a custom OpenAI-compatible server such as LM Studio), or
 - a `decision` connection on a provider that carries images: `typesafe`, `openrouter` or `custom` (a `/systemone` server you run). The Vercel AI Gateway is text only and cannot run keyboard mode.
@@ -23,7 +23,7 @@ Keyboard mode sends images, so the agent needs a keyboard executor with a model 
 Give the executor `inputs: ["text", "image"]` and a `maxImages` of at least 2. Then:
 
 ```sh
-npx rawstep run examples/screenshot/task.json --agent AGENT --mode keyboard
+npx rawstep run examples/screenshot/task.json --combo COMBO --mode keyboard
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
@@ -57,7 +57,7 @@ A `ScreenshotModelAdapter` (exported from `rawstep/screenshot`) returns `choiceI
 
 ## Limits and privacy
 
-Repetition guards compare exact PNG bytes. `repetitionGuard: false` disables the stop (visual state is still reported) and `modelGiveUp` is `false` by default (only stop:success is offered) and `true` adds the model's stuck/uncertain choices. By default the policy stops at four consecutive unchanged transitions or when a state would be visited more than five times. It never substitutes an Escape/Tab action. Model stops and repetition-guard stops have distinct structured stopSource values, so a guard stop cannot be mistaken for the model giving up. A focus trap, invisible focus movement, failed activation, static content and legitimate focus cycling can all produce repeated images. Animation can defeat exact-repeat detection; the runner's step/time budgets still bound execution.
+Repetition guards compare exact PNG bytes. `repetitionGuard: false` (the `off` run rule) disables the stop (visual state is still reported) and the `modelGiveUp` run rule is `false` by default (only stop:success is offered) and `true` adds the model's stuck/uncertain choices. By default the policy stops at four consecutive unchanged transitions or when a state would be visited more than five times. It never substitutes an Escape/Tab action. Model stops and repetition-guard stops have distinct structured stopSource values, so a guard stop cannot be mistaken for the model giving up. A focus trap, invisible focus movement, failed activation, static content and legitimate focus cycling can all produce repeated images. Animation can defeat exact-repeat detection; the runner's step/time budgets still bound execution.
 
 PNG observations and model receipts can expose page contents. After named text entry, the default trace omits screenshots, model evidence and free-text diagnostics because of delayed echoes. The live model still needs current pixels for the requested task; trace redaction does not anonymize data sent to that model. The explicit `includeSensitiveInputValues` API opt-in retains sensitive evidence and should only be used for safe test data. The built-in adapters never directly send raw input values, but they may appear in subsequent screenshots.
 

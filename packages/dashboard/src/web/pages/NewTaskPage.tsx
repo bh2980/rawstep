@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
-import type { Mode } from '@rawstep/project/config';
+import { taskConditions, type Mode } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import type { RunOptions } from '../lib/quickRun';
 import { CheckEditor } from '../components/CheckEditor';
@@ -10,14 +10,14 @@ import { CheckSuggestions } from '../components/CheckSuggestions';
 import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
 import { PageHeader } from '../components/layout/PageHeader';
-import { RadioRows } from '../components/layout/RadioRows';
-import { ConceptNote } from '../components/layout/ConceptNote';
+import { TaskConditionFields } from '../components/TaskConditionFields';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
-import { agentModelsLine, environmentViewport } from '../lib/agentSummary';
+import { comboModesOf } from '../lib/conditions';
+import type { TaskConditionIds } from '../lib/taskConditions';
 import { inputProblems } from '../lib/taskInputs';
 import { createManagedTask, hostnameOf, slugify } from '../lib/taskFiles';
 import type { PageProps } from './types';
@@ -44,20 +44,23 @@ function Part({ n, title, htmlFor, children }: { n: string; title: string; htmlF
 export function NewTaskPage({ navigate, startRun, ...props }: Props) {
   const { t } = useTranslation();
   const id = useId();
-  const { agents, environments, connections } = props.view.config;
+  const { config } = props.view;
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
-  const [agentId, setAgentId] = useState(agents[0]!.id), [environmentId, setEnvironmentId] = useState(environments[0]!.id);
+  const [conditions, setConditions] = useState<TaskConditionIds>({});
+  const resolved = taskConditions(config, conditions), modes = comboModesOf(resolved.combo, config.connections);
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
   const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
-  const [mode, setMode] = useState<Mode>('keyboard');
+  // Start at a mode the chosen model combo can run, screen reader first.
+  const [picked, setMode] = useState<Mode>();
+  const mode: Mode = picked && (modes.includes(picked) || !modes.length) ? picked : modes[0] ?? 'screenreader';
   async function create(run: boolean) {
     const task = {
       url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
       verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
-    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, agentId, environmentId });
+    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, conditions });
     if (!run) { navigate({ task: created.id }); return; }
     // The task exists now; a failed start leaves the person on the task with the reason in the banner.
     try { await startRun(created.view, created.id, { mode }); } catch (error) { navigate({ task: created.id }); throw error; }
@@ -83,25 +86,18 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
         <Panel title={t('taskInputs.title')} description={Object.keys(input).length ? t('newTask.inputsCount', { count: Object.keys(input).length }) : t('taskInputs.optional')}>
           <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
         </Panel>
-        <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, agent: agents.find(agent => agent.id === agentId)?.name ?? '', environment: environments.find(environment => environment.id === environmentId)?.name ?? '' })}>
+        <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, preset: resolved.preset?.name ?? t('taskConditions.noPreset'), combo: resolved.combo.name })}>
           <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
           <div className="grid gap-2">
-            <ConceptNote concept="agent" />
-            <RadioRows legend={t('newTask.agent')} value={agentId} onChange={setAgentId}
-              rows={agents.map(agent => ({ id: agent.id, label: agent.name, hint: agentModelsLine(agent, connections) }))} />
-            <p className="text-xs leading-5 text-muted-foreground">{t('newTask.agentHint')}</p>
-          </div>
-          <div className="grid gap-2">
-            <RadioRows legend={t('newTask.environment')} value={environmentId} onChange={setEnvironmentId}
-              rows={environments.map(environment => { const { width, height } = environmentViewport(environment.profile, props.view.environmentPresets); return { id: environment.id, label: environment.name, detail: `${width} × ${height}` }; })} />
-            <p className="text-xs leading-5 text-muted-foreground">{t('newTask.environmentHint')}</p>
+            <p className="text-xs leading-5 text-muted-foreground">{t('taskConditions.hint')}</p>
+            <TaskConditionFields config={config} value={conditions} onChange={setConditions} />
           </div>
         </Panel>
         <div className="grid gap-3 border-t border-edge-strong pt-4">
           <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <legend className="float-left mr-2 text-sm font-medium">{t('newTask.runMode')}</legend>
-            {(['keyboard', 'screenreader'] as const).map(value => <label key={value} className="flex items-center gap-2 text-sm">
-              <input type="radio" name={id + '-mode'} value={value} checked={mode === value} onChange={() => setMode(value)} className="size-4 accent-[var(--trace)]" />{t(`sidebar.modes.${value}`)}
+            {(['screenreader', 'keyboard'] as const).map(value => <label key={value} className="flex items-center gap-2 text-sm">
+              <input type="radio" name={id + '-mode'} value={value} checked={mode === value} disabled={modes.length > 0 && !modes.includes(value)} onChange={() => setMode(value)} className="size-4 accent-[var(--trace)]" />{t(`sidebar.modes.${value}`)}
             </label>)}
           </fieldset>
           <div className="flex flex-wrap items-center gap-2.5">

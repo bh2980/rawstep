@@ -117,6 +117,21 @@ export const runRulesSchema = z.object({
   noChangeLimit: count(1, 100, 3),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
+/**
+ * Overrides of some run rules (a preset's, a task's, an experiment's). Unlike `runRulesSchema.partial()`, it fills in nothing:
+ * a field left out stays out, so it cannot override the layers below with a default.
+ */
+export const runRulesOverrideSchema = z.object({
+  repetitionGuard: z.enum(['auto', 'on', 'off']).optional(),
+  maxStateVisits: z.number().int().min(1).max(10000).optional(),
+  maxUnchangedTransitions: z.number().int().min(1).max(10000).optional(),
+  modelGiveUp: z.boolean().optional(),
+  maxReplans: z.number().int().min(0).max(100).optional(),
+  stepActionLimit: z.number().int().min(1).max(1000).optional(),
+  failureLimit: z.number().int().min(1).max(100).optional(),
+  noChangeLimit: z.number().int().min(1).max(100).optional(),
+}).strict();
+export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
 /** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */
 const ownership = { owner: id.optional(), copiedFrom: id.optional() };
 /** The model that picks every action in one mode, the instructions it gets and how it reads the run. */
@@ -166,7 +181,7 @@ export type AtEnvironment = z.infer<typeof atEnvironmentSchema>;
 export const presetSchema = z.object({
   id, name: text,
   comboId: id.optional(), actionSetId: id.optional(), pageEnvironmentId: id.optional(), atEnvironmentId: id.optional(),
-  runRules: runRulesSchema.partial().optional(),
+  runRules: runRulesOverrideSchema.optional(),
 }).strict();
 export type Preset = z.infer<typeof presetSchema>;
 export const taskSchema = z.object({
@@ -174,7 +189,7 @@ export const taskSchema = z.object({
   /** Conditions a run uses unless an experiment picks others: each field, then the preset's, then the first shared item. */
   presetId: id.optional(), comboId: id.optional(), actionSetId: id.optional(), pageEnvironmentId: id.optional(), atEnvironmentId: id.optional(),
   /** Run rules for this task only, over the project's and the preset's. */
-  runRules: runRulesSchema.partial().optional(),
+  runRules: runRulesOverrideSchema.optional(),
   /** Overrides the project's analysis instructions for this task. */
   analysisInstructions: z.string().max(16384).optional(),
 }).strict();
@@ -341,7 +356,7 @@ export function taskConditions(config: ProjectConfig, task: Partial<Pick<Managed
   };
 }
 /** The rules a run uses: the project's, then the preset's, then the task's. */
-export function resolveRunRules(config: Pick<ProjectConfig, 'runRules'>, ...overrides: (Partial<RunRules> | undefined)[]): RunRules {
+export function resolveRunRules(config: Pick<ProjectConfig, 'runRules'>, ...overrides: (RunRulesOverride | undefined)[]): RunRules {
   return runRulesSchema.parse(Object.assign({}, config.runRules, ...overrides.filter(Boolean)));
 }
 /** What a run snapshot keeps besides the conditions: this computer's settings, the rules and the analysis instructions. */

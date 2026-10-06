@@ -4,9 +4,10 @@
  */
 import type { VerifyRule } from '@rawstep/core/contracts';
 import type { ModelKind } from '@rawstep/project/config';
+import type { PlanDocument, PlanPhase, PlanTask } from '@rawstep/policies/policy';
 import type { Hint, HintFinding, HintReport } from '@rawstep/reports/hints';
 
-export type { Hint, HintFinding, HintReport };
+export type { Hint, HintFinding, HintReport, PlanDocument, PlanPhase, PlanTask };
 
 /** A trace event reduced to what a person reads in the step timeline. Redacted fields are omitted, never guessed. */
 export type ObservedChange = {
@@ -23,6 +24,34 @@ export type ObservedChange = {
 
 /** A planner event: a new plan and why it was asked for, a small step the decision model finished, or the run stopping after too many plans. */
 export type PlanEvent = { kind: 'plan'; reason: string; outline: string[]; steps: string[] } | { kind: 'step-done'; goal: string } | { kind: 'limit'; reason: string };
+/**
+ * One model call inside a runner step, in the order it was made. `role` is `planner` (wrote or revised the plan document; `trigger`
+ * says why and `version` which version it made) or `executor` (picked a candidate; `choiceId` and, for decision models, the score of
+ * that choice). Calls recorded after text entry keep only their structure (role, task, version, choice id).
+ */
+export type ModelCall = {
+  role: string; taskId?: string; planVersion?: number; choiceId?: string; choiceLabel?: string; score?: number;
+  modelId?: string; elapsedMs?: number; trigger?: string; help?: string; version?: number;
+};
+/** One version of a run's plan: when it was made (before which runner step), why, and the planner's own account of the change. */
+export type PlanVersionView = {
+  version: number; step: number; trigger: string; help?: string; rationale: string;
+  added: string[]; abandoned: string[]; broken: string[]; met: string[];
+};
+/**
+ * The plan document of an orchestrated run, rebuilt from policy evidence so it is live while the run records. `document` is the
+ * newest version with task statuses and action counts brought up to date; `documents` holds each version as it stood while it was
+ * current. `stepTasks` links each action step to the task and plan version it served; `calls` lists every model call per step.
+ */
+export type RunPlanView = {
+  document: PlanDocument;
+  documents: Record<number, PlanDocument>;
+  versions: PlanVersionView[];
+  stepTasks: Record<number, { taskId: string; planVersion: number }>;
+  calls: Record<number, ModelCall[]>;
+  /** Evidence after text entry keeps only structure: plan wording and speech are gone from those versions. */
+  redacted: boolean;
+};
 export type StepView = {
   /** 0 is the initial page before any action. */
   step: number;
@@ -45,6 +74,8 @@ export type StepView = {
   };
   /** With a planner model: the small step the decision model worked on, and what the planner did during this step. */
   plan?: { stepGoal?: string; events: PlanEvent[] };
+  /** Every model call of this step in order (a planned step can ask the planner and the executor several times); absent when none. */
+  calls?: ModelCall[];
   /** Page observer changes recorded during this step. */
   observed: ObservedChange[];
   verification?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
@@ -93,6 +124,8 @@ export type RunStepsView = {
   modelKind: ModelKind;
   /** Every hint of the run with its details; `StepView.hints` only has the kinds. Run-level hints have no steps. */
   hints: Hint[];
+  /** Runs with a planner: the plan document, its versions and which task each action served. */
+  plan?: RunPlanView;
 };
 
 /** Hints for one run, compared against the shortest goal-reaching run of the same task and mode, if any. */

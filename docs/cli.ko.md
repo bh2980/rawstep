@@ -6,9 +6,9 @@
 
 | 명령 | 하는 일 |
 |---|---|
-| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(에이전트 `Default`와 환경 `Default` 하나씩, 연결·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
+| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(모델 조합·행동 조합·페이지 환경·보조기술 환경 하나씩, 연결·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
 | `rawstep ui [--port <port>] [--project <dir>]` | 로컬 대시보드를 `127.0.0.1`(기본 포트 4318)에서 엽니다. 설정 파일이 없으면 만듭니다 |
-| `rawstep run <task> [옵션]` | 에이전트의 실행 모델로 작업을 실행하고 결과와 발견 사항을 출력합니다 |
+| `rawstep run <task> [옵션]` | 실험 조건(모델 조합, 행동 조합, 페이지 환경, 보조기술 환경)으로 작업을 실행하고 조건, 결과, 발견 사항을 출력합니다 |
 | `rawstep hints <run-dir> [--reference <run-dir>]` | 저장된 실행의 마찰 힌트를 출력하고 `hints.json`을 씁니다 |
 | `rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]` | `report.html`과 `report.json`을 만듭니다 |
 | `rawstep analyze <run-dir> [--llm] [--out <dir>] [--project <dir>]` | 저장된 실행을 분석합니다 |
@@ -17,24 +17,36 @@
 ## run
 
 ```sh
-rawstep run <task> [--agent <id|name>] [--environment <id|name>]
-                   [--mode keyboard|screenreader]
+rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
+                   [--at <id|name>] [--mode keyboard|screenreader]
+                   [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 첫 번째 에이전트와 첫 번째 환경으로 실행합니다. 매 단계는 에이전트의 그 모드 실행 모델이 결정하며, 실행 모델이 없는 모드는 실행할 수 없습니다. 모델이나 프롬프트를 비교하려면 그 부분만 다른 에이전트끼리, 페이지 조건을 비교하려면 환경끼리 비교합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
+`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 조건마다 첫 번째 공용 항목으로 실행합니다. 매 단계는 모델 조합의 그 모드 실행 모델이 결정하며(계획 + 실행 구조의 스크린리더 모드에서는 계획 모델도 함께), 실행 모델이 없는 모드는 실행할 수 없습니다. 모델이나 프롬프트를 비교하려면 모델 조합끼리, 사용자가 할 수 있는 행동을 비교하려면 행동 조합끼리, 페이지 조건은 페이지 환경끼리, 시뮬레이션과 네이티브 스크린리더는 보조기술 환경끼리 비교합니다. 옵션은 모두 id나 이름을 받습니다. [실험 조건](./config.ko.md#실험-조건)을 참고하세요. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
 
 기본값은 다음과 같습니다.
 
-- `--agent`: 작업에 지정한 에이전트, 없으면 첫 번째 에이전트. 그 에이전트의 실행 모델을 씁니다. 키보드 모드는 이미지 입력(`maxImages` 2 이상)을 받는 실행 모델이 필요합니다
-- `--environment`: 작업에 지정한 환경, 없으면 첫 번째 환경
+- `--preset`: 작업에 지정한 실행 프리셋. 프리셋이 정한 조건을 먼저 채우고 아래 옵션이 그 위에 적용됩니다
+- `--combo`: 작업에 지정한 모델 조합, 없으면 프리셋의 것, 없으면 첫 번째 공용 모델 조합. 키보드 모드는 이미지 입력(`maxImages` 2 이상)을, 스크린리더 모드는 텍스트 입력을 받는 실행 모델이 필요합니다
+- `--actions`: 행동 조합. 같은 순서로 정합니다
+- `--environment`: 페이지 환경. 같은 순서로 정합니다
+- `--at`: 보조기술 환경. 같은 순서로 정하며 스크린리더 실행만 씁니다
 - `--mode`: `keyboard`
+- `--max-replans`: 실행 규칙의 `maxReplans`(0~100). 계획 모델이 있을 때 계획을 고칠 수 있는 최대 횟수
+- `--max-task-actions`: 실행 규칙의 `stepActionLimit`(1~1000). 계획 모델이 있을 때 작업 하나에서 새 계획을 요청하기 전까지의 최대 행동 수
+- `--diagnose-stop`: 꺼짐. 키보드 모드 전용이며, 일찍 멈춘 실행 뒤에 실행 모델에게 이유를 따로 한 번 묻습니다. 점수는 불확실한 가설이며 결과를 바꾸지 않습니다
 - `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
 - `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다
 
-출력은 실행별 블록과 전체 실행에서 모은 발견 사항으로 이루어집니다.
+`--max-replans`와 `--max-task-actions`는 그 실행에서만 실행 규칙을 덮어씁니다(프로젝트 기본값, 프리셋, 작업, 이 옵션 순). 나머지 실행 규칙은 설정 파일이나 대시보드에서 정합니다.
+
+출력은 실행 조건, 실행별 블록, 전체 실행에서 모은 발견 사항으로 이루어집니다.
 
 ```text
+Conditions: Plan with GPT, act with Jev (planned · planner OpenAI · gpt-5 → executor Jev · jev-latest)
+  actions Basic · page Narrow · Simulated VoiceOver
+
 Run 1 of 2: goal reached · 7 steps
   <run 폴더 경로>
 Run 2 of 2: goal not reached (<이유>) · 20 steps
@@ -46,7 +58,7 @@ Model
   link "Skip to content" · repeated state · 1 of 2 runs
 ```
 
-실행 결과는 `goal reached`, `goal not reached (이유)`, `inconclusive`, `no outcome recorded` 중 하나입니다. 발견 사항은 `Page`와 `Model`로 묶이고 한 줄이 `<role "이름"> · <종류> · <n> of <N> runs` 형식입니다. Rawstep은 통과/실패 도구가 아니므로 목표에 도달하지 못해도 종료 코드는 0입니다. `--json`을 주면 같은 정보를 `{ runs: [{ runId, outDir, outcome, hints }], findings }` JSON으로 출력합니다.
+실행 결과는 `goal reached`, `goal not reached (이유)`, `inconclusive`, `no outcome recorded` 중 하나입니다. 발견 사항은 `Page`, `Run`, `Model`로 묶이고 한 줄이 `<role "이름"> · <종류> · <n> of <N> runs` 형식입니다. Rawstep은 통과/실패 도구가 아니므로 목표에 도달하지 못해도 종료 코드는 0입니다. `--json`을 주면 같은 정보를 `{ conditions, warnings, runs: [{ runId, outDir, outcome, hints }], findings }` JSON으로 출력합니다.
 
 ### run 폴더
 
@@ -54,26 +66,27 @@ Model
 |---|---|
 | `trace.json`, `trace.jsonl`, `blobs/` | 실행 기록. 스크린샷은 `blobs/<sha256>.png`로 한 번만 저장합니다 |
 | `hints.json` | 마찰 힌트 |
-| `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 프로젝트에 분석 모델이 있으면 LLM 분석이 더해집니다 |
+| `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 모델 조합이나 프로젝트에 분석 모델이 있으면 LLM 분석이 더해집니다(키가 없으면 규칙 기반 분석만 하고 알림을 남깁니다) |
 | `diagnostics/step-<n>.png` | 스크린리더 실행의 단계별 참고 스크린샷. 사람이 볼 용도이며 모델은 받지 않습니다 |
+| `plan.json`, `plan.md` | 계획 + 실행 구조의 실행에서만. 최종 계획 문서(`plan.md`는 사람이 읽는 체크박스 형식, [계획과 실행](./config.ko.md#계획과-실행-orchestration)) |
 | `report.html`, `report.json` | 보고서([보고서 안내](./report.ko.md)) |
 
 ## hints, report, analyze
 
 `hints`는 힌트 수, 목표 달성 여부, 단계 수(`--reference`를 주면 기준 실행의 단계 수 포함)와 힌트별 한 줄을 출력합니다. 힌트는 사람이 확인해 볼 단계를 가리킬 뿐 통과/실패 판정이 아닙니다.
 
-`analyze`는 `--llm` 없이 실행하면 네트워크를 쓰지 않는 로컬 규칙 기반 요약을 만듭니다. `--llm`을 주면 프로젝트의 분석 모델(`analysis.model`, LLM)에게 저장된 이벤트를 보내 분석하며, PNG 바이트는 보내지 않습니다. 두 경우 모두 `hints.json`을 함께 씁니다. `report`는 `analysis.json`을 `--analysis`로 지정하면 보고서에 포함합니다.
+`analyze`는 `--llm` 없이 실행하면 네트워크를 쓰지 않는 로컬 규칙 기반 요약을 만듭니다. `--llm`을 주면 프로젝트의 분석 모델(`project.analysis.model`, LLM)에게 저장된 이벤트를 보내 분석하며, PNG 바이트는 보내지 않습니다. 두 경우 모두 `hints.json`을 함께 씁니다. `report`는 `analysis.json`을 `--analysis`로 지정하면 보고서에 포함합니다.
 
 ## doctor
 
-Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실행할 수 있는지, 각 연결의 키 환경변수가 설정되어 있는지(값은 출력하지 않습니다)를 확인합니다. `machine.backend`가 `voiceover`나 `nvda`이면 AT Driver 엔드포인트의 응답도 확인합니다. 점검이 하나라도 실패하면 종료 코드 1입니다. 이는 연결과 설정만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다.
+Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실행할 수 있는지, 각 연결의 키 환경변수가 설정되어 있는지(값은 출력하지 않습니다)를 확인합니다. 설정에 `voiceover`나 `nvda` 보조기술 환경이 있으면 그 AT Driver 엔드포인트의 응답도 확인합니다. 점검이 하나라도 실패하면 종료 코드 1입니다. 이는 연결과 설정만 확인하며 실제 음성 출력이나 네이티브 환경 준비를 보장하지 않습니다.
 
 ## 종료 코드
 
 | 코드 | 의미 |
 |---|---|
 | 0 | 실행이 끝났습니다(목표 달성 여부와 무관) |
-| 1 | 오류(설정 파일 없음, 실행 모델이 없는 에이전트, 키 누락, 실행 실패, `doctor` 점검 실패) |
+| 1 | 오류(설정 파일 없음, 실행 모델이 없는 모델 조합, 지원하지 않는 행동·조건, 키 누락, 예전 설정 버전, 실행 실패, `doctor` 점검 실패) |
 | 2 | 잘못된 사용법 |
 | 130 / 143 | SIGINT(Ctrl+C) / SIGTERM으로 취소. 그때까지 쓴 trace는 보존합니다 |
 
@@ -95,4 +108,4 @@ import { runTask } from 'rawstep';
 const { runs, findings } = await runTask('checkout', { repeat: 3, mode: 'keyboard' });
 ```
 
-옵션은 `projectDir`, `agent`(그 에이전트의 실행 모델을 씁니다), `environment`, `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.
+옵션은 `projectDir`, 실험 조건 `preset`·`combo`·`actionSet`·`pageEnvironment`·`atEnvironment`, `runRules`(그 실행에만 쓰는 덮어쓰기), `diagnoseStop`, `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ conditions, warnings, runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.

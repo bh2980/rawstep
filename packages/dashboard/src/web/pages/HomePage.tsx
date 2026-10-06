@@ -11,7 +11,7 @@ import { SetupRail, type SetupStep } from '../components/SetupRail';
 import { RunStrip } from '../components/trace/RunStrip';
 import { Button } from '../components/ui/button';
 import { NEW_TASK } from '../hooks/useRoute';
-import { agentExecutor } from '@rawstep/project/config';
+import { comboModesOf, comboSummary } from '../lib/conditions';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { isFinished, isLive, runStepCount, taskRunNumbers, taskNameOf, runModelsName } from '../lib/runs';
 import type { ListProps } from './types';
@@ -25,11 +25,11 @@ const RECENT_TASKS = 3, RECENT_RUNS = 8;
 export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
   const { t } = useTranslation();
   const { config, tasks } = pageProps.view, byTask = useMemo(() => new Map(summaries.map(row => [row.taskId, row])), [summaries]);
-  // An agent is ready once it has an executor in at least one mode.
-  const ready = config.agents.map(agent => ({ agent, model: agentExecutor(config, agent, 'screenreader') ?? agentExecutor(config, agent, 'keyboard') })).find(entry => entry.model), finished = runs.filter(ref => isFinished(ref.run)), live = runs.filter(ref => isLive(ref.run));
+  // Ready once some model combo has an executor that can run a mode.
+  const ready = config.combos.find(combo => comboModesOf(combo, config.connections).length > 0), finished = runs.filter(ref => isFinished(ref.run)), live = runs.filter(ref => isLive(ref.run));
   const hasRun = finished.length > 0;
   const steps: SetupStep[] = [
-    { id: 'model', done: !!ready, detail: ready ? t('home.start.modelDone', { agent: ready.agent.name, model: ready.model!.name }) : config.connections.length ? t('home.start.modelPick') : t('home.start.modelTodo'), to: { view: config.connections.length ? 'agents' : 'connections' } },
+    { id: 'model', done: !!ready, detail: ready ? t('home.start.modelDone', { combo: ready.name, models: comboSummary(ready, config.connections) }) : config.connections.length ? t('home.start.modelPick') : t('home.start.modelTodo'), to: { view: config.connections.length ? 'conditions' : 'connections' } },
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('home.start.taskDone', { count: config.tasks.length }) : t('home.start.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: hasRun, detail: hasRun ? t('home.start.runDone', { count: finished.length }) : t('home.start.runTodo'), to: { view: 'tasks' } },
   ];
@@ -45,7 +45,7 @@ export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
       <ul className="divide-y divide-edge border-b border-edge">{live.map(({ run }) => <li key={run.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm">
         <RunStateLabel state={run.state} className="w-24 font-medium" />
         <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 rounded-sm font-medium hover:underline">{taskNameOf(run, config.tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
-        <span className="text-muted-foreground">{t(`sidebar.modes.${run.snapshot.mode}`)} · {runModelsName(run)}</span>
+        <span className="text-muted-foreground">{t(`conditions.modes.${run.mode}`)} · {runModelsName(run)}</span>
       </li>)}</ul>
     </section>}
 
@@ -70,7 +70,7 @@ export function HomePage({ pageProps, runs, summaries, navigate }: ListProps) {
     {hasRun || live.length > 0
       ? <section aria-labelledby="home-runs" className="grid gap-2">
         <SectionHead id="home-runs" title={t('home.runs')} aside={<Link to={{ view: 'runs' }} navigate={navigate} className="rounded-sm text-trace underline-offset-4 hover:underline">{t('home.allRuns')}</Link>} />
-        <RunsTable runs={runs.slice(0, RECENT_RUNS)} agents={config.agents} environments={config.environments} tasks={config.tasks} navigate={navigate} />
+        <RunsTable runs={runs.slice(0, RECENT_RUNS)} config={config} tasks={config.tasks} navigate={navigate} />
       </section>
       : config.tasks.length > 0 && <EmptyState title={t('empty.runs.title')} why={t('empty.runs.why')}
         action={<Button asChild variant="outline"><Link to={{ view: 'tasks' }} navigate={navigate}>{t('empty.runs.action')}</Link></Button>} />}

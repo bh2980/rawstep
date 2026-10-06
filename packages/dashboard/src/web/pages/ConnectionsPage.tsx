@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import type { Agent, Connection, ProjectConfig } from '@rawstep/project/config';
+import type { Combo, Connection, ProjectConfig, ProjectSettings } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { ApiError, api } from '../api';
@@ -21,23 +21,46 @@ import type { PageProps } from './types';
 
 const head = 'h-8 px-3 text-xs font-medium tracking-wide text-muted-foreground';
 
-/** Whether an agent plans or executes (in either mode) with a connection. */
-const agentUses = (agent: Agent, id: string) => agent.planner?.connectionId === id || agent.executors.screenreader?.connectionId === id || agent.executors.keyboard?.connectionId === id;
-/** What uses a connection: the agents that plan or execute with it, and whether post-run analysis does. */
-const usersOf = (config: Pick<ProjectConfig, 'agents' | 'analysis'>, id: string) => ({ agents: config.agents.filter(agent => agentUses(agent, id)), analysis: config.analysis.model?.connectionId === id });
-/** An agent without the parts that used a removed connection: the planner, or the executor of a mode. */
-function withoutConnection(agent: Agent, id: string): Agent {
-  const { planner, executors, ...rest } = agent;
+type Role = 'planner' | 'screenreader' | 'keyboard' | 'analysis' | 'suggestions';
+const ROLES: readonly Role[] = ['planner', 'screenreader', 'keyboard', 'analysis', 'suggestions'];
+type Use = { role: Role; names: { label: string; to: RouteChange }[] };
+
+/** What uses a connection, by role: combos that plan, execute in a mode or explain with it, and the project's analysis and suggestion models. */
+function usesOf(config: ProjectConfig, id: string, projectLabel: string, ownedLabel: (name: string) => string): Use[] {
+  const combo = (c: Combo) => ({ label: c.owner ? ownedLabel(c.name) : c.name, to: { view: 'conditions' } as RouteChange });
+  const project = { label: projectLabel, to: { view: 'settings' } as RouteChange };
+  const by: Record<Role, { label: string; to: RouteChange }[]> = {
+    planner: config.combos.filter(c => c.structure === 'planned' && c.planner?.connectionId === id).map(combo),
+    screenreader: config.combos.filter(c => c.executors.screenreader?.connectionId === id).map(combo),
+    keyboard: config.combos.filter(c => c.executors.keyboard?.connectionId === id).map(combo),
+    analysis: [...config.combos.filter(c => c.analysis?.connectionId === id).map(combo), ...(config.project.analysis.model?.connectionId === id ? [project] : [])],
+    suggestions: config.project.suggestions.model?.connectionId === id ? [project] : [],
+  };
+  return ROLES.filter(role => by[role].length).map(role => ({ role, names: by[role] }));
+}
+/** A combo without the roles a removed connection played; a planned combo that loses its planner decides alone. */
+function withoutConnection(combo: Combo, id: string): Combo {
+  const { planner, executors, analysis, ...rest } = combo;
   const { screenreader, keyboard } = executors;
+  const keepPlanner = planner && planner.connectionId !== id;
   return {
-    ...rest, ...(planner && planner.connectionId !== id ? { planner } : {}),
+    ...rest, structure: combo.structure === 'planned' && !keepPlanner ? 'solo' : combo.structure, ...(keepPlanner ? { planner } : {}),
     executors: { ...(screenreader && screenreader.connectionId !== id ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
+    ...(analysis && analysis.connectionId !== id ? { analysis } : {}),
+  };
+}
+/** The project settings without models on a removed connection: analysis falls back to rules, suggestions to the analysis model. */
+function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
+  const { model: analysisModel, ...analysis } = project.analysis;
+  return {
+    analysis: analysisModel && analysisModel.connectionId !== id ? { ...analysis, model: analysisModel } : analysis,
+    suggestions: project.suggestions.model && project.suggestions.model.connectionId !== id ? project.suggestions : {},
   };
 }
 
 /**
- * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; an agent (or post-run
- * analysis) picks the model ID on one. The status is what is known without asking until a person presses 확인, which asks the provider once.
+ * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; a model combo (or the
+ * project's analysis and suggestion settings) picks the model ID on one. 쓰는 곳 lists those uses by role. The status is what is known without asking until a person presses 확인, which asks the provider once.
  */
 export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
@@ -46,12 +69,11 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Agents that used the connection lose that planner or executor (a mode without an executor cannot run until another is picked);
-  // post-run analysis falls back to the rule-based analysis.
+  // Combos that used the connection lose that role (a mode without an executor cannot run until another is picked, a combo without
+  // its planner decides alone); the project's analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
-    const latest = props.view.config, agents = latest.agents.map(agent => withoutConnection(agent, connection.id));
-    const { model, ...analysis } = latest.analysis;
-    await props.save({ ...latest, agents, analysis: model && model.connectionId !== connection.id ? { ...analysis, model } : analysis, connections: latest.connections.filter(c => c.id !== connection.id) });
+    const latest = props.view.config;
+    await props.save({ ...latest, combos: latest.combos.map(combo => withoutConnection(combo, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });
   }); };
   async function check(connection: Connection) {
     setChecks(current => ({ ...current, [connection.id]: { state: 'running' } }));
@@ -60,8 +82,9 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
       setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
     } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
   }
-  const deletingUsers = deleting ? usersOf(config, deleting.id) : undefined;
-  const deletingNames = deletingUsers ? [...deletingUsers.agents.map(agent => agent.name), ...(deletingUsers.analysis ? [t('connections.analysisUser')] : [])] : [];
+  const uses = (id: string) => usesOf(config, id, t('connections.projectUser'), name => t('connections.ownedUser', { name }));
+  const deletingUses = deleting ? uses(deleting.id) : [];
+  const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
   return <div className="grid gap-5">
     <PageHeader title={t('connections.heading')} description={t('connections.intro')}
       actions={config.connections.length > 0 && <Button size="xl" onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
@@ -79,7 +102,7 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
             <TableHead scope="col" className={head}><span className="sr-only">{t('connections.columns.actions')}</span></TableHead>
           </TableRow></TableHeader>
           <TableBody>{config.connections.map(connection => {
-            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = usersOf(config, connection.id);
+            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = uses(connection.id);
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
                 <span className="block font-medium break-all">{connection.name}</span>
@@ -87,11 +110,11 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${connection.kind}.name`)}</TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
-                {users.agents.length || users.analysis
-                  ? <>
-                    {users.agents.map((agent, index) => <span key={agent.id}>{index > 0 && ', '}<Link to={{ view: 'agents' }} navigate={navigate} className="underline underline-offset-2">{agent.name}</Link></span>)}
-                    {users.analysis && <span>{users.agents.length > 0 && ', '}<Link to={{ view: 'settings' }} navigate={navigate} className="underline underline-offset-2">{t('connections.analysisUser')}</Link></span>}
-                  </>
+                {users.length
+                  ? <dl className="grid gap-0.5">{users.map(use => <div key={use.role} className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-muted-foreground">{t(`connections.roles.${use.role}`)}</dt>
+                    <dd>{use.names.map((name, index) => <span key={index}>{index > 0 && ', '}<Link to={name.to} navigate={navigate} className="underline underline-offset-2">{name.label}</Link></span>)}</dd>
+                  </div>)}</dl>
                   : <span className="text-muted-foreground">{t('connections.unused')}</span>}
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">

@@ -87,7 +87,7 @@ Usage:
 
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
-  ui        Open the dashboard to set up connections, agents, environments and tasks, and to run experiments.
+  ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
   run       Run a task from rawstep.config.json (by id) or a task JSON file under experiment conditions (model combo,
             action set, page environment, assistive technology), then print the conditions, each run's outcome and the
             findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned combo also write

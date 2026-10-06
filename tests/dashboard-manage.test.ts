@@ -25,7 +25,7 @@ const task = { url: 'https://example.com', goal: 'Reach the thanks page', verify
 async function project(): Promise<{ dir: string; config: ProjectConfig; revision: string }> {
   const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
   await mkdir(join(dir, 'e2e'), { recursive: true });
-  config.tasks.push({ id: 'owned', name: 'Owned', file: 'tasks/owned.json', permissions: { keyboard: null, screenreader: null } }, { id: 'linked', name: 'Linked', file: 'e2e/linked.json', permissions: { keyboard: null, screenreader: null } });
+  config.tasks.push({ id: 'owned', name: 'Owned', file: 'tasks/owned.json' }, { id: 'linked', name: 'Linked', file: 'e2e/linked.json' });
   await writeFile(join(dir, 'e2e/linked.json'), JSON.stringify(task));
   const saved = await store.save(config, initial.revision, { file: 'tasks/owned.json', task });
   return { dir, config: saved.config, revision: saved.revision };
@@ -64,7 +64,7 @@ describe('deleting a task', () => {
     expect(((await unknown.json()) as { error: string }).error).toContain('작업');
     expect((await call(app.url, 'DELETE', '/api/tasks/owned', {})).status).toBe(400);
     // A queued run of the task blocks deleting it.
-    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], repeats: 1, mode: 'keyboard' }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
+    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], modes: ['keyboard'], repeats: 1 }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
     const busy = await call(app.url, 'DELETE', '/api/tasks/owned', { revision });
     expect(busy.status).toBe(409);
     expect(((await busy.json()) as { error: string }).error).toContain('진행 중');
@@ -153,5 +153,31 @@ describe('checking the browser', () => {
     expect(check).toEqual({ ok: false, kind: 'launch-failed', source: 'custom' });
     expect(text).not.toContain('no-such-browser');
     expect((await call(app.url, 'POST', '/api/browser/check', { machine: { backend: 'bogus' } })).status).toBe(400);
+  });
+});
+
+describe('checking the assistive technology backend', () => {
+  it('lists what each backend can do and rejects a backend it does not know', async () => {
+    const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const { capabilities } = await (await fetch(app.url + '/api/state')).json() as ConfigView;
+    expect(capabilities.keyboard.keys).toContain('Tab');
+    expect(Object.keys(capabilities.screenreader).sort()).toEqual(['nvda', 'simulation', 'voiceover']);
+    expect(capabilities.screenreader.simulation.intents).toContain('next');
+    expect((await call(app.url, 'POST', '/api/backend/check', { backend: 'bogus', machine: {} })).status).toBe(400);
+    expect((await call(app.url, 'POST', '/api/backend/check', { backend: 'simulation', machine: { backend: 'bogus' } })).status).toBe(400);
+    // A native screen reader of another operating system is refused before anything is started.
+    const foreign = process.platform === 'darwin' ? 'nvda' : 'voiceover';
+    if (process.platform === 'darwin' || process.platform === 'win32') {
+      const refused = await call(app.url, 'POST', '/api/backend/check', { backend: foreign, machine: {} });
+      expect(refused.status).toBe(400); expect(((await refused.json()) as { error: string }).error).toContain('운영체제');
+    }
+  });
+});
+
+describe('suggesting completion checks', () => {
+  it('needs a suggestion or analysis model before it opens a page', async () => {
+    const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const response = await call(app.url, 'POST', '/api/suggest-checks', { url: 'https://example.com', goal: 'Reach the thanks page' });
+    expect(response.status).toBe(400); expect(((await response.json()) as { error: string }).error).toContain('모델');
   });
 });

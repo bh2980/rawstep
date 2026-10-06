@@ -1,16 +1,15 @@
-/** Strings for the app shell and the pages of the left navigation: home, tasks, run history and settings. */
+/** Strings for the app shell and the pages of the left navigation: home, tasks and run history. */
 export const shell = {
   nav: {
     label: '주 메뉴',
-    description: '홈, 작업, 실행 기록, 에이전트, 환경, 연결, 이 컴퓨터 설정으로 이동합니다.',
+    description: '홈, 작업, 실행 기록, 실험 조건, 연결, 설정으로 이동합니다.',
     home: '홈',
     tasks: '작업',
     runs: '실행 기록',
-    setupGroup: '실행 준비',
-    agents: '에이전트',
-    environments: '환경',
+    setupGroup: '준비',
+    conditions: '실험 조건',
     connections: '연결',
-    settings: '이 컴퓨터',
+    settings: '설정',
   },
   home: {
     title: '홈',
@@ -28,11 +27,11 @@ export const shell = {
       compact: '시작하기 {{done}} / {{total}}',
       done: '완료',
       now: '지금 할 일',
-      steps: { model: '에이전트 준비', task: '첫 작업 만들기', run: '첫 실행 보기' },
-      go: { model: '에이전트 준비하기', task: '작업 만들기', run: '작업 고르기' },
-      modelDone: '{{agent}} · {{model}}',
-      modelTodo: '모델을 부를 연결(제공자와 인증키)을 추가하고, 에이전트에서 실행 모델을 고릅니다.',
-      modelPick: '연결은 있습니다. 에이전트의 구성 탭에서 실행 모델을 고르세요.',
+      steps: { model: '모델 조합 준비', task: '첫 작업 만들기', run: '첫 실행 보기' },
+      go: { model: '모델 조합 준비하기', task: '작업 만들기', run: '작업 고르기' },
+      modelDone: '{{combo}} · {{models}}',
+      modelTodo: '모델을 부를 연결(제공자와 인증키)을 추가하고, 실험 조건의 모델 조합에서 실행 모델을 고릅니다.',
+      modelPick: '연결은 있습니다. 실험 조건의 모델 조합에서 실행 모델을 고르세요.',
       taskDone: '작업 {{count}}개',
       taskTodo: '시작 URL과 목표, 목표에 닿았는지 알려 주는 완료 확인을 적습니다.',
       runDone: '실행 {{count}}번 완료',
@@ -87,32 +86,6 @@ export const shell = {
   quickRun: {
     noTask: '작업을 찾을 수 없습니다.',
     unsupported: '이 조건으로는 실행할 수 없습니다.',
-  },
-  presets: {
-    intro: '모델이 실행 중에 고를 수 있는 행동입니다. 작업에서 따로 정하지 않으면 이 값을 씁니다.',
-    typing: '작업에 입력값이 있으면 타이핑 허용',
-    typingHint: '입력값은 모델에게 보이지 않습니다.',
-    unsupportedMark: ' (지원 안 함)',
-    advancedDescription: '보통은 바꿀 필요가 없는 항목입니다.',
-    replaceText: { keyboard: '키보드: 입력창의 기존 값을 지우고 바꾸기 허용', screenreader: '스크린리더: 입력창의 기존 값을 지우고 바꾸기 허용' },
-    replaceTextHint: '위의 타이핑 허용과 함께 켜졌을 때만 쓰입니다.',
-    keyboard: {
-      title: '키보드 모드',
-      basic: { name: '기본 키보드', when: '링크·버튼·폼 위주의 일반 페이지. 대부분의 키보드 사용자가 가장 먼저 쓰는 키입니다.' },
-      widgets: { name: '위젯 탐색 포함', when: '메뉴·탭·콤보박스·대화상자처럼 방향키로 움직이는 부품이 있는 페이지.', keys: '기본 + {{extra}}' },
-      custom: { name: '직접 고르기', when: '허용할 키를 하나씩 정합니다.', summary: '직접 고른 키 {{count}}개' },
-    },
-    screenreader: {
-      title: '스크린리더 모드',
-      basic: { name: '기본 읽기', when: '다음·이전 항목으로 한 칸씩 읽고 활성화합니다.' },
-      quick: {
-        name: '빠른 탐색 포함',
-        when: '제목·폼 컨트롤 단위로 건너뜁니다. 스크린리더에 익숙한 사용자의 탐색 방식입니다.',
-        unavailable: '지금 고른 스크린리더 실행 방식(시뮬레이션)에서는 쓸 수 없습니다. 이 컴퓨터 설정에서 VoiceOver나 NVDA를 고르면 쓸 수 있습니다.',
-        extra: '기본 + {{extra}}',
-      },
-      custom: { name: '현재 설정', when: '위의 묶음과 다르게 고른 행동입니다. 묶음을 고르면 바뀝니다.', summary: '직접 고른 행동 {{count}}개' },
-    },
   },
   roles: {
     button: '버튼', link: '링크', textbox: '입력창', searchbox: '검색창', checkbox: '체크박스', radio: '라디오 버튼', switch: '스위치',

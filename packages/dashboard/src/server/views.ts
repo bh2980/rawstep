@@ -6,7 +6,7 @@ import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
 import { HttpError } from './http.js';
 import type { ExperimentQueue } from './queue.js';
-import { buildSteps, eventSteps } from './steps.js';
+import { buildPlan, buildSteps, eventSteps } from './steps.js';
 
 const live = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 const finished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
@@ -40,7 +40,9 @@ export class RunViews {
     // Finished runs carry hints.json from the queue; a running run is analysed from its journal on demand.
     const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
     const explanation = live(run) || !run.analysisModel ? undefined : await this.explanation(experimentId, runId, events);
-    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.spec.model.kind, hints: report?.hints ?? [], ...(explanation ? { explanation } : {}) };
+    const plan = buildPlan(events);
+    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.spec.model.kind, hints: report?.hints ?? [],
+      ...(explanation ? { explanation } : {}), ...(plan ? { plan } : {}) };
   }
   /** The LLM's analysis.json of a run, with each finding's cited events turned into steps. The rule-based analysis is not shown here: hints cover it. */
   private async explanation(experimentId: string, runId: string, events: TraceEvent[]): Promise<RunExplanation | undefined> {

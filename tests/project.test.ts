@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -8,16 +8,17 @@ import { speechChoices } from '@rawstep/policies/policy';
 import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
-  CONFIG_FILE, agentExecutor, agentPlanner, configSchema, credentialId, credentialRequirements, defaultAgent, defaultConfig, defaultInputs, findByIdOrName, modelKeyEnv, parseConfig, projectAnalysisModel, resolveBaseURL, resolveRepetitionGuard, taskAgent, taskEnvironment,
-  type Agent, type ProjectConfig,
+  CONFIG_FILE, comboAnalysis, comboExecutor, comboPlanner, configSchema, credentialId, credentialRequirements, defaultActionSet, defaultAtEnvironment, defaultCombo, defaultConfig, defaultInputs,
+  defaultPageEnvironment, findByIdOrName, modelKeyEnv, parseConfig, projectAnalysisModel, resolveBaseURL, resolveRepetitionGuard, resolveRunRules, sharedItems, suggestionModel, taskConditions, taskSchema,
+  type Combo, type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { discover } from '@rawstep/project/discover';
-import { assertRunnable, backendCapabilities, checkRun, executorPrompt, resolvePermissions, supportsMode } from '@rawstep/project/plan';
+import { assertRunnable, backendCapabilities, checkRun, comboModes, conditionsRecord, executorPrompt, resolvePermissions, runSpecOf, supportsMode } from '@rawstep/project/plan';
 import { projectAnalyzer, runTask } from '@rawstep/project/run';
 import type { RunExecutor, RunSpec } from '@rawstep/project/execution';
-import { agentWith, connection, instructions } from './helpers/project-config.js';
+import { comboWith, connection, instructions, plannedWith } from './helpers/project-config.js';
 
 const dirs: string[] = [];
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
@@ -26,8 +27,8 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', input: { em
 function setup(): ProjectConfig {
   const config = defaultConfig();
   config.connections.push(connection('a'), connection('b'));
-  config.agents[0] = agentWith('default', 'a', 'm-a', 'Default');
-  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', permissions: { keyboard: null, screenreader: null } }); return config;
+  config.combos[0] = comboWith('default', 'a', 'm-a', 'Default');
+  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
 
 describe('project store', () => {
@@ -81,22 +82,60 @@ describe('project store', () => {
     await expect(initProject(dir)).rejects.toBeInstanceOf(ProjectError);
     expect(await readFile(join(dir, 'rawstep.config.json'), 'utf8')).toBe('{"mine":true}');
   });
-  it('reads an invalid or old-version config as an error naming the file, and a missing task file as 404', async () => {
+  it('reads an invalid config as an error naming the file, an old-version one as old-config with the way to convert it, and a missing task file as 404', async () => {
     const dir = await root(), store = new ProjectStore(dir);
-    await writeFile(store.path, JSON.stringify({ ...defaultConfig(), version: 1 }));
+    await writeFile(store.path, JSON.stringify({ ...defaultConfig(), version: 4 }));
+    await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config', message: expect.stringContaining('rawstep.config.json') });
+    await writeFile(store.path, '{nope');
     await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config' });
+    for (const version of [1, 2]) {
+      await writeFile(store.path, JSON.stringify({ version, agents: [] }));
+      await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*migrate-config\\.mjs.*\\.bak`)) });
+    }
     await writeFile(store.path, JSON.stringify({ ...setup() }));
     await expect(store.read()).rejects.toMatchObject({ code: 'task-file-missing', status: 404 });
   });
   it('throws plain project errors with a status hint, never HTTP errors', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.tasks[0]!.agentId = 'ghost';
+    config.tasks[0]!.comboId = 'ghost';
     const error = await store.save(config, initial.revision, { file: 'task.json', task }).catch(e => e as ProjectError);
-    expect(error).toBeInstanceOf(ProjectError); expect(error).toMatchObject({ code: 'task-agent-missing', status: 400 });
-    config.tasks[0]!.agentId = 'default'; config.agents.push(defaultAgent());
+    expect(error).toBeInstanceOf(ProjectError); expect(error).toMatchObject({ code: 'task-combo-missing', status: 400 });
+    config.tasks[0]!.comboId = 'default'; config.combos.push(defaultCombo());
     await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ code: 'duplicate-id' });
     await expect(store.save(setup(), initial.revision, { file: 'rawstep.config.json', task })).rejects.toMatchObject({ code: 'task-file-reserved' });
-    expect(() => store.validateReferences({ ...setup(), environments: [{ id: 'default', name: 'Default', profile: 'no-such-environment' }] })).toThrow();
+    expect(() => store.validateReferences({ ...setup(), pageEnvironments: [{ id: 'default', name: 'Default', profile: 'no-such-environment' }] })).toThrow();
+  });
+  it.each([
+    ['duplicate-id', (c: ProjectConfig) => { c.actionSets.push(defaultActionSet()); }],
+    ['duplicate-id', (c: ProjectConfig) => { c.atEnvironments.push(defaultAtEnvironment()); }],
+    ['duplicate-id', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P' }, { id: 'p', name: 'Q' }); }],
+    ['combo-connection-missing', (c: ProjectConfig) => { c.combos[0]!.executors.keyboard!.connectionId = 'ghost'; }],
+    ['planner-needs-llm', (c: ProjectConfig) => { Object.assign(c.combos[0]!, plannedWith(c.combos[0]!, 'a')); }],
+    ['analysis-needs-llm', (c: ProjectConfig) => { c.combos[0]!.analysis = { connectionId: 'a', modelId: 'writer' }; }],
+    ['analysis-needs-llm', (c: ProjectConfig) => { c.project.analysis.model = { connectionId: 'a', modelId: 'writer' }; }],
+    ['duplicate-task-file', (c: ProjectConfig) => { c.tasks.push({ id: 'other', name: 'Other', file: 'task.json' }); }],
+    ['owner-missing', (c: ProjectConfig) => { c.actionSets.push({ ...defaultActionSet('copy'), owner: 'ghost' }); }],
+    ['owner-missing', (c: ProjectConfig) => { c.pageEnvironments.push({ ...defaultPageEnvironment('copy'), owner: 'ghost' }); }],
+    ['task-action-set-missing', (c: ProjectConfig) => { c.tasks[0]!.actionSetId = 'ghost'; }],
+    ['task-page-environment-missing', (c: ProjectConfig) => { c.tasks[0]!.pageEnvironmentId = 'ghost'; }],
+    ['task-at-environment-missing', (c: ProjectConfig) => { c.tasks[0]!.atEnvironmentId = 'ghost'; }],
+    ['task-preset-missing', (c: ProjectConfig) => { c.tasks[0]!.presetId = 'ghost'; }],
+    ['task-copy-foreign', (c: ProjectConfig) => { c.tasks.push({ id: 'other', name: 'Other', file: 'other.json' }); c.actionSets.push({ ...defaultActionSet('copy'), owner: 'other' }); c.tasks[0]!.actionSetId = 'copy'; }],
+    ['preset-combo-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', comboId: 'ghost' }); }],
+    ['preset-action-set-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', actionSetId: 'ghost' }); }],
+    ['preset-page-environment-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', pageEnvironmentId: 'ghost' }); }],
+    ['preset-at-environment-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', atEnvironmentId: 'ghost' }); }],
+  ])('validates references: %s', async (code, change) => {
+    const store = new ProjectStore(await root()), config = setup(); change(config);
+    expect(() => store.validateReferences(config)).toThrow(expect.objectContaining({ code, status: 400 }));
+  });
+  it('accepts a task-only copy used by its own task, and saves and reads it back', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.actionSets.push({ ...defaultActionSet('task-keys', 'Task keys'), owner: 'task', copiedFrom: 'basic' });
+    config.tasks[0]!.actionSetId = 'task-keys';
+    config.presets.push({ id: 'p', name: 'P', comboId: 'default', runRules: { maxReplans: 1 } });
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    expect((await new ProjectStore(dir).read()).config.actionSets[1]).toMatchObject({ id: 'task-keys', owner: 'task', copiedFrom: 'basic' });
   });
 });
 
@@ -193,37 +232,62 @@ describe('connection schema', () => {
     expect(() => parseConfig({ ...defaultConfig(), connections: twice })).toThrow(/used twice/);
     expect(() => parseConfig({ ...defaultConfig(), connections: [], models: [] })).toThrow();
   });
-  it('keeps executors on existing connections, and the planner and analysis model on LLM connections', () => {
+  it('keeps executors on existing connections, and the planner and analysis models on LLM connections', () => {
     const config = setup(); config.connections.push(connection('llm', { kind: 'llm' }));
-    const withAgent = (change: (a: Agent, c: ProjectConfig) => void) => { const copy = structuredClone(config); change(copy.agents[0]!, copy); return copy; };
-    expect(() => parseConfig(withAgent((_, c) => { c.analysis.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
-    expect(() => parseConfig(withAgent((_, c) => { c.analysis.model = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
-    expect(() => parseConfig(withAgent((_, c) => { c.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow();
-    expect(() => parseConfig(withAgent(a => { a.planner = { connectionId: 'llm', modelId: 'planner', instructions: '' }; }))).not.toThrow();
-    expect(() => parseConfig(withAgent(a => { a.planner = { connectionId: 'a', modelId: 'planner', instructions: '' }; }))).toThrow(/plan with an LLM/);
-    expect(() => parseConfig(withAgent(a => { a.executors.keyboard!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
-    expect(() => parseConfig(withAgent(a => { a.executors = {}; }))).not.toThrow();
-    expect(() => parseConfig(withAgent(a => { a.executors.screenreader!.instructions = ' '; }))).toThrow();
+    const withCombo = (change: (a: Combo, c: ProjectConfig) => void) => { const copy = structuredClone(config); change(copy.combos[0]!, copy); return copy; };
+    expect(() => parseConfig(withCombo((_, c) => { c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
+    expect(() => parseConfig(withCombo((_, c) => { c.project.analysis.model = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
+    expect(() => parseConfig(withCombo((_, c) => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow();
+    expect(() => parseConfig(withCombo((_, c) => { c.project.suggestions.model = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
+    expect(() => parseConfig(withCombo((_, c) => { c.project.suggestions.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
+    expect(() => parseConfig(withCombo(a => { a.analysis = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
+    expect(() => parseConfig(withCombo(a => { a.analysis = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/explain runs with an LLM/);
+    expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'llm'); }))).not.toThrow();
+    expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'a'); }))).toThrow(/plan with an LLM/);
+    expect(() => parseConfig(withCombo(a => { a.structure = 'planned'; }))).toThrow(/needs a planner/);
+    expect(() => parseConfig(withCombo(a => { a.executors.keyboard!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
+    expect(() => parseConfig(withCombo(a => { a.executors = {}; }))).not.toThrow();
+    expect(() => parseConfig(withCombo(a => { a.executors.screenreader!.instructions = ' '; }))).toThrow();
   });
-  it('joins an agent with its connections into the models a run calls', () => {
-    const config = setup(); config.connections.push(connection('llm', { kind: 'llm', name: 'My LLM' }));
-    const agent = { ...agentWith('p', 'a', 'jev-latest'), planner: { connectionId: 'llm', modelId: 'planner', instructions: '' } };
-    config.analysis.model = { connectionId: 'llm', modelId: 'writer' };
-    expect(agentExecutor(config, agent, 'keyboard')).toMatchObject({ id: 'a', name: 'a · jev-latest', modelId: 'jev-latest', kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 });
-    expect(agentPlanner(config, agent)).toMatchObject({ id: 'llm', name: 'My LLM · planner', kind: 'llm' });
+  it('joins a combo with its connections into the models a run calls', () => {
+    const config = setup(); config.connections.push(connection('llm', { kind: 'llm', name: 'My LLM' }), connection('llm2', { kind: 'llm', name: 'Other LLM' }));
+    const combo = plannedWith(comboWith('p', 'a', 'jev-latest'), 'llm');
+    config.project.analysis.model = { connectionId: 'llm', modelId: 'writer' };
+    expect(comboExecutor(config, combo, 'keyboard')).toMatchObject({ id: 'a', name: 'a · jev-latest', modelId: 'jev-latest', kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 });
+    expect(comboPlanner(config, combo)).toMatchObject({ id: 'llm', name: 'My LLM · planner', kind: 'llm' });
+    // A solo combo has no planner, even when one is left in it.
+    expect(comboPlanner(config, { ...combo, structure: 'solo' })).toBeUndefined();
     expect(projectAnalysisModel(config)).toMatchObject({ id: 'llm', name: 'My LLM · writer', modelId: 'writer', kind: 'llm', inputs: ['text'] });
+    // A combo's own analysis model wins over the project's; without one the project's is used, and without both there is none.
+    expect(comboAnalysis(config, combo)).toMatchObject({ id: 'llm', modelId: 'writer' });
+    expect(comboAnalysis(config, { analysis: { connectionId: 'llm2', modelId: 'own' } })).toMatchObject({ id: 'llm2', modelId: 'own' });
+    expect(comboAnalysis(setup(), combo)).toBeUndefined();
+    // A decision connection is never an analysis or suggestion model.
+    expect(comboAnalysis(config, { analysis: { connectionId: 'a', modelId: 'own' } })).toBeUndefined();
+    // Suggestions use their own model, otherwise the analysis model.
+    expect(suggestionModel(config)).toMatchObject({ id: 'llm', modelId: 'writer' });
+    config.project.suggestions.model = { connectionId: 'llm2', modelId: 'suggest' };
+    expect(suggestionModel(config)).toMatchObject({ id: 'llm2', modelId: 'suggest' });
     // A text-only model takes no images, whatever maxImages says.
-    expect(agentExecutor(config, { executors: { keyboard: { ...agent.executors.keyboard!, inputs: ['text'], maxImages: 2 } } }, 'keyboard')!.maxImages).toBe(0);
-    expect(agentExecutor(config, defaultAgent(), 'screenreader')).toBeUndefined();
-    expect(agentExecutor(config, { executors: { screenreader: { ...agent.executors.screenreader!, connectionId: 'ghost' } } }, 'screenreader')).toBeUndefined();
-    expect(agentPlanner(config, { planner: { connectionId: 'a', modelId: 'x', instructions: '' } })).toBeUndefined();
+    expect(comboExecutor(config, { executors: { keyboard: { ...combo.executors.keyboard!, inputs: ['text'], maxImages: 2 } } }, 'keyboard')!.maxImages).toBe(0);
+    expect(comboExecutor(config, defaultCombo(), 'screenreader')).toBeUndefined();
+    expect(comboExecutor(config, { executors: { screenreader: { ...combo.executors.screenreader!, connectionId: 'ghost' } } }, 'screenreader')).toBeUndefined();
+    expect(comboPlanner(config, { structure: 'planned', planner: { connectionId: 'a', modelId: 'x', instructions: '' } })).toBeUndefined();
   });
-  it('versions executor instructions by their wording', () => {
-    const agent = agentWith('p', 'a');
-    expect(executorPrompt(agent, 'screenreader')).toMatchObject({ id: 'p.screenreader', name: 'p', instructions: instructions.screenreader });
-    const changed = { ...agent, executors: { ...agent.executors, screenreader: { ...agent.executors.screenreader!, instructions: 'Other wording.' } } };
-    expect(executorPrompt(changed, 'screenreader')!.version).not.toBe(executorPrompt(agent, 'screenreader')!.version);
-    expect(executorPrompt(defaultAgent(), 'keyboard')).toBeUndefined();
+  it('lists the modes a combo can run', () => {
+    const config = setup();
+    expect(comboModes(config, config.combos[0]!)).toEqual(['screenreader', 'keyboard']);
+    expect(comboModes(config, defaultCombo())).toEqual([]);
+    const textOnly = comboWith('t', 'a'); textOnly.executors.keyboard!.inputs = ['text'];
+    expect(comboModes(config, textOnly)).toEqual(['screenreader']);
+  });
+  it('versions executor instructions by their wording, per combo and mode', () => {
+    const combo = comboWith('p', 'a');
+    expect(executorPrompt(combo, 'screenreader')).toMatchObject({ id: 'p.screenreader', name: 'p', instructions: instructions.screenreader });
+    expect(executorPrompt(combo, 'keyboard')).toMatchObject({ id: 'p.keyboard' });
+    const changed = { ...combo, executors: { ...combo.executors, screenreader: { ...combo.executors.screenreader!, instructions: 'Other wording.' } } };
+    expect(executorPrompt(changed, 'screenreader')!.version).not.toBe(executorPrompt(combo, 'screenreader')!.version);
+    expect(executorPrompt(defaultCombo(), 'keyboard')).toBeUndefined();
   });
   it('assumes images only for providers that pass them', () => {
     expect(defaultInputs({ kind: 'llm', provider: 'openai' })).toEqual(['text', 'image']);
@@ -233,7 +297,8 @@ describe('connection schema', () => {
 
 describe('permissions', () => {
   it.each([[false, false], [true, false], [false, true], [true, true]])('independently restricts type=%s and replace=%s in candidates and execution', (typeText, replaceText) => {
-    const config = setup(), permissions = resolvePermissions(config, config.agents[0]!, task, 'keyboard', { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText });
+    const actionSet = { ...defaultActionSet(), keyboard: { keys: [], intents: [], inputKeys: ['email'], typeText, replaceText } };
+    const permissions = resolvePermissions('simulation', actionSet, task as never, 'keyboard');
     for (const candidates of [screenshotChoices(permissions as Required<typeof permissions>), speechChoices(permissions as Required<typeof permissions>)]) {
       expect(candidates.some(c => c.id === 'type:email')).toBe(typeText);
       expect(candidates.some(c => c.id === 'replace:email')).toBe(replaceText);
@@ -242,19 +307,35 @@ describe('permissions', () => {
     if (typeText) expect(check('typeText')).not.toThrow(); else expect(check('typeText')).toThrow();
     if (replaceText) expect(check('replaceText')).not.toThrow(); else expect(check('replaceText')).toThrow();
     expect(permissions.keys).toEqual([]);
-    expect(resolvePermissions(config, config.agents[0]!, task, 'keyboard', null).keys).toEqual(config.agents[0]!.permissions.keyboard.keys);
+    expect(resolvePermissions('simulation', defaultActionSet(), task as never, 'keyboard').keys).toEqual(defaultActionSet().keyboard.keys);
+  });
+  it('refuses actions the assistive technology lacks, listing them, and input names the task does not have', () => {
+    const keys = { ...defaultActionSet(), keyboard: { ...defaultActionSet().keyboard, keys: ['Tab', 'F13', 'F14'] } };
+    expect(() => resolvePermissions('simulation', keys, task as never, 'keyboard')).toThrow(expect.objectContaining({ code: 'unsupported-action', message: expect.stringContaining('F13, F14') }));
+    const intents = { ...defaultActionSet(), screenreader: { ...defaultActionSet().screenreader, intents: ['next', 'levitate'] } };
+    expect(() => resolvePermissions('simulation', intents, task as never, 'screenreader')).toThrow(expect.objectContaining({ code: 'unsupported-action', message: expect.stringContaining('levitate') }));
+    const unknown = { ...defaultActionSet(), keyboard: { ...defaultActionSet().keyboard, inputKeys: ['nope'], typeText: true } };
+    expect(() => resolvePermissions('simulation', unknown, task as never, 'keyboard')).toThrow(expect.objectContaining({ code: 'unknown-input' }));
+  });
+  it('resolves a copy of the action set, never changing the stored one', () => {
+    const actionSet = defaultActionSet(), before = structuredClone(actionSet);
+    resolvePermissions('simulation', actionSet, task as never, 'keyboard').keys.push('X');
+    expect(actionSet).toEqual(before);
   });
 });
 
 describe('project config', () => {
-  it('loads a saved config without the new policy fields and defaults them', async () => {
+  it('loads a saved config without run rules and defaults them', async () => {
     const dir = await root(), store = new ProjectStore(dir), first = await store.initialize();
-    const old = JSON.parse(JSON.stringify(first.config)); delete old.agents[0].policy.repetitionGuard; delete old.agents[0].policy.modelGiveUp;
+    const old = JSON.parse(JSON.stringify(first.config)); delete old.runRules; delete old.project; delete old.presets; delete old.combos[0].executors;
+    old.combos[0].executors = {};
     await writeFile(store.path, JSON.stringify(old));
-    const policy = (await new ProjectStore(dir).read()).config.agents[0]!.policy;
-    expect(policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
-    expect(defaultConfig().agents[0]!.policy).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
-    expect(() => configSchema.parse({ ...old, agents: [{ ...old.agents[0], policy: { ...old.agents[0].policy, repetitionGuard: 'sometimes' } }] })).toThrow();
+    const config = (await new ProjectStore(dir).read()).config;
+    expect(config.runRules).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
+    expect(config.presets).toEqual([]); expect(config.project).toEqual({ analysis: { instructions: '' }, suggestions: {} });
+    expect(defaultConfig().runRules).toMatchObject({ repetitionGuard: 'auto', modelGiveUp: false });
+    expect(() => configSchema.parse({ ...old, runRules: { repetitionGuard: 'sometimes' } })).toThrow();
+    expect(() => configSchema.parse({ ...old, runRules: { unknownRule: 1 } })).toThrow();
   });
   it('resolves auto by model kind and honours explicit on/off', () => {
     const llm = { kind: 'llm' as const }, decision = { kind: 'decision' as const };
@@ -266,91 +347,236 @@ describe('project config', () => {
     expect(resolveRepetitionGuard('auto', decision, 'screenreader')).toBe(true);
     expect(resolveRepetitionGuard('off', decision, 'screenreader')).toBe(false);
   });
-  it('accepts only version 2 configs', () => {
+  it('accepts only version 3 configs', () => {
     const config = defaultConfig();
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
     expect(parseConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
-    expect(() => parseConfig({ ...config, version: 1 })).toThrow();
-    expect(() => parseConfig({ version: 2, connections: [], tasks: [], profiles: [], machine: {} })).toThrow();
+    expect(() => parseConfig({ ...config, version: 2 })).toThrow();
+    expect(() => parseConfig({ version: 3, connections: [], tasks: [], agents: [], machine: {} })).toThrow();
+    expect(() => parseConfig({ ...config, combos: [] })).toThrow();
+    expect(() => parseConfig({ ...config, atEnvironments: [{ id: 'x', name: 'x', backend: 'jaws' }] })).toThrow();
   });
-  it('finds connections and agents by id first, then by name', () => {
+  it('starts a project with one shared item of each condition and no presets', () => {
+    const config = defaultConfig();
+    expect(config.combos.map(c => c.id)).toEqual(['default']); expect(config.combos[0]).toMatchObject({ structure: 'solo', executors: {} });
+    expect(config.actionSets).toEqual([defaultActionSet()]); expect(config.actionSets[0]!.keyboard.keys).toContain('Tab');
+    expect(config.pageEnvironments).toEqual([{ id: 'default', name: 'Default', profile: 'default' }]);
+    expect(config.atEnvironments).toEqual([{ id: 'simulation', name: 'Simulated VoiceOver', backend: 'simulation' }]);
+    expect(config.presets).toEqual([]); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
+  });
+  it('finds connections and combos by id first, then by name', () => {
     const list = [{ id: 'one', name: 'two' }, { id: 'two', name: 'one' }];
     expect(findByIdOrName(list, 'one')).toBe(list[0]); expect(findByIdOrName(list, 'two')).toBe(list[1]); expect(findByIdOrName(list, 'three')).toBeUndefined();
-    const config = { ...defaultConfig(), tasks: setup().tasks };
-    expect(taskAgent(config, { agentId: 'gone' }).id).toBe('default');
-    expect(taskEnvironment(config, { environmentId: 'gone' }).id).toBe('default');
+  });
+  it('keeps only the fields a preset or a task overrides, so the project\'s other rules still apply', () => {
+    const config = defaultConfig(); config.tasks.push({ id: 'task', name: 'T', file: 't.json', runRules: { maxReplans: 4 } }); config.presets.push({ id: 'p', name: 'P', runRules: { failureLimit: 5 } });
+    const parsed = parseConfig(JSON.parse(JSON.stringify(config)));
+    expect(parsed.tasks[0]!.runRules).toEqual({ maxReplans: 4 }); expect(parsed.presets[0]!.runRules).toEqual({ failureLimit: 5 });
+  });
+  it('layers run rules field by field: the task over the preset over the project, other fields from the project', () => {
+    const config = setup(); config.runRules = resolveRunRules(config, { maxStateVisits: 7, maxReplans: 3, failureLimit: 6 });
+    const preset = { id: 'p', name: 'P', runRules: { maxReplans: 5 } };
+    const parsedTask = taskSchema.parse({ id: 'task', name: 'T', file: 'task.json', runRules: { maxStateVisits: 2 } });
+    expect(parsedTask.runRules).toEqual({ maxStateVisits: 2 });
+    const rules = resolveRunRules(config, preset.runRules, parsedTask.runRules);
+    expect(rules).toEqual({ ...config.runRules, maxStateVisits: 2, maxReplans: 5 });
+    const checked = checkRun({ config, task: task as never, taskEntry: parsedTask, combo: config.combos[0]!, actionSet: config.actionSets[0]!, pageEnvironment: config.pageEnvironments[0]!, atEnvironment: config.atEnvironments[0]!, preset, mode: 'keyboard' });
+    expect(checked.settings.runRules).toEqual(rules);
+  });
+  it('lists shared items without task-only copies', () => {
+    expect(sharedItems([{ id: 'a' }, { id: 'b', owner: 'task' }, { id: 'c', owner: undefined }]).map(i => i.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('conditions of a task', () => {
+  /** Two items of every kind, the second one chosen by the preset, a third one chosen by the task. */
+  function conditionsConfig(): ProjectConfig {
+    const config = setup();
+    config.combos.push(comboWith('c2', 'a'), comboWith('c3', 'b'));
+    config.actionSets.push({ ...defaultActionSet('s2'), name: 'S2' }, { ...defaultActionSet('s3'), name: 'S3' });
+    config.pageEnvironments.push({ id: 'e2', name: 'E2', profile: 'narrow' }, { id: 'e3', name: 'E3', profile: 'narrow' });
+    config.atEnvironments.push({ id: 'at2', name: 'AT2', backend: 'nvda' }, { id: 'at3', name: 'AT3', backend: 'voiceover' });
+    config.presets.push({ id: 'pre', name: 'Pre', comboId: 'c2', actionSetId: 's2', pageEnvironmentId: 'e2', atEnvironmentId: 'at2' });
+    return config;
+  }
+  const ids = (c: ReturnType<typeof taskConditions>) => [c.combo.id, c.actionSet.id, c.pageEnvironment.id, c.atEnvironment.id, c.preset?.id];
+  it('falls back to the first shared item of each kind when nothing is chosen', () => {
+    expect(ids(taskConditions(conditionsConfig(), {}))).toEqual(['default', 'basic', 'default', 'simulation', undefined]);
+  });
+  it('takes each field from the task, then the preset, then the first shared item', () => {
+    const config = conditionsConfig();
+    expect(ids(taskConditions(config, { presetId: 'pre' }))).toEqual(['c2', 's2', 'e2', 'at2', 'pre']);
+    expect(ids(taskConditions(config, { presetId: 'pre', comboId: 'c3', pageEnvironmentId: 'e3' }))).toEqual(['c3', 's2', 'e3', 'at2', 'pre']);
+    config.presets[0] = { id: 'pre', name: 'Pre', actionSetId: 's2' };
+    expect(ids(taskConditions(config, { presetId: 'pre', atEnvironmentId: 'at3' }))).toEqual(['default', 's2', 'default', 'at3', 'pre']);
+    expect(ids(taskConditions(config, { comboId: 'c3', actionSetId: 's3', pageEnvironmentId: 'e3', atEnvironmentId: 'at3' }))).toEqual(['c3', 's3', 'e3', 'at3', undefined]);
+  });
+  it('falls back to the first shared item for an id that is gone or a preset that does not exist', () => {
+    expect(ids(taskConditions(conditionsConfig(), { comboId: 'gone', actionSetId: 'gone', presetId: 'gone' }))).toEqual(['default', 'basic', 'default', 'simulation', undefined]);
+  });
+  it('never falls back to a task-only copy, but uses one the task names', () => {
+    const config = conditionsConfig();
+    config.combos.unshift({ ...comboWith('mine', 'b'), owner: 'task', copiedFrom: 'default' });
+    config.actionSets.unshift({ ...defaultActionSet('mine'), owner: 'task', copiedFrom: 'basic' });
+    config.pageEnvironments.unshift({ id: 'mine', name: 'Mine', profile: 'narrow', owner: 'task', copiedFrom: 'default' });
+    expect(ids(taskConditions(config, {}))).toEqual(['default', 'basic', 'default', 'simulation', undefined]);
+    expect(ids(taskConditions(config, { comboId: 'mine', actionSetId: 'mine', pageEnvironmentId: 'mine' }))).toEqual(['mine', 'mine', 'mine', 'simulation', undefined]);
+    expect(config.combos[0]).toMatchObject({ owner: 'task', copiedFrom: 'default' });
+    expect(() => parseConfig(config)).not.toThrow();
+    // When every item of a kind is a copy, the first one is still better than nothing.
+    config.actionSets = config.actionSets.filter(s => s.owner);
+    expect(taskConditions(config, {}).actionSet.id).toBe('mine');
+  });
+  it('merges run rules as the project\'s, then the preset\'s, then the task\'s', () => {
+    const config = setup(); config.runRules = resolveRunRules(config, { maxReplans: 5, modelGiveUp: true });
+    expect(resolveRunRules(config)).toMatchObject({ maxReplans: 5, modelGiveUp: true, failureLimit: 2, noChangeLimit: 3 });
+    expect(resolveRunRules(config, { maxReplans: 3, failureLimit: 4 }, undefined, { failureLimit: 7, modelGiveUp: false })).toMatchObject({ maxReplans: 3, failureLimit: 7, modelGiveUp: false, noChangeLimit: 3 });
+    expect(() => resolveRunRules(config, { maxReplans: -1 })).toThrow();
+    expect(config.runRules.maxReplans).toBe(5);
+  });
+  it('records the conditions of a run by content, marking task-only copies with where they came from', () => {
+    const config = setup(), actionSet = { ...defaultActionSet('mine'), owner: 'task', copiedFrom: 'basic' };
+    config.actionSets.push(actionSet);
+    const conditions = { combo: config.combos[0]!, actionSet, pageEnvironment: config.pageEnvironments[0]!, atEnvironment: config.atEnvironments[0]!, preset: { id: 'pre', name: 'Pre' } };
+    const check = assertRunnable(checkRun({ config, task: task as never, taskEntry: config.tasks[0], ...conditions, mode: 'keyboard' }));
+    const record = conditionsRecord(conditions, check);
+    expect(record).toMatchObject({
+      combo: { id: 'default', structure: 'solo', executor: 'a · m-a', prompt: { id: 'default.keyboard' } },
+      actionSet: { id: 'mine', owner: 'task', copiedFrom: 'basic', permissions: { keys: expect.arrayContaining(['Tab']) } },
+      pageEnvironment: { id: 'default', profile: 'default' }, atEnvironment: { id: 'simulation', backend: 'simulation' },
+      runRules: { maxReplans: expect.any(Number) }, preset: { id: 'pre', name: 'Pre' },
+    });
+    expect((record.combo as Record<string, unknown>).owner).toBeUndefined();
+    const spec = runSpecOf(task as never, 'keyboard', conditions, check);
+    expect(spec).toMatchObject({ mode: 'keyboard', backend: 'simulation', executor: { historyLimit: 12, focusGate: false }, conditions: record });
   });
 });
 
 describe('run checks', () => {
-  const choiceOf = (config: ProjectConfig, mode: 'keyboard' | 'screenreader' = 'keyboard') => config.agents[0]!.executors[mode]!;
+  const choiceOf = (config: ProjectConfig, mode: 'keyboard' | 'screenreader' = 'keyboard') => config.combos[0]!.executors[mode]!;
   const check = (config: ProjectConfig, change: (c: ProjectConfig) => void = () => {}, extra: Partial<Parameters<typeof checkRun>[0]> = {}) => {
     change(config);
-    return checkRun({ config, task: task as never, taskEntry: config.tasks[0], agent: config.agents[0]!, environment: config.environments[0]!, mode: 'keyboard', ...extra });
+    return checkRun({ config, task: task as never, taskEntry: config.tasks[0], combo: config.combos[0]!, actionSet: config.actionSets[0]!, pageEnvironment: config.pageEnvironments[0]!,
+      atEnvironment: config.atEnvironments[0]!, mode: 'keyboard', ...extra });
   };
-  it('accepts a supported combination and returns its settings and the agent\'s executor with its instructions', () => {
+  const withLlm = (c: ProjectConfig) => { c.connections.push(connection('llm', { kind: 'llm' })); };
+  it('accepts a supported combination and returns its settings and the combo\'s executor with its instructions', () => {
     const result = check(setup());
-    expect(result.problem).toBeUndefined(); expect(result.settings.policy.historyLimit).toBeGreaterThan(0);
+    expect(result.problem).toBeUndefined(); expect(result.settings.runRules.maxReplans).toBeGreaterThan(0); expect(result.warnings).toEqual([]);
     expect(result.model).toMatchObject({ id: 'a', modelId: 'm-a', name: 'a · m-a' }); expect(result.analysisModel).toBeUndefined();
     expect(result.prompt).toMatchObject({ id: 'default.keyboard', instructions: instructions.keyboard });
     expect(assertRunnable(result).permissions.keys).toContain('Tab');
   });
   it.each([
-    ['agent-without-executor', (c: ProjectConfig) => { delete c.agents[0]!.executors.keyboard; }],
+    ['combo-without-executor', (c: ProjectConfig) => { delete c.combos[0]!.executors.keyboard; }],
     ['model-needs-images', (c: ProjectConfig) => { choiceOf(c).inputs = ['text']; }],
     ['too-many-choices', (c: ProjectConfig) => { choiceOf(c).maxChoices = 4; }],
-    ['unsupported-action', (c: ProjectConfig) => { c.agents[0]!.permissions.keyboard.keys = ['F13']; }],
-    ['focus-gate-llm', (c: ProjectConfig) => { c.connections[0]!.kind = 'llm'; c.agents[0]!.policy.focusGate = true; }],
-    ['environment-unsupported', (c: ProjectConfig) => { c.environments[0]!.profile = 'zoom-200'; }],
+    ['unsupported-action', (c: ProjectConfig) => { c.actionSets[0]!.keyboard.keys = ['F13']; }],
+    ['focus-gate-llm', (c: ProjectConfig) => { c.connections[0]!.kind = 'llm'; choiceOf(c).focusGate = true; }],
+    ['environment-unsupported', (c: ProjectConfig) => { c.pageEnvironments[0]!.profile = 'zoom-200'; }],
   ])('reports %s as the problem, not by throwing', (code, change) => {
     const result = check(setup(), change);
     expect(result.problem).toBeInstanceOf(ProjectError); expect(result.problem!.code).toBe(code);
     expect(() => assertRunnable(result)).toThrow(result.problem!);
     expect(result.permissions).toBeDefined();
   });
-  it('explains an agent without an executor for the mode by what to do, and an executor that cannot take the mode by what it lacks', () => {
-    const none = check(setup(), c => { delete c.agents[0]!.executors.keyboard; });
+  it('explains a missing action by name, and a combo without an executor for the mode by what to do', () => {
+    expect(check(setup(), c => { c.actionSets[0]!.keyboard.keys = ['Tab', 'F13', 'F14']; }).problem!.message).toMatch(/F13, F14/);
+    const none = check(setup(), c => { delete c.combos[0]!.executors.keyboard; });
     expect(none.model).toBeUndefined(); expect(none.problem!.message).toMatch(/no keyboard executor.*images/i);
-    expect(check(setup(), c => { delete c.agents[0]!.executors.keyboard; }, { mode: 'screenreader' }).problem).toBeUndefined();
+    expect(check(setup(), c => { delete c.combos[0]!.executors.keyboard; }, { mode: 'screenreader' }).problem).toBeUndefined();
+    expect(check(setup(), c => { delete c.combos[0]!.executors.screenreader; }, { mode: 'screenreader' }).problem).toMatchObject({ code: 'combo-without-executor', message: expect.stringMatching(/no screen reader executor/) });
     expect(check(setup(), c => { choiceOf(c).inputs = ['text']; }).problem!.message).toMatch(/image/);
     expect(check(setup(), c => { choiceOf(c, 'screenreader').inputs = ['text']; }, { mode: 'screenreader' }).problem).toBeUndefined();
     expect(check(setup(), c => { choiceOf(c, 'screenreader').inputs = ['image']; }, { mode: 'screenreader' }).problem?.code).toBe('model-needs-text');
     expect(check(setup(), c => { choiceOf(c).maxImages = 1; }).problem?.code).toBe('model-needs-images');
   });
+  it('takes the focus gate from the keyboard executor and applies it to keyboard decisions by LLMs only', () => {
+    expect(check(setup(), c => { choiceOf(c).focusGate = true; }).problem).toBeUndefined();
+    // The screen reader executor has no focus gate to judge; only the keyboard executor's setting counts.
+    expect(check(setup(), c => { c.connections[0]!.kind = 'llm'; choiceOf(c, 'screenreader').focusGate = true; }, { mode: 'screenreader' }).problem).toBeUndefined();
+    expect(check(setup(), c => { c.connections[0]!.kind = 'llm'; choiceOf(c, 'screenreader').focusGate = true; }).problem).toBeUndefined();
+  });
   it('counts three stop choices only while the model may give up', () => {
     // Four keys plus the stop choices: 7 with give-up, 5 without.
-    const limit = (modelGiveUp: boolean, maxChoices: number) => check(setup(), c => { choiceOf(c).maxChoices = maxChoices; c.agents[0]!.policy.modelGiveUp = modelGiveUp; }).problem?.code;
+    const limit = (modelGiveUp: boolean, maxChoices: number) => check(setup(), c => { choiceOf(c).maxChoices = maxChoices; c.runRules.modelGiveUp = modelGiveUp; }).problem?.code;
     expect(limit(true, 6)).toBe('too-many-choices'); expect(limit(true, 7)).toBeUndefined();
     expect(limit(false, 4)).toBe('too-many-choices'); expect(limit(false, 5)).toBeUndefined();
+    // The preset and the task can turn give-up on for their runs.
+    const rules = { maxChoices: 6 };
+    const viaPreset = check(setup(), c => { choiceOf(c).maxChoices = rules.maxChoices; }, { preset: { id: 'p', name: 'P', runRules: { modelGiveUp: true } } }).problem?.code;
+    expect(viaPreset).toBe('too-many-choices');
+    expect(check(setup(), c => { choiceOf(c).maxChoices = 6; c.tasks[0]!.runRules = { modelGiveUp: true }; }).problem?.code).toBe('too-many-choices');
   });
-  it('reports an analysis model that is not on an LLM connection, and stop diagnosis in screen reader mode', () => {
-    expect(check(setup(), c => { c.analysis.model = { connectionId: 'b', modelId: 'writer' }; }).problem?.code).toBe('analysis-model-invalid');
-    const withLlm = check(setup(), c => { c.connections.push(connection('llm', { kind: 'llm' })); c.analysis.model = { connectionId: 'llm', modelId: 'writer' }; });
-    expect(withLlm.problem).toBeUndefined(); expect(withLlm.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer', kind: 'llm' });
+  it('merges the run rules of the project, the preset and the task, the task last', () => {
+    const result = check(setup(), c => { c.runRules.maxReplans = 5; c.runRules.stepActionLimit = 9; c.tasks[0]!.runRules = { failureLimit: 7, maxReplans: 1 }; },
+      { preset: { id: 'p', name: 'P', runRules: { maxReplans: 3, failureLimit: 4, noChangeLimit: 6 } } });
+    expect(result.settings.runRules).toMatchObject({ maxReplans: 1, stepActionLimit: 9, failureLimit: 7, noChangeLimit: 6, modelGiveUp: false });
+    expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; }).settings.analysisInstructions).toBe('Project focus.');
+    expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; c.tasks[0]!.analysisInstructions = 'Task focus.'; }).settings.analysisInstructions).toBe('Task focus.');
+  });
+  it('never blocks a run on analysis: a model that is not an LLM only warns, and the combo\'s own analysis wins over the project\'s', () => {
+    const bad = check(setup(), c => { c.project.analysis.model = { connectionId: 'b', modelId: 'writer' }; });
+    expect(bad.problem).toBeUndefined(); expect(bad.analysisModel).toBeUndefined(); expect(bad.warnings).toEqual([expect.stringMatching(/not on an LLM connection.*rules only/)]);
+    const badCombo = check(setup(), c => { c.combos[0]!.analysis = { connectionId: 'b', modelId: 'writer' }; });
+    expect(badCombo.problem).toBeUndefined(); expect(badCombo.warnings).toHaveLength(1);
+    const project = check(setup(), c => { withLlm(c); c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; });
+    expect(project.problem).toBeUndefined(); expect(project.warnings).toEqual([]); expect(project.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer', kind: 'llm' });
+    const own = check(setup(), c => { withLlm(c); c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; c.combos[0]!.analysis = { connectionId: 'llm', modelId: 'own' }; });
+    expect(own.analysisModel).toMatchObject({ modelId: 'own' });
+    expect(check(setup()).warnings).toEqual([]);
     expect(check(setup(), () => {}, { mode: 'screenreader', diagnoseStop: true }).problem?.code).toBe('diagnose-keyboard-only');
   });
-  it('uses the agent\'s planner on an LLM connection for screen reader runs only, counting its two step choices', () => {
-    const withPlanner = (c: ProjectConfig) => { c.connections.push(connection('llm', { kind: 'llm' })); c.agents[0]!.planner = { connectionId: 'llm', modelId: 'planner', instructions: 'Plan like an expert.' }; };
-    const reader = check(setup(), withPlanner, { mode: 'screenreader' });
-    expect(reader.problem).toBeUndefined(); expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner', kind: 'llm' }); expect(reader.plannerInstructions).toBe('Plan like an expert.');
-    expect(check(setup(), withPlanner).plannerModel).toBeUndefined();
-    expect(check(setup(), c => { c.agents[0]!.planner = { connectionId: 'b', modelId: 'planner', instructions: '' }; }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
-    const choices = (maxChoices: number) => check(setup(), c => { withPlanner(c); choiceOf(c, 'screenreader').maxChoices = maxChoices; }, { mode: 'screenreader' }).problem?.code;
-    const base = check(setup(), () => {}, { mode: 'screenreader' }).permissions, count = base.keys.length + base.intents.length + 1;
-    expect(choices(count + 1)).toBe('too-many-choices'); expect(choices(count + 2)).toBeUndefined();
+  describe('planned combos', () => {
+    const planned = (c: ProjectConfig, instructionsText = 'Plan like an expert.') => { withLlm(c); c.combos[0] = plannedWith(c.combos[0]!, 'llm', 'planner', instructionsText); };
+    it('plan in screen reader mode, with the planner\'s model and added instructions', () => {
+      const reader = check(setup(), c => planned(c), { mode: 'screenreader' });
+      expect(reader.problem).toBeUndefined(); expect(reader.warnings).toEqual([]);
+      expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner', kind: 'llm' }); expect(reader.plannerInstructions).toBe('Plan like an expert.');
+      expect(check(setup(), c => { c.combos[0]!.planner = { connectionId: 'llm', modelId: 'planner', instructions: '' }; withLlm(c); }, { mode: 'screenreader' }).plannerModel).toBeUndefined();
+    });
+    it('only warn in keyboard mode: the keyboard executor decides alone', () => {
+      const keyboard = check(setup(), c => planned(c));
+      expect(keyboard.problem).toBeUndefined(); expect(keyboard.plannerModel).toBeUndefined(); expect(keyboard.plannerInstructions).toBeUndefined();
+      expect(keyboard.warnings).toEqual([expect.stringMatching(/Keyboard runs do not use the planner/)]);
+    });
+    it('need a planner on an LLM connection in screen reader mode, and count its four plan choices', () => {
+      expect(check(setup(), c => { c.combos[0] = plannedWith(c.combos[0]!, 'b'); }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
+      expect(check(setup(), c => { c.combos[0] = plannedWith(c.combos[0]!, 'b'); }).problem).toBeUndefined();
+      const choices = (maxChoices: number) => check(setup(), c => { planned(c); choiceOf(c, 'screenreader').maxChoices = maxChoices; }, { mode: 'screenreader' }).problem?.code;
+      const base = check(setup(), () => {}, { mode: 'screenreader' }).permissions, count = base.keys.length + base.intents.length + 1;
+      expect(choices(count + 3)).toBe('too-many-choices'); expect(choices(count + 4)).toBeUndefined();
+    });
+  });
+  describe('assistive technology', () => {
+    it('checks the host for native screen readers, in screen reader mode only', () => {
+      const nvda = { id: 'nvda', name: 'NVDA', backend: 'nvda' as const };
+      if (process.platform !== 'win32') expect(check(setup(), () => {}, { mode: 'screenreader', atEnvironment: nvda }).problem?.code).toBe('nvda-windows');
+      // Keyboard runs never touch a screen reader, whatever environment is picked.
+      expect(check(setup(), () => {}, { atEnvironment: nvda }).problem).toBeUndefined();
+      if (process.platform !== 'darwin') expect(check(setup(), () => {}, { mode: 'screenreader', atEnvironment: { id: 'vo', name: 'VO', backend: 'voiceover' } }).problem?.code).toBe('voiceover-macos');
+    });
+    it.skipIf(process.platform !== 'darwin')('allows only a loopback AT Driver address for VoiceOver, from the machine settings', () => {
+      const vo = { id: 'vo', name: 'VO', backend: 'voiceover' as const };
+      expect(check(setup(), () => {}, { mode: 'screenreader', atEnvironment: vo }).problem).toBeUndefined();
+      expect(check(setup(), c => { c.machine.atEndpoints.voiceover = 'ws://127.0.0.1:9999/session'; }, { mode: 'screenreader', atEnvironment: vo }).problem).toBeUndefined();
+      expect(check(setup(), c => { c.machine.atEndpoints.voiceover = 'ws://example.com:4382/session'; }, { mode: 'screenreader', atEnvironment: vo }).problem?.code).toBe('endpoint-not-loopback');
+    });
   });
   it('knows which models can serve a mode', () => {
-    const a = agentExecutor(setup(), setup().agents[0]!, 'keyboard')!;
+    const a = comboExecutor(setup(), setup().combos[0]!, 'keyboard')!;
     expect(supportsMode(a, 'keyboard')).toBe(true); expect(supportsMode(a, 'screenreader')).toBe(true);
     expect(supportsMode({ ...a, inputs: ['text'], maxImages: 0 }, 'keyboard')).toBe(false);
     expect(supportsMode({ ...a, inputs: ['image'], maxImages: 2 }, 'screenreader')).toBe(false);
     expect(supportsMode({ ...a, maxImages: 1 }, 'keyboard')).toBe(false);
   });
-  it('lists the backend capabilities of each mode', () => {
-    const config = defaultConfig();
-    expect(backendCapabilities(config, 'keyboard').keys).toContain('Tab');
-    expect(backendCapabilities(config, 'screenreader').intents).toContain('next');
-    expect(backendCapabilities({ machine: { backend: 'voiceover' } }, 'screenreader').intents.length).toBeGreaterThan(0);
+  it('lists the backend capabilities of each mode and backend', () => {
+    expect(backendCapabilities('simulation', 'keyboard').keys).toContain('Tab');
+    expect(backendCapabilities('simulation', 'screenreader').intents).toContain('next');
+    expect(backendCapabilities('voiceover', 'screenreader').intents.length).toBeGreaterThan(0);
+    expect(backendCapabilities('nvda', 'screenreader').intents.length).toBeGreaterThan(0);
+    // Keyboard mode always uses the screenshot keyboard, whichever screen reader is picked.
+    expect(backendCapabilities('nvda', 'keyboard').keys).toContain('Tab');
   });
 });
 
@@ -379,11 +605,11 @@ describe('runTask', () => {
   }
   const back = ['Tab', 'Shift+Tab', 'Tab', 'Shift+Tab'];
 
-  it('runs a registered task with the executor of its agent, writing under .rawstep/runs', async () => {
+  it('runs a registered task with the executor of its combo, writing under .rawstep/runs and returning the conditions', async () => {
     const { dir } = await project(), { calls, execute } = player(recorded(['Tab', 'Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.spec).toMatchObject({ mode: 'keyboard', model: { id: 'a' }, prompt: { id: 'default.keyboard', instructions: instructions.keyboard }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
+    expect(calls[0]!.spec).toMatchObject({ mode: 'keyboard', backend: 'simulation', model: { id: 'a' }, prompt: { id: 'default.keyboard', instructions: instructions.keyboard }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
     expect(calls[0]!.spec.permissions.keys).toContain('Tab');
     expect(dirname(dirname(calls[0]!.outDir))).toBe(join(dir, '.rawstep', 'runs')); expect(basename(dirname(calls[0]!.outDir))).toMatch(/^[0-9T-]+Z-[0-9a-f]{8}$/); expect(basename(calls[0]!.outDir)).toBe('run-1');
     expect(result.runs).toHaveLength(1);
@@ -391,7 +617,12 @@ describe('runTask', () => {
     expect(result.runs[0]!.runId).toBe(result.runs[0]!.hints.runId);
     for (const file of ['trace.json', 'hints.json', 'analysis.json', 'report.html']) expect(await readFile(join(calls[0]!.outDir, file), 'utf8')).toBeTruthy();
     expect((await readTrace(calls[0]!.outDir)).runId).toBe(result.runs[0]!.runId);
-    expect(result.findings).toEqual([]);
+    expect(result.findings).toEqual([]); expect(result.warnings).toEqual([]);
+    expect(result.conditions).toMatchObject({
+      combo: { id: 'default', structure: 'solo', executor: 'a · m-a', prompt: { id: 'default.keyboard' } }, actionSet: { id: 'basic' }, pageEnvironment: { id: 'default' },
+      atEnvironment: { id: 'simulation', backend: 'simulation' }, runRules: { maxReplans: expect.any(Number) },
+    });
+    expect(result.conditions).toEqual(calls[0]!.spec.conditions);
   });
   it('repeats into one run-<n> directory each and compares every run with the fastest goal-reaching one', async () => {
     const { dir } = await project(), out = join(dir, 'custom-out');
@@ -407,42 +638,126 @@ describe('runTask', () => {
     expect(wandering!.hints.hints.map(h => h.kind)).toContain('backtracking');
     expect(result.findings).toEqual([expect.objectContaining({ kind: 'backtracking', source: 'model', runs: 1, totalRuns: 3 })]);
   });
-  it('resolves the agent and the environment by id or by name, and reports unknown ones with the choices', async () => {
-    const { dir } = await project(config => { config.agents.push(agentWith('zoom', 'b', 'm-b', 'Zoom check')); config.environments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' }); });
-    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
-    await runTask('task', { projectDir: dir, agent: 'zoom' }, { execute });
-    await runTask('task', { projectDir: dir, agent: 'Zoom check', environment: 'Narrow' }, { execute });
-    await runTask('task', { projectDir: dir, agent: 'Default' }, { execute });
-    expect(calls.map(c => c.spec.model.id)).toEqual(['b', 'b', 'a']);
+  it('resolves each condition by id or by name, and reports unknown ones with the choices', async () => {
+    const { dir } = await project(config => {
+      config.combos.push(comboWith('zoom', 'b', 'm-b', 'Zoom check')); config.pageEnvironments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
+      config.actionSets.push({ ...defaultActionSet('wide', 'Wide'), keyboard: { keys: ['Tab'], intents: [], typeText: false, replaceText: false } });
+      config.atEnvironments.push({ id: 'second', name: 'Second simulation', backend: 'simulation' });
+    });
+    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+    await runTask('task', { projectDir: dir, combo: 'zoom' }, { execute });
+    await runTask('task', { projectDir: dir, combo: 'Zoom check', pageEnvironment: 'Narrow' }, { execute });
+    await runTask('task', { projectDir: dir, combo: 'Default' }, { execute });
+    await runTask('task', { projectDir: dir, actionSet: 'Wide', atEnvironment: 'second' }, { execute });
+    expect(calls.map(c => c.spec.model.id)).toEqual(['b', 'b', 'a', 'a']);
     expect(calls[0]!.spec.model).toMatchObject({ modelId: 'm-b', name: 'b · m-b' });
-    expect(calls.map(c => (c.spec.environment as { id: string }).id)).toEqual(['default', 'narrow', 'default']);
-    await expect(runTask('task', { projectDir: dir, agent: 'nope' }, { execute })).rejects.toMatchObject({ code: 'agent-not-found', message: expect.stringContaining('Zoom check (zoom)') });
-    await expect(runTask('task', { projectDir: dir, environment: 'nope' }, { execute })).rejects.toMatchObject({ code: 'environment-not-found' });
-    expect(calls).toHaveLength(3);
+    expect(calls.map(c => (c.spec.environment as { id: string }).id)).toEqual(['default', 'narrow', 'default', 'default']);
+    expect(calls[3]!.spec.permissions.keys).toEqual(['Tab']); expect(calls[3]!.spec.conditions).toMatchObject({ actionSet: { id: 'wide' }, atEnvironment: { id: 'second' } });
+    await expect(runTask('task', { projectDir: dir, combo: 'nope' }, { execute })).rejects.toMatchObject({ code: 'combo-not-found', message: expect.stringContaining('Zoom check (zoom)') });
+    await expect(runTask('task', { projectDir: dir, actionSet: 'nope' }, { execute })).rejects.toMatchObject({ code: 'action-set-not-found', message: expect.stringContaining('Wide (wide)') });
+    await expect(runTask('task', { projectDir: dir, pageEnvironment: 'nope' }, { execute })).rejects.toMatchObject({ code: 'page-environment-not-found' });
+    await expect(runTask('task', { projectDir: dir, atEnvironment: 'nope' }, { execute })).rejects.toMatchObject({ code: 'at-environment-not-found' });
+    await expect(runTask('task', { projectDir: dir, preset: 'nope' }, { execute })).rejects.toMatchObject({ code: 'preset-not-found' });
+    expect(calls).toHaveLength(4);
   });
-  it('uses the task\'s agent, otherwise the first agent, with that agent\'s executor and instructions for the mode', async () => {
-    const { dir } = await project(config => { config.agents.push(agentWith('second', 'b', 'm-b', 'Second')); config.tasks[0]!.agentId = 'second'; });
+  it('uses the task\'s combo, otherwise the first shared one, with that combo\'s executor and instructions for the mode', async () => {
+    const { dir } = await project(config => { config.combos.push(comboWith('second', 'b', 'm-b', 'Second')); config.tasks[0]!.comboId = 'second'; });
     const { calls, execute } = player(recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute });
-    expect(calls[0]!.spec.settings.screenreader.intents).toContain('next'); expect(calls[0]!.spec.mode).toBe('screenreader');
+    expect(calls[0]!.spec.permissions.intents).toContain('next'); expect(calls[0]!.spec.mode).toBe('screenreader');
     expect(calls[0]!.spec.model.id).toBe('b'); expect(calls[0]!.spec.environment).toEqual(expect.objectContaining({ id: 'default' }));
     expect(calls[0]!.spec.prompt).toMatchObject({ id: 'second.screenreader', instructions: instructions.screenreader });
   });
-  it('uses the agent\'s executor and explains when the agent has none for the mode or it cannot take images', async () => {
-    const text = await project(config => { config.agents[0]!.executors.keyboard!.inputs = ['text']; });
+  it('fills conditions from a preset, below the task\'s own choices and above the options only when none are given', async () => {
+    const { dir } = await project(config => {
+      config.combos.push(comboWith('c2', 'b', 'm-b', 'Second'), comboWith('c3', 'a', 'm-c', 'Third'));
+      config.pageEnvironments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
+      config.presets.push({ id: 'pre', name: 'Preset one', comboId: 'c2', pageEnvironmentId: 'narrow', runRules: { maxReplans: 2, failureLimit: 5 } });
+    });
+    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+    const first = await runTask('task', { projectDir: dir, preset: 'Preset one' }, { execute });
+    expect(calls[0]!.spec.model.id).toBe('b'); expect((calls[0]!.spec.environment as { id: string }).id).toBe('narrow');
+    expect(calls[0]!.spec.settings.runRules).toMatchObject({ maxReplans: 2, failureLimit: 5 });
+    expect(first.conditions).toMatchObject({ preset: { id: 'pre', name: 'Preset one' }, combo: { id: 'c2' }, pageEnvironment: { id: 'narrow' } });
+    // An option beats the preset; the preset still fills the rest.
+    await runTask('task', { projectDir: dir, preset: 'pre', combo: 'c3' }, { execute });
+    expect(calls[1]!.spec.model.modelId).toBe('m-c'); expect((calls[1]!.spec.environment as { id: string }).id).toBe('narrow');
+    // A preset the task names itself applies without an option.
+    const named = await project(config => { config.combos.push(comboWith('c2', 'b')); config.presets.push({ id: 'pre', name: 'P', comboId: 'c2' }); config.tasks[0]!.presetId = 'pre'; });
+    await runTask('task', { projectDir: named.dir }, { execute });
+    expect(calls[2]!.spec.model.id).toBe('b'); expect(calls[2]!.spec.conditions).toMatchObject({ preset: { id: 'pre' } });
+  });
+  it('merges run rules as the project\'s, the preset\'s, the task\'s and then the options\'', async () => {
+    const { dir } = await project(config => {
+      config.runRules = resolveRunRules(config, { maxReplans: 8, stepActionLimit: 20, failureLimit: 3 });
+      config.presets.push({ id: 'pre', name: 'Pre', runRules: { maxReplans: 6, failureLimit: 4 } });
+      config.tasks[0]!.runRules = { maxReplans: 4, noChangeLimit: 9 };
+    });
+    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+    await runTask('task', { projectDir: dir }, { execute });
+    expect(calls[0]!.spec.settings.runRules).toMatchObject({ maxReplans: 4, stepActionLimit: 20, failureLimit: 3, noChangeLimit: 9 });
+    const result = await runTask('task', { projectDir: dir, preset: 'pre', runRules: { maxReplans: 1 } }, { execute });
+    expect(calls[1]!.spec.settings.runRules).toMatchObject({ maxReplans: 1, stepActionLimit: 20, failureLimit: 4, noChangeLimit: 9 });
+    expect(result.conditions).toMatchObject({ runRules: { maxReplans: 1, failureLimit: 4 } });
+  });
+  it('runs a task-only copy for its own task and records what it was copied from', async () => {
+    const { dir } = await project(config => {
+      config.actionSets.unshift({ ...defaultActionSet('task-keys', 'Task keys'), keyboard: { keys: ['Tab'], intents: [], typeText: false, replaceText: false }, owner: 'task', copiedFrom: 'basic' });
+      config.tasks[0]!.actionSetId = 'task-keys';
+    });
+    const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+    const result = await runTask('task', { projectDir: dir }, { execute });
+    expect(calls[0]!.spec.permissions.keys).toEqual(['Tab']);
+    expect(result.conditions).toMatchObject({ actionSet: { id: 'task-keys', owner: 'task', copiedFrom: 'basic' } });
+    // A task file that is not registered never inherits the copy: it gets the first shared action set.
+    await writeFile(join(dir, 'other.json'), JSON.stringify({ ...task, goal: 'Other goal' }));
+    await runTask('other.json', { projectDir: dir }, { execute });
+    expect(calls[1]!.spec.permissions.keys).toContain('Shift+Tab'); expect(calls[1]!.spec.conditions).toMatchObject({ actionSet: { id: 'basic' } });
+  });
+  it('explains when the combo has none for the mode or it cannot take images', async () => {
+    const text = await project(config => { config.combos[0]!.executors.keyboard!.inputs = ['text']; });
     await expect(runTask('task', { projectDir: text.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'model-needs-images', message: expect.stringMatching(/Keyboard runs.*image/) });
     expect((await runTask('task', { projectDir: text.dir, mode: 'screenreader' }, { execute: player(recorded(['Enter'], 'success')).execute })).runs).toHaveLength(1);
-    const none = await project(config => { config.agents[0]!.executors = {}; });
-    await expect(runTask('task', { projectDir: none.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'agent-without-executor', message: expect.stringMatching(/no keyboard executor/i) });
-    // Another agent with an executor still runs: nothing else is picked for the agent that has none.
+    const none = await project(config => { config.combos[0]!.executors = {}; });
+    await expect(runTask('task', { projectDir: none.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'combo-without-executor', message: expect.stringMatching(/no keyboard executor/i) });
+    // Another combo with an executor still runs: nothing else is picked for the combo that has none.
     const { calls, execute } = player(recorded(['Enter'], 'success'));
-    const mixed = await project(config => { config.agents[0]!.executors = {}; config.agents.push(agentWith('second', 'b')); });
-    await runTask('task', { projectDir: mixed.dir, agent: 'second' }, { execute });
+    const mixed = await project(config => { config.combos[0]!.executors = {}; config.combos.push(comboWith('second', 'b')); });
+    await runTask('task', { projectDir: mixed.dir, combo: 'second' }, { execute });
     expect(calls[0]!.spec.model.id).toBe('b');
-    await expect(runTask('task', { projectDir: mixed.dir }, { execute })).rejects.toMatchObject({ code: 'agent-without-executor' });
+    await expect(runTask('task', { projectDir: mixed.dir }, { execute })).rejects.toMatchObject({ code: 'combo-without-executor' });
   });
-  it('runs an unregistered task file with the first agent, resolving the path from the project directory', async () => {
-    const { dir } = await project(config => { config.agents.push(agentWith('second', 'b', 'm-b', 'Second')); config.tasks[0]!.agentId = 'second'; });
+  describe('planned combos', () => {
+    const planning = (config: ProjectConfig) => {
+      config.connections.push(connection('planner', { kind: 'llm', provider: 'openai' }));
+      config.combos[0] = plannedWith(config.combos[0]!, 'planner', 'plan-model', 'Be careful.');
+    };
+    it('plan only in screen reader mode, with the planner\'s key; keyboard runs warn and need no planner key', async () => {
+      const { dir, store } = await project(planning), { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+      const keyboard = await runTask('task', { projectDir: dir }, { execute });
+      expect(calls[0]!.spec.plannerModel).toBeUndefined();
+      expect(keyboard.warnings).toEqual([expect.stringMatching(/Keyboard runs do not use the planner/)]);
+      expect(keyboard.conditions).toMatchObject({ combo: { structure: 'planned' } });
+      await expect(runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
+      await store.setCredential('openai', 'sk-planner-key');
+      const reader = await runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute });
+      expect(calls).toHaveLength(2);
+      expect(calls[1]!.spec).toMatchObject({ plannerModel: { id: 'planner', modelId: 'plan-model' }, plannerInstructions: 'Be careful.' });
+      expect(reader.warnings).toEqual([]); expect(reader.conditions).toMatchObject({ combo: { structure: 'planned', planner: 'planner · plan-model' } });
+    });
+  });
+  describe('assistive technology', () => {
+    it('passes the picked environment to screen reader runs, and ignores it in keyboard runs', async () => {
+      const { dir } = await project(config => { config.atEnvironments.push({ id: 'nvda', name: 'NVDA', backend: 'nvda' }); });
+      const { calls, execute } = player(recorded(['Enter'], 'success'));
+      await runTask('task', { projectDir: dir, atEnvironment: 'nvda' }, { execute });
+      expect(calls[0]!.spec.backend).toBe('nvda');
+      if (process.platform !== 'win32') await expect(runTask('task', { projectDir: dir, mode: 'screenreader', atEnvironment: 'nvda' }, { execute })).rejects.toMatchObject({ code: 'nvda-windows' });
+      expect(calls).toHaveLength(1);
+    });
+  });
+  it('runs an unregistered task file with the first shared conditions, resolving the path from the project directory', async () => {
+    const { dir } = await project(config => { config.combos.push(comboWith('second', 'b', 'm-b', 'Second')); config.tasks[0]!.comboId = 'second'; });
     await writeFile(join(dir, 'other.json'), JSON.stringify({ ...task, goal: 'Other goal' }));
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('other.json', { projectDir: dir }, { execute });
@@ -454,39 +769,56 @@ describe('runTask', () => {
     await writeFile(join(dir, 'broken.json'), '{nope');
     await expect(runTask('broken.json', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'invalid-task' });
   });
-  it('says what to do when there is no config, no matching setup or bad options', async () => {
+  it('says what to do when there is no config, an old config, no matching setup or bad options', async () => {
     const empty = await root(), { execute } = player();
     await expect(runTask('task', { projectDir: empty }, { execute })).rejects.toMatchObject({ code: 'no-config', message: expect.stringMatching(/rawstep\.config\.json.*rawstep init.*rawstep ui/) });
+    const old = await root(); await writeFile(join(old, 'rawstep.config.json'), JSON.stringify({ version: 2 }));
+    await expect(runTask('task', { projectDir: old }, { execute })).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(/version 2.*migrate-config\.mjs/) });
     const { dir } = await project();
     await expect(runTask('task', { projectDir: dir, repeat: 0 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });
     await expect(runTask('task', { projectDir: dir, repeat: 1.5 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });
     await expect(runTask('task', { projectDir: dir, mode: 'mouse' as never }, { execute })).rejects.toMatchObject({ code: 'invalid-mode' });
-    const unsupported = await project(config => { config.environments[0]!.profile = 'zoom-200'; });
+    const unsupported = await project(config => { config.pageEnvironments[0]!.profile = 'zoom-200'; });
     await expect(runTask('task', { projectDir: unsupported.dir }, { execute })).rejects.toMatchObject({ code: 'environment-unsupported' });
+    await expect(runTask('task', { projectDir: dir, diagnoseStop: true, mode: 'screenreader' }, { execute })).rejects.toMatchObject({ code: 'diagnose-keyboard-only' });
   });
   it('requires the provider key, reading it from .env.local, and hands it to the run; a custom server needs none', async () => {
-    const { dir, store } = await project(config => { config.connections[0] = connection('a', { kind: 'llm', provider: 'openai' }); config.agents.push(agentWith('second', 'b')); });
+    const { dir, store } = await project(config => { config.connections[0] = connection('a', { kind: 'llm', provider: 'openai' }); config.combos.push(comboWith('second', 'b')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
     await store.setCredential('openai', 'sk-fixture-key');
     await runTask('task', { projectDir: dir }, { execute });
     expect(calls[0]!.apiKey).toBe('sk-fixture-key');
-    await runTask('task', { projectDir: dir, agent: 'second' }, { execute });
+    await runTask('task', { projectDir: dir, combo: 'second' }, { execute });
     expect(calls[1]!.apiKey).toBeUndefined();
   });
-  it('needs the key of the project\'s analysis model before anything starts', async () => {
-    const { dir, store } = await project(config => { config.connections.push(connection('writer', { kind: 'llm', provider: 'openai' })); config.analysis.model = { connectionId: 'writer', modelId: 'gpt-fixture' }; });
-    const { calls, execute } = player(recorded(['Enter'], 'success'));
-    await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
-    expect(calls).toHaveLength(0);
-    await store.setCredential('openai', 'sk-fixture-key');
-    expect((await runTask('task', { projectDir: dir }, { execute })).runs).toHaveLength(1);
-  });
-  it('builds the analyzer of the project\'s analysis model, and says what is missing otherwise', async () => {
-    const none = await project();
-    await expect(projectAnalyzer(none.dir)).rejects.toMatchObject({ code: 'no-analysis-model', message: expect.stringMatching(/project has no analysis model/) });
-    const { dir } = await project(config => { config.connections.push(connection('writer', { kind: 'llm', name: 'Writer' })); config.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: 'Focus on forms.' }; });
-    expect((await projectAnalyzer(dir)).modelName).toBe('Writer · gpt-fixture');
+  describe('analysis', () => {
+    const analysed = (config: ProjectConfig) => { config.connections.push(connection('writer', { kind: 'llm', provider: 'openai' })); config.project.analysis.model = { connectionId: 'writer', modelId: 'gpt-fixture' }; };
+    it('never blocks a run: without the analysis key the runs get the rule-based analysis and a warning', async () => {
+      const { dir, store } = await project(analysed);
+      const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
+      const result = await runTask('task', { projectDir: dir }, { execute });
+      expect(calls).toHaveLength(1); expect(result.runs).toHaveLength(1);
+      expect(result.warnings).toEqual([expect.stringMatching(/key for the analysis model "writer · gpt-fixture" is not set.*rule-based/)]);
+      expect(JSON.parse(await readFile(join(calls[0]!.outDir, 'analysis.json'), 'utf8')).status).not.toBe('failed');
+      await store.setCredential('openai', 'sk-fixture-key');
+      // With the key set there is nothing to warn about (the model is called only after the run, never here).
+      const fetched = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+      try { expect((await runTask('task', { projectDir: dir }, { execute })).warnings).toEqual([]); } finally { fetched.mockRestore(); }
+    });
+    it('uses the combo\'s own analysis model over the project\'s', async () => {
+      const own = await project(config => { analysed(config); config.connections.push(connection('local', { kind: 'llm', name: 'Local' })); config.combos[0]!.analysis = { connectionId: 'local', modelId: 'mine' }; });
+      const ran = await runTask('task', { projectDir: own.dir }, { execute: player(recorded(['Enter'], 'success')).execute });
+      expect(ran.warnings).toEqual([]); expect(ran.conditions).toMatchObject({ combo: { analysis: 'Local · mine' } });
+    });
+    it('builds the analyzer of the project\'s analysis model, and says what is missing otherwise', async () => {
+      const none = await project();
+      await expect(projectAnalyzer(none.dir)).rejects.toMatchObject({ code: 'no-analysis-model', message: expect.stringMatching(/project has no analysis model/) });
+      const { dir } = await project(config => { config.connections.push(connection('writer', { kind: 'llm', name: 'Writer' })); config.project.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: 'Focus on forms.' }; });
+      expect((await projectAnalyzer(dir)).modelName).toBe('Writer · gpt-fixture');
+      const keyed = await project(analysed);
+      await expect(projectAnalyzer(keyed.dir)).rejects.toMatchObject({ code: 'missing-credential' });
+    });
   });
   it('rejects on cancellation and keeps the traces written so far', async () => {
     const { dir } = await project(), controller = new AbortController();

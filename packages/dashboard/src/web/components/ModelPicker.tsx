@@ -54,7 +54,7 @@ export function ModelPicker({ label, connections, connectionId, modelId, onChang
       <Choice label={t('modelPicker.connection')} value={connection?.id ?? (none ? NONE : '')}
         onChange={next => { if (next === NONE) onNone?.(); else onChange({ connectionId: next, modelId: next === connectionId ? modelId : '' }); setModels(undefined); setError(undefined); }}
         options={[...(none ? [{ id: NONE, name: none }] : []), ...connections.map(c => ({ id: c.id, name: name(c) }))]} />
-      {connection && <Field label={t('modelPicker.modelId')} value={modelId} onChange={next => onChange({ connectionId: connection.id, modelId: next })} placeholder={t('modelPicker.modelIdPlaceholder')} />}
+      {connection && <Field label={t('modelPicker.modelId')} value={modelId} onChange={next => onChange({ connectionId: connection.id, modelId: next })} placeholder={t(connection.kind === 'llm' ? 'modelPicker.modelIdPlaceholderLlm' : 'modelPicker.modelIdPlaceholder')} />}
     </div>
     {connection && <>
       <div className="flex flex-wrap items-center gap-3">

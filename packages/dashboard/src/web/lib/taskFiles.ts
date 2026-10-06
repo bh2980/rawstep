@@ -1,7 +1,8 @@
 import type { ManagedTask } from '@rawstep/project/config';
 import { ApiError } from '../api';
-import type { ConfigView } from '../../shared/config';
+import type { ConfigView } from '../../shared/config.js';
 import type { PageProps } from '../pages/types';
+import { copyOwned, type TaskConditionIds } from './taskConditions';
 
 /** Lowercase a-z0-9 and hyphens, at most 40 characters; empty when nothing usable remains. */
 export function slugify(text: string): string {
@@ -25,16 +26,19 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
  * (or the config changed), so retry once with a random suffix. Returns the new task id and the project state that includes it.
  */
 export async function createManagedTask(props: PageProps, input: {
-  name: string; slug: string; task: unknown; agentId?: string; environmentId?: string;
-  /** A task being copied: its per-task action and policy overrides and analysis instructions come along. */
-  copyOf?: Pick<ManagedTask, 'permissions' | 'policy' | 'analysisInstructions'>;
+  name: string; slug: string; task: unknown;
+  /** The conditions the task names; left out, it follows the first shared items. */
+  conditions?: TaskConditionIds;
+  /** A task being copied: its conditions (its task-only items are copied again for the new task), run rules and analysis instructions come along. */
+  copyOf?: ManagedTask;
 }): Promise<{ id: string; view: ConfigView }> {
   const id = crypto.randomUUID(), { copyOf } = input;
+  const { config, ids } = copyOf ? copyOwned(props.view.config, copyOf, { id, name: input.name }) : { config: props.view.config, ids: input.conditions ?? {} };
+  const defined = Object.fromEntries(Object.entries(ids).filter(([, value]) => value)) as TaskConditionIds;
   const write = (file: string) => props.save(
-    { ...props.view.config, tasks: [...props.view.config.tasks, {
-      id, name: input.name, file, ...(input.agentId ? { agentId: input.agentId } : {}), ...(input.environmentId ? { environmentId: input.environmentId } : {}),
-      permissions: copyOf ? structuredClone(copyOf.permissions) : { keyboard: null, screenreader: null },
-      ...(copyOf?.policy ? { policy: structuredClone(copyOf.policy) } : {}), ...(copyOf?.analysisInstructions ? { analysisInstructions: copyOf.analysisInstructions } : {}),
+    { ...config, tasks: [...config.tasks, {
+      id, name: input.name, file, ...defined,
+      ...(copyOf?.runRules ? { runRules: structuredClone(copyOf.runRules) } : {}), ...(copyOf?.analysisInstructions ? { analysisInstructions: copyOf.analysisInstructions } : {}),
     }] },
     { file, task: input.task },
   );

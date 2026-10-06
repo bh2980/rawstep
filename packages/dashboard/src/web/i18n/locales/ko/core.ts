@@ -40,7 +40,7 @@ export const core = {
     interrupted: '중단됨',
   } satisfies Record<RunState, string>,
   task: {
-    compare: '여러 에이전트·환경 비교',
+    compare: '여러 조건 비교',
     unknownTitle: '작업을 찾을 수 없습니다',
     unknown: '이 주소의 작업이 프로젝트에 없습니다. 삭제되었거나 다른 창에서 바뀌었을 수 있습니다.',
     backToTasks: '작업 목록으로',
@@ -171,7 +171,7 @@ export const core = {
     stop: '중단 · {{reason}}',
     stopReasons: { success: '목표에 닿았다고 판단', uncertain: '확신하지 못함', stuck: '막혔다고 판단' },
     stopSource: '중단을 고른 쪽: {{source}}',
-    stopSources: { model: '모델', 'exploration-guard': 'Rawstep 반복 감시', system: 'Rawstep' },
+    stopSources: { model: '실행 모델', planner: '계획 모델 (완료 판단)', 'exploration-guard': 'Rawstep 반복 감시', 'orchestration-limit': 'Rawstep 재계획 한도', system: 'Rawstep' },
     candidateCount: '후보 {{n}}개',
     showAllCandidates: '후보 {{n}}개 모두 보기',
     inference: '추론 {{ms}}ms',

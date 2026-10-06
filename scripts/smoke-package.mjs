@@ -89,7 +89,7 @@ try {
   assert.match(command(npx, ['--no-install', 'rawstep', '--help']), /rawstep\.config\.json/);
   assert.equal(command(npx, ['--no-install', 'rawstep', '--version']).trim(), installed.version);
   assert.match(command(npx, ['--no-install', 'rawstep', 'init']), /Created .*rawstep\.config\.json/);
-  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 2);
+  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 3);
   assert.throws(() => command(npx, ['--no-install', 'rawstep', 'init']), /already exists/);
   check('npx rawstep --help / --version / init');
 

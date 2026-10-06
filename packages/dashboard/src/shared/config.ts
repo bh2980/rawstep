@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Task } from '@rawstep/core/contracts';
-import { idSchema as id, runRulesSchema, type Mode, type Model, type Permissions, type ProjectConfig } from '@rawstep/project/config';
+import { idSchema as id, runRulesOverrideSchema, type Mode, type Model, type Permissions, type ProjectConfig } from '@rawstep/project/config';
 import type { RunSpec } from '@rawstep/project/execution';
 
 const ids = z.array(id).min(1).max(100).optional();
@@ -13,7 +13,7 @@ export const planSchema = z.object({
   modes: z.array(z.enum(['keyboard', 'screenreader'])).min(1).max(2),
   presetIds: ids, comboIds: ids, actionSetIds: ids, pageEnvironmentIds: ids, atEnvironmentIds: ids,
   /** Run rules for this experiment only, over the project's, the preset's and the task's. */
-  runRules: runRulesSchema.partial().optional(),
+  runRules: runRulesOverrideSchema.optional(),
   repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
   revision: z.string().optional(),

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
-import { projectAnalysisModel } from '@rawstep/project/config';
+import { suggestionModel } from '@rawstep/project/config';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
 import { describeRule } from '../lib/describeRule';
@@ -76,8 +76,8 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
 export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
-  // The project's post-run analysis LLM writes the suggestions; without one there is nothing to ask.
-  const model = projectAnalysisModel(view.config);
+  // The project's suggestion model writes the suggestions (its analysis model when none is set), as the server picks it.
+  const model = suggestionModel(view.config);
   const [loading, setLoading] = useState(false), [error, setError] = useState<ErrorView>();
   const [result, setResult] = useState<SuggestionResult>(), [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const ready = url.trim() !== '' && goal.trim() !== '' && model !== undefined;

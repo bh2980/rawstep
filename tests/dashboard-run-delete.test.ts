@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
 import { defaultConfig, type ProjectConfig } from '@rawstep/project/config';
-import { connection, agentWith } from './helpers/project-config.js';
+import { connection, comboWith } from './helpers/project-config.js';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 
@@ -18,11 +18,11 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', verify: { a
 const waitFor = async (work: () => boolean) => { for (let i = 0; i < 100; i++) { if (work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); };
 function setup(): ProjectConfig {
   const config = defaultConfig();
-  config.connections.push(connection('a')); config.agents[0] = agentWith('default', 'a', 'm-a', 'Default');
-  config.environments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
-  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', permissions: { keyboard: null, screenreader: null } }); return config;
+  config.connections.push(connection('a')); config.combos[0] = comboWith('default', 'a', 'm-a', 'Default');
+  config.pageEnvironments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
+  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
-const request: PlanRequest = { taskIds: ['task'], agentIds: ['default'], environmentIds: ['default', 'narrow'], repeats: 1, mode: 'keyboard' };
+const request: PlanRequest = { taskIds: ['task'], modes: ['keyboard'], comboIds: ['default'], pageEnvironmentIds: ['default', 'narrow'], repeats: 1 };
 const call = (url: string, method: string, path: string, body?: unknown) => fetch(url + path, { method, headers: { 'content-type': 'application/json', origin: url }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 /** A dashboard whose runs finish at once, or wait for `release()` when `hold` is set. */
 async function start(hold = false) {
