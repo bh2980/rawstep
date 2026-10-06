@@ -6,10 +6,10 @@
 
 ## Run the bundled browser fixture
 
-Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a `model` must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
+Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and the machine backend `simulation` (the default in `rawstep.config.json`) needs no AT Driver. An agent with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the agent's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
 
 ```sh
-npx rawstep run examples/v2/mock-task.json --mode screenreader --profile PROFILE
+npx rawstep run examples/v2/mock-task.json --mode screenreader --agent AGENT
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 

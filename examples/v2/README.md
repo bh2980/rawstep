@@ -6,12 +6,12 @@ Start the appropriate native AT Driver server yourself, or let Rawstep start it 
 
 ## Running the example
 
-Set `machine.backend` to `voiceover` (macOS) or `nvda` (Windows) in `rawstep.config.json` (`npx rawstep ui` edits it). Leave `machine.atEndpoint` empty to use the usual address of the screen reader's server (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA), or set the WebSocket URL of the server you run. Set up a connection and give a run profile a `model` in the same file; see [SystemOne](../../docs/systemone.md) and [config](../../docs/config.md). Then check the setup and run the bundled task in screen-reader mode:
+Set `machine.backend` to `voiceover` (macOS) or `nvda` (Windows) in `rawstep.config.json` (`npx rawstep ui` edits it). Leave `machine.atEndpoint` empty to use the usual address of the screen reader's server (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA), or set the WebSocket URL of the server you run. Set up a connection and give an agent a screen reader executor in the same file; see [SystemOne](../../docs/systemone.md) and [config](../../docs/config.md). Then check the setup and run the bundled task in screen-reader mode:
 
 ```sh
 npx rawstep doctor
-npx rawstep run node_modules/rawstep/examples/v2/task.json --mode screenreader --profile PROFILE --out .rawstep/example
-npx rawstep analyze .rawstep/example/run-1 --profile PROFILE   # LLM analysis; omit --profile for the local rule-based summary
+npx rawstep run node_modules/rawstep/examples/v2/task.json --mode screenreader --agent AGENT --out .rawstep/example
+npx rawstep analyze .rawstep/example/run-1 --llm   # LLM analysis with the project analysis model; omit --llm for the local rule-based summary
 npx rawstep report .rawstep/example/run-1
 ```
 

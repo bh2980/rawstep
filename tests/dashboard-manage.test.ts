@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultConfig, defaultModes, type ProjectConfig } from '@rawstep/project/config';
+import { defaultConfig, type ProjectConfig } from '@rawstep/project/config';
 import { connection } from './helpers/project-config.js';
 import type { DiscoveredModel } from '@rawstep/project/discover';
 import type { BrowserCheck, ModelCheck } from '../packages/dashboard/src/shared/api.js';
@@ -25,7 +25,7 @@ const task = { url: 'https://example.com', goal: 'Reach the thanks page', verify
 async function project(): Promise<{ dir: string; config: ProjectConfig; revision: string }> {
   const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
   await mkdir(join(dir, 'e2e'), { recursive: true });
-  config.tasks.push({ id: 'owned', name: 'Owned', file: 'tasks/owned.json', modes: defaultModes() }, { id: 'linked', name: 'Linked', file: 'e2e/linked.json', modes: defaultModes() });
+  config.tasks.push({ id: 'owned', name: 'Owned', file: 'tasks/owned.json', permissions: { keyboard: null, screenreader: null } }, { id: 'linked', name: 'Linked', file: 'e2e/linked.json', permissions: { keyboard: null, screenreader: null } });
   await writeFile(join(dir, 'e2e/linked.json'), JSON.stringify(task));
   const saved = await store.save(config, initial.revision, { file: 'tasks/owned.json', task });
   return { dir, config: saved.config, revision: saved.revision };
@@ -64,7 +64,7 @@ describe('deleting a task', () => {
     expect(((await unknown.json()) as { error: string }).error).toContain('작업');
     expect((await call(app.url, 'DELETE', '/api/tasks/owned', {})).status).toBe(400);
     // A queued run of the task blocks deleting it.
-    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], promptIds: [], repeats: 1, mode: 'keyboard' }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
+    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], repeats: 1, mode: 'keyboard' }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
     const busy = await call(app.url, 'DELETE', '/api/tasks/owned', { revision });
     expect(busy.status).toBe(409);
     expect(((await busy.json()) as { error: string }).error).toContain('진행 중');

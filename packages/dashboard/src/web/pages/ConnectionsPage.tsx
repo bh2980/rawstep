@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import type { Connection, RunProfile } from '@rawstep/project/config';
+import type { Agent, Connection, ProjectConfig } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { ApiError, api } from '../api';
@@ -21,12 +21,23 @@ import type { PageProps } from './types';
 
 const head = 'h-8 px-3 text-xs font-medium tracking-wide text-muted-foreground';
 
-/** The run profiles that decide or analyse with a connection. */
-const usersOf = (profiles: readonly RunProfile[], id: string) => profiles.filter(p => p.model?.connectionId === id || p.analysisModel?.connectionId === id || p.plannerModel?.connectionId === id);
+/** Whether an agent plans or executes (in either mode) with a connection. */
+const agentUses = (agent: Agent, id: string) => agent.planner?.connectionId === id || agent.executors.screenreader?.connectionId === id || agent.executors.keyboard?.connectionId === id;
+/** What uses a connection: the agents that plan or execute with it, and whether post-run analysis does. */
+const usersOf = (config: Pick<ProjectConfig, 'agents' | 'analysis'>, id: string) => ({ agents: config.agents.filter(agent => agentUses(agent, id)), analysis: config.analysis.model?.connectionId === id });
+/** An agent without the parts that used a removed connection: the planner, or the executor of a mode. */
+function withoutConnection(agent: Agent, id: string): Agent {
+  const { planner, executors, ...rest } = agent;
+  const { screenreader, keyboard } = executors;
+  return {
+    ...rest, ...(planner && planner.connectionId !== id ? { planner } : {}),
+    executors: { ...(screenreader && screenreader.connectionId !== id ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
+  };
+}
 
 /**
- * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; a run profile picks
- * the model ID on one. The status is what is known without asking until a person presses 확인, which asks the provider once.
+ * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; an agent (or post-run
+ * analysis) picks the model ID on one. The status is what is known without asking until a person presses 확인, which asks the provider once.
  */
 export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
@@ -35,14 +46,12 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Profiles that used the connection lose that model; they cannot run until another is picked.
+  // Agents that used the connection lose that planner or executor (a mode without an executor cannot run until another is picked);
+  // post-run analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
-    const profiles = props.view.config.profiles.map(profile => {
-      const { model, analysisModel, plannerModel, ...rest } = profile;
-      return { ...rest, ...(model && model.connectionId !== connection.id ? { model } : {}), ...(analysisModel && analysisModel.connectionId !== connection.id ? { analysisModel } : {}),
-        ...(plannerModel && plannerModel.connectionId !== connection.id ? { plannerModel } : {}) };
-    });
-    await props.save({ ...props.view.config, profiles, connections: props.view.config.connections.filter(c => c.id !== connection.id) });
+    const latest = props.view.config, agents = latest.agents.map(agent => withoutConnection(agent, connection.id));
+    const { model, ...analysis } = latest.analysis;
+    await props.save({ ...latest, agents, analysis: model && model.connectionId !== connection.id ? { ...analysis, model } : analysis, connections: latest.connections.filter(c => c.id !== connection.id) });
   }); };
   async function check(connection: Connection) {
     setChecks(current => ({ ...current, [connection.id]: { state: 'running' } }));
@@ -51,7 +60,8 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
       setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
     } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
   }
-  const deletingUsers = deleting ? usersOf(config.profiles, deleting.id) : [];
+  const deletingUsers = deleting ? usersOf(config, deleting.id) : undefined;
+  const deletingNames = deletingUsers ? [...deletingUsers.agents.map(agent => agent.name), ...(deletingUsers.analysis ? [t('connections.analysisUser')] : [])] : [];
   return <div className="grid gap-5">
     <PageHeader title={t('connections.heading')} description={t('connections.intro')}
       actions={config.connections.length > 0 && <Button size="xl" onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
@@ -69,7 +79,7 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
             <TableHead scope="col" className={head}><span className="sr-only">{t('connections.columns.actions')}</span></TableHead>
           </TableRow></TableHeader>
           <TableBody>{config.connections.map(connection => {
-            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = usersOf(config.profiles, connection.id);
+            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = usersOf(config, connection.id);
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
                 <span className="block font-medium break-all">{connection.name}</span>
@@ -77,8 +87,11 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${connection.kind}.name`)}</TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
-                {users.length
-                  ? users.map((profile, index) => <span key={profile.id}>{index > 0 && ', '}<Link to={{ view: 'profiles' }} navigate={navigate} className="underline underline-offset-2">{profile.name}</Link></span>)
+                {users.agents.length || users.analysis
+                  ? <>
+                    {users.agents.map((agent, index) => <span key={agent.id}>{index > 0 && ', '}<Link to={{ view: 'agents' }} navigate={navigate} className="underline underline-offset-2">{agent.name}</Link></span>)}
+                    {users.analysis && <span>{users.agents.length > 0 && ', '}<Link to={{ view: 'settings' }} navigate={navigate} className="underline underline-offset-2">{t('connections.analysisUser')}</Link></span>}
+                  </>
                   : <span className="text-muted-foreground">{t('connections.unused')}</span>}
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
@@ -101,7 +114,7 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('connections.deleteTitle')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('connections.deleteDescription', { name: deleting?.name ?? '' })}{deletingUsers.length > 0 && ' ' + t('connections.deleteUsed', { profiles: deletingUsers.map(p => p.name).join(', ') })}</AlertDialogDescription>
+          <AlertDialogDescription>{t('connections.deleteDescription', { name: deleting?.name ?? '' })}{deletingNames.length > 0 && ' ' + t('connections.deleteUsed', { users: deletingNames.join(', ') })}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>{t('connections.cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => deleting && remove(deleting)}>{t('connections.delete')}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>

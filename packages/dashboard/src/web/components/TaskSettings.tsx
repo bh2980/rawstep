@@ -1,10 +1,9 @@
-import { useId, useState, type ReactNode } from 'react';
-import { Plus } from 'lucide-react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { taskProfile, type ManagedTask, type Mode } from '@rawstep/project/config';
+import { taskAgent, taskEnvironment, type ManagedTask, type Mode } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
-import { policyInheritedSummary } from '../lib/profileSummary';
+import { agentModelsLine, policyInheritedSummary } from '../lib/agentSummary';
 import { taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJson';
 import { Choice, Field, Panel, Toggle } from './forms';
@@ -16,46 +15,38 @@ import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 type Props = {
   task: ManagedTask; onTask: (task: ManagedTask) => void;
   /** The Task JSON text: start URL, goal, limits, inputs and the rest of the file. */
   json: string; onJson: (json: string) => void;
   view: ConfigView;
-  /** Opens the 작업 수정 sheet, where the name, address, goal and run profile are edited. */
+  /** Opens the 작업 수정 sheet, where the name, address and goal are edited. */
   onEdit: () => void;
 };
 
-/** Keyboard / screen reader tabs sharing one selected mode; renders `children` for each mode. */
-function ModeTabs({ mode, onMode, children }: { mode: Mode; onMode: (mode: Mode) => void; children: (mode: Mode) => ReactNode }) {
-  const { t } = useTranslation();
-  return <Tabs value={mode} onValueChange={value => onMode(value as Mode)}>
-    <TabsList><TabsTrigger value="keyboard">{t('sidebar.modes.keyboard')}</TabsTrigger><TabsTrigger value="screenreader">{t('sidebar.modes.screenreader')}</TabsTrigger></TabsList>
-    {(['keyboard', 'screenreader'] as const).map(m => <TabsContent key={m} value={m} className="mt-4">{children(m)}</TabsContent>)}
-  </Tabs>;
-}
+const MODES = ['keyboard', 'screenreader'] as const satisfies readonly Mode[];
 
 /**
- * The "세부 설정" tab: what a run does beyond the basics, in closed sections. The name, address, goal and run profile are shown
- * here as they are but edited only in the 작업 수정 sheet, so there is one editor for them.
+ * The "세부 설정" tab: what a run does beyond the basics, in closed sections. The name, address and goal are shown here as they are
+ * but edited only in the 작업 수정 sheet. The default agent and environment can be picked here too. Instructions belong to the
+ * agent's executors, so a task has none of its own; it can only narrow or widen actions per mode, change the policy and replace the
+ * project's analysis instructions.
  */
 export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props) {
   const { t } = useTranslation();
   const uid = useId();
-  const [mode, setMode] = useState<Mode>('keyboard');
   const parsed = parseTaskJson(json);
-  const profile = taskProfile(view.config, task);
+  const { config } = view, agent = taskAgent(config, task), environment = taskEnvironment(config, task);
   const update = (part: Json) => onJson(updateTaskJson(json, part));
-  const updateMode = (m: Mode, value: Partial<ManagedTask['modes'][Mode]>) => onTask({ ...task, modes: { ...task.modes, [m]: { ...task.modes[m], ...value } } });
-  const updatePrompt = (m: Mode, id: string, part: Partial<ManagedTask['modes'][Mode]['prompts'][number]>) => updateMode(m, { prompts: task.modes[m].prompts.map(p => p.id === id ? { ...p, ...part } : p) });
+  const setPermissions = (m: Mode, permissions: ManagedTask['permissions'][Mode]) => onTask({ ...task, permissions: { ...task.permissions, [m]: permissions } });
   if (!parsed) return <div className="grid gap-4">
     <ErrorState alert view={{ kind: 'data', what: t('taskSettings.invalidJson'), progress: t('taskSettings.invalidJsonProgress'), next: t('taskSettings.invalidJsonNext') }} />
     <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} />
   </div>;
   const navigation = asObject(parsed.navigation);
-  const overridden = task.modes.keyboard.permissions !== null || task.modes.screenreader.permissions !== null;
-  const permissions = { keyboard: task.modes.keyboard.permissions ?? profile.permissions.keyboard, screenreader: task.modes.screenreader.permissions ?? profile.permissions.screenreader };
+  const overridden = MODES.some(m => task.permissions[m] !== null);
+  const permissions = { keyboard: task.permissions.keyboard ?? agent.permissions.keyboard, screenreader: task.permissions.screenreader ?? agent.permissions.screenreader };
   return <div className="grid max-w-3xl gap-1">
     <section aria-labelledby="task-basics" className="grid gap-3 pb-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -66,30 +57,42 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
         <dt className="text-muted-foreground">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.url')}</dt><dd className="font-mono text-[13px] break-all">{String(parsed.url ?? '')}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.goal')}</dt><dd className="leading-6">{String(parsed.goal ?? '')}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.profile')}</dt><dd>{profile.name}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.agentModels')}</dt><dd className="break-words">{agentModelsLine(agent, config.connections)}</dd>
       </dl>
       <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.basicsHint')}</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid content-start gap-1.5">
+          <Choice label={t('taskSettings.agent')} value={agent.id} options={config.agents.map(({ id, name }) => ({ id, name }))} onChange={agentId => onTask({ ...task, agentId })} />
+          <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.agentHint')}</p>
+        </div>
+        <div className="grid content-start gap-1.5">
+          <Choice label={t('taskSettings.environment')} value={environment.id} options={config.environments.map(({ id, name }) => ({ id, name }))} onChange={environmentId => onTask({ ...task, environmentId })} />
+          <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.environmentHint')}</p>
+        </div>
+      </div>
     </section>
 
     <Panel title={t('taskSettings.overrideTitle')} description={t('taskSettings.overrideSummary')}>
-      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.overrideDescription', { profile: profile.name })}</p>
+      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.overrideDescription', { agent: agent.name })}</p>
       <div className="grid gap-3">
         <h4 className="text-sm font-semibold">{t('taskSettings.permissionsTitle')}</h4>
-        <Toggle label={t('taskSettings.permissionsToggle')} checked={overridden}
-          hint={overridden ? t('taskSettings.permissionsCustom') : t('taskSettings.permissionsInherited', { profile: profile.name })}
-          onChange={on => onTask({ ...task, modes: {
-            keyboard: { ...task.modes.keyboard, permissions: on ? structuredClone(profile.permissions.keyboard) : null },
-            screenreader: { ...task.modes.screenreader, permissions: on ? structuredClone(profile.permissions.screenreader) : null },
-          } })} />
+        {MODES.map(m => { const mode = t(`sidebar.modes.${m}`), on = task.permissions[m] !== null;
+          return <Toggle key={m} label={t('taskSettings.permissionsToggle', { mode })} checked={on}
+            hint={on ? t('taskSettings.permissionsCustom', { mode }) : t('taskSettings.permissionsInherited', { agent: agent.name, mode })}
+            onChange={next => setPermissions(m, next ? structuredClone(agent.permissions[m]) : null)} />; })}
+        {/* Both modes are shown together; changing a mode that still follows the agent starts overriding that mode only. */}
         {overridden && <PermissionPresets value={permissions} capabilities={view.capabilities}
-          onChange={next => onTask({ ...task, modes: { keyboard: { ...task.modes.keyboard, permissions: next.keyboard }, screenreader: { ...task.modes.screenreader, permissions: next.screenreader } } })} />}
+          onChange={next => onTask({ ...task, permissions: {
+            keyboard: task.permissions.keyboard !== null || JSON.stringify(next.keyboard) !== JSON.stringify(permissions.keyboard) ? next.keyboard : null,
+            screenreader: task.permissions.screenreader !== null || JSON.stringify(next.screenreader) !== JSON.stringify(permissions.screenreader) ? next.screenreader : null,
+          } })} />}
       </div>
       <div className="grid gap-3 border-t pt-4">
         <h4 className="text-sm font-semibold">{t('taskSettings.policyTitle')}</h4>
         <Toggle label={t('taskSettings.policyToggle')} checked={task.policy !== undefined}
-          hint={task.policy ? t('taskSettings.policyCustom') : t('taskSettings.policyInherited', { profile: profile.name, values: policyInheritedSummary(profile.policy) })}
-          onChange={on => { const copy = { ...task }; if (on) copy.policy = { ...profile.policy }; else delete copy.policy; onTask(copy); }} />
-        {task.policy && <PolicyFields value={{ ...profile.policy, ...task.policy }} onChange={policy => onTask({ ...task, policy })} />}
+          hint={task.policy ? t('taskSettings.policyCustom') : t('taskSettings.policyInherited', { agent: agent.name, values: policyInheritedSummary(agent.policy) })}
+          onChange={on => { const copy = { ...task }; if (on) copy.policy = { ...agent.policy }; else delete copy.policy; onTask(copy); }} />
+        {task.policy && <PolicyFields value={{ ...agent.policy, ...task.policy }} onChange={policy => onTask({ ...task, policy })} />}
       </div>
       <div className="grid gap-3 border-t pt-4">
         <h4 className="text-sm font-semibold">{t('taskSettings.limitsTitle')}</h4>
@@ -117,21 +120,6 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
     <Panel title={t('taskSettings.fileTitle')} description={task.file}>
       <p className="text-sm leading-6">{t('taskSettings.fileHint', { file: task.file })}</p>
       <p className="text-sm leading-6">{t('taskSettings.cliHint')} <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">rawstep run {task.id}</code></p>
-    </Panel>
-
-    <Panel title={t('taskSettings.promptTitle')} description={t('taskSettings.promptSummary')}>
-      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.promptHint')}</p>
-      <ModeTabs mode={mode} onMode={setMode}>{m => {
-        const value = task.modes[m];
-        return <div className="grid gap-5">
-          {value.prompts.map((p, i) => <div key={p.id} className="grid gap-3 border-t pt-4 first:border-t-0 first:pt-0">
-            <Field label={t('taskSettings.variantName', { n: i + 1 })} value={p.name} onChange={name => updatePrompt(m, p.id, { name })} />
-            <Field label={t('taskSettings.version', { n: i + 1 })} value={p.version} onChange={version => updatePrompt(m, p.id, { version })} />
-            <Field label={t('taskSettings.instructions', { n: i + 1 })} multiline value={p.instructions} onChange={instructions => updatePrompt(m, p.id, { instructions })} />
-          </div>)}
-          <Button variant="outline" className="justify-self-start" onClick={() => updateMode(m, { prompts: [...value.prompts, { ...value.prompts[0]!, id: crypto.randomUUID(), name: t('taskSettings.newVariant'), version: '1' }] })}><Plus aria-hidden="true" />{t('taskSettings.addVariant')}</Button>
-        </div>;
-      }}</ModeTabs>
     </Panel>
 
     <Panel title={t('taskSettings.analysisTitle')}>

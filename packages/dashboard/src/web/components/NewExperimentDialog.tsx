@@ -7,14 +7,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void; /** The task to start with; the first task when absent. */ taskId: string | undefined; pageProps: PageProps; banner: ReactNode; editorKey: number; onCreated: (experiment: Experiment) => void };
 
-/** The experiment planning form (task × model × prompt × run profile) in a dialog. */
+/** The experiment planning form (task × agent × environment × mode) in a dialog. */
 export function NewExperimentDialog({ open, onOpenChange, taskId, pageProps, banner, editorKey, onCreated }: Props) {
   const { t } = useTranslation();
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
       <DialogHeader>
         <DialogTitle>{t('newExperiment.title')}</DialogTitle>
-        <DialogDescription>{t('newExperiment.description')}</DialogDescription>
+        <DialogDescription>{t('agentRun.experiments.description')}</DialogDescription>
       </DialogHeader>
       {banner}
       <ExperimentsPage key={editorKey} {...pageProps} initialTaskId={taskId} onRun={onCreated} />

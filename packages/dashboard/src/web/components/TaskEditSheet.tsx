@@ -5,7 +5,7 @@ import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
 import type { ConfigView } from '../../shared/config';
 import { describeRule } from '../lib/describeRule';
 import { describeApiError, type ErrorView } from '../lib/errors';
-import { profileSummary } from '../lib/profileSummary';
+import { agentModelsLine, environmentViewport } from '../lib/agentSummary';
 import { inputProblems } from '../lib/taskInputs';
 import { ConceptNote } from './layout/ConceptNote';
 import { ErrorState } from './layout/ErrorState';
@@ -15,8 +15,8 @@ import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from './ui/sheet';
 
-/** What a person names when editing a task: what it is called, where it starts, what it asks, which run profile it uses and what it types. */
-export type TaskBasics = { name: string; url: string; goal: string; profileId: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
+/** What a person names when editing a task: what it is called, where it starts, what it asks, its default agent and environment and what it types. */
+export type TaskBasics = { name: string; url: string; goal: string; agentId: string; environmentId: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
 
 /** How a save ended. A conflict means the project changed elsewhere since the sheet opened; the person's edits are still here. */
 export type BasicsSave = { ok: true } | { ok: false; conflict: boolean; error: unknown };
@@ -33,7 +33,7 @@ type Props = {
 };
 
 /**
- * The one place the name, address, goal and run profile of a task are edited, with its typed inputs (the 세부 설정 tab no longer repeats them).
+ * The one place the name, address, goal, default agent and environment of a task are edited, with its typed inputs (the 세부 설정 tab no longer repeats them).
  * It saves against the revision it opened on; if the project changed since, it says so, keeps the edits and offers to apply them
  * on top of the newer version. The completion check is shown as the boundary it draws, with a way to its own tab.
  */
@@ -54,7 +54,7 @@ function EditForm({ initial, view, rules, otherChanges, busy, onSave, onOpenChec
   const { t } = useTranslation();
   const [basics, setBasics] = useState(initial);
   const [problem, setProblem] = useState<{ view: ErrorView; conflict: boolean }>();
-  const profiles = view.config.profiles, patch = (part: Partial<TaskBasics>) => { setBasics({ ...basics, ...part }); setProblem(undefined); };
+  const { agents, environments, connections } = view.config, patch = (part: Partial<TaskBasics>) => { setBasics({ ...basics, ...part }); setProblem(undefined); };
   const filled = basics.name.trim() !== '' && basics.url.trim() !== '' && basics.goal.trim() !== '';
   const inputsOk = inputProblems(basics.input, basics.inputOptions, basics.goal).size === 0;
   const changed = JSON.stringify(basics) !== JSON.stringify(initial);
@@ -70,10 +70,15 @@ function EditForm({ initial, view, rules, otherChanges, busy, onSave, onOpenChec
       <Field label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} hint={t('taskSettings.urlHint')} />
       <Field label={t('taskSettings.goal')} multiline plain value={basics.goal} onChange={goal => patch({ goal })} hint={t('taskSettings.goalHint')} />
       <div className="grid gap-2">
-        <ConceptNote concept="profile" />
-        <RadioRows legend={t('taskSettings.profile')} value={basics.profileId} onChange={profileId => patch({ profileId })}
-          rows={profiles.map(profile => ({ id: profile.id, label: profile.name, hint: profileSummary(profile, view.capabilities.screenreader) }))} />
-        <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.profileHint')}</p>
+        <ConceptNote concept="agent" />
+        <RadioRows legend={t('taskSettings.agent')} value={basics.agentId} onChange={agentId => patch({ agentId })}
+          rows={agents.map(agent => ({ id: agent.id, label: agent.name, hint: agentModelsLine(agent, connections) }))} />
+        <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.agentHint')}</p>
+      </div>
+      <div className="grid gap-2">
+        <RadioRows legend={t('taskSettings.environment')} value={basics.environmentId} onChange={environmentId => patch({ environmentId })}
+          rows={environments.map(environment => { const { width, height } = environmentViewport(environment.profile, view.environmentPresets); return { id: environment.id, label: environment.name, detail: `${width} × ${height}` }; })} />
+        <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.environmentHint')}</p>
       </div>
       <section aria-labelledby="task-edit-inputs" className="grid gap-2 border-t border-edge-strong pt-4">
         <h3 id="task-edit-inputs" className="text-sm font-semibold">{t('taskInputs.title')}</h3>

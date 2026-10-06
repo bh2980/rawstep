@@ -34,7 +34,7 @@ export const states = {
     next: '다음에 할 일',
     raw: '원본 오류 보기',
     rawNote: '기록된 코드와 오류 메시지입니다. 인증키와 작업 입력값은 가려서 저장합니다.',
-    go: { machine: '이 컴퓨터 설정 열기', models: '모델 설정 열기', profiles: '실행 프로필 열기', check: '완료 확인 열기' },
+    go: { machine: '이 컴퓨터 설정 열기', models: '모델 설정 열기', agents: '에이전트 열기', environments: '환경 열기', check: '완료 확인 열기' },
     run: {
       progressSteps: '행동 {{n}}번까지 기록되었습니다.',
       progressNone: '첫 행동 전에 멈췄습니다. 기록된 행동이 없습니다.',
@@ -45,8 +45,8 @@ export const states = {
       interruptedWhat: '실행이 도중에 중단되었습니다.',
       blockedWhat: '페이지가 접근을 막아 시작하지 못했습니다.',
       blockedNext: '시작 URL이 열리는지 확인하고, 로그인이나 봇 차단이 있는 페이지는 다른 주소로 시작하세요.',
-      profileWhat: '이 환경에서는 실행 프로필의 조건을 적용하지 못했습니다.',
-      profileNext: '실행 프로필의 화면 환경을 바꾸거나 이 컴퓨터에서 적용할 수 있는 조건으로 실행하세요.',
+      environmentWhat: '이 컴퓨터에서는 환경의 조건을 적용하지 못했습니다.',
+      environmentNext: '환경의 페이지 조건을 바꾸거나 이 컴퓨터에서 적용할 수 있는 환경으로 실행하세요.',
       patternWhat: '이 페이지의 구성은 지금의 실행 방식으로 다룰 수 없었습니다.',
       patternNext: '작업의 이동 범위나 시작 URL을 확인하세요. 같은 증상이 반복되면 원본 오류의 코드를 함께 알려 주세요.',
       startWhat: '실행을 시작하지 못했습니다.',
@@ -68,7 +68,7 @@ export const states = {
       analysisWhat: 'LLM 해설을 쓰지 못했습니다.',
       reportWhat: '보고서를 만들지 못했습니다.',
       progress: '실행의 결과와 행동 기록은 그대로 남아 있습니다.',
-      next: '실행 프로필의 LLM 해설 모델과 그 연결을 확인하세요. 해설이 없어도 실행 결과와 힌트는 그대로입니다.',
+      next: '이 컴퓨터 화면의 사후 분석(LLM 해설) 모델과 그 연결을 확인하세요. 해설이 없어도 실행 결과와 힌트는 그대로입니다.',
     },
     api: {
       connectionWhat: '로컬 서버와 연결이 끊겼습니다.',
@@ -88,7 +88,8 @@ export const states = {
   /** One sentence the first time a concept appears (spec §38). */
   concepts: {
     dismiss: '알겠습니다',
-    profile: { term: '실행 프로필', text: '어떤 모델로 실행하고 분석할지, 모델이 쓸 수 있는 행동, 멈춤 조건, 화면 환경을 묶어 둔 실험 조건입니다.' },
+    agent: { term: '에이전트', text: '모드마다 행동을 고르는 실행 모델과, 선택적으로 작은 단계를 세우는 계획 모델을 묶은 실험 조건입니다. 허용 행동과 멈춤 조건도 에이전트에 속합니다.' },
+    environment: { term: '환경', text: '실행하는 페이지의 조건입니다. 같은 작업과 에이전트를 다른 환경에서 실행해 비교할 수 있습니다.' },
     check: { term: '완료 확인', text: '실행이 목표에 닿았는지 알려 주는 조건입니다. 모델에게는 전달하지 않고, 살펴볼 지점은 완료 여부와 상관없이 기록됩니다.' },
     decisionModel: { term: '결정 모델', text: '행동 후보마다 점수를 매기고 하나를 고르는 모델입니다. 점수는 확률로 보정된 값이 아닙니다.' },
     inspect: { term: '살펴볼 지점', text: '실행 기록에서 사람이 근거를 확인할 만한 위치입니다. 결론이 아니라 확인할 자리를 가리킵니다.' },

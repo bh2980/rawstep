@@ -2,7 +2,7 @@ import { RunsTable } from '../components/RunsTable';
 import { useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { taskProfile, type ManagedTask } from '@rawstep/project/config';
+import { taskAgent, taskEnvironment, type ManagedTask } from '@rawstep/project/config';
 import type { DeleteTaskResult } from '../../shared/config';
 import { api, ApiError } from '../api';
 import { DeleteTaskDialog } from '../components/DeleteTaskDialog';
@@ -38,7 +38,7 @@ function focusRunControl() {
 
 /**
  * A task as one investigation sheet: its header with the run control, then overview, completion check and detailed settings.
- * Name, address, goal and run profile are edited in the 작업 수정 sheet; the tabs hold the rest. Both write the same draft and
+ * Name, address, goal, default agent and environment are edited in the 작업 수정 sheet; the tabs hold the rest. Both write the same draft and
  * the same file. Mount with `key={taskId}` so drafts do not leak between tasks.
  */
 export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, onRun }: Props) {
@@ -61,10 +61,11 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   if (!saved || !task) return <EmptyState title={t('task.unknownTitle')} why={t('task.unknown')} action={<Button variant="outline" onClick={() => navigate({ view: 'tasks' })}>{t('task.backToTasks')}</Button>} />;
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
-  const profile = taskProfile(config, saved), savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
-  const draftProfile = taskProfile(config, task);
+  const agent = taskAgent(config, saved), environment = taskEnvironment(config, saved), savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
+  /** The draft with the sheet's agent and environment: an id is kept even when it names the first entry, so the choice survives reordering. */
+  const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name' | 'agentId' | 'environmentId'>): ManagedTask => ({ ...entry, name: basics.name, agentId: basics.agentId, environmentId: basics.environmentId });
   // What the 세부 설정 tab changed, apart from what the sheet owns (the inputs are edited in both, so the sheet saves them with the rest).
-  const otherChanges = JSON.stringify({ ...task, name: saved.name, profileId: saved.profileId }) !== JSON.stringify(saved)
+  const otherChanges = JSON.stringify({ ...task, name: saved.name, agentId: saved.agentId, environmentId: saved.environmentId }) !== JSON.stringify(saved)
     || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal, input: savedParsed.input, inputOptions: savedParsed.inputOptions }), savedJson);
 
   /** Writes a task entry and its file against `base`, then starts the draft again from what the server stored. */
@@ -92,8 +93,8 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
           // The project as it is now with only these edits on top, saved against its own revision.
           const latest = pageProps.view, entry = latest.config.tasks.find(item => item.id === taskId);
           if (!entry) throw new Error(t('task.unknown'));
-          await write({ task: { ...entry, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(JSON.stringify(latest.tasks[taskId] ?? {}, null, 2), { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, latest.revision, latest.config);
-        } else await write({ task: { ...task, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(json, { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, revision);
+          await write({ task: withChoice(entry, basics), json: updateTaskJson(JSON.stringify(latest.tasks[taskId] ?? {}, null, 2), { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, latest.revision, latest.config);
+        } else await write({ task: withChoice(task, basics), json: updateTaskJson(json, { url: basics.url, goal: basics.goal, ...inputFields(basics.input, basics.inputOptions) }) }, revision);
         pageProps.notify(t('taskEdit.saved'));
       } catch (error) { result = { ok: false, conflict: error instanceof ApiError && error.status === 409, error }; }
     });
@@ -101,7 +102,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   };
   const duplicate = () => void pageProps.act(async () => {
     const copy = await createManagedTask(pageProps, {
-      name: t('taskPage.copyName', { name: saved.name }), slug: saved.file.replace(/^tasks\//, '').replace(/\.json$/i, ''), task: savedParsed, profileId: saved.profileId ?? profile.id, copyOf: saved,
+      name: t('taskPage.copyName', { name: saved.name }), slug: saved.file.replace(/^tasks\//, '').replace(/\.json$/i, ''), task: savedParsed, agentId: agent.id, environmentId: environment.id, copyOf: saved,
     });
     navigate({ task: copy.id });
     pageProps.notify(t('taskPage.duplicated', { name: saved.name }));
@@ -114,7 +115,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
 
   const active = taskRuns.filter(ref => isLive(ref.run));
   return <div className="grid gap-5">
-    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={profile.name}
+    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={t('taskPage.agentFact', { agent: agent.name, environment: environment.name })}
       view={view} busy={pageProps.busy} active={active} navigate={navigate} onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)}
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
@@ -122,11 +123,11 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
       <TabsList variant="line" aria-label={t('taskPage.tabsLabel')}>
         {taskTabs.map(id => <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}</TabsTrigger>)}
       </TabsList>
-      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} profiles={config.profiles} navigate={navigate} onRun={focusRunControl} /></TabsContent>
+      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} agents={config.agents} environments={config.environments} navigate={navigate} onRun={focusRunControl} /></TabsContent>
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
           <p className="text-[13px] leading-5 text-muted-foreground">{taskRuns.length ? t('taskPage.runsTabNote') : t('taskPage.runsTabEmpty')}</p>
-          {taskRuns.length > 0 && <RunsTable runs={taskRuns} profiles={config.profiles} navigate={navigate} hideTask numbers={numbers} showProfile showHints />}
+          {taskRuns.length > 0 && <RunsTable runs={taskRuns} agents={config.agents} environments={config.environments} navigate={navigate} hideTask numbers={numbers} showAgent showHints />}
         </section>
       </TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>
@@ -142,7 +143,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     </div>}
 
     <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} view={view} rules={rules} otherChanges={otherChanges} onSave={saveBasics}
-      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), profileId: draftProfile.id, input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
+      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), agentId: taskAgent(config, task).id, environmentId: taskEnvironment(config, task).id, input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
       onOpenCheck={() => { setEditing(false); navigate({ task: taskId, tab: 'check' }); }} />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;

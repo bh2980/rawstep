@@ -6,8 +6,8 @@ export type RunRef = { experiment: Experiment; run: RunRecord };
 export const isLive = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 export const isFinished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
 
-/** The models a run used: the decision model, and the planner when the run had one. */
-export const runModelsName = (run: RunRecord): string => run.plannerModel ? t('profiles.withPlanner', { model: run.snapshot.model.name, planner: run.plannerModel.name }) : run.snapshot.model.name;
+/** The models a run used: the executor, and the planner when the run had one ("executor + 계획 planner"). */
+export const runModelsName = (run: Pick<RunRecord, 'snapshot' | 'plannerModel'>): string => run.plannerModel ? t('agentRun.withPlanner', { model: run.snapshot.model.name, planner: run.plannerModel.name }) : run.snapshot.model.name;
 
 export function runStartedAt(ref: RunRef): number {
   const time = Date.parse(ref.run.startedAt ?? ref.experiment.createdAt);
@@ -43,14 +43,16 @@ export function screenshotUrl(experimentId: string, runId: string, eventId: stri
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
 }
 
-/** Name of a run profile by id; the id itself when the profile no longer exists. */
-export function profileName(profiles: readonly { id: string; name: string }[], id: string): string {
-  return profiles.find(profile => profile.id === id)?.name ?? id;
+type Named = readonly { id: string; name: string }[];
+
+/** The agent a run executed with by its current name (it may have been renamed); the name recorded with the run when it is gone. */
+export function runAgentName(agents: Named, run: Pick<RunRecord, 'agentId' | 'snapshot'>): string {
+  return agents.find(agent => agent.id === run.agentId)?.name ?? run.snapshot.agent.name;
 }
 
-/** The profile name a run executed with: the name recorded in its snapshot, else the current profile name, else the id. */
-export function runProfileName(profiles: readonly { id: string; name: string }[], run: Pick<RunRecord, 'profileId' | 'snapshot'>): string {
-  return run.snapshot.runProfile?.name ?? profileName(profiles, run.profileId);
+/** The environment a run executed in by its current name; the name recorded with the run when it is gone. */
+export function runEnvironmentName(environments: Named, run: Pick<RunRecord, 'environmentId' | 'snapshot'>): string {
+  return environments.find(environment => environment.id === run.environmentId)?.name ?? run.snapshot.environmentRef.name;
 }
 
 /** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */

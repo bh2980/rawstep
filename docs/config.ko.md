@@ -16,19 +16,23 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "connections": [],
   "tasks": [],
-  "profiles": [ ],
+  "agents": [ ],
+  "environments": [ ],
+  "analysis": { },
   "machine": { }
 }
 ```
 
-`version`은 `1`입니다. `profiles`에는 최소 하나가 있어야 하고, `rawstep init`은 이름이 `Default`인 프로필 하나와 빈 연결·작업 목록을 만듭니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `--profile`은 id를 먼저, 없으면 이름(대소문자 구분)으로 찾습니다.
+`version`은 `2`입니다. `agents`와 `environments`에는 각각 최소 하나가 있어야 하고, `rawstep init`은 에이전트 `Default`(실행 모델 없음)와 환경 `Default`(`profile: "default"`) 하나씩, 그리고 빈 연결·작업 목록을 만듭니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `--agent`와 `--environment`는 id를 먼저, 없으면 이름(대소문자 구분)으로 찾습니다.
+
+`version: 1`(실행 프로필) 프로젝트는 `node scripts/migrate-config-v2.mjs <프로젝트 폴더>`로 한 번 변환합니다. 설정 파일과 각 `.rawstep/experiments/*/experiment.json`의 `.v1.bak` 사본을 남깁니다.
 
 ## connections
 
-연결은 모델에 닿는 곳입니다. 제공자 프리셋(정해진 주소와 키 환경변수)이거나 직접 지정한 서버입니다. 연결에는 모델이 들어 있지 않고, 실행 프로필이 연결 위에서 모델을 고릅니다([profiles](#profiles-실행-프로필) 참고).
+연결은 모델에 닿는 곳입니다. 제공자 프리셋(정해진 주소와 키 환경변수)이거나 직접 지정한 서버입니다. 연결에는 모델이 들어 있지 않고, 에이전트가 연결 위에서 모델을 고릅니다([agents](#agents-에이전트) 참고).
 
 | 필드 | 설명 |
 |---|---|
@@ -63,30 +67,71 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `id`, `name` | `rawstep run <task>`에 넘기는 id와 표시 이름 |
 | `file` | 프로젝트 기준 작업 JSON 경로. 형식은 [작업 안내](./task.ko.md) |
-| `profileId` | 기본으로 쓸 실행 프로필(생략하면 첫 번째 프로필) |
-| `policy` | 이 작업에서만 프로필의 `policy` 값을 덮어쓰는 일부 필드 |
-| `modes` | `keyboard`와 `screenreader` 각각의 `permissions`(`null`이면 프로필의 허용 행동 사용, 값이 있으면 그 모드의 목록을 대체)와 `prompts`(`{ id, name, version, instructions }` 목록). 프롬프트 구조는 [프롬프트 안내](./prompts.ko.md) |
-| `analysisInstructions` | 이 작업의 분석 지침(프로필 값을 대체) |
+| `agentId` | 기본으로 쓸 에이전트(생략하면 첫 번째 에이전트) |
+| `environmentId` | 기본으로 쓸 환경(생략하면 첫 번째 환경) |
+| `permissions` | `keyboard`와 `screenreader` 각각의 허용 행동. `null`이면 에이전트의 허용 행동을 쓰고, 값이 있으면 그 모드의 목록을 대체합니다 |
+| `policy` | 이 작업에서만 에이전트의 `policy` 값을 덮어쓰는 일부 필드 |
+| `analysisInstructions` | 이 작업의 분석 지침(프로젝트의 `analysis.instructions`를 대체) |
 
-## profiles (실행 프로필)
+## agents (에이전트)
 
-같은 작업을 여러 조건에서 비교하는 단위입니다. `rawstep run <task> --profile <이름>`으로 고르며, 그 프로필의 모델로 실행합니다.
+작업을 수행하는 주체입니다. 대시보드의 실험은 작업 × 에이전트 × 환경 × 모드입니다. 모델이나 지침을 비교하려면 그 부분만 다른 에이전트끼리 비교합니다.
 
 | 필드 | 설명 |
 |---|---|
+| `id`, `name` | 식별자와 표시 이름. `--agent`는 둘 중 아무거나 받습니다 |
+| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 에이전트로 실행할 수 없습니다 |
+| `planner` | 선택. 아직 스크린리더 모드에서만 씁니다([계획과 실행](#계획과-실행-orchestration) 참고) |
 | `permissions` | `keyboard`와 `screenreader` 각각의 `keys`, `intents`, `typeText`, `replaceText`(선택 `inputKeys`). 모델이 할 수 있는 행동 |
 | `policy` | 멈춤 기준: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard`(`auto`·`on`·`off`), `modelGiveUp`. 계획 모델이 있을 때만 쓰는 `maxReplans`(다시 계획하는 최대 횟수, 기본 4)와 `stepActionLimit`(작은 단계 하나의 최대 행동 수, 기본 12) |
-| `model` | 이 프로필의 실행이 판단에 쓰는 모델: `{ connectionId, modelId, inputs, maxChoices, maxImages }`. `connectionId`는 연결 id, `modelId`는 제공자에서 쓰는 모델 이름, `inputs`는 `["text"]` 또는 `["text", "image"]`, `maxChoices`·`maxImages`는 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2)입니다. `model`이 없는 프로필은 실행할 수 없습니다. 모델을 비교하려면 `model`만 다른 프로필끼리 비교합니다 |
-| `analysisModel` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 있으면 이 프로필의 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 Rawstep의 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다 |
-| `plannerModel` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 스크린리더 모드에서 있으면 이 LLM이 대략적인 계획과 작은 단계를 세우고, `model`은 한 번에 작은 단계 하나만 수행합니다. `model`이 "도움 필요"를 고르거나, 행동이 연달아 실패하거나, 행동해도 발화가 바뀌지 않거나, 한 단계가 너무 길어지면 다시 계획합니다. 계획·단계 완료·다시 계획한 이유는 실행 기록에 남습니다. 키보드 모드에서는 아직 쓰지 않습니다 |
-| `environment` | 페이지 환경. `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 프로필 이름 또는 객체. [환경 프로필 안내](./environment-profiles.md) |
-| `analysisInstructions` | 분석 초점 |
 
-```json
-"model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2 }
-```
+실행 모델은 `{ connectionId, modelId, inputs, maxChoices, maxImages, instructions }`입니다. `connectionId`는 연결 id, `modelId`는 제공자에서 쓰는 모델 이름, `inputs`는 `["text"]` 또는 `["text", "image"]`, `maxChoices`·`maxImages`는 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2)입니다. `instructions`는 실행 모델에 주는 지침(프롬프트)이며 [프롬프트 안내](./prompts.ko.md)에 있습니다. 키보드 실행 모델은 이미지 입력과 2 이상의 `maxImages`가 필요합니다.
 
 허용 행동은 후보 생성과 실행 직전 검사에 모두 적용하고, 실제 백엔드가 지원하지 않는 항목은 쓰지 않습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다. `repetitionGuard`의 `auto`는 `decision` 모델에서는 끄고 `llm` 모델에서는 켭니다. `modelGiveUp`은 기본값이 `false`라 모델에는 `stop:success`만 제시하고, `true`로 두면 모델의 `stop:stuck`·`stop:uncertain` 선택지가 더해집니다.
+
+```json
+{
+  "id": "careful",
+  "name": "Careful",
+  "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "경험 많은 스크린리더 사용자처럼 계획한다." },
+  "executors": {
+    "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 2, "instructions": "허용된 행동만으로 목표에 도달한다." },
+    "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "허용된 행동만으로 목표에 도달한다." }
+  },
+  "permissions": { "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false }, "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } },
+  "policy": { "historyLimit": 12, "maxStateVisits": 5, "maxUnchangedTransitions": 4, "focusGate": false, "repetitionGuard": "auto", "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12 }
+}
+```
+
+## 계획과 실행 (orchestration)
+
+`llm` 연결의 `planner`가 있으면 스크린리더 실행이 둘로 나뉩니다. 계획 LLM이 일반적인 UI 관례에서 기대를 끌어내 대략적인 경로와 작은 단계를 세우고, 실행 모델은 한 번에 작은 단계 하나만 수행하며 그 단계가 끝났다고 말하거나 새 계획을 요청할 수 있습니다. 행동이 연달아 실패하거나, 행동해도 아무것도 바뀌지 않거나, 한 단계가 길어지면 Rawstep이 다시 계획합니다(`policy.maxReplans`, `policy.stepActionLimit`). 계획·끝난 단계·다시 계획한 이유는 정책 근거로 trace에 남고 대시보드의 단계 화면에 표시됩니다. 키보드 모드에서는 아직 계획 모델을 쓰지 않습니다.
+
+`planner.instructions`는 Rawstep의 계획 규칙에 더해지며 규칙을 대체하지 않습니다. 버튼이 어디 있는지처럼 실제 사용자가 알 수 없는 페이지 지식은 넣지 마세요. Rawstep이 재려는 어려움이 가려집니다. "경험 많은 스크린리더 사용자처럼 계획한다" 같은 전략이나 사용자 유형에 관한 지침은 괜찮습니다. 계획 지침은 계획 근거에 sha256 지문으로 기록됩니다.
+
+모델이 보는 행동 이력에는 각 행동의 실행 결과(`ok`, 실패하면 `not-editable` 또는 `backend` 코드이며 원본 오류 문구는 아님)와 그 뒤 발화·스크린샷이 바뀌었는지(`changed`)가 들어 있습니다.
+
+## environments (환경)
+
+작업을 실행하는 페이지 조건입니다.
+
+| 필드 | 설명 |
+|---|---|
+| `id`, `name` | 식별자와 표시 이름. `--environment`는 둘 중 아무거나 받습니다 |
+| `profile` | 페이지 환경. `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 환경 프로필 이름 또는 객체. [환경 프로필 안내](./environment-profiles.md) |
+
+```json
+{ "id": "narrow", "name": "Narrow", "profile": "narrow" }
+```
+
+## analysis (분석)
+
+프로젝트 전체에 적용되는 실행 후 LLM 분석 설정입니다. 실행 결과를 바꾸지 않으므로 에이전트나 환경에 속하지 않습니다.
+
+| 필드 | 설명 |
+|---|---|
+| `model` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 있으면 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다 |
+| `instructions` | 선택. 분석 초점. 작업의 `analysisInstructions`가 이 값을 대체합니다 |
 
 ## machine
 

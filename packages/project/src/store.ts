@@ -54,18 +54,21 @@ export class ProjectStore {
   }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.tasks, config.profiles]) {
+    for (const group of [config.connections, config.tasks, config.agents, config.environments]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
     }
-    for (const profile of config.profiles) {
-      if (profile.model && !config.connections.some(c => c.id === profile.model!.connectionId)) throw new ProjectError('profile-connection-missing', 'A run profile uses a connection that does not exist.');
-      if (profile.analysisModel && config.connections.find(c => c.id === profile.analysisModel!.connectionId)?.kind !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
-      if (profile.plannerModel && config.connections.find(c => c.id === profile.plannerModel!.connectionId)?.kind !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+    const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
+    for (const agent of config.agents) {
+      for (const executor of Object.values(agent.executors)) if (executor && !kindOf(executor.connectionId)) throw new ProjectError('agent-connection-missing', 'An agent uses a connection that does not exist.');
+      if (agent.planner && kindOf(agent.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
     }
+    if (config.analysis.model && kindOf(config.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
-    for (const task of config.tasks) for (const mode of Object.values(task.modes)) if (new Set(mode.prompts.map(p => p.id)).size !== mode.prompts.length) throw new ProjectError('duplicate-prompt-id', 'Prompt IDs must be unique within a task mode.');
-    for (const profile of config.profiles) resolveEnvironmentProfile(profile.environment);
-    for (const task of config.tasks) if (task.profileId !== undefined && !config.profiles.some(p => p.id === task.profileId)) throw new ProjectError('task-profile-missing', 'A task refers to a run profile that does not exist.');
+    for (const environment of config.environments) resolveEnvironmentProfile(environment.profile);
+    for (const task of config.tasks) {
+      if (task.agentId !== undefined && !config.agents.some(a => a.id === task.agentId)) throw new ProjectError('task-agent-missing', 'A task refers to an agent that does not exist.');
+      if (task.environmentId !== undefined && !config.environments.some(e => e.id === task.environmentId)) throw new ProjectError('task-environment-missing', 'A task refers to an environment that does not exist.');
+    }
   }
   /** Resolves a project-relative path and refuses anything that leaves the project, including through symlinks. */
   async file(path: string, mustExist = false): Promise<string> {

@@ -17,7 +17,7 @@ type Props = {
   id: string;
 };
 
-/** Edits the one page environment of a run profile: a preset, screen size, text scale and color settings, plus raw JSON. */
+/** Edits one page environment: a preset, screen size, text scale and color settings, plus raw JSON. */
 export function EnvironmentFields({ value, onChange, presets, id }: Props) {
   const { t } = useTranslation();
   const preset = typeof value === 'string' ? value : 'custom';

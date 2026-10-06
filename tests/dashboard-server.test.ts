@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultConfig, defaultProfile, defaultModes, type ProjectConfig } from '@rawstep/project/config';
-import { connection, profileWith } from './helpers/project-config.js';
+import { defaultAgent, defaultConfig, type ProjectConfig } from '@rawstep/project/config';
+import { connection, agentWith } from './helpers/project-config.js';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, ConfigView, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
@@ -19,12 +19,13 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', input: { em
 function setup(): ProjectConfig {
   const config = defaultConfig();
   config.connections.push(connection('a'), connection('b'));
-  // Two profiles that differ by model: the experiment matrix compares models by comparing profiles.
-  config.profiles = [profileWith('default', 'a', 'm-a', 'Default'), profileWith('other', 'b', 'm-b', 'Other')];
-  const modes = defaultModes(); modes.keyboard.prompts.push({ id: 'careful', name: 'Careful', version: '2', instructions: 'Careful fixture instructions' });
-  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes }); return config;
+  // Two agents that differ by model and instructions: the experiment matrix compares models and prompts by comparing agents.
+  const other = agentWith('other', 'b', 'm-b', 'Other'); other.executors.keyboard!.instructions = 'Careful fixture instructions';
+  config.agents = [agentWith('default', 'a', 'm-a', 'Default'), other];
+  config.environments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
+  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', permissions: { keyboard: null, screenreader: null } }); return config;
 }
-const request: PlanRequest = { taskIds: ['task'], promptIds: ['baseline', 'careful'], profileIds: ['default', 'other'], repeats: 1, mode: 'keyboard' };
+const request: PlanRequest = { taskIds: ['task'], agentIds: ['default', 'other'], environmentIds: ['default'], repeats: 1, mode: 'keyboard' };
 async function waitFor(work: () => Promise<boolean>) { for (let i = 0; i < 100; i++) { if (await work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); }
 describe('dashboard persistence', () => {
   it('detects changes to external task files before saving or executing', async () => {
@@ -40,7 +41,7 @@ describe('dashboard API and sequential queue', () => {
   it('creates rawstep.config.json for a new project and answers project errors with their status and Korean text', async () => {
     const dir = await root(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const config = JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')) as ProjectConfig;
-    expect(config.version).toBe(1);
+    expect(config.version).toBe(2);
     const post = (path: string, method: string, body: unknown) => fetch(app.url + path, { method, headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const stale = await post('/api/config', 'PUT', { config, revision: 'stale' });
     expect(stale.status).toBe(409); expect(((await stale.json()) as { error: string }).error).toContain('변경');
@@ -60,10 +61,11 @@ describe('dashboard API and sequential queue', () => {
       const trace = new TraceRecorder({ ...actualTask, id: actualTask.id ?? 'fixture' }, outDir); await trace.initialize(); trace.append('fixture.policy', { instructions: run.snapshot.prompt.instructions }, { source: 'policy' });
       active--; return trace.finalize({ status: 'success', reason: 'test-double-only', steps: 1 });
     } }); apps.push(app);
-    const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(request) });
+    const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, environmentIds: ['default', 'narrow'] }) });
     expect(response.status).toBe(201); const experiment = await response.json() as Experiment; expect(experiment.runs).toHaveLength(4);
-    expect(experiment.runs.map(r => [r.profileId, r.modelName, r.snapshot.model.id, r.snapshot.model.modelId])).toEqual([['default', 'a · m-a', 'a', 'm-a'], ['other', 'b · m-b', 'b', 'm-b'], ['default', 'a · m-a', 'a', 'm-a'], ['other', 'b · m-b', 'b', 'm-b']]);
-    const current = await store.read(); const emptied = structuredClone(current.config); emptied.profiles[0]!.permissions.keyboard.keys = []; await store.save(emptied, current.revision);
+    expect(experiment.runs.map(r => [r.agentId, r.environmentId, r.modelName, r.snapshot.model.id, r.snapshot.model.modelId])).toEqual([['default', 'default', 'a · m-a', 'a', 'm-a'], ['default', 'narrow', 'a · m-a', 'a', 'm-a'], ['other', 'default', 'b · m-b', 'b', 'm-b'], ['other', 'narrow', 'b · m-b', 'b', 'm-b']]);
+    expect(experiment.runs.map(r => r.snapshot.prompt.instructions)).toEqual(['Keyboard fixture instructions.', 'Keyboard fixture instructions.', 'Careful fixture instructions', 'Careful fixture instructions']);
+    const current = await store.read(); const emptied = structuredClone(current.config); emptied.agents[0]!.permissions.keyboard.keys = []; await store.save(emptied, current.revision);
     await waitFor(async () => { const durable = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment; return durable.runs.every(r => r.state === 'success' && !!r.endedAt); });
     expect(maxActive).toBe(1); expect(seen).toHaveLength(4); expect(JSON.stringify(seen)).toContain('private-value');
     const saved = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment;
@@ -72,7 +74,7 @@ describe('dashboard API and sequential queue', () => {
     await app.close(); apps.splice(apps.indexOf(app), 1);
     const restarted = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(restarted);
     expect(restarted.queue.experiments[0]!.runs.every(r => r.state === 'success')).toBe(true);
-    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.profiles[0]!.permissions.keyboard.keys).toEqual([]);
+    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.agents[0]!.permissions.keyboard.keys).toEqual([]);
     expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
   });
   it('serves blob-backed screenshots from the run directory and embeds them in the run report', async () => {
@@ -83,7 +85,7 @@ describe('dashboard API and sequential queue', () => {
       trace.append('keyboard.observation', { screenshot: { pngBase64: png.toString('base64'), viewport: { w: 2, h: 2 } } }, { source: 'runner' });
       return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
-    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default'], promptIds: ['baseline'] }) });
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, agentIds: ['default'] }) });
     const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
     await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
     const base = app.url + '/api/experiments/' + experiment.id + '/runs/' + run.id;
@@ -98,7 +100,7 @@ describe('dashboard API and sequential queue', () => {
     expect(report).toContain('data:image/png;base64,' + png.toString('base64')); expect(report).not.toContain('src="blobs/');
   });
   it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
-    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.profiles[0]!.model!.inputs = ['text']; config.profiles.push(defaultProfile('bare', 'Bare'));
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.agents[0]!.executors.keyboard!.inputs = ['text']; config.agents.push(defaultAgent('bare', 'Bare'));
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(app);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://foreign.example' } })).status).toBe(403);
@@ -108,11 +110,11 @@ describe('dashboard API and sequential queue', () => {
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'http://localhost:' + (port === 65535 ? 1 : port + 1) } })).status).toBe(403);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://localhost:' + port } })).status).toBe(403);
     const plan = await app.queue.plan(request);
-    expect(plan.rows.filter(r => r.profileId === 'default').every(r => !r.supported && r.reason!.includes('이미지') && r.modelName === 'a · m-a')).toBe(true);
-    expect(plan.rows.filter(r => r.profileId === 'other').every(r => r.supported && r.modelName === 'b · m-b')).toBe(true);
-    // A profile without a model is a row that says so and has no model name.
-    const bare = (await app.queue.plan({ ...request, profileIds: ['bare'], promptIds: ['baseline'] })).rows[0]!;
-    expect(bare).toMatchObject({ supported: false, profileId: 'bare', reason: expect.stringContaining('모델이 없습니다') }); expect(bare).not.toHaveProperty('modelName');
+    expect(plan.rows.filter(r => r.agentId === 'default').every(r => !r.supported && r.reason!.includes('이미지') && r.modelName === 'a · m-a')).toBe(true);
+    expect(plan.rows.filter(r => r.agentId === 'other').every(r => r.supported && r.modelName === 'b · m-b')).toBe(true);
+    // An agent without an executor for the mode is a row that says so and has no model name.
+    const bare = (await app.queue.plan({ ...request, agentIds: ['bare'] })).rows[0]!;
+    expect(bare).toMatchObject({ supported: false, agentId: 'bare', reason: expect.stringContaining('실행 모델이 없습니다') }); expect(bare).not.toHaveProperty('modelName');
     await expect(app.queue.create(request)).rejects.toMatchObject({ status: 400 });
     expect(app.queue.experiments).toHaveLength(0);
   });
@@ -134,32 +136,32 @@ describe('dashboard API and sequential queue', () => {
       seen.push({ goal: actual.goal, input: actual.input, model: run.snapshot.model.modelId, prompt: run.snapshot.prompt.instructions });
       const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
-    const e = await app.queue.create({ ...request, profileIds: ['default'], promptIds: ['careful'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
-    const before = await store.read(); before.config.profiles[0]!.model!.modelId = 'changed-model'; before.config.tasks[0]!.modes.keyboard.prompts[1]!.instructions = 'Changed instructions';
+    const e = await app.queue.create({ ...request, agentIds: ['other'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
+    const before = await store.read(); before.config.agents[1]!.executors.keyboard!.modelId = 'changed-model'; before.config.agents[1]!.executors.keyboard!.instructions = 'Changed instructions';
     await store.save(before.config, before.revision, { file: 'task.json', task: { ...task, goal: 'changed goal', input: { email: 'NEW_PRIVATE_INPUT' } } });
     const preview = await app.queue.previewRetry(e.id, e.runs[0]!.id); expect(preview.changedFields).toContain('goal'); expect(JSON.stringify(preview)).not.toContain('NEW_PRIVATE_INPUT');
     await expect(app.queue.retry(e.id, e.runs[0]!.id, 'stale')).rejects.toMatchObject({ status: 409 });
     const retried = await app.queue.retry(e.id, e.runs[0]!.id, preview.revision); await waitFor(async () => !!retried.runs[0]!.endedAt);
-    expect(seen[1]).toEqual({ goal: task.goal, input: { email: 'NEW_PRIVATE_INPUT' }, model: 'm-a', prompt: 'Careful fixture instructions' });
+    expect(seen[1]).toEqual({ goal: task.goal, input: { email: 'NEW_PRIVATE_INPUT' }, model: 'm-b', prompt: 'Careful fixture instructions' });
     expect(JSON.stringify(retried)).not.toContain('NEW_PRIVATE_INPUT'); expect(retried.runs[0]!.retryOf?.run).toBe(e.runs[0]!.id);
   });
   it('stores keys by provider or custom connection, reports their status without values and marks runs whose key is missing', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     config.connections[0]!.apiKeyEnv = 'RAWSTEP_TEST_DASH_KEY';
     config.connections.push(connection('jev', { provider: 'typesafe' }));
-    config.profiles.push(profileWith('jev', 'jev', 'jev-latest'));
+    config.agents.push(agentWith('jev', 'jev', 'jev-latest'));
     config.connections.push(connection('writer', { kind: 'llm', provider: 'openai' }));
-    config.profiles.push({ ...profileWith('analysed', 'a'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' } });
+    config.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: '' };
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
-    const rowFor = async (profileId: string) => (await app.queue.plan({ ...request, profileIds: [profileId], promptIds: ['baseline'] })).rows[0]!;
+    const rowFor = async (agentId: string) => (await app.queue.plan({ ...request, agentIds: [agentId] })).rows[0]!;
     expect(await rowFor('jev')).toMatchObject({ supported: false, reason: expect.stringContaining('인증키') });
     vi.stubEnv('RAWSTEP_OPENAI_API_KEY', '');
     try {
-      expect(await rowFor('analysed')).toMatchObject({ supported: false, reason: expect.stringContaining('사후 분석') });
+      expect(await rowFor('default')).toMatchObject({ supported: false, reason: expect.stringContaining('사후 분석') });
       expect((await post('/api/credentials', { provider: 'openai', value: 'sk-openai-secret' })).status).toBe(200);
-      expect(await rowFor('analysed')).toMatchObject({ supported: true, modelName: 'a · m-a' });
+      expect(await rowFor('default')).toMatchObject({ supported: true, modelName: 'a · m-a' });
     } finally { vi.unstubAllEnvs(); }
     expect((await post('/api/credentials', { provider: 'typesafe', value: 'sk-ts-secret' })).status).toBe(200);
     expect((await post('/api/credentials', { connectionId: 'a', value: 'sk-a-secret' })).status).toBe(200);
@@ -172,21 +174,20 @@ describe('dashboard API and sequential queue', () => {
     expect(await rowFor('jev')).toMatchObject({ supported: true });
     expect(await readFile(join(dir, '.env.local'), 'utf8')).toContain('RAWSTEP_TYPESAFE_API_KEY="sk-ts-secret"');
   });
-  it('pins the profile\'s analysis model and preserves success when analysis fails', async () => {
+  it('pins the project\'s analysis model and preserves success when analysis fails', async () => {
     let sent: { messages: { content: string }[] } | undefined;
     const server = createServer((req, res) => { void (async () => { let body = ''; for await (const part of req) body += part; sent = JSON.parse(body); res.writeHead(503); res.end('PRIVATE_PROVIDER_ERROR'); })(); });
     await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     config.connections.push(connection('analysis', { kind: 'llm', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port, timeoutMs: 1000 }));
-    config.profiles[0]!.analysisModel = { connectionId: 'analysis', modelId: 'analyzer' };
-    config.profiles[0]!.analysisInstructions = 'Global comparison focus';
+    config.analysis = { model: { connectionId: 'analysis', modelId: 'analyzer' }, instructions: 'Global comparison focus' };
     await store.save(config, initial.revision, { file: 'task.json', task });
     try {
       const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
         const changed = await store.read(); changed.config.connections.find(c => c.id === 'analysis')!.baseURL = 'http://127.0.0.1:1'; await store.save(changed.config, changed.revision);
         const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
       } }); apps.push(app);
-      const e = await app.queue.create({ ...request, profileIds: ['default'], promptIds: ['baseline'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
+      const e = await app.queue.create({ ...request, agentIds: ['default'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
       expect(e.runs[0]!.analysisModel).toMatchObject({ id: 'analysis', modelId: 'analyzer', kind: 'llm' });
       expect(sent?.messages[0]!.content).toContain('Global comparison focus');
       expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
@@ -212,8 +213,8 @@ describe('dashboard run views and live events', () => {
       const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out); await trace.initialize();
       return trace.finalize(await next(trace));
     } }); apps.push(app);
-    const experiment = async (profileIds: string[], repeats = 1) => {
-      const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds, promptIds: ['baseline'], repeats }) });
+    const experiment = async (agentIds: string[], repeats = 1) => {
+      const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, agentIds, repeats }) });
       const exp = await created.json() as Experiment;
       await waitFor(async () => exp.runs.every(r => app.queue.find(exp.id, r.id).reportStatus !== 'pending' && !!app.queue.find(exp.id, r.id).endedAt));
       return exp;
@@ -269,7 +270,7 @@ describe('dashboard run views and live events', () => {
         if (block.startsWith('event: run-event\n')) received.push({ at: Date.now(), message: JSON.parse(block.split('data: ')[1]!) as RunEventMessage });
       }
     } } catch { /* aborted */ } })();
-    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default'], promptIds: ['baseline'] }) });
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, agentIds: ['default'] }) });
     const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
     await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
     await new Promise(r => setTimeout(r, 600)); controller.abort();
@@ -283,47 +284,86 @@ describe('dashboard run views and live events', () => {
   });
 });
 
-describe('dashboard profiles in plans and runs', () => {
-  it('plans one row per requested profile with that profile\'s permissions, or the task profile when omitted', async () => {
+describe('dashboard agents and environments in plans and runs', () => {
+  it('plans one row per requested agent with that agent\'s permissions, or the task\'s agent when omitted', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    const a = profileWith('a', 'a', 'm-a', 'A'), b = profileWith('b', 'b', 'm-b', 'B');
+    const a = agentWith('a', 'a', 'm-a', 'A'), b = agentWith('b', 'b', 'm-b', 'B');
     a.permissions.keyboard.keys = ['Tab']; b.permissions.keyboard.keys = ['Tab', 'Enter'];
-    config.profiles = [a, b]; config.tasks[0]!.profileId = 'b';
+    config.agents = [a, b]; config.tasks[0]!.agentId = 'b';
     const saved = await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
-    const base = { ...request, promptIds: ['baseline'] };
-    const both = (await app.queue.plan({ ...base, profileIds: ['a', 'b'], revision: saved.revision })).rows;
-    expect(both.map(r => [r.profileId, r.permissions.keys, r.permissionSource])).toEqual([['a', ['Tab'], 'profile'], ['b', ['Tab', 'Enter'], 'profile']]);
-    expect(new Set(both.map(r => r.key)).size).toBe(2); expect(both.map(r => r.key)).toEqual(['task:baseline:a:1', 'task:baseline:b:1']);
-    // Each profile brings its own model into the plan.
+    const base = { ...request, agentIds: ['a', 'b'] };
+    const both = (await app.queue.plan({ ...base, revision: saved.revision })).rows;
+    expect(both.map(r => [r.agentId, r.permissions.keys, r.permissionSource])).toEqual([['a', ['Tab'], 'agent'], ['b', ['Tab', 'Enter'], 'agent']]);
+    expect(new Set(both.map(r => r.key)).size).toBe(2); expect(both.map(r => r.key)).toEqual(['task:a:default:1', 'task:b:default:1']);
+    // Each agent brings its own model into the plan.
     expect(both.map(r => r.modelName)).toEqual(['a · m-a', 'b · m-b']); expect(both.every(r => !('modelId' in r))).toBe(true);
-    const { profileIds: _omit, ...withoutProfiles } = base;
-    const own = (await app.queue.plan(withoutProfiles)).rows;
-    expect(own).toHaveLength(1); expect(own[0]).toMatchObject({ profileId: 'b', supported: true });
-    const unknown = (await app.queue.plan({ ...base, profileIds: ['missing'] })).rows;
-    expect(unknown[0]).toMatchObject({ supported: false, profileId: 'missing' });
+    const { agentIds: _omitAgents, environmentIds: _omitEnvironments, ...withoutChoices } = { ...request };
+    const own = (await app.queue.plan(withoutChoices)).rows;
+    expect(own).toHaveLength(1); expect(own[0]).toMatchObject({ agentId: 'b', environmentId: 'default', supported: true });
+    const unknown = (await app.queue.plan({ ...base, agentIds: ['missing'] })).rows;
+    expect(unknown[0]).toMatchObject({ supported: false, agentId: 'missing' });
   });
-  it('applies a task policy override to the run snapshot and the profile\'s analysis instructions', async () => {
+  it('makes one row per requested environment and records the resolved environment in the run snapshot', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
+    await store.save(setup(), initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const asked = { ...request, agentIds: ['default'], environmentIds: ['default', 'narrow'] };
+    const rows = (await app.queue.plan(asked)).rows;
+    expect(rows.map(r => [r.key, r.environmentId, r.supported])).toEqual([['task:default:default:1', 'default', true], ['task:default:narrow:1', 'narrow', true]]);
+    const e = await app.queue.create(asked);
+    expect(e.runs.map(r => r.snapshot.environmentRef)).toEqual([{ id: 'default', name: 'Default' }, { id: 'narrow', name: 'Narrow' }]);
+    expect(e.runs[1]!.snapshot.environment).toMatchObject({ viewport: { width: 320, height: 800 } });
+    expect(e.runs[0]!.snapshot.environment).not.toEqual(e.runs[1]!.snapshot.environment);
+    expect((await app.queue.plan({ ...asked, environmentIds: ['missing'] })).rows[0]).toMatchObject({ supported: false, environmentId: 'missing' });
+    await waitFor(async () => e.runs.every(r => !!r.endedAt));
+  });
+  it('gives screen reader runs of an agent with a planner the planner model and instructions, and keyboard runs none', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.profiles[0]!.policy.historyLimit = 5; config.profiles[0]!.analysisInstructions = 'profile focus';
-    config.tasks[0]!.policy = { maxStateVisits: 2 };
+    config.connections.push(connection('planner-llm', { kind: 'llm' }));
+    config.agents[0]!.planner = { connectionId: 'planner-llm', modelId: 'planner-fixture', instructions: 'Plan in small steps' };
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
       const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
-    const e = await app.queue.create({ ...request, profileIds: ['default'], promptIds: ['baseline'] });
-    const snapshot = e.runs[0]!.snapshot;
-    expect(snapshot.globals.policy).toMatchObject({ historyLimit: 5, maxStateVisits: 2 });
-    expect(snapshot.runProfile).toEqual({ id: 'default', name: 'Default' }); expect(e.runs[0]!.profileId).toBe('default');
-    expect(e.runs[0]!.analysisInstructions).toBe('profile focus');
-    await waitFor(async () => !!e.runs[0]!.endedAt);
+    const spoken = { ...request, agentIds: ['default'], mode: 'screenreader' as const };
+    expect((await app.queue.plan(spoken)).rows[0]).toMatchObject({ supported: true, plannerName: 'planner-llm · planner-fixture' });
+    const screenReader = await app.queue.create(spoken);
+    expect(screenReader.runs[0]).toMatchObject({ plannerName: 'planner-llm · planner-fixture', plannerInstructions: 'Plan in small steps', plannerModel: { id: 'planner-llm', modelId: 'planner-fixture', kind: 'llm' } });
+    const keyboard = await app.queue.plan({ ...request, agentIds: ['default'] });
+    expect(keyboard.rows[0]).toMatchObject({ supported: true }); expect(keyboard.rows[0]).not.toHaveProperty('plannerName');
+    await waitFor(async () => !!screenReader.runs[0]!.endedAt);
+    const made = await app.queue.create({ ...request, agentIds: ['default'] });
+    expect(made.runs[0]).not.toHaveProperty('plannerModel'); expect(made.runs[0]).not.toHaveProperty('plannerInstructions'); expect(made.runs[0]).not.toHaveProperty('plannerName');
+    await waitFor(async () => !!made.runs[0]!.endedAt);
   });
-  it('rejects tasks pointing at an unknown profile and configs without unique profile ids', async () => {
+  it('applies a task policy override to the run snapshot and the project\'s analysis instructions, which a task can override', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.tasks[0]!.profileId = 'ghost';
-    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400 });
-    config.tasks[0]!.profileId = 'default'; config.profiles.push(defaultProfile());
-    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400 });
-    expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), environment: 'no-such-environment' }] })).toThrow();
+    config.agents[0]!.policy.historyLimit = 5; config.analysis.instructions = 'project focus';
+    config.tasks[0]!.policy = { maxStateVisits: 2 };
+    config.tasks.push({ id: 'focused', name: 'Focused', file: 'focused.json', permissions: { keyboard: null, screenreader: null }, analysisInstructions: 'task focus' });
+    await writeFile(join(dir, 'focused.json'), JSON.stringify(task));
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
+      const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
+    } }); apps.push(app);
+    const e = await app.queue.create({ ...request, taskIds: ['task', 'focused'], agentIds: ['default'] });
+    const [plain, focused] = e.runs;
+    expect(plain!.snapshot.globals.policy).toMatchObject({ historyLimit: 5, maxStateVisits: 2 });
+    expect(plain!.snapshot.agent).toEqual({ id: 'default', name: 'Default' }); expect(plain!.agentId).toBe('default');
+    expect(plain!.analysisInstructions).toBe('project focus'); expect(focused!.analysisInstructions).toBe('task focus');
+    await waitFor(async () => e.runs.every(r => !!r.endedAt));
+  });
+  it('rejects tasks pointing at an unknown agent or environment and configs without unique ids', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.tasks[0]!.agentId = 'ghost';
+    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400, code: 'task-agent-missing' });
+    config.tasks[0]!.agentId = 'default'; config.tasks[0]!.environmentId = 'ghost';
+    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400, code: 'task-environment-missing' });
+    config.tasks[0]!.environmentId = 'default'; config.agents.push(defaultAgent());
+    await expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400, code: 'duplicate-id' });
+    expect(() => store.validateReferences({ ...setup(), environments: [{ id: 'default', name: 'Default', profile: 'no-such-environment' }] })).toThrow();
   });
 });

@@ -11,7 +11,7 @@ import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { AT_DRIVER_COMMAND_ENV, atEndpointOf, defaultInputs, machineSchema, modelKeyEnv, modelKindSchema, profileAnalysisModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, atEndpointOf, defaultInputs, machineSchema, modelKeyEnv, modelKindSchema, projectAnalysisModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
@@ -196,12 +196,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       return send(res, { value: (await store.credential(await savedConnection(body.connectionId))) ?? null });
     }
     if (path === '/api/suggest-checks' && method === 'POST') {
-      const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000), profileId: z.string().optional() }).strict().parse(await jsonBody(req));
+      const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000) }).strict().parse(await jsonBody(req));
       const { config } = await store.read();
-      // The analysis LLM of the task's profile, otherwise of the first profile that has one.
-      const profile = config.profiles.find(p => p.id === body.profileId && p.analysisModel) ?? config.profiles.find(p => p.analysisModel);
-      const model = profile && profileAnalysisModel(config, profile);
-      if (!model) throw new HttpError(400, '실행 프로필에 사후 분석 모델(LLM)을 지정하세요.');
+      // The project's analysis LLM.
+      const model = projectAnalysisModel(config);
+      if (!model) throw new HttpError(400, '프로젝트 설정에서 사후 분석 모델(LLM)을 지정하세요.');
       const apiKey = await requireKey(store, model);
       return send(res, await exclusivePageRead(async () => {
         try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }); }

@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, CircleCheck, CircleHelp, LoaderCircle, Save } from 'lucide-react';
-import { atEndpointOf, type MachineSettings } from '@rawstep/project/config';
+import { atEndpointOf, type AnalysisSettings, type MachineSettings } from '@rawstep/project/config';
 import type { BrowserCheck } from '../../shared/api';
 import { ApiError, api } from '../api';
 import { Choice, Field, Toggle } from '../components/forms';
 import { PageHeader } from '../components/layout/PageHeader';
+import { ModelPicker } from '../components/ModelPicker';
 import { Button } from '../components/ui/button';
-import { profileViewport } from '../lib/profileSummary';
+import { environmentViewport } from '../lib/agentSummary';
 import { cn } from '../lib/utils';
 import type { PageProps } from './types';
 
@@ -39,10 +40,14 @@ function EnvRow({ label, status, action, children }: { label: string; status: St
 /**
  * This computer (spec §35): the environment first, as three lines of status (browser, screen reader driver, browser window), then the
  * fields that set it. A check starts a browser or talks to the driver, so it runs only when 확인 is pressed, never on page load.
+ * Post-run LLM analysis is a project setting kept here too: it never changes a run's outcome, so it is not an experiment condition.
  */
 export function MachinePage(props: PageProps) {
   const { t } = useTranslation();
   const [machine, setMachine] = useState<MachineSettings>(() => structuredClone(props.view.config.machine));
+  const [analysis, setAnalysis] = useState<AnalysisSettings>(() => structuredClone(props.view.config.analysis));
+  const llms = props.view.config.connections.filter(c => c.kind === 'llm');
+  const missingAnalysisId = !!analysis.model && !analysis.model.modelId.trim();
   const [browser, setBrowser] = useState<Status>({ kind: 'unchecked' }), [driver, setDriver] = useState<Status>({ kind: 'unchecked' });
   const native = machine.backend !== 'simulation';
   // The command that starts the AT Driver server lives in this computer's .env.local, not in the shared config: it runs a program.
@@ -68,9 +73,9 @@ export function MachinePage(props: PageProps) {
       setDriver({ kind: 'ready', text: t(`machine.backends.${machine.backend}`), note: t('machine.env.driverReadyNote') });
     } catch (error) { setDriver({ kind: 'failed', reason: error instanceof ApiError && error.status === 0 ? t('machine.env.noServer') : error instanceof Error ? error.message : t('machine.env.driverFailed') }); }
   }
-  // Only this slice is written, on top of the latest config, so edits made in other settings tabs are kept.
-  const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
-  const viewport = profileViewport(props.view.config.profiles[0]!, props.view.environmentPresets);
+  // Only these slices are written, on top of the latest config, so edits made on other pages are kept.
+  const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine, analysis }, undefined, props.view.revision); });
+  const viewport = environmentViewport(props.view.config.environments[0]!.profile, props.view.environmentPresets);
   // A native screen reader run always opens a visible window.
   const visible = native || machine.personCheck || !machine.headless;
   return <div className="grid max-w-3xl gap-7">
@@ -108,9 +113,20 @@ export function MachinePage(props: PageProps) {
       <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck} disabled={machine.personCheck} onChange={show => update({ headless: !show })} />
       <Toggle label={t('machine.personCheck')} hint={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => update({ personCheck })} />
     </section>
+
+    <section aria-labelledby="machine-analysis" className="grid gap-5">
+      <div className="grid gap-1 border-b border-edge-strong pb-1.5">
+        <h3 id="machine-analysis" className="text-sm font-semibold">{t('machine.analysis.title')}</h3>
+        <p className="text-[13px] leading-5 text-muted-foreground">{t('machine.analysis.intro')}</p>
+      </div>
+      <ModelPicker label={t('machine.analysis.model')} connections={llms} connectionId={analysis.model?.connectionId} modelId={analysis.model?.modelId ?? ''}
+        none={t('machine.analysis.rulesOnly')} onNone={() => { const { model: _removed, ...rest } = analysis; setAnalysis(rest); }}
+        onChange={next => setAnalysis({ ...analysis, model: { connectionId: next.connectionId, modelId: next.modelId } })} />
+      <Field label={t('machine.analysis.instructions')} multiline value={analysis.instructions} onChange={instructions => setAnalysis({ ...analysis, instructions })} hint={t('machine.analysis.instructionsHint')} />
+    </section>
     <div className="flex flex-wrap items-center gap-3 border-t border-edge-strong pt-4">
-      <Button size="xl" disabled={props.busy} onClick={save}><Save aria-hidden="true" />{t('machine.save')}</Button>
-      <p className="text-xs text-muted-foreground">{t('machine.saveHint')}</p>
+      <Button size="xl" disabled={props.busy || missingAnalysisId} onClick={save}><Save aria-hidden="true" />{t('machine.save')}</Button>
+      <p role="status" className="text-xs text-muted-foreground">{missingAnalysisId ? t('machine.analysis.missingModelId') : t('machine.saveHint')}</p>
     </div>
   </div>;
 }

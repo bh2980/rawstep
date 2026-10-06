@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 type Props = { preview: RetryPreview | undefined; busy: boolean; onConfirm: () => void; onClose: () => void };
 
-/** Confirms re-running with the original model, prompt, permissions and run profile. */
+/** Confirms re-running with the original agent (executor, planner, instructions, permissions) and environment. */
 export function RetryDialog({ preview, busy, onConfirm, onClose }: Props) {
   const { t } = useTranslation();
   const changed = preview?.changedFields ?? [];
@@ -13,7 +13,7 @@ export function RetryDialog({ preview, busy, onConfirm, onClose }: Props) {
     <DialogContent className="sm:max-w-xl">
       <DialogHeader>
         <DialogTitle>{t('run.retryTitle')}</DialogTitle>
-        <DialogDescription>{t('run.retryBody')}</DialogDescription>
+        <DialogDescription>{t('agentRun.retryBody')}</DialogDescription>
       </DialogHeader>
       <p className="text-sm text-muted-foreground">{changed.length ? t('run.retryChanged', { fields: changed.join(', ') }) : t('run.retryUnchanged')}</p>
       {preview && changed.length > 0 && <details>

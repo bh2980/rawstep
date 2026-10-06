@@ -12,7 +12,7 @@ import { formatClock } from '../lib/format';
 import { liveCurrentLine } from '../lib/stepDots';
 import { runGlyphKind } from '../lib/runStrip';
 import { describeHint } from '../lib/describe';
-import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCount, type RunRef, runModelsName } from '../lib/runs';
+import { durationSeconds, fastestRun, isLive, runAgentName, runEnvironmentName, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
@@ -41,7 +41,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run), fastest = fastestRun(taskRuns);
   const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
-  const profile = runProfileName(pageProps.view.config.profiles, run);
+  const { config } = pageProps.view, agent = runAgentName(config.agents, run), environment = runEnvironmentName(config.environments, run);
   const { act, busy } = pageProps;
   const post = (path: string) => () => void act(() => api(path, { method: 'POST' }));
   const previewRetry = () => void act(async () => setRetry(await api<RetryPreview>(`${base}/retry`)));
@@ -76,7 +76,11 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
             <RunGlyph kind={runGlyphKind(run.state)} /><span className="text-muted-foreground">{t('runHeader.outcomeLabel')}</span><span className="font-medium">{runStateLabel(run.state)}</span>
           </span>}
         </div>
-        <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), model: runModelsName(run), profile })}</p>
+        <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), agent, environment })}</p>
+        {/* Both roles named: the executor picks every action; the planner, when the run had one, set the small steps it worked on. */}
+        <p className="text-sm text-muted-foreground">{run.plannerModel
+          ? t('runHeader.modelsWithPlanner', { model: run.snapshot.model.name, planner: run.plannerModel.name })
+          : t('runHeader.models', { model: run.snapshot.model.name })}</p>
       </div>
       <div className="grid justify-items-end gap-1.5"><div className="flex flex-wrap justify-end gap-2">
         {live && <Button variant="outline" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('runPage.stop')}</Button>}

@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
-export const views = ['home', 'tasks', 'runs', 'profiles', 'connections', 'settings'] as const;
+export const views = ['home', 'tasks', 'runs', 'agents', 'environments', 'connections', 'settings'] as const;
 export type View = (typeof views)[number];
 export const taskTabs = ['overview', 'runs', 'check', 'settings'] as const;
 export type TaskTab = (typeof taskTabs)[number];

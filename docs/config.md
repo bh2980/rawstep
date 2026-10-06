@@ -12,17 +12,21 @@ The config never contains keys. A preset provider keeps its key under a fixed en
 
 | Field | Content |
 |---|---|
-| `version` | Always `1`. |
+| `version` | Always `2`. |
 | `connections` | Where models are reached: a provider preset or a custom server. |
-| `tasks` | Registered task files with per-mode prompts and permissions. |
-| `profiles` | Run profiles. At least one is required. |
+| `tasks` | Registered task files, with the agent and environment each uses by default. |
+| `agents` | Who performs a task: the executor of each mode and an optional planner. At least one is required. |
+| `environments` | Page conditions a task runs in. At least one is required. |
+| `analysis` | Post-run LLM analysis settings. |
 | `machine` | Settings of the computer running Rawstep. |
 
-Unknown fields are rejected.
+Unknown fields are rejected. `rawstep init` writes one agent `Default` (no executors yet) and one environment `Default` (`profile: "default"`).
+
+A project written with `version: 1` (run profiles) is converted once with `node scripts/migrate-config-v2.mjs <project-dir>`. It keeps `.v1.bak` copies of the config and of each `.rawstep/experiments/*/experiment.json`.
 
 ## connections[]
 
-A connection is where models are reached: a provider preset (fixed address and key variable) or a custom server. It holds no model; a run profile picks the model on a connection (see [profiles[]](#profiles)).
+A connection is where models are reached: a provider preset (fixed address and key variable) or a custom server. It holds no model; an agent picks the model on a connection (see [agents[]](#agents)).
 
 | Field | Meaning |
 |---|---|
@@ -59,33 +63,73 @@ Connections to one preset provider share its key. `llm` models call the provider
 |---|---|
 | `id`, `name` | Identifier used by `rawstep run <task>`, and display name. |
 | `file` | Task JSON path relative to the project. |
-| `profileId` | Optional profile used by default. The first profile is used when unset. |
-| `policy` | Optional partial policy that overrides the profile for this task. |
-| `modes.keyboard`, `modes.screenreader` | Each has `permissions` (`null` uses the profile) and `prompts[]` (`id`, `name`, `version`, `instructions`). |
-| `analysisInstructions` | Optional analysis focus that overrides the profile. |
+| `agentId` | Optional agent used by default. The first agent is used when unset. |
+| `environmentId` | Optional environment used by default. The first environment is used when unset. |
+| `permissions` | `{ keyboard, screenreader }`, each a permissions object or `null`. `null` uses the agent's; a value replaces the agent's list for that mode. |
+| `policy` | Optional partial policy that overrides the agent's for this task. |
+| `analysisInstructions` | Optional analysis focus that overrides the project's `analysis.instructions`. |
 
 Permissions are `{ keys, intents, typeText, replaceText, inputKeys? }`: the keys and screen reader intents the model may choose, and whether it may type or replace text in named inputs.
 
-## profiles[]
+## agents[]
 
-A run profile is a named set of conditions.
+An agent is who performs a task. In the dashboard, experiments are task × agent × environment × mode. To compare models or instructions, compare agents that differ only in that part.
 
 | Field | Meaning |
 |---|---|
-| `id`, `name` | Identifier and display name. `--profile` accepts either. |
+| `id`, `name` | Identifier and display name. `--agent` accepts either. |
+| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this agent. |
+| `planner` | Optional planner, screen reader mode only for now (see [Planner and executor](#planner-and-executor-orchestration)). |
 | `permissions` | `{ keyboard, screenreader }` permissions. |
-| `policy` | When a run counts as stuck: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard` (`auto`, `on` or `off`) and `modelGiveUp`. Defaults are 12, 5 and 4; the focus gate is off. With a planner model, `maxReplans` (default 4) and `stepActionLimit` (default 12) bound replanning. |
-| `model` | The model runs of this profile decide with: `{ connectionId, modelId, inputs, maxChoices, maxImages }`. `connectionId` names a connection, `modelId` is the identifier sent to the provider, `inputs` is `["text"]` or `["text", "image"]`, and `maxChoices` and `maxImages` are the candidate and image limits (defaults 255 and 2). A profile without `model` cannot run. To compare models, compare profiles that differ only in `model`. |
-| `analysisModel` | Optional `{ connectionId, modelId }` of an `llm` connection. When set, an LLM analysis is added to every run of this profile (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. |
-| `plannerModel` | Optional `{ connectionId, modelId }` of an `llm` connection. In screen reader mode it plans a rough route and small steps; `model` then carries out one small step at a time. It plans again when `model` asks for help, actions keep failing, actions change nothing, or a step runs long. Plans, finished steps and the reason for each new plan are saved as policy evidence. Keyboard runs do not use it yet. |
-| `environment` | A built-in environment profile name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. See [environment profiles](./environment-profiles.md). |
-| `analysisInstructions` | Optional analysis focus. |
+| `policy` | When a run counts as stuck: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard` (`auto`, `on` or `off`) and `modelGiveUp`. Defaults are 12, 5 and 4; the focus gate is off. With a planner, `maxReplans` (default 4) and `stepActionLimit` (default 12) bound replanning. |
 
-```json
-"model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2 }
-```
+An executor is `{ connectionId, modelId, inputs, maxChoices, maxImages, instructions }`. `connectionId` names a connection, `modelId` is the identifier sent to the provider, `inputs` is `["text"]` or `["text", "image"]`, and `maxChoices` and `maxImages` are the candidate and image limits (defaults 255 and 2). `instructions` is the executor prompt, see [prompts](./prompts.md). A keyboard executor needs image input and a `maxImages` of at least 2.
 
 `repetitionGuard: auto` is on for `llm` models and off for `decision` models. `modelGiveUp` is `false` by default, so the model is offered only `stop:success`; `true` adds its `stop:stuck` and `stop:uncertain` choices.
+
+```json
+{
+  "id": "careful",
+  "name": "Careful",
+  "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
+  "executors": {
+    "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed." },
+    "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed." }
+  },
+  "permissions": { "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false }, "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } },
+  "policy": { "historyLimit": 12, "maxStateVisits": 5, "maxUnchangedTransitions": 4, "focusGate": false, "repetitionGuard": "auto", "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12 }
+}
+```
+
+## Planner and executor (orchestration)
+
+With a `planner` on an `llm` connection, a screen reader run is split in two. The planner LLM plans a rough route (expectations taken from common UI conventions) and small steps. The executor carries out one small step at a time and may say the step is done or ask for a new plan. Rawstep also plans again when actions keep failing, change nothing, or a step runs long (`policy.maxReplans`, `policy.stepActionLimit`). Plans, finished steps and the reason for each new plan are saved as policy evidence in the trace and shown in the dashboard step view. Keyboard runs do not use the planner yet.
+
+`planner.instructions` are added to Rawstep's planner rules, never replacing them. Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance ("plan like an experienced screen reader user") is fine. Planner instructions are fingerprinted (sha256) in the plan evidence.
+
+The model's action history includes each action's execution result (`ok`, and for a failure the code `not-editable` or `backend`, never the raw error text) and whether the speech or screenshot changed afterwards (`changed`).
+
+## environments[]
+
+An environment is the page condition a task runs in.
+
+| Field | Meaning |
+|---|---|
+| `id`, `name` | Identifier and display name. `--environment` accepts either. |
+| `profile` | A built-in environment profile name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. See [environment profiles](./environment-profiles.md). |
+
+```json
+{ "id": "narrow", "name": "Narrow", "profile": "narrow" }
+```
+
+## analysis
+
+Project-level post-run LLM analysis. It never changes a run's outcome, so it is not part of an agent or an environment.
+
+| Field | Meaning |
+|---|---|
+| `model` | Optional `{ connectionId, modelId }` of an `llm` connection. When set, an LLM analysis is added to every run (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. |
+| `instructions` | Optional analysis focus. A task's `analysisInstructions` override it. |
 
 ## machine
 

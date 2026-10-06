@@ -38,10 +38,11 @@ describe("CLI argument contract", () => {
   it("parses the seven commands and their options", () => {
     expect(parseCliArguments(["init"]).command).toBe("init");
     expect(parseCliArguments(["ui", "--port=5432", "--project", "project"]).options).toEqual({ port: "5432", project: "project" });
-    expect(parseCliArguments(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
-      command: "run", positionals: ["login"], options: { profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
+    expect(parseCliArguments(["run", "login", "--agent", "zoom", "--environment", "narrow", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
+      command: "run", positionals: ["login"], options: { agent: "zoom", environment: "narrow", mode: "screenreader", repeat: "3", out: "out", json: true },
     });
-    expect(parseCliArguments(["analyze", "run-1", "--profile", "judge"]).options).toEqual({ profile: "judge" });
+    expect(parseCliArguments(["analyze", "run-1", "--llm"]).options).toEqual({ llm: true });
+    expect(() => parseCliArguments(["run", "login", "--profile", "zoom"])).toThrow();
     expect(parseCliArguments(["hints", "run", "--reference", "other"])).toMatchObject({ command: "hints", positionals: ["run"], options: { reference: "other" } });
     expect(parseCliArguments(["report", "run", "--analysis", "analysis.json", "--out", "x"]).command).toBe("report");
     expect(parseCliArguments(["doctor"]).command).toBe("doctor");
@@ -53,7 +54,7 @@ describe("CLI argument contract", () => {
     ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
     // Options of the removed commands and of the environment-variable configuration are gone.
     ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
-    ["analyze", "run", "--llm"], ["analyze", "run", "--analyzer", "a.mjs"], ["analyze"],
+    ["analyze", "run", "--profile", "judge"], ["analyze", "run", "--analyzer", "a.mjs"], ["analyze"],
     ["hints"], ["hints", "a", "b"], ["hints", "a", "--out", "x"], ["hints", "a", "--reference"], ["report", "trace.json", "--out"],
     ["mock-run", "task.json"], ["screenshot-run", "task.json"], ["matrix", "task.json"], ["profiles"],
   ])("rejects invalid or retired usage: %j", (...args) => {
@@ -95,7 +96,7 @@ describe("init", () => {
   it("initializes the directory given by --project", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
     expect(await runCli(["init", "--project", "sub/app"], io)).toBe(0);
-    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.profiles).toHaveLength(1);
+    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.agents).toHaveLength(1);
   });
 });
 
@@ -113,8 +114,8 @@ const result: RunTaskResult = {
 describe("run", () => {
   it("passes the options to runTask, prints outcomes and findings grouped as Page and Model, and exits 0 whatever the outcome", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
-    expect(await runCli(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
-    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
+    expect(await runCli(["run", "login", "--agent", "zoom", "--environment", "narrow", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
+    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, agent: "zoom", environment: "narrow", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
     expect(out).toContain("Run 1 of 2: goal reached · 7 steps");
     expect(out).toContain("Run 2 of 2: goal not reached (max-steps) · 40 steps");
@@ -127,7 +128,7 @@ describe("run", () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
     expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, mode: "keyboard", repeat: 1 })]);
-    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("agent");
   });
   it("prints the result object with --json", async () => {
     const io = output(await temporaryDirectory());
@@ -183,17 +184,15 @@ describe("offline analysis and reports", () => {
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
     expect(text(io.stderr)).toMatch(/run|trace/i);
   });
-  it("needs the run profile named by --profile to exist and to have an analysis model", async () => {
+  it("needs a project with an analysis model for --llm", async () => {
     const directory = await temporaryDirectory();
     await writeFile(join(directory, "trace.json"), JSON.stringify(fixtureTrace()));
     const io = output(directory);
-    expect(await runCli(["analyze", "trace.json", "--profile", "judge"], io)).toBe(1);
+    expect(await runCli(["analyze", "trace.json", "--llm"], io)).toBe(1);
     expect(text(io.stderr)).toContain("rawstep.config.json was not found");
     await initProject(directory);
-    expect(await runCli(["analyze", "trace.json", "--profile", "judge"], io)).toBe(1);
-    expect(text(io.stderr)).toContain('No profile "judge"');
-    expect(await runCli(["analyze", "trace.json", "--profile", "default"], io)).toBe(1);
-    expect(text(io.stderr)).toContain('Run profile "Default" has no analysis model');
+    expect(await runCli(["analyze", "trace.json", "--llm"], io)).toBe(1);
+    expect(text(io.stderr)).toContain("project has no analysis model");
   });
 });
 

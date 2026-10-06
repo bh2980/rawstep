@@ -3,10 +3,12 @@ import type { Task } from '@rawstep/core/contracts';
 import { idSchema as id, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunSettings } from '@rawstep/project/config';
 
 export const planSchema = z.object({
-  taskIds: z.array(id).min(1).max(100),
-  promptIds: z.array(id).min(1).max(50), mode: z.enum(['keyboard', 'screenreader']),
-  /** Profiles to compare (each brings its model, analysis model and conditions); omitted means each task's own profile. */
-  profileIds: z.array(id).min(1).max(100).optional(), repeats: z.number().int().min(1).max(100),
+  taskIds: z.array(id).min(1).max(100), mode: z.enum(['keyboard', 'screenreader']),
+  /** Agents to compare (who performs: planner, executor, actions, limits); omitted means each task's own agent. */
+  agentIds: z.array(id).min(1).max(100).optional(),
+  /** Environments to compare (page conditions); omitted means each task's own environment. */
+  environmentIds: z.array(id).min(1).max(100).optional(),
+  repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
   revision: z.string().optional(),
   diagnoseStop: z.boolean().optional(),
@@ -14,21 +16,27 @@ export const planSchema = z.object({
 export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */
 export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
-/** One run to make. `modelName` is the profile's model, absent when the profile has none (then `reason` says so). */
-export type Combination = { key: string; taskId: string; modelName?: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'profile' | 'task' };
+/**
+ * One run to make. `modelName` is the agent's executor for the mode, absent when it has none (then `reason` says so);
+ * `plannerName` is its planner when the run uses one.
+ */
+export type Combination = { key: string; taskId: string; agentId: string; environmentId: string; modelName?: string; plannerName?: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'agent' | 'task' };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
   /** Why a run could not start or failed without a recorded outcome: the error's code and its message, with keys and input values redacted. */
   errorDetail?: { code?: string; message: string };
-  /** `profile` is the resolved page environment; `runProfile` names the run profile. */
-  snapshot: { task: Task; taskName: string; model: Model; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
+  /**
+   * The conditions the run was made with. `model` and `prompt` are the executor and its instructions; `environment` is the resolved
+   * page environment; `agent` and `environmentRef` name the entries they came from.
+   */
+  snapshot: { task: Task; taskName: string; model: Model; prompt: Prompt; mode: Mode; environment: unknown; globals: RunSettings; agent: { id: string; name: string }; environmentRef: { id: string; name: string } };
   /** `stage` and `step` say how far a failed run got; nothing else of the recorded outcome (its raw error text) is kept. */
   outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   analysisError?: string; reportError?: string; analysisModel?: Model;
-  /** The planner LLM of a screen reader run whose profile has one. */
-  plannerModel?: Model;
+  /** The planner LLM of a screen reader run whose agent has one, and the agent's added planner instructions. */
+  plannerModel?: Model; plannerInstructions?: string;
   analysisInstructions?: string; taskFile?: string;
   retryOf?: { experiment: string; run: string };
   diagnoseStop?: boolean;

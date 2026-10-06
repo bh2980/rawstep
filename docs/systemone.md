@@ -4,7 +4,7 @@ SystemOne is a model category, not a Jev-specific API. A decision model answers 
 
 ## Setting up a decision model
 
-Connections and run profiles are configured in `rawstep.config.json` (see [config](./config.md)), normally through the dashboard (`npx rawstep ui`: a connection under 연결, then the model in a run profile under 실행 프로필). A decision model is reached through a `connections[]` entry with `kind: "decision"`; a run profile picks the model on it. The connection's `provider` says where it runs:
+Connections and agents are configured in `rawstep.config.json` (see [config](./config.md)), normally through the dashboard (`npx rawstep ui`: a connection under 연결, then the model in an agent's executor under 에이전트). A decision model is reached through a `connections[]` entry with `kind: "decision"`; an agent's executor picks the model on it. The connection's `provider` says where it runs:
 
 | `provider` | Server | Images | Key variable |
 |---|---|---|---|
@@ -13,7 +13,7 @@ Connections and run profiles are configured in `rawstep.config.json` (see [confi
 | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | yes | `RAWSTEP_OPENROUTER_API_KEY` |
 | `custom` | any `/systemone`-compatible server you run, `baseURL` such as `http://127.0.0.1:8000/v1` | as declared | optional, `apiKeyEnv` |
 
-Declare the inputs the model accepts (`text`, and `image` for visual models) with `inputs` in the profile's `model`. Capabilities are explicitly declared or discovered from the provider's model list (OpenRouter lists input modalities; the Gateway lists decision models), never inferred from a model name. There is no hardcoded default decision model.
+Declare the inputs the model accepts (`text`, and `image` for visual models) with `inputs` in the agent's executor. Capabilities are explicitly declared or discovered from the provider's model list (OpenRouter lists input modalities; the Gateway lists decision models), never inferred from a model name. There is no hardcoded default decision model.
 
 The API key never goes into `rawstep.config.json`. Each preset provider reads its key from the variable above (a custom connection names its own with `apiKeyEnv`), and the value lives in `.env.local` (the dashboard writes it with mode 0600) or the process environment. Do not commit `.env.local`.
 
@@ -22,9 +22,11 @@ The API key never goes into `rawstep.config.json`. Each preset provider reads it
   "connections": [
     { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
   ],
-  "profiles": [
+  "agents": [
     { "id": "default", "name": "Default", "...": "...",
-      "model": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0 } }
+      "executors": {
+        "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "..." }
+      } }
   ]
 }
 ```
@@ -34,11 +36,11 @@ The API key never goes into `rawstep.config.json`. Each preset provider reads it
 RAWSTEP_TYPESAFE_API_KEY=YOUR_PRIVATE_KEY
 ```
 
-Run a task with the profile's model:
+Run a task with the agent's executor:
 
 ```sh
-npx rawstep run checkout --profile default --mode screenreader
-npx rawstep analyze .rawstep/runs/RUN_DIR --profile PROFILE   # LLM analysis with that profile's analysis model
+npx rawstep run checkout --agent default --mode screenreader
+npx rawstep analyze .rawstep/runs/RUN_DIR --llm   # LLM analysis with the project's analysis model
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
@@ -59,7 +61,7 @@ Use a connection with `provider: "openrouter"` and `kind: "decision"`. The key i
 
 Real Clef Flash probes established image delivery through **content parts inside `state`**. Red and blue were correctly distinguished, reversing the image order changed the answer to a first-image question, and a broken image returned HTTP 422. See [image delivery investigation and repair](./openrouter-image-delivery.md).
 
-Jev on OpenRouter is text-only: give the profile's `model` `inputs: ["text"]` (for example `modelId` `typesafe/jev-1.13`). A visual model such as `cloudflare/clef-flash` takes `inputs: ["text", "image"]`.
+Jev on OpenRouter is text-only: give the agent's executor `inputs: ["text"]` (for example `modelId` `typesafe/jev-1.13`). A visual model such as `cloudflare/clef-flash` takes `inputs: ["text", "image"]`.
 
 The adapter calls native [`/api/v1/systemone`](https://openrouter.ai/docs/api/api-reference/systemone/submit-a-system-one-request), not Chat Completions. Preflight reads `models?output_modalities=decisions`, confirms declared inputs, resolves `canonical_slug`, and pins inference to that ID. Only that exact response ID is accepted. Thus `typesafe/jev-1.13` can resolve to a dated Jev ID without weakening the identity check. Provider fallback is disabled; credentials and server error bodies are never trace evidence.
 
@@ -85,9 +87,9 @@ Remote screenshots require HTTPS. `/systemone` responses must report the request
 
 Speech policies send goal, speech and decision-only history. Visual policies send goal, current/previous inline PNG and decision-only history. Built-in adapters exclude DOM/AX, verifier feedback, raw input values and external image paths/URLs. Candidate input names are allowed; sensitive values stay with the runner, and only inputs marked `sensitive: false` show their value in the candidate. Values may nevertheless appear in subsequent speech/images. Saved trace redaction does not anonymize live model requests.
 
-SystemOne chooses navigation, activation, named entry or stop. It does not prove actual focus, conformance or final success. Independent verification remains authoritative. Focus gates only narrow choices; repeat guards only stop and never invent replacement actions. The visual repetition guard (`repetitionGuard`) is `auto` by default and can be set `on` or `off` per run profile, and the model's `stuck`/`uncertain` choices are off by default and added with the profile's `modelGiveUp: true` setting; see [config](./config.md). Probability is not measured accuracy; native speech association remains temporal-only.
+SystemOne chooses navigation, activation, named entry or stop. It does not prove actual focus, conformance or final success. Independent verification remains authoritative. Focus gates only narrow choices; repeat guards only stop and never invent replacement actions. The visual repetition guard (`repetitionGuard`) is `auto` by default and can be set `on` or `off` per agent, and the model's `stuck`/`uncertain` choices are off by default and added with the agent's `policy.modelGiveUp: true` setting; see [config](./config.md). Probability is not measured accuracy; native speech association remains temporal-only.
 
-`rawstep analyze --profile` requires a finalized input-redacted trace and uses that run profile's `analysisModel` (an LLM connection). Every saved event is included; PNG bytes are explicitly omitted, never captioned. Oversized input fails without silent truncation. Invalid IDs/JSON, timeout and analysis errors cannot change the original trace or outcome. Rawstep's rule-based deterministic analysis always runs after each run; when the run profile has an `analysisModel`, `rawstep run` and `runTask` add this LLM analysis too, and without one everything still works. Trusted custom modules remain caller-controlled.
+`rawstep analyze --llm` requires a finalized input-redacted trace and uses the project's `analysis.model` (an LLM connection). Every saved event is included; PNG bytes are explicitly omitted, never captioned. Oversized input fails without silent truncation. Invalid IDs/JSON, timeout and analysis errors cannot change the original trace or outcome. Rawstep's rule-based deterministic analysis always runs after each run; when the project has an `analysis.model`, `rawstep run` and `runTask` add this LLM analysis too, and without one everything still works. Trusted custom modules remain caller-controlled.
 
 ## Tests and remaining evidence gates
 

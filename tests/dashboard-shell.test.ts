@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
 import { applyKeyboardPreset, applyScreenreaderPreset, keyboardPreset, quickAvailable, screenreaderPreset } from '../packages/dashboard/src/web/lib/presets.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
-import { defaultProfile } from '@rawstep/project/config';
+import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
 
 describe('routes', () => {
   it('keeps the page in the URL and puts tasks, new tasks and runs under the 작업 menu', () => {
     expect(routeSearch({})).toBe('/');
     expect(routeSearch({ view: 'tasks' })).toBe('?view=tasks');
     expect(routeSearch({ view: 'runs' })).toBe('?view=runs');
-    // Profiles and connections are pages of their own; settings are this computer's only.
-    for (const view of ['profiles', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
+    // Agents, environments and connections are pages of their own; settings hold this computer's and the project's analysis.
+    for (const view of ['agents', 'environments', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
     expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
     expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
@@ -27,12 +27,12 @@ describe('routes', () => {
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=profiles', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=tasks', '?view=agents', '?view=environments', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 
 describe('allowed-action presets', () => {
-  const keyboard = defaultProfile().permissions.keyboard, screenreader = defaultProfile().permissions.screenreader;
+  const keyboard = DEFAULT_PERMISSIONS.keyboard, screenreader = DEFAULT_PERMISSIONS.screenreader;
   const simulation = { keys: [], intents: ['next', 'previous', 'readCurrent', 'readFocused', 'activate'] };
   const native = { keys: [], intents: ['next', 'previous', 'activate', 'interact', 'stopInteracting', 'heading.next', 'heading.previous', 'form.next'] };
 

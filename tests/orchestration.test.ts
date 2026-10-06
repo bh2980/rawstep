@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OrchestratedSpeechPolicy, orchestratedPrompt, type ChoiceModel, type ChoiceRequest, type Plan, type PlanRequest, type Planner } from 'rawstep/policy';
+import { OrchestratedSpeechPolicy, orchestratedPrompt, type ChoiceModel, type ChoiceRequest, type Plan, type PlanRequest, type Planner } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 
 const said = (...speech: string[]) => ({ kind: 'screenreader' as const, provenance: 'simulation' as const, speech, outputEventIds: [], window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'fixture' } });

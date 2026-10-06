@@ -17,7 +17,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
-import { profileSummary } from '../lib/profileSummary';
+import { agentModelsLine, environmentViewport } from '../lib/agentSummary';
 import { inputProblems } from '../lib/taskInputs';
 import { createManagedTask, hostnameOf, slugify } from '../lib/taskFiles';
 import type { PageProps } from './types';
@@ -44,10 +44,10 @@ function Part({ n, title, htmlFor, children }: { n: string; title: string; htmlF
 export function NewTaskPage({ navigate, startRun, ...props }: Props) {
   const { t } = useTranslation();
   const id = useId();
-  const profiles = props.view.config.profiles;
+  const { agents, environments, connections } = props.view.config;
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
-  const [profileId, setProfileId] = useState(profiles[0]!.id);
+  const [agentId, setAgentId] = useState(agents[0]!.id), [environmentId, setEnvironmentId] = useState(environments[0]!.id);
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
   const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
@@ -57,7 +57,7 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
       url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
       verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
-    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, profileId });
+    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, agentId, environmentId });
     if (!run) { navigate({ task: created.id }); return; }
     // The task exists now; a failed start leaves the person on the task with the reason in the banner.
     try { await startRun(created.view, created.id, { mode }); } catch (error) { navigate({ task: created.id }); throw error; }
@@ -83,13 +83,18 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
         <Panel title={t('taskInputs.title')} description={Object.keys(input).length ? t('newTask.inputsCount', { count: Object.keys(input).length }) : t('taskInputs.optional')}>
           <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
         </Panel>
-        <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, profile: profiles.find(profile => profile.id === profileId)?.name ?? '' })}>
+        <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, agent: agents.find(agent => agent.id === agentId)?.name ?? '', environment: environments.find(environment => environment.id === environmentId)?.name ?? '' })}>
           <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
           <div className="grid gap-2">
-            <ConceptNote concept="profile" />
-            <RadioRows legend={t('newTask.profile')} value={profileId} onChange={setProfileId}
-              rows={profiles.map(profile => ({ id: profile.id, label: profile.name, hint: profileSummary(profile, props.view.capabilities.screenreader) }))} />
-            <p className="text-xs leading-5 text-muted-foreground">{t('newTask.profileHint')}</p>
+            <ConceptNote concept="agent" />
+            <RadioRows legend={t('newTask.agent')} value={agentId} onChange={setAgentId}
+              rows={agents.map(agent => ({ id: agent.id, label: agent.name, hint: agentModelsLine(agent, connections) }))} />
+            <p className="text-xs leading-5 text-muted-foreground">{t('newTask.agentHint')}</p>
+          </div>
+          <div className="grid gap-2">
+            <RadioRows legend={t('newTask.environment')} value={environmentId} onChange={setEnvironmentId}
+              rows={environments.map(environment => { const { width, height } = environmentViewport(environment.profile, props.view.environmentPresets); return { id: environment.id, label: environment.name, detail: `${width} × ${height}` }; })} />
+            <p className="text-xs leading-5 text-muted-foreground">{t('newTask.environmentHint')}</p>
           </div>
         </Panel>
         <div className="grid gap-3 border-t border-edge-strong pt-4">

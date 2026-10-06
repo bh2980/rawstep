@@ -25,8 +25,8 @@ export type RunSpec = {
   permissions: Permissions;
   /** Ask the model, after a keyboard run that stopped early, why (never an action or verdict). */
   diagnoseStop?: boolean;
-  /** Screen reader runs only: the LLM that plans small steps for `model` to carry out. */
-  plannerModel?: Model;
+  /** Screen reader runs only: the LLM that plans small steps for `model` to carry out, and the agent's added planner instructions. */
+  plannerModel?: Model; plannerInstructions?: string;
 };
 export type RunExecution = {
   outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
@@ -41,7 +41,7 @@ export type RunExecution = {
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop, plannerModel }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop, plannerModel, plannerInstructions }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
   const { repetitionGuard: guardSetting, modelGiveUp, maxReplans, stepActionLimit, ...limits } = globals.policy;
@@ -49,7 +49,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   const speechOptions = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions, historyLimit: limits.historyLimit };
   // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
   const planner = mode === 'screenreader' && plannerModel
-    ? new LlmPlanner(createLlmModel({ baseURL: resolveBaseURL(plannerModel), modelId: plannerModel.modelId, apiKey: plannerApiKey, timeoutMs: plannerModel.timeoutMs, name: 'rawstep-planner' }))
+    ? new LlmPlanner(createLlmModel({ baseURL: resolveBaseURL(plannerModel), modelId: plannerModel.modelId, apiKey: plannerApiKey, timeoutMs: plannerModel.timeoutMs, name: 'rawstep-planner' }), plannerInstructions)
     : undefined;
   const speechPolicy = (chooser: ChoiceModel): DecisionPolicy => planner
     ? new OrchestratedSpeechPolicy(planner, chooser, { ...speechOptions, maxReplans, stepActionLimit })

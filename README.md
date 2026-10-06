@@ -10,7 +10,7 @@ Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawst
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # set up connections, run profiles and tasks in the dashboard
+npx rawstep ui          # set up connections, agents, environments and tasks in the dashboard
 # or: npx rawstep init  # write rawstep.config.json, then edit it by hand
 npx rawstep run checkout --repeat 2
 ```
@@ -70,22 +70,22 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage connections by type and provider (with model discovery), run profiles (each with the model it runs and, optionally, the LLM that analyses its runs), task prompts and permissions, experiments across tasks, prompts and profiles, and persisted comparison. The sidebar has 실행 프로필 and 연결 pages; 설정 covers only this computer. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage connections by type and provider (with model discovery), agents (the executor model and instructions of each mode, and optionally a planner LLM), environments, task permissions, experiments across tasks, agents, environments and modes, and persisted comparison. The sidebar has 에이전트, 환경 and 연결 pages; 설정 covers this computer and the project's post-run analysis. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
 ### Connections and models
 
-A connection is where models are reached (type and provider, plus an address for a custom server); a run profile picks the model on a connection. `npx rawstep ui` walks through both, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)). A profile without a model cannot run. To compare models, compare profiles that differ only in the model.
+A connection is where models are reached (type and provider, plus an address for a custom server); an agent picks the model on a connection. `npx rawstep ui` walks through both, or write the `connections[]` and `agents[]` entries yourself ([configuration reference](./docs/config.md)). A mode without an executor cannot run with that agent. To compare models or prompts, compare agents that differ only in that part. With a planner LLM, a screen reader run is split into planning and one small step at a time (see [Planner and executor](./docs/config.md#planner-and-executor-orchestration)). A project still on `version: 1` is converted with `node scripts/migrate-config-v2.mjs <project-dir>`.
 
-- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It can also be a profile's analysis model and run completion-check suggestions.
+- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It can also be an agent's planner, the project's analysis model, and run completion-check suggestions.
 - **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
 
-Keyboard mode sends screenshots, so the profile's model must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
+Keyboard mode sends screenshots, so the agent's keyboard executor must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
 
 ```sh
-npx rawstep run <task> --profile PROFILE
+npx rawstep run <task> --agent AGENT
 ```
 
-Rawstep's rule-based analysis always runs after a run. If the profile has an analysis model, an LLM analysis is added; without one everything still works.
+Rawstep's rule-based analysis always runs after a run. If the project has an analysis model (`analysis.model`), an LLM analysis is added; without one everything still works.
 
 The dashboard's experiment dialog has a diagnose-stop option: a separate bounded reason-choice call after a suitable stop. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions. The CLI does not offer it.
 
@@ -95,12 +95,12 @@ Experimental [visual focus gating, frozen-frame studies and exact-pixel replay](
 
 ### Environment comparisons
 
-A run profile in `rawstep.config.json` (`profiles[].environment`) sets the page environment: a built-in name such as `default`, `reflow-text` or `forced-colors`, or an object. Compare environments by running the same task with each profile:
+An environment in `rawstep.config.json` (`environments[].profile`) sets the page conditions: a built-in name such as `default`, `reflow-text` or `forced-colors`, or an object. Compare environments by running the same task with each one:
 
 ```sh
-npx rawstep run checkout --profile default
-npx rawstep run checkout --profile reflow-text
-npx rawstep run checkout --profile forced-colors
+npx rawstep run checkout --environment default
+npx rawstep run checkout --environment reflow-text
+npx rawstep run checkout --environment forced-colors
 ```
 
 Profiles cover viewport, page text enlargement/spacing, color scheme, forced-colors/contrast media, reduced motion, AT expectations and independently checked support. Browser media emulation and user styles are explicitly different from native OS settings. Genuine browser zoom needs a verified paired Chromium tab-zoom controller; an unsupported request stops instead of substituting CSS zoom or pinch. Native magnifier/high-contrast control is not implemented by the browser adapter.
@@ -113,7 +113,7 @@ You install one package, `rawstep`. Its dist contains the CLI, the dashboard UI 
 
 | Workspace | Responsibility |
 |---|---|
-| `@rawstep/core` | Contracts, task/profile schema, trace data and persistence |
+| `@rawstep/core` | Contracts, task/environment profile schema, trace data and persistence |
 | `@rawstep/policies` | Policy interface implementations, screenshot choice adapters, stop hypotheses |
 | `@rawstep/browser` | Browser, runner, verifier, keyboard adapters and environment diagnostics |
 | `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |

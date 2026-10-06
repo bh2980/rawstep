@@ -6,12 +6,12 @@ import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { CONCEPTS_KEY, dismissConcept, readDismissed } from '../packages/dashboard/src/web/lib/concepts.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { choiceName, profileConditions, profileViewport } from '../packages/dashboard/src/web/lib/profileSummary.js';
+import { agentConditions, agentModelsLine, choiceName, environmentViewport } from '../packages/dashboard/src/web/lib/agentSummary.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
-import { defaultProfile } from '@rawstep/project/config';
-import { connection, profileWith } from './helpers/project-config.js';
+import { defaultAgent } from '@rawstep/project/config';
+import { agentWith, connection } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
 type Run = Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>;
@@ -96,18 +96,18 @@ describe('concept notes', () => {
   it('remembers a dismissed concept once and in the order it was dismissed', () => {
     const store = memory();
     expect(readDismissed(store)).toEqual([]);
-    expect(dismissConcept('profile', store)).toEqual(['profile']);
-    expect(dismissConcept('inspect', store)).toEqual(['profile', 'inspect']);
-    expect(dismissConcept('profile', store)).toEqual(['profile', 'inspect']);
-    expect(readDismissed(store)).toEqual(['profile', 'inspect']);
+    expect(dismissConcept('agent', store)).toEqual(['agent']);
+    expect(dismissConcept('inspect', store)).toEqual(['agent', 'inspect']);
+    expect(dismissConcept('agent', store)).toEqual(['agent', 'inspect']);
+    expect(readDismissed(store)).toEqual(['agent', 'inspect']);
   });
 
   it('ignores a value it cannot read and survives a store that throws', () => {
     const broken = memory();
     broken.setItem(CONCEPTS_KEY, '{not json');
     expect(readDismissed(broken)).toEqual([]);
-    broken.setItem(CONCEPTS_KEY, JSON.stringify(['profile', 'not-a-concept', 3]));
-    expect(readDismissed(broken)).toEqual(['profile']);
+    broken.setItem(CONCEPTS_KEY, JSON.stringify(['agent', 'not-a-concept', 3]));
+    expect(readDismissed(broken)).toEqual(['agent']);
     const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
     expect(readDismissed(blocked)).toEqual([]);
     expect(dismissConcept('check', blocked)).toEqual(['check']);
@@ -155,28 +155,29 @@ describe('settings helpers', () => {
     expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('states a run profile as six experiment conditions, the model and its planner first', () => {
-    const profile = defaultProfile('p', 'Plain');
+  it('states an agent as experiment conditions, the planner first, and names its models in one line', () => {
+    const agent = defaultAgent('p', 'Plain');
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
     const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
-    expect(profileViewport(profile, presets)).toEqual({ width: 1280, height: 800 });
-    expect(profileViewport({ environment: 'narrow' }, presets)).toEqual({ width: 375, height: 667 });
-    expect(profileViewport({ environment: { id: 'x', viewport: { width: 800, height: 600 } } }, presets)).toEqual({ width: 800, height: 600 });
-    expect(profileViewport({ environment: { viewport: { width: -1, height: 'x' } } }, presets)).toEqual({ width: 1280, height: 800 });
+    expect(environmentViewport('default', presets)).toEqual({ width: 1280, height: 800 });
+    expect(environmentViewport('narrow', presets)).toEqual({ width: 375, height: 667 });
+    expect(environmentViewport({ id: 'x', viewport: { width: 800, height: 600 } }, presets)).toEqual({ width: 800, height: 600 });
+    expect(environmentViewport({ viewport: { width: -1, height: 'x' } }, presets)).toEqual({ width: 1280, height: 800 });
     const screenreader = { keys: [], intents: ['next', 'previous', 'activate'] };
-    const bare = profileConditions(profile, screenreader, presets, connections);
-    expect(bare.map(condition => condition.id)).toEqual(['model', 'planner', 'actions', 'stuck', 'viewport', 'analysis']);
-    expect(bare[0]!.value).toContain('이대로는 실행할 수 없습니다');
-    expect(bare[1]!.value).toBe('쓰지 않음');
-    expect(bare[2]!.value).toContain('기본 키보드');
-    expect(bare[4]!.value).toBe('1280 × 800');
-    expect(bare[5]!.value).toBe('쓰지 않음');
-    const full = { ...profileWith('p', 'jev', 'jev-latest', 'Full'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' }, plannerModel: { connectionId: 'writer', modelId: 'planner-fixture' } };
-    const conditions = profileConditions(full, screenreader, presets, connections);
-    expect(conditions[0]!.value).toBe('Jev server · jev-latest');
-    expect(conditions[1]!.value).toContain('Writer · planner-fixture');
-    expect(conditions[5]!.value).toContain('Writer · gpt-fixture');
-    expect(choiceName(full.model, connections)).toBe('Jev server · jev-latest');
+    const bare = agentConditions(agent, screenreader, connections);
+    expect(bare.map(condition => condition.id)).toEqual(['planner', 'screenreader', 'keyboard', 'actions', 'stuck']);
+    expect(bare[0]!.value).toMatch(/^쓰지 않음/);
+    expect(bare[1]!.value).toContain('실행할 수 없습니다');
+    expect(bare[3]!.value).toContain('기본 키보드');
+    const full = { ...agentWith('p', 'jev', 'jev-latest', 'Full'), planner: { connectionId: 'writer', modelId: 'planner-fixture', instructions: '' } };
+    const conditions = agentConditions(full, screenreader, connections);
+    expect(conditions[0]!.value).toContain('Writer · planner-fixture');
+    expect(conditions[1]!.value).toBe('Jev server · jev-latest');
+    expect(agentModelsLine(full, connections, 'screenreader')).toBe('Jev server · jev-latest + 계획 Writer · planner-fixture');
+    expect(agentModelsLine(full, connections, 'keyboard')).toBe('Jev server · jev-latest');
+    expect(agentModelsLine(agent, connections, 'keyboard')).toContain('실행할 수 없습니다');
+    const executor = full.executors.screenreader;
+    expect(choiceName(executor, connections)).toBe('Jev server · jev-latest');
     // A model on a connection that no longer exists reads as none.
     expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();
     expect(choiceName(undefined, connections)).toBeUndefined();

@@ -25,7 +25,8 @@ type Props = {
   /** Runs of this task, newest first. */
   runs: RunRef[]; numbers: ReadonlyMap<string, number>;
   findings: { data?: TaskFindings; error: string; loading: boolean };
-  profiles: { id: string; name: string }[];
+  agents: { id: string; name: string }[];
+  environments: { id: string; name: string }[];
   navigate: (change: RouteChange) => void;
   /** Takes a person to the run control of the task header. */
   onRun: () => void;
@@ -35,7 +36,7 @@ type Props = {
  * The "개요" tab, an investigation sheet: one fact line, the page evidence ledger, the model's behaviour as a separate weaker layer,
  * and the run history in a closed block.
  */
-export function TaskOverview({ taskId, runs, numbers, findings, profiles, navigate, onRun }: Props) {
+export function TaskOverview({ taskId, runs, numbers, findings, agents, environments, navigate, onRun }: Props) {
   const { t } = useTranslation();
   const { data } = findings;
   const page = data?.findings.filter(finding => finding.source === 'page') ?? [], model = data?.findings.filter(finding => finding.source === 'model') ?? [];
@@ -73,7 +74,7 @@ export function TaskOverview({ taskId, runs, numbers, findings, profiles, naviga
         {model.length === 0 ? <p className="text-sm text-muted-foreground">{t('taskPage.modelEmpty')}</p> : <ModelBehaviorList findings={model} {...shared} />}
       </section>
     </>}
-    <History taskId={taskId} runs={runs} numbers={numbers} profiles={profiles} navigate={navigate} />
+    <History taskId={taskId} runs={runs} numbers={numbers} agents={agents} environments={environments} navigate={navigate} />
   </div>;
 }
 
@@ -84,7 +85,7 @@ function Count({ n, className }: { n: number; className?: string }) {
 }
 
 /** One bar per finished run with its action count written beside it, above the table of all the task's runs. Closed until opened. */
-function History({ taskId, runs, numbers, profiles, navigate }: Pick<Props, 'taskId' | 'runs' | 'numbers' | 'profiles' | 'navigate'>) {
+function History({ taskId, runs, numbers, agents, environments, navigate }: Pick<Props, 'taskId' | 'runs' | 'numbers' | 'agents' | 'environments' | 'navigate'>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const bars = useMemo(() => runs.filter(ref => isFinished(ref.run)).reverse(), [runs]);
@@ -109,7 +110,7 @@ function History({ taskId, runs, numbers, profiles, navigate }: Pick<Props, 'tas
           </li>;
         })}
       </ol>}
-      <RunsTable runs={runs} profiles={profiles} navigate={navigate} hideTask numbers={numbers} showProfile showHints />
+      <RunsTable runs={runs} agents={agents} environments={environments} navigate={navigate} hideTask numbers={numbers} showAgent showHints />
     </CollapsibleContent>
   </Collapsible>;
 }

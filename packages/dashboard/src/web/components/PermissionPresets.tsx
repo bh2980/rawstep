@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Permissions, RunProfile } from '@rawstep/project/config';
+import type { Agent, Permissions } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { intentLabel } from '../i18n/labels';
 import { applyKeyboardPreset, applyScreenreaderPreset, keyboardPreset, KEYBOARD_BASIC, KEYBOARD_WIDGETS, quickAvailable, quickIntents, SCREENREADER_BASIC, screenreaderPreset, type KeyboardPreset, type ScreenreaderPreset } from '../lib/presets';
@@ -9,7 +9,7 @@ import { RadioRows } from './layout/RadioRows';
 import { Button } from './ui/button';
 
 type Capabilities = ConfigView['capabilities'];
-type Props = { value: RunProfile['permissions']; onChange: (permissions: RunProfile['permissions']) => void; capabilities: Capabilities };
+type Props = { value: Agent['permissions']; onChange: (permissions: Agent['permissions']) => void; capabilities: Capabilities };
 
 /** The chips of a hand-picked set of actions; an action the backend lacks stays visible so it can be removed. */
 function Chips({ label, available, selected, display, onToggle, unsupported }: { label: string; available: readonly string[]; selected: readonly string[]; display: (name: string) => string; onToggle: (name: string) => void; unsupported: string }) {
@@ -59,7 +59,7 @@ function ScreenreaderActions({ value, onChange, capabilities }: { value: Permiss
   </div>;
 }
 
-/** The "허용 행동" tab of a run profile: large radio rows that say when each choice fits, and the rarer settings under 고급. */
+/** The "허용 행동" tab of an agent: large radio rows that say when each choice fits, and the rarer settings under 고급. */
 export function PermissionPresets({ value, onChange, capabilities }: Props) {
   const { t } = useTranslation();
   const set = (mode: 'keyboard' | 'screenreader') => (permissions: Permissions) => onChange({ ...value, [mode]: permissions });

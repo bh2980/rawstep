@@ -73,7 +73,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       }
       case 'analyze': {
         const input = resolve(cwd, args.positionals[0]!), outDir = args.options.out ? resolve(cwd, String(args.options.out)) : await traceDirectory(input);
-        const analyzer = args.options.profile ? (await projectAnalyzer(projectDir, { profile: String(args.options.profile) })).analyzer : undefined;
+        const analyzer = args.options.llm ? (await projectAnalyzer(projectDir)).analyzer : undefined;
         const analysis = await analyzeSavedTrace(input, { analyzer, outDir });
         stdout(`Analysis: ${analysis.status}\nSaved: ${resolve(outDir, 'analysis.json')}\n`);
         stdout(`Hints saved: ${(await writeHints(input)).path}\n`);
@@ -118,7 +118,8 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
       projectDir, mode, repeat, signal,
-      ...(options.profile ? { profile: String(options.profile) } : {}),
+      ...(options.agent ? { agent: String(options.agent) } : {}),
+      ...(options.environment ? { environment: String(options.environment) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
   } catch (error) {
@@ -171,7 +172,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     read = await store.read();
     const c = read.config;
-    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
+    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.agents.length} agents, ${c.environments.length} environments)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined;
   try {

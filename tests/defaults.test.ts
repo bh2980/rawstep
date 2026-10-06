@@ -8,7 +8,7 @@ describe('shared runtime defaults', () => {
   it.each(['https://example.com/', 'http://127.0.0.2/', 'not a url'])('rejects %s as non-loopback', url => expect(isLoopbackUrl(url)).toBe(false));
   it('accepts a bare ::1 hostname', () => expect(isLoopbackHostname('::1')).toBe(true));
   it('keeps the dashboard policy defaults in sync', () => {
-    const { focusGate, repetitionGuard, modelGiveUp, maxReplans, stepActionLimit, ...policy } = defaultConfig().profiles[0]!.policy;
+    const { focusGate, repetitionGuard, modelGiveUp, maxReplans, stepActionLimit, ...policy } = defaultConfig().agents[0]!.policy;
     expect([focusGate, repetitionGuard, modelGiveUp]).toEqual([false, 'auto', false]);
     expect(policy).toEqual(RAWSTEP_DEFAULTS.policy);
     expect({ maxReplans, stepActionLimit }).toEqual(RAWSTEP_DEFAULTS.orchestration);

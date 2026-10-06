@@ -10,11 +10,11 @@ Rawstep은 웹 페이지에서 키보드 또는 스크린리더 작업을 모델
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # 대시보드에서 연결·실행 프로필·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
+npx rawstep ui          # 대시보드에서 연결·에이전트·환경·작업을 설정합니다. 터미널에서 시작하려면 npx rawstep init
 npx rawstep run checkout
 ```
 
-`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 연결(모델에 닿는 곳)과 작업을 등록하고 실행 프로필에서 모델을 고른 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
+`rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 연결(모델에 닿는 곳)과 작업을 등록하고 에이전트의 실행 모델로 고른 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
 
 ```text
 Run 1 of 2: goal reached · 7 steps
@@ -60,20 +60,21 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 
 `--repeat <n>`으로 같은 작업을 여러 번 실행하면 각 실행의 힌트를 목표에 도달한 가장 빠른 실행과 비교하고, 같은 요소에서 반복된 힌트를 하나의 발견 사항으로 묶습니다. 저장된 실행의 힌트는 `rawstep hints <run-dir>`로 다시 볼 수 있습니다. 자세한 내용은 [보고서 안내](./docs/report.ko.md)를 참고하세요.
 
-## 실행 프로필
+## 에이전트와 환경
 
-화면 크기, 확대, 색상 조건 같은 환경과 허용 행동, 멈춤 기준, 실행할 모델(필수)과 분석 모델(선택)을 묶은 것이 실행 프로필입니다. `rawstep.config.json`의 `profiles`에 정의하고 같은 작업을 프로필만 바꿔 실행하면 환경 간 차이를 비교할 수 있으며, 모델만 다른 프로필끼리 비교하면 모델을 비교할 수 있습니다. 매 실행 뒤 Rawstep의 규칙 기반 분석은 항상 실행되고, 프로필에 분석 모델이 있으면 LLM 분석이 더해집니다.
+작업을 수행하는 쪽(에이전트)과 페이지 조건(환경)은 `rawstep.config.json`에서 따로 정의합니다. 에이전트는 모드별 실행 모델과 그 지침, 허용 행동, 멈춤 기준을 묶고, 스크린리더 모드에는 계획 모델(LLM)을 더할 수 있습니다. 환경은 화면 크기, 확대, 색상 조건 같은 페이지 조건입니다. 같은 작업을 에이전트만 바꿔 실행하면 모델이나 프롬프트를, 환경만 바꿔 실행하면 페이지 조건을 비교할 수 있습니다. 매 실행 뒤 Rawstep의 규칙 기반 분석은 항상 실행되고, 프로젝트에 분석 모델(`analysis.model`)이 있으면 LLM 분석이 더해집니다.
 
 ```sh
-npx rawstep run checkout --profile narrow
-npx rawstep run checkout --profile zoom-200
+npx rawstep run checkout --environment narrow
+npx rawstep run checkout --environment zoom-200
+npx rawstep run checkout --agent careful
 ```
 
-환경은 `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 이름이나 객체로 지정합니다. 요청한 값과 관측한 값을 함께 기록하며, 브라우저 미디어 에뮬레이션과 네이티브 OS 설정은 구분합니다. 사용할 수 없는 환경은 적용했다고 주장하지 않고 unsupported로 남깁니다. [환경 프로필 안내](./docs/environment-profiles.md)를 참고하세요.
+환경의 `profile`은 `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 이름이나 객체로 지정합니다. 요청한 값과 관측한 값을 함께 기록하며, 브라우저 미디어 에뮬레이션과 네이티브 OS 설정은 구분합니다. 사용할 수 없는 환경은 적용했다고 주장하지 않고 unsupported로 남깁니다. [환경 프로필 안내](./docs/environment-profiles.md)를 참고하세요.
 
 ## 설정 파일
 
-프로젝트 폴더의 `rawstep.config.json` 하나에 연결, 작업, 실행 프로필(실행할 모델 포함), 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 제공자마다 정해진 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, 사용자 지정 연결은 직접 지정)에서 읽고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
+프로젝트 폴더의 `rawstep.config.json` 하나에 연결, 작업, 에이전트(모드별 실행 모델 포함), 환경, 분석 설정, 실행 환경(`machine`)이 모두 들어 있고, 대시보드·CLI·`runTask`가 같은 파일을 읽습니다. 프로젝트와 함께 커밋하세요. API 키는 이 파일에 넣지 않습니다. 제공자마다 정해진 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, 사용자 지정 연결은 직접 지정)에서 읽고, 값은 `.env.local`이나 프로세스 환경에 둡니다. `.env.local`과 실행 결과가 쌓이는 `.rawstep/`는 git에서 제외하세요. 필드는 [설정 안내](./docs/config.ko.md)에 있습니다.
 
 ## 소스에서 실행
 
@@ -96,7 +97,7 @@ npm run rawstep -- --help
 
 | 패키지 | 역할 |
 |---|---|
-| `@rawstep/core` | 계약, 작업·프로필 스키마, trace 기록 |
+| `@rawstep/core` | 계약, 작업·환경 프로필 스키마, trace 기록 |
 | `@rawstep/policies` | 정책, 화면 모델 어댑터, 정지 이유 가설 |
 | `@rawstep/browser` | 브라우저, runner, 검증, 키보드와 환경 진단 |
 | `@rawstep/screenreaders` | AT Driver, Orca, 시뮬레이션과 출처별 코퍼스 |

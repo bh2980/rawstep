@@ -25,7 +25,8 @@ export type PlanRequest = {
   /** The plan being replaced and the step that was in progress. */
   previous?: { plan: Plan; step: number };
 };
-export type PlanResult = { plan: Plan; model: { id: string; runtime: string } };
+/** `prompt.sha256` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
+export type PlanResult = { plan: Plan; model: { id: string; runtime: string }; prompt?: { sha256: string } };
 /** Makes and revises plans. Called a few times per run, so it can be a slower model than the executor. */
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
@@ -144,13 +145,13 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') return;
     const previous = this.plan ? { plan: structuredClone(this.plan), step: this.stepIndex } : undefined;
     const started = performance.now();
-    const { plan, model } = await this.planner.plan({ goal: input.goal, reason, speech: [...input.observation.speech],
+    const { plan, model, prompt } = await this.planner.plan({ goal: input.goal, reason, speech: [...input.observation.speech],
       history: modelHistory(input.history, input.observation, this.limits.plannerHistoryLimit), completed: [...this.completed], ...(previous ? { previous } : {}) }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (!plan.complete && !plan.steps.length) throw new Error('The planner returned no steps for an unfinished goal.');
     if (reason !== 'start') this.replans++;
     this.plan = structuredClone(plan); this.stepIndex = 0; this.stepActions = 0; this.planFrom = input.history.length;
-    this.evidence.push({ kind: 'orchestration-plan', reason, replans: this.replans, plan: structuredClone(plan), model, elapsedMs: performance.now() - started,
+    this.evidence.push({ kind: 'orchestration-plan', reason, replans: this.replans, plan: structuredClone(plan), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
       uncertainty: 'The outline comes from common UI conventions and is an expectation, not a fact about this page.' });
   }
   private giveUp(reason: PlanReason | 'no-action'): Decision {

@@ -4,9 +4,9 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileAnalysisModel, profileModel, profilePlannerModel, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, taskAgent, taskEnvironment, type Model } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
-import { checkRun, resolvePermissions } from '@rawstep/project/plan';
+import { assertRunnable, checkRun, resolvePermissions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
 import { finalizeRun, llmAnalyzer } from '@rawstep/project/run';
 import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
@@ -15,8 +15,8 @@ import { HttpError, koreanMessage } from './http.js';
 /** Runs one run record; the default executes it for real, tests substitute their own. */
 export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined; plannerApiKey?: string | undefined }) => Promise<RunTrace>;
 const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) => {
-  const { model, prompt, mode, globals, profile } = run.snapshot;
-  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop, ...(run.plannerModel ? { plannerModel: run.plannerModel } : {}) },
+  const { model, prompt, mode, globals, environment } = run.snapshot;
+  return executeRun({ task, model, prompt, mode, settings: globals, environment, permissions: run.permissions, diagnoseStop: run.diagnoseStop, ...(run.plannerModel ? { plannerModel: run.plannerModel, plannerInstructions: run.plannerInstructions ?? '' } : {}) },
     { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
 };
 /**
@@ -80,24 +80,25 @@ export class ExperimentQueue {
     const rows: Combination[] = [];
     const keyed = new Map<string, boolean>();
     const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
-    for (const taskId of new Set(request.taskIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
-      if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-      const task = config.tasks.find(t => t.id === taskId), profile = config.profiles.find(p => p.id === profileId);
-      const prompt = task?.modes[request.mode].prompts.find(p => p.id === promptId);
-      const source = tasks[taskId];
-      let reason: string | undefined, modelName: string | undefined, permissions = structuredClone((profile ?? config.profiles[0]!).permissions[request.mode]);
-      if (!task || !profile || !prompt || !source) reason = '작업·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
-      else {
-        try {
-          const check = checkRun({ config, task: source, taskEntry: task, profile, mode: request.mode, diagnoseStop: request.diagnoseStop });
-          permissions = check.permissions; modelName = check.model && check.plannerModel ? `${check.model.name} + 계획 ${check.plannerModel.name}` : check.model?.name;
-          if (check.problem) reason = koreanMessage(check.problem);
-          else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
-          else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
-          else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = koreanMessage(new ProjectError('missing-planner-credential', ''));
-        } catch (e) { reason = (e as Error).message; }
+    for (const taskId of new Set(request.taskIds)) {
+      const task = config.tasks.find(t => t.id === taskId);
+      for (const agentId of new Set(request.agentIds ?? [taskAgent(config, task ?? {}).id])) for (const environmentId of new Set(request.environmentIds ?? [taskEnvironment(config, task ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+        if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
+        const agent = config.agents.find(a => a.id === agentId), environment = config.environments.find(e => e.id === environmentId), source = tasks[taskId];
+        let reason: string | undefined, modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone((agent ?? config.agents[0]!).permissions[request.mode]);
+        if (!task || !agent || !environment || !source) reason = '작업·에이전트·환경 중 찾을 수 없는 항목이 있습니다.';
+        else {
+          try {
+            const check = checkRun({ config, task: source, taskEntry: task, agent, environment, mode: request.mode, diagnoseStop: request.diagnoseStop });
+            permissions = check.permissions; modelName = check.model?.name; plannerName = check.plannerModel?.name;
+            if (check.problem) reason = koreanMessage(check.problem);
+            else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
+            else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
+            else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = koreanMessage(new ProjectError('missing-planner-credential', ''));
+          } catch (e) { reason = (e as Error).message; }
+        }
+        rows.push({ key: [taskId, agentId, environmentId, repeat].join(':'), taskId, agentId, environmentId, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}), repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.permissions[request.mode] ? 'task' : 'agent' });
       }
-      rows.push({ key: [taskId, promptId, profileId, repeat].join(':'), taskId, ...(modelName ? { modelName } : {}), promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
     }
     return { request, config, tasks, rows };
   }
@@ -107,16 +108,16 @@ export class ExperimentQueue {
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
     if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new HttpError(400, '지원하는 실행 조합을 선택하세요.');
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
-      const task = config.tasks.find(t => t.id === row.taskId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
-      const settings = resolveRunSettings(config, task, profile), model = profileModel(config, profile)!, analysisModel = profileAnalysisModel(config, profile);
-      const plannerModel = request.mode === 'screenreader' ? profilePlannerModel(config, profile) : undefined;
+      const task = config.tasks.find(t => t.id === row.taskId)!, agent = config.agents.find(a => a.id === row.agentId)!, environment = config.environments.find(e => e.id === row.environmentId)!;
+      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: task, agent, environment, mode: request.mode, diagnoseStop: request.diagnoseStop }));
+      const { settings, analysisModel, plannerModel, plannerInstructions } = check;
       const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
-        taskName: task.name, model: structuredClone(model),
-        prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
-        mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
+        taskName: task.name, model: structuredClone(check.model!), prompt: structuredClone(check.prompt!),
+        mode: request.mode, environment: resolveEnvironmentProfile(environment.profile),
+        agent: { id: agent.id, name: agent.name }, environmentRef: { id: environment.id, name: environment.name },
         globals: settings,
-      }, ...(analysisModel ? { analysisModel } : {}), ...(plannerModel ? { plannerModel } : {}) };
+      }, ...(analysisModel ? { analysisModel } : {}), ...(plannerModel ? { plannerModel, plannerInstructions } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
     }) };
@@ -149,7 +150,7 @@ export class ExperimentQueue {
     const run: RunRecord = { ...structuredClone(original), id: randomUUID(), state: 'queued', repeat: 1, analysisStatus: 'pending', reportStatus: 'pending', retryOf: { experiment: experimentId, run: runId } };
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.task = safeTask(task); this.liveTasks.set(run.id, task);
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], promptIds: [run.promptId], profileIds: [run.profileId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], agentIds: [run.agentId], environmentIds: [run.environmentId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {

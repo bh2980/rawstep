@@ -10,7 +10,7 @@ import { Link } from '../components/Link';
 import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
 import { displayState } from '../lib/runStrip';
-import { isFinished, isLive, taskNameOf, runModelsName } from '../lib/runs';
+import { isFinished, isLive, runAgentName, taskNameOf, runModelsName } from '../lib/runs';
 import type { ListProps } from './types';
 
 const PAGE = 50;
@@ -25,14 +25,15 @@ type Outcome = (typeof outcomes)[number];
  */
 export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & { onCompare: () => void }) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
+  const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [agent, setAgent] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false);
   const { config } = pageProps.view;
   const tasks = useMemo(() => [...new Map(runs.map(ref => [ref.run.taskId, taskNameOf(ref.run, config.tasks)])).entries()], [runs, config.tasks]);
   const models = useMemo(() => [...new Map(runs.map(ref => [runModelsName(ref.run), runModelsName(ref.run)])).entries()], [runs]);
+  const agents = useMemo(() => [...new Map(runs.map(ref => [ref.run.agentId, runAgentName(config.agents, ref.run)])).entries()], [runs, config.agents]);
   const needle = query.trim().toLowerCase();
-  const matching = runs.filter(({ run }) => (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model)
-    && (!needle || taskNameOf(run, config.tasks).toLowerCase().includes(needle) || runModelsName(run).toLowerCase().includes(needle))
+  const matching = runs.filter(({ run }) => (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model) && (agent === ALL || run.agentId === agent)
+    && (!needle || taskNameOf(run, config.tasks).toLowerCase().includes(needle) || runModelsName(run).toLowerCase().includes(needle) || runAgentName(config.agents, run).toLowerCase().includes(needle))
     && (outcome === 'all' || (outcome === 'live' ? isLive(run) : isFinished(run) && displayState(run) === outcome)));
   const options = (items: [string, string][]) => [{ id: ALL, name: t('runList.all') }, ...items.map(([id, name]) => ({ id, name }))];
   const narrow = (apply: () => void) => { apply(); setShown(PAGE); };
@@ -51,6 +52,7 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
       <FilterSearch label={t('runList.search')} value={query} onChange={value => narrow(() => setQuery(value))} placeholder={t('runList.searchPlaceholder')} />
       <FilterSelect label={t('runList.filters.task')} value={task} onChange={value => narrow(() => setTask(value))} options={options(tasks)} className="max-w-44" />
       <FilterSelect label={t('runList.filters.model')} value={model} onChange={value => narrow(() => setModel(value))} options={options(models)} className="max-w-44" />
+      <FilterSelect label={t('agentRun.filterAgent')} value={agent} onChange={value => narrow(() => setAgent(value))} options={options(agents)} className="max-w-44" />
       <FilterSelect label={t('runList.filters.outcome')} value={outcome} onChange={value => narrow(() => setOutcome(value as Outcome))} options={outcomes.map(id => ({ id, name: t(`runList.outcomes.${id}`) }))} />
     </FilterBar>}
     {runs.length === 0
@@ -63,7 +65,7 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
             <Button variant="outline" disabled={pageProps.busy} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runList.select.delete')}</Button>
             <Button variant="ghost" onClick={() => setPicked(new Set())}>{t('runList.select.clear')}</Button>
           </div>}
-          <RunsTable runs={matching.slice(0, shown)} profiles={config.profiles} tasks={config.tasks} navigate={navigate} selection={{ selected: picked, onToggle: toggle, onToggleAll: toggleAll }} />
+          <RunsTable runs={matching.slice(0, shown)} agents={config.agents} environments={config.environments} tasks={config.tasks} navigate={navigate} selection={{ selected: picked, onToggle: toggle, onToggleAll: toggleAll }} />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>{t('runList.shown', { shown: Math.min(shown, matching.length), total: matching.length })}</span>
             {matching.length > shown && <Button variant="outline" onClick={() => setShown(shown + PAGE)}>{t('runList.more')}</Button>}

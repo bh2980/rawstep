@@ -40,7 +40,7 @@ export const core = {
     interrupted: '중단됨',
   } satisfies Record<RunState, string>,
   task: {
-    compare: '여러 모델·프로필 비교',
+    compare: '여러 에이전트·환경 비교',
     unknownTitle: '작업을 찾을 수 없습니다',
     unknown: '이 주소의 작업이 프로젝트에 없습니다. 삭제되었거나 다른 창에서 바뀌었을 수 있습니다.',
     backToTasks: '작업 목록으로',
@@ -79,12 +79,11 @@ export const core = {
       'error': '실행 중 오류',
       'aborted': '중단됨',
       'trace-persistence-error': 'trace 저장 오류',
-      'unsupported-profile': '지원하지 않는 프로필',
+      'unsupported-profile': '지원하지 않는 환경',
       'access-blocked': '접근이 차단됨',
       'unsupported-pattern': '지원하지 않는 패턴',
     },
     retryTitle: '같은 조건으로 재실행',
-    retryBody: '모델·프롬프트·허용 행동·환경은 기존 실행의 설정을 사용합니다. 입력값은 현재 작업 파일에서 다시 읽습니다.',
     retryChanged: '현재 작업 파일과 다른 항목: {{fields}}',
     retryUnchanged: '입력값 외 작업 조건에 변경이 없습니다.',
     retryDiff: '작업 조건 차이 확인',
@@ -202,6 +201,5 @@ export const core = {
   },
   newExperiment: {
     title: '새 실험',
-    description: '작업 × 모델 × 프롬프트 × 실행 프로필을 조합해 같은 조건에서 비교합니다.',
   },
 } as const;

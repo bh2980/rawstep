@@ -6,26 +6,28 @@
 
 | 명령 | 하는 일 |
 |---|---|
-| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(프로필 `Default` 하나, 연결·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
+| `rawstep init [--project <dir>]` | 기본 `rawstep.config.json`을 만듭니다(에이전트 `Default`와 환경 `Default` 하나씩, 연결·작업 없음). 이미 있는 파일은 덮어쓰지 않습니다 |
 | `rawstep ui [--port <port>] [--project <dir>]` | 로컬 대시보드를 `127.0.0.1`(기본 포트 4318)에서 엽니다. 설정 파일이 없으면 만듭니다 |
-| `rawstep run <task> [옵션]` | 실행 프로필의 모델로 작업을 실행하고 결과와 발견 사항을 출력합니다 |
+| `rawstep run <task> [옵션]` | 에이전트의 실행 모델로 작업을 실행하고 결과와 발견 사항을 출력합니다 |
 | `rawstep hints <run-dir> [--reference <run-dir>]` | 저장된 실행의 마찰 힌트를 출력하고 `hints.json`을 씁니다 |
 | `rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]` | `report.html`과 `report.json`을 만듭니다 |
-| `rawstep analyze <run-dir> [--profile <id\|name>] [--out <dir>] [--project <dir>]` | 저장된 실행을 분석합니다 |
+| `rawstep analyze <run-dir> [--llm] [--out <dir>] [--project <dir>]` | 저장된 실행을 분석합니다 |
 | `rawstep doctor [--project <dir>]` | 환경을 점검합니다 |
 
 ## run
 
 ```sh
-rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader]
+rawstep run <task> [--agent <id|name>] [--environment <id|name>]
+                   [--mode keyboard|screenreader]
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 첫 번째 프로필로 실행합니다. 매 단계는 프로필의 `model`이 결정하며, `model`이 없는 프로필은 실행할 수 없습니다. 모델을 비교하려면 모델만 다른 프로필끼리 비교합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
+`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 첫 번째 에이전트와 첫 번째 환경으로 실행합니다. 매 단계는 에이전트의 그 모드 실행 모델이 결정하며, 실행 모델이 없는 모드는 실행할 수 없습니다. 모델이나 프롬프트를 비교하려면 그 부분만 다른 에이전트끼리, 페이지 조건을 비교하려면 환경끼리 비교합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
 
 기본값은 다음과 같습니다.
 
-- `--profile`: 작업에 지정한 프로필, 없으면 첫 번째 프로필. 그 프로필의 모델을 씁니다. 키보드 모드는 이미지 입력(`maxImages` 2 이상)을 받는 모델이 필요합니다
+- `--agent`: 작업에 지정한 에이전트, 없으면 첫 번째 에이전트. 그 에이전트의 실행 모델을 씁니다. 키보드 모드는 이미지 입력(`maxImages` 2 이상)을 받는 실행 모델이 필요합니다
+- `--environment`: 작업에 지정한 환경, 없으면 첫 번째 환경
 - `--mode`: `keyboard`
 - `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
 - `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다
@@ -52,7 +54,7 @@ Model
 |---|---|
 | `trace.json`, `trace.jsonl`, `blobs/` | 실행 기록. 스크린샷은 `blobs/<sha256>.png`로 한 번만 저장합니다 |
 | `hints.json` | 마찰 힌트 |
-| `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 프로필에 분석 모델이 있으면 LLM 분석이 더해집니다 |
+| `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 프로젝트에 분석 모델이 있으면 LLM 분석이 더해집니다 |
 | `diagnostics/step-<n>.png` | 스크린리더 실행의 단계별 참고 스크린샷. 사람이 볼 용도이며 모델은 받지 않습니다 |
 | `report.html`, `report.json` | 보고서([보고서 안내](./report.ko.md)) |
 
@@ -60,7 +62,7 @@ Model
 
 `hints`는 힌트 수, 목표 달성 여부, 단계 수(`--reference`를 주면 기준 실행의 단계 수 포함)와 힌트별 한 줄을 출력합니다. 힌트는 사람이 확인해 볼 단계를 가리킬 뿐 통과/실패 판정이 아닙니다.
 
-`analyze`는 `--profile` 없이 실행하면 네트워크를 쓰지 않는 로컬 규칙 기반 요약을 만듭니다. `--profile`을 주면 그 실행 프로필의 분석 모델(LLM)에게 저장된 이벤트를 보내 분석하며, PNG 바이트는 보내지 않습니다. 두 경우 모두 `hints.json`을 함께 씁니다. `report`는 `analysis.json`을 `--analysis`로 지정하면 보고서에 포함합니다.
+`analyze`는 `--llm` 없이 실행하면 네트워크를 쓰지 않는 로컬 규칙 기반 요약을 만듭니다. `--llm`을 주면 프로젝트의 분석 모델(`analysis.model`, LLM)에게 저장된 이벤트를 보내 분석하며, PNG 바이트는 보내지 않습니다. 두 경우 모두 `hints.json`을 함께 씁니다. `report`는 `analysis.json`을 `--analysis`로 지정하면 보고서에 포함합니다.
 
 ## doctor
 
@@ -71,7 +73,7 @@ Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실�
 | 코드 | 의미 |
 |---|---|
 | 0 | 실행이 끝났습니다(목표 달성 여부와 무관) |
-| 1 | 오류(설정 파일 없음, 모델이 없는 프로필, 키 누락, 실행 실패, `doctor` 점검 실패) |
+| 1 | 오류(설정 파일 없음, 실행 모델이 없는 에이전트, 키 누락, 실행 실패, `doctor` 점검 실패) |
 | 2 | 잘못된 사용법 |
 | 130 / 143 | SIGINT(Ctrl+C) / SIGTERM으로 취소. 그때까지 쓴 trace는 보존합니다 |
 
@@ -93,4 +95,4 @@ import { runTask } from 'rawstep';
 const { runs, findings } = await runTask('checkout', { repeat: 3, mode: 'keyboard' });
 ```
 
-옵션은 `projectDir`, `profile`(그 프로필의 모델을 씁니다), `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.
+옵션은 `projectDir`, `agent`(그 에이전트의 실행 모델을 씁니다), `environment`, `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.

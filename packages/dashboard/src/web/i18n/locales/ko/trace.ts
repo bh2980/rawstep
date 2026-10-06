@@ -5,7 +5,7 @@
 export const traceUi = {
   explanation: {
     title: 'LLM 해설',
-    note: '실행 프로필의 LLM이 기록을 읽고 쓴 요약과 가설입니다. 결론이 아니므로 근거 단계를 열어 직접 확인하세요. 실행 결과와 힌트에는 영향을 주지 않습니다.',
+    note: '프로젝트의 사후 분석 LLM이 기록을 읽고 쓴 요약과 가설입니다. 결론이 아니므로 근거 단계를 열어 직접 확인하세요. 실행 결과와 힌트에는 영향을 주지 않습니다.',
     count: '가설 {{count}}개',
     failed: 'LLM 해설을 쓰지 못했습니다. 실행 결과와 힌트는 그대로입니다.',
     failedShort: '쓰지 못함',
@@ -16,11 +16,11 @@ export const traceUi = {
   diagnosis: {
     title: '실행 진단',
     modelStop: '모델이 {{n}}번째 판단에서 "{{reason}}"을(를) 골라 실행을 멈췄습니다.',
-    modelStopAllowed: '이 선택지는 실행 프로필의 "모델의 중도 포기 허용"이 켜져 있어서 주어졌습니다. 끄면 모델은 목표에 닿았다는 판단 외에는 스스로 멈출 수 없습니다. 그 판단에서 모델이 받은 화면이나 발화를 열어 확인하세요.',
+    modelStopAllowed: '이 선택지는 에이전트(또는 이 작업)의 "모델의 중도 포기 허용"이 켜져 있어서 주어졌습니다. 끄면 모델은 목표에 닿았다는 판단 외에는 스스로 멈출 수 없습니다. 그 판단에서 모델이 받은 화면이나 발화를 열어 확인하세요.',
     successStopFailed: '모델이 {{n}}번째 판단에서 목표에 닿았다고 보고 멈췄지만, 완료 확인은 맞지 않았습니다.',
     successStopFailedNote: '모델이 받은 화면이나 발화를 열어, 모델이 무엇을 목표 달성으로 착각했는지 확인하세요.',
     guardStop: 'Rawstep의 반복 감시가 {{n}}번째 판단에서 실행을 멈췄습니다.',
-    guardStopNote: '같은 행동에 같은 화면이나 발화가 정해 둔 횟수만큼 반복되었습니다. 실행 프로필의 멈춤 조건에서 바꿀 수 있습니다.',
+    guardStopNote: '같은 행동에 같은 화면이나 발화가 정해 둔 횟수만큼 반복되었습니다. 에이전트의 멈춤 조건이나 작업의 세부 설정에서 바꿀 수 있습니다.',
     maxSteps: '최대 행동 수에 닿아 멈췄습니다.',
     timeout: '제한 시간이 지나 멈췄습니다.',
     'bot-check': '페이지가 봇 확인 화면을 띄웠습니다 ({{hosts}}).',
@@ -108,7 +108,9 @@ export const traceUi = {
     liveCurrent: '현재',
     liveCurrentAction: '{{action}} → {{target}}',
     liveWaiting: '첫 행동을 기다리는 중입니다.',
-    conditions: '{{mode}} · {{model}} · {{profile}}',
+    conditions: '{{mode}} · {{agent}} · {{environment}}',
+    models: '실행 모델 {{model}}',
+    modelsWithPlanner: '실행 모델 {{model}} · 계획 모델 {{planner}}',
     factSteps: '행동 {{steps}}번',
     factSeconds: '{{seconds}}초',
     factFastest: '가장 빠른 실행',
