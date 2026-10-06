@@ -117,16 +117,16 @@ export function isBotCheckUrl(url: string): boolean {
   } catch { return false; }
 }
 /**
- * Whether the page is showing a human check instead of the site: its address, a challenge frame, its title, or the marks a
- * Cloudflare challenge page carries even when the site brands it (its challenge-platform script and a short page with a Ray ID).
+ * Whether the page is a human-check interstitial instead of the site: a check address, a check title, or the marks a Cloudflare
+ * challenge page carries even when the site brands it (its challenge form or orchestration script, or a short page with a Ray ID).
+ * A check widget inside an ordinary page (an invisible reCAPTCHA next to ads, a Turnstile box on a form) is not one.
  */
 export async function isBotCheckPage(page: Page): Promise<boolean> {
   if (isBotCheckUrl(page.url())) return true;
-  if (page.frames().some(frame => frame !== page.mainFrame() && isBotCheckUrl(frame.url()))) return true;
   const title = await page.title().catch(() => '');
   if (/just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title)) return true;
   return await page.evaluate(() => {
-    if (document.querySelector('script[src*="/cdn-cgi/challenge-platform/"], iframe[src*="challenges.cloudflare.com"], #challenge-form, #cf-challenge-running')) return true;
+    if (document.querySelector('#challenge-form, #challenge-running, #cf-challenge-running, script[src*="/cdn-cgi/challenge-platform/h/"]')) return true;
     const text = document.body?.innerText ?? '';
     return text.length < 3000 && /ray[ _]?id/i.test(text);
   }).catch(() => false);
