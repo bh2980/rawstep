@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import type { VerifyRule } from '@rawstep/core/contracts';
+import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
 import type { Mode } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import type { RunOptions } from '../lib/quickRun';
@@ -46,16 +46,16 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
   const id = useId();
   const profiles = props.view.config.profiles;
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
-  const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({});
+  const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
   const [profileId, setProfileId] = useState(profiles[0]!.id);
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
-  const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, undefined, goal).size === 0, ready = filled && inputsOk;
+  const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
   const [mode, setMode] = useState<Mode>('keyboard');
   async function create(run: boolean) {
     const task = {
       url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
-      verify: { all: rules }, ...(Object.keys(input).length ? { input } : {}),
+      verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
     const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, profileId });
     if (!run) { navigate({ task: created.id }); return; }
@@ -81,7 +81,7 @@ export function NewTaskPage({ navigate, startRun, ...props }: Props) {
           <CheckEditor rules={rules} onChange={setRules} url={url} />
         </Part>
         <Panel title={t('taskInputs.title')} description={Object.keys(input).length ? t('newTask.inputsCount', { count: Object.keys(input).length }) : t('taskInputs.optional')}>
-          <TaskInputsField input={input} goal={goal} onChange={fields => setInput(fields.input ?? {})} />
+          <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
         </Panel>
         <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, profile: profiles.find(profile => profile.id === profileId)?.name ?? '' })}>
           <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />

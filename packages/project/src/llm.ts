@@ -30,7 +30,7 @@ export class LlmSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') throw new Error('Speech-only policy required');
     const guarded = speechGuardStop(this.options, input);
     if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
-    const choices = speechChoices(input.allowedActions, this.options);
+    const choices = speechChoices(input.allowedActions, this.options, input.inputs);
     const started = performance.now();
     const response = await this.client.choose({
       goal: input.goal, speech: input.observation.speech,

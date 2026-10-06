@@ -101,7 +101,8 @@ export interface DecisionPolicy {
 }
 export type TaskInputOptions = { sensitive?: boolean; description?: string };
 /** What a policy may know about a named input: never its value. */
-export type InputDescriptor = { sensitive: boolean; description?: string };
+/** A task input as a policy sees it. `value` is present only for inputs marked not sensitive (a search term, a quantity), so the model knows what it would type; secrets stay names. */
+export type InputDescriptor = { sensitive: boolean; description?: string; value?: string };
 /** `sensitive` asks the backend to keep the typed value out of what the policy observes. */
 export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string; sensitive?: boolean };
 export type BackendCapabilities = { intents: readonly string[]; keys: readonly string[]; textEntry: boolean; replaceText: boolean };
@@ -285,10 +286,15 @@ function validateVerifyRule(value: unknown, depth = 0): VerifyRule {
   throw new Error('Unsupported verification rule.');
 }
 
-/** Policy-facing view of a task's inputs: names, sensitivity and descriptions, never values. */
+/** Policy-facing view of a task's inputs: names, sensitivity and descriptions, and the value only of inputs marked not sensitive. */
 export function describeInputs(task: Pick<Task, 'input' | 'inputOptions'>): Readonly<Record<string, InputDescriptor>> {
-  return Object.freeze(Object.fromEntries(Object.keys(task.input ?? {}).map(name => {
-    const option = task.inputOptions?.[name];
-    return [name, Object.freeze({ sensitive: option?.sensitive !== false, ...(option?.description ? { description: option.description } : {}) })];
+  return Object.freeze(Object.fromEntries(Object.entries(task.input ?? {}).map(([name, value]) => {
+    const option = task.inputOptions?.[name], sensitive = option?.sensitive !== false;
+    return [name, Object.freeze({ sensitive, ...(option?.description ? { description: option.description } : {}), ...(!sensitive ? { value } : {}) })];
   })));
+}
+/** How a candidate names what it types: the value itself for an input that is not sensitive, otherwise only the input's name. */
+export function inputLabel(name: string, descriptor: InputDescriptor | undefined): string {
+  const about = descriptor?.description ? `: ${descriptor.description}` : '';
+  return descriptor?.value !== undefined ? `"${descriptor.value}" (input ${name}${about})` : `the secret input ${name}${about ? ` (${descriptor!.description})` : ''}`;
 }

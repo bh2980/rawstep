@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import type { AllowedActions, Decision, DecisionPolicy, HistoryEntry, Observation } from '@rawstep/core/contracts';
+import { inputLabel, type AllowedActions, type Decision, type DecisionPolicy, type HistoryEntry, type InputDescriptor, type Observation } from '@rawstep/core/contracts';
 import { assertSystemOneInputs, validateSystemOneResult, type SystemOneClient, type SystemOneRequest } from './client.js';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse } from '../screenshot/model.js';
 import { copySystemOnePrompt, systemOnePromptEvidence, SPEECH_DECISION_PROMPT, SCREENSHOT_DECISION_PROMPT, type SystemOnePrompt } from './prompts.js';
@@ -9,13 +9,13 @@ function actionOnly(decision: Decision): Decision {
   const a = decision.action;
   return { action: a.kind === 'key' ? { kind: a.kind, key: a.key } : a.kind === 'intent' ? { kind: a.kind, intent: a.intent } : { kind: a.kind, input: a.input } };
 }
-export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}): { id: string; label: string; decision: Decision }[] {
+export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}, inputs: Readonly<Record<string, InputDescriptor>> = {}): { id: string; label: string; decision: Decision }[] {
   return [
     ...allowed.intents.map(intent => ({ id: `intent:${intent}`, label: `Screen reader intent: ${intent}`, decision: { action: { kind: 'intent' as const, intent } } })),
     ...allowed.keys.map(key => ({ id: `key:${key}`, label: `Press key: ${key}`, decision: { action: { kind: 'key' as const, key } } })),
     ...allowed.inputKeys.flatMap(input => [
-      ...(allowed.typeText !== false ? [{ id: `type:${input}`, label: `Type the named input ${input} into the focused editable field`, decision: { action: { kind: 'typeText' as const, input } } }] : []),
-      ...(allowed.replaceText ? [{ id: `replace:${input}`, label: `Replace the focused field with the named input ${input}`, decision: { action: { kind: 'replaceText' as const, input } } }] : []),
+      ...(allowed.typeText !== false ? [{ id: `type:${input}`, label: `Type ${inputLabel(input, inputs[input])} into the focused editable field`, decision: { action: { kind: 'typeText' as const, input } } }] : []),
+      ...(allowed.replaceText ? [{ id: `replace:${input}`, label: `Replace the focused field with ${inputLabel(input, inputs[input])}`, decision: { action: { kind: 'replaceText' as const, input } } }] : []),
     ]),
     ...(options.modelGiveUp === true ? ['success', 'stuck', 'uncertain'] as const : ['success'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
   ];
@@ -65,7 +65,7 @@ export class SystemOneSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') throw new Error('SystemOne speech policy requires screen reader observations.');
     const guarded = speechGuardStop(this.options, input);
     if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
-    const choices = speechChoices(input.allowedActions, this.options);
+    const choices = speechChoices(input.allowedActions, this.options, input.inputs);
     const request: SystemOneRequest = {
       state: { goal: input.goal, speech: [...input.observation.speech],
         history: input.history.slice(-this.historyLimit).map(h => ({ step: h.step, decision: actionOnly(h.decision),

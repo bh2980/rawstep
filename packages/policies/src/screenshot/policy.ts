@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { createHash } from 'node:crypto';
-import type { AllowedActions, Decision, DecisionPolicy, ScreenshotObservation } from '@rawstep/core/contracts';
+import { inputLabel, type AllowedActions, type Decision, type DecisionPolicy, type InputDescriptor, type ScreenshotObservation } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
 import { SCREENSHOT_MODEL_PROTOCOL, validateModelResponse, type ScreenshotChoice, type ScreenshotModelAdapter, type ScreenshotModelRequest, type ScreenshotModelResponse } from './model.js';
 
@@ -9,15 +9,15 @@ export function screenshotHash(screenshot: ScreenshotObservation): string {
   if (bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || !Number.isInteger(screenshot.viewport.w) || screenshot.viewport.w < 1 || !Number.isInteger(screenshot.viewport.h) || screenshot.viewport.h < 1) throw new Error('Expected PNG screenshot pixels and positive viewport dimensions.');
   return createHash('sha256').update(bytes).digest('hex');
 }
-export function screenshotChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}): ScreenshotChoice[] {
+export function screenshotChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}, inputs: Readonly<Record<string, InputDescriptor>> = {}): ScreenshotChoice[] {
   const choices: ScreenshotChoice[] = [];
   for (const key of allowed.keys) {
     if (!(SCREENSHOT_KEYS as readonly string[]).includes(key)) throw new Error(`Screenshot policy cannot use key ${key}.`);
     choices.push({ id: `key:${key}`, label: key === 'Tab' ? 'Tab: move keyboard focus forward' : key === 'Shift+Tab' ? 'Shift+Tab: move keyboard focus backward' : key === 'Enter' ? 'Enter: activate the currently focused control' : key === 'Space' ? 'Space: activate or toggle the currently focused control' : `${key}: press this keyboard key`, decision: { action: { kind: 'key', key } } });
   }
   for (const input of allowed.inputKeys) {
-    if (allowed.typeText !== false) choices.push({ id: `type:${input}`, label: `Type task input named ${input} into the currently focused editable field`, decision: { action: { kind: 'typeText', input } } });
-    if (allowed.replaceText) choices.push({ id: `replace:${input}`, label: `Replace the currently focused editable field with task input named ${input}`, decision: { action: { kind: 'replaceText', input } } });
+    if (allowed.typeText !== false) choices.push({ id: `type:${input}`, label: `Type ${inputLabel(input, inputs[input])} into the currently focused editable field`, decision: { action: { kind: 'typeText', input } } });
+    if (allowed.replaceText) choices.push({ id: `replace:${input}`, label: `Replace the currently focused editable field with ${inputLabel(input, inputs[input])}`, decision: { action: { kind: 'replaceText', input } } });
   }
   choices.push({ id: 'stop:success', label: 'Stop: the visible goal appears complete (independent verifier will check)', decision: { stop: 'success' } });
   if (options.modelGiveUp === true) choices.push({ id: 'stop:uncertain', label: 'Stop: uncertain whether further keyboard actions are appropriate or whether the goal is complete', decision: { stop: 'uncertain' } },
@@ -94,7 +94,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
         uncertainty: 'Repeated pixels may reflect an invisible focus change, a trap, or a legitimate unchanged state. No accessibility defect is established.' });
       return { stop: 'stuck', stopSource: 'exploration-guard', rationale: 'Conservative visual repetition limit reached.' };
     }
-    let choices = screenshotChoices(input.allowedActions, { modelGiveUp: this.options.modelGiveUp });
+    let choices = screenshotChoices(input.allowedActions, { modelGiveUp: this.options.modelGiveUp }, input.inputs);
     // Construct a fresh allowlisted request: never forward arbitrary input/observation/history objects.
     const pixels = (s: ScreenshotObservation): ScreenshotObservation => ({ pngBase64: s.pngBase64, viewport: { w: s.viewport.w, h: s.viewport.h } });
     const decisionOnly = (decision: Decision): Decision => {

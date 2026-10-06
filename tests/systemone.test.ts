@@ -184,3 +184,14 @@ describe('speech repetition guard', () => {
     expect(speechRepetition(atEnd(4), last, 4)).toMatchObject({ times: 4 });
   });
 });
+
+describe('typing candidates', () => {
+  it('name the value of an input that is not sensitive and only the name of a secret', () => {
+    const choices = speechChoices({ intents: [], keys: [], inputKeys: ['searchTerm', 'password'], typeText: true, replaceText: false }, {}, { searchTerm: { sensitive: false, value: 'Thor Hammer', description: 'product to search for' }, password: { sensitive: true } });
+    expect(choices.map(c => c.label)).toEqual([
+      'Type "Thor Hammer" (input searchTerm: product to search for) into the focused editable field',
+      'Type the secret input password into the focused editable field',
+      'Stop: goal appears complete; an independent verifier must confirm',
+    ]);
+  });
+});

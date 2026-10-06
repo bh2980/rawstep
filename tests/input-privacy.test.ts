@@ -73,14 +73,14 @@ describe('resolveTask inputOptions', () => {
 });
 
 describe('describeInputs', () => {
-  it('returns names, sensitivity and optional descriptions only', () => {
+  it('returns names, sensitivity and descriptions, and the value only of inputs marked not sensitive', () => {
     const task: Pick<Task, 'input' | 'inputOptions'> = {
       input: { email: 'a@example.test', password: 'hunter2-secret', query: 'rawstep' },
       inputOptions: { email: { description: 'Account email' }, query: { sensitive: false } },
     };
     const described = describeInputs(task);
-    expect(described).toEqual({ email: { sensitive: true, description: 'Account email' }, password: { sensitive: true }, query: { sensitive: false } });
-    expect(JSON.stringify(described)).not.toMatch(/a@example\.test|hunter2|rawstep/);
+    expect(described).toEqual({ email: { sensitive: true, description: 'Account email' }, password: { sensitive: true }, query: { sensitive: false, value: 'rawstep' } });
+    expect(JSON.stringify(described)).not.toMatch(/a@example\.test|hunter2/);
   });
   it('is empty without inputs and frozen at every level', () => {
     expect(describeInputs({})).toEqual({});
@@ -130,16 +130,15 @@ describe('runner input privacy', () => {
   const secret = 'hunter2-secret';
   const task: Task = { url: 'https://example.test/', goal: 'Sign in with the stored credentials', maxSteps: 4, timeoutMs: 5000, verify, input: { email: secret, nick: 'rawstep-user' }, inputOptions: { email: { description: 'Account email' }, nick: { sensitive: false } } };
 
-  it('gives the policy descriptors only, and no decide() input ever contains a value', async () => {
+  it('never gives the policy a sensitive value; a value marked not sensitive is shown so the model knows what it types', async () => {
     const f = screenReaderFixture(n => [`Edit text, entered ${n}`]);
     const { policy, calls } = recordingPolicy([type('email'), type('nick'), tab, { stop: 'stuck' }]);
     await runTask(task, { ...f, outDir: await out(), policy });
     expect(calls.length).toBe(4);
     for (const call of calls) {
-      expect(call.inputs).toEqual({ email: { sensitive: true, description: 'Account email' }, nick: { sensitive: false } });
+      expect(call.inputs).toEqual({ email: { sensitive: true, description: 'Account email' }, nick: { sensitive: false, value: 'rawstep-user' } });
       expect(call.allowedActions.inputKeys).toEqual(['email', 'nick']);
       expect(JSON.stringify(call)).not.toContain(secret);
-      expect(JSON.stringify(call)).not.toContain('rawstep-user');
     }
   });
 

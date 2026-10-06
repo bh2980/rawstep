@@ -4,7 +4,7 @@ Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `
 
 ## Inputs
 
-`input` maps names to string values. The decision policy (usually a model) only sees each input's name, whether it is sensitive, and an optional description. It never sees the value. The runner types the real value when the policy asks to enter a named input.
+`input` maps names to string values. The task author decides what is typed; the decision policy (usually a model) decides when and into which field. The policy sees each input's name, whether it is sensitive and an optional description. It never sees a sensitive value; the value of an input marked `sensitive: false` (a search term) is shown in its candidate, such as `Type "Thor Hammer" (input searchTerm: product to search for)`, so the model knows what it would type. The runner types the real value when the policy asks to enter a named input.
 
 `inputOptions` configures individual inputs. Each key must be a name from `input`, and each entry accepts only:
 
@@ -30,7 +30,7 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 
 ## Hiding input values from the policy
 
-The decision policy (usually a model) must not learn input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
+The decision policy (usually a model) must not learn sensitive input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
 
 - **Screenshots (keyboard mode).** Before typing a sensitive value, the screenshot backend marks the focused field with `data-rawstep-mask`. While capturing an observation it sets `-webkit-text-security: disc !important` on marked fields through the CSSOM (so a page CSP cannot block it) and restores the field's previous inline value right after the capture. The field shows dots in the policy's screenshot and its real value in the page.
 - **Speech (screen reader mode).** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
