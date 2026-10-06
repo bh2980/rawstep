@@ -1,4 +1,4 @@
-import type { Model, ModelKind, ProviderId } from '@rawstep/project/config';
+import { credentialId, modelKeyEnv, modelKeyRequired, type Model, type ModelKind, type ProviderId } from '@rawstep/project/config';
 
 export const ENV_NAME = /^[A-Z][A-Z0-9_]{0,100}$/;
 
@@ -27,3 +27,12 @@ export function withImages(model: Model, images: boolean): Model {
 /** The i18n key group of one kind and provider (`modelSetup.providers.<key>.name` / `.description`). */
 export type ProviderTextKey = 'llmOpenai' | 'llmAnthropic' | 'llmGoogle' | 'llmOpenrouter' | 'llmCustom' | 'decisionTypesafe' | 'decisionGateway' | 'decisionOpenrouter' | 'decisionCustom';
 export const providerTextKey = (kind: ModelKind, provider: ProviderId): ProviderTextKey => (kind + provider[0]!.toUpperCase() + provider.slice(1)) as ProviderTextKey;
+
+/** What the list says of a model's key without asking anyone: needed and missing, set, or nothing to check (a local server that takes no key). */
+export type KeyStatus = 'missing' | 'set' | 'unchecked';
+export function keyStatus(model: Pick<Model, 'id' | 'kind' | 'provider' | 'apiKeyEnv'>, credentialStatus: Record<string, boolean>): KeyStatus {
+  const required = modelKeyRequired(model), used = required || !!modelKeyEnv(model);
+  if (!used) return 'unchecked';
+  if (credentialStatus[credentialId(model)]) return 'set';
+  return required ? 'missing' : 'unchecked';
+}

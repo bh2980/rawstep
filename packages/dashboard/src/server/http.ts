@@ -16,6 +16,7 @@ const korean: Record<string, string> = {
   'path-outside-project': '프로젝트 내부의 파일 경로가 필요합니다.',
   'symlink-outside-project': '프로젝트 밖의 심볼릭 링크나 외부 파일은 사용할 수 없습니다.',
   'task-file-missing': '작업 파일을 찾을 수 없습니다.',
+  'task-not-found': '작업을 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.',
   'task-file-reserved': '설정·패키지·실행 기록 파일을 Task로 사용할 수 없습니다.',
   'task-file-not-registered': '등록한 Task JSON 경로가 필요합니다.',
   'task-file-exists': '이 경로의 파일이 이미 있습니다. 기존 JSON 가져오기를 사용하거나 새 경로를 지정하세요.',

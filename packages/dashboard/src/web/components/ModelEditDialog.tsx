@@ -7,7 +7,7 @@ import { ENV_NAME, generateEnvName, providerTextKey, withAnalysis } from '../lib
 import { useGuardedAct } from '../lib/useGuardedAct';
 import type { PageProps } from '../pages/types';
 import { Field, MultiChoice, Section } from './forms';
-import { Alert, AlertDescription } from './ui/alert';
+import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -46,7 +46,7 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Model; pagePr
 
   return <>
     <DialogHeader><DialogTitle>{t('modelSetup.editTitle')}</DialogTitle><DialogDescription>{t('modelSetup.editDescription')}</DialogDescription></DialogHeader>
-    {error && <Alert variant="destructive"><AlertDescription role="alert">{error}</AlertDescription></Alert>}
+    {error && <ErrorState alert view={error} />}
     <div className="grid gap-4">
       <Field label={t('modelSetup.displayName')} value={model.name} onChange={name => patch({ name })} />
       {model.kind === 'llm' && <div className="flex items-center gap-2"><Checkbox id="edit-analysis" checked={model.roles.includes('analysis')} onCheckedChange={v => patch({ roles: withAnalysis(model.roles, v === true) })} /><Label htmlFor="edit-analysis" className="font-normal">{t('modelSetup.analysis')}</Label></div>}

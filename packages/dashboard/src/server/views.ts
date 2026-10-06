@@ -72,7 +72,11 @@ export class RunViews {
     const key = done.map(entry => entry.run.id).join(',');
     let cached = this.findingsCache.get(taskId);
     if (cached?.key !== key) {
-      const reports = (await Promise.all(done.map(entry => this.savedHints(entry.experimentId, entry.run.id)))).filter((report): report is HintReport => !!report);
+      // hints.json names the trace's run id; findings must point at the dashboard run so links and run numbers resolve.
+      const reports = (await Promise.all(done.map(async entry => {
+        const report = await this.savedHints(entry.experimentId, entry.run.id);
+        return report ? { ...report, runId: entry.run.id } : undefined;
+      }))).filter((report): report is HintReport => !!report);
       cached = { key, findings: aggregateHints(reports) };
       // A missing hints.json may still be written; only a complete set is kept.
       if (reports.length === done.length) this.findingsCache.set(taskId, cached); else this.findingsCache.delete(taskId);
@@ -89,11 +93,10 @@ export class RunViews {
     const taskIds = [...new Set(this.queue.experiments.flatMap(experiment => experiment.runs.map(run => run.taskId)))];
     const rows: TaskSummary[] = [];
     for (const taskId of taskIds) {
-      const { entries, done, facts, findings, steps } = await this.taskData(taskId);
+      const { entries, facts, findings } = await this.taskData(taskId);
       const top = findings.find(finding => finding.source === 'page');
       rows.push({
-        taskId, facts,
-        recent: done.slice(-10).map(entry => ({ experimentId: entry.experimentId, runId: entry.run.id, steps: steps(entry.run) ?? null, reached: entry.run.outcome?.status === 'success' })),
+        taskId, facts, findingCount: findings.filter(finding => finding.source === 'page').length,
         topFinding: top ? { kind: top.kind, ...(top.target ? { target: top.target } : {}), runs: top.runs, totalRuns: top.totalRuns } : null,
         lastRunAt: entries.at(-1)?.at ?? null,
       });

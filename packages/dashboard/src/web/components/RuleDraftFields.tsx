@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { MousePointerClick, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { PageElement } from '../../shared/api';
@@ -6,7 +6,10 @@ import { roleLabel } from '../i18n/labels';
 import { shell } from '../i18n/locales/ko/shell';
 import { ADVANCED_KINDS, BASIC_KINDS, STATE_ATTRIBUTES, blankDraft, type RuleDraft, type RuleDraftKind } from '../lib/ruleEditor';
 import { Choice, Field, Toggle } from './forms';
+import { Disclosure } from './layout/Disclosure';
+import { RadioRows } from './layout/RadioRows';
 import { Button } from './ui/button';
+import { Collapsible, CollapsibleContent } from './ui/collapsible';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from './ui/select';
 
@@ -26,11 +29,12 @@ const ANY = '__any__';
 const LIVE_ROLES = ['status', 'alert', 'log'] as const;
 const roles = Object.keys(shell.roles);
 
-/** The kind select: plain-language kinds first, then an "advanced" group. */
-function KindSelect({ draft, onChange, depth, suffix }: Pick<Props, 'draft' | 'onChange' | 'suffix'> & { depth: number }) {
+/** The kind select inside a combination: plain-language kinds first, then an "advanced" group. */
+function KindSelect({ draft, onChange, suffix }: Pick<Props, 'draft' | 'onChange' | 'suffix'>) {
   const { t } = useTranslation();
   const id = useId();
-  const advanced = ADVANCED_KINDS.filter(kind => depth === 0 || (kind !== 'any' && kind !== 'not'));
+  // A combination cannot hold another combination, so `any` and `not` are only offered at the top level (as radio rows).
+  const advanced = ADVANCED_KINDS.filter(kind => kind !== 'any' && kind !== 'not');
   const label = (kind: RuleDraftKind) => t(`ruleEditor.kinds.${kind}`);
   return <div className="grid gap-2">
     <Label htmlFor={id}>{t('ruleEditor.kind')}{suffix ? ` ${suffix}` : ''}</Label>
@@ -41,6 +45,28 @@ function KindSelect({ draft, onChange, depth, suffix }: Pick<Props, 'draft' | 'o
         <SelectGroup><SelectLabel>{t('ruleEditor.advanced')}</SelectLabel>{advanced.map(kind => <SelectItem key={kind} value={kind}>{label(kind)}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
+  </div>;
+}
+
+/**
+ * The top-level kind as large radio rows ("무엇을 확인할까요?"): plain-language kinds first, the advanced ones in a folded group.
+ * The fields of the chosen kind open under its own row.
+ */
+function KindRadios({ draft, onChange, body }: Pick<Props, 'draft' | 'onChange'> & { body: ReactNode }) {
+  const { t } = useTranslation();
+  const [advancedOpen, setAdvancedOpen] = useState(() => (ADVANCED_KINDS as readonly string[]).includes(draft.kind));
+  const rows = (kinds: readonly RuleDraftKind[]) => kinds.map(kind => ({ id: kind, label: t(`ruleEditor.kinds.${kind}`), hint: t(`ruleEditor.kindHints.${kind}`) }));
+  const choose = (kind: RuleDraftKind) => onChange(blankDraft(kind));
+  const expanded = (kind: RuleDraftKind) => kind === draft.kind ? <div className="grid gap-3">{body}</div> : null;
+  return <div className="grid gap-3">
+    <RadioRows legend={t('ruleEditor.kind')} value={draft.kind} onChange={choose} rows={rows(BASIC_KINDS)} expanded={expanded} />
+    <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="grid gap-1">
+      <Disclosure label={t('ruleEditor.advanced')} />
+      <CollapsibleContent className="grid gap-1.5">
+        <p className="text-xs leading-5 text-muted-foreground">{t('ruleEditor.advancedNote')}</p>
+        <RadioRows legend={t('ruleEditor.advanced')} value={draft.kind} onChange={choose} rows={rows(ADVANCED_KINDS)} expanded={expanded} />
+      </CollapsibleContent>
+    </Collapsible>
   </div>;
 }
 
@@ -136,7 +162,7 @@ export function RuleDraftFields({ draft, onChange, depth = 0, onPick, suffix }: 
     case 'any':
       body = <div className="grid gap-3">
         <p className="text-xs leading-5 text-muted-foreground">{t('ruleEditor.anyHint')}</p>
-        {draft.items.map((item, index) => <div key={index} className="grid gap-3 rounded-lg border p-3">
+        {draft.items.map((item, index) => <div key={index} className="grid gap-3 border-l-2 border-edge-strong pl-3">
           <RuleDraftFields draft={item} depth={depth + 1} onPick={onPick} suffix={String(index + 1)} onChange={next => onChange({ ...draft, items: draft.items.map((current, i) => i === index ? next : current) })} />
           <Button type="button" variant="outline" size="sm" className="justify-self-start" disabled={draft.items.length <= 1} aria-label={t('ruleEditor.removeItemAria', { n: index + 1 })}
             onClick={() => onChange({ ...draft, items: draft.items.filter((_, i) => i !== index) })}><X aria-hidden="true" />{t('ruleEditor.removeItem')}</Button>
@@ -145,14 +171,15 @@ export function RuleDraftFields({ draft, onChange, depth = 0, onPick, suffix }: 
       </div>;
       break;
     case 'not':
-      body = <div className="grid gap-3 rounded-lg border p-3">
+      body = <div className="grid gap-3 border-l-2 border-edge-strong pl-3">
         <p className="text-xs leading-5 text-muted-foreground">{t('ruleEditor.notHint')}</p>
         <RuleDraftFields draft={draft.item} depth={depth + 1} onPick={onPick} suffix={suffix ? `${suffix}-1` : '1'} onChange={item => onChange({ ...draft, item })} />
       </div>;
       break;
   }
+  if (depth === 0) return <KindRadios draft={draft} onChange={onChange} body={body} />;
   return <div className="grid gap-3">
-    <KindSelect draft={draft} onChange={onChange} depth={depth} suffix={suffix} />
+    <KindSelect draft={draft} onChange={onChange} suffix={suffix} />
     {body}
   </div>;
 }

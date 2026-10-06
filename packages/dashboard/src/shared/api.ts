@@ -17,6 +17,8 @@ export type ObservedChange = {
   attr?: string;
   value?: string | null;
   url?: string;
+  /** Focus changes: the focused element's box in CSS pixels of the viewport (rounded), when the observer recorded one. */
+  rect?: { x: number; y: number; width: number; height: number };
 };
 
 export type StepView = {
@@ -28,7 +30,7 @@ export type StepView = {
   /** Whether the backend accepted the action; undefined for the initial page and stops. */
   ok?: boolean;
   /** Screenshot after this step, served by GET .../png/:eventId. */
-  screenshot?: { eventId: string; sha256: string };
+  screenshot?: { eventId: string; sha256: string; /** The viewport in CSS pixels when it was taken; the focus box is in these units. */ viewport?: { w: number; h: number } };
   /** Screen-reader speech collected after this step (simulated or native, see provenance). */
   speech?: { lines: string[]; provenance: 'native' | 'simulation' | 'unspecified' };
   model?: {
@@ -85,8 +87,8 @@ export type TaskFindings = {
 export type TaskSummary = {
   taskId: string;
   facts: TaskFindings['facts'];
-  /** The last 10 finished runs, oldest first. */
-  recent: { experimentId: string; runId: string; steps: number | null; reached: boolean }[];
+  /** How many page elements show a recurring finding (source 'page'). */
+  findingCount: number;
   /** The most frequent finding about the page itself (source 'page'), if any. */
   topFinding: Pick<HintFinding, 'kind' | 'target' | 'runs' | 'totalRuns'> | null;
   /** Start time of the newest run in any state; null when the task was never run. */
@@ -111,3 +113,12 @@ export type CheckSuggestion = {
   checkedAtStart: boolean;
 };
 export type SuggestionResult = { page: { title: string; url: string }; suggestions: CheckSuggestion[]; dropped: number };
+
+/**
+ * Why a connection check did not end in `ready`. The words are the dashboard's own; nothing a provider sent is ever shown.
+ * `unverified` is not a failure: the server answered but gave no model list to confirm the model against.
+ */
+export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed';
+export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'none'; checkedAt: string };
+/** One browser launch on request: the engine, its version and where it came from. */
+export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' } | { ok: false; kind: 'not-found' | 'launch-failed'; source: 'custom' | 'auto' };

@@ -9,4 +9,4 @@ export type { AppliedProfile, BrowserDiagnostic, DiagnosticFinding, EnvironmentP
 export { runScreenshotReplay, runScreenshotTask, SCREENSHOT_KEYS, ScreenshotKeyboardBackend } from './screenshot/index.js';
 export type { ScreenshotRunOptions } from './screenshot/index.js';
 export { installPageObserver, OBSERVER_WORLD } from './observer/index.js';
-export type { ObserverEvent, ObserverEventKind, ObserverOptions, PageObserver } from './observer/index.js';
+export type { ObserverEvent, ObserverEventKind, ObserverOptions, ObserverRect, PageObserver } from './observer/index.js';

@@ -5,15 +5,19 @@ import { defaultProfile, type RunProfile } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { EnvironmentFields } from '../components/EnvironmentFields';
 import { Field } from '../components/forms';
+import { ConceptNote } from '../components/layout/ConceptNote';
 import { PermissionPresets } from '../components/PermissionPresets';
 import { PolicyFields } from '../components/PolicyFields';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { profileSummary } from '../lib/profileSummary';
+import { profileConditions } from '../lib/profileSummary';
 import { cn } from '../lib/utils';
 import type { PageProps } from './types';
 
-/** Run profiles: named sets of experiment conditions (allowed actions, stuck detection, page environment, analysis). */
+/**
+ * Run profiles (spec §34): each one is an experiment condition. The sheet states it as four lines (allowed actions, blocked detection,
+ * viewport, analysis) and below them is the editor for each. Two runs of the same task differ by these lines when only the profile differs.
+ */
 export function ProfilesPage({ capabilities, ...props }: PageProps & { capabilities: ConfigView['capabilities'] }) {
   const { t } = useTranslation();
   const config = props.view.config;
@@ -37,22 +41,24 @@ export function ProfilesPage({ capabilities, ...props }: PageProps & { capabilit
     });
     await props.save({ ...props.view.config, tasks, profiles }, undefined, props.view.revision);
   });
-  return <div className="grid gap-4">
+  const conditions = profileConditions(selected, capabilities.screenreader, props.view.environmentPresets);
+  return <div className="grid gap-5">
     <div><h2 className="text-lg font-semibold tracking-tight">{t('profiles.heading')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('profiles.intro')}</p></div>
-    <div className="grid items-start gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
-      <div className="grid gap-2">
-        <ul aria-label={t('profiles.listLabel')} className="grid gap-1.5">
-          {profiles.map(profile => <li key={profile.id}>
+    <ConceptNote concept="profile" />
+    <div className="grid items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div className="grid gap-3">
+        <ul aria-label={t('profiles.listLabel')} className="grid border-y border-edge-strong">
+          {profiles.map(profile => <li key={profile.id} className="border-b border-edge last:border-b-0">
             <button type="button" aria-current={profile.id === selected.id ? 'true' : undefined} onClick={() => setSelectedId(profile.id)}
-              className={cn('grid min-h-11 w-full gap-0.5 rounded-lg border p-2.5 text-left text-sm transition-colors hover:bg-muted/50', profile.id === selected.id && 'border-primary bg-primary/5')}>
-              <span className="font-medium">{profile.name}</span>
-              <span className="text-xs leading-4 text-muted-foreground">{profileSummary(profile, capabilities.screenreader)}</span>
+              className={cn('grid min-h-11 w-full gap-0.5 border-l-[3px] px-3 py-2 text-left text-sm', profile.id === selected.id ? 'border-l-trace bg-trace-soft font-medium' : 'border-l-transparent hover:bg-raised')}>
+              <span>{profile.name}</span>
+              <span className="text-xs leading-4 font-normal text-muted-foreground">{profileConditions(profile, capabilities.screenreader, props.view.environmentPresets)[0]!.value}</span>
             </button>
           </li>)}
         </ul>
         <Button variant="outline" onClick={() => add(defaultProfile(crypto.randomUUID(), t('profiles.newName', { n: profiles.length + 1 })))}><Plus aria-hidden="true" />{t('profiles.add')}</Button>
       </div>
-      <div className="grid min-w-0 gap-4 rounded-lg border p-4">
+      <div className="grid min-w-0 gap-6">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,20rem)_auto] sm:items-end sm:justify-between">
           <Field label={t('profiles.name')} value={selected.name} onChange={name => update({ name })} />
           <div className="flex gap-2">
@@ -60,11 +66,20 @@ export function ProfilesPage({ capabilities, ...props }: PageProps & { capabilit
             <Button variant="outline" disabled={profiles.length <= 1} onClick={remove}><Trash2 aria-hidden="true" />{t('profiles.delete')}</Button>
           </div>
         </div>
-        {usedBy > 0 && <p className="-mt-2 text-xs leading-5 text-muted-foreground">{t('profiles.usedBy', { count: usedBy })}</p>}
+        {usedBy > 0 && <p className="-mt-3 text-xs leading-5 text-muted-foreground">{t('profiles.usedBy', { count: usedBy })}</p>}
+        <section aria-labelledby="profile-conditions" className="grid gap-1.5">
+          <h3 id="profile-conditions" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('profiles.conditionTitle', { name: selected.name })}</h3>
+          <dl className="grid">
+            {conditions.map(condition => <div key={condition.id} className="grid gap-x-4 border-b border-edge py-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
+              <dt className="text-sm text-muted-foreground">{t(`profiles.condition.labels.${condition.id}`)}</dt>
+              <dd className="text-sm leading-6">{condition.value}</dd>
+            </div>)}
+          </dl>
+        </section>
         <ProfileTabs key={selected.id} profile={selected} update={update} capabilities={capabilities} presets={props.view.environmentPresets} />
-        <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+        <div className="flex flex-wrap items-center gap-3 border-t border-edge-strong pt-4">
           <Button size="xl" disabled={props.busy || !dirty} onClick={save}><Save aria-hidden="true" />{t('profiles.save')}</Button>
-          <p className="text-xs text-muted-foreground">{dirty ? t('profiles.unsaved') : t('profiles.saved')}</p>
+          <p role="status" className="text-xs text-muted-foreground">{dirty ? t('profiles.unsaved') : t('profiles.saved')}</p>
         </div>
       </div>
     </div>

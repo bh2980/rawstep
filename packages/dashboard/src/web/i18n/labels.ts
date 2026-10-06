@@ -18,15 +18,10 @@ export function roleLabel(role: string): string {
   return has(shell.roles, role) ? lookup(`roles.${role}`) : role;
 }
 
-/** The page element a finding or hint is about: `버튼 “Checkout”`, or just the role when it has no name. */
+/** The page element a finding, hint or focus is about: `버튼 “Checkout”`, or just the role when it has no name. */
 export function targetLabel(target: { role: string; name?: string } | undefined): string {
-  if (!target) return t('taskList.wholePage');
+  if (!target) return t('trace.wholePage');
   return target.name ? t('hints.text.targetNamed', { role: roleLabel(target.role), name: target.name }) : roleLabel(target.role);
-}
-
-/** What kind of friction a finding is and where: `키 입력 과다 · 버튼 “Checkout”`. */
-export function findingLabel(finding: { kind: string; target?: { role: string; name?: string } }): string {
-  return t('taskList.finding', { kind: hintKindLabel(finding.kind), target: targetLabel(finding.target) });
 }
 
 /** Korean label for a recorded outcome reason; unknown reasons are shown as recorded. */

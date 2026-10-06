@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { PageElement, PageElements } from '../../shared/api';
 import { api } from '../api';
 import { roleLabel } from '../i18n/labels';
+import { describeApiError, type ErrorView } from '../lib/errors';
+import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -17,7 +19,7 @@ type Props = {
   onPick: (element: PageElement) => void;
 };
 
-type Loaded = { url: string; elements: PageElements } | { url: string; error: string };
+type Loaded = { url: string; elements: PageElements } | { url: string; error: ErrorView };
 
 /** A searchable list of the notable elements of the start page, read by the server in a headless browser. Picking one fills a role and a name. */
 export function ElementPicker({ open, onOpenChange, url, roles, onPick }: Props) {
@@ -31,7 +33,7 @@ export function ElementPicker({ open, onOpenChange, url, roles, onPick }: Props)
     setLoading(true);
     api<PageElements>('/page-elements', { method: 'POST', body: { url: address } })
       .then(elements => { if (mine === ticket.current) setLoaded({ url: address, elements }); })
-      .catch(error => { if (mine === ticket.current) setLoaded({ url: address, error: (error as Error).message }); })
+      .catch(error => { if (mine === ticket.current) setLoaded({ url: address, error: describeApiError(error, 'start') }); })
       .finally(() => { if (mine === ticket.current) setLoading(false); });
   };
   // The page is read once per address; opening the list again shows the same elements.
@@ -53,14 +55,14 @@ export function ElementPicker({ open, onOpenChange, url, roles, onPick }: Props)
         ? <p role="status" className="text-sm text-muted-foreground">{t('elementPicker.needUrl')}</p>
         : <div className="grid gap-3">
           {loading && <p role="status" className="text-sm text-muted-foreground">{t('elementPicker.loading')}</p>}
-          {error && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" size="sm" onClick={load}>{t('elementPicker.retry')}</Button></div>}
+          {error && <ErrorState alert view={error} actions={<Button variant="outline" size="sm" onClick={load}>{t('elementPicker.retry')}</Button>} />}
           {elements.length > 0 && <>
             <div className="grid gap-1.5">
               <Label htmlFor="element-search">{t('elementPicker.search')}</Label>
               <Input id="element-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t('elementPicker.searchPlaceholder')} />
             </div>
             <p role="status" className="text-xs text-muted-foreground">{t('elementPicker.count', { shown: shown.length, total: elements.length })}</p>
-            <ul aria-label={t('elementPicker.listLabel')} className="grid max-h-80 gap-0.5 overflow-y-auto rounded-md border p-1">
+            <ul aria-label={t('elementPicker.listLabel')} className="grid max-h-80 gap-0.5 overflow-y-auto border-y border-edge-strong py-1">
               {shown.map(element => <li key={element.role + '\n' + (element.name ?? '')}>
                 <Button variant="ghost" className="h-auto min-h-9 w-full justify-start gap-3 py-1.5 text-left whitespace-normal" onClick={() => { onPick(element); onOpenChange(false); }}>
                   <span className="w-24 shrink-0 text-xs text-muted-foreground">{roleLabel(element.role)}</span>

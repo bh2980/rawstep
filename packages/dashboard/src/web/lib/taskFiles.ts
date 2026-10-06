@@ -1,4 +1,4 @@
-import { defaultModes } from '@rawstep/project/config';
+import { defaultModes, type ManagedTask } from '@rawstep/project/config';
 import { ApiError } from '../api';
 import type { ConfigView } from '../../shared/config';
 import type { PageProps } from '../pages/types';
@@ -24,10 +24,13 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
  * Registers a new managed task and writes its Task JSON. A 409 means the file already exists on disk
  * (or the config changed), so retry once with a random suffix. Returns the new task id and the project state that includes it.
  */
-export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown; profileId?: string }): Promise<{ id: string; view: ConfigView }> {
-  const id = crypto.randomUUID();
+export async function createManagedTask(props: PageProps, input: { name: string; slug: string; task: unknown; profileId?: string; /** A task being copied: its prompts, per-task overrides and analysis instructions come along. */ copyOf?: Pick<ManagedTask, 'modes' | 'policy' | 'analysisInstructions'> }): Promise<{ id: string; view: ConfigView }> {
+  const id = crypto.randomUUID(), { copyOf } = input;
   const write = (file: string) => props.save(
-    { ...props.view.config, tasks: [...props.view.config.tasks, { id, name: input.name, file, ...(input.profileId ? { profileId: input.profileId } : {}), modes: defaultModes() }] },
+    { ...props.view.config, tasks: [...props.view.config.tasks, {
+      id, name: input.name, file, ...(input.profileId ? { profileId: input.profileId } : {}), modes: copyOf ? structuredClone(copyOf.modes) : defaultModes(),
+      ...(copyOf?.policy ? { policy: structuredClone(copyOf.policy) } : {}), ...(copyOf?.analysisInstructions ? { analysisInstructions: copyOf.analysisInstructions } : {}),
+    }] },
     { file, task: input.task },
   );
   const used = new Set(props.view.config.tasks.map(task => task.file));

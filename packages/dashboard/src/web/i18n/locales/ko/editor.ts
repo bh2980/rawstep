@@ -62,9 +62,8 @@ export const editor = {
     sourceProfile: '프로필',
     sourceTask: '작업',
     runOne: '개별 실행',
-    emptyTitle: '실행 조합을 선택하세요',
-    emptyLine1: '왼쪽에서 항목을 선택하고 조합을 확인하면',
-    emptyLine2: '지원 여부와 실제 허용 기능이 표시됩니다.',
+    emptyTitle: '확인한 실행 조합이 없습니다',
+    emptyWhy: '왼쪽에서 작업, 모델, 프롬프트, 실행 프로필을 고르고 조합을 확인하면 각 조합이 실행 가능한지와 허용되는 행동이 이곳에 나타납니다.',
   },
   forms: {
     advanced: '고급',
@@ -72,6 +71,8 @@ export const editor = {
     noItems: '등록한 항목이 없습니다.',
   },
   apiErrors: {
-    requestFailed: '요청 실패',
+    requestFailed: '요청을 처리하지 못했습니다.',
+    connectionLost: '로컬 서버에 연결하지 못했습니다.',
+    notJson: '서버가 예상한 형식으로 답하지 않았습니다.',
   },
 } as const;

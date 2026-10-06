@@ -2,19 +2,23 @@ import { useMemo, useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { taskProfile, type ManagedTask } from '@rawstep/project/config';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { RunBox } from '../components/RunBox';
+import type { DeleteTaskResult } from '../../shared/config';
+import { api, ApiError } from '../api';
+import { DeleteTaskDialog } from '../components/DeleteTaskDialog';
+import { EmptyState } from '../components/layout/EmptyState';
 import { TaskChecks } from '../components/TaskChecks';
+import { TaskEditSheet, type BasicsSave, type TaskBasics } from '../components/TaskEditSheet';
+import { TaskHeader } from '../components/TaskHeader';
 import { TaskOverview } from '../components/TaskOverview';
 import { TaskSettings } from '../components/TaskSettings';
+import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useTaskFindings } from '../hooks/useTaskFindings';
 import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
-import { describeRule } from '../lib/describeRule';
 import { isLive, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { RunOptions } from '../lib/quickRun';
-import { parseTaskJson, sameTaskJson, taskRules, withRules } from '../lib/taskJson';
+import { createManagedTask } from '../lib/taskFiles';
+import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../lib/taskJson';
 import type { PageProps } from './types';
 
 type Props = {
@@ -23,58 +27,102 @@ type Props = {
   onCompare: (taskId: string) => void; onRun: (taskId: string, options: RunOptions) => void;
 };
 
-/** A task: what it is and how it is run at the top, then its overview, completion checks and settings. Mount with `key={taskId}` so drafts do not leak between tasks. */
+/** Sends a person to the run control of the task header, for an empty state that says "run it". */
+function focusRunControl() {
+  const form = document.getElementById('task-run-control');
+  form?.scrollIntoView({ block: 'center' });
+  form?.querySelector<HTMLElement>('[role="combobox"], button')?.focus();
+}
+
+/**
+ * A task as one investigation sheet: its header with the run control, then overview, completion check and detailed settings.
+ * Name, address, goal and run profile are edited in the 작업 수정 sheet; the tabs hold the rest. Both write the same draft and
+ * the same file. Mount with `key={taskId}` so drafts do not leak between tasks.
+ */
 export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, onRun }: Props) {
   const { t } = useTranslation();
   const findings = useTaskFindings(taskId);
   const { view } = pageProps, config = view.config;
-  const saved = config.tasks.find(task => task.id === taskId), savedJson = JSON.stringify(view.tasks[taskId] ?? {}, null, 2);
+  const saved = config.tasks.find(item => item.id === taskId), savedJson = JSON.stringify(view.tasks[taskId] ?? {}, null, 2);
   const [task, setTask] = useState<ManagedTask | undefined>(() => saved && structuredClone(saved));
   const [json, setJson] = useState(savedJson), [revision, setRevision] = useState(view.revision);
+  const [editing, setEditing] = useState(false), [deleting, setDeleting] = useState(false);
   const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === taskId), [runs, taskId]);
   const numbers = useMemo(() => taskRunNumbers(runs, taskId), [runs, taskId]);
-  if (!saved || !task) return <p className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">{t('task.unknown')}</p>;
+  if (!saved || !task) return <EmptyState title={t('task.unknownTitle')} why={t('task.unknown')} action={<Button variant="outline" onClick={() => navigate({ view: 'tasks' })}>{t('task.backToTasks')}</Button>} />;
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
-  const profile = taskProfile(config, saved), savedRules = taskRules(parseTaskJson(savedJson) ?? {});
-  const save = async () => {
-    if (!parsed) throw new Error(t('taskSettings.invalidJson'));
-    const state = await pageProps.save({ ...config, tasks: config.tasks.map(item => item.id === task.id ? task : item) }, { file: task.file, task: parsed }, revision);
-    // Start again from what the server stored, so the page is clean even where it normalised the file.
-    const stored = state.config.tasks.find(item => item.id === task.id);
+  const profile = taskProfile(config, saved), savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
+  const draftProfile = taskProfile(config, task);
+  // What the 세부 설정 tab changed, apart from the four things the sheet owns.
+  const otherChanges = JSON.stringify({ ...task, name: saved.name, profileId: saved.profileId }) !== JSON.stringify(saved)
+    || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal }), savedJson);
+
+  /** Writes a task entry and its file against `base`, then starts the draft again from what the server stored. */
+  async function write(next: { task: ManagedTask; json: string }, base: string, current = config) {
+    const body = parseTaskJson(next.json);
+    if (!body) throw new Error(t('taskSettings.invalidJson'));
+    const state = await pageProps.save({ ...current, tasks: current.tasks.map(item => item.id === next.task.id ? next.task : item) }, { file: next.task.file, task: body }, base);
+    const stored = state.config.tasks.find(item => item.id === next.task.id);
     setRevision(state.revision);
     if (stored) setTask(structuredClone(stored));
-    setJson(JSON.stringify(state.tasks[taskId] ?? parsed, null, 2));
-  };
+    setJson(JSON.stringify(state.tasks[taskId] ?? body, null, 2));
+  }
+  const save = () => write({ task, json }, revision);
   const discard = () => { setTask(structuredClone(saved)); setJson(savedJson); };
+
+  const saveBasics = async (basics: TaskBasics, rebase: boolean): Promise<BasicsSave> => {
+    let result: BasicsSave = { ok: true };
+    await pageProps.act(async () => {
+      try {
+        if (rebase) {
+          // The project as it is now with only these four edits on top, saved against its own revision.
+          const latest = pageProps.view, entry = latest.config.tasks.find(item => item.id === taskId);
+          if (!entry) throw new Error(t('task.unknown'));
+          await write({ task: { ...entry, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(JSON.stringify(latest.tasks[taskId] ?? {}, null, 2), { url: basics.url, goal: basics.goal }) }, latest.revision, latest.config);
+        } else await write({ task: { ...task, name: basics.name, profileId: basics.profileId }, json: updateTaskJson(json, { url: basics.url, goal: basics.goal }) }, revision);
+        pageProps.notify(t('taskEdit.saved'));
+      } catch (error) { result = { ok: false, conflict: error instanceof ApiError && error.status === 409, error }; }
+    });
+    return result;
+  };
+  const duplicate = () => void pageProps.act(async () => {
+    const copy = await createManagedTask(pageProps, {
+      name: t('taskPage.copyName', { name: saved.name }), slug: saved.file.replace(/^tasks\//, '').replace(/\.json$/i, ''), task: savedParsed, profileId: saved.profileId ?? profile.id, copyOf: saved,
+    });
+    navigate({ task: copy.id });
+    pageProps.notify(t('taskPage.duplicated', { name: saved.name }));
+  });
+  const remove = () => { setDeleting(false); void pageProps.act(async () => {
+    const result = await api<DeleteTaskResult>('/tasks/' + encodeURIComponent(taskId), { method: 'DELETE', body: { revision: pageProps.view.revision } });
+    navigate({ view: 'tasks' });
+    pageProps.notify(result.fileRemoved ? t('taskDelete.doneRemoved', { name: saved.name, file: result.file }) : t('taskDelete.doneKept', { name: saved.name, file: result.file }));
+  }); };
+
+  const active = taskRuns.filter(ref => isLive(ref.run));
   return <div className="grid gap-5">
-    <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-      <div className="grid min-w-0 flex-[1_1_24rem] gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight break-words">{saved.name}</h1>
-        <p className="font-mono text-[13px] break-all text-muted-foreground">{String(parseTaskJson(savedJson)?.url ?? '')}</p>
-        <p className="max-w-3xl text-sm leading-6">{String(parseTaskJson(savedJson)?.goal ?? '')}</p>
-        <ul className="mt-1 flex flex-wrap gap-2" aria-label={t('taskPage.chipsLabel')}>
-          <li><Badge variant="outline" className="h-auto whitespace-normal py-0.5 text-left">{savedRules.length ? t('taskPage.checkChip', { rule: describeRule(savedRules[0]), more: savedRules.length > 1 ? t('taskPage.checkChipMore', { count: savedRules.length - 1 }) : '' }) : t('taskPage.noCheckChip')}</Badge></li>
-          <li><Badge variant="outline" className="h-auto whitespace-normal py-0.5">{t('taskPage.profileChip', { name: profile.name })}</Badge></li>
-        </ul>
-      </div>
-      <RunBox view={view} busy={pageProps.busy} active={taskRuns.filter(ref => isLive(ref.run))} navigate={navigate}
-        onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)} />
-    </header>
+    <TaskHeader name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={profile.name}
+      view={view} busy={pageProps.busy} active={active} navigate={navigate} onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)}
+      onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
     <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-4">
       <TabsList variant="line" aria-label={t('taskPage.tabsLabel')} className="h-9 w-full justify-start gap-1 border-b">
         {taskTabs.map(id => <TabsTrigger key={id} value={id} className="h-9 flex-none px-3 text-sm">{t(`taskPage.tabs.${id}`)}</TabsTrigger>)}
       </TabsList>
-      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} profiles={config.profiles} navigate={navigate} /></TabsContent>
+      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} profiles={config.profiles} navigate={navigate} onRun={focusRunControl} /></TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>
-      <TabsContent value="settings"><TaskSettings task={task} onTask={setTask} json={json} onJson={setJson} view={view} /></TabsContent>
+      <TabsContent value="settings"><TaskSettings task={task} onTask={setTask} json={json} onJson={setJson} view={view} onEdit={() => setEditing(true)} /></TabsContent>
     </Tabs>
 
-    {dirty && tab !== 'overview' && <div role="region" aria-label={t('taskPage.saveBar')} className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-background/95 py-3 backdrop-blur">
+    {dirty && tab !== 'overview' && <div role="region" aria-label={t('taskPage.saveBar')} className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-edge-strong bg-background/95 py-3 backdrop-blur">
       <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(save)}><Save aria-hidden="true" />{t('taskPage.save')}</Button>
       <Button variant="outline" size="xl" disabled={pageProps.busy} onClick={discard}><RotateCcw aria-hidden="true" />{t('taskPage.discard')}</Button>
       <p role="status" className="text-xs text-muted-foreground">{t('taskPage.unsaved')}</p>
     </div>}
+
+    <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} view={view} rules={rules} otherChanges={otherChanges} onSave={saveBasics}
+      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), profileId: draftProfile.id }}
+      onOpenCheck={() => { setEditing(false); navigate({ task: taskId, tab: 'check' }); }} />
+    <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;
 }

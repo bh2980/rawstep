@@ -14,6 +14,8 @@ import { runGlyphKind } from '../lib/runStrip';
 import { describeHint } from '../lib/describe';
 import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
+import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
+import { ErrorState } from './layout/ErrorState';
 import { Link } from './Link';
 import { RetryDialog } from './RetryDialog';
 import { FactLine } from './trace/FactLine';
@@ -51,6 +53,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const now = useNow(live && run.state === 'running');
   const elapsed = run.startedAt && run.state === 'running' ? Math.max(0, (now - Date.parse(run.startedAt)) / 1000) : undefined;
   const newest = view?.steps.at(-1);
+  const failure = describeRunFailure(run), afterRun = describeAfterRunFailure(run);
   return <header className="grid gap-3">
     <nav aria-label={t('runPage.breadcrumb')} className="text-[13px] text-muted-foreground">
       <Link to={{ task: run.taskId }} navigate={navigate} className="rounded-sm underline-offset-2 hover:underline">{run.snapshot.taskName}</Link> / {t('runPage.number', { n: own(run.id) ?? '' })}
@@ -101,10 +104,10 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
     </div>
     <div className="grid gap-1 text-sm">
       {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
-      {run.outcome && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
-      {run.error && <p role="alert" className="text-destructive">{run.error}</p>}
-      {run.analysisError && <p role="alert" className="text-destructive">{run.analysisError}</p>}
+      {run.outcome && !failure && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
     </div>
+    {failure && <ErrorState view={failure} navigate={navigate} />}
+    {afterRun && <ErrorState view={afterRun} />}
     <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
   </header>;
 }

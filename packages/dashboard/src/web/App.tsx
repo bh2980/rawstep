@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ProjectConfig } from '@rawstep/project/config';
 import type { ConfigView, Experiment } from '../shared/config';
 import { api } from './api';
@@ -8,6 +8,7 @@ import { startRun, type RunOptions } from './lib/quickRun';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
 import { HomePage } from './pages/HomePage';
@@ -34,27 +35,31 @@ function Dashboard() {
   const { route, navigate } = useRoute();
   const wide = useMediaQuery('(min-width: 1024px)');
   const [editorKey, setEditorKey] = useState(0);
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ErrorView>(), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  // A connection that was never made is a failed load; one that was made and dropped is a connection loss.
+  const [everConnected, setEverConnected] = useState(false);
+  useEffect(() => { if (data.connected) setEverConnected(true); }, [data.connected]);
   const [navOpen, setNavOpen] = useState(false);
   /** The experiment builder; `taskId` preselects a task when it was opened from that task. */
   const [compare, setCompare] = useState<{ open: boolean; taskId?: string }>({ open: false });
   const { view, setView, refresh } = data;
   const runs = useMemo(() => flattenRuns(data.experiments), [data.experiments]);
 
-  const act = useCallback(async (work: () => Promise<unknown>) => {
-    setBusy(true); setError(''); setNotice('');
-    try { await work(); await refresh(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  const act = useCallback(async (work: () => Promise<unknown>, options?: { as?: ErrorKind }) => {
+    setBusy(true); setError(undefined); setNotice('');
+    try { await work(); await refresh(); } catch (e) { setError(describeApiError(e, options?.as)); } finally { setBusy(false); }
   }, [refresh]);
   const save = useCallback(async (config: ProjectConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
     const state = await api<ConfigView>('/config', { method: 'PUT', body: { config, revision: revision ?? view!.revision, ...(taskWrite ? { taskWrite } : {}) } });
     setView(state); setNotice(t('app.saved'));
     return state;
   }, [view, setView]);
-  const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
-  const pageProps: PageProps | undefined = view ? { view, save, act, busy } : undefined;
-  const banner = <StatusBanner error={error || data.loadError} notice={notice} busy={busy} onReload={reload} />;
-
   const go: typeof navigate = (change, options) => { setNotice(''); setNavOpen(false); navigate(change, options); };
+  const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
+  const pageProps: PageProps | undefined = view ? { view, save, act, busy, notify: setNotice } : undefined;
+  const lost = everConnected && !data.connected;
+  const banner = <StatusBanner error={error ?? data.loadError ?? (lost ? connectionLostView() : undefined)} notice={notice} busy={busy} onReload={reload} navigate={go} />;
+
   const running = runs.filter(ref => ref.run.state === 'running').length;
   const queued = runs.filter(ref => ref.run.state === 'queued').length;
   const openRun = (experiment: Experiment) => {
@@ -64,7 +69,7 @@ function Dashboard() {
   };
   /** Starts a run of a task (in the given project state, which may be newer than `view`) and opens the first one. */
   const startAndOpen = async (state: ConfigView, taskId: string, options?: RunOptions) => openRun(await startRun(state, taskId, options));
-  const runTask = (taskId: string, options?: RunOptions) => void act(() => startAndOpen(view!, taskId, options));
+  const runTask = (taskId: string, options?: RunOptions) => void act(() => startAndOpen(view!, taskId, options), { as: 'start' });
 
   return <div className="flex h-screen flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>

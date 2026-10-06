@@ -1,112 +1,107 @@
 import { useId, useState } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
 import { describeRule } from '../lib/describeRule';
 import type { PageProps } from '../pages/types';
+import { Disclosure } from './layout/Disclosure';
+import { ErrorState } from './layout/ErrorState';
 import { ScriptSource, scriptOf } from './RuleCard';
-import { Badge } from './ui/badge';
+import { describeApiError } from '../lib/errors';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Collapsible, CollapsibleContent } from './ui/collapsible';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import type { ErrorView } from '../lib/errors';
 
 type Props = {
   view: PageProps['view'];
   url: string;
   goal: string;
-  /** Replace the task's completion checks with this one. */
-  onUse: (rule: VerifyRule) => void;
   /** Append this one to the task's completion checks. */
-  onAdd?: (rule: VerifyRule) => void;
+  onAdd: (rule: VerifyRule) => void;
+  /** Titles the panel as a reference list beside the task specification (the new task page). */
+  reference?: boolean;
 };
 
-const WARNING = 'border-amber-500/60 text-amber-800 dark:text-amber-300';
-
-function SuggestionCard({ suggestion, onUse, onAdd }: { suggestion: CheckSuggestion; onUse: Props['onUse']; onAdd?: Props['onAdd'] }) {
+/**
+ * One suggestion as a candidate condition (spec §20): `제안 01`, a plain sentence, and [추가]. A suggestion that is code the model wrote
+ * is set apart in a heavier ADVANCED CHECK block with the code itself, and cannot be added until the person has ticked that they read it.
+ */
+function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSuggestion; index: number; onAdd: Props['onAdd']; added: boolean }) {
   const { t } = useTranslation();
   const ackId = useId();
   const [reviewed, setReviewed] = useState(false), [rawOpen, setRawOpen] = useState(false);
-  const script = scriptOf(suggestion.rule);
-  // Model-written code runs on the page at verification time: a person must read it first.
-  const blocked = script !== undefined && !reviewed;
-  return <Card size="sm">
-    <CardHeader>
-      <CardTitle>{suggestion.title}</CardTitle>
-      <CardDescription>{suggestion.why}</CardDescription>
-    </CardHeader>
-    <CardContent className="grid gap-3">
-      <div className="flex flex-wrap gap-2">
-        {suggestion.trueAtStart === true && <Badge variant="outline" className={'h-auto whitespace-normal ' + WARNING}>{t('checkSuggest.trueAtStart')}</Badge>}
-        {!script && suggestion.checkedAtStart === false && <Badge variant="secondary" className="h-auto whitespace-normal">{t('checkSuggest.changeDuringRun')}</Badge>}
-        {script && <Badge variant="outline" className="h-auto whitespace-normal">{t('checkSuggest.scriptBadge')}</Badge>}
+  const script = scriptOf(suggestion.rule), blocked = script !== undefined && !reviewed;
+  const number = String(index + 1).padStart(2, '0');
+  return <li className="grid gap-2 border-b border-edge py-3">
+    <div className="flex items-start justify-between gap-3">
+      <div className="grid min-w-0 gap-1">
+        <p className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{t('checkSuggest.candidate', { n: number })}</p>
+        <p className="text-[15px] leading-6 font-medium">{describeRule(suggestion.rule)}</p>
+        <p className="text-[13px] leading-5 text-muted-foreground">{suggestion.title}{suggestion.why ? ` — ${suggestion.why}` : ''}</p>
+        {suggestion.trueAtStart === true && <p className="text-xs leading-5 text-inspect">{t('checkSuggest.trueAtStart')}</p>}
+        {!script && suggestion.checkedAtStart === false && <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.changeDuringRun')}</p>}
       </div>
-      <p className="text-sm leading-6"><span className="font-medium">{t('checkSuggest.meaning')}</span> {describeRule(suggestion.rule)}</p>
-      {script && <div className="grid gap-3 rounded-lg border p-3">
-        <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.scriptNotice')}</p>
-        {script.description && <p className="text-sm leading-6"><span className="font-medium">{t('checkSuggest.scriptDescription')}</span> {script.description}</p>}
-        <ScriptSource source={script.source} />
-        <div className="flex items-start gap-2">
-          <Checkbox id={ackId} checked={reviewed} onCheckedChange={value => setReviewed(value === true)} />
-          <Label htmlFor={ackId} className="font-normal leading-5">{t('checkSuggest.scriptAck')}</Label>
-        </div>
-      </div>}
-      <Collapsible open={rawOpen} onOpenChange={setRawOpen} className="grid gap-2">
-        <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="justify-self-start">
-            <ChevronDown aria-hidden="true" className={'transition-transform' + (rawOpen ? ' rotate-180' : '')} />{t('checkSuggest.rawJson')}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <pre className="max-h-72 overflow-auto rounded-md border bg-muted p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-all">{JSON.stringify(suggestion.rule, null, 2)}</pre>
-        </CollapsibleContent>
-      </Collapsible>
-    </CardContent>
-    <CardFooter className="flex-wrap justify-end gap-2">
-      <Button type="button" disabled={blocked} onClick={() => onUse(suggestion.rule)}>{t('checkSuggest.use')}</Button>
-      {onAdd && <Button type="button" variant="outline" disabled={blocked} onClick={() => onAdd(suggestion.rule)}>{t('checkSuggest.add')}</Button>}
-    </CardFooter>
-  </Card>;
+      <Button type="button" variant="outline" disabled={blocked || added} aria-label={t('checkSuggest.addAria', { n: number })} onClick={() => onAdd(suggestion.rule)}><Plus aria-hidden="true" />{added ? t('checkSuggest.added') : t('checkSuggest.add')}</Button>
+    </div>
+    {script && <div className="grid gap-3 border-2 border-inspect bg-inspect-soft p-3">
+      <p lang="en" className="text-xs font-semibold tracking-[0.08em] text-inspect uppercase">{t('labels.advancedCheck')} · {t('labels.generatedCode')}</p>
+      <p className="text-[13px] leading-5">{t('checkSuggest.scriptNotice')}</p>
+      {script.description && <p className="text-sm leading-6"><span className="font-semibold">{t('checkSuggest.scriptDescription')}</span> {script.description}</p>}
+      <ScriptSource source={script.source} />
+      <div className="flex items-start gap-2.5">
+        <Checkbox id={ackId} checked={reviewed} onCheckedChange={value => setReviewed(value === true)} className="mt-0.5" />
+        <Label htmlFor={ackId} className="font-medium leading-5">{t('checkSuggest.scriptAck')}</Label>
+      </div>
+    </div>}
+    <Collapsible open={rawOpen} onOpenChange={setRawOpen} className="grid">
+      <Disclosure label={t('checkSuggest.rawJson')} />
+      <CollapsibleContent>
+        <pre className="max-h-72 overflow-auto rounded-md border bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-all">{JSON.stringify(suggestion.rule, null, 2)}</pre>
+      </CollapsibleContent>
+    </Collapsible>
+  </li>;
 }
 
 /**
- * Asks an analysis model for completion checks based on the start page's structure.
- * Nothing changes until a person picks a suggestion; script suggestions also need an explicit "I read the code" check.
+ * "AI 제안": a reference list of conditions an analysis model proposes from the start page's structure. It is not a chat; nothing changes
+ * until a person adds a candidate.
  */
-export function CheckSuggestions({ view, url, goal, onUse, onAdd }: Props) {
+export function CheckSuggestions({ view, url, goal, onAdd, reference }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
   const models = view.config.models.filter(model => model.kind === 'llm' && model.roles.includes('analysis'));
   const [picked, setPicked] = useState('');
-  const [loading, setLoading] = useState(false), [error, setError] = useState<string>();
-  const [result, setResult] = useState<SuggestionResult>();
+  const [loading, setLoading] = useState(false), [error, setError] = useState<ErrorView>();
+  const [result, setResult] = useState<SuggestionResult>(), [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const selected = models.find(model => model.id === picked) ?? models[0];
   const ready = url.trim() !== '' && goal.trim() !== '' && selected !== undefined;
   async function suggest() {
     if (!selected) return;
-    setLoading(true); setError(undefined); setResult(undefined);
+    setLoading(true); setError(undefined); setResult(undefined); setAdded(new Set());
     try {
       setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim(), modelId: selected.id } }));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t('apiErrors.requestFailed'));
+      setError(describeApiError(failure, 'start'));
     } finally { setLoading(false); }
   }
-  return <section className="grid gap-4 rounded-lg border p-4" aria-labelledby={modelId + '-title'}>
+  const add = (suggestion: CheckSuggestion, key: string) => { onAdd(suggestion.rule); setAdded(new Set([...added, key])); };
+  return <section aria-labelledby={modelId + '-title'} className="grid min-w-0 gap-3 border-t-2 border-foreground pt-3">
     <div className="grid gap-1">
-      <h3 id={modelId + '-title'} className="flex items-center gap-2 font-medium"><Sparkles aria-hidden="true" className="size-4" />{t('checkSuggest.title')}</h3>
-      <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.description')}</p>
+      <h3 id={modelId + '-title'} className="text-base font-semibold">{t('checkSuggest.title')}</h3>
+      <p className="text-[13px] leading-5 text-muted-foreground">{reference ? t('checkSuggest.referenceNote') : t('checkSuggest.description')}</p>
     </div>
     {models.length === 0
       ? <p role="status" className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.noModel')}</p>
-      : <div className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor={modelId}>{t('checkSuggest.model')}</Label>
+      : <div className="grid gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor={modelId} className="text-xs text-muted-foreground">{t('checkSuggest.model')}</Label>
           <Select value={selected?.id ?? ''} onValueChange={setPicked} disabled={loading}>
-            <SelectTrigger id={modelId} className="w-full"><SelectValue /></SelectTrigger>
+            <SelectTrigger id={modelId} className="h-9 w-full"><SelectValue /></SelectTrigger>
             <SelectContent>{models.map(model => <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>)}</SelectContent>
           </Select>
         </div>
@@ -115,11 +110,15 @@ export function CheckSuggestions({ view, url, goal, onUse, onAdd }: Props) {
           <p id={modelId + '-note'} role={loading ? 'status' : undefined} className="text-xs leading-5 text-muted-foreground">{loading ? t('checkSuggest.loadingNote') : !ready ? t('checkSuggest.needInput') : ''}</p>
         </div>
       </div>}
-    {error && <p role="alert" className="text-sm leading-6 text-destructive">{error}</p>}
-    {result && <div className="grid gap-3">
+    {error && <ErrorState alert view={error} />}
+    {result && <div className="grid gap-1">
       <p className="text-sm font-medium">{t('checkSuggest.pageTitle', { title: result.page.title || t('checkSuggest.pageUntitled') })}</p>
-      {result.suggestions.length === 0 && <p className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.empty')}</p>}
-      {result.suggestions.map((suggestion, i) => <SuggestionCard key={i + JSON.stringify(suggestion.rule)} suggestion={suggestion} onUse={onUse} onAdd={onAdd} />)}
+      {result.suggestions.length === 0
+        ? <p className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.empty')}</p>
+        : <ol aria-label={t('checkSuggest.listLabel')} className="grid">{result.suggestions.map((suggestion, i) => {
+          const key = i + JSON.stringify(suggestion.rule);
+          return <Candidate key={key} suggestion={suggestion} index={i} added={added.has(key)} onAdd={() => add(suggestion, key)} />;
+        })}</ol>}
       {result.dropped > 0 && <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.dropped', { n: result.dropped })}</p>}
     </div>}
   </section>;

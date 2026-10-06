@@ -7,6 +7,7 @@ import type { ConfigView } from '../../shared/config';
 import { policyInheritedSummary } from '../lib/profileSummary';
 import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJson';
 import { Choice, Field, Panel, Toggle } from './forms';
+import { ErrorState } from './layout/ErrorState';
 import { PermissionPresets } from './PermissionPresets';
 import { PolicyFields } from './PolicyFields';
 import { Button } from './ui/button';
@@ -19,6 +20,8 @@ type Props = {
   /** The Task JSON text: start URL, goal, limits, inputs and the rest of the file. */
   json: string; onJson: (json: string) => void;
   view: ConfigView;
+  /** Opens the 작업 수정 sheet, where the name, address, goal and run profile are edited. */
+  onEdit: () => void;
 };
 
 /** Keyboard / screen reader tabs sharing one selected mode; renders `children` for each mode. */
@@ -30,8 +33,11 @@ function ModeTabs({ mode, onMode, children }: { mode: Mode; onMode: (mode: Mode)
   </Tabs>;
 }
 
-/** The "설정" tab: the task's address, goal and profile, with everything else in closed panels. */
-export function TaskSettings({ task, onTask, json, onJson, view }: Props) {
+/**
+ * The "세부 설정" tab: what a run does beyond the basics, in closed sections. The name, address, goal and run profile are shown
+ * here as they are but edited only in the 작업 수정 sheet, so there is one editor for them.
+ */
+export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const [mode, setMode] = useState<Mode>('keyboard');
@@ -41,20 +47,26 @@ export function TaskSettings({ task, onTask, json, onJson, view }: Props) {
   const updateMode = (m: Mode, value: Partial<ManagedTask['modes'][Mode]>) => onTask({ ...task, modes: { ...task.modes, [m]: { ...task.modes[m], ...value } } });
   const updatePrompt = (m: Mode, id: string, part: Partial<ManagedTask['modes'][Mode]['prompts'][number]>) => updateMode(m, { prompts: task.modes[m].prompts.map(p => p.id === id ? { ...p, ...part } : p) });
   if (!parsed) return <div className="grid gap-4">
-    <p role="alert" className="text-sm text-destructive">{t('taskSettings.invalidJson')}</p>
+    <ErrorState alert view={{ kind: 'data', what: t('taskSettings.invalidJson'), progress: t('taskSettings.invalidJsonProgress'), next: t('taskSettings.invalidJsonNext') }} />
     <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} />
   </div>;
   const inputs = Object.entries(asObject(parsed.input)), navigation = asObject(parsed.navigation);
   const overridden = task.modes.keyboard.permissions !== null || task.modes.screenreader.permissions !== null;
   const permissions = { keyboard: task.modes.keyboard.permissions ?? profile.permissions.keyboard, screenreader: task.modes.screenreader.permissions ?? profile.permissions.screenreader };
-  return <div className="grid max-w-3xl gap-4">
-    <Field label={t('taskSettings.name')} value={task.name} onChange={name => onTask({ ...task, name })} />
-    <Field label={t('taskSettings.url')} value={String(parsed.url ?? '')} onChange={url => update({ url })} hint={t('taskSettings.urlHint')} />
-    <Field label={t('taskSettings.goal')} multiline plain value={String(parsed.goal ?? '')} onChange={goal => update({ goal })} hint={t('taskSettings.goalHint')} />
-    <div className="grid gap-2">
-      <Choice label={t('taskSettings.profile')} value={profile.id} onChange={profileId => onTask({ ...task, profileId })} options={view.config.profiles.map(p => ({ id: p.id, name: p.name }))} />
-      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.profileHint')}</p>
-    </div>
+  return <div className="grid max-w-3xl gap-1">
+    <section aria-labelledby="task-basics" className="grid gap-3 pb-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="task-basics" className="text-base font-semibold">{t('taskSettings.basicsTitle')}</h2>
+        <Button variant="outline" size="sm" onClick={onEdit}>{t('taskPage.edit')}</Button>
+      </div>
+      <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
+        <dt className="text-muted-foreground">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.url')}</dt><dd className="font-mono text-[13px] break-all">{String(parsed.url ?? '')}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.goal')}</dt><dd className="leading-6">{String(parsed.goal ?? '')}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.profile')}</dt><dd>{profile.name}</dd>
+      </dl>
+      <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.basicsHint')}</p>
+    </section>
 
     <Panel title={t('taskSettings.overrideTitle')} description={t('taskSettings.overrideSummary')}>
       <p className="text-xs leading-5 text-muted-foreground">{t('taskSettings.overrideDescription', { profile: profile.name })}</p>

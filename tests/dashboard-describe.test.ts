@@ -29,7 +29,7 @@ describe('describeHint', () => {
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
-    ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['모든 목표 규칙']],
+    ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],
     ['focus-left-page', hint('focus-left-page', { action: 'Tab' }), ['Tab', '페이지를 벗어났습니다']],
     ['focus-left-page no action', hint('focus-left-page', {}), ['페이지를 벗어났습니다']],

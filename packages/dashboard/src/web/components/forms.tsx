@@ -45,16 +45,16 @@ export function Advanced({ children, description }: { children: ReactNode; descr
     <CollapsibleContent className="grid gap-5">{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}{children}</CollapsibleContent>
   </Collapsible>;
 }
-/** A bordered block that opens and closes: a title with a short description, and its content when open. */
+/** A section that opens and closes: a title with a short description on a rule, and its content when open. Sections are divided by rules, not boxed. */
 export function Panel({ title, description, children, defaultOpen }: { title: string; description?: string; children: ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen === true);
-  return <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border">
+  return <Collapsible open={open} onOpenChange={setOpen} className="border-t border-edge-strong">
     <CollapsibleTrigger asChild>
-      <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-left">
-        <span className="min-w-0"><span className="text-sm font-medium">{title}</span>{description && <span className="ml-2 text-xs text-muted-foreground">{description}</span>}</span>
+      <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 rounded-sm py-2.5 text-left">
+        <span className="min-w-0"><span className="text-sm font-semibold">{title}</span>{description && <span className="ml-2 text-xs text-muted-foreground">{description}</span>}</span>
         <ChevronDown aria-hidden="true" className={'size-4 shrink-0 transition-transform' + (open ? ' rotate-180' : '')} />
       </button>
     </CollapsibleTrigger>
-    <CollapsibleContent className="grid gap-5 border-t px-4 py-4">{children}</CollapsibleContent>
+    <CollapsibleContent className="motion-reveal grid gap-5 pt-1 pb-5">{children}</CollapsibleContent>
   </Collapsible>;
 }

@@ -5,7 +5,11 @@ import { RailLegend, TraceRail } from '../components/trace/TraceRail';
 import { StepPager } from '../components/trace/StepPager';
 import { StepDetail } from '../components/StepDetail';
 import { RunHeader } from '../components/RunHeader';
+import { EmptyState } from '../components/layout/EmptyState';
+import { ErrorState } from '../components/layout/ErrorState';
 import { Skeleton } from '../components/ui/skeleton';
+import { useLiveBus } from '../hooks/useLiveEvents';
+import { connectionLostView, dataFailureView } from '../lib/errors';
 import { useThrottledMessage } from '../hooks/useAnnouncer';
 import { rememberHintSummary } from '../hooks/useHintSummaries';
 import type { Route, RouteChange } from '../hooks/useRoute';
@@ -27,6 +31,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const { t } = useTranslation();
   const { run, experiment } = runRef;
   const { data: view, error, loading } = useRunSteps(experiment.id, run.id);
+  const { connected } = useLiveBus();
   const live = isLive(run);
   const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === run.taskId), [runs, run.taskId]);
   const numbers = useMemo(() => taskRunNumbers(runs, run.taskId), [runs, run.taskId]);
@@ -46,9 +51,10 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
     <RunHeader runRef={runRef} taskRuns={taskRuns} numbers={numbers} view={view} pageProps={pageProps} navigate={navigate} />
     <section aria-label={t('runPage.timelineSection')} className="grid gap-2">
       {loading && !view && <div aria-busy="true" className="grid gap-3"><Skeleton className="h-10" /><Skeleton className="h-64" /></div>}
-      {!view && !loading && <p role="alert" className="text-sm text-muted-foreground">{t('steps.loadFailed')} {error}</p>}
+      {live && !connected && <ErrorState view={connectionLostView()} />}
+      {!view && !loading && <ErrorState alert view={dataFailureView(t('steps.loadFailed'), error)} />}
       {view && (view.steps.length === 0
-        ? <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">{live ? t('runPage.waiting') : t('steps.empty')}</p>
+        ? <EmptyState compact title={live ? t('empty.steps.liveTitle') : t('empty.steps.title')} why={live ? t('empty.steps.liveWhy') : t('empty.steps.why')} />
         : <>
           <TraceRail steps={view.steps} modelKind={view.modelKind} selected={selected} live={live} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
           <RailLegend modelKind={view.modelKind} live={live} />

@@ -33,11 +33,11 @@ describe('dashboard step view', () => {
     expect(view).toMatchObject({ experimentId: 'x', runId: 'r', live: true, baseline: { passed: false, rules: [{ ruleIndex: 0, ruleType: 'titleIncludes', passed: false }] } });
     expect(view.steps.map(s => s.step)).toEqual([0, 1, 2, 3]);
     const [s0, s1, s2, s3] = view.steps as [typeof view.steps[0], typeof view.steps[0], typeof view.steps[0], typeof view.steps[0]];
-    expect(s0.screenshot).toEqual({ eventId: 'e1', sha256: firstSha });
+    expect(s0.screenshot).toEqual({ eventId: 'e1', sha256: firstSha, viewport: { w: 2, h: 2 } });
     expect(s0.observed).toEqual([{ kind: 'focus', role: 'button', name: 'Start' }]);
     expect(s0.hints).toEqual(['goal-met-at-start']);
     expect(s1.action).toEqual({ kind: 'key', key: 'Tab' }); expect(s1.ok).toBe(true);
-    expect(s1.screenshot).toEqual({ eventId: 'e7', sha256: sha });
+    expect(s1.screenshot).toEqual({ eventId: 'e7', sha256: sha, viewport: { w: 2, h: 2 } });
     expect(s1.model).toEqual({ choiceId: 'key:Tab', modelId: 'm1', inferenceMs: 420, candidates: [{ id: 'key:Tab', label: 'Press Tab', probability: 0.6 }, { id: 'key:Enter', label: 'Press Enter', probability: 0.3 }, { id: 'stop:stuck', probability: 0.1 }] });
     expect(s1.observed).toEqual([{ kind: 'state', role: 'button', name: 'Menu', attr: 'aria-expanded', value: 'true' }, { kind: 'navigation', url: 'https://example.com/next', value: null }]);
     expect(s1.hints).toEqual(['backtracking']); expect(s1.at).toBe('2026-01-01T00:00:04.000Z');
@@ -46,6 +46,25 @@ describe('dashboard step view', () => {
     expect(s3.verification).toEqual({ passed: true, rules: [{ ruleIndex: 0, ruleType: 'titleIncludes', passed: true }] });
     expect(JSON.stringify(view)).not.toContain('private reasoning');
     expect(view.steps.every(s => !s.redacted)).toBe(true);
+  });
+  it('carries the focused element\'s box and the screenshot viewport, and nothing for a redacted or malformed box', () => {
+    const view = build([
+      ['keyboard.observation', { screenshot: { ...ref(sha), viewport: { w: 1280, h: 800 } } }],
+      ['policy.decision', { step: 1, decision: { action: { kind: 'key', key: 'Tab' } } }],
+      ['observer.focus', { kind: 'focus', step: 1, role: 'button', name: 'Pay', rect: { x: 10.4, y: 20, width: 99.6, height: 30 } }],
+      ['observer.state', { kind: 'state', step: 1, role: 'button', attr: 'aria-expanded', value: 'true', rect: { x: 1, y: 1, width: 5, height: 5 } }],
+      ['policy.decision', { step: 2, decision: { action: { kind: 'key', key: 'Tab' } } }],
+      ['observer.focus', { kind: 'focus', step: 2, role: 'link', name: 'Bad', rect: { x: 1, y: 2, width: 0, height: 9 } }],
+      ['policy.decision', { step: 3, decision: { action: { kind: 'key', key: 'Tab' } } }],
+      ['observer.focus', { kind: 'focus', step: 3, role: 'link', name: '[REDACTED]', rect: { x: 4, y: 5, width: 6, height: 7 } }, true],
+    ]);
+    const [s0, s1, s2, s3] = view.steps as [typeof view.steps[0], typeof view.steps[0], typeof view.steps[0], typeof view.steps[0]];
+    expect(s0.screenshot?.viewport).toEqual({ w: 1280, h: 800 });
+    expect(s1.observed[0]).toEqual({ kind: 'focus', role: 'button', name: 'Pay', rect: { x: 10, y: 20, width: 100, height: 30 } });
+    // Only a focus carries a box; an empty one is dropped; a redacted step shows no geometry.
+    expect(s1.observed[1]).not.toHaveProperty('rect');
+    expect(s2.observed[0]).not.toHaveProperty('rect');
+    expect(s3.observed[0]).not.toHaveProperty('rect');
   });
   it('keeps the first screenshot after a decision and ignores observations without pixels', () => {
     const view = build([

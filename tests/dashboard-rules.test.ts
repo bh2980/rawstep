@@ -70,17 +70,17 @@ describe('completion-check editor mapping', () => {
 
 describe('describeRule', () => {
   const sentences: [VerifyRule, (string | RegExp)[]][] = [
-    [{ textVisible: 'Thanks' }, ['"Thanks"', '완료']],
+    [{ textVisible: 'Thanks' }, ['"Thanks"', '보임']],
     [{ textVisibleExact: 'Thanks' }, ['정확히']],
     [{ urlIncludes: '/done' }, ['주소', '/done']],
     [{ titleIncludes: 'Done' }, ['제목', 'Done']],
-    [{ event: { kind: 'live-region', text: 'Saved' } }, ['안내 문구', 'Saved', '읽히면']],
-    [{ event: { kind: 'appeared', role: 'dialog', name: 'Confirm' } }, ['대화상자', 'Confirm', '나타나면']],
-    [{ event: { kind: 'disappeared', name: 'Loading' } }, ['Loading', '사라지면']],
+    [{ event: { kind: 'live-region', text: 'Saved' } }, ['안내 문구', 'Saved', '읽힘']],
+    [{ event: { kind: 'appeared', role: 'dialog', name: 'Confirm' } }, ['대화상자', 'Confirm', '나타남']],
+    [{ event: { kind: 'disappeared', name: 'Loading' } }, ['Loading', '사라짐']],
     [{ event: { kind: 'state', attr: 'aria-expanded', value: 'true', role: 'button', name: 'Menu' } }, ['버튼', 'Menu', 'aria-expanded', 'true']],
     [{ event: { kind: 'state', attr: 'aria-checked', value: 'true' } }, ['어떤 요소든', 'aria-checked']],
-    [{ event: { kind: 'submit' } }, ['폼이 제출되면']],
-    [{ event: { kind: 'submit' }, after: 'lastActivation' }, ['폼이 제출되면', '마지막 활성화 이후']],
+    [{ event: { kind: 'submit' } }, ['폼이 제출됨']],
+    [{ event: { kind: 'submit' }, after: 'lastActivation' }, ['폼이 제출됨', '마지막 활성화 이후']],
     [{ event: { kind: 'navigation', url: { includes: '/x' } } }, ['페이지 이동']],
     [{ focused: { role: 'button', name: 'Pay' } }, ['포커스', '버튼', 'Pay']],
     [{ requestSeen: { urlIncludes: '/api', method: 'POST' } }, ['/api', 'POST']],
@@ -88,7 +88,7 @@ describe('describeRule', () => {
     [{ domEventSeen: { selector: '#buy', event: 'click' } }, ['#buy', 'click']],
     [{ script: { source: '() => true', description: '카드 입력칸이 있다' } }, ['검증 코드', '카드 입력칸이 있다']],
     [{ any: [{ textVisible: 'A' }, { urlIncludes: '/b' }] }, ['하나라도', 'A', '/b']],
-    [{ not: { textVisible: 'Error' } }, ['아니면', 'Error']],
+    [{ not: { textVisible: 'Error' } }, ['아님', 'Error']],
   ];
   it.each(sentences)('puts %j in Korean', (rule, parts) => {
     const text = describeRule(rule);

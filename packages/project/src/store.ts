@@ -1,4 +1,4 @@
-import { readFile, writeFile, rename, mkdir, realpath } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir, realpath, unlink } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -90,6 +90,17 @@ export class ProjectStore {
     const source = await this.taskSource(file);
     return resolveTask(JSON.parse(source), this.root);
   }
+  /**
+   * Each registered task's JSON as written in its file, for editing: relative URLs and omitted defaults stay as
+   * they are, so saving an edit never bakes machine paths or defaults into the file. Every file is still validated.
+   */
+  async taskFiles(config: ProjectConfig): Promise<Record<string, unknown>> {
+    return Object.fromEntries(await Promise.all(config.tasks.map(async t => {
+      const source = await this.taskSource(t.file), json: unknown = JSON.parse(source);
+      resolveTask(json, this.root);
+      return [t.id, json] as const;
+    })));
+  }
   async tasks(config: ProjectConfig): Promise<Record<string, Task>> {
     return Object.fromEntries(await Promise.all(config.tasks.map(async t => [t.id, await this.task(t.file)])));
   }
@@ -110,6 +121,30 @@ export class ProjectStore {
       await this.tasks(config);
       await atomicJson(this.path, config, 0o644);
       return this.read();
+    });
+    this.pending = work.then(() => {}, () => {});
+    return work;
+  }
+  /**
+   * Removes a task from rawstep.config.json and deletes its Task JSON when that file is inside `tasks/`, where Rawstep puts the files
+   * it writes. A task linked from another project path is only unregistered: that file is the person's own. Run records under
+   * `.rawstep/` are never touched. Fails with `config-conflict` when the revision is stale.
+   */
+  async deleteTask(taskId: string, revision: string): Promise<{ state: Awaited<ReturnType<ProjectStore['read']>>; file: string; fileRemoved: boolean }> {
+    const work = this.pending.then(async () => {
+      const current = await this.read();
+      if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
+      const task = current.config.tasks.find(t => t.id === taskId);
+      if (!task) throw new ProjectError('task-not-found', `There is no task "${taskId}" in ${CONFIG_FILE}.`, 404);
+      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId) };
+      this.validateReferences(config);
+      await atomicJson(this.path, config, 0o644);
+      let fileRemoved = false;
+      if (task.file.startsWith('tasks/') && task.file.endsWith('.json') && !current.config.tasks.some(t => t.id !== taskId && t.file === task.file)) {
+        // The task is already gone from the config; a file that cannot be removed simply stays.
+        try { await unlink(await this.file(task.file, true)); fileRemoved = true; } catch { /* kept */ }
+      }
+      return { state: await this.read(), file: task.file, fileRemoved };
     });
     this.pending = work.then(() => {}, () => {});
     return work;

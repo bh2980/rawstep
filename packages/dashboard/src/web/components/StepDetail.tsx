@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, Minus } from 'lucide-react';
+import { Check, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ModelKind } from '@rawstep/project/config';
 import type { Hint, StepView } from '../../shared/api';
@@ -7,13 +7,15 @@ import type { RunRecord } from '../../shared/config';
 import { describeChange, hintKindLabel } from '../i18n/labels';
 import { describeHint, describeStep } from '../lib/describe';
 import { cn } from '../lib/utils';
+import { ConceptNote } from './layout/ConceptNote';
+import { Disclosure } from './layout/Disclosure';
 import { RawRecord } from './RawRecord';
 import { StepEvidence } from './StepEvidence';
 import { GlyphMark } from './trace/TraceRail';
 import { SourceLabel } from './trace/SourceMarker';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Collapsible, CollapsibleContent } from './ui/collapsible';
 
 type Props = {
   step: StepView; experimentId: string; run: RunRecord; modelKind: ModelKind;
@@ -53,15 +55,6 @@ export function StepDetail({ step, experimentId, run, modelKind, previous, hints
   </section>;
 }
 
-/** The trigger line of a collapsible: label and a chevron that turns when open. */
-export function Disclosure({ label: text }: { label: string }) {
-  return <CollapsibleTrigger asChild>
-    <Button type="button" variant="ghost" size="sm" className="group/disclosure -ml-2 justify-self-start text-sm text-muted-foreground">
-      <ChevronDown aria-hidden="true" className="transition-transform group-aria-expanded/disclosure:rotate-180" />{text}
-    </Button>
-  </CollapsibleTrigger>;
-}
-
 /** ACTION nn with the action in large mono. The rule on its left continues into PAGE RESPONSE: action → response is the basic unit of the trace. */
 function Action({ step, baselineMet }: { step: StepView; baselineMet: number | undefined }) {
   const { t } = useTranslation();
@@ -92,6 +85,7 @@ function PageResponse({ step }: { step: StepView }) {
 function Inspect({ hints }: { hints: Hint[] }) {
   const { t } = useTranslation();
   return <section aria-label={t('stepDetail.inspect')} className="grid gap-2.5 rounded-md border border-inspect bg-inspect-soft p-3 lg:col-start-2">
+    <ConceptNote concept="inspect" className="-mx-1" />
     <h3 className="flex items-center gap-2 text-sm font-semibold text-inspect"><GlyphMark kind="inspect" className="scale-90" />{t('stepDetail.inspect')}</h3>
     <ul className="grid gap-2.5">{hints.map((hint, index) => <li key={index} className="grid gap-1">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">

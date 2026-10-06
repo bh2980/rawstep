@@ -3,6 +3,7 @@ import { ImageOff, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { StepView } from '../../shared/api';
 import { targetLabel } from '../i18n/labels';
+import { boxPercent, focusRectOf, scaleFocusRect, type Size } from '../lib/focusRect';
 import { screenshotUrl } from '../lib/runs';
 import { cn } from '../lib/utils';
 
@@ -33,12 +34,17 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
   const { t } = useTranslation();
   const [time, setTime] = useState<'before' | 'after'>('after');
   const [failed, setFailed] = useState<string>();
+  const [natural, setNatural] = useState<{ src: string } & Size>();
   if (step.redacted) return <div className={frame}><Lock className="mx-auto size-5" aria-hidden="true" />{t('steps.redacted')}</div>;
   if (!step.screenshot) return primary ? <div className={frame}>{t('runPage.noScreen')}</div> : null;
   const showBefore = primary && time === 'before' && previous?.screenshot;
   const shown = showBefore ? previous.screenshot! : step.screenshot;
   const src = screenshotUrl(experimentId, runId, shown.eventId);
-  const focus = step.observed.find(change => change.kind === 'focus');
+  // The focus the picture shows: the one recorded at its own step, so the Before picture names the element focused before the action.
+  const focusStep = showBefore ? previous! : step;
+  const focus = focusStep.observed.filter(change => change.kind === 'focus').at(-1), rect = primary ? focusRectOf(focusStep.observed) : undefined;
+  const viewport = shown.viewport, size = natural?.src === src ? natural : undefined;
+  const box = rect && viewport && size ? scaleFocusRect(rect, { width: viewport.w, height: viewport.h }, size) : undefined;
   const caption = showBefore ? t('stepDetail.screenBefore', { n: step.step, prev: previous!.step }) : live ? t('runPage.screenLive') : t('stepDetail.screenAfter', { n: step.step });
   return <figure className="grid gap-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -51,12 +57,16 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
     <div className={cn('relative overflow-hidden rounded-md bg-raised', primary ? 'border-2 border-trace' : 'border')}>
       {failed === src
         ? <div className={cn(frame, 'border-0')}><ImageOff className="mx-auto size-5" aria-hidden="true" />{t('steps.screenshotMissing')}</div>
-        : <a href={src} target="_blank" rel="noreferrer" aria-label={t('runPage.screenOpen', { n: step.step })} className="block">
-          <img src={src} alt={t('steps.screenshot', { n: step.step })} onError={() => setFailed(src)} className={cn('w-full object-contain object-top', primary ? 'max-h-[36rem]' : 'max-h-64')} />
+        : <a href={src} target="_blank" rel="noreferrer" aria-label={t('runPage.screenOpen', { n: step.step })} className="relative mx-auto block w-fit max-w-full">
+          <img src={src} alt={t('steps.screenshot', { n: step.step })} onError={() => setFailed(src)}
+            onLoad={event => setNatural({ src, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+            className={cn('block h-auto w-auto max-w-full', primary ? 'max-h-[36rem]' : 'max-h-64')} />
+          {box && size && <span aria-hidden="true" data-focus-outline className="pointer-events-none absolute rounded-[2px] border-2 border-trace shadow-[0_0_0_2px_rgb(255_255_255/0.85)]" style={boxPercent(box, size)} />}
         </a>}
-      {primary && focus && !showBefore && <p className="absolute top-2 left-2 flex max-w-[calc(100%-1rem)] items-baseline gap-2 rounded-[3px] border border-trace bg-card/95 px-2 py-1 text-xs">
+      {primary && focus && <p className="absolute top-2 left-2 flex max-w-[calc(100%-1rem)] items-baseline gap-2 rounded-[3px] border border-trace bg-card/95 px-2 py-1 text-xs">
         <span className="text-[11px] font-medium tracking-[0.08em] text-trace">{t('stepDetail.focus')}</span>
         <span className="truncate font-medium">{targetLabel({ role: focus.role || t('observed.element'), ...(focus.name ? { name: focus.name } : {}) })}</span>
+        {rect && <span className="sr-only">{t('stepDetail.focusBox', { x: rect.x, y: rect.y, width: rect.width, height: rect.height })}</span>}
       </p>}
     </div>
     <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>

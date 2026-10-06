@@ -30,3 +30,8 @@ export function sameTaskJson(a: string, b: string): boolean {
   const left = parseTaskJson(a), right = parseTaskJson(b);
   return left && right ? JSON.stringify(left) === JSON.stringify(right) : a === b;
 }
+
+/** The start URL as written in a task file (a project HTML path stays relative). */
+export function taskUrl(task: unknown): string {
+  return task && typeof task === 'object' && typeof (task as { url?: unknown }).url === 'string' ? (task as { url: string }).url : '';
+}

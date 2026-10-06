@@ -1,6 +1,7 @@
-import { t } from '../i18n';
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
+import { t } from '../i18n/index.js';
 import type { Permissions, Policy, RunProfile } from '@rawstep/project/config';
-import { keyboardPreset, screenreaderPreset, type ActionCapabilities } from './presets';
+import { keyboardPreset, screenreaderPreset, type ActionCapabilities } from './presets.js';
 
 /** One short phrase describing how stuck detection behaves, e.g. the automatic setting. */
 export function stuckSummary(policy: Pick<Policy, 'repetitionGuard'>): string {
@@ -27,4 +28,30 @@ export function policyInheritedSummary(policy: Policy): string {
     stuck: stuckSummary(policy), history: policy.historyLimit, visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions,
     giveUp: policy.modelGiveUp ? t('profiles.on') : t('profiles.off'), focusGate: policy.focusGate ? t('profiles.on') : t('profiles.off'),
   });
+}
+
+const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const positive = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+
+/** The page size a profile runs at: its own environment, a built-in preset it names, or the default. */
+export function profileViewport(profile: Pick<RunProfile, 'environment'>, presets: Record<string, unknown>): { width: number; height: number } {
+  const environment = typeof profile.environment === 'string' ? record(presets[profile.environment]) : record(profile.environment);
+  const viewport = record(environment.viewport);
+  return { width: positive(viewport.width, RAWSTEP_DEFAULTS.viewport.width), height: positive(viewport.height, RAWSTEP_DEFAULTS.viewport.height) };
+}
+
+export type ProfileCondition = { id: 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
+
+/**
+ * A run profile read as an experiment condition: what the model may do, when a run counts as blocked, the page it runs on and how it
+ * is analysed. These four lines are what two runs of the same task differ by when only the profile differs.
+ */
+export function profileConditions(profile: Pick<RunProfile, 'permissions' | 'policy' | 'environment' | 'analysisInstructions'>, screenreader: ActionCapabilities, presets: Record<string, unknown>): ProfileCondition[] {
+  const { width, height } = profileViewport(profile, presets), { policy } = profile;
+  return [
+    { id: 'actions', value: t('profiles.condition.actions', { keyboard: keyboardName(profile.permissions.keyboard), screenreader: screenreaderName(profile.permissions.screenreader, screenreader) }) },
+    { id: 'stuck', value: t('profiles.condition.stuck', { guard: stuckSummary(policy), visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions }) },
+    { id: 'viewport', value: t('profiles.condition.viewport', { width, height }) },
+    { id: 'analysis', value: profile.analysisInstructions.trim() ? t('profiles.condition.analysisCustom') : t('profiles.condition.analysisDefault') },
+  ];
 }

@@ -33,7 +33,8 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
   const runs = [...experiment.runs].sort((a, b) => a.repeat - b.repeat);
   for (const [i, run] of runs.entries()) {
-    const report: Pick<HintReport, 'runId' | 'hints'> = { runId: run.id, hints: outcomes[i]!.hints };
+    // Like a real hints.json: it names the trace's own run id, not the dashboard run id.
+    const report: Pick<HintReport, 'runId' | 'hints'> = { runId: `trace-${run.id}`, hints: outcomes[i]!.hints };
     await writeFile(join(dir, '.rawstep/experiments', experiment.id, run.id, 'hints.json'), JSON.stringify(report));
   }
   return { app, experiment, runs };
@@ -72,16 +73,17 @@ describe('task findings and summary', () => {
     expect(await (await fetch(app.url + '/api/tasks/task/findings')).json()).toEqual(first);
   });
 
-  it('summarises the last runs and the most frequent page finding per task', async () => {
-    const { app, experiment, runs } = await launch(outcomes);
+  it('summarises how many page elements recur and the most frequent page finding per task', async () => {
+    const { app } = await launch(outcomes);
     const rows = await (await fetch(app.url + '/api/tasks-summary')).json() as TaskSummary[];
     expect(rows).toHaveLength(1);
     const row = rows[0]!;
     expect(row.taskId).toBe('task');
     expect(row.facts.medianSteps).toBe(9);
-    expect(row.recent).toEqual(runs.map((run, i) => ({ experimentId: experiment.id, runId: run.id, steps: outcomes[i]!.steps, reached: outcomes[i]!.status === 'success' })));
+    expect(row).not.toHaveProperty('recent');
     // model-hesitation is more frequent but is about the model; the table shows page findings.
     expect(row.topFinding).toEqual({ kind: 'excess-keystrokes', target: checkout, runs: 3, totalRuns: 4 });
+    expect(row.findingCount).toBeGreaterThanOrEqual(1);
     expect(Date.parse(row.lastRunAt!)).not.toBeNaN();
   });
 });

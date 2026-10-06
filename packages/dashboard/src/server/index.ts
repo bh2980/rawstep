@@ -10,18 +10,19 @@ import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { discoverRequestSchema, machineSchema, modelKeyEnv, providerSchema } from '@rawstep/project/config';
+import { buildModel, discoverRequestSchema, machineSchema, modelKeyEnv, modelKindSchema, providerSchema, providersOf } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
 import { discover } from '@rawstep/project/discover';
 import { requireKey } from '@rawstep/project/run';
-import type { ConfigView } from '../shared/config.js';
+import type { ConfigView, DeleteTaskResult } from '../shared/config.js';
 import { HttpError, koreanMessage, record } from './http.js';
 import { ExperimentQueue, type Executor } from './queue.js';
 import { RunViews } from './views.js';
 import { suggestChecks } from './suggest.js';
 import { inspectStartPage } from './structure.js';
+import { checkBrowser, checkModel } from './checks.js';
 import type { RunEventMessage } from '../shared/api.js';
 
 /** Built UI: `dist/web` in a checkout, `dist/dashboard-web` inside the single `rawstep` package (whichever chunk this code was bundled into). */
@@ -67,7 +68,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     const { config, revision } = await store.read();
     const credentialStatus = await store.credentialStatus(config);
     const keyboard = backendCapabilities(config, 'keyboard'), screenreader = backendCapabilities(config, 'screenreader');
-    return { config, revision, credentialStatus, tasks: await store.tasks(config), environmentPresets: BUILTIN_PROFILES,
+    return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: BUILTIN_PROFILES,
       capabilities: { keyboard: { keys: [...keyboard.keys], intents: [...keyboard.intents] }, screenreader: { keys: [...screenreader.keys], intents: [...screenreader.intents] } } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
@@ -105,6 +106,35 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       try { const metadata = await backend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: 'AT Driver 세션 연결과 프로필 협상 확인 완료. 실제 발화와 브라우저 행동은 별도 실행으로 확인하세요.', metadata }); }
       catch { throw new HttpError(502, 'AT Driver 연결을 확인하지 못했습니다. 주소와 서버·스크린리더 상태를 확인하세요.'); }
       finally { await backend.close(); }
+    }
+    if (path === '/api/browser/check' && method === 'POST') {
+      // On request only: this starts a browser, so it shares the one-at-a-time lock of the other page reads.
+      const machine = machineSchema.parse(record(await jsonBody(req)).machine);
+      return send(res, await exclusivePageRead(() => checkBrowser(machine)));
+    }
+    if (path === '/api/models/check' && method === 'POST') {
+      const body = z.union([
+        z.object({ id: z.string() }).strict(),
+        z.object({ kind: modelKindSchema, provider: providerSchema, modelId: z.string().trim().min(1).max(500), baseURL: z.url().optional(), apiKey: z.string().max(16384).optional(), inputs: z.array(z.enum(['text', 'image'])).min(1).max(2).optional() }).strict(),
+      ]).parse(await jsonBody(req));
+      if ('id' in body) {
+        const model = (await store.read()).config.models.find(m => m.id === body.id);
+        if (!model) throw new HttpError(404, '모델을 찾을 수 없습니다.');
+        return send(res, await checkModel(model, await store.credential(model)));
+      }
+      if (!providersOf(body.kind).some(p => p.id === body.provider)) throw new ProjectError('invalid-provider', 'Not a provider of this kind.');
+      if (body.provider === 'custom' && !body.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
+      const model = buildModel({ id: 'check', name: 'check', kind: body.kind, provider: body.provider, modelId: body.modelId, ...(body.baseURL ? { baseURL: body.baseURL } : {}), ...(body.inputs ? { inputs: body.inputs } : {}) });
+      // A key typed for a custom server is used once and not stored; presets use the key saved for their provider.
+      return send(res, await checkModel(model, body.apiKey ?? (body.provider === 'custom' ? undefined : await store.credential(body.provider))));
+    }
+    const removing = path.match(/^\/api\/tasks\/([^/]+)$/);
+    if (removing && method === 'DELETE') {
+      const taskId = decodeURIComponent(removing[1]!), body = z.object({ revision: z.string() }).strict().parse(await jsonBody(req));
+      if (queue.experiments.some(e => e.runs.some(r => r.taskId === taskId && (r.state === 'queued' || r.state === 'running')))) throw new HttpError(409, '이 작업의 실행이 진행 중이거나 대기 중입니다. 끝나거나 중지한 뒤 삭제하세요.');
+      const removed = await store.deleteTask(taskId, body.revision);
+      changed();
+      return send(res, { view: await state(), file: removed.file, fileRemoved: removed.fileRemoved } satisfies DeleteTaskResult);
     }
     if (path === '/api/config' && method === 'PUT') {
       const body = record(await jsonBody(req));

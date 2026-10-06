@@ -5,6 +5,15 @@ const REDACTED = '[REDACTED]';
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 /** A plain string that is not the redaction marker; redacted values are never surfaced. */
 const text = (value: unknown) => typeof value === 'string' && value !== REDACTED ? value : undefined;
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+/** A focus box of four finite numbers with a size; anything else the trace holds is not shown. */
+const box = (value: unknown): ObservedChange['rect'] =>
+  record(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.width > 0 && value.height > 0
+    ? { x: Math.round(value.x), y: Math.round(value.y), width: Math.round(value.width), height: Math.round(value.height) } : undefined;
+/** The viewport a screenshot was taken at, in CSS pixels. */
+const viewportOf = (screenshot: unknown): { w: number; h: number } | undefined =>
+  record(screenshot) && record(screenshot.viewport) && finite(screenshot.viewport.w) && finite(screenshot.viewport.h) && screenshot.viewport.w > 0 && screenshot.viewport.h > 0
+    ? { w: screenshot.viewport.w, h: screenshot.viewport.h } : undefined;
 const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).map(r => ({ ruleIndex: Number(r.ruleIndex), ruleType: String(r.ruleType), passed: r.passed === true })) : [];
 
 export type StepsInput = { experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
@@ -36,7 +45,7 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
       target.ok = data.ok === true;
     } else if (event.type === 'keyboard.observation') {
       const sha256 = screenshotSha256(data.screenshot);
-      if (sha256 && !target.screenshot) target.screenshot = { eventId: event.id, sha256 };
+      if (sha256 && !target.screenshot) target.screenshot = { eventId: event.id, sha256, ...(viewportOf(data.screenshot) ? { viewport: viewportOf(data.screenshot)! } : {}) };
     } else if (event.type === 'screen-reader.observation' || event.type === 'simulation.observation') {
       const lines = Array.isArray(data.speech) ? data.speech.map(text).filter((l): l is string => !!l) : [];
       if (lines.length) {
@@ -60,6 +69,8 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
       if (typeof data.role === 'string' || data.role === null) change.role = data.role;
       for (const key of ['name', 'text', 'attr', 'url'] as const) if (text(data[key])) change[key] = text(data[key])!;
       if (data.value === null || text(data.value) !== undefined) change.value = data.value as string | null;
+      // A redacted step is shown without its screenshot, so its geometry is not offered either.
+      if (data.kind === 'focus' && !event.redacted && box(data.rect)) change.rect = box(data.rect)!;
       target.observed.push(change);
     }
   }

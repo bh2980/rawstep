@@ -10,7 +10,7 @@ import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { checkRun, resolvePermissions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
 import { finalizeRun } from '@rawstep/project/run';
-import { planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
+import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
 import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
@@ -19,6 +19,21 @@ const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent) => 
   const { model, prompt, mode, globals, profile } = run.snapshot;
   return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...(onEvent ? { onEvent } : {}) });
 };
+/**
+ * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
+ * the raw error text, which can quote a provider's reply, so nothing else is passed on.
+ */
+export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
+  if (!outcome || typeof outcome !== 'object') return undefined;
+  const o = outcome as Record<string, unknown>;
+  return {
+    status: String(o.status),
+    ...(typeof o.reason === 'string' ? { reason: o.reason } : {}),
+    ...(typeof o.steps === 'number' ? { steps: o.steps } : {}),
+    ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
+    ...(typeof o.step === 'number' ? { step: o.step } : {}),
+  };
+}
 export class ExperimentQueue {
   readonly experiments: Experiment[] = [];
   private active?: { experiment: string; run: string; controller: AbortController };
@@ -39,7 +54,8 @@ export class ExperimentQueue {
       const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
       let interrupted = false;
-      for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }
+      for (const run of experiment.runs) if (run.outcome) run.outcome = publicOutcome(run.outcome);
+      for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = RUN_ERROR.restarted; interrupted = true; }
       this.experiments.push(experiment);
       if (interrupted) await this.persist(experiment);
     }
@@ -128,7 +144,7 @@ export class ExperimentQueue {
       this.active?.controller.abort('storage-error'); this.active = undefined;
       for (const experiment of this.experiments) {
         for (const run of experiment.runs) if (['queued', 'running'].includes(run.state)) {
-          run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = '실행 기록을 저장하지 못해 큐를 중단했습니다. 프로젝트 파일과 저장 공간을 확인하세요.';
+          run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = RUN_ERROR.storage;
           run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; this.liveTasks.delete(run.id);
         }
         await this.persist(experiment).catch(() => {});
@@ -145,7 +161,7 @@ export class ExperimentQueue {
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       try {
         const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.model), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
-        run.outcome = trace.outcome;
+        run.outcome = publicOutcome(trace.outcome);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const done = await finalizeRun(trace, outDir, run.analysisModel ? { createAnalyzer: async () => {
           const m = run.analysisModel!;
@@ -156,7 +172,7 @@ export class ExperimentQueue {
         run.reportStatus = done.report.status;
         if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
       } catch {
-        run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = '실행 준비 또는 실행이 실패했습니다. 연결과 브라우저 설정을 확인하세요.';
+        run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = RUN_ERROR.start;
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
       } finally {
         run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); this.active = undefined; await this.persist(experiment); this.changed();

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
 import { sections, type RouteChange, type Section } from '../hooks/useRoute';
 import type { ConfigView } from '../../shared/config';
@@ -21,13 +22,13 @@ export function SettingsPage({ pageProps, section, navigate, editorKey }: Props)
   const [pending, setPending] = useState<ConfigView['capabilities']>();
   const capabilities = pending ?? pageProps.view.capabilities;
   return <div className="grid gap-4">
-    <h1 className="text-xl font-semibold tracking-tight">{t('settings.title')}</h1>
-    <div className="grid items-start gap-6 md:grid-cols-[11rem_minmax(0,1fr)]">
-      <nav aria-label={t('settings.menuLabel')} className="flex gap-1 md:flex-col">
+    <PageHeader title={t('settings.title')} description={t('settings.description')} />
+    <div className="grid items-start gap-8 md:grid-cols-[12rem_minmax(0,1fr)]">
+      <nav aria-label={t('settings.menuLabel')} className="flex gap-1 md:flex-col md:gap-0 md:border-y md:border-edge-strong">
         {sections.map(id => <Link key={id} to={{ view: 'settings', section: id }} navigate={navigate} aria-current={section === id ? 'page' : undefined}
-          className={cn('grid min-h-11 content-center rounded-lg px-3 py-1.5 transition-colors hover:bg-muted', section === id ? 'bg-muted font-medium' : 'text-muted-foreground')}>
+          className={cn('grid min-h-11 content-center border-l-[3px] px-3 py-1.5 md:border-b md:border-b-edge md:last:border-b-0', section === id ? 'border-l-trace bg-trace-soft font-medium' : 'border-l-transparent text-muted-foreground hover:bg-raised')}>
           <span className="text-sm">{t(`settings.sections.${id}.name`)}</span>
-          <span className="hidden text-xs text-muted-foreground md:block">{t(`settings.sections.${id}.hint`)}</span>
+          <span className="hidden text-xs font-normal text-muted-foreground md:block">{t(`settings.sections.${id}.hint`)}</span>
         </Link>)}
       </nav>
       <div className="min-w-0">
