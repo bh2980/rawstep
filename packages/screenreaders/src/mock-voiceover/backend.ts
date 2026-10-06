@@ -19,7 +19,8 @@ const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape']);
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak']);
-const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form']);
+// LabelText is Chromium's role for <label>: its text is read from the StaticText inside, so an unnamed label adds nothing.
+const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form', 'LabelText'])
 const clickableRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab']);
 const editableRoles = new Set(['textbox', 'searchbox', 'spinbutton', 'combobox']);
 
