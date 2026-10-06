@@ -68,6 +68,11 @@ export type RunExplanation = {
   summary: string;
   findings: { title: string; description: string; severity: 'info' | 'warning' | 'error'; steps: number[] }[];
 };
+/**
+ * How far a screen reader run has to go on a task's start page (simulated VoiceOver): objects `next` passes on the whole page, and
+ * per target text the presses of `next` and, when the text is in a heading, of `heading.next` it takes to hear it. Start page only.
+ */
+export type ReachEstimate = { stops: number; truncated: boolean; targets: { text: string; next?: number; heading?: number }[] };
 export type RunStepsView = {
   experimentId: string;
   runId: string;

@@ -11,6 +11,7 @@ import { Choice, Field, Panel, Toggle } from './forms';
 import { ErrorState } from './layout/ErrorState';
 import { PermissionPresets } from './PermissionPresets';
 import { PolicyFields } from './PolicyFields';
+import { ReachCheck } from './ReachCheck';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -97,6 +98,7 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
           <Field label={t('taskSettings.maxSteps')} type="number" value={String(parsed.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps)} onChange={value => update({ maxSteps: Number(value) })} />
           <Field label={t('taskSettings.timeoutMs')} type="number" value={String(parsed.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs)} onChange={value => update({ timeoutMs: Number(value) })} />
         </div>
+        <ReachCheck taskId={task.id} maxSteps={Number(parsed.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps)} onMaxSteps={maxSteps => update({ maxSteps })} />
       </div>
       <div className="grid gap-3 border-t pt-4">
         <h4 className="text-sm font-semibold">{t('taskSettings.navigationTitle')}</h4>

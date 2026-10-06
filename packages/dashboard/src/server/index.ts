@@ -25,6 +25,7 @@ import { RunViews } from './views.js';
 import { DIAGNOSTIC_PATH } from './steps.js';
 import { suggestChecks } from './suggest.js';
 import { inspectStartPage } from './structure.js';
+import { estimateReach } from './reach.js';
 import { checkBrowser, checkConnection, checkModel } from './checks.js';
 import type { RunEventMessage } from '../shared/api.js';
 
@@ -217,6 +218,17 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
           const read = await inspectStartPage({ url: body.url, projectDir: store.root, machine: config.machine });
           return { page: { title: read.title, url: read.url }, elements: read.elements };
         } catch { throw new HttpError(400, '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.'); }
+      }));
+    }
+    const reach = path.match(/^\/api\/tasks\/([^/]+)\/reach$/);
+    if (reach && method === 'POST') {
+      // On request only: this opens the start page and reads it end to end with the simulated screen reader.
+      const { config } = await store.read(), entry = config.tasks.find(t => t.id === decodeURIComponent(reach[1]!));
+      if (!entry) throw new HttpError(404, '작업을 찾을 수 없습니다.');
+      const task = await store.task(entry.file);
+      return send(res, await exclusivePageRead(async () => {
+        try { return await estimateReach({ task, projectDir: store.root, machine: config.machine }); }
+        catch { throw new HttpError(400, '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.'); }
       }));
     }
     if (path === '/api/tasks/candidates' && method === 'GET') return send(res, await store.findTaskFiles((await store.read()).config));
