@@ -14,7 +14,7 @@ import { PermissionPresets } from '../components/PermissionPresets';
 import { PolicyFields } from '../components/PolicyFields';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { profileConditions } from '../lib/profileSummary';
+import { profileConditions, profileModelsLine } from '../lib/profileSummary';
 import { cn } from '../lib/utils';
 import type { PageProps } from './types';
 
@@ -59,7 +59,7 @@ export function ProfilesPage({ navigate, ...props }: PageProps & { navigate: (ch
             <button type="button" aria-current={profile.id === selected.id ? 'true' : undefined} onClick={() => setSelectedId(profile.id)}
               data-selected={profile.id === selected.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2.5 pr-3 pl-4 text-left text-sm', profile.id === selected.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>
               <span>{profile.name}</span>
-              <span className="text-xs leading-4 font-normal text-muted-foreground">{profileConditions(profile, capabilities.screenreader, props.view.environmentPresets, config.connections)[0]!.value}</span>
+              <span className="text-xs leading-4 font-normal text-muted-foreground">{profileModelsLine(profile, config.connections)}</span>
             </button>
           </li>)}
         </ul>

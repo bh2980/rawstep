@@ -1,9 +1,13 @@
 import type { Experiment, RunRecord } from '../../shared/config.js';
+import { t } from '../i18n/index.js';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
 
 export const isLive = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 export const isFinished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
+
+/** The models a run used: the decision model, and the planner when the run had one. */
+export const runModelsName = (run: RunRecord): string => run.plannerModel ? t('profiles.withPlanner', { model: run.snapshot.model.name, planner: run.plannerModel.name }) : run.snapshot.model.name;
 
 export function runStartedAt(ref: RunRef): number {
   const time = Date.parse(ref.run.startedAt ?? ref.experiment.createdAt);

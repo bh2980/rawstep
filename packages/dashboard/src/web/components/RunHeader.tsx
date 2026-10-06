@@ -12,7 +12,7 @@ import { formatClock } from '../lib/format';
 import { liveCurrentLine } from '../lib/stepDots';
 import { runGlyphKind } from '../lib/runStrip';
 import { describeHint } from '../lib/describe';
-import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCount, type RunRef } from '../lib/runs';
+import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCount, type RunRef, runModelsName } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
@@ -76,7 +76,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
             <RunGlyph kind={runGlyphKind(run.state)} /><span className="text-muted-foreground">{t('runHeader.outcomeLabel')}</span><span className="font-medium">{runStateLabel(run.state)}</span>
           </span>}
         </div>
-        <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), model: run.snapshot.model.name, profile })}</p>
+        <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), model: runModelsName(run), profile })}</p>
       </div>
       <div className="grid justify-items-end gap-1.5"><div className="flex flex-wrap justify-end gap-2">
         {live && <Button variant="outline" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('runPage.stop')}</Button>}

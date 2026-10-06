@@ -205,6 +205,7 @@ export const settings = {
     analysisIntro: '실행이 끝나면 고른 LLM이 실행 기록(스크린샷 이미지는 제외)을 읽고 요약과 가설을 남깁니다. 실행 화면의 "LLM 해설"에 근거 단계와 함께 나옵니다. 가설일 뿐 실행 결과를 바꾸지 않고, 쓰지 않아도 실행과 힌트는 그대로입니다. 완료 확인 AI 제안에도 이 모델을 씁니다.',
     analysisModel: 'LLM 해설 모델',
     analysisRulesOnly: '쓰지 않음',
+    withPlanner: '{{model}} + 계획 {{planner}}',
     missingModelId: '"{{name}}" 프로필의 모델 ID를 입력해야 저장할 수 있습니다.',
     stuckHint: '최대 행동 수와 제한 시간 전에 실행이 끝나는 두 가지 경우를 정합니다.',
     environmentHint: '화면 크기, 텍스트 배율, 색상 설정처럼 이 프로필로 실행할 때의 페이지 환경입니다.',

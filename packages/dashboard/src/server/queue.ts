@@ -90,7 +90,7 @@ export class ExperimentQueue {
       else {
         try {
           const check = checkRun({ config, task: source, taskEntry: task, profile, mode: request.mode, diagnoseStop: request.diagnoseStop });
-          permissions = check.permissions; modelName = check.model?.name;
+          permissions = check.permissions; modelName = check.model && check.plannerModel ? `${check.model.name} + 계획 ${check.plannerModel.name}` : check.model?.name;
           if (check.problem) reason = koreanMessage(check.problem);
           else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
           else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));

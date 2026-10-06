@@ -3,7 +3,7 @@ import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSumma
 import type { RouteChange } from '../hooks/useRoute';
 import { formatDate } from '../lib/format';
 import { displayState, resultLabel, runGlyphKind } from '../lib/runStrip';
-import { isFinished, isLive, runProfileName, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf } from '../lib/runs';
+import { isFinished, isLive, runProfileName, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf, runModelsName } from '../lib/runs';
 import { HintBadge } from './HintBadge';
 import { Link } from './Link';
 import { RunGlyph } from './trace/RunStrip';
@@ -74,7 +74,7 @@ export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHin
           {!hideTask && <TableCell className={cell + ' font-medium'}>
             {numbers ? label : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>}
           </TableCell>}
-          <TableCell className={cell + ' whitespace-nowrap'}>{run.snapshot.model.name}{showProfile && <span className="text-muted-foreground"> · {runProfileName(profiles, run)}</span>}</TableCell>
+          <TableCell className={cell + ' whitespace-nowrap'}>{runModelsName(run)}{showProfile && <span className="text-muted-foreground"> · {runProfileName(profiles, run)}</span>}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.mode}`)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums'}>{steps ?? '—'}</TableCell>

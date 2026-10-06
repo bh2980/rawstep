@@ -43,6 +43,12 @@ export function profileViewport(profile: Pick<RunProfile, 'environment'>, preset
 export type ProfileCondition = { id: 'model' | 'planner' | 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
 
 /** "connection · model ID" of a model choice, or undefined when there is none or its connection is gone. */
+/** The profile's models in one line: the decision model, and its planner when it has one. */
+export function profileModelsLine(profile: Pick<RunProfile, 'model' | 'plannerModel'>, connections: readonly Connection[]): string {
+  const model = choiceName(profile.model, connections), planner = choiceName(profile.plannerModel, connections);
+  if (!model) return t('profiles.condition.noModel');
+  return planner ? t('profiles.withPlanner', { model, planner }) : model;
+}
 export function choiceName(choice: { connectionId: string; modelId: string } | undefined, connections: readonly Connection[]): string | undefined {
   const connection = choice && connections.find(c => c.id === choice.connectionId);
   return connection && choice.modelId ? `${connection.name} · ${choice.modelId}` : undefined;

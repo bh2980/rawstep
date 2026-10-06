@@ -47,7 +47,11 @@ export function ProfileModelFields({ profile, update, connections, navigate }: P
 function PlannerFields({ profile, update, connections }: Omit<Props, 'navigate'>) {
   const { t } = useTranslation();
   const planner = profile.plannerModel, policy = profile.policy;
-  return <Panel title={t('profiles.model.plannerTitle')} description={t('profiles.model.plannerIntro')}>
+  return <section className="grid gap-4 border-t-2 border-foreground pt-4" aria-labelledby="planner-title">
+    <div className="grid gap-1">
+      <h3 id="planner-title" className="text-sm font-semibold">{t('profiles.model.plannerTitle')}</h3>
+      <p className="text-[13px] leading-5 text-muted-foreground">{t('profiles.model.plannerIntro')}</p>
+    </div>
     <div className="grid gap-4">
       <ModelPicker label={t('profiles.model.planner')} connections={connections.filter(c => c.kind === 'llm')} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''}
         none={t('profiles.model.plannerNone')} onNone={() => update({ plannerModel: undefined })}
@@ -57,7 +61,7 @@ function PlannerFields({ profile, update, connections }: Omit<Props, 'navigate'>
         <Field label={t('profiles.model.stepActionLimit')} type="number" value={String(policy.stepActionLimit)} onChange={s => update({ policy: { ...policy, stepActionLimit: Number(s) } })} hint={t('profiles.model.stepActionLimitHint')} />
       </div>}
     </div>
-  </Panel>;
+  </section>;
 }
 
 const blank = (connection: Connection): ModelChoice => ({ connectionId: connection.id, modelId: '', inputs: defaultInputs(connection), maxChoices: 255, maxImages: 2 });

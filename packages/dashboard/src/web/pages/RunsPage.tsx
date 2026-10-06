@@ -10,7 +10,7 @@ import { Link } from '../components/Link';
 import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
 import { displayState } from '../lib/runStrip';
-import { isFinished, isLive, taskNameOf } from '../lib/runs';
+import { isFinished, isLive, taskNameOf, runModelsName } from '../lib/runs';
 import type { ListProps } from './types';
 
 const PAGE = 50;
@@ -29,10 +29,10 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false);
   const { config } = pageProps.view;
   const tasks = useMemo(() => [...new Map(runs.map(ref => [ref.run.taskId, taskNameOf(ref.run, config.tasks)])).entries()], [runs, config.tasks]);
-  const models = useMemo(() => [...new Map(runs.map(ref => [ref.run.snapshot.model.name, ref.run.snapshot.model.name])).entries()], [runs]);
+  const models = useMemo(() => [...new Map(runs.map(ref => [runModelsName(ref.run), runModelsName(ref.run)])).entries()], [runs]);
   const needle = query.trim().toLowerCase();
-  const matching = runs.filter(({ run }) => (task === ALL || run.taskId === task) && (model === ALL || run.snapshot.model.name === model)
-    && (!needle || taskNameOf(run, config.tasks).toLowerCase().includes(needle) || run.snapshot.model.name.toLowerCase().includes(needle))
+  const matching = runs.filter(({ run }) => (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model)
+    && (!needle || taskNameOf(run, config.tasks).toLowerCase().includes(needle) || runModelsName(run).toLowerCase().includes(needle))
     && (outcome === 'all' || (outcome === 'live' ? isLive(run) : isFinished(run) && displayState(run) === outcome)));
   const options = (items: [string, string][]) => [{ id: ALL, name: t('runList.all') }, ...items.map(([id, name]) => ({ id, name }))];
   const narrow = (apply: () => void) => { apply(); setShown(PAGE); };
