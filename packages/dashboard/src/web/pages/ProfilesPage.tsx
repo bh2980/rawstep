@@ -50,7 +50,7 @@ export function ProfilesPage({ capabilities, ...props }: PageProps & { capabilit
         <ul aria-label={t('profiles.listLabel')} className="grid border-y border-edge-strong">
           {profiles.map(profile => <li key={profile.id} className="border-b border-edge last:border-b-0">
             <button type="button" aria-current={profile.id === selected.id ? 'true' : undefined} onClick={() => setSelectedId(profile.id)}
-              className={cn('grid min-h-11 w-full gap-0.5 border-l-[3px] px-3 py-2 text-left text-sm', profile.id === selected.id ? 'border-l-trace bg-trace-soft font-medium' : 'border-l-transparent hover:bg-raised')}>
+              data-selected={profile.id === selected.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2.5 pr-3 pl-4 text-left text-sm', profile.id === selected.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>
               <span>{profile.name}</span>
               <span className="text-xs leading-4 font-normal text-muted-foreground">{profileConditions(profile, capabilities.screenreader, props.view.environmentPresets)[0]!.value}</span>
             </button>

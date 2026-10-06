@@ -157,6 +157,14 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       }
       return send(res, { configured: true });
     }
+    if (path === '/api/credentials/reveal' && method === 'POST') {
+      // The dashboard listens on loopback only and checks Host and Origin, so the saved key may be shown to the person editing it.
+      const body = z.union([z.object({ provider: providerSchema }).strict(), z.object({ modelId: z.string() }).strict()]).parse(await jsonBody(req));
+      if ('provider' in body) return send(res, { value: body.provider === 'custom' ? null : (await store.credential(body.provider)) ?? null });
+      const { config } = await store.read(), model = config.models.find(m => m.id === body.modelId);
+      if (!model) throw new HttpError(404, '모델을 찾을 수 없습니다.');
+      return send(res, { value: (await store.credential(model)) ?? null });
+    }
     if (path === '/api/discover' && method === 'POST') {
       const { apiKey, ...target } = discoverRequestSchema.parse(await jsonBody(req));
       // A key typed for a custom server is used once and not stored; presets use the key saved for their provider.

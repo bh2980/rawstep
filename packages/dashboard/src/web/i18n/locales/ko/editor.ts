@@ -69,6 +69,8 @@ export const editor = {
     advanced: '고급',
     placeholder: '선택하세요',
     noItems: '등록한 항목이 없습니다.',
+    secretShow: '인증키 보기',
+    secretHide: '인증키 숨기기',
   },
   apiErrors: {
     requestFailed: '요청을 처리하지 못했습니다.',

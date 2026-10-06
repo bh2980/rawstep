@@ -8,7 +8,7 @@ import { generateEnvName, providerTextKey, usageKey, withAnalysis, withImages } 
 import { useGuardedAct } from '../lib/useGuardedAct';
 import { cn } from '../lib/utils';
 import type { PageProps } from '../pages/types';
-import { Field } from './forms';
+import { Field, SecretField } from './forms';
 import { ConceptNote } from './layout/ConceptNote';
 import { ErrorState } from './layout/ErrorState';
 import { RadioRows } from './layout/RadioRows';
@@ -155,7 +155,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
         <RadioRows legend={t('modelSetup.steps.provider.title')} value={provider ?? ('' as ProviderId)} onChange={chooseProvider}
           rows={providers.map(p => ({ id: p.id, label: t(`modelSetup.providers.${providerTextKey(kind, p.id)}.name`), hint: t(`modelSetup.providers.${providerTextKey(kind, p.id)}.description`) }))} />
         {custom && <Field label={t('modelSetup.connect.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder={kind === 'llm' ? 'http://127.0.0.1:1234/v1' : 'http://127.0.0.1:8000/v1'} hint={kind === 'llm' ? t('modelSetup.connect.baseUrlHintLlm') : t('modelSetup.connect.baseUrlHintDecision')} />}
-        {provider && <Field label={preset?.keyRequired ? t('modelSetup.connect.apiKey') : t('modelSetup.connect.apiKeyOptional')} type="password" value={apiKey} onChange={setApiKey}
+        {provider && <SecretField label={preset?.keyRequired ? t('modelSetup.connect.apiKey') : t('modelSetup.connect.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
           hint={[keySet ? t('modelSetup.connect.keyAlreadySet') : preset?.keyRequired ? t('modelSetup.connect.keyRequiredHint') : t('modelSetup.connect.keyOptionalHint'), key ? t('modelSetup.connect.keyStoredHint') : undefined, !custom ? t('modelSetup.connect.keyShared') : undefined].filter(Boolean).join(' ')} />}
       </div>
       <DialogFooter className="sm:justify-between">
@@ -174,9 +174,9 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
           <Field label={t('modelSetup.pick.manualModelId')} value={modelId} onChange={setModelId} hint={t('modelSetup.pick.manualHint')} />
         </> : <>
           <Field label={t('modelSetup.pick.filter')} value={filter} onChange={setFilter} placeholder={t('modelSetup.pick.filterPlaceholder')} hint={t('modelSetup.pick.summary', { total: discovered.length, shown: shown.length })} />
-          <div role="group" aria-label={t('modelSetup.pick.listLabel')} className="grid max-h-64 divide-y divide-edge overflow-y-auto rounded-md border border-edge-strong">
-            {shown.map(m => <button key={m.id} type="button" aria-pressed={selected?.id === m.id} onClick={() => pick(m)}
-              className={cn('grid min-w-0 gap-0.5 border-l-[3px] px-3 py-2 text-left', selected?.id === m.id ? 'border-l-trace bg-trace-soft' : 'border-l-transparent hover:bg-raised')}>
+          <div role="group" aria-label={t('modelSetup.pick.listLabel')} className="grid max-h-64 divide-y divide-edge overflow-y-auto border border-edge-strong">
+            {shown.map(m => <button key={m.id} type="button" aria-pressed={selected?.id === m.id} data-selected={selected?.id === m.id} onClick={() => pick(m)}
+              className={cn('row-rail rail-divider grid min-w-0 gap-0.5 py-2.5 pr-4 pl-5 text-left', selected?.id === m.id ? 'bg-trace-soft' : 'hover:bg-raised')}>
               <span className="font-medium break-all">{m.name}{alreadyAdded(m) && <Badge variant="outline" className="ml-2 align-middle">{t('modelSetup.pick.added')}</Badge>}</span>
               <span className="text-xs text-muted-foreground">{capability(m)}</span>
             </button>)}

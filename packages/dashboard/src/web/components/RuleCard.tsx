@@ -40,7 +40,7 @@ export function RuleCard({ rule, n, onRemove, removeDisabled, onEdit, editing }:
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const script = scriptOf(rule);
-  return <li className={cn('grid gap-1 border-b border-edge py-2.5 pl-1', editing && 'border-l-[3px] border-l-trace bg-trace-soft pl-3')}>
+  return <li data-selected={editing} className={cn('row-rail rail-divider grid gap-1 border-b border-edge py-2.5 pr-3 pl-4', editing && 'bg-trace-soft')}>
     <div className="flex items-start justify-between gap-3">
       <p className="flex min-w-0 items-start gap-2.5 text-[15px] leading-6">
         <Check aria-hidden="true" className="mt-1 size-4 shrink-0" />

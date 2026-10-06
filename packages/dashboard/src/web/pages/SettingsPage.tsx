@@ -26,7 +26,7 @@ export function SettingsPage({ pageProps, section, navigate, editorKey }: Props)
     <div className="grid items-start gap-8 md:grid-cols-[12rem_minmax(0,1fr)]">
       <nav aria-label={t('settings.menuLabel')} className="flex gap-1 md:flex-col md:gap-0 md:border-y md:border-edge-strong">
         {sections.map(id => <Link key={id} to={{ view: 'settings', section: id }} navigate={navigate} aria-current={section === id ? 'page' : undefined}
-          className={cn('grid min-h-11 content-center border-l-[3px] px-3 py-1.5 md:border-b md:border-b-edge md:last:border-b-0', section === id ? 'border-l-trace bg-trace-soft font-medium' : 'border-l-transparent text-muted-foreground hover:bg-raised')}>
+          data-selected={section === id} className={cn('row-rail rail-divider grid min-h-11 content-center py-2 pr-3 pl-4 md:border-b md:border-edge md:last:border-b-0', section === id ? 'bg-trace-soft font-medium' : 'text-muted-foreground hover:bg-raised')}>
           <span className="text-sm">{t(`settings.sections.${id}.name`)}</span>
           <span className="hidden text-xs font-normal text-muted-foreground md:block">{t(`settings.sections.${id}.hint`)}</span>
         </Link>)}

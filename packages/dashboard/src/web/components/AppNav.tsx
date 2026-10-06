@@ -12,7 +12,7 @@ function NavLink({ view, icon: Icon, route, navigate }: Props & { view: View; ic
   const { t } = useTranslation();
   const current = route.view === view;
   return <Link to={{ view }} navigate={navigate} aria-current={current ? 'page' : undefined}
-    className={cn('flex h-10 items-center gap-2.5 border-l-[3px] px-3 text-sm', current ? 'border-l-trace bg-trace-soft font-medium text-foreground' : 'border-l-transparent text-muted-foreground hover:bg-raised hover:text-foreground')}>
+    data-selected={current} className={cn('row-rail flex h-10 items-center gap-2.5 pr-3 pl-4 text-sm', current ? 'bg-trace-soft font-medium text-foreground' : 'text-muted-foreground hover:bg-raised hover:text-foreground')}>
     <Icon className="size-4 shrink-0" aria-hidden="true" />{t(`nav.${view}`)}
   </Link>;
 }

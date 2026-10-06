@@ -228,3 +228,13 @@
   background: repeating-linear-gradient(135deg, var(--missed) 0 2px, transparent 2px 4px);
   border: 1.5px solid var(--missed);
 }
+
+/*
+ * Selected-row rail: one straight 3px band the full height of the row. It is a pseudo element, not a border,
+ * so it never inherits a corner radius; lists that carry rails are square-cornered and never clip it.
+ */
+.row-rail { position: relative; }
+.row-rail::before { content: ''; position: absolute; top: 0; bottom: 0; inset-inline-start: 0; z-index: 1; width: 3px; background: transparent; }
+/* A row with a divider directly under it: the band also covers that 1px rule, so it is exactly as tall as the row and its rule. */
+.row-rail.rail-divider::before { bottom: -1px; }
+.row-rail[data-selected='true']::before { background: var(--trace); }

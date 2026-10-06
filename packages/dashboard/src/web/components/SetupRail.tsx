@@ -22,7 +22,7 @@ export function SetupRail({ steps, navigate, compact }: Props) {
   const current = steps.find(step => !step.done), done = steps.filter(step => step.done).length;
   const rail = <ol aria-label={t('home.start.title')} className="grid border-t border-edge-strong">{steps.map((step, index) => {
     const now = step === current, future = !step.done && !now;
-    return <li key={step.id} aria-current={now ? 'step' : undefined} className={cn('grid grid-cols-[1.75rem_2.5rem_minmax(0,1fr)] items-start gap-x-3 border-b border-l-[3px] border-b-edge py-3 pl-3 sm:grid-cols-[1.75rem_4rem_minmax(0,1fr)_7rem]', now ? 'border-l-trace bg-trace-soft' : 'border-l-transparent')}>
+    return <li key={step.id} aria-current={now ? 'step' : undefined} data-selected={now} className={cn('row-rail rail-divider grid grid-cols-[1.75rem_2.5rem_minmax(0,1fr)] items-start gap-x-3 border-b border-edge py-3 pr-4 pl-4 sm:grid-cols-[1.75rem_4rem_minmax(0,1fr)_7rem]', now && 'bg-trace-soft')}>
       <span className={cn('font-mono text-sm leading-6 tabular-nums', now ? 'font-semibold text-trace' : 'text-muted-foreground')}>{String(index + 1).padStart(2, '0')}</span>
       <span aria-hidden="true" className={cn('mt-3 border-t-2', future ? 'border-dashed border-edge-strong' : 'border-solid border-foreground')} />
       <div className="grid gap-0.5">
