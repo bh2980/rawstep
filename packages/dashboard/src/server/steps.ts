@@ -74,8 +74,8 @@ function ending(value: unknown): PlanTask['ending'] | undefined {
 function planTask(value: unknown): PlanTask | undefined {
   if (!record(value) || !text(value.id)) return undefined;
   const end = ending(value.ending);
-  return { id: text(value.id)!, number: text(value.number) ?? '', goal: text(value.goal) ?? '', done: text(value.done) ?? '', serves: strings(value.serves), relies: strings(value.relies),
-    status: taskStatus(value.status) ?? 'pending', actions: int(value.actions) ?? 0, addedIn: int(value.addedIn) ?? 1, ...(end ? { ending: end } : {}) };
+  return { id: text(value.id)!, number: text(value.number) ?? '', goal: text(value.goal) ?? '', done: text(value.done) ?? '', cue: text(value.cue) ?? '', serves: strings(value.serves), relies: strings(value.relies),
+    status: taskStatus(value.status) ?? 'pending', actions: int(value.actions) ?? 0, rejected: int(value.rejected) ?? 0, addedIn: int(value.addedIn) ?? 1, ...(end ? { ending: end } : {}) };
 }
 /** A plan document as the trace holds it, keeping only well-formed parts; redacted wording reads as empty. */
 function planDocument(value: unknown): PlanDocument | undefined {
@@ -113,7 +113,7 @@ function callOf(e: Record<string, unknown>): ModelCall | undefined {
   return { role: text(e.role) ?? 'executor', ...(text(e.taskId) ? { taskId: text(e.taskId)! } : {}), ...(int(e.planVersion) !== undefined ? { planVersion: int(e.planVersion)! } : {}),
     ...(choiceId ? { choiceId } : {}), ...(choice && text(choice.label) ? { choiceLabel: text(choice.label)! } : {}),
     ...(typeof probabilities[index] === 'number' ? { score: probabilities[index] as number } : {}),
-    ...(modelId ? { modelId } : {}), ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}) };
+    ...(modelId ? { modelId } : {}), ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}), ...(e.accepted === false ? { accepted: false } : {}) };
 }
 /**
  * The plan document of an orchestrated run from its policy evidence: each `orchestration-plan` brings a whole version, task events
@@ -151,6 +151,12 @@ export function buildPlan(events: readonly TraceEvent[]): RunPlanView | undefine
         task.status = to;
         if (end) task.ending = end;
         if (to === 'active') doc.current = task.id; else if (doc.current === task.id) delete doc.current;
+      }
+    } else if (e.kind === 'orchestration-claim' && text(e.taskId)) {
+      any = true;
+      for (const doc of [latest, latest && documents.get(latest.version)]) {
+        const task = doc && allTasks(doc).find(t => t.id === text(e.taskId));
+        if (task) task.rejected = Math.max(task.rejected, int(e.rejected) ?? task.rejected + 1);
       }
     } else if (e.kind === 'orchestration-limit') {
       any = true;

@@ -193,6 +193,8 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
         {verified && <span className="text-muted-foreground">· {t(`planDoc.verified.${verified}`)}</span>}
       </p>
       <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.doneCue')}</span> {task.done || '—'}</p>
+      <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.cue')}</span> {task.cue ? <span className="font-mono">"{task.cue}"</span> : <span className="text-muted-foreground">{t('planDoc.noCue')}</span>}
+        {task.rejected > 0 && <span className="ml-2 text-inspect">{t('planDoc.claimsRefused', { count: task.rejected })}</span>}</p>
       {(task.serves.length > 0 || task.relies.length > 0) && <p className="font-mono text-xs text-muted-foreground">{[...task.serves, ...task.relies].join(', ')}</p>}
       {endingLabel(doc, task) && task.status !== 'done' && <p className="text-sm text-muted-foreground">{endingLabel(doc, task)}</p>}
     </div>
@@ -253,7 +255,7 @@ export function ModelCalls({ step, calls, plan }: { step: number; calls: ModelCa
 /** What the executor picked, in words: the plan choices by name, an action by its label. */
 function choiceText(call: ModelCall): string {
   const id = call.choiceId ?? '';
-  if (id === 'task:done') return translate('planDoc.choiceDone');
+  if (id === 'task:done') return translate(call.accepted === false ? 'planDoc.choiceDoneRefused' : 'planDoc.choiceDone');
   if (id.startsWith('help:')) return translate('planDoc.choiceHelp', { reason: translate(`hints.text.helpReasons.${id.slice(5)}`, { defaultValue: id.slice(5) }) });
   return call.choiceLabel ?? (id || '—');
 }
@@ -263,11 +265,13 @@ export function PlanFacts({ plan }: { plan: RunPlanView }) {
   const { t } = useTranslation();
   const tasks = plan.document.phases.flatMap(phase => phase.tasks), done = tasks.filter(task => task.status === 'done').length;
   const dropped = plan.document.retired.filter(task => task.status === 'abandoned').length, replans = replanCount(plan), wait = modelWait(plan.calls);
+  const refused = Object.values(plan.calls).flat().filter(call => call.choiceId === 'task:done' && call.accepted === false).length;
   return <FactLine label={t('planDoc.factsLabel')} items={[
     <strong key="v" className="font-semibold">{t('planDoc.factVersion', { version: plan.document.version })}</strong>,
     replans > 0 ? t('planDoc.factReplans', { count: replans }) : t('planDoc.factNoReplans'),
     t('planDoc.factTasks', { done, total: tasks.length }),
     dropped > 0 && t('planDoc.factDropped', { count: dropped }),
+    refused > 0 && t('planDoc.factRefused', { count: refused }),
     wait.total > 0 && t('planDoc.factWait', { total: wait.total.toFixed(1), planner: wait.planner.toFixed(1), executor: wait.executor.toFixed(1) }),
   ]} />;
 }

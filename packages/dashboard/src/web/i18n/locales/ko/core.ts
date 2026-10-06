@@ -130,7 +130,7 @@ export const core = {
       replanFailures: '행동이 연달아 실패해 계획 모델이 계획 v{{version}}을 세웠습니다.',
       replanNoChange: '행동해도 발화가 바뀌지 않아 계획 모델이 계획 v{{version}}을 세웠습니다.',
       taskLimit: '한 작업에서 행동 한도를 다 써서 계획 모델이 계획 v{{version}}을 세웠습니다.',
-      unverifiedDone: '실행 모델이 작업 {{task}}을 끝냈다고 했지만 완료 단서는 들리지 않았습니다.',
+      unverifiedDone: '실행 모델이 작업 {{task}}을 끝냈다고 했지만 완료 문구가 들리지 않아 작업을 계속 진행하게 했습니다.',
       earlyStopStuck: '모델이 막혔다고 답해 실행이 멈췄습니다.',
       earlyStopUncertain: '모델이 확신하지 못한다고 답해 실행이 멈췄습니다.',
       goalMetAll: '첫 행동 전부터 완료 확인이 모두 맞아 있었습니다.',
@@ -155,7 +155,7 @@ export const core = {
       replan: '다시 계획',
       'help-request': '실행 모델의 도움 요청',
       'task-limit': '작업의 행동 한도 도달',
-      'unverified-done': '확인되지 않은 작업 완료',
+      'unverified-done': '받아들이지 않은 작업 완료',
     } satisfies Record<HintKind, string>,
   },
   steps: {

@@ -53,9 +53,12 @@ describe('plan document', () => {
     expect(renderPlanMarkdown(v3)).toMatch(/## Success criteria\n\n- ✓ C1 The cart confirms the item[\s\S]*- ✕ A1[\s\S]*- \[~\] 1\.1 Use headings[\s\S]*← current[\s\S]*- v2 before step 5 · help\/no-cue · broken A1 — A1 was wrong\./);
   });
   it('checks a claimed completion against the quoted cue', () => {
-    expect(verifyCue('Hear "Add to cart, button"', ['add to cart,  button'])).toBe('heard');
-    expect(verifyCue('Hear “Added to cart”', ['Quantity, 1'])).toBe('not-heard');
-    expect(verifyCue('The cart opens', ['Cart'])).toBe('unchecked');
+    expect(verifyCue({ done: 'Hear "Add to cart, button"', cue: '' }, ['add to cart,  button'])).toBe('heard');
+    expect(verifyCue({ done: 'Hear “Added to cart”', cue: '' }, ['Quantity, 1'])).toBe('not-heard');
+    expect(verifyCue({ done: 'The cart opens', cue: '' }, ['Cart'])).toBe('unchecked');
+    // The planner's cue wins over quotes in the description.
+    expect(verifyCue({ done: 'The cart opens', cue: 'Cart, 1 item' }, ['cart, 1 item, link'])).toBe('heard');
+    expect(verifyCue({ done: 'Hear "Cart"', cue: 'Cart, 1 item' }, ['Cart'])).toBe('not-heard');
   });
 });
 
@@ -68,7 +71,7 @@ describe('orchestrated speech policy', () => {
     expect(p.requests[0]!.actions.map(a => a.id)).toEqual(['intent:next', 'intent:activate', 'intent:form.next']);
     expect(e.requests[0]!.state).toMatchObject({ currentTask: { goal: 'Move to Add to cart', actions: 0, actionLimit: 12 }, nextTask: 'Activate it',
       plan: [{ number: '1.1', phase: 'Find', task: 'Move to Add to cart', status: 'active' }, { number: '2.1', phase: 'Buy', task: 'Activate it', status: 'pending' }] });
-    expect(e.requests[0]!.choices.map(c => c.id)).toEqual(['intent:next', 'intent:activate', 'intent:form.next', 'stop:success', 'task:done', 'help:no-cue', 'help:no-effect', 'help:already-done']);
+    expect(e.requests[0]!.choices.map(c => c.id)).toEqual(['intent:next', 'intent:activate', 'intent:form.next', 'stop:success', 'task:done', 'help:already-done']);
     const kinds = evidence(policy);
     expect(kinds.map(k => k.kind)).toEqual(['orchestration-plan', 'orchestration-task', 'model-inference']);
     expect(kinds[0]).toMatchObject({ role: 'planner', version: 1, prompt: { id: 'rawstep-planner' } });
@@ -122,20 +125,43 @@ describe('orchestrated speech policy', () => {
     expect(await policy.decide(input({ history: h, observation: said('End of content') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
   });
   it('stops with its own stop sources: the planner judging the goal done, or running out of new plans', async () => {
-    const p = planner(draft({ Any: ['Anything'] })), e = executor('help:no-effect', 'help:no-effect');
+    const p = planner(draft({ Any: ['Anything'] })), e = executor('intent:next', 'help:no-effect', 'intent:next', 'help:no-effect');
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { maxReplans: 1 });
-    expect(await policy.decide(input())).toEqual({ stop: 'stuck', stopSource: 'orchestration-limit' });
+    expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1'), acted(2, 'next', 'Price')] }))).toEqual({ stop: 'stuck', stopSource: 'orchestration-limit' });
     expect(evidence(policy).some(k => k.kind === 'orchestration-limit')).toBe(true);
     expect(currentTask(policy.planDocument()!)).toMatchObject({ status: 'failed' });
     const done = new OrchestratedSpeechPolicy(planner({ ...draft({}), complete: true, rationale: 'Already in the cart.' }).planner, executor().executor);
     expect(await done.decide(input())).toEqual({ stop: 'success', stopSource: 'planner' });
   });
+  it('turns down a "done" claim whose cue was not heard: the task stays open and the executor must act', async () => {
+    const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart' }] }] });
+    const e = executor('task:done', 'intent:activate');
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    expect(await policy.decide(input({ observation: said('Add to cart, button') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(e.requests[1]!.choices.map(c => c.id)).not.toContain('task:done');
+    expect(e.requests[1]!.state).toMatchObject({ currentTask: { cue: 'Added to cart', claimsTurnedDown: 1 } });
+    const kinds = evidence(policy);
+    expect(kinds.find(k => k.kind === 'orchestration-claim')).toMatchObject({ taskId: 't1', verified: 'not-heard', accepted: false, rejected: 1 });
+    expect(kinds.filter(k => k.kind === 'model-inference')[0]).toMatchObject({ choiceId: 'task:done', accepted: false });
+    expect(policy.planDocument()!.phases[0]!.tasks[0]).toMatchObject({ status: 'active', rejected: 1, actions: 1 });
+    expect(p.requests).toHaveLength(1);
+  });
+  it('lets the executor ask for help about a missing cue or no effect only after it has tried the task', async () => {
+    const p = planner(draft({ Find: ['Find the button'] })), e = executor('intent:next', 'help:no-cue', 'intent:next');
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    await policy.decide(input());
+    expect(e.requests[0]!.choices.map(c => c.id).filter(id => id.startsWith('help:'))).toEqual(['help:already-done']);
+    await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1')] }));
+    expect(e.requests[1]!.choices.map(c => c.id).filter(id => id.startsWith('help:'))).toEqual(['help:no-cue', 'help:no-effect', 'help:already-done']);
+  });
   it('asks for the next plan when every task is finished', async () => {
     const p = planner(draft({ Only: ['Only task'] }), draft({ Check: ['Check the cart'] })), e = executor('task:done', 'intent:next');
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
-    await policy.decide(input());
+    await policy.decide(input({ observation: said('Only task') }));
     expect(p.requests.map(r => r.trigger)).toEqual(['start', 'plan-finished']);
-    expect(p.requests[1]!.document!.phases[0]!.tasks[0]).toMatchObject({ status: 'done', ending: { verified: 'not-heard' } });
+    expect(p.requests[1]!.document!.phases[0]!.tasks[0]).toMatchObject({ status: 'done', ending: { verified: 'heard' } });
   });
   it('appends the executor guide to the run prompt under a separate ID', () => {
     const prompt = orchestratedPrompt({ id: 'baseline', version: '1', instructions: 'Base.' });
@@ -154,13 +180,16 @@ describe('orchestrated policy inside the runner', () => {
         start: async () => ({}), execute: async () => { pressed++; return {}; }, close: async () => {}, subscribe: () => () => {},
         observe: async () => ({ windowId: 'w', startedAt: '2026-10-01T00:00:00Z', endedAt: '2026-10-01T00:00:01Z', reason: 'fixture', outputs: [], speech: [pressed ? 'Added to cart' : 'Add to cart, button'] }) };
       const session = { page: { bringToFront: async () => {} }, browser: { version: () => 'fake' }, takeBlockedNavigations: () => [], takeNavigationGuardWarnings: () => [], close: async () => {} };
-      const p = planner(draft({ Buy: ['Activate Add to cart'] })), e = executor('intent:activate');
+      // The executor first claims the task done before anything happened; the cue is not heard, so the claim is turned down.
+      const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart' }] }] }), e = executor('task:done', 'intent:activate');
       const trace = await runTask({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
         backend, policy: new OrchestratedSpeechPolicy(p.planner, e.executor), outDir: dir, browserSessionFactory: async () => session as never,
         verifier: async () => ({ passed: pressed > 0, failures: pressed > 0 ? [] : ['not yet'] }) });
       expect(trace.outcome?.status).toBe('success');
       const kinds = trace.events.filter(ev => ev.type === 'policy.evidence').map(ev => (ev.data as { evidence: { kind: string } }).evidence.kind);
-      expect(kinds).toEqual(['orchestration-plan', 'orchestration-task', 'model-inference']);
+      expect(kinds).toEqual(['orchestration-plan', 'orchestration-task', 'model-inference', 'orchestration-claim', 'model-inference']);
+      const { extractHints } = await import('@rawstep/reports/hints');
+      expect(extractHints(trace).hints.filter(h => h.kind === 'unverified-done')).toMatchObject([{ source: 'run', certainty: 'observed', steps: [1], detail: { taskId: 't1' } }]);
       expect(await readFile(join(dir, 'trace.json'), 'utf8')).toContain('Activate Add to cart');
     } finally { await rm(dir, { recursive: true, force: true }); }
   });

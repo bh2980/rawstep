@@ -16,7 +16,7 @@ export type HintKind =
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
  * model: the model hesitated or wandered, which may say more about the model than the page.
  * run: about the run as a whole (length against the fastest run, goal already met at start), and orchestration events — a new
- * plan, a help request, a task running out of actions, a completion claim whose cue was not heard. These mark where the executor
+ * plan, a help request, a task running out of actions, a completion claim turned down because its cue was not heard. These mark where the executor
  * needed the planner; the page may have made that point hard, or the plan may have been wrong.
  */
 export type HintSource = 'page' | 'model' | 'run';
@@ -247,9 +247,11 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     else if (trigger === 'task-limit') add({ kind: 'task-limit', certainty: 'observed', steps: [item.step],
       summary: `A task used up its actions, so the planner wrote plan v${String(version)}.`, detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
   }
-  for (const item of evidence.filter(e => e.data.kind === 'orchestration-task' && record(e.data.ending) && e.data.ending.verified === 'not-heard')) add({
-    kind: 'unverified-done', certainty: 'suspected', steps: [item.step],
-    summary: `The executor said task ${String(item.data.taskId)} was done, but its completion cue was not heard.`, detail: { taskId: item.data.taskId }, evidence: [item.id] }, focusBefore(item.step - 1));
+  // The executor said a task was done, but its cue was not heard, so Rawstep kept the task open. The cue may be wrong, or the
+  // page may not say what a user would expect at that point.
+  for (const item of evidence.filter(e => e.data.kind === 'orchestration-claim' && e.data.accepted === false)) add({
+    kind: 'unverified-done', certainty: 'observed', steps: [item.step],
+    summary: `The executor said task ${String(item.data.taskId)} was done, but its cue was not heard, so the task stayed open.`, detail: { taskId: item.data.taskId }, evidence: [item.id] }, focusBefore(item.step - 1));
 
   // Goal rules that already held before any action make "reached the goal" weak evidence. `not` rules hold at start by design.
   const baseline = (trace.events as readonly TraceEvent[]).find(e => e.type === 'verifier.baseline');

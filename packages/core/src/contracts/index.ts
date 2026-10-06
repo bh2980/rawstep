@@ -82,6 +82,8 @@ export type ScreenReaderObservation = {
   speech: readonly string[];
   outputEventIds: readonly string[];
   window: { id: string; startedAt: string; endedAt: string; reason: string };
+  /** The page title (document.title), which screen readers announce when a page loads. Absent when it could not be read. */
+  title?: string;
 };
 export type ScreenshotObservation = { pngBase64: string; viewport: { w: number; h: number } };
 export type KeyboardObservation = {

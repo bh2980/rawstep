@@ -276,8 +276,11 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         }
         return id;
       });
-      const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason } };
-      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'] } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
+      // A screen reader announces the title when a page loads; a page that cannot answer (navigating, closed) simply has none.
+      const title = typeof browser?.page.title === 'function' ? await browser.page.title().catch(() => undefined) : undefined;
+      const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
+        ...(title ? { title: title.slice(0, 300) } : {}) };
+      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
     let observation = await observe();
@@ -469,8 +472,10 @@ const SAFE_TOKEN = /^[A-Za-z0-9._:-]{1,64}$/;
 function evidenceSummary(evidence: unknown): Record<string, unknown> {
   if (!evidence || typeof evidence !== 'object') return {};
   const source = evidence as Record<string, unknown>, out: Record<string, unknown> = {};
-  for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
+  for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId', 'verified']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
   for (const key of ['version', 'planVersion', 'replans', 'maxReplans', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
+  if (typeof source.accepted === 'boolean') out.accepted = source.accepted;
+  if (typeof source.rejected === 'number') out.rejected = source.rejected;
   const ending = source.ending;
   if (ending && typeof ending === 'object') {
     const e = ending as Record<string, unknown>;

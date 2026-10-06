@@ -32,6 +32,8 @@ export type PlanEvent = { kind: 'plan'; reason: string; outline: string[]; steps
 export type ModelCall = {
   role: string; taskId?: string; planVersion?: number; choiceId?: string; choiceLabel?: string; score?: number;
   modelId?: string; elapsedMs?: number; trigger?: string; help?: string; version?: number;
+  /** false when the executor said the task was done and Rawstep turned the claim down (the cue was not heard). */
+  accepted?: boolean;
 };
 /** One version of a run's plan: when it was made (before which runner step), why, and the planner's own account of the change. */
 export type PlanVersionView = {

@@ -12,8 +12,9 @@ export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
 export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'checkpoint' | 'plan-finished';
 /**
- * How a task ended. `verified` compares a quoted completion cue with what the screen reader said: the executor's "done" is a
- * claim, not a fact. `unchecked` means the cue quoted nothing to compare.
+ * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
+ * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
+ * `unchecked` means the task had no cue to compare.
  */
 export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'not-heard' | 'unchecked' };
 /** Something the user must be able to hear for the goal to count as reached, in the planner's words. */
@@ -25,8 +26,13 @@ export type PlanTask = {
   /** Position in the current version, like "2.1"; kept as it was when the task was retired. */
   number: string;
   goal: string;
-  /** What the user hears when the task is done; quote exact words so Rawstep can check them. */
+  /** What the user hears when the task is done, in the planner's words. */
   done: string;
+  /** The exact words the screen reader should say when the task is done; empty when they cannot be predicted. Rawstep checks a
+   * "done" claim against them. */
+  cue: string;
+  /** "Done" claims Rawstep turned down because the cue was not heard. */
+  rejected: number;
   /** Criteria this task works toward and assumptions it relies on. */
   serves: string[]; relies: string[];
   status: TaskStatus;
@@ -77,7 +83,7 @@ export type PlanDraft = {
   complete: boolean; rationale: string; strategy: string;
   criteria: { id: string; text: string; status?: CriterionStatus }[];
   assumptions: { id: string; text: string; status?: AssumptionStatus }[];
-  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; serves?: string[]; relies?: string[] }[] }[];
+  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string; serves?: string[]; relies?: string[] }[] }[];
 };
 
 const open = (t: PlanTask) => t.status === 'pending' || t.status === 'active';
@@ -109,7 +115,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, serves, relies, status: 'pending', actions: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {
@@ -153,11 +159,11 @@ export function failCurrent(doc: PlanDocument, step: number): void {
   if (task) { task.status = 'failed'; task.ending = { reason: 'limit', step }; }
 }
 /**
- * Whether the quoted words of a completion cue were heard. Quotes may be straight or curly; matching ignores case and spacing.
- * A cue without quotes cannot be checked.
+ * Whether a task's completion cue was heard: its `cue`, else words quoted in its "done" (straight or curly quotes). Matching
+ * ignores case and spacing. A task with neither cannot be checked.
  */
-export function verifyCue(done: string, heard: readonly string[]): TaskEnding['verified'] {
-  const quoted = [...done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => m[1]!.trim()).filter(Boolean);
+export function verifyCue(task: Pick<PlanTask, 'cue' | 'done'>, heard: readonly string[]): NonNullable<TaskEnding['verified']> {
+  const quoted = task.cue ? [task.cue] : [...task.done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => m[1]!.trim()).filter(Boolean);
   if (!quoted.length) return 'unchecked';
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const said = heard.map(norm).join('\n');
@@ -180,7 +186,7 @@ export function renderPlanMarkdown(doc: PlanDocument): string {
     for (const t of phase.tasks) {
       const refs = [...t.serves, ...t.relies].join(', ');
       lines.push(`- ${box[t.status]} ${t.number} ${t.goal}${refs ? ` _(${refs})_` : ''}${doc.current === t.id ? ' ← current' : ''}`,
-        `  - done: ${t.done} · actions: ${t.actions}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
+        `  - done: ${t.done}${t.cue ? ` · cue "${t.cue}"` : ''} · actions: ${t.actions}${t.rejected ? ` · claims turned down: ${t.rejected}` : ''}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
     }
     lines.push('');
   }

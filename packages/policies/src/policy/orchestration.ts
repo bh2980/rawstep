@@ -15,6 +15,8 @@ export type PlanRequest = {
   help?: HelpReason;
   /** What the screen reader says now. */
   speech: string[];
+  /** The page title, as a screen reader announces it on load (absent when unknown). */
+  title?: string;
   /** What the executor can actually do: action candidates and named inputs (secret values never included). */
   actions: ChoiceCandidate[];
   /** The plan so far: statuses, completion checks and revision history. Absent for the first plan. */
@@ -45,6 +47,8 @@ const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeL
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
 const TASK_DONE = 'task:done';
+/** Help reasons that need at least one try on the task first: asking before acting throws away a plan nobody tested. */
+const AFTER_TRYING: ReadonlySet<HelpReason> = new Set(['no-cue', 'no-effect']);
 const HELP: Record<HelpReason, string> = {
   'no-cue': 'Ask for a new plan: the completion cue of the current task cannot be found',
   'no-effect': 'Ask for a new plan: actions have no effect here',
@@ -53,7 +57,7 @@ const HELP: Record<HelpReason, string> = {
 
 /** Added to the executor's prompt: how to read the plan and when to use the task choices. */
 export const ORCHESTRATED_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: work toward currentTask.goal while keeping the overall goal in mind; plan shows where the run is. ' +
-  'Choose "Current task done" only when the speech shows currentTask.done. Choose an "Ask for a new plan" option, with the matching reason, when the task cannot be done with the available actions. ' +
+  'Choose "Current task done" only when the speech shows currentTask.done; Rawstep checks it against currentTask.cue and turns the claim down when the cue was not heard. Choose an "Ask for a new plan" option, with the matching reason, when the task cannot be done with the available actions. ' +
   'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
 /** The run's prompt with the executor guide appended; a new ID keeps its evidence apart from the plain prompt's. */
 export function orchestratedPrompt<P extends { id: string; version: string; instructions: string }>(prompt: P): P {
@@ -102,6 +106,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       const trigger = this.trigger(input);
       if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
     }
+    // A "done" claim turned down in this step is not offered again until an action has been taken.
+    let refused: string | undefined;
     for (let call = 0; call < MAX_CALLS_PER_STEP; call++) {
       const doc = this.doc!;
       if (doc.complete) return { stop: 'success', stopSource: 'planner' };
@@ -115,13 +121,14 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       }
       const actions = speechChoices(input.allowedActions, this.options, input.inputs);
       const candidates: ChoiceCandidate[] = [...actions.map(({ id, label }) => ({ id, label })),
-        { id: TASK_DONE, label: `Current task done: ${task.done}` },
-        ...(Object.keys(HELP) as HelpReason[]).map(reason => ({ id: `help:${reason}`, label: HELP[reason] }))];
+        ...(refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
+        ...(Object.keys(HELP) as HelpReason[]).filter(reason => task.actions > 0 || !AFTER_TRYING.has(reason)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] }))];
       const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {
         goal: input.goal, plan: planOutline(doc),
-        currentTask: { goal: task.goal, done: task.done, actions: task.actions, actionLimit: this.limits.stepActionLimit }, ...(next ? { nextTask: next.goal } : {}),
+        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: task.cue } : {}), actions: task.actions, actionLimit: this.limits.stepActionLimit,
+          ...(task.rejected ? { claimsTurnedDown: task.rejected } : {}) }, ...(next ? { nextTask: next.goal } : {}),
         taskAttempts: modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom),
         speech: [...input.observation.speech], history: modelHistory(input.history, input.observation, this.limits.historyLimit),
       }, choices: candidates }, { signal: input.signal });
@@ -134,8 +141,16 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       if (response.choiceId === TASK_DONE) {
         const last = input.history.at(-1)?.observation;
         const heard = [...input.observation.speech, ...(last?.kind === 'screenreader' ? last.speech : [])];
+        const verified = verifyCue(task, heard);
+        if (verified === 'not-heard') {
+          // The executor's "done" is a claim: without the cue it would end a task that is not done and mislead the planner.
+          task.rejected++; refused = task.id;
+          (this.evidence.at(-1) as Record<string, unknown>).accepted = false;
+          this.evidence.push({ kind: 'orchestration-claim', taskId: task.id, planVersion: doc.version, verified, accepted: false, rejected: task.rejected });
+          continue;
+        }
         const phase = phaseOf(doc, task.id);
-        const done = finishCurrent(doc, step, verifyCue(task.done, heard))!;
+        const done = finishCurrent(doc, step, verified)!;
         this.taskEvent(done, 'active');
         // A finished phase is reviewed before the next one starts (with nothing left, the final review below covers it).
         if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); continue; }
@@ -174,7 +189,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
-    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], actions,
+    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');

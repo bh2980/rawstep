@@ -339,7 +339,8 @@ describe('model-neutral runner',()=>{
     });
     it('records only the error name when the baseline throws, then continues with the run',async()=>{
       let calls=0;
-      const {f}=builtIn(async()=>{if(++calls===1)throw new TypeError('secret https://example.test/?q=Private');return 'Done page';});
+      // The first title() is the page title of the first screen reader observation; the second is the goal baseline.
+      const {f}=builtIn(async()=>{if(++calls===2)throw new TypeError('secret https://example.test/?q=Private');return 'Done page';});
       const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       const baseline=trace.events.find(e=>e.type==='verifier.baseline')!;
       expect(baseline.data).toEqual({error:'TypeError'});expect(JSON.stringify(baseline)).not.toMatch(/secret|Private/);

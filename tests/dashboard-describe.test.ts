@@ -33,7 +33,7 @@ describe('describeHint', () => {
     ['help-request', hint('help-request', { help: 'no-cue', version: 2 }), ['완료 단서를 찾을 수 없음', 'v2']],
     ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
     ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
-    ['unverified-done', hint('unverified-done', { taskId: 't4' }), ['t4', '들리지 않았습니다']],
+    ['unverified-done', hint('unverified-done', { taskId: 't4' }), ['t4', '들리지 않아']],
     ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],
     ['focus-left-page', hint('focus-left-page', { action: 'Tab' }), ['Tab', '페이지를 벗어났습니다']],
