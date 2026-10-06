@@ -200,6 +200,8 @@ describe('connection schema', () => {
     expect(() => parseConfig(withProfile(p => { p.analysisModel = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
     expect(() => parseConfig(withProfile(p => { p.analysisModel = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
     expect(() => parseConfig(withProfile(p => { p.analysisModel = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow();
+    expect(() => parseConfig(withProfile(p => { p.plannerModel = { connectionId: 'llm', modelId: 'planner' }; }))).not.toThrow();
+    expect(() => parseConfig(withProfile(p => { p.plannerModel = { connectionId: 'a', modelId: 'planner' }; }))).toThrow(/plan with an LLM/);
     expect(() => parseConfig(withProfile(p => { p.model!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
     expect(() => parseConfig(withProfile(p => { delete p.model; }))).not.toThrow();
   });
@@ -314,6 +316,16 @@ describe('run checks', () => {
     const withLlm = check(setup(), c => { c.connections.push(connection('llm', { kind: 'llm' })); c.profiles[0]!.analysisModel = { connectionId: 'llm', modelId: 'writer' }; });
     expect(withLlm.problem).toBeUndefined(); expect(withLlm.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer', kind: 'llm' });
     expect(check(setup(), () => {}, { mode: 'screenreader', diagnoseStop: true }).problem?.code).toBe('diagnose-keyboard-only');
+  });
+  it('uses a planner model on an LLM connection for screen reader runs only, counting its two step choices', () => {
+    const withPlanner = (c: ProjectConfig) => { c.connections.push(connection('llm', { kind: 'llm' })); c.profiles[0]!.plannerModel = { connectionId: 'llm', modelId: 'planner' }; };
+    const reader = check(setup(), withPlanner, { mode: 'screenreader' });
+    expect(reader.problem).toBeUndefined(); expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner', kind: 'llm' });
+    expect(check(setup(), withPlanner).plannerModel).toBeUndefined();
+    expect(check(setup(), c => { c.profiles[0]!.plannerModel = { connectionId: 'b', modelId: 'planner' }; }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
+    const choices = (maxChoices: number) => check(setup(), c => { withPlanner(c); choiceOf(c).maxChoices = maxChoices; }, { mode: 'screenreader' }).problem?.code;
+    const base = check(setup(), () => {}, { mode: 'screenreader' }).permissions, count = base.keys.length + base.intents.length + 1;
+    expect(choices(count + 1)).toBe('too-many-choices'); expect(choices(count + 2)).toBeUndefined();
   });
   it('knows which models can serve a mode', () => {
     const a = profileModel(setup(), setup().profiles[0]!)!;

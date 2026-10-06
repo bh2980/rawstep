@@ -32,7 +32,7 @@ export function ProfilesPage({ navigate, ...props }: PageProps & { navigate: (ch
   const usedBy = config.tasks.filter(task => task.profileId === selected.id).length;
   const dirty = JSON.stringify(profiles) !== JSON.stringify(config.profiles);
   // A model or analysis model needs its model ID before the profiles can be saved.
-  const missingId = profiles.find(profile => (profile.model && !profile.model.modelId.trim()) || (profile.analysisModel && !profile.analysisModel.modelId.trim()));
+  const missingId = profiles.find(profile => (profile.model && !profile.model.modelId.trim()) || (profile.analysisModel && !profile.analysisModel.modelId.trim()) || (profile.plannerModel && !profile.plannerModel.modelId.trim()));
   const update = (part: Partial<RunProfile>) => setProfiles(list => list.map(profile => profile.id === selected.id ? { ...profile, ...part } : profile));
   const add = (profile: RunProfile) => { setProfiles(list => [...list, profile]); setSelectedId(profile.id); };
   const remove = () => {

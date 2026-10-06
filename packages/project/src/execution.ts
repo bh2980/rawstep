@@ -4,7 +4,8 @@ import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { DecisionClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { SpeechDecisionPolicy } from '@rawstep/policies/policy';
+import { OrchestratedSpeechPolicy, orchestratedPrompt, SpeechDecisionPolicy, type ChoiceModel } from '@rawstep/policies/policy';
+import { createLlmModel, LlmPlanner } from '@rawstep/policies/llm';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
@@ -24,9 +25,13 @@ export type RunSpec = {
   permissions: Permissions;
   /** Ask the model, after a keyboard run that stopped early, why (never an action or verdict). */
   diagnoseStop?: boolean;
+  /** Screen reader runs only: the LLM that plans small steps for `model` to carry out. */
+  plannerModel?: Model;
 };
 export type RunExecution = {
   outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
+  /** The planner model's key, when `RunSpec.plannerModel` needs one. */
+  plannerApiKey?: string | undefined;
   /** The command that starts the AT Driver server on this computer, for native screen reader runs when none is running yet. */
   atDriverCommand?: string | undefined;
   /** Where the kept browser profile lives when the machine setting `personCheck` is on (`<project>/.rawstep/browser-profile`). */
@@ -36,18 +41,25 @@ export type RunExecution = {
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop, plannerModel }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
   const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
-  const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
+  const { repetitionGuard: guardSetting, modelGiveUp, maxReplans, stepActionLimit, ...limits } = globals.policy;
   const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
   const speechOptions = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions, historyLimit: limits.historyLimit };
+  // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
+  const planner = mode === 'screenreader' && plannerModel
+    ? new LlmPlanner(createLlmModel({ baseURL: resolveBaseURL(plannerModel), modelId: plannerModel.modelId, apiKey: plannerApiKey, timeoutMs: plannerModel.timeoutMs, name: 'rawstep-planner' }))
+    : undefined;
+  const speechPolicy = (chooser: ChoiceModel): DecisionPolicy => planner
+    ? new OrchestratedSpeechPolicy(planner, chooser, { ...speechOptions, maxReplans, stepActionLimit })
+    : new SpeechDecisionPolicy(chooser, speechOptions);
   let policy: DecisionPolicy;
   let screenshotModel: ScreenshotModelAdapter | undefined;
   if (model.kind === 'llm') {
-    const chooser = llmChoiceModel(model, prompt, apiKey);
+    const chooser = llmChoiceModel(model, planner ? orchestratedPrompt(prompt) : prompt, apiKey);
     screenshotModel = new LlmScreenshotAdapter(chooser);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new SpeechDecisionPolicy(chooser, speechOptions);
+    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : speechPolicy(chooser);
   } else {
     const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
       capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
@@ -56,7 +68,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
       screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
       policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
     } else {
-      policy = new SpeechDecisionPolicy(new SystemOneChoiceModel(client, prompt), speechOptions);
+      policy = speechPolicy(new SystemOneChoiceModel(client, planner ? orchestratedPrompt(prompt) : prompt));
     }
   }
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),

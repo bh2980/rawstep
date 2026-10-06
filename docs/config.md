@@ -74,9 +74,10 @@ A run profile is a named set of conditions.
 |---|---|
 | `id`, `name` | Identifier and display name. `--profile` accepts either. |
 | `permissions` | `{ keyboard, screenreader }` permissions. |
-| `policy` | When a run counts as stuck: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard` (`auto`, `on` or `off`) and `modelGiveUp`. Defaults are 12, 5 and 4; the focus gate is off. |
+| `policy` | When a run counts as stuck: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard` (`auto`, `on` or `off`) and `modelGiveUp`. Defaults are 12, 5 and 4; the focus gate is off. With a planner model, `maxReplans` (default 4) and `stepActionLimit` (default 12) bound replanning. |
 | `model` | The model runs of this profile decide with: `{ connectionId, modelId, inputs, maxChoices, maxImages }`. `connectionId` names a connection, `modelId` is the identifier sent to the provider, `inputs` is `["text"]` or `["text", "image"]`, and `maxChoices` and `maxImages` are the candidate and image limits (defaults 255 and 2). A profile without `model` cannot run. To compare models, compare profiles that differ only in `model`. |
 | `analysisModel` | Optional `{ connectionId, modelId }` of an `llm` connection. When set, an LLM analysis is added to every run of this profile (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. |
+| `plannerModel` | Optional `{ connectionId, modelId }` of an `llm` connection. In screen reader mode it plans a rough route and small steps; `model` then carries out one small step at a time. It plans again when `model` asks for help, actions keep failing, actions change nothing, or a step runs long. Plans, finished steps and the reason for each new plan are saved as policy evidence. Keyboard runs do not use it yet. |
 | `environment` | A built-in environment profile name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. See [environment profiles](./environment-profiles.md). |
 | `analysisInstructions` | Optional analysis focus. |
 

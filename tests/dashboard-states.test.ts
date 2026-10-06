@@ -155,7 +155,7 @@ describe('settings helpers', () => {
     expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('states a run profile as five experiment conditions, the model first', () => {
+  it('states a run profile as six experiment conditions, the model and its planner first', () => {
     const profile = defaultProfile('p', 'Plain');
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
     const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
@@ -165,15 +165,17 @@ describe('settings helpers', () => {
     expect(profileViewport({ environment: { viewport: { width: -1, height: 'x' } } }, presets)).toEqual({ width: 1280, height: 800 });
     const screenreader = { keys: [], intents: ['next', 'previous', 'activate'] };
     const bare = profileConditions(profile, screenreader, presets, connections);
-    expect(bare.map(condition => condition.id)).toEqual(['model', 'actions', 'stuck', 'viewport', 'analysis']);
+    expect(bare.map(condition => condition.id)).toEqual(['model', 'planner', 'actions', 'stuck', 'viewport', 'analysis']);
     expect(bare[0]!.value).toContain('이대로는 실행할 수 없습니다');
-    expect(bare[1]!.value).toContain('기본 키보드');
-    expect(bare[3]!.value).toBe('1280 × 800');
-    expect(bare[4]!.value).toBe('쓰지 않음');
-    const full = { ...profileWith('p', 'jev', 'jev-latest', 'Full'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' } };
+    expect(bare[1]!.value).toBe('쓰지 않음');
+    expect(bare[2]!.value).toContain('기본 키보드');
+    expect(bare[4]!.value).toBe('1280 × 800');
+    expect(bare[5]!.value).toBe('쓰지 않음');
+    const full = { ...profileWith('p', 'jev', 'jev-latest', 'Full'), analysisModel: { connectionId: 'writer', modelId: 'gpt-fixture' }, plannerModel: { connectionId: 'writer', modelId: 'planner-fixture' } };
     const conditions = profileConditions(full, screenreader, presets, connections);
     expect(conditions[0]!.value).toBe('Jev server · jev-latest');
-    expect(conditions[4]!.value).toContain('Writer · gpt-fixture');
+    expect(conditions[1]!.value).toContain('Writer · planner-fixture');
+    expect(conditions[5]!.value).toContain('Writer · gpt-fixture');
     expect(choiceName(full.model, connections)).toBe('Jev server · jev-latest');
     // A model on a connection that no longer exists reads as none.
     expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();

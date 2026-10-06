@@ -27,6 +27,8 @@ export type RunRecord = Combination & {
   outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   analysisError?: string; reportError?: string; analysisModel?: Model;
+  /** The planner LLM of a screen reader run whose profile has one. */
+  plannerModel?: Model;
   analysisInstructions?: string; taskFile?: string;
   retryOf?: { experiment: string; run: string };
   diagnoseStop?: boolean;

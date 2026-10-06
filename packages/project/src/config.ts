@@ -104,6 +104,10 @@ export const policySchema = z.object({
   repetitionGuard: z.enum(['auto', 'on', 'off']).default('auto'),
   /** Whether the model may end a run by choosing "stuck" or "uncertain". Off by default for every model: a run then ends at the goal, a limit or the repetition guard. */
   modelGiveUp: z.boolean().default(false),
+  /** With a planner model: new plans after the first before the run stops as stuck. */
+  maxReplans: z.number().int().min(0).max(100).default(RAWSTEP_DEFAULTS.orchestration.maxReplans),
+  /** With a planner model: actions on one small step before a new plan is requested. */
+  stepActionLimit: z.number().int().min(1).max(1000).default(RAWSTEP_DEFAULTS.orchestration.stepActionLimit),
 }).strict();
 export type Policy = z.infer<typeof policySchema>;
 export const taskSchema = z.object({
@@ -129,6 +133,11 @@ export const runProfileSchema = z.object({
   environment: z.unknown(),
   /** An LLM that writes a hypothesis about each finished run; without one, only the built-in rule-based analysis runs. */
   analysisModel: analysisChoiceSchema.optional(),
+  /**
+   * An LLM that plans screen reader runs: it gives small steps, and `model` carries out one step at a time, asking for a new
+   * plan when stuck. Without one, `model` decides alone. Keyboard runs do not use it yet.
+   */
+  plannerModel: analysisChoiceSchema.optional(),
   analysisInstructions: z.string().max(16384).default(''),
 }).strict();
 export type RunProfile = z.infer<typeof runProfileSchema>;
@@ -164,6 +173,8 @@ export const configSchema = z.object({
     if (profile.model && !ids.has(profile.model.connectionId)) ctx.addIssue({ code: 'custom', path: ['profiles', i, 'model', 'connectionId'], message: `Profile ${profile.name} uses a connection that does not exist.` });
     const analysis = profile.analysisModel && config.connections.find(c => c.id === profile.analysisModel!.connectionId);
     if (profile.analysisModel && analysis?.kind !== 'llm') ctx.addIssue({ code: 'custom', path: ['profiles', i, 'analysisModel', 'connectionId'], message: `Profile ${profile.name} must analyse with an LLM connection.` });
+    const planner = profile.plannerModel && config.connections.find(c => c.id === profile.plannerModel!.connectionId);
+    if (profile.plannerModel && planner?.kind !== 'llm') ctx.addIssue({ code: 'custom', path: ['profiles', i, 'plannerModel', 'connectionId'], message: `Profile ${profile.name} must plan with an LLM connection.` });
   });
 });
 export type ProjectConfig = z.infer<typeof configSchema>;
@@ -224,12 +235,16 @@ export function profileModel(config: Pick<ProjectConfig, 'connections'>, profile
   if (!choice || !connection) return undefined;
   return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: [...choice.inputs], maxChoices: choice.maxChoices, maxImages: choice.inputs.includes('image') ? choice.maxImages : 0 };
 }
-/** The LLM a profile analyses runs with, joined with its connection; undefined when it has none, the connection is gone or is not an LLM. */
-export function profileAnalysisModel(config: Pick<ProjectConfig, 'connections'>, profile: Pick<RunProfile, 'analysisModel'>): Model | undefined {
-  const choice = profile.analysisModel, connection = choice && config.connections.find(c => c.id === choice.connectionId);
+/** An LLM choice joined with its connection; undefined when there is none, the connection is gone or is not an LLM. */
+function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoice | undefined): Model | undefined {
+  const connection = choice && config.connections.find(c => c.id === choice.connectionId);
   if (!choice || !connection || connection.kind !== 'llm') return undefined;
   return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: ['text'], maxChoices: 255, maxImages: 0 };
 }
+/** The LLM a profile analyses runs with. */
+export const profileAnalysisModel = (config: Pick<ProjectConfig, 'connections'>, profile: Pick<RunProfile, 'analysisModel'>): Model | undefined => llmOf(config, profile.analysisModel);
+/** The LLM a profile plans screen reader runs with. */
+export const profilePlannerModel = (config: Pick<ProjectConfig, 'connections'>, profile: Pick<RunProfile, 'plannerModel'>): Model | undefined => llmOf(config, profile.plannerModel);
 /** What a person picks to look up models: a kind, a provider and, for custom, the address. */
 export const discoverRequestSchema = z.object({ kind: modelKindSchema, provider: providerSchema, baseURL: z.url().optional(), apiKey: z.string().max(16384).optional() }).strict();
 export type DiscoverRequest = z.infer<typeof discoverRequestSchema>;
@@ -240,7 +255,7 @@ export function defaultProfile(id = 'default', name = 'Default'): RunProfile {
       keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [], typeText: false, replaceText: false },
       screenreader: { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false },
     },
-    policy: { ...RAWSTEP_DEFAULTS.policy, focusGate: false },
+    policy: { ...RAWSTEP_DEFAULTS.policy, ...RAWSTEP_DEFAULTS.orchestration, focusGate: false },
   });
 }
 export function defaultConfig(): ProjectConfig {

@@ -5,7 +5,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { MockVoiceOverBackend } from '@rawstep/screenreaders/mock-voiceover';
 import { getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
 import {
-  atEndpointOf, defaultInstructions, profileAnalysisModel, profileModel, resolveRunSettings,
+  atEndpointOf, defaultInstructions, profileAnalysisModel, profileModel, profilePlannerModel, resolveRunSettings,
   type MachineSettings, type ManagedTask, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunProfile, type RunSettings,
 } from './config.js';
 import { ProjectError } from './errors.js';
@@ -47,6 +47,8 @@ export type RunCheck = {
   settings: RunSettings; permissions: Permissions;
   /** The profile's decision model and analysis LLM, joined with their connections. */
   model?: Model; analysisModel?: Model;
+  /** The profile's planner LLM, for screen reader runs only: keyboard runs decide without a planner. */
+  plannerModel?: Model;
   /** Why this combination cannot run; the other fields are still the best available values for display. */
   problem?: ProjectError;
 };
@@ -57,14 +59,16 @@ export type RunCheck = {
 export function checkRun({ config, task, taskEntry, profile, mode, diagnoseStop }: RunCheckInput): RunCheck {
   const settings = resolveRunSettings(config, taskEntry ?? {}, profile);
   const model = profileModel(config, profile), analysisModel = profileAnalysisModel(config, profile);
+  const plannerModel = mode === 'screenreader' ? profilePlannerModel(config, profile) : undefined;
   let permissions = structuredClone(profile.permissions[mode]);
-  const fail = (code: string, message: string): RunCheck => ({ settings, permissions, ...(model ? { model } : {}), ...(analysisModel ? { analysisModel } : {}), problem: new ProjectError(code, message) });
+  const models = { ...(model ? { model } : {}), ...(analysisModel ? { analysisModel } : {}), ...(plannerModel ? { plannerModel } : {}) };
+  const fail = (code: string, message: string): RunCheck => ({ settings, permissions, ...models, problem: new ProjectError(code, message) });
   try { permissions = resolvePermissions(config, profile, task, mode, taskEntry?.modes[mode].permissions ?? null); }
   catch (error) { return { settings, permissions, problem: error as ProjectError }; }
   if (!model) return fail('profile-without-model', 'This run profile has no model yet. Pick a connection and a model in the profile.');
   if (mode === 'keyboard' && (!model.inputs.includes('image') || model.maxImages < 2)) return fail('model-needs-images', 'Keyboard runs need a model that accepts the current and the previous image.');
   if (mode === 'screenreader' && !model.inputs.includes('text')) return fail('model-needs-text', 'Screen reader runs need a model that accepts text.');
-  const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + (settings.policy.modelGiveUp ? 3 : 1);
+  const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + (settings.policy.modelGiveUp ? 3 : 1) + (plannerModel ? 2 : 0);
   if (choiceCount > model.maxChoices) return fail('too-many-choices', 'The selected actions give more candidates than the model supports.');
   if (model.kind === 'llm' && settings.policy.focusGate) return fail('focus-gate-llm', 'The probability-based focus gate works only with decision models. Turn it off in the run profile or the task settings.');
   if (mode === 'screenreader' && config.machine.backend === 'voiceover' && process.platform !== 'darwin') return fail('voiceover-macos', 'Run VoiceOver on macOS.');
@@ -76,8 +80,9 @@ export function checkRun({ config, task, taskEntry, profile, mode, diagnoseStop 
   const environment = resolveEnvironmentProfile(profile.environment);
   if (environment.browserZoom !== 1 || environment.nativeMagnifier === 'required' || environment.nativeHighContrast === 'required') return fail('environment-unsupported', 'Rawstep cannot apply native magnification or an OS contrast environment.');
   if (profile.analysisModel && !analysisModel) return fail('analysis-model-invalid', 'The profile\'s analysis model must be on an LLM connection.');
+  if (mode === 'screenreader' && profile.plannerModel && !plannerModel) return fail('planner-model-invalid', 'The profile\'s planner model must be on an LLM connection.');
   if (diagnoseStop && mode !== 'keyboard') return fail('diagnose-keyboard-only', 'Stop diagnosis uses the last screenshot, so it works in keyboard mode only.');
-  return { settings, permissions, model, ...(analysisModel ? { analysisModel } : {}) };
+  return { settings, permissions, ...models };
 }
 /** The check result of a run that must go ahead: throws the problem, otherwise returns the settings. */
 export function assertRunnable(check: RunCheck): Omit<RunCheck, 'problem'> {

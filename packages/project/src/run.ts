@@ -102,11 +102,12 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const { entry, task: source } = await loadTask(store, config, task, projectDir);
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : entry ? taskProfile(config, entry) : config.profiles[0]!;
   const prompt = defaultPrompt(entry, mode);
-  const { settings, permissions, model, analysisModel } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, profile, mode }));
+  const { settings, permissions, model, analysisModel, plannerModel } = assertRunnable(checkRun({ config, task: source, taskEntry: entry, profile, mode }));
   const apiKey = await requireKey(store, model!);
+  const plannerApiKey = plannerModel ? await requireKey(store, plannerModel) : undefined;
   const analysisKey = analysisModel ? await requireKey(store, analysisModel) : undefined;
   const atDriverCommand = mode === 'screenreader' && settings.backend !== 'simulation' ? await store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
-  const spec: RunSpec = { task: source, model: model!, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions };
+  const spec: RunSpec = { task: source, model: model!, prompt, mode, settings, environment: resolveEnvironmentProfile(profile.environment), permissions, ...(plannerModel ? { plannerModel } : {}) };
   const root = options.outDir ? resolve(options.outDir) : join(projectDir, '.rawstep', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`);
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');
@@ -114,7 +115,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   for (let i = 1; i <= repeat; i++) {
     if (signal.aborted) throw cancelled();
     const outDir = join(root, `run-${i}`);
-    const trace = await execute(spec, { outDir, apiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
+    const trace = await execute(spec, { outDir, apiKey, plannerApiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
     if (signal.aborted) throw cancelled();
     done.push({ outDir, trace });
   }

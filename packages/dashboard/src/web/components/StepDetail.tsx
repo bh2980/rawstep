@@ -54,6 +54,7 @@ export function StepDetail({ step, experimentId, run, modelKind, previous, befor
     <PageResponse step={step} />
     {hints.length > 0 && <Inspect hints={hints} />}
     <Verification step={step} />
+    <PlanNotes step={step} />
     <Candidates step={step} modelKind={modelKind} />
     <Collapsible className="border-t pt-2.5 lg:col-start-2">
       <Disclosure label={t('stepDetail.raw')} />
@@ -116,6 +117,31 @@ function Verification({ step }: { step: StepView }) {
     <ul className="flex flex-wrap gap-1.5">
       {check.rules.map(rule => <li key={rule.ruleIndex}>
         <Badge variant={rule.passed ? 'secondary' : 'outline'}>{rule.passed ? <Check aria-hidden="true" /> : <Minus aria-hidden="true" />}{rule.ruleType} {rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}</Badge>
+      </li>)}
+    </ul>
+  </div>;
+}
+
+/**
+ * With a planner model: the small step the decision model was working on, and the planner's events in this step. A new plan
+ * marks where the decision model needed help: the page may have made that point hard, or the plan may have been wrong.
+ */
+function PlanNotes({ step }: { step: StepView }) {
+  const { t } = useTranslation();
+  const plan = step.plan;
+  if (!plan) return null;
+  return <div className="grid gap-2 border-t pt-2.5 lg:col-start-2">
+    <h3 className={cn(label, 'text-model')}>{t('stepDetail.plan.title')}</h3>
+    {plan.stepGoal && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.stepGoal')}:</span> {plan.stepGoal}</p>}
+    <ul className="grid gap-1.5 text-sm">
+      {plan.events.map((event, i) => <li key={i}>
+        {event.kind === 'step-done' && <span><span className="text-muted-foreground">{t('stepDetail.plan.stepDone')}:</span> {event.goal}</span>}
+        {event.kind === 'limit' && <span className="text-inspect">{t('stepDetail.plan.limit')}</span>}
+        {event.kind === 'plan' && <div className="grid gap-1">
+          <span className="font-medium">{t(`stepDetail.plan.reason.${event.reason}`, { defaultValue: t('stepDetail.plan.reason.other') })}</span>
+          {event.steps.length > 0 && <ol className="ml-5 list-decimal text-[13px] leading-5">{event.steps.map((goal, j) => <li key={j}>{goal}</li>)}</ol>}
+          {event.outline.length > 0 && <p className="text-xs leading-5 text-muted-foreground">{t('stepDetail.plan.outline', { outline: event.outline.join(' → ') })}</p>}
+        </div>}
       </li>)}
     </ul>
   </div>;

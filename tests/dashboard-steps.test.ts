@@ -47,6 +47,25 @@ describe('dashboard step view', () => {
     expect(JSON.stringify(view)).not.toContain('private reasoning');
     expect(view.steps.every(s => !s.redacted)).toBe(true);
   });
+  it('shows the planner\'s small step and plan events on the step where they happened', () => {
+    const view = build([
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', reason: 'start', plan: { outline: ['search', 'add to cart'], steps: [{ goal: 'Find search', done: 'Search, edit text' }], complete: false } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', stepGoal: 'Find search', choiceId: 'step:done', choices: [], model: { id: 'jev' } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-step-done', step: 0, goal: 'Find search' } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', reason: 'plan-finished', plan: { outline: [], steps: [{ goal: 'Type the term', done: 'typed' }], complete: false } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', stepGoal: 'Type the term', choiceId: 'intent:next', choices: [], model: { id: 'jev' } } }],
+      ['policy.decision', { step: 1, decision: { action: { kind: 'intent', intent: 'next' } } }],
+      ['policy.evidence', { step: 2, evidence: { kind: 'orchestration-limit', reason: 'help' } }],
+      ['policy.decision', { step: 2, decision: { stop: 'stuck', stopSource: 'exploration-guard' } }],
+    ]);
+    expect(view.steps[1]!.plan).toEqual({ stepGoal: 'Type the term', events: [
+      { kind: 'plan', reason: 'start', outline: ['search', 'add to cart'], steps: ['Find search'] },
+      { kind: 'step-done', goal: 'Find search' },
+      { kind: 'plan', reason: 'plan-finished', outline: [], steps: ['Type the term'] },
+    ] });
+    expect(view.steps[2]!.plan).toEqual({ events: [{ kind: 'limit', reason: 'help' }] });
+    expect(view.steps[0]!.plan).toBeUndefined();
+  });
   it('carries the focused element\'s box and the screenshot viewport, and nothing for a redacted or malformed box', () => {
     const view = build([
       ['keyboard.observation', { screenshot: { ...ref(sha), viewport: { w: 1280, h: 800 } } }],

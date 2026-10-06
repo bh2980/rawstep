@@ -22,7 +22,7 @@ import type { PageProps } from './types';
 const head = 'h-8 px-3 text-xs font-medium tracking-wide text-muted-foreground';
 
 /** The run profiles that decide or analyse with a connection. */
-const usersOf = (profiles: readonly RunProfile[], id: string) => profiles.filter(p => p.model?.connectionId === id || p.analysisModel?.connectionId === id);
+const usersOf = (profiles: readonly RunProfile[], id: string) => profiles.filter(p => p.model?.connectionId === id || p.analysisModel?.connectionId === id || p.plannerModel?.connectionId === id);
 
 /**
  * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; a run profile picks
@@ -38,8 +38,9 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
   // Profiles that used the connection lose that model; they cannot run until another is picked.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
     const profiles = props.view.config.profiles.map(profile => {
-      const { model, analysisModel, ...rest } = profile;
-      return { ...rest, ...(model && model.connectionId !== connection.id ? { model } : {}), ...(analysisModel && analysisModel.connectionId !== connection.id ? { analysisModel } : {}) };
+      const { model, analysisModel, plannerModel, ...rest } = profile;
+      return { ...rest, ...(model && model.connectionId !== connection.id ? { model } : {}), ...(analysisModel && analysisModel.connectionId !== connection.id ? { analysisModel } : {}),
+        ...(plannerModel && plannerModel.connectionId !== connection.id ? { plannerModel } : {}) };
     });
     await props.save({ ...props.view.config, profiles, connections: props.view.config.connections.filter(c => c.id !== connection.id) });
   }); };

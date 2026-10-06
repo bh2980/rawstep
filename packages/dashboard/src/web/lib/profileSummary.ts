@@ -40,7 +40,7 @@ export function profileViewport(profile: Pick<RunProfile, 'environment'>, preset
   return { width: positive(viewport.width, RAWSTEP_DEFAULTS.viewport.width), height: positive(viewport.height, RAWSTEP_DEFAULTS.viewport.height) };
 }
 
-export type ProfileCondition = { id: 'model' | 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
+export type ProfileCondition = { id: 'model' | 'planner' | 'actions' | 'stuck' | 'viewport' | 'analysis'; value: string };
 
 /** "connection · model ID" of a model choice, or undefined when there is none or its connection is gone. */
 export function choiceName(choice: { connectionId: string; modelId: string } | undefined, connections: readonly Connection[]): string | undefined {
@@ -52,11 +52,12 @@ export function choiceName(choice: { connectionId: string; modelId: string } | u
  * A run profile read as an experiment condition: the model, what it may do, when a run counts as blocked, the page it runs on and how
  * it is analysed. These lines are what two runs of the same task differ by when only the profile differs.
  */
-export function profileConditions(profile: Pick<RunProfile, 'model' | 'analysisModel' | 'permissions' | 'policy' | 'environment' | 'analysisInstructions'>, screenreader: ActionCapabilities, presets: Record<string, unknown>, connections: readonly Connection[]): ProfileCondition[] {
+export function profileConditions(profile: Pick<RunProfile, 'model' | 'analysisModel' | 'plannerModel' | 'permissions' | 'policy' | 'environment' | 'analysisInstructions'>, screenreader: ActionCapabilities, presets: Record<string, unknown>, connections: readonly Connection[]): ProfileCondition[] {
   const { width, height } = profileViewport(profile, presets), { policy } = profile;
-  const analysis = choiceName(profile.analysisModel, connections);
+  const analysis = choiceName(profile.analysisModel, connections), planner = choiceName(profile.plannerModel, connections);
   return [
     { id: 'model', value: choiceName(profile.model, connections) ?? t('profiles.condition.noModel') },
+    { id: 'planner', value: planner ? t('profiles.condition.planner', { model: planner, replans: policy.maxReplans }) : t('profiles.condition.plannerNone') },
     { id: 'actions', value: t('profiles.condition.actions', { keyboard: keyboardName(profile.permissions.keyboard), screenreader: screenreaderName(profile.permissions.screenreader, screenreader) }) },
     { id: 'stuck', value: t('profiles.condition.stuck', { guard: stuckSummary(policy), visits: policy.maxStateVisits, unchanged: policy.maxUnchangedTransitions, giveUp: t(policy.modelGiveUp ? 'profiles.condition.giveUpOn' : 'profiles.condition.giveUpOff') }) },
     { id: 'viewport', value: t('profiles.condition.viewport', { width, height }) },

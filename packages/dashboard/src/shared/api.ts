@@ -21,6 +21,8 @@ export type ObservedChange = {
   rect?: { x: number; y: number; width: number; height: number };
 };
 
+/** A planner event: a new plan and why it was asked for, a small step the decision model finished, or the run stopping after too many plans. */
+export type PlanEvent = { kind: 'plan'; reason: string; outline: string[]; steps: string[] } | { kind: 'step-done'; goal: string } | { kind: 'limit'; reason: string };
 export type StepView = {
   /** 0 is the initial page before any action. */
   step: number;
@@ -41,6 +43,8 @@ export type StepView = {
     modelId?: string;
     inferenceMs?: number;
   };
+  /** With a planner model: the small step the decision model worked on, and what the planner did during this step. */
+  plan?: { stepGoal?: string; events: PlanEvent[] };
   /** Page observer changes recorded during this step. */
   observed: ObservedChange[];
   verification?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };

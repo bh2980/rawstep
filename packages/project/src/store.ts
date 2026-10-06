@@ -60,6 +60,7 @@ export class ProjectStore {
     for (const profile of config.profiles) {
       if (profile.model && !config.connections.some(c => c.id === profile.model!.connectionId)) throw new ProjectError('profile-connection-missing', 'A run profile uses a connection that does not exist.');
       if (profile.analysisModel && config.connections.find(c => c.id === profile.analysisModel!.connectionId)?.kind !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
+      if (profile.plannerModel && config.connections.find(c => c.id === profile.plannerModel!.connectionId)?.kind !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
     }
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
     for (const task of config.tasks) for (const mode of Object.values(task.modes)) if (new Set(mode.prompts.map(p => p.id)).size !== mode.prompts.length) throw new ProjectError('duplicate-prompt-id', 'Prompt IDs must be unique within a task mode.');

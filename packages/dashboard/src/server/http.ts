@@ -10,6 +10,7 @@ const korean: Record<string, string> = {
   'config-conflict': '설정이 외부 또는 다른 창에서 변경되었습니다. 다시 불러온 뒤 변경을 적용하세요.',
   'duplicate-id': 'ID가 중복되었습니다.',
   'analysis-needs-llm': '사후 분석에는 LLM 연결의 모델을 선택하세요.',
+  'planner-needs-llm': '계획 모델에는 LLM 연결의 모델을 선택하세요.',
   'profile-connection-missing': '실행 프로필이 없는 연결을 가리킵니다. 프로필의 모델을 다시 고르세요.',
   'duplicate-task-file': '작업 파일 경로가 중복되었습니다.',
   'duplicate-prompt-id': '프롬프트 ID가 중복되었습니다.',
@@ -25,6 +26,7 @@ const korean: Record<string, string> = {
   'credential-target': '인증키를 저장할 환경변수 이름이 없습니다. 사용자 지정 연결에 환경변수 이름을 먼저 지정하세요.',
   'missing-credential': '연결의 인증키가 설정되지 않았습니다. 연결에서 인증키를 입력하세요.',
   'missing-analysis-credential': '사후 분석 모델의 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
+  'missing-planner-credential': '계획 모델의 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
   'invalid-provider': '이 종류의 연결에서 쓸 수 없는 제공자입니다.',
   'invalid-base-url': '서버 주소는 https:// 주소여야 합니다(이 컴퓨터의 서버는 http:// 도 가능). 인증 정보나 쿼리는 넣을 수 없습니다.',
   'model-http': '모델 서버가 오류 응답을 보냈습니다. 응답 본문은 표시하지 않습니다.',
@@ -47,6 +49,7 @@ const korean: Record<string, string> = {
   'endpoint-not-loopback': '실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.',
   'environment-unsupported': '이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.',
   'analysis-model-invalid': '프로필의 사후 분석 모델은 LLM 연결이어야 합니다.',
+  'planner-model-invalid': '프로필의 계획 모델은 LLM 연결이어야 합니다.',
   'diagnose-keyboard-only': '중단 진단은 마지막 스크린샷을 사용하는 키보드 모드 전용입니다.',
 };
 /** The dashboard's text for a project error. */

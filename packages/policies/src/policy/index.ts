@@ -25,3 +25,5 @@ export { actionOnly, modelHistory } from './history.js';
 export type { ModelHistoryEntry } from './history.js';
 export { SpeechDecisionPolicy, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
 export type { SpeechGuard, SpeechPolicyOptions } from './speech.js';
+export { ORCHESTRATED_EXECUTOR_GUIDE, OrchestratedSpeechPolicy, orchestratedPrompt } from './orchestration.js';
+export type { OrchestrationOptions, Plan, PlanReason, PlanRequest, PlanResult, PlanStep, Planner } from './orchestration.js';

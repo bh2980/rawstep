@@ -75,9 +75,10 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | 필드 | 설명 |
 |---|---|
 | `permissions` | `keyboard`와 `screenreader` 각각의 `keys`, `intents`, `typeText`, `replaceText`(선택 `inputKeys`). 모델이 할 수 있는 행동 |
-| `policy` | 멈춤 기준: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard`(`auto`·`on`·`off`), `modelGiveUp` |
+| `policy` | 멈춤 기준: `historyLimit`, `maxStateVisits`, `maxUnchangedTransitions`, `focusGate`, `repetitionGuard`(`auto`·`on`·`off`), `modelGiveUp`. 계획 모델이 있을 때만 쓰는 `maxReplans`(다시 계획하는 최대 횟수, 기본 4)와 `stepActionLimit`(작은 단계 하나의 최대 행동 수, 기본 12) |
 | `model` | 이 프로필의 실행이 판단에 쓰는 모델: `{ connectionId, modelId, inputs, maxChoices, maxImages }`. `connectionId`는 연결 id, `modelId`는 제공자에서 쓰는 모델 이름, `inputs`는 `["text"]` 또는 `["text", "image"]`, `maxChoices`·`maxImages`는 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2)입니다. `model`이 없는 프로필은 실행할 수 없습니다. 모델을 비교하려면 `model`만 다른 프로필끼리 비교합니다 |
 | `analysisModel` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 있으면 이 프로필의 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 Rawstep의 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다 |
+| `plannerModel` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 스크린리더 모드에서 있으면 이 LLM이 대략적인 계획과 작은 단계를 세우고, `model`은 한 번에 작은 단계 하나만 수행합니다. `model`이 "도움 필요"를 고르거나, 행동이 연달아 실패하거나, 행동해도 발화가 바뀌지 않거나, 한 단계가 너무 길어지면 다시 계획합니다. 계획·단계 완료·다시 계획한 이유는 실행 기록에 남습니다. 키보드 모드에서는 아직 쓰지 않습니다 |
 | `environment` | 페이지 환경. `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 프로필 이름 또는 객체. [환경 프로필 안내](./environment-profiles.md) |
 | `analysisInstructions` | 분석 초점 |
 

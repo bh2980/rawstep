@@ -4,7 +4,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileAnalysisModel, profileModel, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileAnalysisModel, profileModel, profilePlannerModel, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { checkRun, resolvePermissions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
@@ -13,10 +13,11 @@ import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecor
 import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
-export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined }) => Promise<RunTrace>;
+export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined; plannerApiKey?: string | undefined }) => Promise<RunTrace>;
 const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) => {
   const { model, prompt, mode, globals, profile } = run.snapshot;
-  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
+  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop, ...(run.plannerModel ? { plannerModel: run.plannerModel } : {}) },
+    { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
 };
 /**
  * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
@@ -93,6 +94,7 @@ export class ExperimentQueue {
           if (check.problem) reason = koreanMessage(check.problem);
           else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
           else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
+          else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = koreanMessage(new ProjectError('missing-planner-credential', ''));
         } catch (e) { reason = (e as Error).message; }
       }
       rows.push({ key: [taskId, promptId, profileId, repeat].join(':'), taskId, ...(modelName ? { modelName } : {}), promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
@@ -107,13 +109,14 @@ export class ExperimentQueue {
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
       const task = config.tasks.find(t => t.id === row.taskId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
       const settings = resolveRunSettings(config, task, profile), model = profileModel(config, profile)!, analysisModel = profileAnalysisModel(config, profile);
+      const plannerModel = request.mode === 'screenreader' ? profilePlannerModel(config, profile) : undefined;
       const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
         taskName: task.name, model: structuredClone(model),
         prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
         mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
         globals: settings,
-      }, ...(analysisModel ? { analysisModel } : {}) };
+      }, ...(analysisModel ? { analysisModel } : {}), ...(plannerModel ? { plannerModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
     }) };
@@ -171,14 +174,15 @@ export class ExperimentQueue {
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       const task = this.liveTasks.get(run.id)!;
-      let apiKey: string | undefined;
+      let apiKey: string | undefined, plannerApiKey: string | undefined;
       try {
         apiKey = await this.store.credential(run.snapshot.model);
         const atDriverCommand = run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
         const browserProfileDir = await this.store.file('.rawstep/browser-profile');
-        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir });
+        plannerApiKey = run.plannerModel ? await this.store.credential(run.plannerModel) : undefined;
+        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir, plannerApiKey });
         run.outcome = publicOutcome(trace.outcome);
-        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', ...Object.values(task?.input ?? {})]);
+        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const analysisModel = run.analysisModel;
         const done = await finalizeRun(trace, outDir, analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {});
@@ -188,7 +192,7 @@ export class ExperimentQueue {
         if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
       } catch (error) {
         run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = RUN_ERROR.start;
-        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [apiKey ?? '', ...Object.values(task?.input ?? {})]);
+        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [apiKey ?? '', plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
       } finally {
         run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); this.active = undefined; await this.persist(experiment); this.changed();

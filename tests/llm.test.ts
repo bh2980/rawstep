@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { chooseCandidate, createLlmModel, generateStructured } from '@rawstep/policies/llm';
+import { chooseCandidate, createLlmModel, generateStructured, LlmPlanner } from '@rawstep/policies/llm';
 import { llmChoiceModel } from '@rawstep/project/llm';
 import { defaultInstructions, type Model } from '@rawstep/project/config';
 
@@ -91,5 +91,20 @@ describe('llmChoiceModel', () => {
     expect((error as Error).message).toMatch(/^LLM choice failed/); expect((error as Error).message).not.toContain('sk-secret-key');
     const cancelled = new AbortController(); cancelled.abort(new Error('stopped'));
     await expect(client.choose({ state: {}, choices: candidates }, { signal: cancelled.signal })).rejects.toThrow('stopped');
+  });
+});
+
+describe('LlmPlanner', () => {
+  const request = { goal: 'Add Thor Hammer to the cart', reason: 'start' as const, speech: ['Toolshop, heading level 1'], history: [], completed: [] };
+  it('sends the plan request as JSON and returns a validated plan', async () => {
+    const plan = { complete: false, outline: ['search', 'open product', 'add to cart'], steps: [{ goal: 'Move to the search field', done: 'Hear "Search, edit text"' }] };
+    const { calls, fetcher } = recorder(() => reply(plan));
+    const result = await new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal });
+    expect(result).toEqual({ plan, model: { id: 'fixture', runtime: 'openai-compatible-generative-plan' } });
+    expect(JSON.stringify(calls[0]!.body)).toContain('Thor Hammer');
+  });
+  it('rejects a plan of the wrong shape', async () => {
+    const { fetcher } = recorder(() => reply({ complete: false, steps: [{ goal: 'no done cue' }] }));
+    await expect(new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal })).rejects.toMatchObject({ code: 'llm-failed' });
   });
 });

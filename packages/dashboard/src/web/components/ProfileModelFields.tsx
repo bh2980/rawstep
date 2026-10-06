@@ -39,7 +39,25 @@ export function ProfileModelFields({ profile, update, connections, navigate }: P
         </div>
       </Panel>
     </>}
+    <PlannerFields profile={profile} update={update} connections={connections} />
   </div>;
+}
+
+/** The optional planner LLM: with one, screen reader runs get small steps to carry out and a new plan when stuck. */
+function PlannerFields({ profile, update, connections }: Omit<Props, 'navigate'>) {
+  const { t } = useTranslation();
+  const planner = profile.plannerModel, policy = profile.policy;
+  return <Panel title={t('profiles.model.plannerTitle')} description={t('profiles.model.plannerIntro')}>
+    <div className="grid gap-4">
+      <ModelPicker label={t('profiles.model.planner')} connections={connections.filter(c => c.kind === 'llm')} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''}
+        none={t('profiles.model.plannerNone')} onNone={() => update({ plannerModel: undefined })}
+        onChange={next => update({ plannerModel: { connectionId: next.connectionId, modelId: next.modelId } })} />
+      {planner && <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t('profiles.model.maxReplans')} type="number" value={String(policy.maxReplans)} onChange={s => update({ policy: { ...policy, maxReplans: Number(s) } })} hint={t('profiles.model.maxReplansHint')} />
+        <Field label={t('profiles.model.stepActionLimit')} type="number" value={String(policy.stepActionLimit)} onChange={s => update({ policy: { ...policy, stepActionLimit: Number(s) } })} hint={t('profiles.model.stepActionLimitHint')} />
+      </div>}
+    </div>
+  </Panel>;
 }
 
 const blank = (connection: Connection): ModelChoice => ({ connectionId: connection.id, modelId: '', inputs: defaultInputs(connection), maxChoices: 255, maxImages: 2 });

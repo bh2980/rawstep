@@ -83,6 +83,22 @@ export const traceUi = {
     score: '점수 {{score}}',
     verification: '완료 확인',
     raw: '원본 기록',
+    plan: {
+      title: 'PLAN',
+      stepGoal: '수행 중인 작은 목표',
+      stepDone: '작은 목표 완료',
+      limit: '다시 계획하는 한도에 닿아 실행을 멈췄습니다.',
+      outline: '대략적인 경로 (관례에서 나온 예상): {{outline}}',
+      reason: {
+        start: '처음 계획',
+        help: '다시 계획 — 실행 모델이 이 단계를 못 하겠다고 함',
+        failures: '다시 계획 — 행동이 연달아 실패함',
+        'no-change': '다시 계획 — 행동해도 발화가 바뀌지 않음',
+        'step-limit': '다시 계획 — 한 단계에서 행동이 너무 많아짐',
+        'plan-finished': '다음 계획 — 작은 목표를 모두 마침',
+        other: '다시 계획',
+      },
+    },
   },
   runHeader: {
     liveState: '실행 중',

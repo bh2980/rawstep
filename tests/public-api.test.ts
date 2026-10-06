@@ -192,6 +192,7 @@ describe('public API surface', () => {
       "policySchema",
       "profileAnalysisModel",
       "profileModel",
+      "profilePlannerModel",
       "projectAnalyzer",
       "promptSchema",
       "providerKeyEnv",
