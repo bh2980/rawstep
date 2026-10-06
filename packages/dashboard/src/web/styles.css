@@ -2,13 +2,148 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
-@source "../../node_modules/@json-render/shadcn/dist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Rawstep design language (docs/design-language.ko.md): a calm analysis desk. Light is the default, dark is the "analysis room".
+ * Colour only reinforces a state; every semantic colour is always paired with a label, shape or marker.
+ *
+ * Neutral (spec §7)              Light      Dark (graphite / deep gray-green, never pure black)
+ *   canvas   page background     #F6F7F5    #1A1D1B
+ *   surface  panels, inputs      #FFFFFF    #212523
+ *   raised   quiet fills         #F0F2EF    #292E2B
+ *   ink      text                #202421    #E6E9E6
+ *   ink-2    secondary text      #5F6661    #A0A8A2
+ *   edge     rules and borders   #D8DDD9    #343A36
+ *   edge-strong  separators      #B9C0BA    #4A524D
+ *   edge-control (added) the border of an input or checkbox, which must reach 3:1 as a non-text mark: #7B847E / #6F7973
+ *
+ * Semantic. Contrast is measured against surface / canvas / raised; every value is >= 4.5:1 as text and so >= 3:1 as a mark.
+ * The -soft tints are fills behind text of the same hue (>= 4.5:1 with it).
+ *                   Light                     Dark
+ *   trace   (run, current position, focus)    #2457C5 (6.0 / 6.5 / 5.8)  #7DA2F5 (6.8 / 6.2 / 5.5)
+ *   reach   (goal reached)                    #1B7448 (5.4 / 5.8 / 5.1)  #58C28A (7.7 / 7.0 / 6.3)
+ *   inspect (look here)                       #8F5A00 (5.4 / 5.8 / 5.1)  #E0A63A (7.8 / 7.2 / 6.4)
+ *   missed  (goal not reached, not alarm red) #A3472A (5.6 / 6.0 / 5.3)  #E08A68 (6.5 / 5.9 / 5.3)
+ *   model   (model behaviour)                 #6847B8 (6.1 / 6.6 / 5.9)  #A58BE8 (6.0 / 5.5 / 4.9)
+ * Text on the neutrals: ink 14.6-15.7:1, ink-2 5.2-5.9:1 (light); 11.3-13.9:1 and 5.7-7.0:1 (dark).
+ */
+:root {
+    --canvas: #F6F7F5;
+    --surface: #FFFFFF;
+    --raised: #F0F2EF;
+    --ink: #202421;
+    --ink-2: #5F6661;
+    --edge: #D8DDD9;
+    --edge-strong: #B9C0BA;
+    --edge-control: #7B847E;
+
+    --trace: #2457C5;
+    --trace-soft: #E8EEFB;
+    --reach: #1B7448;
+    --reach-soft: #E4F2EA;
+    --inspect: #8F5A00;
+    --inspect-soft: #FBF0D9;
+    --missed: #A3472A;
+    --missed-soft: #F8E8E2;
+    --model: #6847B8;
+    --model-soft: #EFEAF9;
+
+    --background: var(--canvas);
+    --foreground: var(--ink);
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--trace);
+    --primary-foreground: #FFFFFF;
+    --secondary: var(--raised);
+    --secondary-foreground: var(--ink);
+    --muted: var(--raised);
+    --muted-foreground: var(--ink-2);
+    --accent: var(--raised);
+    --accent-foreground: var(--ink);
+    --destructive: #B42318;
+    --border: var(--edge);
+    --input: var(--edge-control);
+    --ring: var(--trace);
+    /* Older names, kept so the pages that have not moved to the new tokens yet stay readable. */
+    --positive: var(--reach);
+    --warning: var(--inspect);
+    --focus: var(--trace);
+    --chart-1: var(--edge-strong);
+    --chart-2: var(--ink-2);
+    --chart-3: var(--ink-2);
+    --chart-4: var(--ink);
+    --chart-5: var(--ink);
+    --radius: 0.375rem;
+    --sidebar: var(--canvas);
+    --sidebar-foreground: var(--ink);
+    --sidebar-primary: var(--trace);
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: var(--raised);
+    --sidebar-accent-foreground: var(--ink);
+    --sidebar-border: var(--edge);
+    --sidebar-ring: var(--trace);
+    color-scheme: light;
+}
+
+.dark {
+    --canvas: #1A1D1B;
+    --surface: #212523;
+    --raised: #292E2B;
+    --ink: #E6E9E6;
+    --ink-2: #A0A8A2;
+    --edge: #343A36;
+    --edge-strong: #4A524D;
+    --edge-control: #6F7973;
+
+    --trace: #7DA2F5;
+    --trace-soft: #222C45;
+    --reach: #58C28A;
+    --reach-soft: #1F3A2C;
+    --inspect: #E0A63A;
+    --inspect-soft: #3D3118;
+    --missed: #E08A68;
+    --missed-soft: #432A21;
+    --model: #A58BE8;
+    --model-soft: #32294D;
+
+    --primary-foreground: #10141F;
+    --destructive: #F08C80;
+    --sidebar-primary-foreground: #10141F;
+    color-scheme: dark;
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-raised: var(--raised);
+    --color-ink: var(--ink);
+    --color-ink-2: var(--ink-2);
+    --color-edge: var(--edge);
+    --color-edge-strong: var(--edge-strong);
+    --color-edge-control: var(--edge-control);
+    --color-trace: var(--trace);
+    --color-trace-soft: var(--trace-soft);
+    --color-reach: var(--reach);
+    --color-reach-soft: var(--reach-soft);
+    --color-inspect: var(--inspect);
+    --color-inspect-soft: var(--inspect-soft);
+    --color-missed: var(--missed);
+    --color-missed-soft: var(--missed-soft);
+    --color-model: var(--model);
+    --color-model-soft: var(--model-soft);
+
+    --color-positive: var(--positive);
+    --color-warning: var(--warning);
+    --color-focus: var(--focus);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -40,82 +175,21 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
-}
 
-:root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.83 0.13 165);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    /* Shape (spec §10): 4px small controls, 6px panels, no pills. Borders do the separating, shadows are for floating menus only. */
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-xl: 6px;
+    --radius-2xl: 6px;
+    --radius-3xl: 6px;
+    --radius-4xl: 6px;
+    --shadow-xs: 0 0 #0000;
+    --shadow-sm: 0 0 #0000;
+    --shadow-md: 0 2px 8px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 2px 8px rgb(0 0 0 / 0.08);
+    --shadow-xl: 0 2px 8px rgb(0 0 0 / 0.08);
+    --shadow-2xl: 0 2px 8px rgb(0 0 0 / 0.08);
 }
 
 @layer base {
@@ -129,3 +203,38 @@
     @apply font-sans;
     }
 }
+
+/* A visible keyboard focus indicator everywhere, in addition to the component rings. Menu options show their own highlight. */
+:focus-visible:not([role='option']):not([role='menuitem']) {
+  outline: 2px solid var(--trace);
+  outline-offset: 2px;
+}
+
+/*
+ * Motion (spec §41): only real state changes move: a step arriving on the rail, the selection moving, a panel opening.
+ * With reduced motion they simply appear.
+ */
+@keyframes trace-arrive { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes trace-reveal { from { opacity: 0; } to { opacity: 1; } }
+.motion-arrive { animation: trace-arrive 160ms ease-out both; }
+.motion-reveal { animation: trace-reveal 140ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .motion-arrive, .motion-reveal { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+/* Run strip glyphs: shape carries the meaning (filled / striped / hollow), colour only reinforces it. */
+.glyph-missed {
+  background: repeating-linear-gradient(135deg, var(--missed) 0 2px, transparent 2px 4px);
+  border: 1.5px solid var(--missed);
+}
+
+/*
+ * Selected-row rail: one straight 3px band the full height of the row. It is a pseudo element, not a border,
+ * so it never inherits a corner radius; lists that carry rails are square-cornered and never clip it.
+ */
+.row-rail { position: relative; }
+.row-rail::before { content: ''; position: absolute; top: 0; bottom: 0; inset-inline-start: 0; z-index: 1; width: 3px; background: transparent; }
+/* A row with a divider directly under it: the band also covers that 1px rule, so it is exactly as tall as the row and its rule. */
+.row-rail.rail-divider::before { bottom: -1px; }
+.row-rail[data-selected='true']::before { background: var(--trace); }

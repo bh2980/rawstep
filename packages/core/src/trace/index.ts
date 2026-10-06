@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
 import { isDeepStrictEqual } from "node:util";
 
-/** 2.2 stores screenshots as content-addressed blobs; 2.0/2.1 traces with inline PNGs remain readable. */
+/** Screenshots are stored as content-addressed blobs; events keep a small reference. */
 export const TRACE_SCHEMA_VERSION = "2.2" as const;
 export const REDACTED = "[REDACTED]";
 
@@ -43,6 +43,8 @@ export interface TraceTaskMetadata {
   goal?: string;
   input?: unknown;
   inputs?: unknown;
+  /** Per-input options; an input with `sensitive: false` (a search term) is not redacted from the trace. */
+  inputOptions?: unknown;
 }
 export interface RunOutcome {
   status: "success" | "failure" | "inconclusive" | "aborted";
@@ -50,7 +52,7 @@ export interface RunOutcome {
   [key: string]: unknown;
 }
 export interface RunTrace {
-  schemaVersion: "2.0" | "2.1" | typeof TRACE_SCHEMA_VERSION;
+  schemaVersion: typeof TRACE_SCHEMA_VERSION;
   runId: string;
   task: TraceTaskMetadata;
   environment: TraceEnvironment;
@@ -87,6 +89,12 @@ function jsonCopy<T>(value: T): T {
   return JSON.parse(serialized) as T;
 }
 
+/** The task inputs that are secret: every one except those whose option says `sensitive: false`. */
+function sensitiveInputs(input: unknown, options: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input) || !options || typeof options !== "object") return input;
+  const marked = options as Record<string, { sensitive?: unknown } | undefined>;
+  return Object.fromEntries(Object.entries(input).filter(([name]) => marked[name]?.sensitive !== false));
+}
 function inputStrings(value: unknown): string[] {
   if (typeof value === "string") return value ? [value] : [];
   if (typeof value === "number" || typeof value === "boolean") return [String(value)];
@@ -172,7 +180,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
   if (type === "keyboard.observation") {
     // PNG bytes cannot be meaningfully redacted with string substitution. The runner
     // suppresses entire visual observations after input; pre-input pixels are explicit
-    // legacy visual evidence and are not claimed to be anonymized.
+    // visual evidence and are not claimed to be anonymized.
     for (const field of ["screenshot", "previousScreenshot"]) {
       if (record(original[field]) && record(redacted[field])) {
         const source = original[field] as Record<string, unknown>;
@@ -225,7 +233,7 @@ export class TraceRecorder {
     if (!task.id) throw new Error("Trace task id is required.");
     const include = options.includeSensitiveInputValues === true;
     this.redact = createRedactor(include ? [] : [
-      ...inputStrings(task.input), ...inputStrings(task.inputs), ...(options.sensitiveValues ?? [])
+      ...inputStrings(sensitiveInputs(task.input, task.inputOptions)), ...inputStrings(task.inputs), ...(options.sensitiveValues ?? [])
     ]);
     const safeTask = this.redact(task);
     if (task.mode === "screenreader" || task.mode === "keyboard") safeTask.value.mode = task.mode;
@@ -365,7 +373,7 @@ function validateEvent(value: unknown, expectedSequence: number): asserts value 
 
 /** Fail closed on unknown schemas, corrupt order, duplicate IDs, or missing provenance. */
 export function validateTrace(value: unknown): asserts value is RunTrace {
-  if (!record(value) || !["2.0", "2.1", TRACE_SCHEMA_VERSION].includes(String(value.schemaVersion))) throw new Error("Unsupported trace schema version; expected 2.0, 2.1 or 2.2.");
+  if (!record(value) || value.schemaVersion !== TRACE_SCHEMA_VERSION) throw new Error(`Unsupported trace schema version; expected ${TRACE_SCHEMA_VERSION}.`);
   if (typeof value.runId !== "string" || !value.runId || !record(value.task) || typeof value.task.id !== "string" ||
       !value.task.id || !validTimestamp(value.startedAt) || !Array.isArray(value.events) || !record(value.environment)) {
     throw new Error("Invalid trace metadata.");
@@ -378,7 +386,6 @@ export function validateTrace(value: unknown): asserts value is RunTrace {
   const ids = new Set<string>();
   value.events.forEach((event, index) => {
     validateEvent(event, index + 1);
-    if (value.schemaVersion === "2.0" && event.source === "simulation") throw new Error("Simulation evidence requires trace schema 2.1.");
     if (ids.has(event.id)) throw new Error(`Duplicate evidence event id at sequence ${index + 1}.`);
     ids.add(event.id);
   });

@@ -1,6 +1,6 @@
 # Screenshot keyboard verification
 
-> Historical snapshot. The current seven-workspace delivery and its validation limits are recorded in [V5 completion](./completion-v5.ko.md).
+> Historical snapshot. The current checkout is validated with `npm run check`; see the [README](../README.md).
 Date: 2026-10-01 UTC. Cloud Linux only; no user Mac, native VoiceOver, paid model endpoint, push, PR or publication.
 
 ## Important finding: navigation quality remains weak
@@ -43,7 +43,7 @@ RAWSTEP_TEST_BROWSER_PATH=<trusted Chromium executable> npm run check
 - Real Chromium integration:106cases (97existing plus9new screenshot-loop cases)
 -14public JavaScript exports and installed consumer declarations: passed
 - Clean isolated npm tarball install and release-file allowlist: passed; no model weights, Python cache/runtime or old workspace graph shipped
-- Installed `screenshot-run`: real Chromium plus explicitly labelled HTTP fixture adapter,2requests/actions, saved PNGs, independent verifier, analyze/report all passed. This automated package test is not represented as actual model inference
+- Installed screenshot run (`runScreenshotTask`): real Chromium plus explicitly labelled HTTP fixture adapter,2requests/actions, saved PNGs, independent verifier, analyze/report all passed. This automated package test is not represented as actual model inference
 - Existing native protocol roundtrip, simulated VoiceOver CLI and legacy compatibility smoke: passed
 - Installed SIGINT/SIGTERM finalization, exit codes130/143, and journal-persistence fault injection: passed
 - Actual HTML report rendered in Chromium: gallery/action/evidence links visible, six image nodes (gallery plus raw observations), no page errors

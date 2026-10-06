@@ -1,21 +1,21 @@
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import type { RouteChange } from '../hooks/useRoute';
+import type { ErrorView } from '../lib/errors';
+import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
 
-type Props = { error: string; notice: string; busy: boolean; onReload: () => void };
+type Props = { error: ErrorView | undefined; notice: string; busy: boolean; onReload: () => void; navigate: (change: RouteChange) => void };
 
-/** Save conflicts and request errors; shown in the main area and inside dialogs and sheets. */
-export function StatusBanner({ error, notice, busy, onReload }: Props) {
+/**
+ * The newest failure of a request, told by its kind (spec §37), and the one-line notice of a finished change. Shown in the main area and
+ * inside dialogs. Reloading starts the editors again from the file, so a lost connection, where nothing was edited away, does not offer it.
+ */
+export function StatusBanner({ error, notice, busy, onReload, navigate }: Props) {
   const { t } = useTranslation();
   return <>
-    {error && <Alert variant="destructive" role="alert">
-      <AlertTitle>{t('app.errorTitle')}</AlertTitle>
-      <AlertDescription>
-        <p>{error}</p>
-        <Button size="sm" variant="outline" disabled={busy} onClick={onReload}><RefreshCw aria-hidden="true" />{t('app.reload')}</Button>
-      </AlertDescription>
-    </Alert>}
-    {notice && <p role="status" className="text-sm text-primary">{notice}</p>}
+    {error && <ErrorState alert view={error} navigate={navigate} actions={error.kind === 'connection' ? undefined
+      : <Button size="sm" variant="outline" disabled={busy} onClick={onReload}><RefreshCw aria-hidden="true" />{t('app.reload')}</Button>} />}
+    {notice && <p role="status" className="border-l-2 border-reach pl-3 text-sm">{notice}</p>}
   </>;
 }

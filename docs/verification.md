@@ -2,10 +2,10 @@ Version 0.2 note: the accounting below is historical. Legacy execution was remov
 
 # Completed refactor verification
 
-> Historical snapshot. The current seven-workspace delivery and its validation limits are recorded in [V5 completion](./completion-v5.ko.md).
+> Historical snapshot. The current checkout is validated with `npm run check`; see the [README](../README.md).
 Date: 2026-10-01 (UTC)
 
-This document records the earlier refactor snapshot. For the later first-class screenshot mode and combined461-test verification, see [screenshot verification](./screenshot-verification.md) and [combined completion report](./completion-v4.ko.md).
+This document records the earlier refactor snapshot. For the later first-class screenshot mode and combined461-test verification, see [screenshot verification](./screenshot-verification.md).
 
 Baseline: `d567466074b99d9e2580a6da8fed7ab3ededdf3f`
 
@@ -13,11 +13,11 @@ This report includes the completed structural refactor, cancellation/evidence/us
 
 ## Final architecture
 
-The repository has one implementation under `src/`: contracts, policy, runner, AT Driver, browser, verification, trace, analysis, report, CLI, and an explicitly deprecated screenshot-keyboard adapter. The default runtime is model-neutral. The old Guidepup/virtual backends, registry, generated capability tables, generator scripts, LLMAgent/provider packages, prompt/config loader and workspace manifests are removed, not retained as a fallback.
+The repository has one implementation under `src/`: contracts, policy, runner, AT Driver, browser, verification, trace, analysis, report, CLI, and a screenshot-keyboard adapter. The default runtime is model-neutral. The old Guidepup/virtual backends, registry, generated capability tables, generator scripts, LLMAgent/provider packages, prompt/config loader and workspace manifests are removed, not retained as a fallback.
 
 Playwright is the only runtime dependency. The package publishes compiled JavaScript/types, explicit exports/bin/files, migration documentation and small policy examples. It includes no native AT server, browser binary, model weights, LLM SDK or Guidepup dependency.
 
-The screenshot workflow remains functional through `rawstep legacy-run` / `runLegacyKeyboardTask`, with a deprecation warning, real PNG observations, historical conservative key defaults, and shared input gates, budgets, verifier and privacy. It never masquerades as screen-reader evidence.
+The screenshot workflow runs through `runScreenshotTask` (and `rawstep run --mode keyboard`), with real PNG observations and shared input gates, budgets, verifier and privacy. It never masquerades as screen-reader evidence.
 
 ## Clean dependency-graph validation
 
@@ -53,7 +53,7 @@ npm run check
 | Installed actual Chromium CLI task | Passed: 2 keyboard actions, 3 real screenshot observations |
 | Installed journal-failure cancellation | Passed: one key dispatched, next four prevented |
 | Installed real SIGINT/SIGTERM CLI processes | Passed: finalized aborted traces, interruption points, exit codes 130/143 and recovery commands |
-| Installed mock-run with actual Chromium | Passed: real activation, two simulated observations, source/provenance isolation, analyze/report |
+| Installed simulated-VoiceOver run with actual Chromium | Passed: real activation, two simulated observations, source/provenance isolation, analyze/report |
 | Genuine Laya + actual browser + simulator | Passed: two real model calls, two actual page activations, changed AX-derived speech, independent verifier and saved evidence |
 | Installed forbidden-action diagnosis | Passed: cause, policy stage and evidence commands printed |
 | Actual report render in Chromium | Passed: action summary, verifier grounds, collapsed raw events, no page errors |
@@ -78,15 +78,15 @@ SIGINT/SIGTERM are propagated to the runner and native command dispatch boundary
 
 ## Browser-backed simulator and actual model integration
 
-The opt-in `mock-run` command and `rawstep/mock-voiceover` API use a stateful English DOM-navigation profile over the actual Chromium accessibility tree. This is separate from native AT Driver. It has a persistent AX cursor, tracks actual DOM focus changes, traverses exposed names/roles/states, and supports guarded activation, basic keyboard actions and focused text input. Buttons/links, checkbox/radio state, required/editable fields, dynamic node insertion/removal and basic dialog focus are covered by actual browser tests. Open shadow focus is supported; iframe traversal is excluded.
+The simulation machine backend (`machine.backend` `simulation`) and `rawstep/mock-voiceover` API use a stateful English DOM-navigation profile over the actual Chromium accessibility tree. This is separate from native AT Driver. It has a persistent AX cursor, tracks actual DOM focus changes, traverses exposed names/roles/states, and supports guarded activation, basic keyboard actions and focused text input. Buttons/links, checkbox/radio state, required/editable fields, dynamic node insertion/removal and basic dialog focus are covered by actual browser tests. Open shadow focus is supported; iframe traversal is excluded.
 
-Simulation emits its own trace source and policy-observation provenance since schema `2.1` (current traces are `2.2`); readers still accept prior native/screenshot schemas `2.0` and `2.1`. Reports inventory simulated and native evidence separately. A simulated pass is not a native VoiceOver or accessibility-conformance result. The [supported behavior matrix](./mock-voiceover.md) describes the limits, including approximate DOM-click activation and unsupported rotor/group/earcon/live-region timing behavior.
+Simulation emits its own trace source and policy-observation provenance since schema `2.1` (current traces are `2.2`); earlier schemas are not read. Reports inventory simulated and native evidence separately. A simulated pass is not a native VoiceOver or accessibility-conformance result. The [supported behavior matrix](./mock-voiceover.md) describes the limits, including approximate DOM-click activation and unsupported rotor/group/earcon/live-region timing behavior.
 
 A separate genuine Laya model experiment uses the installed package, actual Chromium and this simulator. The trained 421M encoder/decision head ran twice, choosing `activate` each time from a declared three-action vocabulary. The actual page changed its accessible output from `Save, button` to `Save again, button` to `Save once more, button`; the independent title verifier passed after the second action. Both calls used one native ONNX forward pass, no generated text, no scripted decisions, and no input/option truncation. Measured call times were approximately 343 and 632 ms in this run. The experiment confirms the model→action→page→simulated-output→model→trace connection; it is not an accuracy or confidence-calibration benchmark. Model dependencies/weights remain outside the core npm package.
 
 ## Historical test accounting
 
-The baseline had 329 cases. [The per-case migration map](./test-migration.md) classifies 167 as ported/reworked and 162 as retired with their removed Guidepup/provider/planning/image-diff subjects. New tests split and extend retained responsibilities; the resulting count is not intended to match the original count one-for-one.
+The baseline had 329 cases. The per-case migration map (since removed) classified 167 as ported/reworked and 162 as retired with their removed Guidepup/provider/planning/image-diff subjects. New tests split and extend retained responsibilities; the resulting count is not intended to match the original count one-for-one.
 
 The earlier 77 browser-dependent failures are not left excluded or skipped. Their retained fixture, verification, action/input and navigation responsibilities now run against real Chromium. Supplementary jsdom tests are clearly separate from native browser integration. Every current test is included in default test execution and test typechecking.
 

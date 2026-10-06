@@ -3,11 +3,8 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FakeSystemOneClient, OpenRouterSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
+import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy, type ScreenshotModelRequest } from 'rawstep/screenshot';
-import { runCli } from '@rawstep/cli/cli';
-import { createDecisionClient, decisionConfig } from '../packages/cli/src/cli/config.js';
-import { parseCliArguments } from '@rawstep/cli/cli';
 import type { SystemOneCapabilities, SystemOneRequest } from 'rawstep/systemone';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
@@ -35,15 +32,15 @@ async function http(handler: (request: WireRequest) => unknown) {
 }
 const answer = (body: any) => ({ model: body.model, answers: { next: { type: 'choice', choice: 'key:Enter', probabilities: { 'key:Enter': 0.9, 'stop:uncertain': 0.1 } } } });
 
-describe('native OpenRouter SystemOne transport (no real inference or browser)', () => {
+describe('native OpenRouter SystemOne through the AI SDK decide API (no real inference or browser)', () => {
   it('resolves Jev from the decisions catalog, pins its exact ID, and retains requested identity', async () => {
     const seen: WireRequest[] = [];
     const baseURL = await http(r => { seen.push(r); return r.body ? answer(r.body) : models; });
-    const client = new OpenRouterSystemOneClient({ baseURL, model: 'typesafe/jev-1.13', apiKey: 'PRIVATE_KEY', capabilities: text });
+    const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'typesafe/jev-1.13', apiKey: 'PRIVATE_KEY', capabilities: text });
     await client.prepare({ signal: signal() });
     const result = await client.evaluate(request, { signal: signal() });
     expect(seen.map(r => r.path)).toEqual(['/api/v1/models?output_modalities=decisions', '/api/v1/systemone']);
-    expect(seen[0]?.authorization).toBeUndefined(); expect(seen[1]?.authorization).toBe('Bearer PRIVATE_KEY');
+    expect(seen[0]?.authorization).toBe('Bearer PRIVATE_KEY'); expect(seen[1]?.authorization).toBe('Bearer PRIVATE_KEY');
     expect(seen[1]?.body).toEqual({ model: 'typesafe/jev-1.13-20260917', state: request.state,
       questions: { next: { type: 'choice', instructions: request.instructions, criteria: { 'key:Enter': 'Enter', 'stop:uncertain': 'Uncertain' } } }, provider: { allow_fallbacks: false } });
     expect(result.model).toEqual({ id: 'typesafe/jev-1.13-20260917', requestedId: 'typesafe/jev-1.13', runtime: 'openrouter-systemone-http' });
@@ -53,15 +50,15 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
   it('accepts an explicit canonical Jev version and rejects a swapped or unrecognized result', async () => {
     for (const model of ['typesafe/jev-1.13-20260917', 'typesafe/jev-1.13', 'google/gemini-other']) {
       const baseURL = await http(r => r.body ? { ...answer(r.body), model } : models);
-      const client = new OpenRouterSystemOneClient({ baseURL, model: 'typesafe/jev-1.13-20260917', apiKey: 'test', capabilities: text });
+      const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'typesafe/jev-1.13-20260917', apiKey: 'test', capabilities: text });
       if (model === 'typesafe/jev-1.13-20260917') expect((await client.evaluate(request, { signal: signal() })).choiceId).toBe('key:Enter');
-      else await expect(client.evaluate(request, { signal: signal() })).rejects.toThrow('different model');
+      else await expect(client.evaluate(request, { signal: signal() })).rejects.toMatchObject({ name: 'RawstepError', code: 'decision-failed' });
     }
   });
   it('sends current/previous PNGs as ordered state content, not ignored top-level extensions', async () => {
     const seen: WireRequest[] = [];
     const baseURL = await http(r => { seen.push(r); return r.body ? answer(r.body) : models; });
-    const client = new OpenRouterSystemOneClient({ baseURL, model: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: visual });
+    const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: visual });
     const state = { ...request.state, imageOrder: ['current', 'previous'] };
     const result = await client.evaluate({ ...request, state, images: [{ pngBase64: png }, { pngBase64: previousPng }] }, { signal: signal() });
     expect(seen[1]?.body.state).toEqual([
@@ -78,13 +75,13 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
   });
   it('rejects images for text-only clients before network activity', async () => {
     const fetcher = vi.fn<typeof fetch>(async () => Response.json(models));
-    const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text, fetch: fetcher });
+    const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text, fetch: fetcher });
     await expect(client.evaluate({ ...request, images: [{ pngBase64: png }] }, { signal: signal() })).rejects.toThrow('input modalities');
     expect(fetcher).not.toHaveBeenCalled();
   });
   it('rejects image byte/pixel limits and invalid headers before any network request', async () => {
     const fetcher = vi.fn<typeof fetch>(async () => Response.json(models));
-    const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'cloudflare/clef-flash', apiKey: 'test', capabilities: { ...visual, maxImages: 3 }, fetch: fetcher });
+    const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: { ...visual, maxImages: 3 }, fetch: fetcher });
     const large = Buffer.alloc(4 * 1024 * 1024 + 1); Buffer.from(png, 'base64').copy(large);
     const pixels = Buffer.from(png, 'base64'); pixels.writeUInt32BE(5000, 16); pixels.writeUInt32BE(5000, 20);
     for (const bytes of [large, pixels, Buffer.from('89504e470d0a1a0a', 'hex')])
@@ -97,8 +94,8 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
     for (const catalog of [{ data: [{ ...models.data[1], architecture: { input_modalities: ['image'], output_modalities: ['decisions'] } }] }, { data: [] }, { data: [{ ...models.data[1], architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }] }]) {
       const post = vi.fn();
       const baseURL = await http(r => { if (r.body) post(); return catalog; });
-      const client = new OpenRouterSystemOneClient({ baseURL, model: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text });
-      await expect(client.prepare({ signal: signal() })).rejects.toThrow('confirmed native decision'); expect(post).not.toHaveBeenCalled();
+      const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text });
+      await expect(client.prepare({ signal: signal() })).rejects.toMatchObject({ code: 'decision-failed' }); expect(post).not.toHaveBeenCalled();
     }
   });
   it('rejects unknown candidates, malformed distributions and secret-bearing metadata', async () => {
@@ -108,7 +105,7 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
       { model: 'cloudflare/clef-flash', answers: { next: { type: 'choice', choice: 'key:Enter', probabilities: { 'key:Enter': 2, 'stop:uncertain': -1 } } } },
     ]) {
       const baseURL = await http(r => r.body ? result : models);
-      const client = new OpenRouterSystemOneClient({ baseURL, model: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: text });
+      const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: text });
       const error = await client.evaluate(request, { signal: signal() }).catch(e => e);
       expect(error).toBeInstanceOf(Error); expect(String(error)).not.toContain('PRIVATE_KEY');
     }
@@ -116,7 +113,7 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
   it('keeps response bodies private and never retries HTTP failures or invalid JSON', async () => {
     for (const response of [() => new Response('PRIVATE_RESPONSE', { status: 402 }), () => new Response('PRIVATE_RESPONSE')]) {
       const fetcher = vi.fn<typeof fetch>(async (_url, options) => options?.method === 'GET' ? Response.json(models) : response());
-      const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: text, fetch: fetcher });
+      const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: text, fetch: fetcher });
       const error = await client.evaluate(request, { signal: signal() }).catch(e => e);
       expect(error).toBeInstanceOf(Error); expect(String(error)).not.toMatch(/PRIVATE_RESPONSE|PRIVATE_KEY/); expect(fetcher).toHaveBeenCalledTimes(2);
     }
@@ -131,50 +128,20 @@ describe('native OpenRouter SystemOne transport (no real inference or browser)',
         if (options?.signal?.aborted) abort(); else options?.signal?.addEventListener('abort', abort, { once: true });
       });
     });
-    const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text, fetch: fetcher, timeoutMs: 10 });
+    const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text, fetch: fetcher, timeoutMs: 10 });
     await client.prepare({ signal: signal() });
     const controller = new AbortController(); const pending = client.evaluate(request, { signal: controller.signal });
     await started; controller.abort();
-    await expect(pending).rejects.toThrow('cancelled');
-    await expect(client.evaluate(request, { signal: signal() })).rejects.toThrow('timed out'); expect(fetcher).toHaveBeenCalledTimes(3);
+    await expect(pending).rejects.toMatchObject({ code: 'decision-cancelled' });
+    await expect(client.evaluate(request, { signal: signal() })).rejects.toMatchObject({ code: 'decision-timeout' }); expect(fetcher).toHaveBeenCalledTimes(3);
   });
   it('rejects unsupported API roots and missing keys without exposing credentials', () => {
-    expect(() => new OpenRouterSystemOneClient({ baseURL: 'https://example.test/v1', model: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text })).toThrow('base URL');
-    expect(() => new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'cloudflare/clef-flash', capabilities: text })).toThrow('API key');
+    expect(() => new DecisionClient({ provider: 'openrouter', baseURL: 'https://example.test/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text })).toThrow('base URL');
+    expect(() => new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', capabilities: text })).toThrow('API key');
   });
 });
 
-describe('OpenRouter CLI config and UI-ready prompt injection', () => {
-  const args = () => parseCliArguments(['screenshot-run', 'task.json', '--decision', 'systemone', '--decision-provider', 'openrouter-systemone', '--decision-base-url', 'https://openrouter.ai/api/v1', '--decision-model', 'cloudflare/clef-flash', '--decision-inputs', 'text,image']);
-  it('preserves TypeSafe credentials and requires a separate key for one-off OpenRouter overrides', () => {
-    const env = { RAWSTEP_DECISION_PROVIDER: 'systemone-http', RAWSTEP_DECISION_API_KEY: 'TYPESAFE_PRIVATE', RAWSTEP_DECISION_OPENROUTER_API_KEY: 'OPENROUTER_PRIVATE' };
-    const config = decisionConfig(args(), env); expect(config.apiKey).toBe('OPENROUTER_PRIVATE'); expect(createDecisionClient(config).capabilities.inputs).toEqual(['text', 'image']);
-    expect(createDecisionClient({ ...config, inputs: ['text'] })).toBeInstanceOf(OpenRouterSystemOneClient);
-    expect(decisionConfig(args(), { ...env, RAWSTEP_DECISION_OPENROUTER_API_KEY: undefined }).apiKey).toBeUndefined();
-    expect(decisionConfig(args(), { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_API_KEY: 'DEFAULT_OPENROUTER' }).apiKey).toBe('DEFAULT_OPENROUTER');
-    expect(env.RAWSTEP_DECISION_API_KEY).toBe('TYPESAFE_PRIVATE');
-  });
-  it('rejects a missing key, image-incapable models, and text-only screenshot clients before starting a runner', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'rawstep-openrouter-')); cleanup.push(() => rm(cwd, { recursive: true, force: true }));
-    await writeFile(join(cwd, 'task.json'), JSON.stringify({ mode: 'keyboard', url: 'https://example.test', goal: 'Start', verify: { all: [{ titleIncludes: 'Done' }] } }));
-    const run = vi.fn(); const messages: string[] = [];
-    const code = await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run,
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'cloudflare/clef-flash', RAWSTEP_DECISION_INPUTS: 'text,image' },
-    });
-    expect(code).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).toContain('API key');
-    expect(await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run,
-      createDecisionClient: config => new OpenRouterSystemOneClient({ ...config, capabilities: visual, fetch: async () => Response.json(models) }),
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'typesafe/jev-1.13', RAWSTEP_DECISION_INPUTS: 'text,image', RAWSTEP_DECISION_API_KEY: 'PRIVATE_KEY' },
-    })).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).toContain('confirmed native decision');
-    const client = new OpenRouterSystemOneClient({ baseURL: 'https://openrouter.ai/api/v1', model: 'typesafe/jev-1.13', apiKey: 'PRIVATE_KEY', capabilities: text, fetch: async () => Response.json(models) });
-    expect(await runCli(['screenshot-run', 'task.json', '--decision', 'systemone', '--allow-remote-model'], {
-      cwd, stdout: () => {}, stderr: s => messages.push(s), runScreenshotTask: run, createDecisionClient: () => client,
-      env: { RAWSTEP_DECISION_PROVIDER: 'openrouter-systemone', RAWSTEP_DECISION_BASE_URL: 'https://openrouter.ai/api/v1', RAWSTEP_DECISION_MODEL: 'typesafe/jev-1.13', RAWSTEP_DECISION_INPUTS: 'text,image', RAWSTEP_DECISION_API_KEY: 'PRIVATE_KEY' },
-    })).toBe(1); expect(run).not.toHaveBeenCalled(); expect(messages.join('')).not.toContain('PRIVATE_KEY');
-    await expect(readFile(join(cwd, 'trace.json'))).rejects.toThrow();
-  });
+describe('UI-ready prompt injection', () => {
   it('takes a copied instruction config, records its version/hash, and keeps candidates constrained', async () => {
     const prompt = { id: 'custom-visual', version: '2', instructions: 'CUSTOM_INSTRUCTION' };
     const client = new FakeSystemOneClient(['key:Enter']); const adapter = new SystemOneScreenshotAdapter(client, prompt); prompt.instructions = 'MUTATED';

@@ -7,7 +7,6 @@ import { createTestBrowserSession } from './helpers/browser.js';
 import { collectBrowserDiagnostics, resolveEnvironmentProfile, verifyLiveProfile } from '@rawstep/browser/profiles';
 import { runScreenshotTask, ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
-import { runEnvironmentMatrix, readMatrix } from '@rawstep/cli/matrix';
 import { runTask } from '@rawstep/browser/runner';
 import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
@@ -50,13 +49,6 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const d=await dir(),file=join(d,'drift.html');await writeFile(file,'<!doctype html><button autofocus onclick="document.body.style.setProperty(\'font-size\',\'7px\',\'important\')">Change style</button>');
     const trace=await runScreenshotTask({url:pathToFileURL(file).href,goal:'Inspect',maxSteps:3,verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir:join(d,'run'),browserSessionFactory:createTestBrowserSession,policy:new ScriptedPolicy([key('Enter')])});expect(trace.outcome?.reason).toBe('unsupported-profile');
   });
-  it('executes matching tasks with fresh policies and produces a comparison including unsupported rows',async()=>{
-    let policies=0;const d=await dir();const report=await runEnvironmentMatrix({id:'matrix-task',url:fixture,goal:'Finish',maxSteps:5,verify:{all:[{textVisibleExact:'Task completed successfully'}]}},{outDir:join(d,'matrix'),profiles:['default','forced-colors','zoom-200'],mode:'screenshot',browserSessionFactory:createTestBrowserSession,createPolicy:()=>{policies++;return new ScriptedPolicy([key('Tab'),key('Tab'),key('Tab'),key('Enter')])},humanEvidence:[{id:'review',taskId:'matrix-task',profileId:'default',observedAt:'2026-10-01T00:00:00Z',sourceUrl:'https://example.com/test/1',consent:'confirmed',summary:'Synthetic importer test only',reviewer:'test fixture',result:'confirmed-defect'}]});
-    expect(policies).toBe(3);expect(report.rows.map(r=>r.classification)).toEqual(['task-completed','task-completed','unsupported-environment']);expect(report.rows[0]!.findings.some(f=>f.category==='confirmed-defect'&&f.source==='human-evidence')).toBe(true);expect((await readMatrix(join(d,'matrix','matrix.json'))).id).toBe(report.id);expect(await readFile(join(d,'matrix','matrix.html'),'utf8')).toContain('Compared with first supported observed profile');
-  });
-  it('stops matrix scheduling on cancellation and preserves a valid manifest',async()=>{
-    const controller=new AbortController();const d=await dir();const report=await runEnvironmentMatrix({id:'cancel',url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{outDir:join(d,'matrix'),profiles:['default','dark'],mode:'screenshot',signal:controller.signal,browserSessionFactory:createTestBrowserSession,createPolicy:()=>({decide:()=>{controller.abort('SIGINT');return {stop:'stuck'}}})});expect(report.status).toBe('aborted');expect(report.rows).toHaveLength(1);
-  });
   it('lets a backend refuse the host before the browser opens and the opened session before observation or dispatch',async()=>{
     const make=(hooks:Partial<Backend>):Backend=>({capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')},...hooks});
     let opened=0,closed=0;const contexts:unknown[]=[];
@@ -73,13 +65,12 @@ describe('reviewed dynamic profile and focus identity cases',()=>{
  it('distinguishes two id-less controls and duplicate-id controls',async()=>{const d=await dir(),file=join(d,'ids.html');await writeFile(file,'<!doctype html><button>one</button><button>two</button><button id="same">three</button><button id="same">four</button>');const s=await createTestBrowserSession(pathToFileURL(file).href);cleanups.push(()=>s.close());const ids=[];for(let i=0;i<4;i++){await s.page.keyboard.press('Tab');ids.push((await collectBrowserDiagnostics(s.page)).focus.identity)}expect(new Set(ids).size).toBe(4)});
  it('does not treat a nonmodal dialog as an active modal',async()=>{const d=await dir(),file=join(d,'dialog.html');await writeFile(file,'<!doctype html><dialog open><button autofocus>nonmodal</button></dialog>');const s=await createTestBrowserSession(pathToFileURL(file).href);cleanups.push(()=>s.close());expect((await collectBrowserDiagnostics(s.page)).modal.open).toBe(false)});
  it('detects spacing override on a later paragraph and unprofiled dynamic text',async()=>{const s=await createTestBrowserSession(fixture,{profile:resolveEnvironmentProfile('spacing')});cleanups.push(()=>s.close());await s.page.locator('p').last().evaluate(e=>(e as HTMLElement).style.setProperty('letter-spacing','0px','important'));expect((await verifyLiveProfile(s.page,resolveEnvironmentProfile('spacing'))).find(x=>x.name==='textSpacing')?.status).toBe('mismatch');await s.page.evaluate(()=>document.body.appendChild(document.createElement('p')));expect((await verifyLiveProfile(s.page,resolveEnvironmentProfile('spacing'))).some(x=>x.status==='mismatch')).toBe(true)});
- it('settles cancellation even when a policy factory ignores its signal',async()=>{const controller=new AbortController(),d=await dir();setTimeout(()=>controller.abort('SIGTERM'),30);const result=await runEnvironmentMatrix({id:'factory-cancel',url:fixture,goal:'Never',timeoutMs:10000,verify:{all:[{titleIncludes:'Never'}]}},{outDir:join(d,'matrix'),profiles:['default'],mode:'screenshot',signal:controller.signal,createPolicy:async()=>new Promise(()=>{})});expect(result).toMatchObject({status:'aborted',cancellationSignal:'SIGTERM',rows:[]})});
 });
 
 describe('nonsecure-page diagnostics',()=>{
   it('keeps document and control identities stable on about:blank without page randomUUID',async()=>{
     const s=await createTestBrowserSession(fixture);cleanups.push(()=>s.close());
-    const context=await s.browser.newContext();const page=await context.newPage();await page.setContent('<!doctype html><button>one</button><button>two</button>');
+    const context=await s.browser!.newContext();const page=await context.newPage();await page.setContent('<!doctype html><button>one</button><button>two</button>');
     expect(await page.evaluate(()=>isSecureContext)).toBe(false);
     expect(await page.evaluate(()=>typeof crypto.randomUUID)).toBe('undefined');
     await page.locator('button').first().focus();const first=await collectBrowserDiagnostics(page),again=await collectBrowserDiagnostics(page);
@@ -103,23 +94,5 @@ describe('profile mismatch privacy after named text entry',()=>{
       const stored=await readFile(join(outDir,path),'utf8');
       expect(stored).not.toContain(secret);expect(stored).not.toContain(Buffer.from(secret).toString('base64'));
     }
-  });
-});
-
-
-describe('matrix named-input privacy',()=>{
-  it('redacts task/profile/human metadata, withholds secret source URLs and keeps safe artifact links',async()=>{
-    const d=await dir(),secret='PRIVATE_MATRIX_INPUT',outDir=join(d,'matrix'),taskId='review-'+secret;
-    const result=await runEnvironmentMatrix({id:taskId,url:fixture,goal:'Inspect',input:{secret},verify:{all:[{titleIncludes:'Never'}]}},{outDir,profiles:[{...resolveEnvironmentProfile('default'),id:secret}],mode:'screenshot',browserSessionFactory:createTestBrowserSession,createPolicy:()=>new ScriptedPolicy([{stop:'uncertain'}]),humanEvidence:[{id:'human-'+secret,taskId,profileId:secret,observedAt:'2026-10-01T12:00:00Z',sourceUrl:`https://${secret}.example.test/`,consent:'confirmed',summary:'Private '+secret,result:'confirmed-defect',reviewer:'Reviewer '+secret}]});
-    expect(JSON.stringify(result)).not.toContain(secret);expect(result.rows[0]!.reportPath).toBe('profile-1/report.html');
-    expect(result.humanEvidence[0]).toMatchObject({sourceUrlRedacted:true,consent:'confirmed',result:'confirmed-defect'});
-    expect((await readMatrix(join(outDir,'matrix.json'))).taskId).toBe(result.taskId);
-    for(const path of ['matrix.json','matrix.html','profile-1/trace.json','profile-1/report.html'])expect(await readFile(join(outDir,path),'utf8')).not.toContain(secret);
-    expect(await readFile(join(outDir,'matrix.html'),'utf8')).not.toContain('href="https://redacted.invalid/"');
-  });
-  it('preserves explicit inclusion and structural result enums',async()=>{
-    const d=await dir();
-    const result=await runEnvironmentMatrix({id:'review-visible',url:fixture,goal:'Inspect',input:{secret:'visible',structural:'completed'},verify:{all:[{titleIncludes:'Never'}]}},{outDir:join(d,'matrix'),profiles:['default'],mode:'screenshot',includeSensitiveInputValues:true,browserSessionFactory:createTestBrowserSession,createPolicy:()=>new ScriptedPolicy([{stop:'uncertain'}])});
-    expect(result.taskId).toBe('review-visible');expect(result.status).toBe('completed');
   });
 });

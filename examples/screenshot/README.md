@@ -1,53 +1,18 @@
-# Actual screenshot decision model
+# Keyboard mode task examples
 
-For the hosted OpenRouter/Clef Flash sample, keep the existing TypeSafe settings and set `RAWSTEP_DECISION_OPENROUTER_API_KEY` privately. Run `npm run try:openrouter` from the repository root. It explicitly selects Clef Flash, sends screenshots remotely, and uses one installed Chrome with keyboard input; it does not enable VoiceOver or invoke an analysis LLM. Images use content parts inside `state`, verified with real color/order/invalid-image probes. See [image delivery investigation and repair](../../docs/openrouter-image-delivery.md). Generic SystemOne HTTP, `/choose`, and the optional local OneJev setup below remain supported; nothing is installed automatically.
+Task files for keyboard mode (`--mode keyboard`), where the model chooses keyboard actions from viewport screenshots. Keyboard mode needs a run profile whose model takes images: an `llm` connection with an image model, or a `decision` connection on the `typesafe`, `openrouter` or `custom` provider (see [config](../../docs/config.md) and [SystemOne decisions](../../docs/systemone.md)). Nothing is installed or downloaded automatically.
 
-The `screenshot-run` command works with any `ScreenshotModelAdapter`. This optional companion serves **OmniJev/OneJev-0.8B** locally, with pinned official decision-fine-tuned multimodal weights. It is independent of TypeSafe's proprietary Jev. It is not a text-only Laya model or a generic VLM renamed Jev.
-
-The Python server uses standard Transformers with `trust_remote_code=False`. It never calls `generate()`. It uses one forward pass, scores all declared option-letter tokens, computes softmax and returns argmax. Screenshots are actually processed into image tensors. All keyboard choices remain available: prompt instructions do not replace or filter decisions. A uniform-gray-image ablation, keeping task and options identical, produced a different decision in the documented test.
-
-## Optional runtime installation (measured Linux CPU only)
-
-This example was tested with Python 3.11 on cloud Linux CPU. PyTorch packages below are the official CPU index builds. The model is approximately 2.2 GB; allow additional disk/RAM for Python packages and inference. These are separate from Rawstep's npm dependencies. The `+cpu` index command below is Linux-specific; do not treat it as a macOS installation recipe. macOS model execution and Apple acceleration have not been tested in this delivery. Rawstep itself can first be built and its scripted fixture run without any model runtime. See the separate [4B bridge setup](./onejev4b.md) for the other measured model.
+Register a task in `rawstep.config.json` (`npx rawstep ui`), or pass the file directly:
 
 ```sh
-cd examples/screenshot
-python3 -m venv .venv
-.venv/bin/python -m pip install torch==2.14.1+cpu torchvision==0.29.1+cpu \
-  --index-url https://download.pytorch.org/whl/cpu
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python download_model.py
-.venv/bin/python onejev_server.py --port 8766
+npx rawstep run examples/screenshot/task.json --profile PROFILE --mode keyboard
+npx rawstep report .rawstep/runs/RUN_DIR
 ```
 
-The downloader fetches only an explicit data/config/tokenizer allowlist from model revision `c3939d8bf4cad34549a2b13bbb6aee9bcb6afee8`, validates sizes and known LFS SHA-256 values, and creates a local manifest. It never downloads repository Python code. The server loads local files with offline flags and binds only to `127.0.0.1`. No model download, dependency install or server execution happens automatically during npm import/install/build.
+- `task.json` is the natural-focus navigation fixture.
+- `workflow-task.json` is an intentionally easy two-stage wiring test whose single button has HTML autofocus. It proves inference/action/changed-screen integration, not navigation accuracy.
+- `openrouter-task.json` is the small call-to-action page used with a hosted OpenRouter decision model such as `cloudflare/clef-flash` (a `kind: "decision"`, `provider: "openrouter"` connection, with inputs `text` and `image` in the profile's model). It sends screenshots remotely and uses one installed Chrome with keyboard input; it does not enable VoiceOver and, unless the profile has an `analysisModel`, invokes no analysis LLM. Images use content parts inside `state`, verified with real color/order/invalid-image probes. See [image delivery investigation and repair](../../docs/openrouter-image-delivery.md).
 
-In another shell from the Rawstep repository:
+Preserve failures and successes in separate output directories. See [verification](../../docs/screenshot-verification.md). Install Playwright Chromium separately or set `machine.browserExecutablePath` in `rawstep.config.json` to an explicitly selected compatible Chromium.
 
-```sh
-npm run rawstep -- screenshot-run examples/screenshot/task.json \
-  --model-endpoint http://127.0.0.1:8766/choose --out runs/screenshot-01
-npm run rawstep -- analyze runs/screenshot-01
-npm run rawstep -- report runs/screenshot-01 --analysis runs/screenshot-01/analysis.json
-```
-
-In a shell environment with isolated network namespaces, run the server and Rawstep from the same command/parent process. Standard local terminals do not usually require this. Install Playwright Chromium separately or use `--browser-executable` with an explicitly selected compatible Chromium.
-
-`task.json` is the natural-focus navigation fixture. `workflow-task.json` is an intentionally easy two-stage wiring test whose single button has HTML autofocus. It proves inference/action/changed-screen integration, not navigation accuracy. Preserve both failures and successes in separate output directories. See [verification](../../docs/screenshot-verification.md).
-
-The default prompt `--guidance keyboard-v2` adds general visible-focus and repetition guidance while preserving OneJev's published template and all options. `--guidance baseline` reproduces the initial generic prompt. Neither performs DOM inspection, action filtering or scripted fallback.
-
-## Provenance and limits
-
-- [Official OneJev project](https://github.com/OmniJev/OneJev), [model card](https://huggingface.co/OmniJev/OneJev-0.8B), Apache-2.0 model license
-- Pinned checkpoint: `c3939d8bf4cad34549a2b13bbb6aee9bcb6afee8`
-- Weight SHA-256: `cb4b7456703baa26a0cfacf177067200b50021df5a6ba2a2cd1e6f6c868f2244`
-- Standard Transformers5.18.0 / PyTorch2.14.1 CPU, BF16, six inference threads
-- Whole-frame resize budget:393216 pixels. Small text and thin focus indicators may become hard to recognize
-- Choice count:2–26. Additional named input choices can exceed this server's limit and produce an explicit error
-- CPU calls take seconds. Publisher GPU latency figures do not describe this setup
-- Scores are not calibrated correctness probabilities, accessibility evidence or completion verification
-
-HTTP responses include identity, revision, actual image hashes/tensor dimensions, token count and option logits. Rawstep retains policy evidence separately from its independent verifier. Server request receipts are disabled by default. `--receipts path.jsonl` explicitly enables private local test receipts containing task goal and history; newly created receipt files use0600. Use only synthetic/non-sensitive data. Never confuse trace redaction with anonymization of a live screenshot sent to a model.
-
-The source scripts here are a small standalone integration written for Rawstep. They use the official option-letter prompt format as data; no remote model project code is executed. Model weights and third-party runtime packages retain their own licenses and are not redistributed inside the npm package.
+Screenshots can expose private page content, and a remote model receives them. Never confuse trace redaction with anonymization of a live screenshot sent to a model.

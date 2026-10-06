@@ -208,7 +208,7 @@ fail the run explicitly on overflow rather than silently truncating evidence.
 
 ## Verification status
 
-`tests/orca-v2.test.ts` exercises profile mappings, NDJSON framing, startup and
+`tests/orca.test.ts` exercises profile mappings, NDJSON framing, startup and
 speech provenance, pre/post-ACK collection, session filtering, concurrency,
 cancellation, cleanup, and runner redaction using deterministic child processes.
 The full-runner journal-failure regression makes trace persistence fail at the

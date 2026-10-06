@@ -120,7 +120,7 @@ export function summarizeTraceEvidence(trace: Readonly<RunTrace>): TraceEvidence
     trace.events.some((event) => event.source === 'simulation' && event.type === 'simulation.observation') ||
     metadata.some(isSimulated);
   const keyboard = trace.task.mode === 'keyboard' || keyboardEvents.length > 0 || metadata.some((data) =>
-    data.observationKind === 'keyboard' || data.backend === 'legacy-keyboard');
+    data.observationKind === 'keyboard');
   const screenreader = (!simulation && trace.task.mode === 'screenreader') || outputEvents.length > 0 ||
     trace.events.some((event) => event.source === 'screen-reader' && event.type === 'screen-reader.observation') ||
     metadata.some((data) => !isSimulated(data) && (data.backend === 'at-driver' || data.evidenceProvenance === 'native' ||

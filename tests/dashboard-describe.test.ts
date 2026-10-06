@@ -3,7 +3,7 @@ import type { HintKind } from '../packages/reports/src/hints/index.js';
 import { describeHint } from '../packages/dashboard/src/web/lib/describe.js';
 import '../packages/dashboard/src/web/i18n/index.js';
 import { core } from '../packages/dashboard/src/web/i18n/locales/ko/core.js';
-import { hintKindLabel, limitationLabel, outcomeReasonLabel, versusLabel } from '../packages/dashboard/src/web/i18n/labels.js';
+import { hintKindLabel, outcomeReasonLabel } from '../packages/dashboard/src/web/i18n/labels.js';
 
 const hint = (kind: HintKind, detail: Record<string, unknown>, extra: { certainty?: 'observed' | 'suspected' } = {}) =>
   ({ kind, summary: `english ${kind}`, detail, certainty: extra.certainty ?? 'observed' as const });
@@ -11,7 +11,7 @@ const hangul = /[가-힣]/;
 
 describe('describeHint', () => {
   const cases: [string, ReturnType<typeof hint>, (string | RegExp)[]][] = [
-    ['slow-run', hint('slow-run', { steps: 12, referenceSteps: 4, durationMs: 9000, referenceDurationMs: 3000 }), ['12 스텝', '4 스텝', '8 스텝', '9.0초', '3.0초']],
+    ['slow-run', hint('slow-run', { steps: 12, referenceSteps: 4, durationMs: 9000, referenceDurationMs: 3000 }), ['12번', '4번', '8번', '9.0초', '3.0초']],
     ['excess-keystrokes', hint('excess-keystrokes', { count: 12, keys: { Tab: 10, 'Shift+Tab': 2 }, target: { role: 'button', name: 'Save' } }), ['button “Save”', '12번', 'Tab ×10']],
     ['backtracking', hint('backtracking', { reversals: 3 }), ['3번']],
     ['repeated-state', hint('repeated-state', { visits: 4 }), ['4번']],
@@ -25,11 +25,11 @@ describe('describeHint', () => {
     ['modal-focus-outside dialog', hint('modal-focus-outside', { dialog: { role: 'dialog', name: 'Confirm' } }, { certainty: 'suspected' }), ['dialog “Confirm”', '이동하지 않았습니다']],
     ['missing-announcement', hint('missing-announcement', { pixelsChanged: true, changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
     ['invisible-focus-change', hint('invisible-focus-change', { target: { role: 'tab', name: 'Two' } }), ['tab “Two”', '바뀌지 않았습니다']],
-    ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '42%', '38%']],
+    ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '0.42', '0.38']],
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
-    ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['모든 목표 규칙']],
+    ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],
     ['focus-left-page', hint('focus-left-page', { action: 'Tab' }), ['Tab', '페이지를 벗어났습니다']],
     ['focus-left-page no action', hint('focus-left-page', {}), ['페이지를 벗어났습니다']],
@@ -66,17 +66,12 @@ describe('describeHint', () => {
   });
 });
 
-describe('outcome and limitation labels', () => {
+describe('outcome labels', () => {
   it('translates every known outcome reason and keeps unknown ones', () => {
     for (const reason of ['verified', 'verification-failed', 'policy-stuck', 'policy-uncertain', 'maxSteps', 'timeout', 'error', 'aborted',
       'trace-persistence-error', 'unsupported-profile', 'access-blocked', 'unsupported-pattern']) expect(outcomeReasonLabel(reason)).toMatch(hangul);
     expect(outcomeReasonLabel('something-else')).toBe('something-else');
     expect(outcomeReasonLabel('constructor')).toBe('constructor');
-  });
-
-  it('translates known limitations and keeps unknown ones', () => {
-    expect(limitationLabel('Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.')).toMatch(hangul);
-    expect(limitationLabel('A limitation from a newer version.')).toBe('A limitation from a newer version.');
   });
 });
 
@@ -85,11 +80,5 @@ describe('label helpers', () => {
     for (const kind of Object.keys(core.hints.kinds)) expect(hintKindLabel(kind)).toMatch(hangul);
     expect(hintKindLabel('brand-new')).toBe('brand-new');
     expect(hintKindLabel('constructor')).toBe('constructor');
-  });
-
-  it('builds the reference comparison text for equal, more and fewer steps', () => {
-    expect(versusLabel(0)).toBe('참조와 같은 스텝');
-    expect(versusLabel(3)).toBe('참조 대비 +3 스텝');
-    expect(versusLabel(-2)).toBe('참조 대비 -2 스텝');
   });
 });

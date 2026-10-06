@@ -9,6 +9,7 @@ export * from './diagnostics.js';
 export { createChromiumTabZoomController } from './native-zoom.js';
 
 export class ProfileApplicationError extends RawstepError {
+  static override readonly errorName = 'ProfileApplicationError';
   constructor(readonly appliedProfile: AppliedProfile) { super('unsupported-profile', 'One or more requested environment settings are unsupported or did not apply.', { outcome: { status: 'inconclusive', reason: 'unsupported-profile' } }); this.name = 'ProfileApplicationError'; }
 }
 import type { NativeZoomController } from './ports.js';

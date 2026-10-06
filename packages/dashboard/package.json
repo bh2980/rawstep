@@ -1,7 +1,7 @@
 {
   "name": "@rawstep/dashboard",
-  "version": "0.2.0",
   "private": true,
+  "version": "0.2.0",
   "type": "module",
   "description": "Local Rawstep dashboard UI workspace",
   "scripts": {
@@ -17,12 +17,11 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",
-    "@json-render/core": "0.21.0",
-    "@json-render/react": "0.21.0",
-    "@json-render/shadcn": "0.21.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@rawstep/browser": "workspace:*",
     "@rawstep/core": "workspace:*",
     "@rawstep/policies": "workspace:*",
+    "@rawstep/project": "workspace:*",
     "@rawstep/reports": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "class-variance-authority": "0.7.1",
@@ -56,11 +55,6 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "peerDependencies": {
     "playwright": "^1.59.1"
   }

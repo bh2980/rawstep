@@ -5,7 +5,7 @@ import { intentLabel } from '../i18n/labels.js';
 /** Human label for the action or stop recorded at a step. */
 export function describeStep(step: Pick<StepView, 'step' | 'action' | 'stop'>): string {
   if (step.step === 0 && !step.action && !step.stop) return t('steps.start');
-  if (step.stop) return t('steps.stop', { reason: step.stop.stop });
+  if (step.stop) return t('steps.stop', { reason: t(`steps.stopReasons.${step.stop.stop}`, { defaultValue: step.stop.stop }) });
   const action = step.action;
   if (!action) return t('steps.unknownAction');
   if (action.kind === 'typeText') return action.input ? t('steps.typeTextNamed', { name: action.input }) : t('steps.typeText');
@@ -95,7 +95,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'model-hesitation': {
       const choice = str(d.choiceId), probability = num(d.probability), runnerUp = num(d.runnerUp);
       if (!choice || probability === undefined || runnerUp === undefined) break;
-      return t('hints.text.modelHesitation', { choiceId: choice, probability: Math.round(probability * 100), runnerUp: Math.round(runnerUp * 100) });
+      return t('hints.text.modelHesitation', { choiceId: choiceLabel(choice), score: probability.toFixed(2), runnerUp: runnerUp.toFixed(2) });
     }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
@@ -114,4 +114,10 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     }
   }
   return hint.summary;
+}
+
+/** Candidate ids look like `key:Tab` or `intent:next`; people read the key or command. */
+export function choiceLabel(id: string): string {
+  const [kind, value] = id.split(/:(.*)/s);
+  return value && (kind === 'key' || kind === 'intent') ? value : id;
 }

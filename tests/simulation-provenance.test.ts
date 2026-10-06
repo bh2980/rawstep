@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import type { Backend, BackendAction } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
 import { runTask } from '@rawstep/browser/runner';
-import { TraceRecorder, validateTrace } from '@rawstep/core/trace';
 
 const dirs:string[]=[];
 afterEach(async()=>{await Promise.all(dirs.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
@@ -36,11 +35,5 @@ describe('explicit simulation provenance',()=>{
   const trace=await runTask({url:'https://example.test',goal:'Enter provided input',input:{q:'Az'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:out,policy:{decide:()=>({action:{kind:'typeText',input:'q'}})}});
   expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('Echo A z');
   const events=trace.events.filter(event=>event.type==='simulation.observation');expect(events[1]?.redacted).toBe(true);expect(events[1]?.data).toMatchObject({provenance:'simulation'});
- });
- it('reads old native schema2.0 traces but does not allow simulation to masquerade under the old schema',async()=>{
-  const recorder=new TraceRecorder({id:'simulation'},await directory());await recorder.initialize();recorder.append('simulation.output',{text:'Save button'},{source:'simulation'});
-  const trace=await recorder.finalize({status:'inconclusive'});expect(()=>validateTrace(trace)).not.toThrow();
-  expect(()=>validateTrace({...trace,schemaVersion:'2.0'})).toThrow('Simulation evidence requires');
-  expect(()=>validateTrace({...trace,schemaVersion:'2.0',events:trace.events.map(event=>({...event,type:'screen-reader.output',source:'screen-reader'}))})).not.toThrow();
  });
 });

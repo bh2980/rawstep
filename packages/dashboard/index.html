@@ -1,10 +1,20 @@
 <!doctype html>
-<html lang="ko" class="dark">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#141416" />
+    <meta name="theme-color" content="#F6F7F5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1A1D1B" media="(prefers-color-scheme: dark)" />
     <title>Rawstep Dashboard</title>
+    <script>
+      // Set the theme before the first paint so a dark preference does not flash light. Mirrors src/web/lib/theme.ts.
+      (function () {
+        var stored = null;
+        try { stored = localStorage.getItem('rawstep.theme'); } catch (e) { /* storage can be blocked */ }
+        var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

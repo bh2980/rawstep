@@ -1,6 +1,9 @@
 import type { BrowserSession } from "../browser/index.js";
 import type { ObserverEvent } from "../observer/index.js";
 import { matchesText } from "@rawstep/core/contracts";
+import { runScriptCheck } from "./script.js";
+export { runScriptCheck, SCRIPT_TIMEOUT_MS } from "./script.js";
+export type { ScriptCheckResult } from "./script.js";
 import type {
   PolicyAction,
   Observation,
@@ -104,6 +107,15 @@ async function observeVerifyRule(
     return result('any', passed.length ? undefined : `Verification failed: none of ${inner.length} alternative rules held.`, passed.flatMap(child => child.witnesses));
   }
 
+  if ("script" in rule) {
+    const { description, source } = rule.script;
+    // The observer timeline is the event history a script may reason about; no timeline means an empty one.
+    const checked = await runScriptCheck(browser.page, source, { timeline: (context?.timeline ?? []).map(event => observerWitnessEvent(event)) });
+    const witness: VerificationWitness = { kind: 'script', description, result: checked.result, ...('error' in checked ? { error: checked.error } : {}) };
+    if (checked.result === null) return { ...result('script', `Verification failed: the script check could not decide (${'error' in checked ? checked.error : 'unknown'}).`, [witness]), unavailable: true };
+    return result('script', checked.result ? undefined : `Verification failed: the script check returned false (${description}).`, [witness]);
+  }
+
   if ("titleIncludes" in rule) {
     const title = await browser.page.title();
     return result('titleIncludes', title.includes(rule.titleIncludes) ? undefined :
@@ -187,8 +199,11 @@ async function observeVerifyRule(
 }
 
 function observerWitness(event: ObserverEvent): VerificationWitness {
+  return { kind: 'observer-event', event: observerWitnessEvent(event) };
+}
+function observerWitnessEvent(event: ObserverEvent) {
   const { kind, step, role, name, text, attr, value, url, sameDocument } = event;
-  return { kind: 'observer-event', event: { kind, step, ...(role !== undefined ? { role } : {}), ...(name !== undefined ? { name } : {}), ...(text !== undefined ? { text } : {}), ...(attr !== undefined ? { attr } : {}), ...(value !== undefined ? { value } : {}), ...(url !== undefined ? { url } : {}), ...(sameDocument !== undefined ? { sameDocument } : {}) } };
+  return { kind, step, ...(role !== undefined ? { role } : {}), ...(name !== undefined ? { name } : {}), ...(text !== undefined ? { text } : {}), ...(attr !== undefined ? { attr } : {}), ...(value !== undefined ? { value } : {}), ...(url !== undefined ? { url } : {}), ...(sameDocument !== undefined ? { sameDocument } : {}) };
 }
 
 export function formatVerificationFeedback(result: VerificationRecord): string {

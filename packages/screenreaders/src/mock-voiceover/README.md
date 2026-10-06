@@ -10,7 +10,7 @@ now calibrated against versioned, third-party reported VoiceOver output; see
 profile is not one specific macOS/Safari version.
 
 The backend implements the generic `Backend` interface: `start`, `execute`,
-`observe`, `subscribe`, and `close`. Call `attachPage(page)` with the task's existing
+`observe`, `subscribe`, and `close`. Call `attachSession({ page })` with the task's existing
 Playwright Chromium page. `start` can precede attachment; the CDP accessibility
 session starts on the first observation or action. The backend detaches its own CDP
 session on close and does not own or close the caller's browser.

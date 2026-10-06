@@ -1,5 +1,6 @@
 {
   "name": "@rawstep/policies",
+  "private": true,
   "version": "0.2.0",
   "description": "Rawstep policies workspace",
   "license": "MIT",
@@ -43,27 +44,24 @@
       "types": "./dist/screenshot/replay.d.ts",
       "import": "./dist/screenshot/replay.js",
       "default": "./dist/screenshot/replay.js"
+    },
+    "./llm": {
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js",
+      "default": "./dist/llm/index.js"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "engines": {
     "node": ">=22.12.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bh2980/rawstep.git",
-    "directory": "packages/policies"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@rawstep/core": "workspace:*"
+    "@ai-sdk/openai-compatible": "3.0.63",
+    "@rawstep/core": "workspace:*",
+    "ai": "7.0.128",
+    "zod": "4.6.5"
   }
 }

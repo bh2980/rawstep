@@ -1,7 +1,7 @@
 {
   "name": "rawstep",
   "version": "0.2.0",
-  "description": "Record screen-reader or screenshot-keyboard task traces with pluggable decision policies and post-run analysis",
+  "description": "Record screen-reader or screenshot-keyboard task traces and get friction hints: CLI, local dashboard and API in one package",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -86,11 +86,6 @@
       "import": "./dist/profiles/index.js",
       "default": "./dist/profiles/index.js"
     },
-    "./matrix": {
-      "types": "./dist/matrix/index.d.ts",
-      "import": "./dist/matrix/index.js",
-      "default": "./dist/matrix/index.js"
-    },
     "./orca": {
       "types": "./dist/orca/index.d.ts",
       "import": "./dist/orca/index.js",
@@ -100,32 +95,27 @@
       "types": "./dist/evidence/index.d.ts",
       "import": "./dist/evidence/index.js",
       "default": "./dist/evidence/index.js"
+    },
+    "./project": {
+      "types": "./dist/project/index.d.ts",
+      "import": "./dist/project/index.js",
+      "default": "./dist/project/index.js"
+    },
+    "./hints": {
+      "types": "./dist/hints/index.d.ts",
+      "import": "./dist/hints/index.js",
+      "default": "./dist/hints/index.js"
     }
   },
   "files": [
     "dist",
+    "native",
     "README.md",
     "README.ko.md",
     "LICENSE",
     "docs/*.md",
-    "examples/v2",
-    "fixtures/simple-cta.html",
-    "fixtures/native-voiceover.html",
-    "fixtures/mock-voiceover-system.html",
-    "examples/screenshot/*.json",
-    "examples/screenshot/*.mjs",
-    "examples/screenshot/*.md",
-    "examples/screenshot/*.py",
-    "examples/screenshot/*.txt",
-    "fixtures/screenshot-keyboard.html",
-    "fixtures/screenshot-workflow.html",
-    "examples/profiles/*.json",
-    "examples/profiles/*.md",
-    "examples/orca/*.mjs",
-    "examples/orca/*.html",
-    "examples/orca/*.md",
-    "fixtures/environment-lab.html",
-    "fixtures/visual-study/*.html"
+    "examples",
+    "fixtures"
   ],
   "engines": {
     "node": ">=22.12.0"
@@ -136,20 +126,14 @@
     "directory": "packages/rawstep"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "build": "node ../../scripts/bundle-rawstep.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@rawstep/core": "workspace:*",
-    "@rawstep/policies": "workspace:*",
-    "@rawstep/browser": "workspace:*",
-    "@rawstep/screenreaders": "workspace:*",
-    "@rawstep/reports": "workspace:*",
-    "@rawstep/cli": "workspace:*"
-  },
-  "peerDependencies": {
-    "playwright": "^1.59.1"
+    "@ai-sdk/openai-compatible": "3.0.63",
+    "ai": "7.0.128",
+    "playwright": "1.59.1",
+    "zod": "4.6.5"
   },
   "bin": {
     "rawstep": "./dist/cli/bin.js"

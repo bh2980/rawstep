@@ -18,7 +18,7 @@ async function fixture(html: string) {
   const events: unknown[] = [];
   backend.subscribe(event => events.push(event));
   const metadata = await backend.start();
-  backend.attachPage(page);
+  backend.attachSession({ page: page });
   cleanup.push(() => backend.close());
   const initial = await backend.observe();
   async function intent(intent: string) { await backend.execute({ kind: 'intent', intent }); return (await backend.observe()).speech; }
@@ -27,6 +27,24 @@ async function fixture(html: string) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('says a legend or a label once, skips rules and silent objects, and jumps by heading and form control', async () => {
+    const f = await fixture(`<h1>Shop</h1><hr>
+      <fieldset><legend>Categories</legend><label><input type="checkbox"> Hammer</label><span aria-hidden="false"></span></fieldset>
+      <hr><h2>Products</h2><a href="#p1"><h5>Claw Hammer</h5></a><a href="#p2"><h5>Thor Hammer</h5></a><input aria-label="Search">`);
+    const actual = [...f.initial.speech];
+    for (let index = 0; index < 8; index++) actual.push(...await f.intent('next'));
+    expect(actual).not.toContain('separator');
+    expect(actual.filter(line => line.trim() === 'Categories')).toHaveLength(0);
+    expect(actual.filter(line => line.trim() === 'Hammer')).toHaveLength(0);
+    expect(actual.every(line => line.trim() !== '')).toBe(true);
+    const g = await fixture(`<h1>Shop</h1><p>Intro</p><button>Menu</button><h2>Filters</h2><input aria-label="Search"><h2>Products</h2>`);
+    expect(await g.intent('heading.next')).toEqual(['Filters, heading, level 2']);
+    expect(await g.intent('heading.next')).toEqual(['Products, heading, level 2']);
+    expect(await g.intent('heading.next')).toEqual(['No more headings']);
+    expect(await g.intent('heading.previous')).toEqual(['Filters, heading, level 2']);
+    expect(await g.intent('form.next')).toEqual(['Search, edit text']);
+  });
+
   it('uses actual AX names/roles, traverses exposed descendants and static/offscreen content without duplicate control text', async () => {
     const f = await fixture(`<div role="none"><h2>Welcome</h2><p>Read this introduction</p></div>
       <button><span>Continue</span></button><button style="opacity:0">Transparent</button>

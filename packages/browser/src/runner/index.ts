@@ -3,7 +3,7 @@ import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, settlePage, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
@@ -31,7 +31,14 @@ export type RunOptions = {
   /** Page observer for hints; on by default. Never visible to the policy. */
   observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
+  /**
+   * A person passes the site's own human checks: the run uses a visible browser with this kept profile, and whenever the page
+   * shows a check it waits (up to `timeoutMs`, default 5 minutes) until the page is the site again. The wait does not count
+   * against the task's time budget. Rawstep never answers a check itself.
+   */
+  personCheck?: { userDataDir: string; timeoutMs?: number };
 };
+const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
@@ -58,7 +65,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
-  const deadline = Date.now() + task.timeoutMs!;
+  // Moved later by the time a person spends passing a human check.
+  let deadline = Date.now() + task.timeoutMs!;
   let stage = 'initialization';
   let activeStep = 0;
   let evidenceFailure: Error | undefined;
@@ -143,12 +151,62 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.headless ?? false, executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { userDataDir: options.personCheck.userDataDir } : {}), executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
-      try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
+      // A page opened bare for a human check gets its guards and the backend only after the check is passed.
+      if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
       return opened;
     });
     await withinBudget(() => browser!.page.bringToFront());
+    const taskOrigin = new URL(task.url).origin;
+    /**
+     * While the page shows a human check, wait for the person to pass it in the visible window. The check counts as passed only
+     * after it has been gone for PERSON_CHECK_CLEAR_MS in a row (a check page reloading with a new token is not a pass). A page that
+     * leaves for neither the task's site nor a check host, or a check nobody passes in time, ends the run as access-blocked. The
+     * waiting is recorded and added back to the time budget. On a page opened bare, the guards and the backend are attached only
+     * now, and a site that shows its check again once they are attached rejects this browser.
+     */
+    const waitForPerson = async (step: number) => {
+      if (!options.personCheck) return;
+      const bare = !!browser!.armGuards;
+      let waited = false;
+      if (await withinBudget(() => isBotCheckPage(browser!.page))) {
+        waited = true;
+        const started = Date.now(), limit = options.personCheck.timeoutMs ?? PERSON_CHECK_TIMEOUT_MS;
+        append('run.waiting-for-person', { step, reason: 'bot-check', timeoutMs: limit }, { source: 'runner' });
+        let clearSince: number | undefined;
+        for (;;) {
+          if (evidenceFailure) throw evidenceFailure;
+          controller.signal.throwIfAborted();
+          await new Promise(resolve => setTimeout(resolve, PERSON_CHECK_POLL_MS));
+          const at = browser!.page.url();
+          if (/^https?:/.test(at) && new URL(at).origin !== taskOrigin && !isBotCheckUrl(at)) {
+            append('run.person-check-left', { step, host: new URL(at).host }, { source: 'runner' });
+            throw new BrowserAccessBlockedError(at, undefined, 'The human check sent the page away from the task site; Rawstep does not follow it.');
+          }
+          if (await isBotCheckPage(browser!.page).catch(() => true)) clearSince = undefined;
+          else if ((clearSince ??= Date.now()) <= Date.now() - PERSON_CHECK_CLEAR_MS) break;
+          if (Date.now() - started > limit) {
+            append('run.person-check-timeout', { step, waitedMs: Date.now() - started }, { source: 'runner' });
+            throw new BrowserAccessBlockedError(at, undefined, 'The human check was not passed in time; Rawstep does not answer checks itself.');
+          }
+        }
+        const waitedMs = Date.now() - started;
+        deadline += waitedMs;
+        append('run.person-resumed', { step, waitedMs }, { source: 'runner' });
+      }
+      if (bare) {
+        await withinBudget(() => browser!.armGuards!());
+        if (await withinBudget(() => isBotCheckPage(browser!.page))) {
+          append('run.person-check-rejected', { step }, { source: 'runner' });
+          throw new BrowserAccessBlockedError(browser!.page.url(), undefined, 'The site showed its human check again once Rawstep attached to the page; it rejects this browser.');
+        }
+        await withinBudget(() => options.backend.attachSession?.(browser!));
+        append('run.guards-armed', { step }, { source: 'runner' });
+      }
+      if (bare || waited) await withinBudget(() => settlePage(browser!.page));
+    };
+    await waitForPerson(0);
     // Keys must reach the page, not browser UI or another window. A real user starts on the document with nothing focused
     // (unless the page uses autofocus), so the runner never moves focus to an element itself.
     const readInitialFocus = () => browser!.page.evaluate(() => {
@@ -181,7 +239,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
-    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.headless ?? false }, { source: 'browser-diagnostic' });
+    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions });
     const observe = async (): Promise<Observation> => {
       stage = 'observation';
@@ -220,6 +278,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     };
     let observation = await observe();
     drainObserver();
+    /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the page before the first action. */
+    const diagnosticScreenshot = async (step: number) => {
+      if (!options.diagnosticScreenshots) return;
+      if (inputTainted) { append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true }); return; }
+      await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
+      const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
+      await withinBudget(() => browser!.page.screenshot({ path }));
+      append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
+    };
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
       drainObserver();
@@ -248,6 +315,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       // Error text can carry page URLs or echoed values; keep only its type.
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
+    await diagnosticScreenshot(0);
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
@@ -272,6 +340,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
       const action = decision.action;
       let execution: { ok: boolean; error?: string };
+      // Watched from before the action, so a request sent at the moment of the click counts.
+      const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
       try {
         stage = 'action';
         browser.observer?.setStep(step);
@@ -279,7 +349,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
           const editable = await withinBudget(() => isEditable(browser!));
           append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
           if (!editable) throw new Error('Text entry requires an editable focused field.');
-          if (!options.includeSensitiveInputValues) {
+          // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
+          if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
             inputTainted = true;
             append('privacy.input-taint', { step, reason: 'Subsequent protocol payloads, speech and diagnostic screenshots are redacted because late input echoes cannot be attributed reliably.' }, { redacted: true });
           }
@@ -294,7 +365,9 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
       append('action.result', { step, action, ...execution });
       history.push({ step, decision, observation, execution });
-      if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page)); }
+      // An activation may start a route change that renders a moment later: settle on what the page does, not on a fixed wait.
+      if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
+      await waitForPerson(step);
       observation = await observe();
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
@@ -302,13 +375,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       drainObserver();
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
-      if (options.diagnosticScreenshots && inputTainted) append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true });
-      if (options.diagnosticScreenshots && !inputTainted) {
-        await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
-        const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
-        await withinBudget(() => browser!.page.screenshot({ path }));
-        append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
-      }
+      await diagnosticScreenshot(step);
       if ((await verify(step)).passed) { outcome = { status: 'success', reason: 'verified' }; break; }
     }
   } catch (error) {

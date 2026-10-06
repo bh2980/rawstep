@@ -49,7 +49,8 @@ export type DomEventRecord = {
 };
 
 export type BrowserSession = {
-  browser: Browser;
+  /** Absent for a persistent profile, whose context is the browser. */
+  browser?: Browser;
   context: BrowserContext;
   page: Page;
   network: NetworkLog;
@@ -73,13 +74,20 @@ export type BrowserSession = {
   takeBlockedNavigations(): BlockedNavigationRecord[];
   takeNavigationGuardWarnings(): NavigationGuardWarningRecord[];
   close(): Promise<void>;
+  /**
+   * Present while a person may still be passing a human check: the page was opened bare, with nothing attached. Arming installs
+   * the observer, profile, routing and navigation guards and reloads the start address; it removes itself once called.
+   */
+  armGuards?: () => Promise<void>;
 };
 
 export class BrowserAccessBlockedError extends RawstepError {
+  static override readonly errorName = 'BrowserAccessBlockedError';
   constructor(readonly url:string,readonly status:number|undefined,reason:string){super('access-blocked',reason,{outcome:{status:'inconclusive',reason:'access-blocked'}});this.name='BrowserAccessBlockedError';}
 }
 
 export class BrowserSetupError extends RawstepError {
+  static override readonly errorName = 'BrowserSetupError';
   constructor(message: string, readonly blockedNavigations: BlockedNavigationRecord[], readonly warnings: NavigationGuardWarningRecord[], cause: unknown) {
     super("browser-setup", message, { cause });
     this.name = "BrowserSetupError";
@@ -97,7 +105,37 @@ export type CreateBrowserSessionOptions = {
   verify?: VerifySpec;
   /** Page observer is on by default; false skips it, an object tunes its limits. */
   observe?: boolean | ObserverOptions;
+  /**
+   * A browser profile directory kept between runs (cookies, storage). Used when a person passes a site's own human check in the
+   * visible window: the installed Chrome is preferred, and the check's pages are let through the navigation guard. Nothing is
+   * spoofed and no check is answered automatically.
+   */
+  userDataDir?: string;
 };
+
+/** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
+const BOT_CHECK_HOSTS = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/;
+export function isBotCheckUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return BOT_CHECK_HOSTS.test(parsed.hostname) || (parsed.hostname === 'www.google.com' && parsed.pathname.startsWith('/recaptcha')) || parsed.search.includes('__cf_chl');
+  } catch { return false; }
+}
+/**
+ * Whether the page is a human-check interstitial instead of the site: a check address, a check title, or the marks a Cloudflare
+ * challenge page carries even when the site brands it (its challenge form or orchestration script, or a short page with a Ray ID).
+ * A check widget inside an ordinary page (an invisible reCAPTCHA next to ads, a Turnstile box on a form) is not one.
+ */
+export async function isBotCheckPage(page: Page): Promise<boolean> {
+  if (isBotCheckUrl(page.url())) return true;
+  const title = await page.title().catch(() => '');
+  if (/just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title)) return true;
+  return await page.evaluate(() => {
+    if (document.querySelector('#challenge-form, #challenge-running, #cf-challenge-running, script[src*="/cdn-cgi/challenge-platform/h/"]')) return true;
+    const text = document.body?.innerText ?? '';
+    return text.length < 3000 && /ray[ _]?id/i.test(text);
+  }).catch(() => false);
+}
 
 export function validateProxyServer(value: string): string {
   let proxy: URL;
@@ -106,41 +144,64 @@ export function validateProxyServer(value: string): string {
   return proxy.href.replace(/\/$/, '');
 }
 
+/**
+ * An explicit executable is used as given. Otherwise Playwright's own Chromium is tried first and then the
+ * installed Google Chrome, so a fresh machine works without `playwright install` when Chrome is present.
+ */
+/** A persistent profile: the installed Google Chrome first (what a person uses), then Playwright's Chromium. */
+async function launchPersistent(userDataDir: string, launch: Parameters<typeof chromium.launchPersistentContext>[1], executablePath?: string): Promise<BrowserContext> {
+  if (executablePath) return chromium.launchPersistentContext(userDataDir, { ...launch, executablePath });
+  try { return await chromium.launchPersistentContext(userDataDir, { ...launch, channel: "chrome" }); }
+  catch (installed) {
+    try { return await chromium.launchPersistentContext(userDataDir, launch); }
+    catch { throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: installed }); }
+  }
+}
+
+async function launchChromium(launch: Parameters<typeof chromium.launch>[0], executablePath?: string): Promise<Browser> {
+  if (executablePath) return chromium.launch({ ...launch, executablePath });
+  try { return await chromium.launch(launch); }
+  catch (bundled) {
+    try { return await chromium.launch({ ...launch, channel: "chrome" }); }
+    catch {
+      throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: bundled });
+    }
+  }
+}
+
 export async function createBrowserSession(
   url: string,
   options: CreateBrowserSessionOptions = {}
 ): Promise<BrowserSession> {
   const proxyServer = options.proxyServer === undefined ? undefined : validateProxyServer(options.proxyServer);
   const browserLaunchStartedAt = Date.now();
-  const browser = await chromium.launch({
+  const launch = {
     headless: options.headless ?? true,
     // Rawstep owns cancellation and must finalize its trace before exiting.
     // Playwright's SIGINT handler calls process.exit(130) after closing Chrome.
     handleSIGINT: false,
     handleSIGTERM: false,
     chromiumSandbox: true,
-    ...(proxyServer ? { proxy: { server: proxyServer } } : {}),
-    ...(options.executablePath ? { executablePath: options.executablePath } : {})
-  });
+    ...(proxyServer ? { proxy: { server: proxyServer } } : {})
+  };
+  const contextOptions = {
+    serviceWorkers: "block" as const,
+    ...(options.profile ? { colorScheme: options.profile.colorScheme, forcedColors: options.profile.forcedColors, contrast: options.profile.contrast, reducedMotion: options.profile.reducedMotion } : {}),
+    viewport: options.profile?.viewport ?? { width: DEFAULT_VIEWPORT.w, height: DEFAULT_VIEWPORT.h }
+  };
+  const persistent = options.userDataDir ? await launchPersistent(options.userDataDir, { ...launch, ...contextOptions }, options.executablePath) : undefined;
+  const browser = persistent ? undefined : await launchChromium(launch, options.executablePath);
+  const closeBrowser = async () => { await (persistent ?? browser)!.close(); };
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
-  const pageLoadStartedAt = Date.now();
   const blockedNavigations: BlockedNavigationRecord[] = [];
   const navigationGuardWarnings: NavigationGuardWarningRecord[] = [];
   let stopNavigationGuard = () => {};
   let observer: PageObserver | undefined;
   try {
-    const context = await browser.newContext({
-      serviceWorkers: "block",
-      ...(options.profile ? { colorScheme: options.profile.colorScheme, forcedColors: options.profile.forcedColors, contrast: options.profile.contrast, reducedMotion: options.profile.reducedMotion } : {}),
-      viewport: options.profile?.viewport ?? {
-        width: DEFAULT_VIEWPORT.w,
-        height: DEFAULT_VIEWPORT.h
-      }
-    });
-    const page = await context.newPage();
-    if (options.profile) await installProfileStyles(page, options.profile);
-    // Before the first navigation, so the initial document is observed too.
-    observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
+    const context = persistent ?? await browser!.newContext(contextOptions);
+    // A persistent profile opens with a tab of its own; use it, and close any others it restored.
+    const page = persistent ? persistent.pages()[0] ?? await persistent.newPage() : await context.newPage();
+    if (persistent) for (const extra of persistent.pages().filter(other => other !== page)) await extra.close().catch(() => undefined);
     const network: NetworkLog = {
       requests: [],
       responses: []
@@ -165,13 +226,6 @@ export async function createBrowserSession(
       });
     });
 
-    await installDomEventRecorder(page, {
-      verify: options.verify,
-      onDomEvent: (event) => {
-        domEvents.push(event);
-      }
-    });
-
     const navigationPolicy = options.navigation ?? DEFAULT_NAVIGATION_POLICY;
     const allowedOrigin = getAllowedOrigin(url);
     const startUrlPrefix = stripHash(url);
@@ -189,92 +243,11 @@ export async function createBrowserSession(
       navigationGuardWarnings.push(warning);
     };
 
-    {
-      await context.route("**/*", async (route) => {
-        const request = route.request();
-        if (options.navigation?.readOnly && !['GET','HEAD','OPTIONS'].includes(request.method())) {
-          recordBlockedNavigation(request.url(), `Read-only run blocked ${request.method()} request before transmission.`); await route.abort('blockedbyclient'); return;
-        }
-        if (matchesDeniedUrl(request.url(), options.navigation?.denyUrlIncludes ?? [])) {
-          recordBlockedNavigation(request.url(), 'Request URL matches an explicitly excluded flow.'); await route.abort('blockedbyclient'); return;
-        }
-        if (!request.isNavigationRequest()) {
-          await route.continue();
-          return;
-        }
-        let frame;
-        try { frame = request.frame(); }
-        catch {
-          recordBlockedNavigation(request.url(), "Navigation has no verifiable frame; blocked before sending.");
-          await route.abort("aborted");
-          return;
-        }
-        // Block the first popup request before it leaves the browser, not only after page creation.
-        if (frame.page() !== page) {
-          recordBlockedNavigation(request.url(), getPopupBlockReason(request.url()));
-          await route.abort("aborted");
-          return;
-        }
-        if (frame !== page.mainFrame()) {
-          await route.continue();
-          return;
-        }
-
-        const reason = getNavigationBlockReason(request.url(), {
-          allowedOrigin,
-          startUrlPrefix,
-          policy: navigationPolicy
-        });
-        if (!reason) {
-          // The independent native boundary below checks every redirect hop.
-          // Preserve Chromium's real navigation rather than fetching/fulfilling.
-          await route.continue();
-          return;
-        }
-
-        recordBlockedNavigation(request.url(), reason);
-        await route.abort("aborted");
-      });
-
-      stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
-        blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
-          allowedOrigin, startUrlPrefix, policy: navigationPolicy
-        }),
-        onBlocked: recordBlockedNavigation,
-        onFailure: (error) => {
-          recordBlockedNavigation(page.url(), "Navigation guard failed; the browser context was closed to prevent unguarded navigation.");
-          recordNavigationGuardWarning(createNavigationGuardInstallWarning("CDP", "Native navigation interception failed.", error));
-        }
-      });
-
-      await installDocumentNavigationGuard(page, {
-        allowedOrigin,
-        startUrlPrefix,
-        policy: navigationPolicy,
-        onBlockedNavigation: recordBlockedNavigation,
-        onInstallWarning: recordNavigationGuardWarning
-      });
-    }
-
-    context.on("page", (opened) => {
-      if (opened === page) return;
-      recordBlockedNavigation(opened.url(), getPopupBlockReason(opened.url()));
-      void opened.close().catch(() => undefined);
-    });
-    const initialResponse=await page.goto(url, { waitUntil: "load" });
-    if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
-    await waitForNetworkIdleBestEffort(page);
-    if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
-    const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
-    const pageLoadMs = Date.now() - pageLoadStartedAt;
-
-    return {
-      browser,
-      ...(appliedProfile ? { appliedProfile } : {}),
+    const session: BrowserSession = {
+      ...(browser ? { browser } : {}),
       context,
       page,
       network,
-      ...(observer ? { observer } : {}),
       domEvents,
       navigation: {
         policy: navigationPolicy,
@@ -285,7 +258,7 @@ export async function createBrowserSession(
       },
       setupTimings: {
         browserLaunchMs,
-        pageLoadMs
+        pageLoadMs: 0
       },
       takeBlockedNavigations: () => blockedNavigations.splice(0, blockedNavigations.length),
       takeNavigationGuardWarnings: () => navigationGuardWarnings.splice(0, navigationGuardWarnings.length),
@@ -295,17 +268,130 @@ export async function createBrowserSession(
         try {
           await context.close();
         } finally {
-          await browser.close();
+          await closeBrowser().catch(() => undefined);
         }
       }
     };
+
+    /**
+     * Everything Rawstep attaches to the page — profile styles, the observer, the DOM event recorder, request routing and the
+     * native and in-page navigation guards — and then the start address, so the first document is observed and guarded.
+     */
+    const arm = async () => {
+      if (options.profile) await installProfileStyles(page, options.profile);
+      // Before the first navigation, so the initial document is observed too.
+      observer = options.observe === false ? undefined : await installPageObserver(page, typeof options.observe === "object" ? options.observe : {});
+      await installDomEventRecorder(page, {
+        verify: options.verify,
+        onDomEvent: (event) => {
+          domEvents.push(event);
+        }
+      });
+      {
+        await context.route("**/*", async (route) => {
+          const request = route.request();
+          if (options.navigation?.readOnly && !['GET','HEAD','OPTIONS'].includes(request.method())) {
+            recordBlockedNavigation(request.url(), `Read-only run blocked ${request.method()} request before transmission.`); await route.abort('blockedbyclient'); return;
+          }
+          if (matchesDeniedUrl(request.url(), options.navigation?.denyUrlIncludes ?? [])) {
+            recordBlockedNavigation(request.url(), 'Request URL matches an explicitly excluded flow.'); await route.abort('blockedbyclient'); return;
+          }
+          if (!request.isNavigationRequest()) {
+            await route.continue();
+            return;
+          }
+          let frame;
+          try { frame = request.frame(); }
+          catch {
+            recordBlockedNavigation(request.url(), "Navigation has no verifiable frame; blocked before sending.");
+            await route.abort("aborted");
+            return;
+          }
+          // Block the first popup request before it leaves the browser, not only after page creation.
+          if (frame.page() !== page) {
+            recordBlockedNavigation(request.url(), getPopupBlockReason(request.url()));
+            await route.abort("aborted");
+            return;
+          }
+          if (frame !== page.mainFrame()) {
+            await route.continue();
+            return;
+          }
+
+          const reason = getNavigationBlockReason(request.url(), {
+            allowedOrigin,
+            startUrlPrefix,
+            policy: navigationPolicy,
+            allowBotChecks: !!options.userDataDir
+          });
+          if (!reason) {
+            // The independent native boundary below checks every redirect hop.
+            // Preserve Chromium's real navigation rather than fetching/fulfilling.
+            await route.continue();
+            return;
+          }
+
+          recordBlockedNavigation(request.url(), reason);
+          await route.abort("aborted");
+        });
+
+        stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
+          blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
+            allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: !!options.userDataDir
+          }),
+          onBlocked: recordBlockedNavigation,
+          onFailure: (error) => {
+            recordBlockedNavigation(page.url(), "Navigation guard failed; the browser context was closed to prevent unguarded navigation.");
+            recordNavigationGuardWarning(createNavigationGuardInstallWarning("CDP", "Native navigation interception failed.", error));
+          }
+        });
+
+        await installDocumentNavigationGuard(page, {
+          allowedOrigin,
+          startUrlPrefix,
+          policy: navigationPolicy,
+          allowBotChecks: !!options.userDataDir,
+          onBlockedNavigation: recordBlockedNavigation,
+          onInstallWarning: recordNavigationGuardWarning
+        });
+      }
+
+      context.on("page", (opened) => {
+        if (opened === page) return;
+        recordBlockedNavigation(opened.url(), getPopupBlockReason(opened.url()));
+        void opened.close().catch(() => undefined);
+      });
+      const pageLoadStartedAt = Date.now();
+      const initialResponse=await page.goto(url, { waitUntil: "load" });
+      if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
+      await waitForNetworkIdleBestEffort(page);
+      if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
+      const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
+      if (appliedProfile) session.appliedProfile = appliedProfile;
+      if (observer) session.observer = observer;
+      session.setupTimings!.pageLoadMs = Date.now() - pageLoadStartedAt;
+    };
+
+    // A person passing a human check gets the bare page: nothing is attached until the check is gone, and arming then reloads
+    // the start address with every guard in place. Nothing is hidden and no check is answered.
+    if (options.userDataDir) {
+      await page.goto(url, { waitUntil: "load" });
+      await waitForNetworkIdleBestEffort(page);
+      session.armGuards = async () => { delete session.armGuards; try { await arm(); } catch (error) { throw await setupFailed(error); } };
+      return session;
+    }
+    await arm();
+    return session;
   } catch (error) {
+    throw await setupFailed(error);
+  }
+  async function setupFailed(error: unknown): Promise<BrowserSetupError> {
     stopNavigationGuard();
-    await browser.close().catch(() => undefined);
+    await closeBrowser().catch(() => undefined);
     // Preserve an explicit access barrier even if its challenge page also attempted
     // a blocked POST. A secondary request must not hide the actual HTTP barrier.
     const message = error instanceof BrowserAccessBlockedError ? error.message : blockedNavigations.at(-1)?.reason ?? (error instanceof Error ? error.message : String(error));
-    throw new BrowserSetupError(message, blockedNavigations, navigationGuardWarnings, error);
+    return new BrowserSetupError(message, blockedNavigations, navigationGuardWarnings, error);
   }
 }
 
@@ -313,10 +399,54 @@ export async function closeBrowserSession(session: BrowserSession): Promise<void
   await session.close();
 }
 
-export async function settlePage(page: Page): Promise<void> {
-  await waitForNetworkIdleBestEffort(page);
+/** Request kinds that stay open by design (live feeds, beacons); they never mean "the page is still answering the action". */
+const LONG_LIVED = new Set(["eventsource", "websocket", "ping"]);
+export type PageActivity = {
+  /** Resolves once the page has been still for `quietMs` — no request in flight, no address change, no DOM change — or after `maxMs`. */
+  settle(options: { quietMs: number; maxMs: number }): Promise<void>;
+  stop(): void;
+};
+/**
+ * Watches what a page does in answer to an action: the requests it starts (a route's code, its data) and its address changing.
+ * Start it before the action so a request sent at the moment of the click is seen; then settle on those signals instead of a fixed wait.
+ */
+export function watchPageActivity(page: Page): PageActivity {
+  const pending = new Set<unknown>();
+  let last = Date.now();
+  const touch = () => { last = Date.now(); };
+  const started = (request: { resourceType(): string }) => { if (!LONG_LIVED.has(request.resourceType())) { pending.add(request); touch(); } };
+  const ended = (request: unknown) => { if (pending.delete(request)) touch(); };
+  const navigated = (frame: unknown) => { if (frame === page.mainFrame()) touch(); };
+  page.on("request", started); page.on("requestfinished", ended); page.on("requestfailed", ended); page.on("framenavigated", navigated);
+  const stop = () => { page.off("request", started); page.off("requestfinished", ended); page.off("requestfailed", ended); page.off("framenavigated", navigated); };
+  return {
+    stop,
+    async settle({ quietMs, maxMs }) {
+      const deadline = Date.now() + maxMs;
+      try {
+        // Network and navigation first, then the DOM: a route renders after its code arrives.
+        while (Date.now() < deadline && (pending.size > 0 || Date.now() - last < quietMs)) await new Promise(resolve => setTimeout(resolve, 50));
+        const left = deadline - Date.now();
+        if (left > 0) await Promise.resolve().then(() => page.evaluate(({ ms, maxMs }) => new Promise<void>(resolve => {
+          let timer: ReturnType<typeof setTimeout>;
+          const done = () => { observer.disconnect(); clearTimeout(timer); clearTimeout(cap); resolve(); };
+          const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(done, ms); });
+          observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+          timer = setTimeout(done, ms);
+          const cap = setTimeout(done, maxMs);
+        }), { ms: quietMs, maxMs: left })).catch(() => undefined);
+      } finally { stop(); }
+    },
+  };
+}
+
+export async function settlePage(page: Page, activity?: PageActivity): Promise<void> {
+  if (activity) await activity.settle({ quietMs: ACTIVITY_QUIET_MS, maxMs: ACTIVITY_MAX_MS });
+  else await waitForNetworkIdleBestEffort(page);
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 }
+/** After an activation: still for this long counts as settled; never wait longer than the cap (live feeds, polling). */
+const ACTIVITY_QUIET_MS = 300, ACTIVITY_MAX_MS = 3000;
 
 type DomEventRecorderConfig = {
   selector: string;
@@ -478,8 +608,11 @@ function getNavigationBlockReason(
     allowedOrigin: string;
     startUrlPrefix: string;
     policy: ResolvedNavigationPolicy;
+    /** A person passes human checks in this run, so the check's own pages must load. */
+    allowBotChecks?: boolean;
   }
 ): string | undefined {
+  if (context.allowBotChecks && isBotCheckUrl(targetUrl)) return undefined;
   try {
     const target = new URL(targetUrl);
     if (!["http:", "https:", "file:"].includes(target.protocol) || target.username || target.password) {
@@ -538,6 +671,7 @@ async function installDocumentNavigationGuard(
     onInstallWarning: (warning: NavigationGuardWarningRecord) => void;
     allowedOrigin: string;
     startUrlPrefix: string;
+    allowBotChecks?: boolean;
   }
 ): Promise<void> {
   const bindingName = "__rawstepReportNavigationGuardEvent";

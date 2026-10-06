@@ -1,6 +1,6 @@
 # Source editing map
 
-Rawstep has seven engine packages and one private dashboard workspace. The compatibility facade has reexports only; each implementation has one owning package and a declared dependency graph.
+Rawstep has engine packages, the shared `@rawstep/project` package and one private dashboard workspace. `rawstep` is the only published package: its `src/` has reexports and the executable only and `tsdown` bundles every workspace into it; each implementation has one owning package and a declared dependency graph.
 
 | Responsibility | Source owner | Verification |
 |---|---|---|
@@ -13,18 +13,22 @@ Rawstep has seven engine packages and one private dashboard workspace. The compa
 | Budgets, actions, named inputs, cancellation/verifier | `packages/browser/src/runner/`, `verify/` | runner, input and browser suites |
 | Screenshot keyboard backend | `packages/browser/src/screenshot/` | screenshot/keyboard integration |
 | SystemOne clients/policies | `packages/policies/src/systemone/` | fake and HTTP tests |
+| Every LLM call (Vercel AI SDK, OpenAI-compatible; `@rawstep/policies/llm`) | `packages/policies/src/llm/` | `tests/llm.test.ts` |
 | Explicit LLM analyzer | `packages/reports/src/analyze/llm.ts` | finalized trace/evidence tests |
 | Applied profiles/focus/layout/native zoom | `packages/browser/src/profiles/` | profiles browser tests |
 | AT Driver/Orca/simulated VoiceOver | `packages/screenreaders/src/` | protocol/native bridge/simulation suites |
 | Corpus provenance/coverage/learned wording | `packages/screenreaders/src/evidence/` | evidence/extraction/heldout tests |
 | Optional native Python bridge | `packages/screenreaders/native/` | `npm run test:orca-native`; separate live native test |
 | Saved analysis and escaped reports | `packages/reports/src/` | analysis/report tests |
-| CLI and matrix orchestration | `packages/cli/src/cli/`, `matrix/` | CLI, matrix, package smoke |
-| Existing `rawstep/*` import compatibility | `packages/rawstep/src/` | facade export/consumer tests |
-| Local dashboard, shadcn components and JSON UI catalog | `packages/dashboard/src/` | dashboard build, catalog and browser checks |
+| `rawstep.config.json` schema (browser-safe) | `packages/project/src/config.ts` | project/config tests |
+| Project store: config revision, task files, `.env.local` credentials | `packages/project/src/store.ts` | project store tests |
+| Run assembly and execution (`plan.ts`, `execution.ts`), `runTask`/`finalizeRun` (`run.ts`), model discovery (`discover.ts`), LLM client wiring (`llm.ts`) | `packages/project/src/` | project run/plan tests |
+| CLI commands (init, ui, run, hints, report, analyze, doctor) | `packages/cli/src/cli/` | CLI, package smoke |
+| `rawstep` executable and `rawstep/*` import subpaths | `packages/rawstep/src/` | facade export/consumer tests |
+| Local dashboard UI, local API, experiment queue/history (uses `@rawstep/project`) | `packages/dashboard/src/` | dashboard build, catalog and browser checks |
 | Public API roots (explicit export lists), package-internal helpers in `src/internal/` | `packages/*/src/index.ts` | `tests/public-api.test.ts`, source-graph test |
 | Build/pack/source reproduction | `scripts/` and package manifests | package/DAG/source-smoke checks |
 
 Root `examples/` and `fixtures/` contain runnable inputs. Optional model programs stay in examples and are not mandatory npm runtime dependencies. Generated corpus source remains reproducible through the evidence scripts; do not silently edit calibration results by hand.
 
-Use `npm run check` for the aggregate and `npm run test:source` for a clean source reproduction. Package-local compilation must never resolve a sibling's unbuilt source via a path alias. Install local tarball dependency closures to test packages outside the checkout.
+Use `npm run check` for the aggregate and `npm run test:source` for a clean source reproduction. Package-local compilation must never resolve a sibling's unbuilt source via a path alias. Run `npm run test:package` to install the single `rawstep` tarball outside the checkout.

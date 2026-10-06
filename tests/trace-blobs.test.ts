@@ -3,9 +3,8 @@ import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FileTraceSink, MemoryTraceSink, hydrateScreenshots, isScreenshotRef, readTrace, screenshotSha256, TraceRecorder, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
-import { summarizeTraceEvidence, analyzeTrace } from "@rawstep/reports/analyze";
-import { extractHints } from "@rawstep/reports/hints";
+import { FileTraceSink, MemoryTraceSink, hydrateScreenshots, isScreenshotRef, readTrace, screenshotSha256, TraceRecorder, validateTrace, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
+import { summarizeTraceEvidence } from "@rawstep/reports/analyze";
 import { renderReportHtml, writeReport } from "@rawstep/reports/report";
 
 const pngBytes = (label: string) => Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from(label)]);
@@ -18,9 +17,9 @@ async function fixture(input?: Record<string, string>) {
   return { dir, recorder };
 }
 const timestamp = "2026-01-01T00:00:00.000Z";
-function legacy(events: Array<Pick<TraceEvent, "type" | "data"> & Partial<TraceEvent>>): RunTrace {
+function traceOf(events: Array<Pick<TraceEvent, "type" | "data"> & Partial<TraceEvent>>): RunTrace {
   return {
-    schemaVersion: "2.1", runId: "legacy", task: { id: "legacy", mode: "keyboard" },
+    schemaVersion: "2.2", runId: "inline", task: { id: "inline", mode: "keyboard" },
     environment: { platform: "t", platformVersion: "u", browser: "t", browserVersion: "u", screenReader: "t", screenReaderVersion: "u" },
     startedAt: timestamp, endedAt: timestamp, outcome: { status: "success", reason: "verified", steps: 1 },
     privacy: { inputValues: "redacted", redactionApplied: false },
@@ -126,21 +125,17 @@ describe("schema 2.2 screenshot blobs", () => {
     expect(JSON.stringify(trace)).not.toContain("pngBase64");
   });
 
-  it("keeps schema 2.1 traces with inline PNGs readable by analyze, hints and report", async () => {
-    const inline = shot("inline"), other = shot("inline-two");
-    const trace = legacy([
+  it("accepts only the current schema and does not treat inline PNGs in a saved trace as screenshots", () => {
+    const inline = shot("inline");
+    const trace = traceOf([
       { type: "policy.decision", source: "policy", data: { step: 1, decision: { action: { kind: "key", key: "Tab" } } } },
       { type: "keyboard.observation", data: { screenshot: inline } },
-      { type: "action.result", data: { step: 1, ok: true } },
-      { type: "keyboard.observation", data: { screenshot: other } },
     ]);
-    expect(screenshotSha256(inline)).toBe(sha("inline"));
-    expect(summarizeTraceEvidence(trace).readableScreenshotEvents).toHaveLength(2);
-    expect((await analyzeTrace(trace)).summary).toContain("2 readable keyboard screenshot observations");
-    expect(extractHints(trace).steps).toBe(1);
-    const html = renderReportHtml(trace);
-    expect(html).toContain(`src="data:image/png;base64,${inline.pngBase64}"`);
-    expect(html).not.toContain('src="blobs/');
+    expect(() => validateTrace(trace)).not.toThrow();
+    for (const schemaVersion of ["2.0", "2.1", "3.0"]) expect(() => validateTrace({ ...trace, schemaVersion })).toThrow("Unsupported trace schema version");
+    expect(screenshotSha256(inline)).toBeUndefined();
+    expect(summarizeTraceEvidence(trace).readableScreenshotEvents).toHaveLength(0);
+    expect(renderReportHtml(trace)).not.toContain(inline.pngBase64);
   });
 
   it("renders blob references relative to the trace, and embeds pixels after hydration", async () => {

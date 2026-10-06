@@ -44,4 +44,10 @@ describe('source-backed simulation navigation wording', () => {
   it('never reads a protected value even when calling the formatter directly', () => {
     expect(formatSimulatedSpeech(semantic({ role: 'textbox', name: 'Password', protected: true, value: 'do-not-announce' }))).toBe('Password, secure text field');
   });
+
+  it("never speaks Chromium's internal role names such as LabelText", () => {
+    expect(formatSimulatedSpeech(semantic({ role: 'LabelText', name: 'Email address' }))).toBe('Email address');
+    expect(formatSimulatedSpeech(semantic({ role: 'LabelText', name: '' }))).toBe('');
+    expect(formatSimulatedSpeech(semantic({ role: 'tab', name: 'Details' }))).toBe('Details, tab');
+  });
 });

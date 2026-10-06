@@ -1,19 +1,20 @@
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-const roots = ['@rawstep/core', '@rawstep/policies', '@rawstep/browser', '@rawstep/screenreaders', '@rawstep/reports', '@rawstep/cli', 'rawstep'];
+const roots = ['@rawstep/core', '@rawstep/policies', '@rawstep/browser', '@rawstep/screenreaders', '@rawstep/reports', '@rawstep/project', '@rawstep/cli', 'rawstep'];
 const manifestPath = (name: string) => `packages/${name === 'rawstep' ? name : name.slice(9)}/package.json`;
 const exportNames = async (specifier: string) => Object.keys(await import(specifier)).sort();
 const internalNames = ['isRecord', 'positiveMilliseconds', 'record', 'validInterval', 'pngFor', 'KEYS'];
 
 describe('public API surface', () => {
-  // A change here is a public API change: update docs/migration.md in the same commit.
+  // A change here is a public API change: update the docs and README in the same commit.
   it('pins the core root', async () => { expect(await exportNames('@rawstep/core')).toMatchInlineSnapshot(`
     [
       "BUILTIN_PROFILES",
       "DEFAULT_PROFILE",
       "FileTraceSink",
       "LOOPBACK_HOSTNAMES",
+      "MAX_SCRIPT_SOURCE",
       "MemoryTraceSink",
       "RAWSTEP_DEFAULTS",
       "REDACTED",
@@ -41,10 +42,9 @@ describe('public API surface', () => {
   `); });
   it('pins the policies root', async () => { expect(await exportNames('@rawstep/policies')).toMatchInlineSnapshot(`
     [
+      "DecisionClient",
       "FOCUS_CONTEXT_CHOICES",
       "FakeSystemOneClient",
-      "HttpScreenshotModel",
-      "OpenRouterSystemOneClient",
       "SCREENSHOT_DECISION_PROMPT",
       "SCREENSHOT_MODEL_PROTOCOL",
       "SPEECH_DECISION_PROMPT",
@@ -52,19 +52,21 @@ describe('public API surface', () => {
       "ScreenshotDecisionPolicy",
       "ScreenshotReplayPolicy",
       "ScriptedPolicy",
-      "SystemOneHttpClient",
+      "SystemOneDecisionModel",
       "SystemOneScreenshotAdapter",
       "SystemOneSpeechPolicy",
-      "VercelEvaluationClient",
       "assertScreenshotReplayTaskSafety",
+      "decisionError",
       "diagnoseScreenshotStop",
       "exportScreenshotReplay",
+      "listGatewayDecisionModels",
       "loadPolicy",
       "modelBaseURL",
       "restrictChoicesByVisualFocus",
       "screenshotChoices",
       "screenshotReplayTaskHash",
       "speechChoices",
+      "systemOneProviderOptions",
       "validateModelResponse",
       "validateScreenshotReplay",
     ]
@@ -120,7 +122,9 @@ describe('public API surface', () => {
       "ANALYSIS_SCHEMA_VERSION",
       "DEFAULT_HINT_THRESHOLDS",
       "HINTS_SCHEMA_VERSION",
+      "HINT_SOURCES",
       "LlmTraceAnalyzer",
+      "aggregateHints",
       "analyzeSavedTrace",
       "analyzeTrace",
       "deterministicAnalyzer",
@@ -139,18 +143,81 @@ describe('public API surface', () => {
       "writeReport",
     ]
   `); });
+  it('pins the project root', async () => { expect(await exportNames('@rawstep/project')).toMatchInlineSnapshot(`
+    [
+      "AT_DRIVER_COMMAND_ENV",
+      "AT_DRIVER_DEFAULTS",
+      "CONFIG_FILE",
+      "KEYED_PROVIDERS",
+      "LlmChoiceClient",
+      "LlmScreenshotAdapter",
+      "LlmSpeechPolicy",
+      "PROVIDERS",
+      "ProjectError",
+      "ProjectStore",
+      "analysisChoiceSchema",
+      "assertRunnable",
+      "atEndpointOf",
+      "atomicJson",
+      "backendCapabilities",
+      "boundedJson",
+      "checkRun",
+      "configSchema",
+      "connectionSchema",
+      "credentialId",
+      "credentialRequirements",
+      "decisionProviderSchema",
+      "defaultConfig",
+      "defaultInputs",
+      "defaultInstructions",
+      "defaultModes",
+      "defaultProfile",
+      "defaultPrompt",
+      "discover",
+      "discoverRequestSchema",
+      "executeRun",
+      "finalizeRun",
+      "findByIdOrName",
+      "idSchema",
+      "initProject",
+      "llmAnalyzer",
+      "llmProviderSchema",
+      "machineSchema",
+      "modelChoiceSchema",
+      "modelKeyEnv",
+      "modelKeyRequired",
+      "modelKindSchema",
+      "parseConfig",
+      "permissionsSchema",
+      "policySchema",
+      "profileAnalysisModel",
+      "profileModel",
+      "projectAnalyzer",
+      "promptSchema",
+      "providerKeyEnv",
+      "providerPreset",
+      "providerSchema",
+      "providersOf",
+      "readOptional",
+      "requireKey",
+      "resolveBaseURL",
+      "resolvePermissions",
+      "resolveRepetitionGuard",
+      "resolveRunSettings",
+      "runProfileSchema",
+      "runTask",
+      "supportsMode",
+      "taskProfile",
+      "taskSchema",
+    ]
+  `); });
   it('pins the cli root', async () => { expect(await exportNames('@rawstep/cli')).toMatchInlineSnapshot(`
     [
       "CLI_USAGE",
       "CliUsageError",
-      "classifyRun",
+      "formatRunResult",
       "parseCliArguments",
-      "readMatrix",
       "runCli",
-      "runEnvironmentMatrix",
-      "summarizeMatrixRow",
-      "taskFingerprint",
-      "validateHumanEvidence",
     ]
   `); });
   it('pins the rawstep facade root', async () => { expect(await exportNames('rawstep')).toMatchInlineSnapshot(`
@@ -162,22 +229,24 @@ describe('public API surface', () => {
       "AtDriverError",
       "BUILTIN_PROFILES",
       "DEFAULT_PROFILE",
+      "DecisionClient",
       "FOCUS_CONTEXT_CHOICES",
       "FakeSystemOneClient",
       "FileTraceSink",
-      "HttpScreenshotModel",
+      "HINTS_SCHEMA_VERSION",
       "LlmTraceAnalyzer",
+      "MAX_SCRIPT_SOURCE",
       "MOCK_VOICEOVER_LIMITATIONS",
       "MOCK_VOICEOVER_PROFILE",
       "MOCK_VOICEOVER_WARNING",
       "MemoryTraceSink",
       "MockVoiceOverBackend",
       "ORCA_NATIVE_PROTOCOL",
-      "OpenRouterSystemOneClient",
       "OrcaBackend",
       "OrcaBridgeClient",
       "OrcaBridgeError",
       "ProfileApplicationError",
+      "ProjectError",
       "REDACTED",
       "SCREENSHOT_DECISION_PROMPT",
       "SCREENSHOT_KEYS",
@@ -188,29 +257,31 @@ describe('public API surface', () => {
       "ScreenshotKeyboardBackend",
       "ScreenshotReplayPolicy",
       "ScriptedPolicy",
-      "SystemOneHttpClient",
+      "SystemOneDecisionModel",
       "SystemOneScreenshotAdapter",
       "SystemOneSpeechPolicy",
       "TRACE_SCHEMA_VERSION",
       "TraceRecorder",
       "UnsupportedCorpusPatternError",
-      "VercelEvaluationClient",
+      "aggregateHints",
       "analyzeSavedTrace",
       "analyzeTrace",
       "applyProfile",
       "assertScreenshotReplayTaskSafety",
-      "classifyRun",
       "collectBrowserDiagnostics",
       "createChromiumTabZoomController",
       "createRedactor",
+      "decisionError",
       "describeInputs",
       "deterministicAnalyzer",
       "diagnoseScreenshotStop",
       "exportScreenshotReplay",
+      "extractHints",
       "formatSimulatedSpeech",
       "getAtDriverProfile",
       "hydrateScreenshots",
       "isScreenshotRef",
+      "listGatewayDecisionModels",
       "loadAnalyzer",
       "loadPolicy",
       "mapOrcaAction",
@@ -218,13 +289,11 @@ describe('public API surface', () => {
       "modelBaseURL",
       "orcaBridgePath",
       "readAnalysis",
-      "readMatrix",
       "readTrace",
       "renderReportHtml",
       "resolveEnvironmentProfile",
       "resolveTask",
       "restrictChoicesByVisualFocus",
-      "runEnvironmentMatrix",
       "runMockVoiceOverTask",
       "runScreenshotReplay",
       "runScreenshotTask",
@@ -233,24 +302,38 @@ describe('public API surface', () => {
       "screenshotReplayTaskHash",
       "screenshotSha256",
       "speechChoices",
-      "summarizeMatrixRow",
       "summarizeTrace",
       "summarizeTraceEvidence",
       "summarizeVisualExploration",
-      "taskFingerprint",
+      "systemOneProviderOptions",
       "traceFilePath",
       "validateAnalysisReport",
       "validateAnalyzerResult",
-      "validateHumanEvidence",
       "validateModelResponse",
       "validateNavigation",
       "validateScreenshotReplay",
       "validateTrace",
       "verifyLiveProfile",
+      "writeHints",
       "writeJsonAtomic",
       "writeReport",
     ]
   `); });
+
+  it('exposes the high-level runTask on the facade and keeps the browser-safe project config free of Node imports', async () => {
+    // `rawstep` bundles the internal workspaces: it exposes the same behaviour, not the same module instance.
+    const facade = await import('rawstep'), project = await import('@rawstep/project');
+    expect(facade.runTask).toBeTypeOf('function');
+    expect(facade.runTask.name).toBe(project.runTask.name);
+    expect(facade.ProjectError.name).toBe(project.ProjectError.name);
+    expect(await exportNames('rawstep/project')).toEqual(await exportNames('@rawstep/project'));
+    expect(await exportNames('rawstep/runner')).toContain('runTask');
+    const config = await readFile('packages/project/dist/config.js', 'utf8');
+    expect(config).not.toMatch(/from\s+['"]node:/);
+    expect([...config.matchAll(/^import .* from '([^']+)'/gm)].map(match => match[1]).sort()).toEqual(['@rawstep/core/defaults', 'zod']);
+    const manifest = JSON.parse(await readFile('packages/project/package.json', 'utf8'));
+    expect(Object.keys(manifest.exports)).toEqual(expect.arrayContaining(['.', './config', './store', './plan', './execution', './run', './discover', './llm', './errors']));
+  });
 
   it('keeps package-internal helpers out of every exports-map entry', async () => {
     for (const root of roots) {

@@ -77,7 +77,7 @@ Run protocol and preflight checks independently:
 
 ```sh
 python3 -m unittest discover -s native -p 'test_*.py'
-npx vitest run tests/orca-v2.test.ts
+npx vitest run tests/orca.test.ts
 /usr/bin/python3 packages/screenreaders/native/orca_doctor.py
 ```
 

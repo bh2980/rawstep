@@ -1,16 +1,51 @@
-import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import { analyzeTrace, LlmTraceAnalyzer, writeHints, writeReport, type HintReport } from '@rawstep/reports';
-import { createRedactor, hydrateScreenshots, readTrace, type TraceEvent } from '@rawstep/core/trace';
+import { ProjectError } from '@rawstep/project/errors';
+import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { defaultInstructions, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
-import { ProjectStore, atomicJson, HttpError } from './store.js';
-import { executeRun, resolvePermissions } from './execution.js';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileAnalysisModel, profileModel, resolveRunSettings, taskProfile, type Model } from '@rawstep/project/config';
+import { ProjectStore, atomicJson } from '@rawstep/project/store';
+import { checkRun, resolvePermissions } from '@rawstep/project/plan';
+import { executeRun } from '@rawstep/project/execution';
+import { finalizeRun, llmAnalyzer } from '@rawstep/project/run';
+import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
+import { HttpError, koreanMessage } from './http.js';
 
-export type Executor = typeof executeRun;
+/** Runs one run record; the default executes it for real, tests substitute their own. */
+export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined }) => Promise<RunTrace>;
+const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) => {
+  const { model, prompt, mode, globals, profile } = run.snapshot;
+  return executeRun({ task, model, prompt, mode, settings: globals, environment: profile, permissions: run.permissions, diagnoseStop: run.diagnoseStop }, { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
+};
+/**
+ * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
+ * the raw error text, which can quote a provider's reply, so nothing else is passed on.
+ */
+export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
+  if (!outcome || typeof outcome !== 'object') return undefined;
+  const o = outcome as Record<string, unknown>;
+  return {
+    status: String(o.status),
+    ...(typeof o.reason === 'string' ? { reason: o.reason } : {}),
+    ...(typeof o.steps === 'number' ? { steps: o.steps } : {}),
+    ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
+    ...(typeof o.step === 'number' ? { step: o.step } : {}),
+  };
+}
+const DETAIL_LIMIT = 600;
+/**
+ * What a run that threw before it had an outcome is shown with: the error's code and message, keys and the task's input values
+ * replaced, cut to a readable length. A project error gets the dashboard's own sentence.
+ */
+export function failureDetail(error: unknown, secrets: readonly string[]): RunRecord['errorDetail'] {
+  const code = error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : undefined;
+  // A project error gets the dashboard's sentence and keeps its own detail (for example the last output of the AT Driver command).
+  const raw = error instanceof ProjectError ? `${koreanMessage(error)} ${error.message}` : error instanceof Error ? error.message : String(error);
+  const { value } = createRedactor(secrets.filter(secret => secret.length >= 4))(raw);
+  const message = value.length > DETAIL_LIMIT ? value.slice(0, DETAIL_LIMIT - 1) + '…' : value;
+  return { ...(code ? { code } : {}), message };
+}
 export class ExperimentQueue {
   readonly experiments: Experiment[] = [];
   private active?: { experiment: string; run: string; controller: AbortController };
@@ -18,7 +53,7 @@ export class ExperimentQueue {
   private closed = false;
   private writes = Promise.resolve();
   private readonly liveTasks = new Map<string, Task>();
-  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRun, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
+  constructor(readonly store: ProjectStore, private readonly changed: () => void, private readonly executor: Executor = executeRecord, private readonly runEvent?: (experimentId: string, runId: string, event: TraceEvent) => void) {}
   async initialize() {
     const directory = await this.store.file('.rawstep/experiments');
     await mkdir(directory, { recursive: true });
@@ -31,7 +66,8 @@ export class ExperimentQueue {
       const experiment = JSON.parse(raw) as Experiment;
       if (experiment.id !== id || !Array.isArray(experiment.runs)) throw new Error('실험 이력 형식이 잘못되었습니다.');
       let interrupted = false;
-      for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.'; interrupted = true; }
+      for (const run of experiment.runs) if (run.outcome) run.outcome = publicOutcome(run.outcome);
+      for (const run of experiment.runs) if (run.state === 'running' || run.state === 'queued') { run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; run.error = RUN_ERROR.restarted; interrupted = true; }
       this.experiments.push(experiment);
       if (interrupted) await this.persist(experiment);
     }
@@ -41,40 +77,25 @@ export class ExperimentQueue {
     const request = planSchema.parse(raw), { config, revision } = await this.store.read(), tasks = await this.store.tasks(config);
     if (request.revision && request.revision !== revision) throw new HttpError(409, '작업이나 설정이 변경되었습니다. 실행 조합을 다시 확인하세요.');
     const rows: Combination[] = [];
-    for (const taskId of new Set(request.taskIds)) for (const modelId of new Set(request.modelIds)) for (const promptId of new Set(request.promptIds)) for (const environmentId of new Set(request.environmentIds)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+    const keyed = new Map<string, boolean>();
+    const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
+    for (const taskId of new Set(request.taskIds)) for (const promptId of new Set(request.promptIds)) for (const profileId of new Set(request.profileIds ?? [taskProfile(config, config.tasks.find(t => t.id === taskId) ?? {}).id])) for (let repeat = 1; repeat <= request.repeats; repeat++) {
       if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-      const task = config.tasks.find(t => t.id === taskId), model = config.models.find(m => m.id === modelId), environment = config.environments.find(e => e.id === environmentId);
+      const task = config.tasks.find(t => t.id === taskId), profile = config.profiles.find(p => p.id === profileId);
       const prompt = task?.modes[request.mode].prompts.find(p => p.id === promptId);
       const source = tasks[taskId];
-      let reason: string | undefined, permissions = structuredClone(config.globals[request.mode]);
-      if (!task || !model || !environment || !prompt || !source) reason = '작업·모델·프롬프트·환경 중 찾을 수 없는 항목이 있습니다.';
+      let reason: string | undefined, modelName: string | undefined, permissions = structuredClone((profile ?? config.profiles[0]!).permissions[request.mode]);
+      if (!task || !profile || !prompt || !source) reason = '작업·프롬프트·실행 프로필 중 찾을 수 없는 항목이 있습니다.';
       else {
         try {
-          permissions = resolvePermissions(config, source, request.mode, task.modes[request.mode].permissions);
-          if (!model.roles.includes('decision')) throw new Error('분석 전용 모델입니다.');
-          if (request.mode === 'keyboard' && (!model.inputs.includes('image') || model.maxImages < 2)) throw new Error('키보드 실행에는 현재·이전 이미지를 지원하는 모델이 필요합니다.');
-          if (request.mode === 'screenreader' && !model.inputs.includes('text')) throw new Error('스크린리더 실행에는 텍스트 입력 지원이 필요합니다.');
-          const connection = config.connections.find(c => c.id === model.connectionId)!;
-          if (model.family === 'SystemOne' && connection.provider === 'openai') throw new Error('OpenAI 호환 연결에는 LLM을 선택하세요. SystemOne은 native 평가 Provider가 필요합니다.');
-          if (connection.provider === 'vercel' && request.mode === 'keyboard') throw new Error('Vercel Evaluation 어댑터는 텍스트 입력만 지원합니다.');
-          const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + 3;
-          if (choiceCount > model.maxChoices) throw new Error('선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.');
-          if (connection.provider === 'screenshot' && request.mode !== 'keyboard') throw new Error('/choose는 키보드 모드 전용입니다.');
-          if (!model.promptEditable && prompt.instructions !== defaultInstructions.keyboard) throw new Error('/choose 서버가 프롬프트 변경을 지원하지 않습니다.');
-          if (model.family === 'LLM' && config.globals.policy.focusGate) throw new Error('확률 기반 포커스 제한은 SystemOne 모델만 지원합니다. 전역 설정에서 해제하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend === 'voiceover' && process.platform !== 'darwin') throw new Error('VoiceOver는 macOS에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend === 'nvda' && process.platform !== 'win32') throw new Error('NVDA는 Windows에서 실행하세요.');
-          if (request.mode === 'screenreader' && config.globals.backend !== 'simulation') {
-            const endpoint = new URL(config.globals.atEndpoint);
-            if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) throw new Error('실제 실행에는 이 호스트의 loopback AT Driver WebSocket 주소가 필요합니다.');
-          }
-          const profile = resolveEnvironmentProfile(environment.profile);
-          if (profile.browserZoom !== 1 || profile.nativeMagnifier === 'required' || profile.nativeHighContrast === 'required') throw new Error('이 대시보드 백엔드는 네이티브 확대·OS 대비 환경을 적용할 수 없습니다.');
-          if (request.analysisModelId) { const analyzer = config.models.find(m => m.id === request.analysisModelId); if (!analyzer || analyzer.family !== 'LLM' || !analyzer.roles.includes('analysis')) throw new Error('LLM 분석 모델을 선택하세요.'); }
-          if (request.diagnoseStop && request.mode !== 'keyboard') throw new Error('중단 진단은 마지막 스크린샷을 사용하는 키보드 모드 전용입니다.');
+          const check = checkRun({ config, task: source, taskEntry: task, profile, mode: request.mode, diagnoseStop: request.diagnoseStop });
+          permissions = check.permissions; modelName = check.model?.name;
+          if (check.problem) reason = koreanMessage(check.problem);
+          else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
+          else if (check.analysisModel && !await hasKey(check.analysisModel)) reason = koreanMessage(new ProjectError('missing-analysis-credential', ''));
         } catch (e) { reason = (e as Error).message; }
       }
-      rows.push({ key: [taskId, modelId, promptId, environmentId, repeat].join(':'), taskId, modelId, promptId, environmentId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'global' });
+      rows.push({ key: [taskId, promptId, profileId, repeat].join(':'), taskId, ...(modelName ? { modelName } : {}), promptId, profileId, repeat, supported: !reason, ...(reason ? { reason } : {}), permissions, permissionSource: task?.modes[request.mode].permissions ? 'task' : 'profile' });
     }
     return { request, config, tasks, rows };
   }
@@ -84,14 +105,15 @@ export class ExperimentQueue {
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
     if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new HttpError(400, '지원하는 실행 조합을 선택하세요.');
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request, runs: selected.map(row => {
-      const task = config.tasks.find(t => t.id === row.taskId)!, model = config.models.find(m => m.id === row.modelId)!;
-      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, promptSource: model.promptEditable ? 'client' : 'server', taskFile: task.file, analysisInstructions: task.analysisInstructions?.trim() || config.globals.analysisInstructions, snapshot: {
+      const task = config.tasks.find(t => t.id === row.taskId)!, profile = config.profiles.find(p => p.id === row.profileId)!;
+      const settings = resolveRunSettings(config, task, profile), model = profileModel(config, profile)!, analysisModel = profileAnalysisModel(config, profile);
+      const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', diagnoseStop: request.diagnoseStop, taskFile: task.file, analysisInstructions: settings.analysisInstructions, snapshot: {
         task: safeTask(tasks[row.taskId]!),
-        taskName: task.name, model: structuredClone(model), connection: structuredClone(config.connections.find(c => c.id === model.connectionId)!),
+        taskName: task.name, model: structuredClone(model),
         prompt: structuredClone(task.modes[request.mode].prompts.find(p => p.id === row.promptId)!),
-        mode: request.mode, profile: resolveEnvironmentProfile(config.environments.find(e => e.id === row.environmentId)!.profile),
-        globals: structuredClone(config.globals),
-      }, ...(request.analysisModelId ? { analysisModel: structuredClone(config.models.find(m => m.id === request.analysisModelId)!), analysisConnection: structuredClone(config.connections.find(c => c.id === config.models.find(m => m.id === request.analysisModelId)!.connectionId)!) } : {}) };
+        mode: request.mode, profile: resolveEnvironmentProfile(profile.environment), runProfile: { id: profile.id, name: profile.name },
+        globals: settings,
+      }, ...(analysisModel ? { analysisModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       return run;
     }) };
@@ -119,11 +141,12 @@ export class ExperimentQueue {
       if (JSON.stringify(task[key])?.includes('[REDACTED]')) Object.assign(task, { [key]: fresh[key] });
     }
     if ((await this.store.read()).revision !== revision) throw new HttpError(409, '작업이 변경되었습니다. 차이를 다시 확인하세요.');
-    resolvePermissions({ ...((await this.store.read()).config), globals: original.snapshot.globals }, task, original.snapshot.mode, original.permissions);
+    const kept = original.snapshot.globals;
+    resolvePermissions({ machine: kept }, { permissions: { keyboard: kept.keyboard, screenreader: kept.screenreader } }, task, original.snapshot.mode, original.permissions);
     const run: RunRecord = { ...structuredClone(original), id: randomUUID(), state: 'queued', repeat: 1, analysisStatus: 'pending', reportStatus: 'pending', retryOf: { experiment: experimentId, run: runId } };
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.task = safeTask(task); this.liveTasks.set(run.id, task);
-    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], modelIds: [run.modelId], promptIds: [run.promptId], environmentIds: [run.environmentId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
+    const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, request: { taskIds: [run.taskId], promptIds: [run.promptId], profileIds: [run.profileId], repeats: 1, mode: run.snapshot.mode }, runs: [run] };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -132,7 +155,7 @@ export class ExperimentQueue {
       this.active?.controller.abort('storage-error'); this.active = undefined;
       for (const experiment of this.experiments) {
         for (const run of experiment.runs) if (['queued', 'running'].includes(run.state)) {
-          run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = '실행 기록을 저장하지 못해 큐를 중단했습니다. 프로젝트 파일과 저장 공간을 확인하세요.';
+          run.state = 'interrupted'; run.endedAt = new Date().toISOString(); run.error = RUN_ERROR.storage;
           run.analysisStatus = 'skipped'; run.reportStatus = 'skipped'; this.liveTasks.delete(run.id);
         }
         await this.persist(experiment).catch(() => {});
@@ -147,28 +170,25 @@ export class ExperimentQueue {
       const controller = new AbortController(); this.active = { experiment: experiment.id, run: run.id, controller };
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
+      const task = this.liveTasks.get(run.id)!;
+      let apiKey: string | undefined;
       try {
-        const trace = await this.executor(run, this.liveTasks.get(run.id)!, outDir, await this.store.credential(run.snapshot.connection.apiKeyEnv), controller.signal, event => this.runEvent?.(experiment.id, run.id, event));
-        run.outcome = trace.outcome;
+        apiKey = await this.store.credential(run.snapshot.model);
+        const atDriverCommand = run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
+        const browserProfileDir = await this.store.file('.rawstep/browser-profile');
+        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir });
+        run.outcome = publicOutcome(trace.outcome);
+        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
-        const hints: { hints?: HintReport } = await writeHints(outDir).then(({ report }) => ({ hints: report }), () => ({}));
-        try {
-          let analyzer: LlmTraceAnalyzer | undefined;
-          if (run.analysisModel) {
-            const c = run.analysisConnection; if (!c) throw new Error('분석 모델 연결이 없습니다.');
-            analyzer = new LlmTraceAnalyzer({ baseURL: c.baseURL, model: run.analysisModel.modelId, apiKey: await this.store.credential(c.apiKeyEnv), timeoutMs: c.timeoutMs, instructions: run.analysisInstructions, signal: controller.signal });
-          }
-          const analysis = await analyzeTrace(trace, analyzer); await atomicJson(join(outDir, 'analysis.json'), analysis);
-          run.analysisStatus = analysis.status === 'failed' ? 'failed' : 'complete';
-          if (analysis.status === 'failed') run.analysisError = analysis.error ?? '분석 실패';
-          await writeReport(await hydrateScreenshots(trace, outDir), analysis, outDir, hints); run.reportStatus = 'complete';
-        } catch {
-          run.analysisStatus = 'failed'; run.analysisError = '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.';
-          try { await writeReport(await hydrateScreenshots(trace, outDir), undefined, outDir, hints); run.reportStatus = 'complete'; }
-          catch { run.reportStatus = 'failed'; run.reportError = '보고서 생성 실패'; }
-        }
-      } catch {
-        run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = '실행 준비 또는 실행이 실패했습니다. 연결과 브라우저 설정을 확인하세요.';
+        const analysisModel = run.analysisModel;
+        const done = await finalizeRun(trace, outDir, analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {});
+        run.analysisStatus = done.analysis.status;
+        if (done.analysis.status === 'failed') run.analysisError = done.analysis.threw ? '분석을 완료하지 못했습니다. 원래 실행 결과는 유지됩니다.' : done.analysis.error ?? '분석 실패';
+        run.reportStatus = done.report.status;
+        if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
+      } catch (error) {
+        run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = RUN_ERROR.start;
+        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [apiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
       } finally {
         run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); this.active = undefined; await this.persist(experiment); this.changed();
@@ -184,10 +204,50 @@ export class ExperimentQueue {
     await this.persist(experiment); this.changed(); return experiment;
   }
   async close() { this.closed = true; this.active?.controller.abort('requested'); await this.draining; }
+  /** Runs file work after every earlier write, so a late save cannot bring back a directory that was just removed. */
+  private serialize<T>(work: () => Promise<T>) {
+    const result = this.writes.then(work);
+    this.writes = result.then(() => {}, () => {}); return result;
+  }
   async persist(experiment: Experiment) {
     const snapshot = structuredClone(experiment);
-    const work = this.writes.then(async () => atomicJson(await this.store.file('.rawstep/experiments/' + experiment.id + '/experiment.json'), snapshot));
-    this.writes = work.then(() => {}, () => {}); return work;
+    return this.serialize(async () => atomicJson(await this.store.file('.rawstep/experiments/' + experiment.id + '/experiment.json'), snapshot));
+  }
+  /**
+   * Removes recorded runs (all of the experiment's when `runIds` is omitted) with their files. Queued and running runs are never
+   * removed. An experiment left without runs goes too. Returns how many runs were removed.
+   */
+  async deleteRuns(experimentId: string, runIds?: readonly string[]) {
+    const removed = await this.removeRuns([{ experimentId, runIds }]); this.changed(); return removed;
+  }
+  /** Removes runs of several experiments in one go; nothing is removed unless every one of them may be. */
+  async deleteMany(refs: readonly { experiment: string; run: string }[]) {
+    const groups = new Map<string, string[]>();
+    for (const ref of refs) groups.set(ref.experiment, [...groups.get(ref.experiment) ?? [], ref.run]);
+    const removed = await this.removeRuns([...groups].map(([experimentId, runIds]) => ({ experimentId, runIds }))); this.changed(); return removed;
+  }
+  private async removeRuns(requests: { experimentId: string; runIds?: readonly string[] | undefined }[]) {
+    const plans = requests.map(({ experimentId, runIds }) => {
+      const experiment = this.experiments.find(e => e.id === experimentId); if (!experiment) throw new HttpError(404, '실험을 찾을 수 없습니다.');
+      const ids = new Set(runIds ?? experiment.runs.map(r => r.id));
+      if ([...ids].some(id => !experiment.runs.some(r => r.id === id))) throw new HttpError(404, '실행을 찾을 수 없습니다.');
+      return { experiment, ids };
+    });
+    if (plans.some(({ experiment, ids }) => experiment.runs.some(r => ids.has(r.id) && ['queued', 'running'].includes(r.state)))) throw new HttpError(409, '진행 중이거나 대기 중인 실행은 삭제할 수 없습니다. 끝나거나 중지한 뒤 삭제하세요.');
+    let removed = 0;
+    for (const { experiment, ids } of plans) {
+      removed += ids.size;
+      const rest = experiment.runs.filter(r => !ids.has(r.id));
+      if (!rest.length) {
+        this.experiments.splice(this.experiments.indexOf(experiment), 1);
+        await this.serialize(async () => rm(await this.store.file('.rawstep/experiments/' + experiment.id), { recursive: true, force: true }));
+      } else {
+        experiment.runs = rest;
+        await this.serialize(async () => { for (const id of ids) await rm(await this.store.file('.rawstep/experiments/' + experiment.id + '/' + id), { recursive: true, force: true }); });
+        await this.persist(experiment);
+      }
+    }
+    return removed;
   }
   find(experiment: string, run: string) {
     const found = this.experiments.find(e => e.id === experiment)?.runs.find(r => r.id === run);

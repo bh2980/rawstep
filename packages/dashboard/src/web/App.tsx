@@ -1,20 +1,28 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ConfigView, DashboardConfig, Experiment } from '../shared/config';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ProjectConfig } from '@rawstep/project/config';
+import type { ConfigView, Experiment } from '../shared/config';
 import { api } from './api';
 import { useTranslation } from 'react-i18next';
 import { findRun, flattenRuns } from './lib/runs';
+import { startRun, type RunOptions } from './lib/quickRun';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
-import { useRoute } from './hooks/useRoute';
+import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
+import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
+import { HomePage } from './pages/HomePage';
+import { NewTaskPage } from './pages/NewTaskPage';
+import { RunPage } from './pages/RunPage';
+import { RunsPage } from './pages/RunsPage';
+import { ConnectionsPage } from './pages/ConnectionsPage';
+import { MachinePage } from './pages/MachinePage';
+import { ProfilesPage } from './pages/ProfilesPage';
+import { TaskPage } from './pages/TaskPage';
+import { TasksPage } from './pages/TasksPage';
+import { AppNav } from './components/AppNav';
 import { NewExperimentDialog } from './components/NewExperimentDialog';
-import { OverviewTable } from './components/OverviewTable';
-import { RunDetail } from './components/RunDetail';
-import { SettingsSheet } from './components/SettingsSheet';
-import { Sidebar } from './components/Sidebar';
 import { StatusBanner } from './components/StatusBanner';
-import { TaskDetail } from './components/TaskDetail';
 import { TopBar } from './components/TopBar';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './components/ui/sheet';
@@ -29,79 +37,94 @@ function Dashboard() {
   const { route, navigate } = useRoute();
   const wide = useMediaQuery('(min-width: 1024px)');
   const [editorKey, setEditorKey] = useState(0);
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
-  const [navOpen, setNavOpen] = useState(false), [newOpen, setNewOpen] = useState(false), [settingsOpen, setSettingsOpen] = useState(false);
+  const [error, setError] = useState<ErrorView>(), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  // A connection that was never made is a failed load; one that was made and dropped is a connection loss.
+  const [everConnected, setEverConnected] = useState(false);
+  useEffect(() => { if (data.connected) setEverConnected(true); }, [data.connected]);
+  const [navOpen, setNavOpen] = useState(false);
+  /** The experiment builder; `taskId` preselects a task when it was opened from that task. */
+  const [compare, setCompare] = useState<{ open: boolean; taskId?: string }>({ open: false });
   const { view, setView, refresh } = data;
   const runs = useMemo(() => flattenRuns(data.experiments), [data.experiments]);
 
-  const act = useCallback(async (work: () => Promise<unknown>) => {
-    setBusy(true); setError(''); setNotice('');
-    try { await work(); await refresh(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  const act = useCallback(async (work: () => Promise<unknown>, options?: { as?: ErrorKind }) => {
+    setBusy(true); setError(undefined); setNotice('');
+    try { await work(); await refresh(); } catch (e) { setError(describeApiError(e, options?.as)); } finally { setBusy(false); }
   }, [refresh]);
-  const save = useCallback(async (config: DashboardConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
+  const save = useCallback(async (config: ProjectConfig, taskWrite?: { file: string; task: unknown }, revision?: string) => {
     const state = await api<ConfigView>('/config', { method: 'PUT', body: { config, revision: revision ?? view!.revision, ...(taskWrite ? { taskWrite } : {}) } });
     setView(state); setNotice(t('app.saved'));
     return state;
   }, [view, setView]);
-  const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
-  const pageProps: PageProps | undefined = view ? { view, save, act, busy } : undefined;
-  const banner = <StatusBanner error={error || data.loadError} notice={notice} busy={busy} onReload={reload} />;
-
   const go: typeof navigate = (change, options) => { setNotice(''); setNavOpen(false); navigate(change, options); };
+  const reload = () => void act(async () => { await refresh(); setEditorKey(key => key + 1); });
+  const pageProps: PageProps | undefined = view ? { view, save, act, busy, notify: setNotice } : undefined;
+  const lost = everConnected && !data.connected;
+  const banner = <StatusBanner error={error ?? data.loadError ?? (lost ? connectionLostView() : undefined)} notice={notice} busy={busy} onReload={reload} navigate={go} />;
+
   const running = runs.filter(ref => ref.run.state === 'running').length;
   const queued = runs.filter(ref => ref.run.state === 'queued').length;
-  const created = (experiment: Experiment) => {
+  const openRun = (experiment: Experiment) => {
     const first = experiment.runs[0];
-    setNewOpen(false);
+    setCompare({ open: false });
     if (first) go({ task: first.taskId, run: first.id });
   };
+  /** Starts a run of a task (in the given project state, which may be newer than `view`) and opens the first one. */
+  const startAndOpen = async (state: ConfigView, taskId: string, options: RunOptions) => openRun(await startRun(state, taskId, options));
+  const runTask = (taskId: string, options: RunOptions) => void act(() => startAndOpen(view!, taskId, options), { as: 'start' });
 
   return <div className="flex h-screen flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
-    <TopBar connected={data.connected} running={running} queued={queued} showNavigation={!wide && !!pageProps}
-      onNavigation={() => setNavOpen(true)} onNewExperiment={() => setNewOpen(true)} onSettings={() => setSettingsOpen(true)} />
+    <TopBar connected={data.connected} running={running} queued={queued} showNavigation={!wide && !!pageProps} onNavigation={() => setNavOpen(true)} />
     <div className="flex min-h-0 flex-1">
-      {wide && pageProps && <aside aria-label={t('sidebar.label')} className="w-80 shrink-0 border-r bg-sidebar text-sidebar-foreground">
-        <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} />
-      </aside>}
-      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-5 py-6 outline-none lg:px-8 lg:py-8">
-        <div className="mx-auto grid max-w-6xl gap-5">
-          {!settingsOpen && !newOpen && banner}
+      {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} /></aside>}
+      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
+        <div className="mx-auto grid max-w-7xl gap-4">
+          {!compare.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Detail pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} startAndOpen={startAndOpen} />}
         </div>
       </main>
     </div>
     {pageProps && <>
       {!wide && <Sheet open={navOpen} onOpenChange={setNavOpen}>
-        <SheetContent side="left" className="w-80 gap-0 p-0 data-[side=left]:sm:max-w-80">
-          <SheetHeader className="sr-only"><SheetTitle>{t('sidebar.label')}</SheetTitle><SheetDescription>{t('sidebar.treeHelp')}</SheetDescription></SheetHeader>
-          <Sidebar pageProps={pageProps} experiments={data.experiments} route={route} navigate={go} inSheet />
+        <SheetContent side="left" className="w-56 gap-0 p-0 data-[side=left]:sm:max-w-56">
+          <SheetHeader className="sr-only"><SheetTitle>{t('nav.label')}</SheetTitle><SheetDescription>{t('nav.description')}</SheetDescription></SheetHeader>
+          <div className="pt-10"><AppNav route={route} navigate={go} /></div>
         </SheetContent>
       </Sheet>}
-      <NewExperimentDialog open={newOpen} onOpenChange={setNewOpen} pageProps={pageProps} banner={banner} editorKey={editorKey} onCreated={created} />
-      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} pageProps={pageProps} banner={banner} editorKey={editorKey} />
+      <NewExperimentDialog open={compare.open} onOpenChange={open => setCompare({ open, ...(compare.taskId ? { taskId: compare.taskId } : {}) })} taskId={compare.taskId} pageProps={pageProps} banner={banner} editorKey={editorKey} onCreated={openRun} />
     </>}
   </div>;
 }
 
-type DetailProps = {
+type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
+  onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options: RunOptions) => void;
+  startAndOpen: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
-function Detail({ pageProps, data, runs, route, navigate, editorKey }: DetailProps) {
+/** Chooses the page for the URL: a run, a task or the new-task page, otherwise the list or settings page of the current view. */
+function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask, startAndOpen }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
     return runRef
-      ? <RunDetail key={runRef.run.id + editorKey} runRef={runRef} route={route} pageProps={pageProps} navigate={navigate} />
+      ? <RunPage key={runRef.run.id + editorKey} runRef={runRef} runs={runs} route={route} pageProps={pageProps} navigate={navigate} />
       : <div className="grid justify-items-start gap-3 py-10">
         <p>{t('run.notFound')}</p>
-        <Button variant="outline" onClick={() => navigate({})}>{t('run.backToOverview')}</Button>
+        <Button variant="outline" onClick={() => navigate({ view: 'runs' })}>{t('run.backToRuns')}</Button>
       </div>;
   }
-  if (route.task) return <TaskDetail key={route.task + editorKey} taskId={route.task} pageProps={pageProps} runs={runs} navigate={navigate} />;
-  return <OverviewTable rows={data.overview} runs={runs} error={data.overviewError} navigate={navigate} />;
+  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
+  if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
+  const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
+  if (route.view === 'tasks') return <TasksPage {...lists} onRun={onRunTask} />;
+  if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
+  if (route.view === 'profiles') return <ProfilesPage key={editorKey} {...pageProps} navigate={navigate} />;
+  if (route.view === 'connections') return <ConnectionsPage key={editorKey} {...pageProps} navigate={navigate} />;
+  if (route.view === 'settings') return <MachinePage key={editorKey} {...pageProps} />;
+  return <HomePage {...lists} />;
 }

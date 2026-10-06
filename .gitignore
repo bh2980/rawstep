@@ -18,6 +18,7 @@ artifacts/
 /packages/rawstep/fixtures/
 /packages/rawstep/README.md
 /packages/rawstep/README.ko.md
+/packages/rawstep/native/
 
 __pycache__/
 *.pyc
@@ -25,3 +26,6 @@ __pycache__/
 # Local dashboard settings written by `rawstep ui`.
 rawstep.dashboard.json
 .claude/scheduled_tasks.lock
+
+# This repo keeps personal configs out of git. In your own project, commit rawstep.config.json.
+/rawstep.config.json

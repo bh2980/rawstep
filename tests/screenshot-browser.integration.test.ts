@@ -3,11 +3,13 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { runScreenshotTask, HttpScreenshotModel, ScreenshotDecisionPolicy, ScreenshotKeyboardBackend, summarizeVisualExploration, type ScreenshotModelRequest } from 'rawstep/screenshot';
+import { runScreenshotTask, ScreenshotDecisionPolicy, ScreenshotKeyboardBackend, summarizeVisualExploration, type ScreenshotModelRequest } from 'rawstep/screenshot';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
+import { DecisionClient, SystemOneScreenshotAdapter } from 'rawstep/systemone';
 import { renderReportHtml } from '@rawstep/reports/report';
 import { analyzeTrace } from '@rawstep/reports/analyze';
-import { TraceRecorder } from '@rawstep/core/trace';
+// The runner comes from the bundled rawstep, so the spied recorder must be that copy too.
+import { TraceRecorder } from 'rawstep/trace';
 import { createTestBrowserSession } from './helpers/browser.js';
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const fn of cleanup.splice(0).reverse()) await fn(); });
@@ -31,7 +33,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
     const html = renderReportHtml(trace, await analyzeTrace(trace)); expect(html).toContain('Visited visual states'); expect(html).toContain('Screenshot keyboard exploration'); expect(html).not.toContain('Deprecated screenshot keyboard run');
   });
   it('navigates forward/backward, activates dialog, escapes, and toggles with Space without mouse', async () => {
-    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     await backend.execute({ kind: 'key', key: 'Tab' }); await backend.execute({ kind: 'key', key: 'Tab' }); await backend.execute({ kind: 'key', key: 'Shift+Tab' });
     expect(await session.page.evaluate(() => document.activeElement?.id)).toBe('open');
     await backend.execute({ kind: 'key', key: 'Enter' }); expect(await session.page.locator('dialog').isVisible()).toBe(true);
@@ -43,7 +45,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
   // either headed or headless verification. Keep the native-dropdown case
   // elsewhere and test renderer-owned listbox arrows on every host below.
   it.runIf(process.platform !== 'darwin')('supports actual arrow navigation of a native collapsed select', async () => {
-    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const session = await createTestBrowserSession(fixture); cleanup.push(() => session.close()); const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     for (let i = 0; i < 4; i++) await backend.execute({ kind: 'key', key: 'Tab' });
     await backend.execute({ kind: 'key', key: 'ArrowDown' });
     expect(await session.page.locator('#theme').inputValue()).toBe('Dark');
@@ -52,7 +54,7 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
     const dir = await directory(), file = join(dir, 'listbox.html');
     await writeFile(file, '<!doctype html><select id="theme" size="3" autofocus><option selected>Light</option><option>Dark</option><option>High contrast</option></select>');
     const session = await createTestBrowserSession(pathToFileURL(file).href); cleanup.push(() => session.close());
-    const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachPage(session.page); cleanup.push(() => backend.close());
+    const backend = new ScreenshotKeyboardBackend(); await backend.start(); backend.attachSession({ page: session.page }); cleanup.push(() => backend.close());
     await backend.execute({ kind: 'key', key: 'ArrowDown' });
     expect(await session.page.locator('#theme').inputValue()).toBe('Dark');
   });
@@ -90,9 +92,9 @@ describe('screenshot-only keyboard loop in actual Chromium (fixture adapters)', 
   it('does not persist malformed successful HTTP response bodies in run errors', async () => {
     const outDir = await directory();
     const trace = await runScreenshotTask({ url: fixture, goal: 'Inspect', maxSteps: 1, verify: { all: [{ titleIncludes: 'Never' }] } }, {
-      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: async () => new Response('PRIVATE_RESPONSE_MARKER_992') }) }) });
+      outDir, browserSessionFactory: createTestBrowserSession, policy: new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:8766/v1', modelId: 'fixture', capabilities: { inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 }, fetch: async () => new Response('PRIVATE_RESPONSE_MARKER_992') })) }) });
     expect(trace.outcome?.status).toBe('failure'); expect(await readFile(join(outDir, 'trace.json'), 'utf8')).not.toContain('PRIVATE_RESPONSE');
-    expect(trace.outcome?.error).toBe('Screenshot model returned invalid JSON; response body omitted for privacy.');
+    expect(trace.outcome?.error).toMatch(/^Decision call failed/);
   });
   it('rejects a screen-reader mode mismatch before launching Chromium', async () => {
     await expect(runScreenshotTask({ mode: 'screenreader', url: fixture, goal: 'No', verify: { all: [{ titleIncludes: 'No' }] } }, { outDir: await directory(), policy: new ScriptedPolicy([]) })).rejects.toThrow(/keyboard/);

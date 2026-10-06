@@ -1,10 +1,10 @@
 # Current task format
 
-Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative fixture paths resolve from the task file directory. Keyboard tasks use `screenshot-run`; the duplicate `legacy-run` was removed in 0.2.
+Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `maxSteps`, `timeoutMs`, `input`, `inputOptions`, and `navigation`. `input` maps names to string values; policies refer to names instead of supplying arbitrary literal text. Relative start URLs resolve from the project root for tasks registered in `rawstep.config.json`, and from the task file's directory for a task file run directly. Keyboard tasks run on the screenshot backend (`npx rawstep run <task> --mode keyboard`).
 
 ## Inputs
 
-`input` maps names to string values. The decision policy (usually a model) only sees each input's name, whether it is sensitive, and an optional description. It never sees the value. The runner types the real value when the policy asks to enter a named input.
+`input` maps names to string values. The task author decides what is typed; the decision policy (usually a model) decides when and into which field. The policy sees each input's name, whether it is sensitive and an optional description. It never sees a sensitive value; the value of an input marked `sensitive: false` (a search term) is shown in its candidate, such as `Type "Thor Hammer" (input searchTerm: product to search for)`, so the model knows what it would type. The runner types the real value when the policy asks to enter a named input.
 
 `inputOptions` configures individual inputs. Each key must be a name from `input`, and each entry accepts only:
 
@@ -26,7 +26,21 @@ Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `mode`, `
 
 Here `password` has no entry, so it is sensitive. `resolveTask` rejects the task when `goal` contains the value of a sensitive input that is 4 or more characters long, because the goal is sent to the model as written. Refer to the input by name instead, as above. A goal may contain a value shorter than 4 characters, or the value of an input with `sensitive: false`.
 
-Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice") is not masked in screenshots; the focused field itself is, including inside open shadow roots. The model may also infer a value from page behavior. See the [migration guide](./migration.md#hiding-input-values-from-the-policy).
+Masking is best effort. Values shorter than 4 characters are only covered by withholding the typing step's speech. A value shown elsewhere on the page (for example "Hello Alice") is not masked in screenshots; the focused field itself is, including inside open shadow roots. The model may also infer a value from page behavior. See [Hiding input values from the policy](#hiding-input-values-from-the-policy).
+
+## Hiding input values from the policy
+
+The decision policy (usually a model) must not learn sensitive input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
+
+- **Screenshots (keyboard mode).** Before typing a sensitive value, the screenshot backend marks the focused field with `data-rawstep-mask`. While capturing an observation it sets `-webkit-text-security: disc !important` on marked fields through the CSSOM (so a page CSP cannot block it) and restores the field's previous inline value right after the capture. The field shows dots in the policy's screenshot and its real value in the page.
+- **Speech (screen reader mode).** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
+
+Limitations:
+
+- Values shorter than 4 characters are not substring-masked in later speech, since that would damage unrelated text. Only withholding the typing step's speech covers them.
+- The screenshot mask covers only the typed field. The same value re-rendered elsewhere on the page (for example "Hello Alice" after sign-in, or a form summary) is visible in screenshots; in speech it is masked only when the value has 4 or more characters.
+- The mask follows the field that was focused when typing started, including fields inside open shadow roots; text the page copies into other elements is not masked.
+- The model can still infer a value from page behavior, such as validation messages, search results, or which page the form leads to.
 
 ## Verification rules
 
@@ -38,6 +52,7 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 | `{ "focused": { "role"?, "name"? } }` | Keyboard focus is now on an element with that role and/or name. At least one of the two is required. |
 | `{ "not": <rule> }` | The inner rule does not hold. |
 | `{ "any": [<rule>, ...] }` | At least one of 1 to 20 inner rules holds. |
+| `{ "script": { "source": "...", "description": "..." } }` | The reviewed function in `source` returns `true`. See below. |
 
 `event.kind` is one of `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur` (keyboard focus left the page for browser UI or another window), `page-focus`. `role` and `attr` are compared exactly, `value` must equal the recorded value, and `name`, `text` and `url` take a text matcher. Every listed field must match the same recorded change. `attr` and `value` apply to `state` changes, `url` to `navigation`, and `text` to changes that carry text such as `live-region`.
 
@@ -54,6 +69,12 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 **Baseline and hint.** Before step 1 the runner evaluates the rules once with the built-in verifier and records a `verifier.baseline` trace event, for example `{ "passed": false, "rules": [{ "ruleIndex": 0, "ruleType": "event", "passed": false }, ...] }`. Only rule indexes, types and pass flags are kept, never witnesses or failure text; if evaluating throws, only the error name is stored. It never decides the outcome, and it is skipped when a custom `verifier` is supplied. `rawstep hints` turns it into a `goal-met-at-start` hint: `observed` when every rule already held before the first action, `suspected` when only some did. `not` rules are ignored because they hold at the start by design. A goal that was already met at load makes the later success weak evidence about the steps taken.
 
 **Screenshot replay export.** `event` rules are accepted for exact-pixel replay export when their final verification carries a matching `observer-event` witness. `focused`, `not` and `any` rules are not accepted for replay export.
+
+**`script`.** For goals the rules above cannot express. `source` is a JavaScript function expression, `(context) => boolean` (it may be `async`), and `description` says in plain words what it checks (at most 300 characters). It runs at verification time in an isolated world of the page: it reads the page DOM but cannot see or change the page's own JavaScript, and `context.timeline` lists the page observer events (`{ kind, role, name, text, attr, value, url }`). Each run is limited to 2 seconds, and a script that times out, throws or does not return a boolean fails the rule. Network APIs are removed from that world, but this is a guard, not a sandbox: the DOM can still load resources. Treat the code as untrusted until a person has read it. Never save a script written by a model or another person without reviewing it, and never put sensitive input values (passwords, tokens) in it. The dashboard shows the code read-only and asks for confirmation before it accepts a suggested script.
+
+```json
+{ "script": { "description": "The cart badge shows 1", "source": "() => document.querySelector('[data-cart-count]')?.textContent.trim() === '1'" } }
+```
 
 Example, run on `fixtures/friction-lab.html` with the keys `Tab, Tab, Tab, Enter`:
 
@@ -77,7 +98,7 @@ Example, run on `fixtures/friction-lab.html` with the keys `Tab, Tab, Tab, Enter
 
 The run succeeds at step 4. Earlier verifications fail because the announcement has not happened yet, and the baseline shows `titleIncludes` and `not` already true with the `event` rule false, so `hints` reports a suspected `goal-met-at-start`.
 
-See the [current README](../README.md), [complete migration/API guide](./migration.md), [source map](./editing-map.md), and [test migration](./test-migration.md). Historical workspace-specific instructions were removed with their implementation.
+See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
 
 ## Initial focus
 

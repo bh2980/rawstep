@@ -49,7 +49,8 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode): string {
     if (button && node.pressed !== undefined && node.pressed !== false) parts.push(node.pressed === 'mixed' ? 'mixed' : 'selected');
     if (button && node.expanded !== undefined) parts.push(node.expanded ? 'expanded' : 'collapsed');
     if (textbox && node.required) parts.push('required');
-    const role = link ? '' : button && node.pressed !== undefined ? 'toggle button' : roleNames[node.role] ?? node.role;
+    // Chromium's internal roles (PascalCase, e.g. LabelText) are not spoken role words; ARIA roles without wording are said as they are.
+    const role = link ? '' : button && node.pressed !== undefined ? 'toggle button' : roleNames[node.role] ?? (/^[A-Z]/.test(node.role) ? '' : node.role);
     if (role) parts.push(role);
     // The inspected textarea observation is name, role, value (without a multiline suffix).
     if (textbox && node.multiline && node.value && node.value !== node.name) parts.push(node.value);

@@ -8,7 +8,7 @@ import { ScriptedPolicy } from '@rawstep/policies/policy';
 import type { DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
 const dirs:string[]=[];
 afterEach(async()=>{await Promise.all(dirs.splice(0).map(p=>rm(p,{recursive:true,force:true})));});
-async function out(){const p=await mkdtemp(join(tmpdir(),'rawstep-legacy-'));dirs.push(p);return p;}
+async function out(){const p=await mkdtemp(join(tmpdir(),'rawstep-screenshot-backend-'));dirs.push(p);return p;}
 function browser(){return {
  page:{bringToFront:vi.fn(async()=>{}),evaluate:vi.fn(async()=>true),screenshot:vi.fn(async()=>Buffer.from('fixture-png')),viewportSize:()=>({width:1280,height:800}),keyboard:{press:vi.fn(async()=>{}),type:vi.fn(async()=>{})}},
  browser:{version:()=> 'test'},takeBlockedNavigations:()=>[],takeNavigationGuardWarnings:()=>[],close:vi.fn(async()=>{})
@@ -17,12 +17,12 @@ const task={url:'https://example.test',goal:'Activate start',verify:{all:[{title
 describe('screenshot keyboard backend without any screen reader',()=>{
  it('captures screenshots and previous visual observation without synthetic speech',async()=>{
   const page=browser().page;const backend=new ScreenshotKeyboardBackend();
-  await backend.start();backend.attachPage(page);const first=await backend.observe(),second=await backend.observe();
+  await backend.start();backend.attachSession({ page: page });const first=await backend.observe(),second=await backend.observe();
   expect(first.kind).toBe('keyboard');expect(first.screenshot.pngBase64).toBe(Buffer.from('fixture-png').toString('base64'));
   expect(second.previousScreenshot).toEqual(first.screenshot);expect(first).not.toHaveProperty('speech');await backend.close();
  });
  it.each(SCREENSHOT_KEYS)('preserves supported key mapping %s',async(key)=>{
-  const session=browser();const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachPage(session.page);
+  const session=browser();const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachSession({ page: session.page });
   await backend.execute({kind:'key',key});expect(session.page.keyboard.press).toHaveBeenCalledWith(key.replace('Mod+','ControlOrMeta+'));await backend.close();
  });
  it('runs through the same verifier, budgets and traces while warning',async()=>{
@@ -46,14 +46,14 @@ describe('screenshot keyboard backend without any screen reader',()=>{
  });
  it('checks cancellation between characters in a screenshot text batch',async()=>{
   const session=browser();const controller=new AbortController();const backend=new ScreenshotKeyboardBackend();
-  await backend.start();backend.attachPage(session.page);
+  await backend.start();backend.attachSession({ page: session.page });
   vi.mocked(session.page.keyboard.type).mockImplementation(async()=>{controller.abort(new Error('cancelled'));});
   await expect(backend.execute({kind:'typeText',text:'ABCDE'},{signal:controller.signal})).rejects.toThrow('cancelled');
   expect(session.page.keyboard.type).toHaveBeenCalledTimes(1);expect(session.page.keyboard.type).toHaveBeenCalledWith('A');
   await backend.close();
  });
  it('rejects SR intents and unsupported raw keys',async()=>{
-  const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachPage(browser().page);
+  const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachSession({ page: browser().page });
   await expect(backend.execute({kind:'intent',intent:'activate'})).rejects.toThrow('unavailable');await expect(backend.execute({kind:'key',key:'Control+L'})).rejects.toThrow('Unsupported');await backend.close();
  });
 });

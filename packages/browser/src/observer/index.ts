@@ -7,6 +7,8 @@ import type { CDPSession, Page } from 'playwright';
  */
 /** page-blur: keyboard focus left the page (browser UI or another window); page-focus: it came back. */
 export type ObserverEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
+/** x and y are the box's top-left corner in CSS pixels from the viewport's top-left; the box can extend past the viewport. */
+export type ObserverRect = { x: number; y: number; width: number; height: number };
 export type ObserverEvent = {
   kind: ObserverEventKind;
   /** Runner step whose action preceded the change; 0 is the initial page load. */
@@ -27,6 +29,8 @@ export type ObserverEvent = {
   /** Focus events: whether a modal dialog was open, and whether focus landed inside a dialog. */
   modalOpen?: boolean;
   inDialog?: boolean;
+  /** Focus events in the main frame: the focused element's bounding box in CSS pixels of the viewport, rounded. Geometry only; never policy-visible. */
+  rect?: ObserverRect;
   url?: string;
   sameDocument?: boolean;
 };
@@ -89,9 +93,19 @@ export async function installPageObserver(page: Page, options: ObserverOptions =
   };
 }
 
+/** A bounding box the page reported: four finite numbers, rounded, with a non-empty size. Anything else is dropped. */
+export function sanitizeRect(value: unknown): ObserverRect | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>, limit = 1_000_000;
+  const numbers = (['x', 'y', 'width', 'height'] as const).map(key => raw[key]);
+  if (!numbers.every((n): n is number => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= limit)) return undefined;
+  const [x, y, width, height] = numbers.map(Math.round) as [number, number, number, number];
+  return width > 0 && height > 0 ? { x, y, width, height } : undefined;
+}
+
 const text = (value: unknown, max = 160) => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : undefined;
-/** The binding is reachable from any frame in the observer world; accept only the known shape. */
-function sanitize(value: unknown): Omit<ObserverEvent, 'step' | 'at'> | undefined {
+/** The binding is reachable from any frame in the observer world; accept only the known shape. Exported for tests. */
+export function sanitize(value: unknown): Omit<ObserverEvent, 'step' | 'at'> | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const raw = value as Record<string, unknown>;
   if (typeof raw.kind !== 'string' || !KINDS.includes(raw.kind) || raw.kind === 'navigation') return undefined;
@@ -103,6 +117,9 @@ function sanitize(value: unknown): Omit<ObserverEvent, 'step' | 'at'> | undefine
   if (raw.politeness === 'polite' || raw.politeness === 'assertive') event.politeness = raw.politeness;
   if (raw.reason === 'blur' || raw.reason === 'removed') event.reason = raw.reason;
   for (const key of ['inViewport', 'visible', 'modalOpen', 'inDialog'] as const) if (typeof raw[key] === 'boolean') event[key] = raw[key];
+  // Only a main-frame focus carries a box: inside a child frame the numbers would be relative to that frame, not the screenshot.
+  const rect = raw.kind === 'focus' && event.frame === 'main' ? sanitizeRect(raw.rect) : undefined;
+  if (rect) event.rect = rect;
   return event;
 }
 
@@ -138,6 +155,8 @@ const OBSERVER_SOURCE = String.raw`function(bindingName) {
   const visible = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0; };
   const inViewport = (el) => { const r = el.getBoundingClientRect(); return r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight; };
   const describe = (el) => ({ role: roleOf(el), name: nameOf(el), tag: el.tagName.toLowerCase() });
+  // Geometry of the focused element for the evidence screenshot; the main frame only, because a child frame's coordinates are its own.
+  const rectOf = (el) => { if (frame !== 'main') return undefined; const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }; };
   const deepActive = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
   const isBodyFocus = (a) => !a || a === document.body || a === document.documentElement;
 
@@ -154,7 +173,7 @@ const OBSERVER_SOURCE = String.raw`function(bindingName) {
     if (isBodyFocus(el) || el === lastFocused) return;
     lastFocused = el;
     const modalOpen = Array.from(document.querySelectorAll(MODALS)).some(visible);
-    emit(Object.assign({ kind: 'focus', inViewport: inViewport(el), visible: visible(el), modalOpen, inDialog: !!el.closest(DIALOGS) }, describe(el)));
+    emit(Object.assign({ kind: 'focus', inViewport: inViewport(el), visible: visible(el), modalOpen, inDialog: !!el.closest(DIALOGS), rect: rectOf(el) }, describe(el)));
   }, true);
   // Native checked state is a property, not an attribute; report it on change. Text values are never read.
   document.addEventListener('change', (event) => {

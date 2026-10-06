@@ -1,10 +1,10 @@
 # 현재 task 안내
 
-예전 Guidepup/LLMAgent workspace 전용 설정과 명령은 제거되었습니다. 현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 상세 API는 [마이그레이션 가이드](./migration.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 스크린샷 기반 모델 탐색은 `screenshot-run`을 사용합니다. legacy-run은 0.2에서 제거했습니다. [SystemOne 설정](./systemone.md)을 참고하세요.
+현재 단일 패키지의 사용법은 [한국어 README](../README.ko.md), 소스 위치는 [구조 안내](./editing-map.ko.md)를 참고하세요. 작업 실행은 `rawstep run <task>` 또는 대시보드(`rawstep ui`)를 사용하고, 설정은 [설정 안내](./config.ko.md)에 있습니다.
 
 ## 입력(input)
 
-task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 정책(보통 모델)은 각 입력의 이름, 민감 여부, 선택적 설명만 볼 수 있고 값은 절대 보지 못합니다. 정책이 이름 붙은 입력을 입력하라고 요청하면 runner가 실제 값을 입력합니다.
+task의 `input`은 이름을 문자열 값에 대응시킵니다. 무엇을 입력할지는 작업을 만드는 사람이 정하고, 의사결정 정책(보통 모델)은 언제 어느 칸에 입력할지를 고릅니다. 정책은 각 입력의 이름, 민감 여부, 선택적 설명을 보고, 민감한 값은 절대 보지 못합니다. `sensitive: false`로 둔 입력(검색어 등)은 후보에 `Type "Thor Hammer" (input searchTerm: 검색할 상품명)`처럼 값이 보여서, 모델이 무엇을 입력하게 되는지 압니다. 정책이 이름 붙은 입력을 입력하라고 요청하면 runner가 실제 값을 입력합니다.
 
 `inputOptions`로 입력별 옵션을 지정합니다. 키는 반드시 `input`에 있는 이름이어야 하고, 각 항목에는 다음 두 필드만 쓸 수 있습니다.
 
@@ -26,7 +26,7 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 
 위 예에서 `password`는 항목이 없으므로 민감 입력입니다. `goal`은 그대로 모델에 전달되므로, `goal`에 4자 이상인 민감 입력의 값이 들어 있으면 `resolveTask`가 task를 거부합니다. 위 예처럼 값 대신 이름으로 가리키십시오. 4자 미만의 값이나 `sensitive: false` 입력의 값은 `goal`에 써도 됩니다.
 
-가리기는 최선의 방어입니다. 4자 미만의 값은 값을 입력한 단계의 음성을 숨기는 것으로만 보호됩니다. 페이지의 다른 곳에 다시 표시된 값(예: "Hello Alice")은 스크린샷에서 가려지지 않으며(입력한 필드 자체는 열린 shadow root 안에 있어도 가려집니다), 모델이 페이지의 동작에서 값을 추측할 수도 있습니다. 자세한 내용은 [마이그레이션 가이드](./migration.md#hiding-input-values-from-the-policy)를 참고하세요.
+가리기는 최선의 방어입니다. 4자 미만의 값은 값을 입력한 단계의 음성을 숨기는 것으로만 보호됩니다. 페이지의 다른 곳에 다시 표시된 값(예: "Hello Alice")은 스크린샷에서 가려지지 않으며(입력한 필드 자체는 열린 shadow root 안에 있어도 가려집니다), 모델이 페이지의 동작에서 값을 추측할 수도 있습니다. 자세한 내용은 [입력값 가리기 (영문)](./task.md#hiding-input-values-from-the-policy)를 참고하세요.
 
 ## 검증 규칙
 
@@ -38,6 +38,7 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 | `{ "focused": { "role"?, "name"? } }` | 키보드 포커스가 지금 해당 role 및/또는 name의 요소에 있습니다. 둘 중 하나는 필수입니다. |
 | `{ "not": <규칙> }` | 안쪽 규칙이 성립하지 않습니다. |
 | `{ "any": [<규칙>, ...] }` | 1~20개의 안쪽 규칙 중 하나 이상이 성립합니다. |
+| `{ "script": { "source": "...", "description": "..." } }` | `source`의 검토된 함수가 `true`를 반환합니다. 아래 설명을 참고하세요. |
 
 `event.kind`는 `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur`(키보드 포커스가 브라우저 UI나 다른 창으로 페이지를 벗어남), `page-focus` 중 하나입니다. `role`과 `attr`는 정확히 일치해야 하고, `value`는 기록된 값과 같아야 하며, `name`, `text`, `url`에는 텍스트 매처를 쓸 수 있습니다. 지정한 모든 필드가 같은 하나의 기록된 변화에서 일치해야 합니다. `attr`와 `value`는 `state` 변화에, `url`은 `navigation`에, `text`는 `live-region`처럼 텍스트가 있는 변화에 해당합니다.
 
@@ -54,6 +55,12 @@ task의 `input`은 이름을 문자열 값에 대응시킵니다. 의사결정 �
 **baseline과 힌트.** runner는 step 1 전에 기본 verifier로 규칙을 한 번 평가해 `verifier.baseline` trace 이벤트를 기록합니다. 예: `{ "passed": false, "rules": [{ "ruleIndex": 0, "ruleType": "event", "passed": false }, ...] }`. 규칙 인덱스, 종류, 통과 여부만 남기며 witness나 실패 문구는 남기지 않습니다. 평가 중 예외가 나면 오류 이름만 저장합니다. 결과를 결정하지 않으며 사용자 지정 `verifier`가 있으면 생략됩니다. `rawstep hints`는 이를 `goal-met-at-start` 힌트로 바꿉니다. 첫 동작 전에 모든 규칙이 이미 성립했으면 `observed`, 일부만 성립했으면 `suspected`입니다. `not` 규칙은 시작 시점에 성립하는 것이 당연하므로 무시합니다. 로드 시점에 이미 충족된 목표라면 이후의 성공은 실제로 수행한 단계에 대한 약한 근거일 뿐입니다.
 
 **스크린샷 replay export.** `event` 규칙은 최종 검증에 일치하는 `observer-event` witness가 있을 때 exact-pixel replay export에서 인정됩니다. `focused`, `not`, `any` 규칙은 replay export에서 인정되지 않습니다.
+
+**`script`.** 위 규칙으로 표현할 수 없는 목표에 씁니다. `source`는 JavaScript 함수 표현식 `(context) => boolean`(`async` 가능)이고, `description`은 무엇을 확인하는지 쉬운 말로 적습니다(300자 이하). 검증 시점에 페이지의 격리된 world에서 실행하므로 페이지 DOM은 읽을 수 있지만 페이지 자체의 JavaScript는 보거나 바꿀 수 없습니다. `context.timeline`에는 페이지 observer 이벤트(`{ kind, role, name, text, attr, value, url }`)가 들어 있습니다. 실행 한도는 2초이며, 시간 초과·예외·boolean이 아닌 반환은 규칙 실패로 처리합니다. 이 world에서는 네트워크 API를 제거하지만 보호 장치일 뿐 샌드박스는 아닙니다. DOM은 여전히 리소스를 불러올 수 있습니다. 사람이 읽어 보기 전의 코드는 신뢰하지 마세요. 모델이나 다른 사람이 쓴 스크립트는 검토한 뒤에만 저장하고, 비밀번호나 토큰 같은 민감한 입력값은 넣지 않습니다. 대시보드는 코드를 읽기 전용으로 보여 주고, 제안된 스크립트는 확인 체크를 해야 사용할 수 있게 합니다.
+
+```json
+{ "script": { "description": "장바구니 배지가 1로 표시된다", "source": "() => document.querySelector('[data-cart-count]')?.textContent.trim() === '1'" } }
+```
 
 예시. `fixtures/friction-lab.html`에서 키 `Tab, Tab, Tab, Enter`로 실행합니다.
 

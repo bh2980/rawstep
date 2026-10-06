@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_HINT_THRESHOLDS, HINTS_SCHEMA_VERSION, extractHints, selectReference, summarizeRun } from "@rawstep/reports/hints";
 import type { HintKind } from "@rawstep/reports/hints";
@@ -11,7 +12,7 @@ const frameB = Buffer.from("frame-b").toString("base64");
 /** Builds a trace whose events are the given (type, data) pairs with sequential ids. */
 function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<RunTrace> = {}): RunTrace {
   return {
-    schemaVersion: "2.1", runId: "hints-test", task: { id: "hints" },
+    schemaVersion: "2.2", runId: "hints-test", task: { id: "hints" },
     environment: { platform: "test", platformVersion: "1", browser: "test", browserVersion: "1", screenReader: "none", screenReaderVersion: "0" },
     startedAt: timestamp, endedAt: "2026-01-01T00:00:05.000Z",
     events: pairs.map(([type, data], index): TraceEvent => ({
@@ -24,9 +25,11 @@ function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<
 }
 const decide = (step: number, key: string): Pair => ["policy.decision", { step, decision: { action: { kind: "key", key } } }];
 const result = (step: number, ok = true): Pair => ["action.result", { step, ok }];
-// Hints hash only valid PNGs, so the fake pixel payloads get a PNG signature prefix.
-const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
-const frame = (pixels: string): Pair => ["keyboard.observation", { screenshot: { pngBase64: Buffer.concat([PNG_SIGNATURE, Buffer.from(pixels, "base64")]).toString("base64") } }];
+// Screenshots are blob references; the hash identifies the pixels.
+const frame = (pixels: string): Pair => {
+  const sha256 = createHash("sha256").update(Buffer.from(pixels, "base64")).digest("hex");
+  return ["keyboard.observation", { screenshot: { sha256, blob: `blobs/${sha256}.png`, bytes: 1 } }];
+};
 const observer = (kind: string, step: number, extra: Record<string, unknown> = {}): Pair => [`observer.${kind}`, { kind, step, at: timestamp, ...extra }];
 /** One policy step: a key decision, its result and the observation that follows. */
 const press = (step: number, key: string, pixels = `step-${step}`): Pair[] => [decide(step, key), result(step), frame(Buffer.from(pixels).toString("base64"))];
@@ -181,12 +184,13 @@ describe("friction hints", () => {
     expect(kinds([frame(frameA), decide(1, "Tab"), result(1), frame(frameA)])).not.toContain("invisible-focus-change");
   });
 
-  it("reports a low-margin or low-probability model choice but not a confident one", () => {
+  it("reports a choice whose runner-up scored close to it, not a clear one with low absolute scores", () => {
     const evidence = (probabilities: number[]): Pair => ["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }, { id: "key:Enter" }], choiceId: "key:Tab", probabilities } }];
     const [hint] = find(extractHints(trace([evidence([0.45, 0.4])])), "model-hesitation");
     expect(hint).toMatchObject({ certainty: "suspected", steps: [3], detail: { choiceId: "key:Tab", probability: 0.45, runnerUp: 0.4 } });
-    expect(kinds([evidence([0.52, 0.45])])).toContain("model-hesitation"); // above 0.5 but within the 0.1 margin
+    expect(kinds([evidence([0.52, 0.45])])).toContain("model-hesitation");
     expect(kinds([evidence([0.9, 0.1])])).not.toContain("model-hesitation");
+    expect(kinds([evidence([0.42, 0.1])])).not.toContain("model-hesitation"); // low in absolute terms, but four times the runner-up
     expect(kinds([["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }], choiceId: "key:Missing", probabilities: [0.1] } }]])).toEqual([]);
   });
 
@@ -215,8 +219,8 @@ describe("friction hints", () => {
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
     expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
-    expect(report).toMatchObject({ schemaVersion: "1.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
-    expect(HINTS_SCHEMA_VERSION).toBe("1.0");
+    expect(report).toMatchObject({ schemaVersion: "2.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
+    expect(HINTS_SCHEMA_VERSION).toBe("2.0");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });
@@ -228,7 +232,7 @@ describe("friction hints", () => {
       const pairs: Pair[] = [baseline(true, [baselineRule(0, "titleIncludes", true), baselineRule(1, "textVisible", true)]), ...press(1, "Tab")];
       const report = extractHints(trace(pairs, success(1)));
       expect(find(report, "goal-met-at-start")).toEqual([{
-        kind: "goal-met-at-start", certainty: "observed", steps: [0], summary: "Every goal rule already held before the first action.",
+        kind: "goal-met-at-start", source: "run", certainty: "observed", steps: [0], summary: "Every goal rule already held before the first action.",
         detail: { rules: [{ ruleIndex: 0, ruleType: "titleIncludes" }, { ruleIndex: 1, ruleType: "textVisible" }] }, evidence: ["event-1"],
       }]);
     });

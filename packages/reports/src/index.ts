@@ -6,5 +6,5 @@ export { summarizeVisualExploration } from './screenshot/analysis.js';
 export type { VisualExplorationSummary } from './screenshot/analysis.js';
 export { LlmTraceAnalyzer } from './analyze/llm.js';
 export type { LlmAnalyzerOptions } from './analyze/llm.js';
-export { DEFAULT_HINT_THRESHOLDS, extractHints, HINTS_SCHEMA_VERSION, selectReference, summarizeRun, writeHints } from './hints/index.js';
-export type { Hint, HintKind, HintOptions, HintReport, HintThresholds, RunSummary } from './hints/index.js';
+export { aggregateHints, DEFAULT_HINT_THRESHOLDS, extractHints, HINT_SOURCES, HINTS_SCHEMA_VERSION, selectReference, summarizeRun, writeHints } from './hints/index.js';
+export type { Hint, HintFinding, HintKind, HintOptions, HintReport, HintSource, HintTarget, HintThresholds, RunSummary } from './hints/index.js';

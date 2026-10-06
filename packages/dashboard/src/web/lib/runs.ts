@@ -1,4 +1,4 @@
-import type { Experiment, Mode, RunRecord } from '../../shared/config';
+import type { Experiment, RunRecord } from '../../shared/config.js';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
 
@@ -31,12 +31,6 @@ export function runStepCount(run: RunRecord): number | undefined {
   return typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
 }
 
-export function formatDate(ms: number): string {
-  if (!ms) return '—';
-  const d = new Date(ms), pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function runPath(experimentId: string, runId: string): string {
   return `/experiments/${experimentId}/runs/${runId}`;
 }
@@ -45,10 +39,33 @@ export function screenshotUrl(experimentId: string, runId: string, eventId: stri
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
 }
 
-export function modeOf(run: RunRecord): Mode {
-  return run.snapshot.mode;
+/** Name of a run profile by id; the id itself when the profile no longer exists. */
+export function profileName(profiles: readonly { id: string; name: string }[], id: string): string {
+  return profiles.find(profile => profile.id === id)?.name ?? id;
 }
 
-export function environmentName(environments: readonly { id: string; name: string }[], id: string): string {
-  return environments.find(environment => environment.id === id)?.name ?? id;
+/** The profile name a run executed with: the name recorded in its snapshot, else the current profile name, else the id. */
+export function runProfileName(profiles: readonly { id: string; name: string }[], run: Pick<RunRecord, 'profileId' | 'snapshot'>): string {
+  return run.snapshot.runProfile?.name ?? profileName(profiles, run.profileId);
+}
+
+/** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */
+export function taskRunNumbers(runs: readonly RunRef[], taskId: string): Map<string, number> {
+  const mine = runs.filter(ref => ref.run.taskId === taskId).sort((a, b) => runStartedAt(a) - runStartedAt(b) || a.run.repeat - b.run.repeat);
+  return new Map(mine.map((ref, index) => [ref.run.id, index + 1]));
+}
+
+/** The finished run that reached the goal in the fewest actions; the first one wins a tie. */
+export function fastestRun(runs: readonly RunRef[]): { ref: RunRef; steps: number } | undefined {
+  let best: { ref: RunRef; steps: number } | undefined;
+  for (const ref of runs) {
+    const steps = runStepCount(ref.run);
+    if (ref.run.state === 'success' && steps !== undefined && (!best || steps < best.steps)) best = { ref, steps };
+  }
+  return best;
+}
+
+/** The task's current name (it may have been renamed after the run); the name recorded with the run when the task is gone. */
+export function taskNameOf(run: Pick<RunRecord, 'taskId' | 'snapshot'>, tasks: readonly { id: string; name: string }[]): string {
+  return tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;
 }

@@ -49,6 +49,10 @@ describe('page observer in real Chromium', () => {
     const lateFocus = observerEvents(trace, 'focus').filter(event => (event.step as number) > 4);
     expect(lateFocus.length).toBeGreaterThan(0);
     for (const event of lateFocus) expect(event).toMatchObject({ modalOpen: true, inDialog: false });
+    // A main-frame focus carries the focused element's box for the evidence screenshot; it never reaches the policy (checked below).
+    const boxed = observerEvents(trace, 'focus').filter(event => event.frame === 'main' && event.rect !== undefined);
+    expect(boxed.length).toBeGreaterThan(0);
+    for (const event of boxed) expect(event.rect).toEqual({ x: expect.any(Number), y: expect.any(Number), width: expect.any(Number), height: expect.any(Number) });
     expect(trace.events.filter(event => event.type.startsWith('observer.')).every(event => event.source === 'browser-diagnostic')).toBe(true);
 
     expect(inputs.length).toBeGreaterThan(0);

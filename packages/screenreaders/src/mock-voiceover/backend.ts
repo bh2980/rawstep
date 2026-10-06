@@ -10,16 +10,27 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Selected navigation-wording rules are calibrated to versioned third-party VoiceOver observations; this is a composite profile, not any one macOS/Safari version. Other wording and state-change announcements remain heuristic.',
   'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
-  'No macOS/Safari AX fidelity, group interaction, rotor, quick navigation, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
+  'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next']);
+const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
+/** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
+const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
+  next: { step: 1, none: 'End of content' },
+  previous: { step: -1, none: 'Start of content' },
+  'heading.next': { step: 1, match: role => role === 'heading', none: 'No more headings' },
+  'heading.previous': { step: -1, match: role => role === 'heading', none: 'No previous heading' },
+  'form.next': { step: 1, match: role => formRoles.has(role), none: 'No more form controls' },
+});
 const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape']);
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
-const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak']);
-const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form']);
+// Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
+const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator']);
+// LabelText is Chromium's role for <label>: its text is read from the StaticText inside, so an unnamed label adds nothing.
+const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form', 'LabelText'])
 const clickableRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab']);
 const editableRoles = new Set(['textbox', 'searchbox', 'spinbutton', 'combobox']);
 
@@ -56,9 +67,8 @@ export class MockVoiceOverBackend implements Backend {
   private lastCurrentFingerprint?: string;
   private listeners = new Set<(event: unknown) => void>();
 
-  attachSession(session: BackendSession): void { this.attachPage(session.page as Page); }
-  /** @deprecated Prefer attachSession; the runner calls it with the opened session. */
-  attachPage(page: Page): void {
+  attachSession(session: BackendSession): void {
+    const page = session.page as Page;
     if (this.state === 'closed') throw new Error('Mock VoiceOver backend is closed.');
     if (this.page && this.page !== page) throw new Error('Mock VoiceOver backend is already attached to a page.');
     this.page = page;
@@ -147,21 +157,30 @@ export class MockVoiceOverBackend implements Backend {
     const byId = new Map(axNodes.map(node => [node.nodeId, node]));
     const next: CursorNode[] = [];
     const visited = new Set<string>();
-    const visit = (node: AXNode, suppressText: boolean) => {
+    // Text that only repeats what was just said — a group's legend after "Categories, group", a checkbox label after the checkbox —
+    // is one utterance, not two. Objects with nothing to say are not stops.
+    let lastSaid = '';
+    const visit = (node: AXNode, suppressText: boolean, groupNames: readonly string[]) => {
       if (visited.has(node.nodeId)) return;
       visited.add(node.nodeId);
       const role = stringValue(node.role);
-      const name = stringValue(node.name);
-      if (!node.ignored && !skippedRoles.has(role) && !(suppressText && textRoles.has(role)) && !(unnamedContainerRoles.has(role) && !name) && (name || !textRoles.has(role))) {
-        next.push({ identity: identity(node), backendDOMNodeId: node.backendDOMNodeId, axId: node.nodeId, semantic: semanticNode(node), unmodeledContext: hasUnmodeledContext(node, byId) });
+      const name = stringValue(node.name), said = name.trim();
+      const repeated = textRoles.has(role) && (said === lastSaid || groupNames.includes(said));
+      if (!node.ignored && !skippedRoles.has(role) && !(suppressText && textRoles.has(role)) && !(unnamedContainerRoles.has(role) && !name) && (name || !textRoles.has(role)) && !repeated) {
+        const semantic = semanticNode(node);
+        if (formatSimulatedSpeech(semantic).trim()) {
+          next.push({ identity: identity(node), backendDOMNodeId: node.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId) });
+          if (said) lastSaid = said;
+        }
       }
       const suppressDescendantText = suppressText || (!node.ignored && !!name && namedLeafRoles.has(role));
+      const inner = !node.ignored && said && !textRoles.has(role) ? [...groupNames, said] : groupNames;
       for (const childId of node.childIds ?? []) {
         const child = byId.get(childId);
-        if (child) visit(child, suppressDescendantText);
+        if (child) visit(child, suppressDescendantText, inner);
       }
     };
-    for (const node of axNodes) if (!node.parentId || !byId.has(node.parentId)) visit(node, false);
+    for (const node of axNodes) if (!node.parentId || !byId.has(node.parentId)) visit(node, false, []);
     // AX values for password fields are intentionally discarded before formatting or emitting diagnostics.
     for (const node of next) {
       if ((!editableRoles.has(node.semantic.role) && !node.semantic.value) || node.backendDOMNodeId === undefined) continue;
@@ -199,19 +218,21 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
-    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
+    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
       await this.refresh(signal);
       signal?.throwIfAborted();
       const receipt: ActionReceipt = { backend: 'mock-voiceover', evidenceProvenance: 'simulation', acknowledged: true };
-      if (action.kind === 'intent' && ['next', 'previous'].includes(action.intent)) {
+      const move = action.kind === 'intent' ? moves[action.intent] : undefined;
+      if (move) {
         const currentIndex = this.nodes.findIndex(node => node.identity === this.cursor);
-        const index = currentIndex + (action.intent === 'next' ? 1 : -1);
+        let index = currentIndex + move.step;
+        while (move.match && index >= 0 && index < this.nodes.length && !move.match(this.nodes[index]!.semantic.role)) index += move.step;
         if (index >= 0 && index < this.nodes.length) {
           this.cursor = this.nodes[index]!.identity;
           this.announce(this.current());
-        } else this.announce(undefined, action.intent === 'next' ? 'End of content' : 'Start of content');
+        } else this.announce(undefined, move.none);
       } else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
       else if (action.kind === 'intent' && action.intent === 'readFocused') {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');

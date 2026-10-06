@@ -11,8 +11,7 @@ import type { ObserverEvent } from '@rawstep/browser/observer';
 import type { Task, VerifyRule } from '@rawstep/core/contracts';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ExperimentQueue } from '../packages/dashboard/src/server/queue.js';
-import { ProjectStore } from '../packages/dashboard/src/server/store.js';
-import { HttpScreenshotModel, SCREENSHOT_KEYS, screenshotChoices, type ScreenshotModelRequest } from 'rawstep/screenshot';
+import { ProjectStore } from '@rawstep/project/store';
 
 const dirs: string[] = [], apps: Awaited<ReturnType<typeof startDashboard>>[] = [];
 afterEach(async () => {
@@ -103,19 +102,3 @@ describe('ExperimentQueue.initialize crash recovery', () => {
   });
 });
 
-describe('HttpScreenshotModel response size cap', () => {
-  const request = (): ScreenshotModelRequest => ({
-    protocol: 'rawstep-screenshot-choice-v1', goal: 'Inspect', screenshot: { pngBase64: png, viewport: { w: 1, h: 1 } },
-    choices: screenshotChoices({ intents: [], keys: SCREENSHOT_KEYS, inputKeys: [], replaceText: false }), history: [], visualState: { sha256: 'a'.repeat(64), visits: 1, unchangedTransitions: 0 },
-  });
-  const model = (body: string) => new HttpScreenshotModel({ endpoint: 'http://127.0.0.1:8766/choose', fetch: async () => new Response(body, { status: 200 }) });
-  const signal = () => ({ signal: new AbortController().signal });
-  it('rejects a response larger than the byte limit without echoing it', async () => {
-    await expect(model('x'.repeat(2_000_000)).choose(request(), signal())).rejects.toThrow(/byte limit/);
-  });
-  it('still parses a small valid response and reports invalid JSON', async () => {
-    const valid = { choiceId: 'key:Tab', model: { id: 'test-fake-not-real-model', runtime: 'vitest' } };
-    await expect(model(JSON.stringify(valid)).choose(request(), signal())).resolves.toMatchObject({ choiceId: 'key:Tab' });
-    await expect(model('not json').choose(request(), signal())).rejects.toThrow(/invalid JSON/);
-  });
-});
