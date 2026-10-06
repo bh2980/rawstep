@@ -142,6 +142,19 @@ describe('runner input privacy', () => {
     }
   });
 
+  it('keeps a run readable after typing a value marked not sensitive, and redacts only after typing a secret', async () => {
+    const f = screenReaderFixture(n => [`Edit text, entered ${n}`]);
+    const nickOnly = await runTask(task, { ...f, outDir: await out(), policy: recordingPolicy([type('nick'), tab, { stop: 'stuck' }]).policy });
+    expect(nickOnly.events.some(e => e.type === 'privacy.input-taint')).toBe(false);
+    expect(nickOnly.events.filter(e => e.redacted)).toEqual([]);
+    expect(JSON.stringify(nickOnly.task)).toContain('rawstep-user');
+    expect(JSON.stringify(nickOnly)).not.toContain(secret);
+    const g = screenReaderFixture(n => [`Edit text, entered ${n}`]);
+    const withSecret = await runTask(task, { ...g, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    expect(withSecret.events.some(e => e.type === 'privacy.input-taint')).toBe(true);
+    expect(JSON.stringify(withSecret)).not.toContain(secret);
+  });
+
   it('passes sensitive:true by default and sensitive:false when configured to the backend', async () => {
     const f = screenReaderFixture();
     await runTask(task, { ...f, outDir: await out(), policy: recordingPolicy([type('email'), type('nick'), { stop: 'stuck' }]).policy });

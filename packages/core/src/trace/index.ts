@@ -43,6 +43,8 @@ export interface TraceTaskMetadata {
   goal?: string;
   input?: unknown;
   inputs?: unknown;
+  /** Per-input options; an input with `sensitive: false` (a search term) is not redacted from the trace. */
+  inputOptions?: unknown;
 }
 export interface RunOutcome {
   status: "success" | "failure" | "inconclusive" | "aborted";
@@ -87,6 +89,12 @@ function jsonCopy<T>(value: T): T {
   return JSON.parse(serialized) as T;
 }
 
+/** The task inputs that are secret: every one except those whose option says `sensitive: false`. */
+function sensitiveInputs(input: unknown, options: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input) || !options || typeof options !== "object") return input;
+  const marked = options as Record<string, { sensitive?: unknown } | undefined>;
+  return Object.fromEntries(Object.entries(input).filter(([name]) => marked[name]?.sensitive !== false));
+}
 function inputStrings(value: unknown): string[] {
   if (typeof value === "string") return value ? [value] : [];
   if (typeof value === "number" || typeof value === "boolean") return [String(value)];
@@ -225,7 +233,7 @@ export class TraceRecorder {
     if (!task.id) throw new Error("Trace task id is required.");
     const include = options.includeSensitiveInputValues === true;
     this.redact = createRedactor(include ? [] : [
-      ...inputStrings(task.input), ...inputStrings(task.inputs), ...(options.sensitiveValues ?? [])
+      ...inputStrings(sensitiveInputs(task.input, task.inputOptions)), ...inputStrings(task.inputs), ...(options.sensitiveValues ?? [])
     ]);
     const safeTask = this.redact(task);
     if (task.mode === "screenreader" || task.mode === "keyboard") safeTask.value.mode = task.mode;

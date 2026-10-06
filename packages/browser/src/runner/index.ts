@@ -349,7 +349,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
           const editable = await withinBudget(() => isEditable(browser!));
           append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
           if (!editable) throw new Error('Text entry requires an editable focused field.');
-          if (!options.includeSensitiveInputValues) {
+          // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
+          if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
             inputTainted = true;
             append('privacy.input-taint', { step, reason: 'Subsequent protocol payloads, speech and diagnostic screenshots are redacted because late input echoes cannot be attributed reliably.' }, { redacted: true });
           }
