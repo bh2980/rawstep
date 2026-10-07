@@ -125,5 +125,11 @@ export const states = {
       'cli-missing': '이 컴퓨터에 해당 CLI(codex, grok, agy)를 설치하세요. rawstep을 실행한 터미널에서 그 명령이 보여야 합니다.',
       'cli-signed-out': '터미널에서 그 CLI에 로그인한 뒤(codex login, grok login, agy 실행 후 로그인) 다시 확인하세요.',
     },
+    /** The same results for a coding-agent CLI connection, which has no server address or key. */
+    cliReason: {
+      ready: 'CLI가 설치되어 있고 로그인되어 있습니다. 모델을 고른 경우 CLI의 모델 목록에 그 모델이 있는 것도 확인했습니다.',
+      unverified: 'CLI는 로그인되어 있지만 모델 목록을 주지 않아, 모델 ID가 맞는지는 첫 실행에서 알 수 있습니다.',
+      'model-not-listed': 'CLI는 로그인되어 있지만 이 계정의 모델 목록에 이 모델 ID가 없습니다. 목록에서 다시 고르세요.',
+    },
   },
 } as const;

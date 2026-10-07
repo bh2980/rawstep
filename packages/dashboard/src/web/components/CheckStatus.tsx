@@ -15,12 +15,14 @@ const kindOf = (check: CheckState): CheckKind | 'running' | 'connection' => chec
 export function CheckStatus({ check, className }: { check: CheckState; className?: string }) {
   const { t } = useTranslation();
   const kind = kindOf(check), ready = kind === 'ready', unverified = kind === 'unverified';
+  // A CLI connection has no server or key: its check reads the sign-in and the CLI's own model list, so it says so in its own words.
+  const cliReason = check.state === 'done' && check.result.via === 'cli-login' && (kind === 'ready' || kind === 'unverified' || kind === 'model-not-listed') ? kind : undefined;
   const Icon = kind === 'running' ? LoaderCircle : ready ? CircleCheck : unverified ? CircleHelp : CircleAlert;
   return <div role="status" aria-live="polite" className={cn('flex items-start gap-2.5', className)}>
     <Icon aria-hidden="true" className={cn('mt-0.5 size-4 shrink-0', ready ? 'text-reach' : kind === 'running' || unverified ? 'text-muted-foreground' : 'text-missed')} />
     <div className="grid gap-0.5">
       <p className="text-sm font-semibold">{t(`modelCheck.title.${kind}`)}</p>
-      <p className="text-[13px] leading-5 text-muted-foreground">{t(`modelCheck.reason.${kind}`)}</p>
+      <p className="text-[13px] leading-5 text-muted-foreground">{cliReason ? t(`modelCheck.cliReason.${cliReason}`) : t(`modelCheck.reason.${kind}`)}</p>
     </div>
   </div>;
 }
