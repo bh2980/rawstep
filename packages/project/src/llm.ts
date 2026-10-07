@@ -1,12 +1,17 @@
 import type { ChoiceModel } from '@rawstep/policies/policy';
-import { createLlmModel, LlmChoiceModel } from '@rawstep/policies/llm';
+import { createCodexModel, createLlmModel, LlmChoiceModel, type LlmModel } from '@rawstep/policies/llm';
+export { codexLoginStatus } from '@rawstep/policies/llm';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
 import { resolveBaseURL, type Model, type Prompt } from './config.js';
 
-/** The LLM a run profile chose, as a choice model with the run's prompt. */
+/** An LLM on its connection: Codex CLI runs locally with the person's sign-in; every other provider is an OpenAI-compatible endpoint. */
+export function llmModelOf(model: Model, name: string, apiKey?: string, fetcher?: typeof fetch): LlmModel {
+  if (model.provider === 'codex') return createCodexModel({ modelId: model.modelId, timeoutMs: model.timeoutMs, ...(model.reasoningEffort ? { reasoningEffort: model.reasoningEffort } : {}) });
+  return createLlmModel({ baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs, name, fetch: fetcher });
+}
+/** The LLM a model combo chose, as a choice model with the run's prompt. */
 export function llmChoiceModel(model: Model, prompt: Prompt, apiKey?: string, fetcher?: typeof fetch): LlmChoiceModel {
-  const llm = createLlmModel({ baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs, name: 'rawstep-choice', fetch: fetcher });
-  return new LlmChoiceModel(llm, prompt, model.inputs);
+  return new LlmChoiceModel(llmModelOf(model, 'rawstep-choice', apiKey, fetcher), prompt, model.inputs);
 }
 /** Keyboard-mode bridge: the screenshot policy's request as a choice model's state and images. */
 export class LlmScreenshotAdapter implements ScreenshotModelAdapter {

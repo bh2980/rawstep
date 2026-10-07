@@ -2,7 +2,8 @@ import { resolveTask, type VerifyRule } from '@rawstep/core/contracts';
 import { closeBrowserSession } from '@rawstep/browser/browser';
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
-import { createLlmModel, generateStructured } from '@rawstep/policies/llm';
+import { generateStructured } from '@rawstep/policies/llm';
+import { llmModelOf } from '@rawstep/project/llm';
 import { resolveBaseURL, type MachineSettings, type Model } from '@rawstep/project/config';
 import { record } from './http.js';
 import { openStartPage, readPageStructure } from './structure.js';
@@ -70,7 +71,7 @@ export async function suggestChecks(options: {
 
 async function askModel(options: { model: Model; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
   try {
-    const llm = createLlmModel({ baseURL: resolveBaseURL(options.model), modelId: options.model.modelId, apiKey: options.apiKey, timeoutMs: options.model.timeoutMs, name: 'rawstep-suggest' });
+    const llm = llmModelOf(options.model, 'rawstep-suggest', options.apiKey);
     const { object } = await generateStructured({ model: llm, system: SYSTEM, user: JSON.stringify({ goal, pageStructure: structure }), signal: options.signal, schema: suggestionsSchema });
     return object.suggestions;
   } catch {

@@ -1,5 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
+import { listCodexModels } from '@rawstep/policies/llm';
 import { providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
 import { ProjectError } from './errors.js';
 
@@ -19,6 +20,7 @@ export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoi
 
 /**
  * The models a connection offers, for a run profile to pick from.
+ * - Codex CLI: the models Codex cached for the person's sign-in.
  * - LLM providers: the OpenAI-style `GET {base}/models` list. Only OpenRouter says which models take images; for the
  *   others the inputs are unknown (`inputsKnown: false`) and the provider's default is assumed for a person to correct.
  * - Decision providers: OpenRouter's `models?output_modalities=decisions` (with input modalities); TypeSafe's `/models`
@@ -31,6 +33,8 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
   if (provider === 'custom' && !target.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
   const timeoutMs = options.timeoutMs ?? Math.min(RAWSTEP_DEFAULTS.modelTimeoutMs, 30000);
   if (kind === 'decision' && provider === 'custom') return [];
+  // Codex lists the models of this sign-in in its own cache; they take text here.
+  if (kind === 'llm' && provider === 'codex') return (await listCodexModels()).map(m => ({ modelId: m.id, name: m.name, inputs: ['text'], inputsKnown: true }));
   if (kind === 'decision' && provider === 'gateway') {
     if (!apiKey) throw new ProjectError('missing-credential', 'Listing Vercel AI Gateway models needs its key. Enter the key first.');
     let models: { id: string; name: string }[];

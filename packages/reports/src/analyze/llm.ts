@@ -13,7 +13,10 @@ const resultSchema = z.object({
   })),
 });
 
-export type LlmAnalyzerOptions = { baseURL: string; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
+export type LlmAnalyzerOptions = {
+  /** A ready LLM (for example Codex CLI); otherwise the OpenAI-compatible endpoint at `baseURL` is used. */
+  llm?: LlmModel;
+  baseURL?: string; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
 /** All saved events remain; binary PNG payloads are explicitly omitted, never captioned. */
 export function analysisTracePayload(trace: Readonly<RunTrace>): string {
   if (!trace.endedAt || !trace.outcome || trace.privacy.inputValues !== 'redacted') throw new Error('LLM analysis requires a finalized, input-redacted trace.');
@@ -29,7 +32,8 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
     if (options.instructions !== undefined && (typeof options.instructions !== 'string' || Buffer.byteLength(options.instructions) > 16384)) throw new Error('Invalid analysis instructions.');
     const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs; this.maxInput = options.maxInputBytes ?? 1_000_000;
     if (![timeoutMs, this.maxInput].every(v => Number.isSafeInteger(v) && v > 0 && v <= 2_147_483_647)) throw new Error('Invalid analysis limits.');
-    try { this.llm = createLlmModel({ baseURL: options.baseURL, modelId: options.model, apiKey: options.apiKey, timeoutMs, name: 'rawstep-analysis', fetch: options.fetch }); }
+    if (options.llm) { this.llm = options.llm; return; }
+    try { this.llm = createLlmModel({ baseURL: options.baseURL ?? '', modelId: options.model, apiKey: options.apiKey, timeoutMs, name: 'rawstep-analysis', fetch: options.fetch }); }
     catch { throw new Error('Analysis requires HTTPS or loopback HTTP without URL credentials/query/fragment.'); }
   }
   async analyze(trace: Readonly<RunTrace>): Promise<AnalyzerResult> {

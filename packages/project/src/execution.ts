@@ -8,13 +8,13 @@ import { OrchestratedSpeechPolicy, orchestratedPrompt, renderPlanMarkdown, Speec
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicJson } from './store.js';
-import { createLlmModel, LlmPlanner } from '@rawstep/policies/llm';
+import { LlmPlanner } from '@rawstep/policies/llm';
 import { ScreenshotDecisionPolicy } from '@rawstep/policies/screenshot/policy';
 import type { ScreenshotModelAdapter } from '@rawstep/policies/screenshot/model';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
-import { llmChoiceModel, LlmScreenshotAdapter } from './llm.js';
+import { llmChoiceModel, llmModelOf, LlmScreenshotAdapter } from './llm.js';
 import { type AtBackend, type Executor, type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
 import { ensureAtDriver } from './atdriver.js';
 
@@ -60,7 +60,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
   const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
   // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
   const planner = mode === 'screenreader' && plannerModel
-    ? new LlmPlanner(createLlmModel({ baseURL: resolveBaseURL(plannerModel), modelId: plannerModel.modelId, apiKey: plannerApiKey, timeoutMs: plannerModel.timeoutMs, name: 'rawstep-planner' }), plannerInstructions)
+    ? new LlmPlanner(llmModelOf(plannerModel, 'rawstep-planner', plannerApiKey), plannerInstructions)
     : undefined;
   const speechPolicy = (chooser: ChoiceModel): DecisionPolicy => planner
     ? new OrchestratedSpeechPolicy(planner, chooser, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit })

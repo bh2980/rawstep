@@ -8,6 +8,7 @@ import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from 
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, projectAnalysisModel, resolveBaseURL, taskConditions, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
+import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
 import { assertRunnable, checkRun, runSpecOf, type RunConditions } from './plan.js';
 import { executeRun, type RunExecutor, type RunSpec } from './execution.js';
@@ -165,7 +166,7 @@ export async function requireKey(store: ProjectStore, model: Model): Promise<str
 }
 /** The trace analyzer of an LLM model. */
 export function llmAnalyzer(model: Model, apiKey: string | undefined, instructions?: string, signal?: AbortSignal): LlmTraceAnalyzer {
-  return new LlmTraceAnalyzer({ baseURL: resolveBaseURL(model), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
+  return new LlmTraceAnalyzer({ llm: llmModelOf(model, 'rawstep-analysis', apiKey), model: model.modelId || 'codex-default', timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
 }
 
 /** The project's analysis LLM as a trace analyzer. */

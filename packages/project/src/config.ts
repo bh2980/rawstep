@@ -14,11 +14,11 @@ const envName = z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/);
 export const modelKindSchema = z.enum(['llm', 'decision']);
 /** `llm`: a language model that reads the situation and picks a candidate (any OpenAI-compatible chat API). `decision`: a model that answers with probabilities over the candidates directly (the /systemone protocol, through the AI SDK's experimental decide API). */
 export type ModelKind = z.infer<typeof modelKindSchema>;
-export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'custom']);
+export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'custom']);
 export const decisionProviderSchema = z.enum(['typesafe', 'gateway', 'openrouter', 'custom']);
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 export type DecisionProvider = z.infer<typeof decisionProviderSchema>;
-export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'typesafe', 'gateway', 'custom']);
+export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'typesafe', 'gateway', 'custom']);
 export type ProviderId = z.infer<typeof providerSchema>;
 /** Where models of one provider live. Defined once here so the CLI, the dashboard and the runner agree. */
 export type ProviderPreset = {
@@ -40,6 +40,8 @@ export const PROVIDERS = {
     anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyRequired: true, listsModels: true, images: true },
     google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyRequired: true, listsModels: true, images: true },
     openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyRequired: true, listsModels: true, images: true },
+    /** Codex CLI on this computer with the person's ChatGPT sign-in (`codex login`): no address, no key. Text only. */
+    codex: { label: 'Codex CLI (ChatGPT sign-in)', keyRequired: false, listsModels: true, images: false },
     custom: { label: 'Custom (OpenAI-compatible)', keyRequired: false, listsModels: true, images: true },
   },
   decision: {
@@ -73,12 +75,15 @@ export const connectionSchema = z.object({
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
   timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
+  /** Only for `codex`: how hard the model thinks. Unset uses Codex's default, which can be slow for planning. */
+  reasoningEffort: z.enum(['minimal', 'low', 'medium', 'high', 'xhigh']).optional(),
 }).strict().superRefine((connection, ctx) => {
   const preset = (PROVIDERS[connection.kind] as Record<string, ProviderPreset>)[connection.provider];
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (!preset) return issue('provider', `${connection.provider} is not a provider of ${connection.kind} models.`);
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
+  if (connection.provider !== 'codex' && connection.reasoningEffort !== undefined) issue('reasoningEffort', 'Only Codex CLI connections set a reasoning effort.');
 });
 export type Connection = z.infer<typeof connectionSchema>;
 /** A model an agent decides with: a model ID on a connection and what that model can take. */
@@ -255,7 +260,7 @@ export type ProjectConfig = z.infer<typeof configSchema>;
  * A model as a run calls it: a connection plus the model ID and capabilities a combo picked. `id` is the connection's,
  * so keys and checks are per connection.
  */
-export type Model = Pick<Connection, 'id' | 'kind' | 'provider' | 'baseURL' | 'apiKeyEnv' | 'timeoutMs'> & { name: string; modelId: string; inputs: ('text' | 'image')[]; maxChoices: number; maxImages: number };
+export type Model = Pick<Connection, 'id' | 'kind' | 'provider' | 'baseURL' | 'apiKeyEnv' | 'timeoutMs' | 'reasoningEffort'> & { name: string; modelId: string; inputs: ('text' | 'image')[]; maxChoices: number; maxImages: number };
 /** Instructions as a run records them: `id` and `version` identify them in policy evidence. */
 export type Prompt = { id: string; name: string; version: string; instructions: string };
 export type Mode = 'keyboard' | 'screenreader';
@@ -274,7 +279,7 @@ export function resolveRepetitionGuard(setting: RunRules['repetitionGuard'], mod
   return setting === 'auto' ? mode === 'screenreader' || model.kind === 'llm' : setting === 'on';
 }
 /** Where the model is called: the preset address of its provider, or the address a custom connection carries. */
-export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
+export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL ?? '';
 /** The environment variable that holds the connection's key, if it has one. */
 export const modelKeyEnv = (model: Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;
 export const modelKeyRequired = (model: Pick<Connection, 'kind' | 'provider'>): boolean => providerPreset(model).keyRequired;

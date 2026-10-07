@@ -46,9 +46,12 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
 const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
+/**
+ * Actions on a task, since its plan, before the executor may ask for help. A decision model asks readily, and every request
+ * costs a correction of the plan; a few tries first give the plan a fair chance (the task limit still catches a stuck task).
+ */
+const TRIES_BEFORE_HELP = 3;
 const TASK_DONE = 'task:done';
-/** Help reasons that need at least one try on the task first: asking before acting throws away a plan nobody tested. */
-const AFTER_TRYING: ReadonlySet<HelpReason> = new Set(['no-cue', 'no-effect']);
 const HELP: Record<HelpReason, string> = {
   'no-cue': 'Ask for a new plan: the completion cue of the current task cannot be found',
   'no-effect': 'Ask for a new plan: actions have no effect here',
@@ -119,17 +122,23 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         for (const title of unreviewed) markCheckpoint(this.doc!, title, step);
         continue;
       }
-      const actions = speechChoices(input.allowedActions, this.options, input.inputs);
+      // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
+      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision);
+      const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
+      const tried = taskAttempts.filter(h => 'action' in h.decision).length;
+      // Help needs a few actions on the task since its plan: asking before acting throws away a plan nobody tested.
+      // A task that already looks done is claimed done instead, and Rawstep checks the cue.
       const candidates: ChoiceCandidate[] = [...actions.map(({ id, label }) => ({ id, label })),
         ...(refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
-        ...(Object.keys(HELP) as HelpReason[]).filter(reason => task.actions > 0 || !AFTER_TRYING.has(reason)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] }))];
+        // Right after a turned-down "done", "already done" is the same claim in other words.
+        ...(tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
       const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {
         goal: input.goal, plan: planOutline(doc),
-        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: task.cue } : {}), actions: task.actions, actionLimit: this.limits.stepActionLimit,
+        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: task.cue } : {}), actions: tried, actionLimit: this.limits.stepActionLimit,
           ...(task.rejected ? { claimsTurnedDown: task.rejected } : {}) }, ...(next ? { nextTask: next.goal } : {}),
-        taskAttempts: modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom),
+        taskAttempts,
         speech: [...input.observation.speech], history: modelHistory(input.history, input.observation, this.limits.historyLimit),
       }, choices: candidates }, { signal: input.signal });
       input.signal.throwIfAborted();
@@ -164,8 +173,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       }
       task.actions++;
       this.served.set(step, { taskId: task.id, planVersion: doc.version });
-      const decision = structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
-      return 'stop' in decision ? { ...decision, stopSource: 'model' } : decision;
+      return structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
     }
     return this.giveUp(step, 'plan-finished');
   }
@@ -178,7 +186,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const last = (n: number) => since.length >= n ? since.slice(-n) : undefined;
     if (last(this.limits.failureLimit)?.every(h => h.execution?.ok === false)) return 'failures';
     if (last(this.limits.noChangeLimit)?.every(h => h.changed === false)) return 'no-change';
-    if (task.actions >= this.limits.stepActionLimit) return 'task-limit';
+    // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
+    if (since.length >= this.limits.stepActionLimit) return 'task-limit';
     return undefined;
   }
   private attempts(history: readonly HistoryEntry[], input: Input): TaskAttempt[] {

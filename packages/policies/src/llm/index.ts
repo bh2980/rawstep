@@ -7,14 +7,19 @@ import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 import type { Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
+import { codexStructured, type CodexModelOptions } from './codex.js';
+export { codexLoginStatus, listCodexModels, strictJsonSchema, type CodexModelOptions, type CodexReasoningEffort } from './codex.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
- * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...). Provider error text can carry
- * credentials or page content, so SDK errors are never forwarded: callers only see a RawstepError
+ * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...) or through Codex CLI with the person's ChatGPT sign-in.
+ * Provider error text can carry credentials or page content, so errors are never forwarded: callers only see a RawstepError
  * with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
  */
-export type LlmModel = {
+export type LlmModel = SdkLlmModel | CodexLlmModel;
+export type CodexLlmModel = { readonly kind: 'codex'; readonly modelId: string; readonly timeoutMs: number; readonly codex: CodexModelOptions };
+export type SdkLlmModel = {
+  readonly kind?: 'sdk';
   readonly model: LanguageModel;
   /** The model ID that was requested; a response that names another model is rejected. */
   readonly modelId: string;
@@ -38,7 +43,13 @@ const MESSAGES = {
 } as const;
 export const llmError = (code: keyof typeof MESSAGES) => new RawstepError(code, MESSAGES[code]);
 
-export function createLlmModel(options: LlmModelOptions): LlmModel {
+/** Codex CLI as an LLM. An empty model ID lets Codex pick its own default model. */
+export function createCodexModel(options: Omit<CodexModelOptions, 'timeoutMs'> & { timeoutMs?: number }): CodexLlmModel {
+  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
+  return { kind: 'codex', modelId: options.modelId.trim(), timeoutMs, codex: { ...options, timeoutMs } };
+}
+export function createLlmModel(options: LlmModelOptions): SdkLlmModel {
   if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
   const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
@@ -70,6 +81,12 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
   const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
+    if (model.kind === 'codex') {
+      // Codex reads text only here; a request that needs images cannot be served faithfully.
+      if (request.images?.length) throw new Error('images');
+      const object = await codexStructured(model.codex, { system: request.system, user: request.user, schema: request.schema, signal: abortSignal });
+      return { object, modelId: model.modelId || 'codex-default' };
+    }
     const content = request.images?.length
       ? [{ type: 'text' as const, text: request.user }, ...request.images.map(data => ({ type: 'file' as const, data, mediaType: 'image/png' }))]
       : request.user;
@@ -115,7 +132,7 @@ export class LlmChoiceModel implements ChoiceModel {
     const candidates = request.choices.map(({ id, label }) => ({ id, label }));
     try {
       const { choiceId } = await chooseCandidate({ model: this.llm, system: this.prompt.instructions, state: request.state, candidates, ...(request.images?.length ? { images: request.images } : {}), signal });
-      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: 'openai-compatible-generative-choice' },
+      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: this.llm.kind === 'codex' ? 'codex-cli-choice' : 'openai-compatible-generative-choice' },
         prompt: { id: this.prompt.id, version: this.prompt.version, sha256: createHash('sha256').update(JSON.stringify({ instructions: this.prompt.instructions, choices: candidates })).digest('hex') } };
     } catch {
       signal.throwIfAborted();
@@ -149,7 +166,8 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'e.g. a link or heading name) that must be heard for the task to count as finished; Rawstep turns down the executor\'s "done" when the cue was',
   'not heard. Give a cue for every task whose words you can predict from what was heard, the page title or the goal; use "" only when you cannot.',
   'Write "done" as what is heard, never as what the executor did ("I found it" cannot be checked).',
-  '"title" is the page title the screen reader announced when the page loaded: use it to tell which page the user is on before planning to go elsewhere.',
+  'The run starts on the page where the task begins; when the goal says which page that is (for example "on the product page"), plan from that page',
+  'instead of navigating to it. "title" is the page title the screen reader announced when the page loaded; many sites use one title for every page.',
   'Base everything on what has been heard so far; treat conventions as assumptions, never as facts about this page.',
   'When "document" is present you are revising your plan because of "trigger" (and "help", the executor\'s reason). "checkpoint" means a phase just',
   'finished: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
@@ -174,6 +192,6 @@ export class LlmPlanner implements Planner {
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
     const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: draftSchema });
-    return { draft: object, model: { id: modelId, runtime: 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
+    return { draft: object, model: { id: modelId, runtime: this.llm.kind === 'codex' ? 'codex-cli-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
   }
 }

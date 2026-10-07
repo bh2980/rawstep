@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
+import { codexLoginStatus } from '@rawstep/project/llm';
 import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
@@ -24,6 +25,8 @@ export interface CliDependencies {
   launchBrowser?: (options: { executablePath?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
+  /** Test seam: whether Codex CLI is installed and signed in. */
+  codexStatus?: () => Promise<'signed-in' | 'signed-out' | 'missing'>;
   cwd?: string;
   stdout?: (text: string) => void;
   stderr?: (text: string) => void;
@@ -196,6 +199,11 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   if (read) {
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;
+      if (key.connection.provider === 'codex') {
+        const status = await (dependencies.codexStatus ?? codexLoginStatus)();
+        report(status === 'signed-in', 'Codex CLI', status === 'signed-in' ? 'installed and signed in' : status === 'missing' ? 'not found. Install it with `npm i -g @openai/codex`' : 'not signed in. Run `codex login`');
+        continue;
+      }
       if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }
       const present = !!await store.credential(key.connection);
       report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
