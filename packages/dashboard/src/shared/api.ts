@@ -185,7 +185,7 @@ export type SuggestionResult = { page: { title: string; url: string }; suggestio
  * Why a connection check did not end in `ready`. The words are the dashboard's own; nothing a provider sent is ever shown.
  * `unverified` is not a failure: the server answered but gave no model list to confirm the model against.
  */
-export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed' | 'codex-missing' | 'codex-signed-out';
-export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'codex-login' | 'none'; checkedAt: string };
+export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed' | 'cli-missing' | 'cli-signed-out';
+export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'cli-login' | 'none'; checkedAt: string };
 /** One browser launch on request: the engine, its version and where it came from. */
 export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' } | { ok: false; kind: 'not-found' | 'launch-failed'; source: 'custom' | 'auto' };

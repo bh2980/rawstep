@@ -56,6 +56,7 @@ A connection is where models are reached: a provider preset (fixed address and k
 | `baseURL` | Only for `provider: custom`, and required there: the server address (HTTPS, or HTTP on this computer). |
 | `apiKeyEnv` | Only for `provider: custom`: the environment variable that holds the key, if the server needs one. |
 | `timeoutMs` | Request timeout, 100 to 600000 ms. |
+| `reasoningEffort` | Only for the CLI providers below: how hard the model thinks (`codex`: minimal–xhigh, `grok`: low–xhigh, `antigravity`: low–max). Unset uses the CLI's default. |
 
 Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 
@@ -65,6 +66,9 @@ Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic's OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `codex` | Codex CLI on this computer (`codex exec`), ChatGPT sign-in | none |
+| `llm` | `grok` | Grok CLI on this computer (`grok -p`), grok.com sign-in | none |
+| `llm` | `antigravity` | Antigravity CLI on this computer (`agy -p`), Google sign-in | none |
 | `llm` | `custom` | any OpenAI-compatible server (LM Studio, Ollama, ...), `baseURL` | optional, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway, called through the AI SDK's gateway provider; text only | `RAWSTEP_AI_GATEWAY_API_KEY` |
@@ -75,6 +79,14 @@ Connections to one preset provider share its key. `llm` models call the provider
 
 ```json
 { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
+```
+
+### Coding-agent CLIs (`codex`, `grok`, `antigravity`)
+
+These run a CLI you already installed and signed in to, so planning and analysis need no API key. Rawstep starts the CLI once per call in an empty temporary folder, with its sandbox, one turn and no web or file tools where the CLI allows it (Codex also ignores your own Codex config: hooks, MCP servers, plugins). The answer is forced into a JSON schema and validated again by Rawstep. The model list comes from the CLI (`grok models`, `agy models`, Codex's model cache); `rawstep doctor` and the dashboard's connection check say whether the CLI is installed and signed in, without calling a model. Calls take seconds to minutes, so these suit roles called rarely (planner, analysis, check suggestions) rather than an executor called every step. Text only: keyboard-mode executors need images.
+
+```json
+{ "id": "codex", "name": "Codex CLI", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
 ```
 
 ## tasks[]

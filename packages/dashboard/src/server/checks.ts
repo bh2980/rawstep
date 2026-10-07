@@ -1,8 +1,8 @@
 import { RawstepError } from '@rawstep/core/errors';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { codexLoginStatus, listCodexModels } from '@rawstep/policies/llm';
-import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
+import { cliStatus, listCliModels } from '@rawstep/policies/llm';
+import { isCliProvider, providerPreset, resolveBaseURL, type CliProviderId, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
 import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
@@ -23,19 +23,20 @@ const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: k
  * - LLMs and every provider with a model list (TypeSafe, OpenRouter and Gateway decision models too): the model list, which
  *   costs nothing. Ready means the server answered, the key was accepted and the model is in the list.
  * - A custom decision server has no list, so it gets one minimal two-choice decision through the same client a run uses.
- * - Codex CLI: `codex login status`, then the models Codex cached for that sign-in.
+ * - Coding-agent CLIs: whether the CLI is signed in (`codex login status`, or the model list for Grok and Antigravity), then
+ *   whether the model is among the ones it lists.
  */
-/** Codex CLI: installed and signed in; with a model ID, that model is among the ones Codex lists for this sign-in. */
-async function checkCodex(modelId?: string): Promise<ModelCheck> {
-  const status = await codexLoginStatus();
-  if (status !== 'signed-in') return result(status === 'missing' ? 'codex-missing' : 'codex-signed-out', 'codex-login');
-  if (!modelId) return result('ready', 'codex-login');
-  const listed = await listCodexModels();
-  return result(listed.length === 0 ? 'unverified' : listed.some(m => m.id === modelId) ? 'ready' : 'model-not-listed', 'codex-login');
+/** A coding-agent CLI: installed and signed in; with a model ID, that model is among the ones the CLI lists for this sign-in. */
+async function checkCli(provider: CliProviderId, modelId?: string): Promise<ModelCheck> {
+  const status = await cliStatus(provider);
+  if (status !== 'signed-in') return result(status === 'missing' ? 'cli-missing' : 'cli-signed-out', 'cli-login');
+  if (!modelId) return result('ready', 'cli-login');
+  const listed = await listCliModels(provider);
+  return result(listed.length === 0 ? 'unverified' : listed.some(m => m.id === modelId) ? 'ready' : 'model-not-listed', 'cli-login');
 }
 export async function checkModel(model: CheckedModel, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(model), key = apiKey?.trim() || undefined;
-  if (model.provider === 'codex') return checkCodex(model.modelId);
+  if (isCliProvider(model.provider)) return checkCli(model.provider, model.modelId);
   if (preset.keyRequired && !key) return result('missing-key', 'none');
   const timeoutMs = options.timeoutMs ?? 15000;
   if (model.kind === 'decision' && model.provider === 'custom') return checkDecisionServer(model, key, timeoutMs, options.fetch);
@@ -51,7 +52,7 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
 
 /** Whether a connection answers with its key, without a model: its model list. A list-less server is `unverified` until a model is checked. */
 export async function checkConnection(connection: Pick<Connection, 'kind' | 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
-  if (connection.provider === 'codex') return checkCodex();
+  if (isCliProvider(connection.provider)) return checkCli(connection.provider);
   const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
   const via = connection.kind === 'decision' ? 'decision-catalog' : 'model-list';

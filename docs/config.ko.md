@@ -60,6 +60,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `baseURL` | `provider: custom`일 때만 쓰며 이때는 필수입니다. 서버 주소(HTTPS, 이 컴퓨터의 서버는 HTTP도 가능) |
 | `apiKeyEnv` | `provider: custom`일 때만. 키를 담은 환경변수 이름(선택, 대문자·숫자·`_`) |
 | `timeoutMs` | 모델 요청 제한 시간(100~600000, 기본 60000) |
+| `reasoningEffort` | 아래 CLI 제공자만. 추론 강도(`codex`: minimal~xhigh, `grok`: low~xhigh, `antigravity`: low~max). 비우면 CLI 기본값 |
 
 제공자는 `@rawstep/project/config`의 `PROVIDERS`에 한 번만 정의합니다.
 
@@ -69,6 +70,9 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic의 OpenAI 호환 주소) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `codex` | 이 컴퓨터의 Codex CLI(`codex exec`), ChatGPT 로그인 | 없음 |
+| `llm` | `grok` | 이 컴퓨터의 Grok CLI(`grok -p`), grok.com 로그인 | 없음 |
+| `llm` | `antigravity` | 이 컴퓨터의 Antigravity CLI(`agy -p`), Google 로그인 | 없음 |
 | `llm` | `custom` | OpenAI 호환 서버(LM Studio, Ollama 등), `baseURL` | 선택, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway(AI SDK의 gateway provider 사용), 텍스트 전용 | `RAWSTEP_AI_GATEWAY_API_KEY` |
@@ -76,6 +80,14 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `decision` | `custom` | `/systemone` 호환 서버, `baseURL` | 선택, `apiKeyEnv` |
 
 같은 기본 제공자의 연결은 키 하나를 함께 씁니다. `llm`은 AI SDK로 제공자의 채팅 API를 호출하고, `decision`은 AI SDK의 실험적 `decide` API를 호출합니다. `typesafe`·`openrouter`·`custom`은 자체 `/systemone` 어댑터, `gateway`는 AI SDK의 gateway provider를 씁니다([SystemOne 결정 모델](./systemone.md)).
+
+### 코딩 에이전트 CLI (`codex`, `grok`, `antigravity`)
+
+이미 설치하고 로그인한 CLI를 쓰므로 계획·해설에 API 키가 필요 없습니다. Rawstep은 호출마다 빈 임시 폴더에서 CLI를 한 번 실행하고, CLI가 허용하는 한 샌드박스·한 턴·웹/파일 도구 없음으로 실행합니다(Codex는 개인 설정의 훅·MCP·플러그인도 쓰지 않습니다). 답은 JSON 스키마로 강제하고 Rawstep이 다시 검증합니다. 모델 목록은 CLI에서 읽고(`grok models`, `agy models`, Codex 모델 캐시), `rawstep doctor`와 대시보드 연결 확인은 모델을 부르지 않고 설치·로그인 여부만 봅니다. 호출이 몇 초에서 몇 분까지 걸리므로 매 단계 부르는 실행 모델보다 계획·해설·완료 확인 제안처럼 가끔 부르는 역할에 맞습니다. 텍스트만 받습니다.
+
+```json
+{ "id": "codex", "name": "Codex CLI", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
+```
 
 키보드 모드는 이미지를 보내므로 이미지 입력을 지원하고 `maxImages`가 2 이상인 모델이 필요합니다(이미지를 받는 `llm`, 또는 `typesafe`·`openrouter`·`custom`의 `decision` 모델). 목록에 이름이 있다는 것만으로 이미지 지원을 확정하지 않으며, 확인하지 못한 기능은 미확인으로 남깁니다.
 

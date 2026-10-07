@@ -1,12 +1,13 @@
 import type { ChoiceModel } from '@rawstep/policies/policy';
-import { createCodexModel, createLlmModel, LlmChoiceModel, type LlmModel } from '@rawstep/policies/llm';
-export { codexLoginStatus } from '@rawstep/policies/llm';
+import { createCliModel, createLlmModel, LlmChoiceModel, type LlmModel } from '@rawstep/policies/llm';
+import { isCliProvider } from './config.js';
+export { cliStatus } from '@rawstep/policies/llm';
 import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
 import { resolveBaseURL, type Model, type Prompt } from './config.js';
 
-/** An LLM on its connection: Codex CLI runs locally with the person's sign-in; every other provider is an OpenAI-compatible endpoint. */
+/** An LLM on its connection: a coding-agent CLI runs locally with the person's sign-in; every other provider is an OpenAI-compatible endpoint. */
 export function llmModelOf(model: Model, name: string, apiKey?: string, fetcher?: typeof fetch): LlmModel {
-  if (model.provider === 'codex') return createCodexModel({ modelId: model.modelId, timeoutMs: model.timeoutMs, ...(model.reasoningEffort ? { reasoningEffort: model.reasoningEffort } : {}) });
+  if (isCliProvider(model.provider)) return createCliModel({ provider: model.provider, modelId: model.modelId, timeoutMs: model.timeoutMs, ...(model.reasoningEffort ? { reasoningEffort: model.reasoningEffort } : {}) });
   return createLlmModel({ baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs, name, fetch: fetcher });
 }
 /** The LLM a model combo chose, as a choice model with the run's prompt. */

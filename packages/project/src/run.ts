@@ -166,7 +166,7 @@ export async function requireKey(store: ProjectStore, model: Model): Promise<str
 }
 /** The trace analyzer of an LLM model. */
 export function llmAnalyzer(model: Model, apiKey: string | undefined, instructions?: string, signal?: AbortSignal): LlmTraceAnalyzer {
-  return new LlmTraceAnalyzer({ llm: llmModelOf(model, 'rawstep-analysis', apiKey), model: model.modelId || 'codex-default', timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
+  return new LlmTraceAnalyzer({ llm: llmModelOf(model, 'rawstep-analysis', apiKey), model: model.modelId || `${model.provider}-default`, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
 }
 
 /** The project's analysis LLM as a trace analyzer. */

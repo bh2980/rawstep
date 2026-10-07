@@ -14,11 +14,11 @@ const envName = z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/);
 export const modelKindSchema = z.enum(['llm', 'decision']);
 /** `llm`: a language model that reads the situation and picks a candidate (any OpenAI-compatible chat API). `decision`: a model that answers with probabilities over the candidates directly (the /systemone protocol, through the AI SDK's experimental decide API). */
 export type ModelKind = z.infer<typeof modelKindSchema>;
-export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'custom']);
+export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'grok', 'antigravity', 'custom']);
 export const decisionProviderSchema = z.enum(['typesafe', 'gateway', 'openrouter', 'custom']);
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 export type DecisionProvider = z.infer<typeof decisionProviderSchema>;
-export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'typesafe', 'gateway', 'custom']);
+export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'grok', 'antigravity', 'typesafe', 'gateway', 'custom']);
 export type ProviderId = z.infer<typeof providerSchema>;
 /** Where models of one provider live. Defined once here so the CLI, the dashboard and the runner agree. */
 export type ProviderPreset = {
@@ -33,6 +33,14 @@ export type ProviderPreset = {
   /** Whether images can reach the model through this provider (keyboard mode needs them). */
   images: boolean;
 };
+/** LLM providers that are coding-agent CLIs on this computer, run with the person's own sign-in. */
+export const CLI_PROVIDERS = ['codex', 'grok', 'antigravity'] as const;
+export type CliProviderId = (typeof CLI_PROVIDERS)[number];
+export const isCliProvider = (provider: string): provider is CliProviderId => (CLI_PROVIDERS as readonly string[]).includes(provider);
+/** The reasoning efforts each CLI accepts, in increasing order. */
+export const CLI_EFFORTS: Record<CliProviderId, readonly ('minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max')[]> = {
+  codex: ['minimal', 'low', 'medium', 'high', 'xhigh'], grok: ['low', 'medium', 'high', 'xhigh'], antigravity: ['low', 'medium', 'high', 'xhigh', 'max'],
+};
 export const PROVIDERS = {
   llm: {
     openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyEnv: 'RAWSTEP_OPENAI_API_KEY', keyRequired: true, listsModels: true, images: true },
@@ -40,8 +48,10 @@ export const PROVIDERS = {
     anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyRequired: true, listsModels: true, images: true },
     google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyRequired: true, listsModels: true, images: true },
     openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyRequired: true, listsModels: true, images: true },
-    /** Codex CLI on this computer with the person's ChatGPT sign-in (`codex login`): no address, no key. Text only. */
+    /** Coding-agent CLIs on this computer with the person's own sign-in: no address, no key. Text only. */
     codex: { label: 'Codex CLI (ChatGPT sign-in)', keyRequired: false, listsModels: true, images: false },
+    grok: { label: 'Grok CLI (grok.com sign-in)', keyRequired: false, listsModels: true, images: false },
+    antigravity: { label: 'Antigravity CLI (Google sign-in)', keyRequired: false, listsModels: true, images: false },
     custom: { label: 'Custom (OpenAI-compatible)', keyRequired: false, listsModels: true, images: true },
   },
   decision: {
@@ -75,15 +85,16 @@ export const connectionSchema = z.object({
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
   timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
-  /** Only for `codex`: how hard the model thinks. Unset uses Codex's default, which can be slow for planning. */
-  reasoningEffort: z.enum(['minimal', 'low', 'medium', 'high', 'xhigh']).optional(),
+  /** Only for coding-agent CLIs: how hard the model thinks (each CLI takes its own levels). Unset uses the CLI's default, which can be slow for planning. */
+  reasoningEffort: z.enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
 }).strict().superRefine((connection, ctx) => {
   const preset = (PROVIDERS[connection.kind] as Record<string, ProviderPreset>)[connection.provider];
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (!preset) return issue('provider', `${connection.provider} is not a provider of ${connection.kind} models.`);
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
-  if (connection.provider !== 'codex' && connection.reasoningEffort !== undefined) issue('reasoningEffort', 'Only Codex CLI connections set a reasoning effort.');
+  if (connection.reasoningEffort !== undefined && (!isCliProvider(connection.provider) || !CLI_EFFORTS[connection.provider].includes(connection.reasoningEffort)))
+    issue('reasoningEffort', isCliProvider(connection.provider) ? `${preset.label} does not take the reasoning effort ${connection.reasoningEffort}.` : 'Only CLI connections set a reasoning effort.');
 });
 export type Connection = z.infer<typeof connectionSchema>;
 /** A model an agent decides with: a model ID on a connection and what that model can take. */

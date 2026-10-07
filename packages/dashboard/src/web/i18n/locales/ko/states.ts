@@ -107,8 +107,8 @@ export const states = {
       timeout: '응답이 제한 시간 안에 오지 않았습니다',
       failed: '확인하지 못했습니다',
       connection: '로컬 서버에 연결하지 못했습니다',
-      'codex-missing': 'Codex CLI를 찾지 못했습니다',
-      'codex-signed-out': 'Codex에 로그인되어 있지 않습니다',
+      'cli-missing': 'CLI 프로그램을 찾지 못했습니다',
+      'cli-signed-out': 'CLI에 로그인되어 있지 않습니다',
     },
     reason: {
       running: '모델 목록을 불러와 서버 응답과 인증키, 모델 ID를 확인합니다.',
@@ -122,8 +122,8 @@ export const states = {
       timeout: '서버가 느리거나 응답하지 않습니다. 잠시 뒤 다시 확인하세요.',
       failed: '서버의 응답 형식이 예상과 다르거나 연결에 실패했습니다. 주소와 서버 종류를 확인하세요.',
       connection: 'rawstep을 실행한 터미널이 켜져 있는지 확인하세요.',
-      'codex-missing': '이 컴퓨터에 Codex CLI를 설치하세요(npm i -g @openai/codex). rawstep을 실행한 터미널에서 codex 명령이 보여야 합니다.',
-      'codex-signed-out': '터미널에서 codex login을 실행해 ChatGPT 계정으로 로그인한 뒤 다시 확인하세요.',
+      'cli-missing': '이 컴퓨터에 해당 CLI(codex, grok, agy)를 설치하세요. rawstep을 실행한 터미널에서 그 명령이 보여야 합니다.',
+      'cli-signed-out': '터미널에서 그 CLI에 로그인한 뒤(codex login, grok login, agy 실행 후 로그인) 다시 확인하세요.',
     },
   },
 } as const;

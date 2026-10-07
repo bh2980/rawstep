@@ -7,17 +7,17 @@ import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 import type { Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
-import { codexStructured, type CodexModelOptions } from './codex.js';
-export { codexLoginStatus, listCodexModels, strictJsonSchema, type CodexModelOptions, type CodexReasoningEffort } from './codex.js';
+import { cliStructured, type CliModelOptions } from './cli.js';
+export { CLI_DRIVERS, cliStatus, listCliModels, strictJsonSchema, type CliModelOptions, type CliProvider, type CliReasoningEffort, type CliStatus } from './cli.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
- * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...) or through Codex CLI with the person's ChatGPT sign-in.
+ * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...) or through a coding-agent CLI (Codex, Grok, Antigravity) with the person's own sign-in.
  * Provider error text can carry credentials or page content, so errors are never forwarded: callers only see a RawstepError
  * with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
  */
-export type LlmModel = SdkLlmModel | CodexLlmModel;
-export type CodexLlmModel = { readonly kind: 'codex'; readonly modelId: string; readonly timeoutMs: number; readonly codex: CodexModelOptions };
+export type LlmModel = SdkLlmModel | CliLlmModel;
+export type CliLlmModel = { readonly kind: 'cli'; readonly modelId: string; readonly timeoutMs: number; readonly cli: CliModelOptions };
 export type SdkLlmModel = {
   readonly kind?: 'sdk';
   readonly model: LanguageModel;
@@ -43,11 +43,11 @@ const MESSAGES = {
 } as const;
 export const llmError = (code: keyof typeof MESSAGES) => new RawstepError(code, MESSAGES[code]);
 
-/** Codex CLI as an LLM. An empty model ID lets Codex pick its own default model. */
-export function createCodexModel(options: Omit<CodexModelOptions, 'timeoutMs'> & { timeoutMs?: number }): CodexLlmModel {
+/** A coding-agent CLI as an LLM. An empty model ID lets the CLI pick its own default model. */
+export function createCliModel(options: Omit<CliModelOptions, 'timeoutMs'> & { timeoutMs?: number }): CliLlmModel {
   const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
-  return { kind: 'codex', modelId: options.modelId.trim(), timeoutMs, codex: { ...options, timeoutMs } };
+  return { kind: 'cli', modelId: options.modelId.trim(), timeoutMs, cli: { ...options, timeoutMs } };
 }
 export function createLlmModel(options: LlmModelOptions): SdkLlmModel {
   if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
@@ -81,11 +81,11 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
   const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    if (model.kind === 'codex') {
-      // Codex reads text only here; a request that needs images cannot be served faithfully.
+    if (model.kind === 'cli') {
+      // The CLIs read text only here; a request that needs images cannot be served faithfully.
       if (request.images?.length) throw new Error('images');
-      const object = await codexStructured(model.codex, { system: request.system, user: request.user, schema: request.schema, signal: abortSignal });
-      return { object, modelId: model.modelId || 'codex-default' };
+      const object = await cliStructured(model.cli, { system: request.system, user: request.user, schema: request.schema, signal: abortSignal });
+      return { object, modelId: model.modelId || `${model.cli.provider}-default` };
     }
     const content = request.images?.length
       ? [{ type: 'text' as const, text: request.user }, ...request.images.map(data => ({ type: 'file' as const, data, mediaType: 'image/png' }))]
@@ -132,7 +132,7 @@ export class LlmChoiceModel implements ChoiceModel {
     const candidates = request.choices.map(({ id, label }) => ({ id, label }));
     try {
       const { choiceId } = await chooseCandidate({ model: this.llm, system: this.prompt.instructions, state: request.state, candidates, ...(request.images?.length ? { images: request.images } : {}), signal });
-      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: this.llm.kind === 'codex' ? 'codex-cli-choice' : 'openai-compatible-generative-choice' },
+      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: this.llm.kind === 'cli' ? `${this.llm.cli.provider}-cli-choice` : 'openai-compatible-generative-choice' },
         prompt: { id: this.prompt.id, version: this.prompt.version, sha256: createHash('sha256').update(JSON.stringify({ instructions: this.prompt.instructions, choices: candidates })).digest('hex') } };
     } catch {
       signal.throwIfAborted();
@@ -192,6 +192,6 @@ export class LlmPlanner implements Planner {
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
     const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: draftSchema });
-    return { draft: object, model: { id: modelId, runtime: this.llm.kind === 'codex' ? 'codex-cli-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
+    return { draft: object, model: { id: modelId, runtime: this.llm.kind === 'cli' ? `${this.llm.cli.provider}-cli-plan` : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
   }
 }

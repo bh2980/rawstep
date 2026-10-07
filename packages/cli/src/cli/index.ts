@@ -4,13 +4,13 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { codexLoginStatus } from '@rawstep/project/llm';
+import { cliStatus } from '@rawstep/project/llm';
 import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { ProjectError } from '@rawstep/project/errors';
-import { atEndpointOf, credentialRequirements } from '@rawstep/project/config';
+import { atEndpointOf, credentialRequirements, isCliProvider } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
@@ -25,8 +25,8 @@ export interface CliDependencies {
   launchBrowser?: (options: { executablePath?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
-  /** Test seam: whether Codex CLI is installed and signed in. */
-  codexStatus?: () => Promise<'signed-in' | 'signed-out' | 'missing'>;
+  /** Test seam: whether a coding-agent CLI is installed and signed in. */
+  cliStatus?: (provider: 'codex' | 'grok' | 'antigravity') => Promise<'signed-in' | 'signed-out' | 'missing'>;
   cwd?: string;
   stdout?: (text: string) => void;
   stderr?: (text: string) => void;
@@ -199,9 +199,9 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   if (read) {
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;
-      if (key.connection.provider === 'codex') {
-        const status = await (dependencies.codexStatus ?? codexLoginStatus)();
-        report(status === 'signed-in', 'Codex CLI', status === 'signed-in' ? 'installed and signed in' : status === 'missing' ? 'not found. Install it with `npm i -g @openai/codex`' : 'not signed in. Run `codex login`');
+      if (isCliProvider(key.connection.provider)) {
+        const status = await (dependencies.cliStatus ?? cliStatus)(key.connection.provider);
+        report(status === 'signed-in', key.label, status === 'signed-in' ? 'installed and signed in' : status === 'missing' ? 'not found on this computer. Install the CLI first' : 'not signed in. Sign in with the CLI, then run doctor again');
         continue;
       }
       if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }

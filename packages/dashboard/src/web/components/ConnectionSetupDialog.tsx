@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check } from 'lucide-react';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { providersOf, type Connection, type ModelKind, type ProviderId } from '@rawstep/project/config';
+import { isCliProvider, providersOf, type Connection, type ModelKind, type ProviderId } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import { ApiError, api } from '../api';
 import { generateEnvName, providerTextKey } from '../lib/connections';
@@ -59,7 +59,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   const config = props.view.config;
   const providers = providersOf(kind);
   const preset = provider ? providers.find(p => p.id === provider)?.preset : undefined;
-  const custom = provider === 'custom', codex = provider === 'codex';
+  const custom = provider === 'custom', cli = !!provider && isCliProvider(provider);
   const keySet = !!provider && !custom && !!props.view.credentialStatus[`provider:${provider}`];
   const key = apiKey.trim();
   const canConnect = !!provider && (!custom || !!baseURL.trim()) && (!preset?.keyRequired || keySet || !!key);
@@ -89,9 +89,9 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     if (!provider || !name.trim()) return;
     const id = crypto.randomUUID();
     const apiKeyEnv = custom && key ? generateEnvName(config.connections) : undefined;
-    // Codex starts a local agent per call, so it gets more time and a moderate reasoning effort to begin with.
+    // A CLI starts a local agent per call, so it gets more time and a moderate reasoning effort to begin with.
     const connection: Connection = { id, name: name.trim(), kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}),
-      timeoutMs: codex ? CODEX_TIMEOUT_MS : RAWSTEP_DEFAULTS.modelTimeoutMs, ...(codex ? { reasoningEffort: 'medium' as const } : {}) };
+      timeoutMs: cli ? CLI_TIMEOUT_MS : RAWSTEP_DEFAULTS.modelTimeoutMs, ...(cli ? { reasoningEffort: 'medium' as const } : {}) };
     const ok = await run(async () => {
       // A preset provider keeps one key for all its connections; a custom server's key is stored under the connection's own variable.
       if (key && !custom) await api('/credentials', { method: 'POST', body: { provider, value: key } });
@@ -123,7 +123,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
         <RadioRows legend={t('connections.steps.provider.title')} value={provider ?? ('' as ProviderId)} onChange={chooseProvider}
           rows={providers.map(p => ({ id: p.id, label: t(`connections.providers.${providerTextKey(kind, p.id)}.name`), hint: t(`connections.providers.${providerTextKey(kind, p.id)}.description`) }))} />
         {custom && <Field label={t('connections.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder={kind === 'llm' ? 'http://127.0.0.1:1234/v1' : 'http://127.0.0.1:8000/v1'} hint={kind === 'llm' ? t('connections.baseUrlHintLlm') : t('connections.baseUrlHintDecision')} />}
-        {provider && !codex && <SecretField label={preset?.keyRequired ? t('connections.apiKey') : t('connections.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
+        {provider && !cli && <SecretField label={preset?.keyRequired ? t('connections.apiKey') : t('connections.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
           hint={[keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : t('connections.keyOptionalHint'), key ? t('connections.keyStoredHint') : undefined, !custom ? t('connections.keyShared') : undefined].filter(Boolean).join(' ')} />}
       </div>
       <DialogFooter className="sm:justify-between">
@@ -140,7 +140,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       </dl>
       <div className="grid gap-2 border-l-4 border-edge-strong bg-surface py-3 pl-4">
         {check && <CheckStatus check={check} />}
-        <p className="text-xs leading-5 text-muted-foreground">{t(codex ? 'connections.checkNoteCodex' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</p>
+        <p className="text-xs leading-5 text-muted-foreground">{t(cli ? 'connections.checkNoteCli' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</p>
       </div>
       <Field label={t('connections.name')} value={name} onChange={setName} hint={t('connections.nameHint')} />
       <DialogFooter className="sm:justify-between">
@@ -154,6 +154,6 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   </>;
 }
 
-/** Time a Codex CLI call may take: it starts a local agent and reasons before answering. */
-const CODEX_TIMEOUT_MS = 180_000;
+/** Time a CLI call may take: it starts a local agent and reasons before answering. */
+const CLI_TIMEOUT_MS = 180_000;
 const hostOf = (url: string) => { try { return new URL(url.trim()).host; } catch { return url.trim(); } };

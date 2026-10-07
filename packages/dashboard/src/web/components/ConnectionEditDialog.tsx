@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { credentialId, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
+import { CLI_EFFORTS, credentialId, isCliProvider, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
 import { api } from '../api';
 import { ENV_NAME, generateEnvName, providerTextKey } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
@@ -24,7 +24,7 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
   const [revision] = useState(props.view.revision);
   const [apiKey, setApiKey] = useState('');
   const patch = (part: Partial<Connection>) => setConnection({ ...connection, ...part });
-  const custom = connection.provider === 'custom', codex = connection.provider === 'codex', preset = providerPreset(connection), key = apiKey.trim();
+  const custom = connection.provider === 'custom', preset = providerPreset(connection), key = apiKey.trim();
   const envInvalid = custom && !!connection.apiKeyEnv && !ENV_NAME.test(connection.apiKeyEnv);
   const valid = !!connection.name.trim() && !envInvalid && (!custom || !!connection.baseURL?.trim());
   const keySet = !!props.view.credentialStatus[credentialId(connection)] && !!modelKeyEnv(connection);
@@ -51,12 +51,12 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
     <div className="grid gap-5">
       <p className="text-sm text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${connection.kind}.name`), provider: providerName })}</p>
       <Field label={t('connections.name')} value={connection.name} onChange={name => patch({ name })} />
-      {codex
+      {isCliProvider(connection.provider)
         ? <>
-          <p className="text-sm leading-6 text-muted-foreground">{t('connections.codexNote')}</p>
+          <p className="text-sm leading-6 text-muted-foreground">{t('connections.cliNote')}</p>
           <Choice label={t('connections.reasoningEffort')} value={connection.reasoningEffort ?? 'default'}
             onChange={v => { const { reasoningEffort: _removed, ...rest } = connection; setConnection(v === 'default' ? rest : { ...rest, reasoningEffort: v as NonNullable<Connection['reasoningEffort']> }); }}
-            options={(['default', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(id => ({ id, name: t(`connections.efforts.${id}`) }))} />
+            options={(['default', ...CLI_EFFORTS[connection.provider]] as const).map(id => ({ id, name: t(`connections.efforts.${id}`) }))} />
         </>
         : <>
           {custom
