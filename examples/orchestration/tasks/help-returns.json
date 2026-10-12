@@ -1,6 +1,6 @@
 {
   "id": "help-returns",
-  "url": "../pages/help-center.html",
+  "url": "pages/help-center.html",
   "goal": "In the help center, find out how many days you have to return an item.",
   "verify": {
     "all": [

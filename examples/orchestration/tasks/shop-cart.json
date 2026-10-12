@@ -1,6 +1,6 @@
 {
   "id": "shop-cart",
-  "url": "../pages/shop-product.html",
+  "url": "pages/shop-product.html",
   "goal": "On the Samsung galaxy s6 product page, add the phone to the cart.",
   "verify": {
     "all": [

@@ -151,9 +151,9 @@ const elementText = (finding: HintFinding) => finding.target ? `${finding.target
 /** One block per run, then the findings gathered across runs: Page findings first, then Model. */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
-  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
+  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
   if (c.combo) {
-    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? '?'} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
+    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
       `  actions ${c.actionSet?.name ?? '?'} · page ${c.pageEnvironment?.name ?? '?'} · ${c.atEnvironment?.name ?? '?'}`);
     for (const warning of result.warnings) lines.push(`  note: ${warning}`);
     lines.push('');

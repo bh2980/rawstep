@@ -1,6 +1,6 @@
 {
   "id": "notify-orders",
-  "url": "../pages/notification-settings.html",
+  "url": "pages/notification-settings.html",
   "goal": "In account settings, turn on email notifications for order updates and save the change.",
   "verify": {
     "all": [

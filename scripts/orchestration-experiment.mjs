@@ -22,7 +22,7 @@ const cli = resolve(import.meta.dirname, '../packages/cli/dist/cli/bin.js');
 function envFrom(path) {
   if (!path) return {};
   return Object.fromEntries(readFileSync(path, 'utf8').split('\n').map(line => /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line.trim())).filter(Boolean)
-    .map(([, key, value]) => [key, value.replace(/^"(.*)"$/, '$1')]).filter(([, value]) => value));
+    .map(([, key, value]) => { try { return [key, value.startsWith('"') ? JSON.parse(value) : value]; } catch { return [key, value]; } }).filter(([, value]) => value));
 }
 
 const runOnce = (task, combo, out, env) => new Promise(done => {
