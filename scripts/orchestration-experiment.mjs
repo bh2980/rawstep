@@ -4,11 +4,14 @@
 // The experiment is described by <project>/experiment.json (tasks with their shortest paths, combos, repeats); see
 // examples/orchestration. Results go to <project>/.rawstep/experiments-cli/<timestamp>/ (summary.md, summary.json, one folder per run).
 //
-// Usage: node scripts/orchestration-experiment.mjs <project-dir> [--repeat <n>] [--tasks a,b] [--combos x,y] [--env-file <path>] [--summarize <dir>]
+// Usage: node scripts/orchestration-experiment.mjs <project-dir> [--repeat <n>] [--tasks a,b] [--combos x,y] [--env-file <path>]
+//          [--summarize <dir>] [--retry-errors <dir>]
 // --env-file reads KEY=value lines (e.g. a .env.local elsewhere) into the runs' environment without copying the file.
-// --summarize only tabulates an existing results folder.
+// --summarize only tabulates an existing results folder; --retry-errors reruns only its runs that ended in an error, then tabulates.
+// A run that ends in an error (a model API call failing, a browser that would not start) says nothing about the executor: it is
+// counted apart from failures, left out of the success rate, and retried once.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
@@ -25,8 +28,8 @@ function envFrom(path) {
     .map(([, key, value]) => { try { return [key, value.startsWith('"') ? JSON.parse(value) : value]; } catch { return [key, value]; } }).filter(([, value]) => value));
 }
 
-const runOnce = (task, combo, out, env) => new Promise(done => {
-  const child = spawn(process.execPath, [cli, 'run', task.id, '--combo', combo, '--mode', 'screenreader', '--repeat', String(repeat), '--out', out, '--project', project],
+const runOnce = (task, combo, out, env, times = repeat) => new Promise(done => {
+  const child = spawn(process.execPath, [cli, 'run', task.id, '--combo', combo, '--mode', 'screenreader', '--repeat', String(times), '--out', out, '--project', project],
     { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   child.stdout.on('data', d => { log += d; }); child.stderr.on('data', d => { log += d; });
@@ -43,16 +46,18 @@ function measure(dir) {
     const p = e.probabilities?.map(v => typeof v === 'number' ? v : v.probability); if (!p || p.length < 2) return undefined;
     const u = 1 / p.length; return (Math.max(...p) - u) / (1 - u);
   }).filter(v => v !== undefined).sort((a, b) => a - b);
-  const finalPlan = plans.at(-1)?.document;
-  const taskList = finalPlan ? [...finalPlan.phases.flatMap(p => p.tasks), ...finalPlan.retired] : [];
+  // Task outcomes from the task events: the last plan document is written before later tasks finish.
+  const ends = new Map(evidence.filter(e => e.kind === 'orchestration-task').map(e => [e.taskId, e.toStatus]));
+  const taskIds = new Set(plans.flatMap(p => p.document ? [...p.document.phases.flatMap(ph => ph.tasks), ...p.document.retired].map(t => t.id) : []));
   const actions = trace.events.filter(e => e.type === 'action.result').length;
   return {
-    outcome: trace.outcome?.status ?? 'unknown', reason: trace.outcome?.reason, actions,
+    outcome: trace.outcome?.reason === 'error' ? 'error' : trace.outcome?.status ?? 'unknown', reason: trace.outcome?.reason,
+    ...(trace.outcome?.reason === 'error' ? { error: String(trace.outcome?.error ?? '').slice(0, 160) } : {}), actions,
     executorCalls: executor.length,
     medianConfidence: confidence.length ? confidence[Math.floor(confidence.length / 2)] : undefined,
     replans: plans.filter(p => !['start', 'checkpoint'].includes(p.trigger)).map(p => p.trigger),
     cueCompletions: evidence.filter(e => e.kind === 'orchestration-cue').length,
-    tasksDone: taskList.filter(t => t.status === 'done').length, tasksAbandoned: taskList.filter(t => t.status === 'abandoned' || t.status === 'failed').length, tasksTotal: taskList.length,
+    tasksDone: [...ends.values()].filter(status => status === 'done').length, tasksAbandoned: [...ends.values()].filter(status => status === 'abandoned' || status === 'failed').length, tasksTotal: taskIds.size,
   };
 }
 
@@ -61,7 +66,7 @@ function summarize(root) {
   for (const task of tasks) for (const combo of combos) {
     const base = join(root, task.id, combo);
     if (!existsSync(base)) continue;
-    for (const run of readdirSync(base).filter(name => name.startsWith('run-')).sort()) {
+    for (const run of readdirSync(base).filter(name => /^run-\d+$/.test(name)).sort()) {
       try { rows.push({ task: task.id, combo, run, minimal: task.minimal, ...measure(join(base, run)) }); }
       catch { rows.push({ task: task.id, combo, run, outcome: 'no-trace' }); }
     }
@@ -69,25 +74,51 @@ function summarize(root) {
   const pct = (n, d) => d ? `${Math.round(n / d * 100)}%` : '-';
   const groups = [];
   for (const task of tasks) for (const combo of combos) {
-    const runs = rows.filter(r => r.task === task.id && r.combo === combo);
-    if (!runs.length) continue;
+    const all = rows.filter(r => r.task === task.id && r.combo === combo);
+    if (!all.length) continue;
+    // Errors say nothing about the executor: they are counted, never averaged in.
+    const runs = all.filter(r => r.outcome !== 'error' && r.outcome !== 'no-trace'), errors = all.length - runs.length;
     const ok = runs.filter(r => r.outcome === 'success');
     const avg = key => { const v = runs.map(r => r[key]).filter(x => typeof x === 'number'); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length) : undefined; };
-    groups.push({ task: task.id, combo, runs: runs.length, success: pct(ok.length, runs.length),
+    groups.push({ task: task.id, combo, runs: runs.length, errors, success: runs.length ? `${ok.length}/${runs.length}` : '-',
       actions: avg('actions')?.toFixed(1), detour: ok.length && task.minimal ? (ok.reduce((a, r) => a + r.actions, 0) / ok.length / task.minimal).toFixed(2) : '-',
-      replans: (runs.reduce((a, r) => a + (r.replans?.length ?? 0), 0) / runs.length).toFixed(1),
-      abandoned: (runs.reduce((a, r) => a + (r.tasksAbandoned ?? 0), 0) / runs.length).toFixed(1),
+      replans: runs.length ? (runs.reduce((a, r) => a + (r.replans?.length ?? 0), 0) / runs.length).toFixed(1) : '-',
+      abandoned: runs.length ? (runs.reduce((a, r) => a + (r.tasksAbandoned ?? 0), 0) / runs.length).toFixed(1) : '-',
       confidence: avg('medianConfidence')?.toFixed(2) ?? '-' });
   }
-  const table = ['| 작업 | 모델 조합 | 실행 | 목표 도달 | 평균 행동 | 우회 비율(성공 평균/최소) | 재계획 | 포기한 작업 | 확신도 중앙값 |', '|---|---|---|---|---|---|---|---|---|',
-    ...groups.map(g => `| ${g.task} | ${g.combo} | ${g.runs} | ${g.success} | ${g.actions ?? '-'} | ${g.detour} | ${g.replans} | ${g.abandoned} | ${g.confidence} |`)].join('\n');
+  const table = ['| 작업 | 모델 조합 | 목표 도달 (오류 제외) | 오류 | 평균 행동 | 우회 비율(성공 평균/최소) | 재계획 | 포기한 작업 | 확신도 중앙값 |', '|---|---|---|---|---|---|---|---|---|',
+    ...groups.map(g => `| ${g.task} | ${g.combo} | ${g.success} | ${g.errors} | ${g.actions ?? '-'} | ${g.detour} | ${g.replans} | ${g.abandoned} | ${g.confidence} |`)].join('\n');
   writeFileSync(join(root, 'summary.json'), JSON.stringify({ spec: { tasks, combos, repeat }, groups, rows }, null, 2));
   writeFileSync(join(root, 'summary.md'), `# 실험 결과\n\n${table}\n`);
   console.log(table);
 }
 
-const existing = flag('summarize');
+/** Reruns, once each, the runs of a results folder that ended in an error, putting each new run in the old one's place. */
+async function retryErrors(root, env) {
+  for (const task of tasks) for (const combo of combos) {
+    const base = join(root, task.id, combo);
+    if (!existsSync(base)) continue;
+    for (const run of readdirSync(base).filter(name => /^run-\d+$/.test(name)).sort()) {
+      let errored = false;
+      try { errored = measure(join(base, run)).outcome === 'error'; } catch { errored = true; }
+      if (!errored) continue;
+      const scratch = join(base, `${run}.retry`);
+      rmSync(scratch, { recursive: true, force: true }); mkdirSync(scratch, { recursive: true });
+      process.stdout.write(`retry ${task.id} × ${combo} ${run}… `);
+      const code = await runOnce(task, combo, scratch, env, 1);
+      if (existsSync(join(scratch, 'run-1', 'trace.json'))) {
+        renameSync(join(base, run), join(base, `${run}.error`));
+        renameSync(join(scratch, 'run-1'), join(base, run));
+      }
+      rmSync(scratch, { recursive: true, force: true });
+      console.log(code === 0 ? 'done' : `exit ${code}`);
+    }
+  }
+}
+
+const existing = flag('summarize'), retry = flag('retry-errors');
 if (existing) summarize(resolve(existing));
+else if (retry) { await retryErrors(resolve(retry), envFrom(flag('env-file'))); summarize(resolve(retry)); }
 else {
   const root = join(project, '.rawstep', 'experiments-cli', new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(root, { recursive: true });
@@ -100,6 +131,7 @@ else {
     const code = await runOnce(task, combo, out, env);
     console.log(code === 0 ? 'done' : `exit ${code} (see cli.log)`);
   }
+  await retryErrors(root, env);
   summarize(root);
   console.log(`\n${root}`);
 }
