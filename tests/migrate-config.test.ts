@@ -145,6 +145,29 @@ describe('migrate-config.mjs', () => {
     expect(await exists(join(dir, 'rawstep.config.json.v3.bak'))).toBe(false);
   });
 
+  it('keeps each version 1 task\'s own prompt in a task-only combo and the remote browser address', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);
+    await mkdir(join(dir, 'tasks'));
+    for (const name of ['a', 'b']) await writeFile(join(dir, `tasks/${name}.json`), JSON.stringify(taskFile(name)));
+    const modes = (text: string) => ({ keyboard: { permissions: null, prompts: [{ id: 'p', name: 'P', version: '1', instructions: `${text} keys` }] },
+      screenreader: { permissions: null, prompts: [{ id: 'p', name: 'P', version: '1', instructions: `${text} speech` }, { id: 'q', name: 'Q', version: '1', instructions: 'unused' }] } });
+    await writeFile(join(dir, 'rawstep.config.json'), JSON.stringify({
+      version: 1, connections: v2Config().connections,
+      tasks: [{ id: 'a', name: 'A', file: 'tasks/a.json', modes: modes('Shared') }, { id: 'b', name: 'B', file: 'tasks/b.json', modes: modes('Own') }],
+      profiles: [{ id: 'main', name: 'Main', permissions: basic, policy: policy(), environment: 'default',
+        model: { connectionId: 'jev', modelId: 'jev-fast', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 } }],
+      machine: { backend: 'simulation', atEndpoint: '', browserExecutablePath: '', browserEndpoint: 'http://localhost:9222', headless: true, personCheck: false },
+    }));
+    await migrate(dir);
+    const config = parseConfig(await json(join(dir, 'rawstep.config.json')));
+    expect(config.machine.browserEndpoint).toBe('http://localhost:9222');
+    expect(config.combos.find(c => c.id === 'main')!.executors.screenreader!.instructions).toBe('Shared speech');
+    const taskA = config.tasks.find(t => t.id === 'a')!, taskB = config.tasks.find(t => t.id === 'b')!;
+    expect(taskA.comboId).toBeUndefined();
+    const own = config.combos.find(c => c.id === taskB.comboId)!;
+    expect(own).toMatchObject({ owner: 'b', copiedFrom: 'main' });
+    expect([own.executors.screenreader!.instructions, own.executors.keyboard!.instructions]).toEqual(['Own speech', 'Own keys']);
+  });
   it('refuses a config of an unknown version without touching it', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);
     await writeFile(join(dir, 'rawstep.config.json'), JSON.stringify({ version: 9 }));

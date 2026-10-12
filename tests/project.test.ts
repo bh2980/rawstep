@@ -125,6 +125,7 @@ describe('project store', () => {
     ['preset-action-set-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', actionSetId: 'ghost' }); }],
     ['preset-page-environment-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', pageEnvironmentId: 'ghost' }); }],
     ['preset-at-environment-missing', (c: ProjectConfig) => { c.presets.push({ id: 'p', name: 'P', atEnvironmentId: 'ghost' }); }],
+    ['preset-task-copy', (c: ProjectConfig) => { c.actionSets.push({ ...defaultActionSet('copy'), owner: 'task', copiedFrom: 'basic' }); c.presets.push({ id: 'p', name: 'P', actionSetId: 'copy' }); }],
   ])('validates references: %s', async (code, change) => {
     const store = new ProjectStore(await root()), config = setup(); change(config);
     expect(() => store.validateReferences(config)).toThrow(expect.objectContaining({ code, status: 400 }));

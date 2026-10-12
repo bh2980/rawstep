@@ -42,7 +42,9 @@ function toV2(config) {
   return { version: 2, connections: config.connections, agents, environments, machine: config.machine,
     analysis: { ...(analysisProfile ? { model: analysisProfile.analysisModel } : {}), instructions: analysisProfile?.analysisInstructions ?? '' },
     tasks: config.tasks.map(({ profileId, modes, ...task }) => ({ ...task, ...(profileId ? { agentId: profileId, environmentId: agents.find(a => a.id === profileId)?.environmentId } : {}),
-      permissions: { keyboard: modes?.keyboard?.permissions ?? null, screenreader: modes?.screenreader?.permissions ?? null } })) };
+      permissions: { keyboard: modes?.keyboard?.permissions ?? null, screenreader: modes?.screenreader?.permissions ?? null },
+      // v1 prompts belonged to tasks (a run used the first one of its mode); kept so v3 can give a task with its own a task-only combo.
+      instructions: { screenreader: modes?.screenreader?.prompts?.[0]?.instructions, keyboard: modes?.keyboard?.prompts?.[0]?.instructions } })) };
 }
 
 const v2 = toV2(original);
@@ -72,8 +74,18 @@ const presets = v2.agents.map(agent => {
     ...(agent.environmentId ? { pageEnvironmentId: agent.environmentId } : {}), atEnvironmentId: backend, ...(Object.keys(diff).length ? { runRules: diff } : {}) };
 });
 // Task permission overrides become task-only action sets; task policy overrides become task run rules.
-const tasks = v2.tasks.map(({ agentId, environmentId, permissions, policy, ...task }) => {
+const tasks = v2.tasks.map(({ agentId, environmentId, permissions, policy, instructions, ...task }) => {
   const agent = v2.agents.find(a => a.id === agentId) ?? v2.agents[0];
+  // A task whose own prompt differs from its combo's executor instructions keeps it in a task-only copy of that combo.
+  const base = combos.find(c => c.id === agent?.id);
+  let comboId;
+  const own = Object.entries(instructions ?? {}).filter(([mode, text]) => text && base?.executors[mode] && base.executors[mode].instructions !== text);
+  if (base && own.length) {
+    comboId = `${task.id}-combo`;
+    const executors = structuredClone(base.executors);
+    for (const [mode, text] of own) executors[mode].instructions = text;
+    combos.push({ ...structuredClone(base), id: comboId, name: `${task.name} 모델 조합`, owner: task.id, copiedFrom: base.id, executors });
+  }
   let actionSetId;
   if (permissions && (permissions.keyboard || permissions.screenreader)) {
     actionSetId = `${task.id}-actions`;
@@ -81,11 +93,11 @@ const tasks = v2.tasks.map(({ agentId, environmentId, permissions, policy, ...ta
       keyboard: permissions.keyboard ?? agent.permissions.keyboard, screenreader: permissions.screenreader ?? agent.permissions.screenreader });
   }
   const rules = rulesOf(policy);
-  return { ...task, ...(agentId ? { presetId: agentId } : {}), ...(actionSetId ? { actionSetId } : {}), ...(environmentId ? { pageEnvironmentId: environmentId } : {}),
+  return { ...task, ...(agentId ? { presetId: agentId } : {}), ...(comboId ? { comboId } : {}), ...(actionSetId ? { actionSetId } : {}), ...(environmentId ? { pageEnvironmentId: environmentId } : {}),
     ...(Object.keys(rules).length ? { runRules: rules } : {}) };
 });
 const machine = { atEndpoints: { voiceover: backend === 'voiceover' ? v2.machine.atEndpoint ?? '' : '', nvda: backend === 'nvda' ? v2.machine.atEndpoint ?? '' : '' },
-  browserExecutablePath: v2.machine?.browserExecutablePath ?? '', headless: v2.machine?.headless ?? true, personCheck: v2.machine?.personCheck ?? false };
+  browserExecutablePath: v2.machine?.browserExecutablePath ?? '', browserEndpoint: v2.machine?.browserEndpoint ?? '', headless: v2.machine?.headless ?? true, personCheck: v2.machine?.personCheck ?? false };
 const next = { version: 3, connections: v2.connections, tasks, combos, actionSets, pageEnvironments, atEnvironments, presets,
   runRules, project: { analysis: { ...(v2.analysis?.model ? { model: v2.analysis.model } : {}), instructions: v2.analysis?.instructions ?? '' }, suggestions: {} }, machine };
 await copyFile(configPath, `${configPath}.v${original.version}.bak`);

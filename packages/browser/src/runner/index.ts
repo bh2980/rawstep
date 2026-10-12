@@ -65,9 +65,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const sensitiveValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value.length >= 4).map(([, value]) => value);
   const maskForPolicy = createRedactor(sensitiveValues);
   const withheldObservations = new WeakSet<Observation>();
-  const policyView = (value: Observation): Observation => value.kind !== 'screenreader' ? value
-    : withheldObservations.has(value) ? { ...value, speech: ['[typed input withheld]'] }
-    : { ...value, speech: value.speech.map(line => maskForPolicy(line).value) };
+  // The title gets the same masking as speech: a site can reflect typed text in it as well.
+  const policyView = (value: Observation): Observation => {
+    if (value.kind !== 'screenreader') return value;
+    const { title, ...rest } = value;
+    if (withheldObservations.has(value)) return { ...rest, speech: ['[typed input withheld]'] };
+    return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}) };
+  };
+  /** Page titles the screen reader has actually spoken; only those reach the policy, never one read from the DOM unheard. */
+  const heardTitles = new Set<string>();
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
@@ -278,8 +284,11 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         }
         return id;
       });
-      // A screen reader announces the title when a page loads; a page that cannot answer (navigating, closed) simply has none.
-      const title = typeof browser?.page.title === 'function' ? await browser.page.title().catch(() => undefined) : undefined;
+      // A screen reader announces the title when a page loads. The title is passed on only once it was heard in the speech, so the
+      // planner never knows more than the simulated user; a page that cannot answer (navigating, closed) simply has none.
+      const pageTitle = typeof browser?.page.title === 'function' ? (await browser.page.title().catch(() => undefined))?.trim() : undefined;
+      if (pageTitle && collected.speech.some(line => line.includes(pageTitle))) heardTitles.add(pageTitle);
+      const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
       const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
         ...(title ? { title: title.slice(0, 300) } : {}) };
       append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });

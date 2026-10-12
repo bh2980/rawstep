@@ -109,10 +109,14 @@ export function RunControl({ pageProps, taskId, active, onRun, onCompare, naviga
     const name = presetName?.trim();
     if (!name) return;
     const presetId = freshId(`preset-${name.toLowerCase()}`, config.presets);
-    const created = { id: presetId, name, comboId: combo.id, actionSetId: conditions.actionSet.id, pageEnvironmentId: conditions.pageEnvironment.id, atEnvironmentId: conditions.atEnvironment.id,
+    // A preset is shared, so it names shared items only: a task-only copy is represented by the item it was copied from, and the
+    // task keeps pointing at its own copy for that condition.
+    const shared = (item: Owned) => item.owner ? item.copiedFrom ?? item.id : item.id;
+    const owned = (kind: ConditionKind) => !!(conditions[kind] as Owned).owner;
+    const created = { id: presetId, name, comboId: shared(combo), actionSetId: shared(conditions.actionSet), pageEnvironmentId: shared(conditions.pageEnvironment), atEnvironmentId: conditions.atEnvironment.id,
       ...(task.runRules ? { runRules: structuredClone(task.runRules) } : {}) };
     setPresetName(undefined);
-    updateTask(entry => { const next = { ...entry, presetId }; for (const kind of CONDITION_KINDS) delete next[FIELD[kind]]; return next; }, t('runBox.presetSaved', { name }), { ...config, presets: [...config.presets, created] });
+    updateTask(entry => { const next = { ...entry, presetId }; for (const kind of CONDITION_KINDS) if (!owned(kind)) delete next[FIELD[kind]]; return next; }, t('runBox.presetSaved', { name }), { ...config, presets: [...config.presets, created] });
   };
 
   const summary = (kind: ConditionKind, item: Owned): string => {

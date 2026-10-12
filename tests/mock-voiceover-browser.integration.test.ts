@@ -20,10 +20,12 @@ async function fixture(html: string) {
   const metadata = await backend.start();
   backend.attachSession({ page: page });
   cleanup.push(() => backend.close());
-  const initial = await backend.observe();
+  // The page-title announcement on load has its own test; the others start from the first object on the page.
+  const loaded = await backend.observe(), titled = (loaded.outputs[0]?.raw as { announcement?: string } | undefined)?.announcement === 'page-title';
+  const initial = titled ? { ...loaded, outputs: loaded.outputs.slice(1), speech: loaded.speech.slice(1) } : loaded;
   async function intent(intent: string) { await backend.execute({ kind: 'intent', intent }); return (await backend.observe()).speech; }
   async function key(key: string) { await backend.execute({ kind: 'key', key }); return (await backend.observe()).speech; }
-  return { backend, page, events, metadata, initial, intent, key };
+  return { backend, page, events, metadata, initial, loaded, intent, key };
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
@@ -45,6 +47,14 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await g.intent('form.next')).toEqual(['Search, edit text']);
   });
 
+  it('speaks the page title when a document loads, before anything on the page, and again for the next document', async () => {
+    const f = await fixture('<h1>Shop</h1><a href="#">Next page</a>');
+    expect(f.loaded.speech[0]).toBe('Simulation fixture');
+    expect(await f.intent('next')).not.toContain('Simulation fixture');
+    await f.page.goto('data:text/html,' + encodeURIComponent('<!doctype html><html lang="en"><title>Cart</title><h1>Your cart</h1></html>'));
+    expect((await f.backend.observe()).speech[0]).toBe('Cart');
+  });
+
   it('uses actual AX names/roles, traverses exposed descendants and static/offscreen content without duplicate control text', async () => {
     const f = await fixture(`<div role="none"><h2>Welcome</h2><p>Read this introduction</p></div>
       <button><span>Continue</span></button><button style="opacity:0">Transparent</button>
@@ -57,6 +67,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
     expect(f.metadata).toMatchObject({ backend: 'mock-voiceover', profile: MOCK_VOICEOVER_PROFILE, evidenceProvenance: 'simulation', environment: { nativeScreenReader: false } });
     expect(JSON.stringify(f.events)).not.toMatch(/backendDOMNodeId|childIds|Hidden secret/);
+    expect(f.loaded.outputs[0]?.raw).toMatchObject({ evidenceProvenance: 'simulation', announcement: 'page-title' });
     expect(f.initial.outputs[0]?.raw).toMatchObject({ evidenceProvenance: 'simulation', semantic: { name: 'Welcome', role: 'heading' } });
   });
 

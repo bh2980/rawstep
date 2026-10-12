@@ -107,6 +107,17 @@ describe('human checks passed by a person',()=>{
   });
 });
 describe('model-neutral runner',()=>{
+  it('passes the page title to the policy only once the screen reader has spoken it',async()=>{
+    const titles=async(spoken:string)=>{
+      const f=fixture(),seen:unknown[]=[];
+      Object.assign(f.browser.page,{title:async()=>'Shop'});
+      vi.mocked(f.backend.observe).mockImplementation(async()=>({windowId:'w',startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[],speech:[spoken]}));
+      await runTask(task,{...f,outDir:await out(),policy:{decide:async(input:any)=>{seen.push(input.observation.title);return {stop:'stuck'};}}});
+      return seen;
+    };
+    expect(await titles('Real captured utterance')).toEqual([undefined]);
+    expect(await titles('Shop')).toEqual(['Shop']);
+  });
   describe('initial page focus',()=>{
     const unfocused=(f:ReturnType<typeof fixture>,afterFocus:boolean)=>{let focused=false;vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>{const source=String(fn);if(source.includes('window.focus')){focused=afterFocus;return undefined;}if(source.includes('documentHasFocus'))return {documentHasFocus:focused,focused:null};return true;}) as never);};
     it('records that the document has focus and nothing is focused, without moving focus to an element',async()=>{

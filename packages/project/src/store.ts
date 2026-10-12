@@ -82,8 +82,10 @@ export class ProjectStore {
       if (item?.owner && item.owner !== task.id) throw new ProjectError('task-copy-foreign', 'A task uses another task\'s task-only copy.');
     }
     for (const preset of config.presets) for (const [code, list, field] of refs.slice(0, 4)) {
-      const ref = preset[field as 'comboId'];
-      if (ref !== undefined && !(config[list] as { id: string }[]).some(i => i.id === ref)) throw new ProjectError(`preset-${code}-missing`, `A preset refers to a ${code.replace('-', ' ')} that does not exist.`);
+      const ref = preset[field as 'comboId'], item = ref === undefined ? undefined : (config[list] as { id: string; owner?: string }[]).find(i => i.id === ref);
+      if (ref !== undefined && !item) throw new ProjectError(`preset-${code}-missing`, `A preset refers to a ${code.replace('-', ' ')} that does not exist.`);
+      // Presets are shared: one naming a task-only copy would hand that task's condition to every task and break when the task goes.
+      if (item?.owner) throw new ProjectError('preset-task-copy', 'A preset refers to a task-only copy; save it as a shared item first.');
     }
   }
   /** Resolves a project-relative path and refuses anything that leaves the project, including through symlinks. */
