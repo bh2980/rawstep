@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ launch: vi.fn() }));
-vi.mock('playwright', () => ({ chromium: { launch: mocks.launch } }));
+const mocks = vi.hoisted(() => ({ launch: vi.fn(), connectOverCDP: vi.fn() }));
+vi.mock('playwright', () => ({ chromium: { launch: mocks.launch, connectOverCDP: mocks.connectOverCDP } }));
 import { BrowserSetupError, createBrowserSession } from '@rawstep/browser/browser';
 import { MAX_NAVIGATION_REDIRECTS } from '@rawstep/browser/browser/navigation-boundary';
 
@@ -53,10 +53,11 @@ function fixture() {
     page.url = () => url;
   });
   mocks.launch.mockResolvedValue(browser);
+  mocks.connectOverCDP.mockResolvedValue(browser);
   return { page, context, browser, cdp, calls, route, pause, handle: (request: any) => handler(request) };
 }
 
-beforeEach(() => mocks.launch.mockReset());
+beforeEach(() => { mocks.launch.mockReset(); mocks.connectOverCDP.mockReset(); });
 
 describe('browser navigation boundary plumbing (mocked protocol, not Chromium proof)', () => {
   it('installs context, native redirect interception and document guards before initial navigation', async () => {
@@ -241,4 +242,27 @@ describe('explicit browser proxy configuration',()=>{
     fixture();await expect(createBrowserSession('https://safe.example/task',{proxyServer})).rejects.toThrow(/Proxy server/);expect(mocks.launch).not.toHaveBeenCalled();
   });
   it('does not implicitly consume ambient proxy variables',async()=>{fixture();const session=await createBrowserSession('https://safe.example/task');expect(mocks.launch.mock.calls[0]![0].proxy).toBeUndefined();await session.close()});
+});
+
+describe('connecting to a browser the person started (cdpEndpoint)',()=>{
+  it('connects instead of launching, runs in its own context with every guard, and only disconnects on close',async()=>{
+    const f=fixture();const session=await createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://localhost:9222/',headless:true,executablePath:'/ignored'});
+    expect(mocks.launch).not.toHaveBeenCalled();expect(mocks.connectOverCDP).toHaveBeenCalledWith('http://localhost:9222');
+    expect(f.browser.newContext).toHaveBeenCalledWith(expect.objectContaining({serviceWorkers:'block'}));
+    for(const step of ['route','Fetch.enable','init-script'])expect(f.calls.indexOf(step)).toBeLessThan(f.calls.indexOf('goto'));
+    expect(session.connected).toBe(true);expect(session.armGuards).toBeUndefined();
+    await session.close();expect(f.context.close).toHaveBeenCalled();expect(f.browser.close).toHaveBeenCalled();
+  });
+  it.each(['http://192.168.0.10:9222','http://example.com:9222','http://user:pw@localhost:9222','ftp://localhost:9222','not a URL'])('rejects %s before connecting',async cdpEndpoint=>{
+    fixture();await expect(createBrowserSession('https://safe.example/task',{cdpEndpoint})).rejects.toThrow(/Browser address/);expect(mocks.connectOverCDP).not.toHaveBeenCalled();
+  });
+  it('accepts ws and IPv6 loopback addresses',async()=>{fixture();await (await createBrowserSession('https://safe.example/task',{cdpEndpoint:'ws://[::1]:9222/devtools/browser/abc'})).close();expect(mocks.connectOverCDP).toHaveBeenCalledWith('ws://[::1]:9222/devtools/browser/abc');});
+  it('refuses a proxy, which belongs to the browser the person started',async()=>{fixture();await expect(createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://127.0.0.1:9222',proxyServer:'http://127.0.0.1:3128'})).rejects.toThrow(/proxy/i);expect(mocks.connectOverCDP).not.toHaveBeenCalled();});
+  it('opens the page bare for a person check and arms the guards afterwards',async()=>{
+    const f=fixture();const guarded=f.page.goto;f.page.goto=vi.fn(async(url:string)=>f.calls.includes('route')?guarded(url):void f.calls.push('bare-goto'));
+    const session=await createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://localhost:9222',personCheck:true});expect(f.calls).toContain('bare-goto');
+    expect(f.calls).not.toContain('route');expect(session.armGuards).toBeTypeOf('function');
+    await session.armGuards!();expect(f.calls).toContain('route');await session.close();
+  });
+  it('explains how to start the browser when nothing answers',async()=>{fixture();mocks.connectOverCDP.mockRejectedValue(new Error('ECONNREFUSED'));await expect(createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://localhost:9222'})).rejects.toThrow(/--remote-debugging-port/);});
 });

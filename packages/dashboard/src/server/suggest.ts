@@ -43,7 +43,7 @@ const NOT_TRIED = (rule: VerifyRule): boolean => 'event' in rule || 'focused' in
  */
 export async function suggestChecks(options: {
   url: string; goal: string; projectDir: string; model: Model; apiKey?: string;
-  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath'>; signal?: AbortSignal;
+  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>; signal?: AbortSignal;
 }): Promise<SuggestionResult> {
   const session = await openStartPage({ url: options.url, projectDir: options.projectDir, machine: options.machine });
   try {

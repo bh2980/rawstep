@@ -33,6 +33,13 @@ function fixture() {
 describe('human checks passed by a person',()=>{
   // `branded`: a site-branded challenge page with a normal address and title, recognised by its challenge script or Ray ID.
   const checking=(f:ReturnType<typeof fixture>,challengeCalls:number,branded=false)=>{let calls=0;const inPage=f.browser.page.evaluate;Object.assign(f.browser.page,{url:()=>++calls<=challengeCalls&&!branded?'https://example.com/task?__cf_chl_rt_tk=x':'https://example.com/task',frames:()=>[],mainFrame:()=>undefined,title:async()=>'Shop',waitForLoadState:async()=>{},evaluate:vi.fn(async(fn:unknown,...rest:unknown[])=>String(fn).includes('challenge-platform')?branded&&calls<=challengeCalls:(inPage as any)(fn,...rest))});};
+  it('connects to it instead of a kept profile, keeps the person check, and records the connection',async()=>{
+    const f=fixture();checking(f,0);Object.assign(f.browser,{connected:true});
+    const trace=await runTask(task,{...f,headless:true,outDir:await out(),browserEndpoint:'http://localhost:9222',personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const options=(f.browserSessionFactory.mock.calls as unknown[][])[0]![1];
+    expect(options).toMatchObject({cdpEndpoint:'http://localhost:9222',personCheck:true});expect(options).not.toHaveProperty('userDataDir');
+    expect(trace.events.find(e=>e.type==='browser.metadata')?.data).toMatchObject({connected:true,headless:false});
+  });
   it('opens a kept profile in a visible browser, waits while the page is a check, then continues and adds the wait back to the budget',async()=>{
     const f=fixture();checking(f,2);
     const trace=await runTask(task,{...f,headless:true,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});

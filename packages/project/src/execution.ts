@@ -61,7 +61,8 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, mode, setti
   const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
     headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
     browserExecutablePath: globals.browserExecutablePath || undefined,
-    ...(globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
+    ...(globals.browserEndpoint.trim() ? { browserEndpoint: globals.browserEndpoint.trim() } : {}),
+    ...(globals.personCheck && globals.browserEndpoint.trim() ? { personCheck: {} } : globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
   setupSignal.throwIfAborted();
   if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
   const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };

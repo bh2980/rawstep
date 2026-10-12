@@ -11,9 +11,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 /** A labelled text input; `multiline` is a code-style textarea unless `plain` asks for ordinary text. */
-export function Field({ label, value, onChange, multiline, plain, type, hint, placeholder }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; placeholder?: string }) {
+export function Field({ label, value, onChange, multiline, plain, type, hint, placeholder, disabled }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; placeholder?: string; disabled?: boolean }) {
   const id = useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} disabled={disabled} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
 }
 export function Choice({ label, value, onChange, options }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[] }) {
   const id = useId();

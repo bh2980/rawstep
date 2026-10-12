@@ -139,6 +139,11 @@ export const machineSchema = z.object({
   atEndpoint: z.string().default(''),
   browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
   /**
+   * A Chrome you started yourself with `--remote-debugging-port` (e.g. `http://localhost:9222`). Runs connect to it instead of
+   * launching one, so sites see an ordinary browser; each run gets its own isolated context there. Empty launches a browser.
+   */
+  browserEndpoint: z.string().default(''),
+  /**
    * For real sites with a human check (Cloudflare and the like): runs use a visible Chrome with a profile kept in
    * `.rawstep/browser-profile`, and pause while a person passes the check in that window. Rawstep never answers a check itself.
    */

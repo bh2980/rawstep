@@ -44,12 +44,12 @@ export function MachinePage(props: PageProps) {
   const { t } = useTranslation();
   const [machine, setMachine] = useState<MachineSettings>(() => structuredClone(props.view.config.machine));
   const [browser, setBrowser] = useState<Status>({ kind: 'unchecked' }), [driver, setDriver] = useState<Status>({ kind: 'unchecked' });
-  const native = machine.backend !== 'simulation';
+  const native = machine.backend !== 'simulation', connected = !!machine.browserEndpoint.trim();
   // The command that starts the AT Driver server lives in this computer's .env.local, not in the shared config: it runs a program.
   const [command, setCommand] = useState(''), [savedCommand, setSavedCommand] = useState('');
   useEffect(() => { void api<{ command: string }>('/machine/at-driver-command').then(result => { setCommand(result.command); setSavedCommand(result.command); }, () => {}); }, []);
   const storeCommand = async () => { if (command.trim() !== savedCommand) { const result = await api<{ command: string }>('/machine/at-driver-command', { method: 'PUT', body: { command } }); setSavedCommand(result.command); } };
-  const update = (part: Partial<MachineSettings>) => { setMachine({ ...machine, ...part }); if ('browserExecutablePath' in part) setBrowser({ kind: 'unchecked' }); if ('backend' in part || 'atEndpoint' in part) setDriver({ kind: 'unchecked' }); };
+  const update = (part: Partial<MachineSettings>) => { setMachine({ ...machine, ...part }); if ('browserExecutablePath' in part || 'browserEndpoint' in part) setBrowser({ kind: 'unchecked' }); if ('backend' in part || 'atEndpoint' in part) setDriver({ kind: 'unchecked' }); };
   const changeBackend = (backend: string) => { setMachine({ ...machine, backend: backend as MachineSettings['backend'] }); setDriver({ kind: 'unchecked' }); };
   async function checkBrowser() {
     setBrowser({ kind: 'running' });
@@ -72,7 +72,7 @@ export function MachinePage(props: PageProps) {
   const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
   const viewport = profileViewport(props.view.config.profiles[0]!, props.view.environmentPresets);
   // A native screen reader run always opens a visible window.
-  const visible = native || machine.personCheck || !machine.headless;
+  const visible = native || machine.personCheck || connected || !machine.headless;
   return <div className="grid max-w-3xl gap-7">
     <PageHeader title={t('machine.heading')} description={t('machine.intro')} />
 
@@ -80,7 +80,7 @@ export function MachinePage(props: PageProps) {
       <h3 id="machine-env" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('machine.env.title')}</h3>
       <dl className="grid">
         <EnvRow label={t('machine.env.browser')} status={browser} action={<Button variant="outline" size="sm" disabled={browser.kind === 'running' || props.busy} onClick={() => void checkBrowser()}>{t('machine.env.check')}</Button>}>
-          {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t('machine.env.browserHint')}</p>}
+          {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
         </EnvRow>
         <EnvRow label={t('machine.env.driver')} status={native ? driver : { kind: 'ready', text: t('machine.backends.simulation'), note: t('machine.env.driverSimulationNote') }}
           action={native ? <Button variant="outline" size="sm" disabled={driver.kind === 'running' || props.busy} onClick={() => void checkDriver()}>{t('machine.env.check')}</Button> : undefined}>
@@ -95,7 +95,8 @@ export function MachinePage(props: PageProps) {
 
     <section aria-labelledby="machine-fields" className="grid gap-5">
       <h3 id="machine-fields" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('machine.fieldsTitle')}</h3>
-      <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => update({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} hint={t('machine.browserPathHint')} />
+      <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => update({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} hint={t('machine.browserPathHint')} disabled={connected} />
+      <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => update({ browserEndpoint })} placeholder="http://localhost:9222" hint={t('machine.browserEndpointHint')} />
       <div className="grid gap-2">
         <Choice label={t('machine.backend')} value={machine.backend} onChange={changeBackend}
           options={[{ id: 'simulation', name: t('machine.backendSimulation') }, { id: 'voiceover', name: t('machine.backendVoiceover') }, { id: 'nvda', name: t('machine.backendNvda') }]} />
@@ -105,7 +106,7 @@ export function MachinePage(props: PageProps) {
         <Field label={t('machine.atEndpoint')} value={machine.atEndpoint} placeholder={atEndpointOf({ ...machine, atEndpoint: '' })} hint={t('machine.atEndpointHint')} onChange={atEndpoint => update({ atEndpoint })} />
         <Field label={t('machine.atCommand')} value={command} placeholder={t(`machine.atCommandPlaceholder.${machine.backend}`)} hint={t('machine.atCommandHint')} onChange={next => { setCommand(next); setDriver({ kind: 'unchecked' }); }} />
       </>}
-      <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck} disabled={machine.personCheck} onChange={show => update({ headless: !show })} />
+      <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck || connected} disabled={machine.personCheck || connected} onChange={show => update({ headless: !show })} />
       <Toggle label={t('machine.personCheck')} hint={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => update({ personCheck })} />
     </section>
     <div className="flex flex-wrap items-center gap-3 border-t border-edge-strong pt-4">

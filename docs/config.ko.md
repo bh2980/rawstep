@@ -96,6 +96,7 @@ Rawstep을 실행하는 컴퓨터에 속한 설정입니다.
 | `backend` | 스크린리더 모드의 백엔드. `simulation`(기본, Chromium 기반 시뮬레이션이며 trace에 시뮬레이션으로 표시), `voiceover`(macOS), `nvda`(Windows) |
 | `atEndpoint` | 네이티브 AT Driver의 loopback 주소. 비워 두면(기본) 고른 스크린리더 서버의 일반적인 주소를 씁니다. VoiceOver(Bocoup macOS 서버)는 `ws://localhost:4382/session`, NVDA(PAC 서버)는 `ws://localhost:3031/session`입니다 |
 | `browserExecutablePath` | 쓸 Chromium 경로. 비우면 Playwright의 Chromium |
+| `browserEndpoint` | 직접 띄운 Chrome의 `--remote-debugging-port` 주소(예: `http://localhost:9222`). 비우지 않으면 브라우저를 새로 띄우지 않고 거기에 붙어, 사이트가 일반 브라우저(headless 아님, `navigator.webdriver` false)로 보므로 봇 판정이 줄어듭니다. loopback만 가능. 실행마다 그 Chrome 안에 분리된 컨텍스트를 열고 끝나면 연결만 끊으므로 평소 탭의 쿠키는 공유되지 않습니다. `browserExecutablePath`, `headless`, 프록시 설정은 적용되지 않으며, 그 창에서 사람이 봇 확인을 통과해야 하면 `personCheck`와 함께 쓰세요. Chrome은 별도 프로필에서만 포트를 엽니다: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.rawstep-chrome"` |
 | `headless` | 브라우저를 화면 없이 실행할지(기본 `true`) |
 | `personCheck` | Cloudflare 같은 봇 확인이 있는 실제 사이트용. 설치된 Chrome 창을 띄우고 프로필을 `.rawstep/browser-profile`에 유지하며, 봇 확인이 나오면 사람이 그 창에서 통과할 때까지(최대 5분, 실행 시간 제한에서 제외) 기다립니다. Rawstep이 확인을 대신 풀지는 않습니다. 기본 `false` |
 

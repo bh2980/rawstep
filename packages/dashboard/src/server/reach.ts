@@ -27,7 +27,7 @@ export function reachTargets(task: Pick<Task, 'goal' | 'verify'>): string[] {
  * passes on the whole page, and for each target text how many `next` (and, when it is in a heading, `heading.next`) presses it
  * takes to hear it. It measures the start page only; steps on later pages (a product page, the cart) come on top.
  */
-export async function estimateReach(options: { task: Task; projectDir: string; machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath'> }): Promise<ReachEstimate> {
+export async function estimateReach(options: { task: Task; projectDir: string; machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'> }): Promise<ReachEstimate> {
   const session = await openStartPage({ url: options.task.url, projectDir: options.projectDir, machine: options.machine });
   try {
     await settlePage(session.page);
