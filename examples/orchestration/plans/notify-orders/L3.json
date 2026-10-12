@@ -1,0 +1,47 @@
+{
+  "strategy": "Jump by headings to Notifications, step to the checkbox, check it, step to Save, press it.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "Order updates are on and saved"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Turn on",
+      "tasks": [
+        {
+          "goal": "Move by headings to the 'Notifications' heading",
+          "done": "Hear 'Notifications, heading'",
+          "cue": "Notifications, heading"
+        },
+        {
+          "goal": "Move to the next item until you hear 'Order updates, unchecked, checkbox'",
+          "done": "Hear 'Order updates, unchecked, checkbox'",
+          "cue": "Order updates, unchecked"
+        },
+        {
+          "goal": "Press to check the 'Order updates' checkbox",
+          "done": "Hear 'Order updates, checked'",
+          "cue": "Order updates, checked"
+        }
+      ]
+    },
+    {
+      "title": "Save",
+      "tasks": [
+        {
+          "goal": "Move to the next item until you hear 'Save changes, button'",
+          "done": "Hear 'Save changes, button'",
+          "cue": "Save changes, button"
+        },
+        {
+          "goal": "Press the 'Save changes' button",
+          "done": "Hear that the settings were saved",
+          "cue": "Order updates are on"
+        }
+      ]
+    }
+  ]
+}

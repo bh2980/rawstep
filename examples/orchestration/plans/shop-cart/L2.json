@@ -1,0 +1,27 @@
+{
+  "strategy": "Reach the Add to cart button, then press it.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page confirms the phone was added"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Buy",
+      "tasks": [
+        {
+          "goal": "Move to the 'Add to cart' button",
+          "done": "Hear 'Add to cart, button'",
+          "cue": "Add to cart, button"
+        },
+        {
+          "goal": "Press the 'Add to cart' button",
+          "done": "Hear that the product was added",
+          "cue": "Product added to cart"
+        }
+      ]
+    }
+  ]
+}

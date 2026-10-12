@@ -1,0 +1,37 @@
+{
+  "strategy": "Jump by headings to Returns, step to the question, open it, read the answer.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The return deadline is read out"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Find",
+      "tasks": [
+        {
+          "goal": "Move by headings to the 'Returns' heading",
+          "done": "Hear 'Returns, heading'",
+          "cue": "Returns, heading"
+        },
+        {
+          "goal": "Move to the next item until you hear 'How do I return an item?'",
+          "done": "Hear 'How do I return an item?, collapsed, button'",
+          "cue": "How do I return an item?"
+        },
+        {
+          "goal": "Press the button to expand the answer",
+          "done": "Hear 'expanded'",
+          "cue": "expanded"
+        },
+        {
+          "goal": "Move to the next item to hear the answer",
+          "done": "Hear the return deadline",
+          "cue": "within 30 days"
+        }
+      ]
+    }
+  ]
+}

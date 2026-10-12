@@ -1,0 +1,22 @@
+{
+  "strategy": "Add the phone to the cart.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page confirms the phone was added"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Buy",
+      "tasks": [
+        {
+          "goal": "Add the phone to the cart",
+          "done": "Hear that the product was added",
+          "cue": "Product added to cart"
+        }
+      ]
+    }
+  ]
+}

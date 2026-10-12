@@ -1,0 +1,15 @@
+{
+  "id": "notify-orders",
+  "url": "../pages/notification-settings.html",
+  "goal": "In account settings, turn on email notifications for order updates and save the change.",
+  "verify": {
+    "all": [
+      {
+        "textVisible": "Order updates are on"
+      }
+    ]
+  },
+  "mode": "screenreader",
+  "maxSteps": 40,
+  "timeoutMs": 600000
+}

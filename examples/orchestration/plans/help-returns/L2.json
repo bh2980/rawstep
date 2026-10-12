@@ -1,0 +1,27 @@
+{
+  "strategy": "Reach the return question, then open it.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The return deadline is read out"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Find",
+      "tasks": [
+        {
+          "goal": "Move to the 'How do I return an item?' button",
+          "done": "Hear 'How do I return an item?'",
+          "cue": "How do I return an item?"
+        },
+        {
+          "goal": "Open the 'How do I return an item?' answer",
+          "done": "Hear the return deadline",
+          "cue": "within 30 days"
+        }
+      ]
+    }
+  ]
+}

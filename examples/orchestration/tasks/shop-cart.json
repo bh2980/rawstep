@@ -1,0 +1,15 @@
+{
+  "id": "shop-cart",
+  "url": "../pages/shop-product.html",
+  "goal": "On the Samsung galaxy s6 product page, add the phone to the cart.",
+  "verify": {
+    "all": [
+      {
+        "textVisible": "Product added to cart"
+      }
+    ]
+  },
+  "mode": "screenreader",
+  "maxSteps": 40,
+  "timeoutMs": 600000
+}

@@ -1,0 +1,22 @@
+{
+  "strategy": "Find the return deadline in the help center.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The return deadline is read out"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Find",
+      "tasks": [
+        {
+          "goal": "Find how many days you have to return an item",
+          "done": "Hear the return deadline",
+          "cue": "within 30 days"
+        }
+      ]
+    }
+  ]
+}
