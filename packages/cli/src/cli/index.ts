@@ -21,7 +21,7 @@ export interface CliDependencies {
   startDashboard?: (options: { projectDir: string; port: number }) => Promise<{ url: string; close(): Promise<void> }>;
   runTask?: typeof runTask;
   /** Launches and closes a browser; rejects when none can start. */
-  launchBrowser?: (options: { executablePath?: string }) => Promise<void>;
+  launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
   cwd?: string;
@@ -173,11 +173,11 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     const c = read.config;
     report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} profiles)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
-  const executablePath = read?.config.machine.browserExecutablePath || undefined;
+  const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
   try {
-    await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, executablePath: options.executablePath }); await session.close(); }))({ ...(executablePath ? { executablePath } : {}) });
-    report(true, 'Browser', executablePath ? `launched ${executablePath}` : 'launched');
-  } catch (error) { report(false, 'Browser', `${errorDetails(error)}. Install one with \`npx playwright install chromium\` or set machine.browserExecutablePath in the config.`); }
+    await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, ...options }); await session.close(); }))({ ...(cdpEndpoint ? { cdpEndpoint } : executablePath ? { executablePath } : {}) });
+    report(true, 'Browser', cdpEndpoint ? `connected to ${cdpEndpoint}` : executablePath ? `launched ${executablePath}` : 'launched');
+  } catch (error) { report(false, 'Browser', `${errorDetails(error)}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`); }
   if (read) {
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;

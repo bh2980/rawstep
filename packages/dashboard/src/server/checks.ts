@@ -68,14 +68,15 @@ async function checkDecisionServer(model: CheckedModel, apiKey: string | undefin
 }
 
 /**
- * Starts the browser a run would use (the configured executable, otherwise Playwright's Chromium, otherwise installed Chrome),
- * reads its version and closes it again. Always headless: checking never opens a window.
+ * Starts the browser a run would use (the Chrome at the configured debugging address, otherwise the configured executable, otherwise
+ * Playwright's Chromium, otherwise installed Chrome), reads its version and closes it again. A launched browser is headless; a
+ * connected Chrome shows a blank tab for a moment and is then only disconnected.
  */
-export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath'>): Promise<BrowserCheck> {
-  const source = machine.browserExecutablePath.trim() ? 'custom' : 'auto';
+export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath' | 'browserEndpoint'>): Promise<BrowserCheck> {
+  const source = machine.browserEndpoint.trim() ? 'connected' : machine.browserExecutablePath.trim() ? 'custom' : 'auto';
   let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
   try {
-    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
+    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'connected' ? { cdpEndpoint: machine.browserEndpoint.trim() } : source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
     return { ok: true, name: 'Chromium', version: session.browser?.version() ?? 'unknown', source };
   } catch (error) {
     return { ok: false, kind: source === 'auto' && error instanceof RawstepError && error.code === 'browser-setup' ? 'not-found' : 'launch-failed', source };

@@ -3,7 +3,7 @@ import { closeBrowserSession, createBrowserSession, type BrowserSession } from '
 import type { MachineSettings } from '@rawstep/project/config';
 import type { PageElement } from '../shared/api.js';
 
-type StructureMachine = Pick<MachineSettings, 'headless' | 'browserExecutablePath'>;
+type StructureMachine = Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>;
 
 /** What a start page looks like to a person using the keyboard or a screen reader. All text comes from the website and is untrusted. */
 export type PageStructure = {
@@ -43,7 +43,7 @@ export function elementsFromAriaSnapshot(snapshot: string): PageElement[] {
 /** Opens the start page of a task in a headless browser, resolving project-relative HTML paths the way a task does. */
 export async function openStartPage(options: { url: string; projectDir: string; machine: StructureMachine }): Promise<BrowserSession> {
   const startUrl = resolveTask({ url: options.url, goal: 'read page', verify: { all: [{ titleIncludes: '-' }] } }, options.projectDir).url;
-  return createBrowserSession(startUrl, { headless: true, executablePath: options.machine.browserExecutablePath || undefined });
+  return createBrowserSession(startUrl, { headless: true, executablePath: options.machine.browserExecutablePath || undefined, ...(options.machine.browserEndpoint.trim() ? { cdpEndpoint: options.machine.browserEndpoint.trim() } : {}) });
 }
 
 /** Reads the page of an open session: title, accessibility tree, live regions, dialogs, forms and notable elements. */

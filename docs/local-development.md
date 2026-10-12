@@ -154,6 +154,8 @@ RAWSTEP_TEST_BROWSER_PATH=/absolute/path/to/chromium npm run check
 
 인증서 오류·접근 제한·사람 확인이 나오면 해당 환경을 정상적으로 준비한 뒤 다시 실행해야 합니다. `ignoreHTTPSErrors`, 보안 경고 우회나 임의 인증서 신뢰 추가를 해결책으로 사용하지 않습니다.
 
+봇 판정으로 막히는 사이트는 Chrome을 `--remote-debugging-port=9222 --user-data-dir=<별도 폴더>`로 직접 띄우고 `machine.browserEndpoint`에 그 주소를 적으면 일반 브라우저로 보입니다. 자세한 내용은 [config](./config.md)에 있습니다.
+
 기본 trace는 이름 있는 입력값과 입력 뒤의 민감한 화면·진단을 숨깁니다. 모델에게 전송되는 실제 화면은 별도 문제이므로, 원격 모델 사용 시 목적지와 화면 내용을 확인하세요.
 
 ## Restricted/offline verification environments

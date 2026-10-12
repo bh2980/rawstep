@@ -122,7 +122,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path === '/api/backend/check' && method === 'POST') {
       const machine = machineSchema.parse(record(await jsonBody(req)).machine);
       if (machine.backend === 'simulation') {
-        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined });
+        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined, ...(machine.browserEndpoint.trim() ? { cdpEndpoint: machine.browserEndpoint.trim() } : {}) });
         await browser.close(); return send(res, { message: 'Chromium 연결 확인 완료. 스크린리더 출력은 DOM 기반 모의 관찰입니다.' });
       }
       if ((machine.backend === 'voiceover' && process.platform !== 'darwin') || (machine.backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
