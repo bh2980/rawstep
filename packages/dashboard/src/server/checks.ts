@@ -1,5 +1,5 @@
-import { RawstepError } from '@rawstep/core/errors';
-import { createBrowserSession } from '@rawstep/browser/browser';
+import { findRawstepError, RawstepError } from '@rawstep/core/errors';
+import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
 import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
@@ -82,6 +82,8 @@ export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecut
     session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'connected' ? { cdpEndpoint: machine.browserEndpoint.trim() } : source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
     return { ok: true, name: 'Chromium', version: session.browser?.version() ?? 'unknown', source };
   } catch (error) {
+    const connect = findRawstepError(error, e => e instanceof BrowserConnectError) as BrowserConnectError | undefined;
+    if (connect) return { ok: false, kind: `connect-${connect.reason}`, source };
     return { ok: false, kind: source === 'auto' && error instanceof RawstepError && error.code === 'browser-setup' ? 'not-found' : 'launch-failed', source };
   } finally { await session?.close().catch(() => undefined); }
 }

@@ -130,6 +130,9 @@ export const settings = {
       browserFailed: {
         'not-found': '브라우저를 찾지 못했습니다. Google Chrome을 설치하거나 `npx playwright install chromium`을 실행하거나 아래에 실행 파일 경로를 입력하세요.',
         'launch-failed': '브라우저를 시작하지 못했습니다. 지정한 실행 파일 경로와 권한을 확인하세요. 직접 띄운 Chrome 주소를 적었다면 그 Chrome이 --remote-debugging-port로 떠 있는지도 확인하세요.',
+        'connect-not-listening': '적은 주소에서 응답하는 브라우저가 없습니다. Chrome을 --remote-debugging-port와 별도의 --user-data-dir로 띄운 뒤 다시 확인하세요.',
+        'connect-refused': '브라우저가 응답했지만 연결을 거부했습니다. 그 Chrome에서 게스트·시크릿 창이나 프로필 선택 창을 닫거나, 새 --user-data-dir로 다시 띄운 뒤 다시 확인하세요.',
+        'connect-not-devtools': '적은 주소에서 무언가 응답했지만 Chrome DevTools가 아닙니다. Chrome을 띄울 때 쓴 --remote-debugging-port 번호와 주소가 맞는지 확인하세요.',
       },
       driverReadyNote: '드라이버 세션과 프로필 협상을 확인했습니다. 실제 발화와 브라우저 행동은 실행으로 확인하세요.',
       driverSimulationNote: '설치할 것이 없습니다. 출력은 화면 구조로 흉내 낸 것이며 실제 스크린리더의 음성이 아닙니다.',

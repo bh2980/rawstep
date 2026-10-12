@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli, parseCliArguments, formatRunResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
+import { BrowserConnectError } from "@rawstep/browser/browser";
 import { ProjectError } from "@rawstep/project/errors";
 import { ProjectStore, initProject } from "@rawstep/project/store";
 import { defaultConfig } from "@rawstep/project/config";
@@ -273,6 +274,14 @@ describe("doctor", () => {
     const io = output(await project());
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => { throw new Error("no chromium"); } })).toBe(1);
     expect(text(io.stdout)).toMatch(/FAIL\s+Browser: no chromium.*playwright install/);
+  });
+  it("reports why a connected browser failed without the generic launch advice", async () => {
+    const io = output(await project());
+    const refused = new BrowserConnectError("http://localhost:9222", "refused", "The browser at http://localhost:9222 answered but refused the connection (Browser.setDownloadBehavior). Close guest, incognito and profile-picker windows in that Chrome, or restart it with a fresh --user-data-dir, then try again.", new Error("raw protocol text"));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => { throw refused; } })).toBe(1);
+    expect(text(io.stdout)).toMatch(/FAIL\s+Browser: The browser at http:\/\/localhost:9222 answered but refused the connection \(Browser.setDownloadBehavior\)\. Close guest.*machine\.browserEndpoint/);
+    expect(text(io.stdout)).not.toContain("raw protocol text");
+    expect(text(io.stdout)).not.toContain("playwright install");
   });
   it("fails without a config file but still checks the browser", async () => {
     const io = output(await temporaryDirectory()), launchBrowser = vi.fn(async () => {});

@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ launch: vi.fn(), connectOverCDP: vi.fn() }));
 vi.mock('playwright', () => ({ chromium: { launch: mocks.launch, connectOverCDP: mocks.connectOverCDP } }));
-import { BrowserSetupError, createBrowserSession } from '@rawstep/browser/browser';
+import { BrowserConnectError, BrowserSetupError, createBrowserSession } from '@rawstep/browser/browser';
 import { MAX_NAVIGATION_REDIRECTS } from '@rawstep/browser/browser/navigation-boundary';
 
 type Pause = { requestId: string; request: { url: string }; frameId: string; resourceType: string; networkId?: string; redirectedRequestId?: string };
@@ -264,5 +264,27 @@ describe('connecting to a browser the person started (cdpEndpoint)',()=>{
     expect(f.calls).not.toContain('route');expect(session.armGuards).toBeTypeOf('function');
     await session.armGuards!();expect(f.calls).toContain('route');await session.close();
   });
-  it('explains how to start the browser when nothing answers',async()=>{fixture();mocks.connectOverCDP.mockRejectedValue(new Error('ECONNREFUSED'));await expect(createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://localhost:9222'})).rejects.toThrow(/--remote-debugging-port/);});
+  describe('when the connection fails',()=>{
+    const connectFailure=async(cdpEndpoint='http://localhost:9222')=>createBrowserSession('https://safe.example/task',{cdpEndpoint}).then(()=>{throw new Error('connected');},(error:unknown)=>error as BrowserConnectError);
+    afterEach(()=>{vi.unstubAllGlobals();});
+    it('explains how to start the browser when nothing answers',async()=>{
+      fixture();mocks.connectOverCDP.mockRejectedValue(new Error('ECONNREFUSED'));vi.stubGlobal('fetch',vi.fn(async()=>{throw new TypeError('fetch failed');}));
+      const error=await connectFailure();
+      expect(error).toBeInstanceOf(BrowserConnectError);expect(error.reason).toBe('not-listening');expect(error.message).toMatch(/No browser answered.*--remote-debugging-port.*--user-data-dir/);
+      expect(vi.mocked(fetch)).toHaveBeenCalledWith('http://localhost:9222/json/version',expect.anything());
+    });
+    it('says the browser refused when DevTools answers but Playwright cannot attach, naming only the protocol method',async()=>{
+      fixture();mocks.connectOverCDP.mockRejectedValue(new Error('browserType.connectOverCDP: Protocol error (Browser.setDownloadBehavior): Browser context management is not supported.'));
+      vi.stubGlobal('fetch',vi.fn(async()=>Response.json({Browser:'Chrome/140.0.0.0',webSocketDebuggerUrl:'ws://localhost:9222/devtools/browser/abc'})));
+      const error=await connectFailure('ws://localhost:9222/devtools/browser/abc');
+      expect(error.reason).toBe('refused');expect(error.message).toContain('answered but refused the connection (Browser.setDownloadBehavior)');
+      expect(error.message).toMatch(/guest, incognito and profile-picker.*fresh --user-data-dir/);expect(error.message).not.toContain('not supported');
+      expect(vi.mocked(fetch)).toHaveBeenCalledWith('http://localhost:9222/json/version',expect.anything());
+    });
+    it.each([['an HTML page',()=>new Response('<html>dev server</html>',{headers:{'content-type':'text/html'}})],['an error status',()=>new Response('nope',{status:404})],['JSON without a debugger URL',()=>Response.json({hello:'world'})]])('says the address is not Chrome DevTools when it answers with %s',async(_label,respond)=>{
+      fixture();mocks.connectOverCDP.mockRejectedValue(new Error('Unexpected status 404'));vi.stubGlobal('fetch',vi.fn(async()=>respond()));
+      const error=await connectFailure();
+      expect(error.reason).toBe('not-devtools');expect(error.message).toMatch(/not Chrome DevTools/);expect(error.message).not.toContain('dev server');
+    });
+  });
 });

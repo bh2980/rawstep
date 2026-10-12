@@ -167,9 +167,38 @@ export function validateCdpEndpoint(value: string): string {
   return endpoint.href.replace(/\/$/, '');
 }
 
+export type BrowserConnectFailure = "not-listening" | "refused" | "not-devtools";
+
+/**
+ * Connecting to the Chrome the person started failed; `reason` says why. Messages are fixed (with at most the protocol
+ * method name) so nothing a page or another program returned ends up in them.
+ */
+export class BrowserConnectError extends RawstepError {
+  static override readonly errorName = "BrowserConnectError";
+  constructor(readonly endpoint: string, readonly reason: BrowserConnectFailure, message: string, cause: unknown) {
+    super("browser-setup", message, { cause });
+    this.name = "BrowserConnectError";
+  }
+}
+
 async function connectChromium(endpoint: string): Promise<Browser> {
   try { return await chromium.connectOverCDP(endpoint); }
-  catch (error) { throw new RawstepError("browser-setup", `No browser answered at ${endpoint}. Start Chrome with --remote-debugging-port and a separate --user-data-dir, then try again.`, { cause: error }); }
+  catch (error) { throw await classifyConnectFailure(endpoint, error); }
+}
+
+/** Asks the endpoint's /json/version what is listening, so the failure names the step that went wrong. */
+async function classifyConnectFailure(endpoint: string, error: unknown): Promise<BrowserConnectError> {
+  const url = new URL(endpoint);
+  const version = `${url.protocol === "wss:" || url.protocol === "https:" ? "https:" : "http:"}//${url.host}/json/version`;
+  let response: Response;
+  try { response = await fetch(version, { signal: AbortSignal.timeout(3000), redirect: "error" }); }
+  catch { return new BrowserConnectError(endpoint, "not-listening", `No browser answered at ${endpoint}. Start Chrome with --remote-debugging-port and a separate --user-data-dir, then try again.`, error); }
+  const body: unknown = response.ok ? await response.json().catch(() => undefined) : undefined;
+  if (!body || typeof body !== "object" || typeof (body as { webSocketDebuggerUrl?: unknown }).webSocketDebuggerUrl !== "string") {
+    return new BrowserConnectError(endpoint, "not-devtools", `Something answered at ${endpoint}, but it is not Chrome DevTools. Check the port Chrome was started with (--remote-debugging-port) and the browser address.`, error);
+  }
+  const method = /Protocol error \(([A-Za-z]+\.[A-Za-z]+)\)/.exec(error instanceof Error ? error.message : String(error))?.[1];
+  return new BrowserConnectError(endpoint, "refused", `The browser at ${endpoint} answered but refused the connection${method ? ` (${method})` : ""}. Close guest, incognito and profile-picker windows in that Chrome, or restart it with a fresh --user-data-dir, then try again.`, error);
 }
 
 /**

@@ -154,4 +154,15 @@ describe('checking the browser', () => {
     expect(text).not.toContain('no-such-browser');
     expect((await call(app.url, 'POST', '/api/browser/check', { machine: { backend: 'bogus' } })).status).toBe(400);
   });
+  it('tells a closed debugging port from an address that is not Chrome DevTools, without quoting what answered', async () => {
+    const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
+    const page = createServer((_request, response) => { response.setHeader('content-type', 'text/html'); response.end('<html>secret dev page</html>'); }); servers.push(page);
+    await new Promise<void>(done => page.listen(0, '127.0.0.1', done));
+    const open = `http://127.0.0.1:${(page.address() as { port: number }).port}`;
+    const closed = createServer(); await new Promise<void>(done => closed.listen(0, '127.0.0.1', done));
+    const closedAddress = `http://127.0.0.1:${(closed.address() as { port: number }).port}`; await new Promise<void>(done => closed.close(() => done()));
+    const check = async (browserEndpoint: string) => { const text = await (await call(app.url, 'POST', '/api/browser/check', { machine: { browserEndpoint } })).text(); expect(text).not.toContain('secret'); return JSON.parse(text) as BrowserCheck; };
+    expect(await check(closedAddress)).toEqual({ ok: false, kind: 'connect-not-listening', source: 'connected' });
+    expect(await check(open)).toEqual({ ok: false, kind: 'connect-not-devtools', source: 'connected' });
+  });
 });
