@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { describeInputs, resolveTask, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
+import { describeInputs, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
@@ -30,6 +30,8 @@ export type RunOptions = {
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
   /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
   onEvent?: (event: TraceEvent) => void;
+  /** The experiment conditions this run was made with (model combo, action set, environments, run rules), recorded at `run.started`. */
+  conditions?: Record<string, unknown>;
   /** Page observer for hints; on by default. Never visible to the policy. */
   observe?: boolean | ObserverOptions;
   verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
@@ -41,6 +43,8 @@ export type RunOptions = {
   personCheck?: { userDataDir?: string; timeoutMs?: number };
 };
 const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
+/** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
+class NotEditableError extends Error { constructor() { super('Text entry requires an editable focused field.'); this.name = 'NotEditableError'; } }
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
@@ -61,9 +65,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
   const sensitiveValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value.length >= 4).map(([, value]) => value);
   const maskForPolicy = createRedactor(sensitiveValues);
   const withheldObservations = new WeakSet<Observation>();
-  const policyView = (value: Observation): Observation => value.kind !== 'screenreader' ? value
-    : withheldObservations.has(value) ? { ...value, speech: ['[typed input withheld]'] }
-    : { ...value, speech: value.speech.map(line => maskForPolicy(line).value) };
+  // The title gets the same masking as speech: a site can reflect typed text in it as well.
+  const policyView = (value: Observation): Observation => {
+    if (value.kind !== 'screenreader') return value;
+    const { title, ...rest } = value;
+    if (withheldObservations.has(value)) return { ...rest, speech: ['[typed input withheld]'] };
+    return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}) };
+  };
+  /** Page titles the screen reader has actually spoken; only those reach the policy, never one read from the DOM unheard. */
+  const heardTitles = new Set<string>();
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
@@ -242,7 +252,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
     append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : options.headless ?? false, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
-    append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions });
+    append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
     const observe = async (): Promise<Observation> => {
       stage = 'observation';
       if (task.profile) {
@@ -274,8 +284,14 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         }
         return id;
       });
-      const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason } };
-      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'] } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
+      // A screen reader announces the title when a page loads. The title is passed on only once it was heard in the speech, so the
+      // planner never knows more than the simulated user; a page that cannot answer (navigating, closed) simply has none.
+      const pageTitle = typeof browser?.page.title === 'function' ? (await browser.page.title().catch(() => undefined))?.trim() : undefined;
+      if (pageTitle && collected.speech.some(line => line.includes(pageTitle))) heardTitles.add(pageTitle);
+      const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
+      const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
+        ...(title ? { title: title.slice(0, 300) } : {}) };
+      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
     let observation = await observe();
@@ -323,7 +339,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       stage = 'policy';
       const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
       for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
-        append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.' } : { step, evidence }, { source: 'policy', redacted: inputTainted });
+        append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
       }
       try { validateDecision(decision, allowedActions); }
       catch (error) {
@@ -336,12 +352,12 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         const verification = await verify(step);
         outcome = verification.passed ? { status: 'success', reason: 'verified', policyStop: decision.stop } : { status: 'failure', reason: decision.stop === 'success' ? 'verification-failed' : decision.stop === 'uncertain' ? 'policy-uncertain' : 'policy-stuck' };
         if (!verification.passed && decision.stop === 'uncertain') outcome.status = 'inconclusive';
-        if (decision.stopSource === 'model' || decision.stopSource === 'exploration-guard') outcome.policyStopSource = decision.stopSource;
+        if (decision.stopSource && STOP_SOURCES.includes(decision.stopSource)) outcome.policyStopSource = decision.stopSource;
         history.push({ step, decision, observation });
         break;
       }
       const action = decision.action;
-      let execution: { ok: boolean; error?: string };
+      let execution: ActionExecution;
       // Watched from before the action, so a request sent at the moment of the click counts.
       const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
       try {
@@ -350,7 +366,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         if (action.kind === 'typeText' || action.kind === 'replaceText') {
           const editable = await withinBudget(() => isEditable(browser!));
           append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
-          if (!editable) throw new Error('Text entry requires an editable focused field.');
+          if (!editable) throw new NotEditableError();
           // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
           if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
             inputTainted = true;
@@ -363,7 +379,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         // An error that names its own run outcome ends the run instead of becoming a failed action.
         if (error instanceof RawstepError && error.outcome) throw error;
         if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw evidenceFailure ?? controller.signal.reason ?? error;
-        execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error) };
+        execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error), failure: error instanceof NotEditableError ? 'not-editable' : 'backend' };
       }
       append('action.result', { step, action, ...execution });
       history.push({ step, decision, observation, execution });
@@ -459,6 +475,25 @@ export function validateDecision(decision: unknown, allowed: AllowedActions): as
   throw new Error('Policy action is not allowed by the task and backend capabilities.');
 }
 function isActivation(action: PolicyAction): boolean { return (action.kind === 'intent' && action.intent === 'activate') || (action.kind === 'key' && ['Enter','Space'].includes(action.key)); }
+const SAFE_TOKEN = /^[A-Za-z0-9._:-]{1,64}$/;
+/**
+ * What survives of policy evidence after a secret was typed: the evidence kind, role, plan bookkeeping (versions, task ids and
+ * statuses, triggers, counts) and the chosen candidate id — opaque tokens and numbers only, never plan wording or speech.
+ */
+function evidenceSummary(evidence: unknown): Record<string, unknown> {
+  if (!evidence || typeof evidence !== 'object') return {};
+  const source = evidence as Record<string, unknown>, out: Record<string, unknown> = {};
+  for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId', 'verified']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
+  for (const key of ['version', 'planVersion', 'replans', 'maxReplans', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
+  if (typeof source.accepted === 'boolean') out.accepted = source.accepted;
+  if (typeof source.rejected === 'number') out.rejected = source.rejected;
+  const ending = source.ending;
+  if (ending && typeof ending === 'object') {
+    const e = ending as Record<string, unknown>;
+    out.ending = Object.fromEntries(Object.entries({ reason: e.reason, step: e.step, verified: e.verified }).filter(([, v]) => typeof v === 'number' || (typeof v === 'string' && SAFE_TOKEN.test(v))));
+  }
+  return out;
+}
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 async function isEditable(browser: BrowserSession): Promise<boolean> {
   return browser.page.evaluate(() => {

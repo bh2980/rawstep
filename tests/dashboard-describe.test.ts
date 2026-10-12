@@ -29,6 +29,11 @@ describe('describeHint', () => {
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
+    ['early-stop plan limit', hint('early-stop', { reason: 'policy-stuck', stopSource: 'orchestration-limit' }), ['계획을 다시 세울']],
+    ['help-request', hint('help-request', { help: 'no-cue', version: 2 }), ['완료 단서를 찾을 수 없음', 'v2']],
+    ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
+    ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
+    ['unverified-done', hint('unverified-done', { taskId: 't4' }), ['t4', '들리지 않아']],
     ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],
     ['focus-left-page', hint('focus-left-page', { action: 'Tab' }), ['Tab', '페이지를 벗어났습니다']],
@@ -45,7 +50,8 @@ describe('describeHint', () => {
   it('covers every hint kind', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'repeated-state', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
-      'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page'];
+      'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
+      'replan', 'help-request', 'task-limit', 'unverified-done'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });

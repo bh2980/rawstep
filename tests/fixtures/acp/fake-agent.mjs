@@ -3,7 +3,7 @@ import { appendFileSync } from 'node:fs';
 const config = JSON.parse(process.env.FAKE_ACP ?? '{}');
 const log = message => { if (process.env.FAKE_ACP_LOG) appendFileSync(process.env.FAKE_ACP_LOG, JSON.stringify(message) + '\n'); };
 const send = message => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
-let nextId = 1000, sessions = 0;
+let nextId = 1000, sessions = 0, signedIn = false;
 const waiting = new Map();
 const ask = (method, params) => new Promise(resolve => { const id = nextId++; waiting.set(id, resolve); send({ id, method, params }); });
 let buffer = '';
@@ -22,8 +22,14 @@ async function handle(message) {
   if (method === 'initialize' && config.hangInit) return;
   if (method === 'initialize') return send({ id, result: { protocolVersion: config.protocolVersion ?? 1, agentInfo: { name: 'fake', version: '9' },
     agentCapabilities: { promptCapabilities: { image: config.images !== false }, sessionCapabilities: { delete: {} } } } });
-  if (method === 'session/new') return send({ id, result: { sessionId: `s${++sessions}`, configOptions: [{ id: 'model', category: 'model', type: 'select', currentValue: 'small',
-    options: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }] }] } });
+  if (method === 'authenticate') { signedIn = true; return send({ id, result: {} }); }
+  if (method === 'session/new') {
+    if (config.needsSignIn && !signedIn) return send({ id, error: { code: -32000, message: 'Authentication required' } });
+    return send({ id, result: { sessionId: `s${++sessions}`, configOptions: [
+      { id: 'model', category: 'model', type: 'select', currentValue: 'small', options: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }] },
+      ...(config.efforts ? [{ id: 'effort', category: 'thought_level', type: 'select', currentValue: 'high', options: config.efforts.map(value => ({ value, name: value })) }] : []),
+    ] } });
+  }
   if (method === 'session/set_config_option' || method === 'session/delete') return send({ id, result: {} });
   if (method === 'session/cancel') { for (const [pid, cancel] of pendingPrompts) { pendingPrompts.delete(pid); cancel(); } return; }
   if (method === 'session/prompt') {

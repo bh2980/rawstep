@@ -37,7 +37,7 @@ const stageText = (stage: Stage) => ({ what: t(`errors.stage.${stage}.what`), ne
 
 const goMachine: ErrorView['link'] = { to: { view: 'settings' }, label: t('errors.go.machine') };
 const goModels: ErrorView['link'] = { to: { view: 'connections' }, label: t('errors.go.models') };
-const goProfiles: ErrorView['link'] = { to: { view: 'profiles' }, label: t('errors.go.profiles') };
+const goConditions: ErrorView['link'] = { to: { view: 'conditions' }, label: t('errors.go.conditions') };
 
 /** The recorded codes of a run's end, for the "원본 오류 보기" block: the state, reason, stage, action number and the server's own message. */
 export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail'>): string {
@@ -69,7 +69,7 @@ function failureView(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'error
   }
   if (run.error === RUN_ERROR.restarted) return { kind: 'runtime', what: t('errors.run.restartedWhat'), progress: progressOf(run), next: t('errors.run.restartedNext'), raw };
   if (reason === 'access-blocked') return { kind: 'start', what: t('errors.run.blockedWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.blockedNext'), raw };
-  if (reason === 'unsupported-profile') return { kind: 'setup', what: t('errors.run.profileWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.profileNext'), link: goProfiles, raw };
+  if (reason === 'unsupported-profile') return { kind: 'setup', what: t('errors.run.environmentWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.environmentNext'), link: goConditions, raw };
   if (reason === 'unsupported-pattern') return { kind: 'setup', what: t('errors.run.patternWhat'), progress: progressOf(run), next: t('errors.run.patternNext'), raw };
   if (reason === 'error' && isStart(stage)) {
     return { kind: 'start', ...stageText(stage), progress: t('errors.run.progressNone'), link: stage === 'browser-start' || stage === 'backend-start' ? goMachine : undefined, raw };

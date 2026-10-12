@@ -12,7 +12,7 @@ import { formatClock } from '../lib/format';
 import { liveCurrentLine } from '../lib/stepDots';
 import { runGlyphKind } from '../lib/runStrip';
 import { describeHint } from '../lib/describe';
-import { durationSeconds, fastestRun, isLive, runPath, runProfileName, runStepCount, type RunRef } from '../lib/runs';
+import { durationSeconds, fastestRun, isLive, runConditions, runConditionsLine, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
@@ -40,8 +40,8 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const [retry, setRetry] = useState<RetryPreview>(), [deleting, setDeleting] = useState(false);
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run), fastest = fastestRun(taskRuns);
-  const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
-  const profile = runProfileName(pageProps.view.config.profiles, run);
+  const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
+  const conditions = runConditions(run, pageProps.view.config);
   const { act, busy } = pageProps;
   const post = (path: string) => () => void act(() => api(path, { method: 'POST' }));
   const previewRetry = () => void act(async () => setRetry(await api<RetryPreview>(`${base}/retry`)));
@@ -76,7 +76,8 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
             <RunGlyph kind={runGlyphKind(run.state)} /><span className="text-muted-foreground">{t('runHeader.outcomeLabel')}</span><span className="font-medium">{runStateLabel(run.state)}</span>
           </span>}
         </div>
-        <p className="text-sm text-muted-foreground">{t('runHeader.conditions', { mode: t(`sidebar.modes.${run.snapshot.mode}`), model: run.snapshot.model.name, profile })}</p>
+        <p className="text-sm text-muted-foreground">{runConditionsLine(conditions)}{conditions.preset && <span> · {t('runHeader.preset', { name: conditions.preset })}</span>}</p>
+        <RunModels conditions={conditions} />
       </div>
       <div className="grid justify-items-end gap-1.5"><div className="flex flex-wrap justify-end gap-2">
         {live && <Button variant="outline" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('runPage.stop')}</Button>}
@@ -116,7 +117,7 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
       {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></Button>}
     </div>
     <div className="grid gap-1 text-sm">
-      {run.snapshot.mode === 'screenreader' && run.snapshot.globals.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
+      {run.snapshot.spec.mode === 'screenreader' && run.snapshot.spec.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
       {run.outcome && !failure && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
     </div>
     {failure && <ErrorState view={failure} navigate={navigate} />}
@@ -124,4 +125,23 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
     <DeleteRunsDialog open={deleting} onOpenChange={setDeleting} count={1} onConfirm={remove} />
     <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
   </header>;
+}
+
+/**
+ * "이 실행에 쓴 모델" by role. The planner and the executor are experiment conditions; the commentary model only explains the run
+ * afterwards and never changes its outcome, so it is set apart.
+ */
+function RunModels({ conditions }: { conditions: ReturnType<typeof runConditions> }) {
+  const { t } = useTranslation();
+  const roles: { role: string; model: string; note?: string }[] = [
+    ...(conditions.planner ? [{ role: t('runConditions.roles.planner'), model: conditions.planner }] : []),
+    { role: t('runConditions.roles.executor'), model: conditions.executor },
+    ...(conditions.analysis ? [{ role: t('runConditions.roles.analysis'), model: conditions.analysis, note: t('runConditions.noEffect') }] : []),
+  ];
+  return <dl aria-label={t('runHeader.modelsTitle')} className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+    {roles.map(item => <div key={item.role} className="flex items-baseline gap-1.5">
+      <dt className="text-xs text-muted-foreground">{item.role}</dt>
+      <dd className="font-mono text-[13px]">{item.model}{item.note && <span className="ml-1.5 font-sans text-xs text-muted-foreground">({item.note})</span>}</dd>
+    </div>)}
+  </dl>;
 }

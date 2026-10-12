@@ -16,8 +16,8 @@ import { NewTaskPage } from './pages/NewTaskPage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
-import { MachinePage } from './pages/MachinePage';
-import { ProfilesPage } from './pages/ProfilesPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { ConditionsPage } from './pages/ConditionsPage';
 import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
@@ -123,8 +123,8 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
   if (route.view === 'tasks') return <TasksPage {...lists} onRun={onRunTask} />;
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
-  if (route.view === 'profiles') return <ProfilesPage key={editorKey} {...pageProps} navigate={navigate} />;
+  if (route.view === 'conditions') return <ConditionsPage key={editorKey} {...pageProps} navigate={navigate} />;
   if (route.view === 'connections') return <ConnectionsPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.view === 'settings') return <MachinePage key={editorKey} {...pageProps} />;
+  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} />;
   return <HomePage {...lists} />;
 }

@@ -20,3 +20,12 @@ export async function loadPolicy(modulePath: string, options: { fresh?: boolean 
   if (!policy || typeof policy.decide !== 'function') throw new Error('Policy module must export a default or named policy object with decide(input).');
   return policy;
 }
+export type { ChoiceCandidate, ChoiceModel, ChoiceRequest, ChoiceResult } from './choice.js';
+export { actionOnly, modelHistory } from './history.js';
+export type { ModelHistoryEntry } from './history.js';
+export { SpeechDecisionPolicy, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
+export type { SpeechGuard, SpeechPolicyOptions } from './speech.js';
+export { ORCHESTRATED_EXECUTOR_GUIDE, OrchestratedSpeechPolicy, orchestratedPrompt } from './orchestration.js';
+export type { OrchestrationOptions, PlanRequest, PlanResult, Planner, TaskAttempt } from './orchestration.js';
+export { activateNext, applyDraft, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, renderPlanMarkdown, verifyCue } from './plan-document.js';
+export type { Assumption, AssumptionStatus, Criterion, CriterionStatus, HelpReason, PlanDocument, PlanDraft, PlanPhase, PlanRevision, PlanTask, PlanTrigger, TaskEnding, TaskStatus } from './plan-document.js';

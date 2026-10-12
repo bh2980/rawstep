@@ -66,7 +66,13 @@ export type Task = {
   navigation?: NavigationPolicy;
 };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
-export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: 'model' | 'exploration-guard' };
+/**
+ * Who ended a run early: the executor model (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
+ * (`exploration-guard`), or orchestration running out of new plans (`orchestration-limit`).
+ */
+export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'orchestration-limit';
+export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'orchestration-limit']);
+export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: StopSource };
 export type AllowedActions = { intents: readonly string[]; keys: readonly string[]; inputKeys: readonly string[]; typeText?: boolean; replaceText: boolean };
 export type ScreenReaderObservation = {
   kind: 'screenreader';
@@ -76,6 +82,8 @@ export type ScreenReaderObservation = {
   speech: readonly string[];
   outputEventIds: readonly string[];
   window: { id: string; startedAt: string; endedAt: string; reason: string };
+  /** The page title (document.title), which screen readers announce when a page loads. Absent when it could not be read. */
+  title?: string;
 };
 export type ScreenshotObservation = { pngBase64: string; viewport: { w: number; h: number } };
 export type KeyboardObservation = {
@@ -85,7 +93,13 @@ export type KeyboardObservation = {
   window: { id: string; startedAt: string; endedAt: string; reason: string };
 };
 export type Observation = ScreenReaderObservation | KeyboardObservation;
-export type HistoryEntry = { step: number; decision: Decision; observation: Observation; execution?: { ok: boolean; error?: string } };
+/**
+ * Why the runner could not carry out an action, in words Rawstep chose: `not-editable` when text entry found no editable
+ * focused field, `backend` for anything the screen reader or browser refused. Models see this code, never the raw error.
+ */
+export type ExecutionFailure = 'not-editable' | 'backend';
+export type ActionExecution = { ok: boolean; error?: string; failure?: ExecutionFailure };
+export type HistoryEntry = { step: number; decision: Decision; observation: Observation; execution?: ActionExecution };
 export interface DecisionPolicy {
   /** Optional policy-owned inference diagnostics; saved as policy evidence, never verifier evidence. */
   takeDecisionEvidence?(): readonly unknown[];

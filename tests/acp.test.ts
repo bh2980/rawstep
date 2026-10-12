@@ -22,7 +22,7 @@ function fake(config: Record<string, unknown> = {}) {
 describe('ACP agent client', () => {
   it('hands over no file system or terminal and reads the agent, its image support and its models', async () => {
     const { agent, received } = fake();
-    expect(await agent.start()).toEqual({ name: 'fake', version: '9', images: true, models: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }], currentModel: 'small' });
+    expect(await agent.start()).toEqual({ name: 'fake', version: '9', images: true, models: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }], currentModel: 'small', efforts: [] });
     expect(received()[0].params.clientCapabilities).toEqual({ fs: { readTextFile: false, writeTextFile: false }, terminal: false });
   });
   it('sends each prompt in a fresh session in an empty folder, picks the model, joins only the reply text and deletes the session', async () => {
@@ -80,6 +80,23 @@ describe('ACP agent client', () => {
     const started = Date.now();
     await expect(fake({ hangInit: true }).agent.start(AbortSignal.timeout(200))).rejects.toThrow();
     expect(Date.now() - started).toBeLessThan(5000);
+  });
+  it('tells a missing sign-in apart and signs in only when asked', async () => {
+    const { agent, received } = fake({ needsSignIn: true });
+    await expect(agent.start()).rejects.toMatchObject({ reason: 'sign-in' });
+    expect(received().some(m => m.method === 'authenticate')).toBe(false);
+    await agent.signIn('oauth-personal');
+    expect(received().find(m => m.method === 'authenticate').params).toEqual({ methodId: 'oauth-personal' });
+  });
+  it('sets a thinking level the agent offers, ignores it for an agent without levels and refuses an unknown one', async () => {
+    const leveled = fake({ efforts: ['low', 'high'] });
+    expect((await leveled.agent.start()).efforts).toEqual(['low', 'high']);
+    await leveled.agent.prompt({ text: 'x', reasoningEffort: 'low' });
+    expect(leveled.received().find(m => m.method === 'session/set_config_option').params).toMatchObject({ configId: 'effort', value: 'low' });
+    await expect(leveled.agent.prompt({ text: 'x', reasoningEffort: 'max' })).rejects.toMatchObject({ reason: 'unknown-model' });
+    const plain = fake();
+    await plain.agent.prompt({ text: 'x', reasoningEffort: 'low' });
+    expect(plain.received().some(m => m.method === 'session/set_config_option')).toBe(false);
   });
   it('reports a command that does not exist as a start failure', async () => {
     const agent = new AcpAgent({ command: 'rawstep-no-such-agent-cli', args: [] }); open.push(agent);

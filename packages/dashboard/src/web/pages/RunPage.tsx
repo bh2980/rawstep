@@ -7,6 +7,7 @@ import { StepDetail } from '../components/StepDetail';
 import { RunDiagnosis } from '../components/RunDiagnosis';
 import { RunExplanation } from '../components/RunExplanation';
 import { RunHeader } from '../components/RunHeader';
+import { PlanDocumentView, PlanFacts } from '../components/trace/PlanDocumentView';
 import { EmptyState } from '../components/layout/EmptyState';
 import { ErrorState } from '../components/layout/ErrorState';
 import { Skeleton } from '../components/ui/skeleton';
@@ -26,7 +27,8 @@ type Props = {
 };
 
 /**
- * One run: its header, the dot timeline and the one step that is selected. The selected step is in the address (`step=`);
+ * One run: its header, the plan document when a planner wrote one (tree, picked task and its actions), the dot timeline and the one
+ * step that is selected. The selected step is in the address (`step=`);
  * a live run follows its newest step until a person picks an earlier one. Mount with `key={run.id}`.
  */
 export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
@@ -47,7 +49,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const previous = view && index > 0 ? view.steps.slice(0, index).reverse().find(item => item.screenshot) : undefined;
   const select = (next: number) => navigate({ task: run.taskId, run: run.id, ...(live && next === latest?.step ? {} : { step: next }) }, { replace: true });
   const spoken = useThrottledMessage(live && latest ? announcement(latest) : '');
-  const maxSteps = run.snapshot.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
+  const maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const baselineMet = view?.baseline?.rules.filter(rule => rule.passed).length;
   return <div className="grid gap-5">
     <RunHeader runRef={runRef} taskRuns={taskRuns} numbers={numbers} view={view} pageProps={pageProps} navigate={navigate} />
@@ -55,7 +57,9 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
       <p className="text-[15px] leading-6 font-semibold">{t('runPage.waitingForPerson')}</p>
       <p className="text-[13px] leading-5">{t('runPage.waitingForPersonNote')}</p>
     </section>}
-    {view && !live && <RunDiagnosis run={run} steps={view.steps} notices={view.notices} onSelect={select} />}
+    {view?.plan && <PlanFacts plan={view.plan} />}
+    {view && !live && <RunDiagnosis run={run} steps={view.steps} notices={view.notices} plan={view.plan} onSelect={select} />}
+    {view?.plan && <PlanDocumentView plan={view.plan} steps={view.steps} actionLimit={run.snapshot.spec.settings.runRules.stepActionLimit} selectedStep={selected} onSelectStep={select} live={live} />}
     <section aria-label={t('runPage.timelineSection')} className="grid gap-2">
       {loading && !view && <div aria-busy="true" className="grid gap-3"><Skeleton className="h-10" /><Skeleton className="h-64" /></div>}
       {live && !connected && <ErrorState view={connectionLostView()} />}
@@ -64,11 +68,11 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
         ? <EmptyState compact title={live ? t('empty.steps.liveTitle') : t('empty.steps.title')} why={live ? t('empty.steps.liveWhy') : t('empty.steps.why')} />
         : <>
           <TraceRail steps={view.steps} modelKind={view.modelKind} selected={selected} live={live} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
-          <RailLegend modelKind={view.modelKind} live={live} />
+          <RailLegend modelKind={view.modelKind} live={live} planned={!!view.plan} />
         </>)}
       <p role="status" aria-live="polite" className="sr-only">{spoken}</p>
     </section>
-    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} previous={previous} before={index > 0 ? view.steps[index - 1] : undefined}
+    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} plan={view.plan} previous={previous} before={index > 0 ? view.steps[index - 1] : undefined}
       hints={view.hints.filter(hint => hint.steps.includes(step.step))} baselineMet={step.step === 0 ? baselineMet : undefined} live={live && step.step === latest?.step} />}
     {view?.explanation && <RunExplanation explanation={view.explanation} model={run.analysisModel?.name} onSelect={select} />}
     {view && step && view.steps.length > 1 && <StepPager position={step.step} total={latest?.step ?? step.step} hasPrevious={index > 0} hasNext={index < view.steps.length - 1}

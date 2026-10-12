@@ -12,13 +12,13 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'profile', 'mode', 'repeat', 'out', 'json'],
+  run: ['project', 'preset', 'combo', 'actions', 'environment', 'at', 'mode', 'repeat', 'max-replans', 'max-task-actions', 'diagnose-stop', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
-  analyze: ['project', 'profile', 'out'],
+  analyze: ['project', 'llm', 'out'],
   doctor: ['project'],
 };
-const booleanOptions = new Set(['json']);
+const booleanOptions = new Set(['json', 'llm', 'diagnose-stop']);
 const positionalsByCommand: Record<Command, { count: number; noun: string }> = {
   init: { count: 0, noun: '' }, ui: { count: 0, noun: '' }, doctor: { count: 0, noun: '' },
   run: { count: 1, noun: 'task id or task JSON file' },
@@ -64,6 +64,10 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   if (command === 'run') {
     if (result.options.mode !== undefined && !['keyboard', 'screenreader'].includes(String(result.options.mode))) throw new CliUsageError('--mode must be keyboard or screenreader.');
     if (result.options.repeat !== undefined && (!/^[0-9]+$/.test(String(result.options.repeat)) || Number(result.options.repeat) < 1 || Number(result.options.repeat) > 100)) throw new CliUsageError('--repeat must be an integer from 1 to 100.');
+    for (const [option, min, max] of [['max-replans', 0, 100], ['max-task-actions', 1, 1000]] as const) {
+      const value = result.options[option];
+      if (value !== undefined && (!/^[0-9]+$/.test(String(value)) || Number(value) < min || Number(value) > max)) throw new CliUsageError(`--${option} must be an integer from ${min} to ${max}.`);
+    }
   }
   return result;
 }
@@ -73,35 +77,40 @@ export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web
 Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
-  rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader]
+  rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
+                     [--at <id|name>] [--mode keyboard|screenreader] [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
-  rawstep analyze <run-dir> [--profile <id|name>] [--out <dir>] [--project <dir>]
+  rawstep analyze <run-dir> [--llm] [--out <dir>] [--project <dir>]
   rawstep doctor [--project <dir>]
 
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
-  ui        Open the dashboard to set up connections, tasks and profiles, and to run experiments.
-  run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile's model, then
-            print each run's outcome and the findings gathered across the runs, grouped as Page and Model.
-            When the profile has an analysis model, each run is also analysed by that LLM.
+  ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
+  run       Run a task from rawstep.config.json (by id) or a task JSON file under experiment conditions (model combo,
+            action set, page environment, assistive technology), then print the conditions, each run's outcome and the
+            findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned combo also write
+            plan.json and plan.md. With an analysis model (the combo's or the project's) each run is also analysed.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
-  analyze   Analyze a saved run. Without --profile the analysis is a local summary; --profile sends the saved
-            events (PNG bytes omitted) to that run profile's analysis model.
+  analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
+            events (PNG bytes omitted) to the project's analysis model.
   doctor    Check that a browser can launch, the config parses, credentials are set and, for a native
             screen reader, that its AT Driver endpoint answers.
 
 Configuration:
   Everything lives in rawstep.config.json in the project directory: connections (where models are
-  reached), tasks, run profiles (which model to run and analyse with, and the run conditions) and
-  machine settings. The dashboard and the CLI read the same file. Commit it with your project.
+  reached), model combos (who plans and who acts), action sets, page and assistive-technology environments,
+  run rules, presets, tasks, project models (analysis, check suggestions) and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.
 
 Run defaults:
-  --profile  the task's profile, otherwise the first profile; the profile picks the model
+  --preset, --combo, --actions, --environment (page), --at (assistive technology)
+                 each the task's own, then its preset's, then the first shared one
+  --max-replans, --max-task-actions
+                 override the run rules for these runs
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat

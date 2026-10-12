@@ -1,9 +1,20 @@
+import type { Mode, ProjectConfig } from '@rawstep/project/config';
 import type { Experiment, RunRecord } from '../../shared/config.js';
+import { t } from '../i18n/index.js';
 
 export type RunRef = { experiment: Experiment; run: RunRecord };
 
 export const isLive = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 export const isFinished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
+
+/** The model ID alone of a model a run recorded ("connection · model ID" otherwise). */
+export const shortModel = (model: { modelId?: string; name: string }): string => model.modelId || model.name;
+
+/** The models a run used, by role: "계획 gemini → 실행 jev" with a planner, otherwise the executor alone. */
+export const runModelsName = (run: Pick<RunRecord, 'snapshot'>): string => {
+  const { model, plannerModel } = run.snapshot.spec;
+  return plannerModel ? t('runConditions.plannedModels', { planner: shortModel(plannerModel), executor: shortModel(model) }) : shortModel(model);
+};
 
 export function runStartedAt(ref: RunRef): number {
   const time = Date.parse(ref.run.startedAt ?? ref.experiment.createdAt);
@@ -39,14 +50,39 @@ export function screenshotUrl(experimentId: string, runId: string, eventId: stri
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
 }
 
-/** Name of a run profile by id; the id itself when the profile no longer exists. */
-export function profileName(profiles: readonly { id: string; name: string }[], id: string): string {
-  return profiles.find(profile => profile.id === id)?.name ?? id;
-}
+type Named = readonly { id: string; name: string }[];
+type Recorded = { id?: string; name?: string };
+const recorded = (value: unknown): Recorded & Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Recorded & Record<string, unknown> : {};
 
-/** The profile name a run executed with: the name recorded in its snapshot, else the current profile name, else the id. */
-export function runProfileName(profiles: readonly { id: string; name: string }[], run: Pick<RunRecord, 'profileId' | 'snapshot'>): string {
-  return run.snapshot.runProfile?.name ?? profileName(profiles, run.profileId);
+/** What a run ran under, read from what it recorded at the start (names as they were then), falling back to the project by id. */
+export type RunConditionsView = {
+  mode: Mode; structure: 'solo' | 'planned';
+  combo: string; actionSet: string; pageEnvironment: string; atEnvironment: string; backend: string; preset?: string;
+  /** Model names by role; `analysis` never changes an outcome. */
+  executor: string; planner?: string; analysis?: string;
+};
+export function runConditions(run: Pick<RunRecord, 'snapshot' | 'comboId' | 'actionSetId' | 'pageEnvironmentId' | 'atEnvironmentId' | 'presetId' | 'structure' | 'analysisModel'>,
+  config?: Partial<Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>>): RunConditionsView {
+  const { spec } = run.snapshot, c = recorded(spec.conditions);
+  const name = (key: string, list: Named | undefined, id: string | undefined) => {
+    const own = recorded(c[key]).name;
+    return typeof own === 'string' ? own : list?.find(item => item.id === id)?.name ?? id ?? '—';
+  };
+  const combo = recorded(c.combo), preset = recorded(c.preset);
+  const structure = combo.structure === 'planned' || combo.structure === 'solo' ? combo.structure : run.structure ?? 'solo';
+  const presetName = typeof preset.name === 'string' ? preset.name : config?.presets?.find(p => p.id === run.presetId)?.name;
+  return {
+    mode: spec.mode, structure,
+    combo: name('combo', config?.combos, run.comboId), actionSet: name('actionSet', config?.actionSets, run.actionSetId),
+    pageEnvironment: name('pageEnvironment', config?.pageEnvironments, run.pageEnvironmentId), atEnvironment: name('atEnvironment', config?.atEnvironments, run.atEnvironmentId),
+    backend: spec.backend, ...(presetName ? { preset: presetName } : {}),
+    executor: spec.model.name, ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
+    ...(run.analysisModel ? { analysis: run.analysisModel.name } : typeof combo.analysis === 'string' ? { analysis: combo.analysis } : {}),
+  };
+}
+/** "스크린리더 · 계획 + 실행 · 숙련 사용자 · Default · 모의 VoiceOver": the conditions in one line, screen reader runs naming their assistive technology. */
+export function runConditionsLine(view: RunConditionsView): string {
+  return [t(`sidebar.modes.${view.mode}`), view.combo, view.actionSet, view.pageEnvironment, ...(view.mode === 'screenreader' ? [view.atEnvironment] : [])].join(' · ');
 }
 
 /** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */

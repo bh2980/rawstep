@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { RAWSTEP_DEFAULTS, isLoopbackHostname, isLoopbackUrl } from '@rawstep/core/defaults';
 import { resolveTask } from '@rawstep/core/contracts';
-import { defaultConfig } from '@rawstep/project/config';
+import { defaultConfig, executorSchema, runRulesSchema } from '@rawstep/project/config';
 
 describe('shared runtime defaults', () => {
   it.each(['http://localhost:1/', 'http://127.0.0.1/', 'http://[::1]:8/'])('treats %s as loopback', url => expect(isLoopbackUrl(url)).toBe(true));
   it.each(['https://example.com/', 'http://127.0.0.2/', 'not a url'])('rejects %s as non-loopback', url => expect(isLoopbackUrl(url)).toBe(false));
   it('accepts a bare ::1 hostname', () => expect(isLoopbackHostname('::1')).toBe(true));
-  it('keeps the dashboard policy defaults in sync', () => {
-    const { focusGate, repetitionGuard, modelGiveUp, ...policy } = defaultConfig().profiles[0]!.policy;
-    expect([focusGate, repetitionGuard, modelGiveUp]).toEqual([false, 'auto', false]);
-    expect(policy).toEqual(RAWSTEP_DEFAULTS.policy);
+  it('keeps the project run rules in sync with the shared policy and orchestration defaults', () => {
+    const { repetitionGuard, modelGiveUp, maxStateVisits, maxUnchangedTransitions, maxReplans, stepActionLimit, failureLimit, noChangeLimit } = defaultConfig().runRules;
+    expect([repetitionGuard, modelGiveUp]).toEqual(['auto', false]);
+    expect({ maxStateVisits, maxUnchangedTransitions }).toEqual({ maxStateVisits: RAWSTEP_DEFAULTS.policy.maxStateVisits, maxUnchangedTransitions: RAWSTEP_DEFAULTS.policy.maxUnchangedTransitions });
+    expect({ maxReplans, stepActionLimit }).toEqual({ maxReplans: RAWSTEP_DEFAULTS.orchestration.maxReplans, stepActionLimit: RAWSTEP_DEFAULTS.orchestration.stepActionLimit });
+    expect([failureLimit, noChangeLimit]).toEqual([2, 3]);
+    expect(runRulesSchema.parse({})).toEqual(defaultConfig().runRules);
+  });
+  it('defaults the executor history to the shared policy default and the focus gate to off', () => {
+    const executor = executorSchema.parse({ connectionId: 'm', modelId: 'x', inputs: ['text'], instructions: 'Choose.' });
+    expect(executor.historyLimit).toBe(RAWSTEP_DEFAULTS.policy.historyLimit);
+    expect(executor).toMatchObject({ focusGate: false, maxChoices: 255, maxImages: 2 });
   });
   it('resolves task limits from the shared defaults', () => {
     const task = resolveTask({ url: 'https://example.com', goal: 'g', verify: { all: [{ titleIncludes: 'x' }] } });

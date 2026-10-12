@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { elementsFromAriaSnapshot } from '../packages/dashboard/src/server/structure.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultConfig, defaultModes } from '@rawstep/project/config';
+import { defaultConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
-import { connection, profileWith } from './helpers/project-config.js';
+import { comboWith, connection } from './helpers/project-config.js';
 import { HINT_SOURCES, type Hint, type HintKind, type HintReport } from '@rawstep/reports/hints';
 import type { TaskFindings, TaskSummary } from '../packages/dashboard/src/shared/api.js';
 
@@ -23,14 +23,14 @@ const checkout = { role: 'button', name: 'Checkout' };
 async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[] }[]) {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
-  config.connections.push(connection('a')); config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
-  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json', modes: defaultModes() });
+  config.connections.push(connection('a')); config.combos[0] = comboWith('default', 'a', 'm-a', 'Default');
+  config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' });
   await store.save(config, initial.revision, { file: 'task.json', task });
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
     const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
     const outcome = outcomes[run.repeat - 1]!; return trace.finalize({ status: outcome.status, steps: outcome.steps });
   } }); apps.push(app);
-  const experiment = await app.queue.create({ taskIds: ['task'], promptIds: ['baseline'], mode: 'keyboard', repeats: outcomes.length });
+  const experiment = await app.queue.create({ taskIds: ['task'], modes: ['keyboard'], repeats: outcomes.length });
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
   const runs = [...experiment.runs].sort((a, b) => a.repeat - b.repeat);
   for (const [i, run] of runs.entries()) {

@@ -1,6 +1,7 @@
 import { findRawstepError, RawstepError } from '@rawstep/core/errors';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
+import { AcpAgent, AcpError } from '@rawstep/policies/acp';
 import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
@@ -11,10 +12,12 @@ type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
 
 /** Starting an agent CLI takes seconds, and a first npx download longer. */
 const AGENT_TIMEOUT_MS = 120_000;
+/** A sign-in may wait for the person to finish it in a browser. */
+const SIGN_IN_TIMEOUT_MS = 300_000;
 
 const KINDS: Record<string, CheckKind> = {
   'model-unreachable': 'unreachable', 'model-http': 'rejected', 'invalid-base-url': 'invalid-address',
-  'model-list-missing': 'unverified', 'missing-credential': 'missing-key',
+  'model-list-missing': 'unverified', 'missing-credential': 'missing-key', 'agent-missing': 'cli-missing', 'agent-signed-out': 'cli-signed-out',
 };
 
 const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: kind === 'ready' || kind === 'unverified', kind, via, checkedAt: new Date().toISOString() });
@@ -25,13 +28,15 @@ const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: k
  * - LLMs and every provider with a model list (TypeSafe, OpenRouter and Gateway decision models too): the model list, which
  *   costs nothing. Ready means the server answered, the key was accepted and the model is in the list.
  * - A custom decision server has no list, so it gets one minimal two-choice decision through the same client a run uses.
+ * - Coding-agent CLIs: the agent is started over ACP and asked for its models (no prompt, nothing billed); a missing program
+ *   and a missing sign-in are told apart. Rawstep never signs an agent in during a check.
  */
 export async function checkModel(model: CheckedModel, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(model), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
   const timeoutMs = options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000);
   if (model.kind === 'decision' && model.provider === 'custom') return checkDecisionServer(model, key, timeoutMs, options.fetch);
-  const via = model.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : model.kind === 'decision' ? 'decision-catalog' : 'model-list';
   try {
     const listed = await discover({ kind: model.kind, provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
     if (listed.length === 0) return result('unverified', via);
@@ -52,6 +57,19 @@ export async function checkConnection(connection: Pick<Connection, 'kind' | 'pro
   } catch (error) {
     return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
   }
+}
+
+/**
+ * Signs a coding-agent CLI in with its own ACP sign-in method, then checks it like `checkConnection`. Only for the person's
+ * explicit request (the sign-in button): it can reuse an account the computer is signed in to, or open a sign-in page.
+ */
+export async function signInAgent(connection: Pick<Connection, 'kind' | 'provider'>): Promise<ModelCheck> {
+  const agent = providerPreset(connection).agent;
+  if (!agent?.signIn) return result('failed', 'agent');
+  const acp = new AcpAgent(agent);
+  try { await acp.signIn(agent.signIn, AbortSignal.timeout(SIGN_IN_TIMEOUT_MS)); return result('ready', 'agent'); }
+  catch (error) { return result(error instanceof AcpError && error.reason === 'start-failed' ? 'cli-missing' : 'cli-signed-out', 'agent'); }
+  finally { await acp.close(); }
 }
 
 async function checkDecisionServer(model: CheckedModel, apiKey: string | undefined, timeoutMs: number, fetcher: typeof fetch | undefined): Promise<ModelCheck> {

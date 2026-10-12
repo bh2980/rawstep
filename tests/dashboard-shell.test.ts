@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
-import { applyKeyboardPreset, applyScreenreaderPreset, keyboardPreset, quickAvailable, screenreaderPreset } from '../packages/dashboard/src/web/lib/presets.js';
+import { matchingPreset, presetPermissions } from '../packages/dashboard/src/web/lib/presets.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
-import { defaultProfile } from '@rawstep/project/config';
+import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
 
 describe('routes', () => {
   it('keeps the page in the URL and puts tasks, new tasks and runs under the 작업 menu', () => {
     expect(routeSearch({})).toBe('/');
     expect(routeSearch({ view: 'tasks' })).toBe('?view=tasks');
     expect(routeSearch({ view: 'runs' })).toBe('?view=runs');
-    // Profiles and connections are pages of their own; settings are this computer's only.
-    for (const view of ['profiles', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
+    // Experiment conditions and connections are pages of their own; settings hold the project's and this computer's settings.
+    for (const view of ['conditions', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
     expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
     expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
@@ -22,45 +22,32 @@ describe('routes', () => {
     expect(parseRoute('?view=connections')).toMatchObject({ view: 'connections' });
     expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', tab: 'overview' });
     expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'home' });
+    // The pages the conditions page replaced fall back to home.
+    expect(parseRoute('?view=agents')).toMatchObject({ view: 'home' });
     expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
     expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=profiles', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=tasks', '?view=conditions', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 
-describe('allowed-action presets', () => {
-  const keyboard = defaultProfile().permissions.keyboard, screenreader = defaultProfile().permissions.screenreader;
-  const simulation = { keys: [], intents: ['next', 'previous', 'readCurrent', 'readFocused', 'activate'] };
-  const native = { keys: [], intents: ['next', 'previous', 'activate', 'interact', 'stopInteracting', 'heading.next', 'heading.previous', 'form.next'] };
-
-  it('recognises the keyboard presets whatever the order and treats anything else as custom', () => {
-    expect(keyboardPreset(keyboard)).toBe('basic');
-    expect(keyboardPreset({ keys: ['Space', 'Enter', 'Shift+Tab', 'Tab'], intents: [] })).toBe('basic');
-    const widgets = applyKeyboardPreset(keyboard, 'widgets');
-    expect(widgets.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End']);
-    expect(keyboardPreset(widgets)).toBe('widgets');
-    expect(keyboardPreset({ ...keyboard, keys: [...keyboard.keys, 'PageDown'] })).toBe('custom');
-    expect(keyboardPreset({ ...keyboard, keys: [] })).toBe('custom');
-    expect(keyboardPreset({ ...keyboard, intents: ['next'] })).toBe('custom');
-    expect(applyKeyboardPreset({ ...keyboard, typeText: true }, 'basic')).toEqual({ ...keyboard, typeText: true });
-  });
-
-  it('offers quick navigation only to screen readers that have it and keeps typing settings when a preset is picked', () => {
-    expect(quickAvailable(simulation)).toBe(false);
-    expect(quickAvailable(native)).toBe(true);
-    expect(screenreaderPreset(screenreader, simulation)).toBe('basic');
-    const quick = applyScreenreaderPreset({ ...screenreader, typeText: true }, 'quick', native);
-    expect(quick.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next']);
-    expect(quick.typeText).toBe(true);
-    expect(screenreaderPreset(quick, native)).toBe('quick');
-    // The same intents under the simulation are not a preset: the backend would refuse them.
-    expect(screenreaderPreset(quick, simulation)).toBe('custom');
-    expect(applyScreenreaderPreset(screenreader, 'quick', simulation).intents).toEqual(['next', 'previous', 'activate']);
-    expect(screenreaderPreset({ ...screenreader, intents: ['readCurrent'] }, simulation)).toBe('custom');
-    expect(screenreaderPreset({ keys: ['Tab'], intents: ['next', 'previous', 'activate'] }, native)).toBe('custom');
+describe('action set presets', () => {
+  it('starts novice, expert and widget sets and recognises them whatever the order', () => {
+    const novice = presetPermissions('novice');
+    expect(novice.keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space']);
+    expect(novice.screenreader.intents).toEqual(['next', 'previous', 'activate']);
+    expect(novice.screenreader.typeText).toBe(false);
+    const expert = presetPermissions('expert');
+    expect(expert.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next']);
+    expect(expert.screenreader.typeText).toBe(true);
+    expect(presetPermissions('widgets').keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End']);
+    expect(matchingPreset(DEFAULT_PERMISSIONS)).toBe('novice');
+    expect(matchingPreset({ ...novice, keyboard: { ...novice.keyboard, keys: ['Space', 'Enter', 'Shift+Tab', 'Tab'] } })).toBe('novice');
+    expect(matchingPreset(expert)).toBe('expert');
+    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, intents: ['next'] } })).toBeUndefined();
+    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, inputKeys: ['q'] } })).toBeUndefined();
   });
 });
 

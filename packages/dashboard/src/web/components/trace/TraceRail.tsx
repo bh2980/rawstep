@@ -4,6 +4,7 @@ import type { ModelKind } from '@rawstep/project/config';
 import type { StepView } from '../../../shared/api';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { dotLabel, isUnsure, railKeyTarget, railWindow, stepGlyph, type StepGlyph } from '../../lib/stepDots';
+import { planMark } from '../../lib/plan';
 import { cn } from '../../lib/utils';
 
 /** A step drawn at rail size: · move, ● press or page change, ◌ low model certainty, ◎ look here, ▣ the one being viewed, ┄ not run yet. */
@@ -94,6 +95,7 @@ export function TraceRail({ steps, modelKind, selected, remaining, live, onSelec
             className={cn('grid w-9 shrink-0 justify-items-center gap-1 rounded-md border border-transparent py-1.5', newest && 'motion-arrive', on ? 'border-trace bg-trace-soft' : 'hover:bg-raised')}>
             <GlyphMark kind={on ? 'current' : stepGlyph(step, modelKind)} />
             <span aria-hidden="true" className={cn('font-mono text-[11px] tabular-nums', on ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{step.step}</span>
+            {planMark(step) && <PlanMark kind={planMark(step)!} />}
           </button>
           {newest && <span aria-hidden="true" className="mt-1.5 ml-0.5 h-7 w-0.5 shrink-0 rounded-full bg-trace" />}
         </div>;
@@ -114,8 +116,13 @@ function tick(kind: StepGlyph, current: boolean): string {
   }
 }
 
-/** What each glyph on the rails means. The low-certainty mark only exists for Decision models and the not-run mark only while live. */
-export function RailLegend({ modelKind, live }: { modelKind: ModelKind; live: boolean }) {
+/** Under a step's number on the detail rail: the plan was revised here (↻) or the run hit the replanning limit (■). */
+export function PlanMark({ kind }: { kind: 'replan' | 'limit' }) {
+  return <span aria-hidden="true" className={cn('font-mono text-[11px] leading-3', kind === 'limit' ? 'text-inspect' : 'text-model')}>{kind === 'limit' ? '■' : '↻'}</span>;
+}
+
+/** What each glyph on the rails means. The low-certainty mark only exists for Decision models, the not-run mark only while live, the plan marks only with a planner. */
+export function RailLegend({ modelKind, live, planned }: { modelKind: ModelKind; live: boolean; planned?: boolean }) {
   const { t } = useTranslation();
   const items: { kind: MarkKind; text: string }[] = [
     { kind: 'move', text: t('runPage.legendMove') },
@@ -127,5 +134,7 @@ export function RailLegend({ modelKind, live }: { modelKind: ModelKind; live: bo
   ];
   return <ul aria-label={t('runPage.legendLabel')} className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
     {items.map(item => <li key={item.kind} className="flex items-center gap-1.5"><GlyphMark kind={item.kind} className="scale-90" />{item.text}</li>)}
+    {planned && <li className="flex items-center gap-1.5"><PlanMark kind="replan" />{t('runPage.legendReplan')}</li>}
+    {planned && <li className="flex items-center gap-1.5"><PlanMark kind="limit" />{t('runPage.legendLimit')}</li>}
   </ul>;
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { FileUp } from 'lucide-react';
-import { defaultModes } from '@rawstep/project/config';
 import { api } from '../api';
 import { useTranslation } from 'react-i18next';
 import { createManagedTask, slugify } from '../lib/taskFiles';
@@ -46,7 +45,7 @@ export function TaskImportDialog({ open, onOpenChange, onImported, ...props }: P
     await api<unknown>('/tasks/import', { method: 'POST', body: { file: candidate.file } });
     const id = crypto.randomUUID();
     const fallback = candidate.file.split('/').pop()?.replace(/\.json$/i, '') ?? t('task.importFallbackName');
-    await props.save({ ...props.view.config, tasks: [...props.view.config.tasks, { id, name: nameFrom(candidate.goal, fallback), file: candidate.file, modes: defaultModes() }] });
+    await props.save({ ...props.view.config, tasks: [...props.view.config.tasks, { id, name: nameFrom(candidate.goal, fallback), file: candidate.file }] });
     finish(id);
   }
   return <Dialog open={open} onOpenChange={onOpenChange}>

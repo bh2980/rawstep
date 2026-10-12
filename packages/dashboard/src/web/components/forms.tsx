@@ -18,7 +18,7 @@ export function Field({ label, value, onChange, multiline, plain, type, hint, pl
 export function Choice({ label, value, onChange, options }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[] }) {
   const id = useId();
   const { t } = useTranslation();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Select value={value} onValueChange={onChange}><SelectTrigger id={id} className="w-full"><SelectValue placeholder={t('forms.placeholder')} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Select value={value} onValueChange={onChange}><SelectTrigger id={id} className="w-full min-w-0"><SelectValue placeholder={t('forms.placeholder')} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>;
 }
 export function MultiChoice({ label, items, selected, onChange }: { label: string; items: { id: string; name: string }[]; selected: string[]; onChange: (s: string[]) => void }) {
   const id = useId();

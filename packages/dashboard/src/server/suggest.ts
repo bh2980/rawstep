@@ -4,7 +4,7 @@ import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
 import { closeLlmModel, generateStructured } from '@rawstep/policies/llm';
 import type { MachineSettings, Model } from '@rawstep/project/config';
-import { languageModelOf } from '@rawstep/project/llm';
+import { llmModelOf } from '@rawstep/project/llm';
 import { record } from './http.js';
 import { openStartPage, readPageStructure } from './structure.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
@@ -70,9 +70,9 @@ export async function suggestChecks(options: {
 }
 
 async function askModel(options: { model: Model; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
-  let llm: ReturnType<typeof languageModelOf> | undefined;
+  let llm: ReturnType<typeof llmModelOf> | undefined;
   try {
-    llm = languageModelOf(options.model, { ...(options.apiKey ? { apiKey: options.apiKey } : {}), name: 'rawstep-suggest' });
+    llm = llmModelOf(options.model, 'rawstep-suggest', options.apiKey);
     const { object } = await generateStructured({ model: llm, system: SYSTEM, user: JSON.stringify({ goal, pageStructure: structure }), signal: options.signal, schema: suggestionsSchema });
     return object.suggestions;
   } catch {

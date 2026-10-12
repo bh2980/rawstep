@@ -3,6 +3,7 @@ import type { RunStepsView, StepView } from '../../shared/api.js';
 import { describeStep } from './describe.js';
 import { t } from '../i18n/index.js';
 import { targetLabel } from '../i18n/labels.js';
+import { planMark } from './plan.js';
 
 const NAVIGATION_KEYS = new Set(['Tab', 'Shift+Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 const NAVIGATION_INTENTS = new Set(['next', 'previous', 'heading.next', 'heading.previous', 'form.next']);
@@ -76,11 +77,13 @@ export function defaultStep(view: Pick<RunStepsView, 'steps' | 'live'>): number 
   return (steps.find(step => step.hints.length > 0) ?? steps[steps.length - 1]!).step;
 }
 
-/** What a screen reader hears for a step on the rail: `행동 7: Tab, 살펴볼 지점, 모델 확신 낮음`. */
+/** What a screen reader hears for a step on the rail: `행동 7: Tab, 살펴볼 지점, 모델 확신 낮음, 다시 계획`. */
 export function dotLabel(step: StepView, unsure: boolean): string {
   const parts = [step.step === 0 ? describeStep(step) : t('runPage.dotLabel', { n: step.step, action: describeStep(step) })];
   if (step.hints.length) parts.push(t('runPage.dotHints'));
   if (unsure) parts.push(t('runPage.dotUnsure'));
+  const mark = planMark(step);
+  if (mark) parts.push(t(mark === 'replan' ? 'runPage.dotReplan' : 'runPage.dotLimit'));
   return parts.join(', ');
 }
 

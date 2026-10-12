@@ -10,17 +10,20 @@ export const HINTS_SCHEMA_VERSION = '2.0' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
-  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page';
+  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
+  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done';
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
  * model: the model hesitated or wandered, which may say more about the model than the page.
- * run: about the run as a whole (length against the fastest run, goal already met at start).
+ * run: about the run as a whole (length against the fastest run, goal already met at start), and orchestration events — a new
+ * plan, a help request, a task running out of actions, a completion claim turned down because its cue was not heard. These mark where the executor
+ * needed the planner; the page may have made that point hard, or the plan may have been wrong.
  */
 export type HintSource = 'page' | 'model' | 'run';
 /** The page element a hint is about, as the accessibility tree named it; name is absent when unnamed or redacted. */
 export type HintTarget = { role: string; name?: string };
 export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freeze({
-  'slow-run': 'run', 'goal-met-at-start': 'run',
+  'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'help-request': 'run', 'task-limit': 'run', 'unverified-done': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
   'modal-focus-outside': 'page', 'missing-announcement': 'page', 'invisible-focus-change': 'page',
   'backtracking': 'model', 'repeated-state': 'model', 'model-hesitation': 'model', 'early-stop': 'model',
@@ -222,14 +225,33 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       summary: `Focus moved to ${label(focus)} but the screen did not change.`, detail: { target: { role: focus.role, name: focus.name } }, evidence: [action.eventId, focus.id, screen.eventId] }, focus);
   }
 
-  for (const item of evidence.filter(e => e.data.kind === 'model-inference' && Array.isArray(e.data.probabilities) && Array.isArray(e.data.choices))) {
+  // Plan choices (task done, help) are the executor talking to the planner, not a choice between page actions.
+  const planChoice = (id: unknown) => typeof id === 'string' && (id.startsWith('task:') || id.startsWith('help:'));
+  for (const item of evidence.filter(e => e.data.kind === 'model-inference' && Array.isArray(e.data.probabilities) && Array.isArray(e.data.choices) && !planChoice(e.data.choiceId))) {
     const probabilities = item.data.probabilities as number[], choices = item.data.choices as { id?: string }[];
     const index = choices.findIndex(c => c.id === item.data.choiceId); if (index < 0) continue;
-    const chosen = probabilities[index]!, runnerUp = Math.max(0, ...probabilities.filter((_, i) => i !== index));
+    const chosen = probabilities[index]!, runnerUp = Math.max(0, ...probabilities.filter((_, i) => i !== index && !planChoice(choices[i]?.id)));
     if (chosen > 0 && runnerUp >= chosen * t.hesitationRunnerUpRatio) add({ kind: 'model-hesitation', certainty: 'suspected', steps: [item.step],
       summary: `The model chose ${String(item.data.choiceId)} with ${(chosen * 100).toFixed(0)}% (runner-up ${(runnerUp * 100).toFixed(0)}%).`,
       detail: { choiceId: item.data.choiceId, probability: chosen, runnerUp }, evidence: [item.id] }, focusBefore(item.step - 1));
   }
+
+  for (const item of evidence.filter(e => e.data.kind === 'orchestration-plan')) {
+    const trigger = item.data.trigger, version = item.data.version;
+    if (trigger === 'help') add({ kind: 'help-request', certainty: 'observed', steps: [item.step],
+      summary: `The executor asked for a new plan (${String(item.data.help ?? 'no reason')}); the planner wrote plan v${String(version)}.`,
+      detail: { help: item.data.help, version }, evidence: [item.id] }, focusBefore(item.step - 1));
+    else if (trigger === 'failures' || trigger === 'no-change') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
+      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
+      detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
+    else if (trigger === 'task-limit') add({ kind: 'task-limit', certainty: 'observed', steps: [item.step],
+      summary: `A task used up its actions, so the planner wrote plan v${String(version)}.`, detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
+  }
+  // The executor said a task was done, but its cue was not heard, so Rawstep kept the task open. The cue may be wrong, or the
+  // page may not say what a user would expect at that point.
+  for (const item of evidence.filter(e => e.data.kind === 'orchestration-claim' && e.data.accepted === false)) add({
+    kind: 'unverified-done', certainty: 'observed', steps: [item.step],
+    summary: `The executor said task ${String(item.data.taskId)} was done, but its cue was not heard, so the task stayed open.`, detail: { taskId: item.data.taskId }, evidence: [item.id] }, focusBefore(item.step - 1));
 
   // Goal rules that already held before any action make "reached the goal" weak evidence. `not` rules hold at start by design.
   const baseline = (trace.events as readonly TraceEvent[]).find(e => e.type === 'verifier.baseline');
@@ -242,9 +264,12 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   }
 
   const outcome = trace.outcome;
-  if (outcome && (outcome.reason === 'policy-stuck' || outcome.reason === 'policy-uncertain' || outcome.policyStopSource === 'exploration-guard')) add({
+  const ruleStop = outcome?.policyStopSource === 'exploration-guard' || outcome?.policyStopSource === 'orchestration-limit';
+  if (outcome && (outcome.reason === 'policy-stuck' || outcome.reason === 'policy-uncertain' || ruleStop)) add({
     kind: 'early-stop', certainty: 'observed', steps: typeof outcome.step === 'number' ? [outcome.step] : [],
-    summary: outcome.policyStopSource === 'exploration-guard' ? 'The repetition guard stopped the run.' : `The model stopped as ${outcome.reason === 'policy-stuck' ? 'stuck' : 'uncertain'}.`,
+    summary: outcome.policyStopSource === 'exploration-guard' ? 'The repetition guard stopped the run.'
+      : outcome.policyStopSource === 'orchestration-limit' ? 'The run stopped after the planner ran out of new plans.'
+      : `The model stopped as ${outcome.reason === 'policy-stuck' ? 'stuck' : 'uncertain'}.`,
     detail: { reason: outcome.reason, ...(outcome.policyStopSource ? { stopSource: outcome.policyStopSource } : {}) }, evidence: [] });
 
   hints.sort((a, b) => (a.steps[0] ?? -1) - (b.steps[0] ?? -1));

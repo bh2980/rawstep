@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
+import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
 import { ScreenshotDecisionPolicy, type ScreenshotModelRequest } from 'rawstep/screenshot';
 import type { SystemOneCapabilities, SystemOneRequest } from 'rawstep/systemone';
 
@@ -154,6 +154,6 @@ describe('UI-ready prompt injection', () => {
     const policy = new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(new FakeSystemOneClient(['key:Enter'])) });
     await policy.decide({ goal: 'Start', observation: { kind: 'keyboard', screenshot: visualRequest.screenshot, window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'test' } }, history: [], allowedActions: { intents: [], keys: ['Enter'], inputKeys: [], replaceText: false }, inputs: {}, signal: signal() });
     expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ prompt: expect.objectContaining({ id: 'rawstep-screenshot-decision', version: '1' }) })]);
-    expect(() => new SystemOneSpeechPolicy(new FakeSystemOneClient([]), 12, { id: 'bad', version: '1', instructions: '' })).toThrow('prompt');
+    expect(() => new SystemOneChoiceModel(new FakeSystemOneClient([]), { id: 'bad', version: '1', instructions: '' })).toThrow('prompt');
   });
 });

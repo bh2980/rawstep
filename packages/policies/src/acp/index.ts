@@ -11,11 +11,13 @@ import { join } from 'node:path';
  */
 export type AcpAgentSpec = { command: string; args: readonly string[] };
 export type AcpModelOption = { value: string; name: string };
-export type AcpAgentInfo = { name: string; version: string; images: boolean; models: AcpModelOption[]; currentModel?: string };
-export type AcpPromptRequest = { text: string; images?: readonly string[]; modelId?: string; signal?: AbortSignal };
+export type AcpAgentInfo = { name: string; version: string; images: boolean; models: AcpModelOption[]; currentModel?: string; efforts: string[]; currentEffort?: string };
+export type AcpPromptRequest = { text: string; images?: readonly string[]; modelId?: string; reasoningEffort?: string; signal?: AbortSignal };
 
 export class AcpError extends Error {
-  constructor(readonly reason: 'start-failed' | 'exited' | 'protocol' | 'agent-error' | 'no-images' | 'unknown-model' | 'stopped', message: string) { super(message); this.name = 'AcpError'; }
+  /** The JSON-RPC error code when the agent answered with an error. */
+  code?: number;
+  constructor(readonly reason: 'start-failed' | 'exited' | 'protocol' | 'agent-error' | 'sign-in' | 'no-images' | 'unknown-model' | 'stopped', message: string) { super(message); this.name = 'AcpError'; }
 }
 
 type Pending = { resolve(value: unknown): void; reject(error: Error): void };
@@ -36,6 +38,8 @@ export class AcpAgent {
   private failure?: AcpError;
   private cwd?: string;
   private sessionClose?: 'session/delete' | 'session/close';
+  /** Set by `signIn`: the next handshake authenticates with it. */
+  private signInWith?: string;
 
   constructor(readonly spec: AcpAgentSpec) {}
 
@@ -55,11 +59,9 @@ export class AcpAgent {
     if (request.images?.length && !info.images) throw new AcpError('no-images', 'This agent does not take images.');
     const session = await this.request('session/new', { cwd: this.cwd, mcpServers: [] }, request.signal) as Session;
     try {
-      if (request.modelId && request.modelId !== 'default') {
-        const option = session.configOptions?.find(o => o.category === 'model');
-        if (!option?.options?.some(o => o.value === request.modelId)) throw new AcpError('unknown-model', 'The agent does not offer this model.');
-        if (option.currentValue !== request.modelId) await this.request('session/set_config_option', { sessionId: session.sessionId, configId: option.id, value: request.modelId }, request.signal);
-      }
+      if (request.modelId && request.modelId !== 'default') await this.choose(session, 'model', request.modelId, request.signal);
+      // Agents that offer no thinking levels take none; one that does must offer the level asked for.
+      if (request.reasoningEffort && session.configOptions?.some(o => o.category === 'thought_level')) await this.choose(session, 'thought_level', request.reasoningEffort, request.signal);
       this.chunks.set(session.sessionId, []);
       const prompt = [{ type: 'text', text: request.text }, ...(request.images ?? []).map(data => ({ type: 'image', mimeType: 'image/png', data }))];
       const cancel = () => this.notify('session/cancel', { sessionId: session.sessionId });
@@ -82,6 +84,22 @@ export class AcpAgent {
   private async endSession(sessionId: string): Promise<void> {
     if (!this.sessionClose || this.failure) return;
     await this.request(this.sessionClose, { sessionId }, AbortSignal.timeout(SESSION_CLOSE_TIMEOUT_MS)).catch(() => undefined);
+  }
+
+  /**
+   * Signs the agent in with one of its ACP sign-in methods. Only for a person's explicit request: it can reuse an account the
+   * computer is signed in to, or open a sign-in page.
+   */
+  async signIn(methodId: string, signal?: AbortSignal): Promise<void> {
+    await this.close();
+    this.signInWith = methodId;
+    try { await this.start(signal); } finally { this.signInWith = undefined; }
+  }
+
+  private async choose(session: Session, category: string, value: string, signal?: AbortSignal) {
+    const option = session.configOptions?.find(o => o.category === category);
+    if (!option?.options?.some(o => o.value === value)) throw new AcpError('unknown-model', category === 'model' ? 'The agent does not offer this model.' : `The agent does not offer the setting ${value}.`);
+    if (option.currentValue !== value) await this.request('session/set_config_option', { sessionId: session.sessionId, configId: option.id, value }, signal);
   }
 
   /** Ends the agent; a later call starts it again. */
@@ -124,17 +142,24 @@ export class AcpAgent {
       agentCapabilities?: { promptCapabilities?: { image?: boolean }; sessionCapabilities?: { delete?: unknown; close?: unknown } };
     };
     if (init?.protocolVersion !== PROTOCOL_VERSION) throw new AcpError('protocol', `The agent speaks ACP version ${String(init?.protocolVersion)}, not ${PROTOCOL_VERSION}.`);
+    if (this.signInWith) {
+      await this.request('authenticate', { methodId: this.signInWith }, timeout).catch(() => { throw new AcpError('sign-in', 'Signing in did not finish.'); });
+    }
     const sessions = init.agentCapabilities?.sessionCapabilities;
     this.sessionClose = sessions?.delete ? 'session/delete' : sessions?.close ? 'session/close' : undefined;
     // The model list comes with a session; read it once from a throwaway one.
-    const probe = await this.request('session/new', { cwd: this.cwd, mcpServers: [] }, timeout) as Session;
+    const probe = await this.request('session/new', { cwd: this.cwd, mcpServers: [] }, timeout).catch(error => {
+      // ACP's auth_required error: the agent keeps its own sign-in and has none yet.
+      throw error instanceof AcpError && error.code === -32000 ? new AcpError('sign-in', 'The agent needs a sign-in first.') : error;
+    }) as Session;
     await this.endSession(probe.sessionId);
     const models = probe.configOptions?.find(o => o.category === 'model');
+    const thought = probe.configOptions?.find(o => o.category === 'thought_level'), efforts = thought?.options?.map(o => o.value) ?? [];
     return {
       name: init.agentInfo?.name ?? this.spec.command, version: init.agentInfo?.version ?? 'unknown',
       images: init.agentCapabilities?.promptCapabilities?.image === true,
       models: (models?.options ?? []).map(({ value, name }) => ({ value, name })),
-      ...(models?.currentValue ? { currentModel: models.currentValue } : {}),
+      ...(models?.currentValue ? { currentModel: models.currentValue } : {}), efforts, ...(thought?.currentValue ? { currentEffort: thought.currentValue } : {}),
     };
   }
 
@@ -166,7 +191,7 @@ export class AcpAgent {
       else if (typeof message.id === 'number' && this.pending.has(message.id)) {
         const waiting = this.pending.get(message.id)!;
         this.pending.delete(message.id);
-        if (message.error) waiting.reject(new AcpError('agent-error', 'The agent returned an error.'));
+        if (message.error) waiting.reject(Object.assign(new AcpError('agent-error', 'The agent returned an error.'), { code: (message.error as { code?: number }).code }));
         else waiting.resolve(message.result);
       }
     }

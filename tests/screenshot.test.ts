@@ -30,13 +30,13 @@ describe('first-class screenshot model policy', () => {
     const policy = new ScreenshotDecisionPolicy({ model: { choose: async request => { request.choices[0]!.decision = { action: { kind: 'intent', intent: 'click' } }; return response(); } } });
     expect(await policy.decide(input())).toEqual({ action: { kind: 'key', key: 'Tab' } });
   });
-  it('omits old screenshots, rationale, execution errors and unexpected action fields from model history', async () => {
+  it('omits old screenshots, rationale, raw execution errors and unexpected action fields from model history, keeping the result', async () => {
     let seen: ScreenshotModelRequest | undefined;
     const policy = new ScreenshotDecisionPolicy({ historyLimit: 1, maxStateVisits: 20, maxUnchangedTransitions: 20, model: { choose: async request => { seen = request; return response(); } } });
     const value = input(); value.history = history(3); Object.assign(value.history[2]!.decision, { rationale: 'HIDDEN_RATIONALE' });
     Object.assign((value.history[2]!.decision as { action: object }).action, { dom: 'HIDDEN_DOM' });
     Object.assign(value.history[2]!.execution!, { error: 'HIDDEN_ERROR' });
-    await policy.decide(value); expect(seen!.history).toEqual([{ step: 3, decision: { action: { kind: 'key', key: 'Tab' } } }]);
+    await policy.decide(value); expect(seen!.history).toEqual([{ step: 3, decision: { action: { kind: 'key', key: 'Tab' } }, execution: { ok: true }, changed: false }]);
   });
   it('stops identical pixels conservatively without inventing a recovery action or another inference', async () => {
     const choose = vi.fn(async () => response()); const policy = new ScreenshotDecisionPolicy({ maxUnchangedTransitions: 2, model: { choose } });

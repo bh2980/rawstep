@@ -8,13 +8,14 @@ import type { PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { dashboardFixture } from './helpers/dashboard-fixture.js';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await work(); });
-it('executes the real Runner over HTTP with two models/two prompts, LLM choices and text-only simulated speech', async () => {
+it('executes the real Runner over HTTP with two model combos/two page environments, LLM choices and text-only simulated speech', async () => {
   const fixture = await dashboardFixture(); cleanup.push(fixture.close);
-  fixture.config.profiles.push({ ...fixture.config.profiles[0]!, id: 'fixture-speech', name: 'fixture-speech', model: { ...fixture.config.profiles[0]!.model!, modelId: 'fixture-speech', inputs: ['text'], maxImages: 0 } });
+  const speechCombo = fixture.config.combos[0]!, speechModel = { ...speechCombo.executors.screenreader!, modelId: 'fixture-speech', inputs: ['text' as const], maxImages: 0 };
+  fixture.config.combos.push({ ...speechCombo, id: 'fixture-speech', name: 'fixture-speech', executors: { ...speechCombo.executors, screenreader: speechModel } });
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-browser-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
-  const request: PlanRequest = { taskIds: ['fixture-task'], promptIds: ['baseline', 'careful'], mode: 'keyboard', profileIds: ['fixture-a', 'fixture-b'], repeats: 1 };
+  const request: PlanRequest = { taskIds: ['fixture-task'], modes: ['keyboard'], comboIds: ['fixture-a', 'fixture-b'], pageEnvironmentIds: ['default', 'narrow'], repeats: 1 };
   const experiment = await app.queue.create(request);
   await expect.poll(() => experiment.runs.every(r => !!r.endedAt), { timeout: 20000 }).toBe(true);
   expect(experiment.runs.map(r => r.state)).toEqual(['success', 'success', 'success', 'success']);
@@ -26,10 +27,10 @@ it('executes the real Runner over HTTP with two models/two prompts, LLM choices 
     expect(trace.events.some(e => e.type === 'verifier.result' && (e.data as { passed?: boolean }).passed)).toBe(true);
     expect(await readFile(join(dir, '.rawstep/experiments', experiment.id, run.id, 'report.html'), 'utf8')).toContain('success');
   }
-  const llm = await app.queue.create({ ...request, profileIds: ['fixture-llm'], promptIds: ['baseline'] });
+  const llm = await app.queue.create({ ...request, comboIds: ['fixture-llm'], pageEnvironmentIds: ['default'] });
   await expect.poll(() => !!llm.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(llm.runs[0]!.state).toBe('success');
-  const speech = await app.queue.create({ ...request, profileIds: ['fixture-speech'], promptIds: ['baseline'], mode: 'screenreader' });
+  const speech = await app.queue.create({ ...request, comboIds: ['fixture-speech'], pageEnvironmentIds: ['default'], modes: ['screenreader'] });
   await expect.poll(() => !!speech.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(speech.runs[0]!.state).toBe('success');
   const speechTrace = await app.queue.trace(speech.id, speech.runs[0]!.id);

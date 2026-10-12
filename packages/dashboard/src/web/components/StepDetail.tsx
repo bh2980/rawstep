@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ModelKind } from '@rawstep/project/config';
-import type { Hint, StepView } from '../../shared/api';
+import type { Hint, RunPlanView, StepView } from '../../shared/api';
 import type { RunRecord } from '../../shared/config';
 import { describeChange, hintKindLabel } from '../i18n/labels';
 import { describeHint, describeStep } from '../lib/describe';
@@ -12,6 +12,8 @@ import { Disclosure } from './layout/Disclosure';
 import { RawRecord } from './RawRecord';
 import { StepEvidence } from './StepEvidence';
 import { GlyphMark } from './trace/TraceRail';
+import { ModelCalls } from './trace/PlanDocumentView';
+import { servedTask, taskName, triggerLabel } from '../lib/plan';
 import { SourceLabel } from './trace/SourceMarker';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -28,6 +30,8 @@ type Props = {
   /** Goal rules that were already true before the first action; shown on step 0 only. */
   baselineMet: number | undefined;
   live: boolean;
+  /** The run's plan document, when a planner wrote one. */
+  plan?: RunPlanView | undefined;
 };
 
 const MAX_CANDIDATES = 5;
@@ -38,9 +42,9 @@ const label = 'text-[11px] leading-4 font-medium tracking-[0.08em] uppercase';
  * response, the places worth a look, and only then the model's candidates and the raw record, both closed.
  * Wide: evidence 3fr beside analysis 2fr. Narrow: the action first, then evidence, response, inspect.
  */
-export function StepDetail({ step, experimentId, run, modelKind, previous, before, hints, baselineMet, live }: Props) {
+export function StepDetail({ step, experimentId, run, modelKind, previous, before, hints, baselineMet, live, plan }: Props) {
   const { t } = useTranslation();
-  const speechFirst = run.snapshot.mode === 'screenreader';
+  const speechFirst = run.snapshot.spec.mode === 'screenreader';
   return <section aria-label={t('runPage.stepLabel')} className="motion-reveal grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <Action step={step} baselineMet={baselineMet} />
     <div className="min-w-0 lg:col-start-1 lg:row-span-6 lg:row-start-1">
@@ -54,6 +58,8 @@ export function StepDetail({ step, experimentId, run, modelKind, previous, befor
     <PageResponse step={step} />
     {hints.length > 0 && <Inspect hints={hints} />}
     <Verification step={step} />
+    <PlanNotes step={step} plan={plan} />
+    {step.calls && (plan || step.calls.length > 1) && <div className="border-t pt-2.5 lg:col-start-2"><ModelCalls step={step.step} calls={step.calls} plan={plan} /></div>}
     <Candidates step={step} modelKind={modelKind} />
     <Collapsible className="border-t pt-2.5 lg:col-start-2">
       <Disclosure label={t('stepDetail.raw')} />
@@ -118,6 +124,29 @@ function Verification({ step }: { step: StepView }) {
         <Badge variant={rule.passed ? 'secondary' : 'outline'}>{rule.passed ? <Check aria-hidden="true" /> : <Minus aria-hidden="true" />}{rule.ruleType} {rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}</Badge>
       </li>)}
     </ul>
+  </div>;
+}
+
+/**
+ * With a planner: the task of the plan document this action served, and what happened to the plan in this step — a new version and
+ * why, a task finished, the replanning limit. A new version marks where the run needed help: the page may have made that point
+ * hard, or the plan may have been wrong.
+ */
+function PlanNotes({ step, plan }: { step: StepView; plan: RunPlanView | undefined }) {
+  const { t } = useTranslation();
+  const events = step.plan?.events ?? [], task = plan ? servedTask(plan, step.step) : undefined, served = plan?.stepTasks[step.step];
+  if (!task && !events.length && !step.plan?.stepGoal) return null;
+  return <div className="grid gap-2 border-t pt-2.5 lg:col-start-2">
+    <h3 className={cn(label, 'text-model')}>{t('stepDetail.plan.title')}</h3>
+    {task && served ? <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> <span className="font-mono text-xs">{task.number}</span> {task.goal} <span className="text-xs text-muted-foreground">(v{served.planVersion})</span></p>
+      : step.plan?.stepGoal && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> {step.plan.stepGoal}</p>}
+    {events.length > 0 && <ul className="grid gap-1 text-sm">
+      {events.map((event, i) => <li key={i}>
+        {event.kind === 'step-done' && <span><span className="text-muted-foreground">{t('stepDetail.plan.taskDone')}:</span> {plan ? taskName(plan, event.goal) : event.goal}</span>}
+        {event.kind === 'limit' && <span className="text-inspect">{t('stepDetail.plan.limit')}</span>}
+        {event.kind === 'plan' && <span className="font-medium">{event.reason === 'start' ? t('stepDetail.plan.first') : t('stepDetail.plan.revised', { trigger: triggerLabel(event.reason) })}</span>}
+      </li>)}
+    </ul>}
   </div>;
 }
 

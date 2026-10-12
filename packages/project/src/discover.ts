@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
-import { AcpAgent } from '@rawstep/policies/acp';
+import { AcpAgent, AcpError } from '@rawstep/policies/acp';
 import { providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
 import { ProjectError } from './errors.js';
 
@@ -16,10 +16,12 @@ export async function boundedJson(response: Response): Promise<unknown> {
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export type DiscoverOptions = { timeoutMs?: number; fetch?: typeof fetch };
 /** A model a connection offers. `inputsKnown` is false when the provider does not say what the model takes. */
-export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoice['inputs']; inputsKnown: boolean; maxChoices?: number };
+/** `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its own default as `defaultEffort`. */
+export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoice['inputs']; inputsKnown: boolean; maxChoices?: number; efforts?: string[]; defaultEffort?: string };
 
 /**
  * The models a connection offers, for a run profile to pick from.
+ * - Coding-agent CLIs: the models the CLI offers the person's sign-in.
  * - LLM providers: the OpenAI-style `GET {base}/models` list. Only OpenRouter says which models take images; for the
  *   others the inputs are unknown (`inputsKnown: false`) and the provider's default is assumed for a person to correct.
  * - Agent CLIs (Claude Code, Codex, ...): the agent is started, asked for its model list, and closed again. `default` leaves
@@ -40,9 +42,15 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
       // Starting may download the adapter first: without an explicit limit it gets the agent start limit, not the list default.
       const info = await agent.start(options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined);
       const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
-      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true },
-        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true }))];
-    } catch { throw new ProjectError('model-unreachable', `Cannot start ${preset.label}. Check that it is installed and logged in.`, 502); }
+      const levels = info.efforts.length ? { efforts: info.efforts, ...(info.currentEffort ? { defaultEffort: info.currentEffort } : {}) } : {};
+      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true, ...levels },
+        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true, ...levels }))];
+    } catch (error) {
+      const reason = error instanceof AcpError ? error.reason : undefined;
+      if (reason === 'sign-in') throw new ProjectError('agent-signed-out', `${preset.label} needs a sign-in. Sign in from the connection check.`, 502);
+      if (reason === 'start-failed') throw new ProjectError('agent-missing', `Cannot start ${preset.agent.command}. Install ${preset.label} first.`, 502);
+      throw new ProjectError('model-unreachable', `Cannot start ${preset.label}. Check that it is installed and signed in.`, 502);
+    }
     finally { await agent.close(); }
   }
   if (kind === 'decision' && provider === 'gateway') {

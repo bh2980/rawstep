@@ -1,29 +1,35 @@
 import { useTranslation } from 'react-i18next';
 import { OctagonAlert, ShieldAlert, Signpost, UserCheck } from 'lucide-react';
-import type { RunNotice, StepView } from '../../shared/api';
+import type { RunNotice, RunPlanView, StepView } from '../../shared/api';
+import { replanCount } from '../lib/plan';
 import type { RunRecord } from '../../shared/config';
 import { Button } from './ui/button';
 
-type Props = { run: RunRecord; steps: StepView[]; notices: RunNotice[]; onSelect: (step: number) => void };
+type Props = { run: RunRecord; steps: StepView[]; notices: RunNotice[]; plan?: RunPlanView | undefined; onSelect: (step: number) => void };
 
 /**
- * Why a finished run ended where it did, before the timeline: who stopped it (the model's own stop choice, Rawstep's repetition
- * guard or a limit) and the setting that allowed it, plus what the page did that explains the run — a bot check page or navigations
+ * Why a finished run ended where it did, before the timeline: who stopped it (the executor's own stop choice, the planner judging
+ * every success criterion met, Rawstep's repetition guard, the replanning limit, or a step or time limit) and the setting behind it, plus what the page did that explains the run — a bot check page or navigations
  * the task's range blocked. Each line points at the step it is about.
  */
-export function RunDiagnosis({ run, steps, notices, onSelect }: Props) {
+export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
   const { t } = useTranslation();
   const stopped = [...steps].reverse().find(step => step.stop);
   const reason = run.outcome?.reason;
   const lines: { key: string; icon: typeof OctagonAlert; text: string; note?: string; step?: number }[] = [];
-  if (stopped?.stop?.source === 'model' && stopped.stop.stop !== 'success') {
-    const giveUp = run.snapshot.globals.policy.modelGiveUp;
+  const rules = run.snapshot.spec.settings.runRules, source = stopped?.stop?.source;
+  if (source === 'planner' && stopped) {
+    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.plannerStop', { n: stopped.step }),
+      note: reason === 'verification-failed' ? t('diagnosis.plannerStopFailed') : t('diagnosis.plannerStopNote') });
+  } else if (source === 'orchestration-limit' && stopped) {
+    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.limitStop', { n: stopped.step, max: rules.maxReplans, count: plan ? replanCount(plan) : rules.maxReplans }), note: t('diagnosis.limitStopNote') });
+  } else if (source === 'model' && stopped && stopped.stop!.stop !== 'success') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step,
-      text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop.stop}`, { defaultValue: stopped.stop.stop }) }),
-      note: giveUp ? t('diagnosis.modelStopAllowed') : undefined });
+      text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop!.stop}`, { defaultValue: stopped.stop!.stop }) }),
+      note: rules.modelGiveUp ? t('diagnosis.modelStopAllowed') : undefined });
   } else if (stopped?.stop?.stop === 'success' && reason === 'verification-failed') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.successStopFailed', { n: stopped.step }), note: t('diagnosis.successStopFailedNote') });
-  } else if (stopped?.stop?.source === 'exploration-guard') {
+  } else if (source === 'exploration-guard' && stopped) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.guardStop', { n: stopped.step }), note: t('diagnosis.guardStopNote') });
   } else if (reason === 'maxSteps' || reason === 'timeout') {
     lines.push({ key: 'stop', icon: OctagonAlert, text: t(`diagnosis.${reason}`) });

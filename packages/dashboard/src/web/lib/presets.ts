@@ -1,41 +1,37 @@
-import type { Permissions } from '@rawstep/project/config';
+import type { ActionSet, Permissions } from '@rawstep/project/config';
 
-/** What the backend of a mode can do; the screen reader side depends on the screen reader chosen for this computer. */
+/** What the backend of a mode can do. */
 export type ActionCapabilities = { keys: readonly string[]; intents: readonly string[] };
 
 export const KEYBOARD_BASIC = ['Tab', 'Shift+Tab', 'Enter', 'Space'] as const;
+/** Arrow keys, Escape, Home and End on top of the basic keys: menus, tabs, comboboxes and dialogs move with them. */
 export const KEYBOARD_WIDGETS = [...KEYBOARD_BASIC, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End'] as const;
 export const SCREENREADER_BASIC = ['next', 'previous', 'activate'] as const;
-/** Jump by heading or form control; only the native screen reader backends have them. */
+/** Jump by heading or form control: how people who know their screen reader move around. */
 export const SCREENREADER_QUICK = ['heading.next', 'heading.previous', 'form.next'] as const;
 
+/** The action sets a person can start from: a novice, a practised screen reader user, and one who works widgets with the keyboard. */
+export const ACTION_SET_PRESETS = ['novice', 'expert', 'widgets'] as const;
+export type ActionSetPreset = (typeof ACTION_SET_PRESETS)[number];
+
+const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: false });
+
+/** The two modes of a starting action set. */
+export function presetPermissions(preset: ActionSetPreset): Pick<ActionSet, 'keyboard' | 'screenreader'> {
+  switch (preset) {
+    case 'novice': return { keyboard: permissions(KEYBOARD_BASIC, [], false), screenreader: permissions([], SCREENREADER_BASIC, false) };
+    case 'expert': return { keyboard: permissions(KEYBOARD_BASIC, [], true), screenreader: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_QUICK], true) };
+    case 'widgets': return { keyboard: permissions(KEYBOARD_WIDGETS, [], true), screenreader: permissions([], SCREENREADER_BASIC, true) };
+  }
+}
+
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && new Set([...a, ...b]).size === a.length;
+const samePermissions = (a: Permissions, b: Permissions) => sameSet(a.keys, b.keys) && sameSet(a.intents, b.intents) && a.typeText === b.typeText && a.replaceText === b.replaceText && !a.inputKeys;
 
-export type KeyboardPreset = 'basic' | 'widgets' | 'custom';
-export type ScreenreaderPreset = 'basic' | 'quick' | 'custom';
-
-/** Which keyboard preset the allowed actions equal; any other combination is a custom choice. */
-export function keyboardPreset(permissions: Pick<Permissions, 'keys' | 'intents'>): KeyboardPreset {
-  if (permissions.intents.length) return 'custom';
-  if (sameSet(permissions.keys, KEYBOARD_BASIC)) return 'basic';
-  return sameSet(permissions.keys, KEYBOARD_WIDGETS) ? 'widgets' : 'custom';
-}
-
-export function applyKeyboardPreset<T extends Permissions>(permissions: T, preset: Exclude<KeyboardPreset, 'custom'>): T {
-  return { ...permissions, keys: [...(preset === 'basic' ? KEYBOARD_BASIC : KEYBOARD_WIDGETS)], intents: [] };
-}
-
-/** The quick-navigation intents this screen reader backend supports. */
-export const quickIntents = (capabilities: ActionCapabilities): string[] => SCREENREADER_QUICK.filter(intent => capabilities.intents.includes(intent));
-export const quickAvailable = (capabilities: ActionCapabilities): boolean => quickIntents(capabilities).length > 0;
-
-/** Which screen reader preset the allowed actions equal for this backend; anything else, such as an intent the backend lacks, is custom. */
-export function screenreaderPreset(permissions: Pick<Permissions, 'keys' | 'intents'>, capabilities: ActionCapabilities): ScreenreaderPreset {
-  if (permissions.keys.length) return 'custom';
-  if (sameSet(permissions.intents, SCREENREADER_BASIC)) return 'basic';
-  return quickAvailable(capabilities) && sameSet(permissions.intents, [...SCREENREADER_BASIC, ...quickIntents(capabilities)]) ? 'quick' : 'custom';
-}
-
-export function applyScreenreaderPreset<T extends Permissions>(permissions: T, preset: Exclude<ScreenreaderPreset, 'custom'>, capabilities: ActionCapabilities): T {
-  return { ...permissions, keys: [], intents: [...SCREENREADER_BASIC, ...(preset === 'quick' ? quickIntents(capabilities) : [])] };
+/** The starting set an action set still equals, if any. */
+export function matchingPreset(actionSet: Pick<ActionSet, 'keyboard' | 'screenreader'>): ActionSetPreset | undefined {
+  return ACTION_SET_PRESETS.find(preset => {
+    const p = presetPermissions(preset);
+    return samePermissions(actionSet.keyboard, p.keyboard) && samePermissions(actionSet.screenreader, p.screenreader);
+  });
 }

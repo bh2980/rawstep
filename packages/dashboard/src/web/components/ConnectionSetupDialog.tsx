@@ -15,6 +15,8 @@ import { CheckStatus, type CheckState } from './CheckStatus';
 import { ConceptNote } from './layout/ConceptNote';
 import { ErrorState } from './layout/ErrorState';
 import { RadioRows } from './layout/RadioRows';
+import { Checkbox } from './ui/checkbox';
+import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 
@@ -56,7 +58,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   const [baseURL, setBaseURL] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [name, setName] = useState('');
-  const [check, setCheck] = useState<CheckState>();
+  const [check, setCheck] = useState<CheckState>(), [consent, setConsent] = useState(false);
   const attempt = useRef(0);
   const heading = useRef<HTMLDivElement>(null), mounted = useRef(false);
   useEffect(() => { if (mounted.current) heading.current?.focus(); mounted.current = true; }, [step]);
@@ -88,13 +90,23 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       if (mine === attempt.current) setCheck({ state: 'done', result });
     } catch (failure) { if (mine === attempt.current) setCheck({ state: 'failed', connection: failure instanceof ApiError && failure.status === 0 }); }
   }
+  async function signIn() {
+    const mine = ++attempt.current;
+    setCheck({ state: 'running' });
+    try {
+      const result = await api<ModelCheck>('/connections/sign-in', { method: 'POST', body: { kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}) } });
+      if (mine === attempt.current) setCheck({ state: 'done', result });
+    } catch (failure) { if (mine === attempt.current) setCheck({ state: 'failed', connection: failure instanceof ApiError && failure.status === 0 }); }
+  }
   useEffect(() => { if (step === 'check') void runCheck(); else attempt.current++; }, [step]);
 
   async function add() {
     if (!provider || !name.trim()) return;
     const id = crypto.randomUUID();
     const apiKeyEnv = custom && key ? generateEnvName(config.connections) : undefined;
-    const connection: Connection = { id, name: name.trim(), kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}), timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs };
+    // A coding agent is slow to answer, so it gets more time.
+    const connection: Connection = { id, name: name.trim(), kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}),
+      timeoutMs: agent ? AGENT_TIMEOUT_MS : RAWSTEP_DEFAULTS.modelTimeoutMs };
     const ok = await run(async () => {
       // A preset provider keeps one key for all its connections; a custom server's key is stored under the connection's own variable.
       if (key && !custom) await api('/credentials', { method: 'POST', body: { provider, value: key } });
@@ -144,19 +156,22 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
         {custom && <><dt className="text-muted-foreground">{t('connections.baseUrl')}</dt><dd className="font-mono text-[13px] break-all">{baseURL.trim()}</dd></>}
       </dl>
       <div className="grid gap-2 border-l-4 border-edge-strong bg-surface py-3 pl-4">
-        {check && <CheckStatus check={check} />}
+        {check && <CheckStatus check={check} signIn={agent ? { available: !!agent.signIn, busy: false, onClick: () => void signIn() } : undefined} />}
         <p className="text-xs leading-5 text-muted-foreground">{t(agent ? 'connections.checkNoteAgent' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</p>
       </div>
       <Field label={t('connections.name')} value={name} onChange={setName} hint={t('connections.nameHint')} />
+      {agent && <div className="flex items-start gap-2"><Checkbox id="agent-consent" className="mt-0.5" checked={consent} onCheckedChange={v => setConsent(v === true)} /><Label htmlFor="agent-consent" className="font-normal leading-5">{t('connections.agentConsent', { provider: providerName })}</Label></div>}
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('provider'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
         <div className="flex flex-col-reverse gap-2 sm:flex-row">
           <Button type="button" variant="outline" disabled={check?.state === 'running'} onClick={() => void runCheck()}>{t('connections.checkAgain')}</Button>
-          <Button type="button" variant={verdict ? 'default' : 'outline'} disabled={props.busy || check?.state === 'running' || !name.trim()} onClick={() => void add()}>{verdict ? t('connections.submit') : t('connections.addAnyway')}</Button>
+          <Button type="button" variant={verdict ? 'default' : 'outline'} disabled={props.busy || check?.state === 'running' || !name.trim() || (!!agent && !consent)} onClick={() => void add()}>{verdict ? t('connections.submit') : t('connections.addAnyway')}</Button>
         </div>
       </DialogFooter>
     </>}
   </>;
 }
 
+/** Time a CLI call may take: it starts a local agent and reasons before answering. */
+const AGENT_TIMEOUT_MS = 180_000;
 const hostOf = (url: string) => { try { return new URL(url.trim()).host; } catch { return url.trim(); } };

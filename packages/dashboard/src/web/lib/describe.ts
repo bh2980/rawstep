@@ -99,6 +99,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
+      if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
       if (str(d.reason) === 'policy-stuck') return t('hints.text.earlyStopStuck');
       if (str(d.reason) === 'policy-uncertain') return t('hints.text.earlyStopUncertain');
       break;
@@ -108,6 +109,13 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       // The report marks the hint observed only when every goal rule held; otherwise it is suspected.
       return hint.certainty === 'observed' ? t('hints.text.goalMetAll') : t('hints.text.goalMetSome', { n: d.rules.length });
     }
+    case 'help-request': {
+      const help = str(d.help);
+      return t('hints.text.helpRequest', { reason: help ? t(`hints.text.helpReasons.${help}`, { defaultValue: help }) : t('hints.text.helpReasons.none'), version: String(d.version ?? '') });
+    }
+    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
+    case 'task-limit': return t('hints.text.taskLimit', { version: String(d.version ?? '') });
+    case 'unverified-done': return t('hints.text.unverifiedDone', { task: str(d.taskId) ?? '' });
     case 'focus-left-page': {
       const action = str(d.action);
       return action ? t('hints.text.focusLeftPageAfter', { action }) : t('hints.text.focusLeftPage');

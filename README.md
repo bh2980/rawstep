@@ -2,7 +2,7 @@
 
 English | [한국어](./README.ko.md)
 
-A local-first tool that runs a keyboard or screen-reader task on a web page with a model choosing the actions, then reports friction hints: where the run got slow or took detours. Reaching the goal is one signal among them, not a verdict. It has independent verification, run profiles for environment comparisons and source-linked reports.
+A local-first tool that runs a keyboard or screen-reader task on a web page with a model choosing the actions, then reports friction hints: where the run got slow or took detours. Reaching the goal is one signal among them, not a verdict. It has independent verification, experiment conditions (model combos, action sets, page and assistive-technology environments) for comparisons and source-linked reports.
 
 Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawstep ui`), the command line (`npx rawstep run`) and a library call in your tests (`import { runTask } from 'rawstep'`). The repository is a pnpm monorepo.
 
@@ -10,7 +10,7 @@ Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawst
 
 ```sh
 npm i -D rawstep
-npx rawstep ui          # set up connections, run profiles and tasks in the dashboard
+npx rawstep ui          # set up connections, experiment conditions and tasks in the dashboard
 # or: npx rawstep init  # write rawstep.config.json, then edit it by hand
 npx rawstep run checkout --repeat 2
 ```
@@ -62,7 +62,7 @@ Build before using the checkout CLI. A trusted existing Chromium can be selected
 ## Modes
 
 - **Keyboard**: actual viewport pixels → multimodal model choice → keyboard input → new pixels. No DOM/AX, locator, verifier result or hidden focus context is sent to the model.
-- **Screenreader**: speech → model choice → screen reader action. `machine.backend` selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host. Orca stays an advanced library backend; see [native Orca limits](./docs/native-orca.md).
+- **Screenreader**: speech → model choice → screen reader action. The assistive technology (`atEnvironments[].backend`) selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host. Orca stays an advanced library backend; see [native Orca limits](./docs/native-orca.md).
 
 Hints are friction signals, not a verdict. They point at steps worth a human look. See [reports and hints](./docs/report.md).
 
@@ -70,40 +70,41 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. Manage connections by type and provider (with model discovery), run profiles (each with the model it runs and, optionally, the LLM that analyses its runs), task prompts and permissions, experiments across tasks, prompts and profiles, and persisted comparison. The sidebar has 실행 프로필 and 연결 pages; 설정 covers only this computer. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. The menu has three groups: 홈, 작업 and 실행 기록; 실험 조건 and 연결; and 설정. 작업 holds the task list and a task page where you run it. 실험 조건 manages the shared conditions in five tabs (모델 조합, 행동 조합, 환경, 실행 규칙, 실행 프리셋); 연결 manages connections by type and provider (with model discovery) and shows which roles use each; 설정 covers the project (analysis and check-suggestion models) and this computer (AT Driver addresses, browser, human check). A run box on the task page picks a preset or each condition (load a shared one, edit it as a task-only copy, or create one on the spot), shows the models the run will use and the run rules, and runs the task. The experiment queue runs tasks, modes, conditions and repeats in one batch, and a run's page shows the plan document, its versions, the current task and each model call. Configuration and results use project files, with no database. Components use shadcn/ui. See the [dashboard guide](./docs/dashboard-plan.ko.md).
 
 ### Connections and models
 
-A connection is where models are reached (type and provider, plus an address for a custom server); a run profile picks the model on a connection. `npx rawstep ui` walks through both, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)). A profile without a model cannot run. To compare models, compare profiles that differ only in the model.
+A connection is where models are reached (type and provider, plus an address for a custom server); a model combo picks the models on connections. `npx rawstep ui` walks through both, or write the `connections[]` and `combos[]` entries yourself ([configuration reference](./docs/config.md)). A combo is `solo` (the executor of the mode decides every action) or `planned`: a planner LLM writes a plan document (success criteria, assumptions, phases and numbered tasks, with versions and a history) and the executor carries out one task at a time, asking for help or for a new plan when it is stuck (screen reader mode; see [Planner and executor](./docs/config.md#planner-and-executor-orchestration)). A mode without an executor cannot run with that combo. To compare models or prompts, compare combos that differ only in that part. A config on `version` 1 or 2 is converted with `node scripts/migrate-config.mjs <project-dir>`.
 
-- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama), or a logged-in coding-agent CLI over ACP (Claude Code, Codex, opencode, Grok Build; no API key, slower per call). It can also be a profile's analysis model and run completion-check suggestions.
+- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama), or a logged-in coding-agent CLI over ACP (Claude Code, Codex, opencode, Grok Build, Antigravity; no API key, slower per call). It can also be a combo's planner, an analysis model and run completion-check suggestions.
 - **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
 
-Keyboard mode sends screenshots, so the profile's model must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
+Keyboard mode sends screenshots, so the combo's keyboard executor must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
 
 ```sh
-npx rawstep run <task> --profile PROFILE
+npx rawstep run <task> --combo COMBO --mode keyboard
 ```
 
-Rawstep's rule-based analysis always runs after a run. If the profile has an analysis model, an LLM analysis is added; without one everything still works.
+Rawstep's rule-based analysis always runs after a run. If the combo or the project has an analysis model (`project.analysis.model`), an LLM analysis is added; without one everything still works.
 
-The dashboard's experiment dialog has a diagnose-stop option: a separate bounded reason-choice call after a suitable stop. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions. The CLI does not offer it.
+`--diagnose-stop` (also an option of the dashboard's experiment dialog) adds a separate bounded reason-choice call after a suitable stop in keyboard mode. Its scores are uncertain model hypotheses, and cannot change the original outcome or dispatch actions.
 
 Native AT servers and browser binaries are not npm dependencies and are never automatically downloaded on import/install.
 
 Experimental [visual focus gating, frozen-frame studies and exact-pixel replay](./docs/visual-improvement-study.md) are available as opt-in tools.
 
-### Environment comparisons
+### Condition comparisons
 
-A run profile in `rawstep.config.json` (`profiles[].environment`) sets the page environment: a built-in name such as `default`, `reflow-text` or `forced-colors`, or an object. Compare environments by running the same task with each profile:
+Each condition is a shared list in `rawstep.config.json`: model combos, action sets (what the simulated user may do), page environments, assistive technologies and run rules, plus presets that bundle them. Change one condition at a time and run the same task:
 
 ```sh
-npx rawstep run checkout --profile default
-npx rawstep run checkout --profile reflow-text
-npx rawstep run checkout --profile forced-colors
+npx rawstep run checkout --environment default
+npx rawstep run checkout --environment reflow-text
+npx rawstep run checkout --environment forced-colors
+npx rawstep run checkout --mode screenreader --combo plan-and-jev --at voiceover
 ```
 
-Profiles cover viewport, page text enlargement/spacing, color scheme, forced-colors/contrast media, reduced motion, AT expectations and independently checked support. Browser media emulation and user styles are explicitly different from native OS settings. Genuine browser zoom needs a verified paired Chromium tab-zoom controller; an unsupported request stops instead of substituting CSS zoom or pinch. Native magnifier/high-contrast control is not implemented by the browser adapter.
+A page environment (`pageEnvironments[].profile`) is a built-in name such as `default`, `reflow-text` or `forced-colors`, or an object. Every run records the full content of the conditions it used. Profiles cover viewport, page text enlargement/spacing, color scheme, forced-colors/contrast media, reduced motion, AT expectations and independently checked support. Browser media emulation and user styles are explicitly different from native OS settings. Genuine browser zoom needs a verified paired Chromium tab-zoom controller; an unsupported request stops instead of substituting CSS zoom or pinch. Native magnifier/high-contrast control is not implemented by the browser adapter.
 
 Focus order, possible occlusion, clipping, overlaps and error-state changes are separate browser diagnostics, never policy hints. See [profiles and evidence limits](./docs/environment-profiles.md).
 
@@ -113,7 +114,7 @@ You install one package, `rawstep`. Its dist contains the CLI, the dashboard UI 
 
 | Workspace | Responsibility |
 |---|---|
-| `@rawstep/core` | Contracts, task/profile schema, trace data and persistence |
+| `@rawstep/core` | Contracts, task/environment profile schema, trace data and persistence |
 | `@rawstep/policies` | Policy interface implementations, screenshot choice adapters, stop hypotheses |
 | `@rawstep/browser` | Browser, runner, verifier, keyboard adapters and environment diagnostics |
 | `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |

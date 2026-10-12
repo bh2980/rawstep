@@ -3,7 +3,9 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DecisionClient, FakeSystemOneClient, SystemOneSpeechPolicy, SystemOneScreenshotAdapter, assertSystemOneInputs, speechChoices, speechRepetition } from 'rawstep/systemone';
+import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, assertSystemOneInputs, type SystemOneClient } from 'rawstep/systemone';
+import { modelHistory, SpeechDecisionPolicy, speechChoices, speechRepetition, type SpeechPolicyOptions } from 'rawstep/policy';
+const speechPolicy = (client: SystemOneClient, options?: SpeechPolicyOptions) => new SpeechDecisionPolicy(new SystemOneChoiceModel(client), options);
 import { ScreenshotDecisionPolicy } from 'rawstep/screenshot';
 import { runTask } from '@rawstep/browser/runner';
 import { runScreenshotTask } from '@rawstep/browser/screenshot';
@@ -36,7 +38,7 @@ async function http(handler:(request:{path:string;headers:Record<string,unknown>
 const answer=(model:string,id:string,criteria:Record<string,unknown>)=>({model,answers:{next:{type:'choice',choice:id,probabilities:Object.fromEntries(Object.keys(criteria).map(key=>[key,key===id?1:0]))}}});
 describe('model-independent SystemOne contracts',()=>{
   it('uses speech only, excluding input values, DOM, verifier and metadata',async()=>{
-    const fake=new FakeSystemOneClient(['intent:activate']);const policy=new SystemOneSpeechPolicy(fake);const value=input();Object.assign(value.observation,{dom:'HIDDEN',verifier:'HIDDEN'});
+    const fake=new FakeSystemOneClient(['intent:activate']);const policy=speechPolicy(fake);const value=input();Object.assign(value.observation,{dom:'HIDDEN',verifier:'HIDDEN'});
     expect(await policy.decide(value)).toEqual({action:{kind:'intent',intent:'activate'}});expect(JSON.stringify(fake.requests)).not.toMatch(/PRIVATE_INPUT|HIDDEN|outputEventIds/);
     expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({kind:'model-inference',observationSource:'simulated-speech-only'})]);
   });
@@ -48,8 +50,8 @@ describe('model-independent SystemOne contracts',()=>{
     expect(await repeated.decide({...value,history:[{step:1,decision:{action:{kind:'key',key:'Tab'}},observation:value.observation}]})).toMatchObject({stop:'stuck',stopSource:'exploration-guard'});expect(fake.requests).toHaveLength(2);
   });
   it('rejects unknown decisions, cancellation, images and oversized candidate lists',async()=>{
-    await expect(new SystemOneSpeechPolicy(new FakeSystemOneClient(['arbitrary'])).decide(input())).rejects.toThrow('Invalid SystemOne');
-    const controller=new AbortController();controller.abort();await expect(new SystemOneSpeechPolicy(new FakeSystemOneClient(['key:Tab'])).decide({...input(),signal:controller.signal})).rejects.toThrow();
+    await expect(speechPolicy(new FakeSystemOneClient(['arbitrary'])).decide(input())).rejects.toThrow('Invalid SystemOne');
+    const controller=new AbortController();controller.abort();await expect(speechPolicy(new FakeSystemOneClient(['key:Tab'])).decide({...input(),signal:controller.signal})).rejects.toThrow();
     const client=new DecisionClient({provider:'gateway',modelId:'configured',apiKey:'test-key',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}});
     expect(()=>new SystemOneScreenshotAdapter(client)).toThrow('input modalities');expect(()=>assertSystemOneInputs(client,['text'],256)).toThrow('candidate count');
   });
@@ -57,7 +59,7 @@ describe('model-independent SystemOne contracts',()=>{
     const fake=new FakeSystemOneClient(['intent:activate']);const dir=await directory();
     const backend:Backend={evidenceProvenance:'simulation',capabilities:{intents:['activate'],keys:[],textEntry:false,replaceText:false},start:async()=>({backend:'fake'}),execute:vi.fn(async()=>({})),close:vi.fn(async()=>{}),subscribe:()=>()=>{},observe:async()=>({windowId:'w',startedAt:'2026-10-01T00:00:00Z',endedAt:'2026-10-01T00:00:01Z',reason:'fixture',outputs:[],speech:['Start button']})};
     const session={page:{bringToFront:async()=>{}},browser:{version:()=> 'fake'},takeBlockedNavigations:()=>[],takeNavigationGuardWarnings:()=>[],close:vi.fn(async()=>{})} as unknown as BrowserSession;
-    const trace=await runTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},{backend,policy:new SystemOneSpeechPolicy(fake),outDir:dir,browserSessionFactory:async()=>session,verifier:async()=>({passed:true,failures:[]})});
+    const trace=await runTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},{backend,policy:speechPolicy(fake),outDir:dir,browserSessionFactory:async()=>session,verifier:async()=>({passed:true,failures:[]})});
     expect(trace.outcome?.status).toBe('success');expect(backend.execute).toHaveBeenCalledOnce();expect(backend.close).toHaveBeenCalled();expect(session.close).toHaveBeenCalled();expect(trace.events.some(e=>e.type==='policy.evidence')).toBe(true);expect(await readFile(join(dir,'trace.json'),'utf8')).toContain('fake-systemone');
   });
   it('runs a fake image decision through the keyboard runner to a finalized trace without credentials', async () => {
@@ -91,7 +93,7 @@ describe('actual HTTP protocols through the AI SDK decide API, not real model in
   it('uses the Gateway decision model with the key in a header and no fallback options',async()=>{
     const requests:any[]=[];const baseURL=await http(request=>{requests.push(request);return request.path.endsWith('/config')?gatewayModel('decision'):answer('test/native','intent:activate',request.body.questions.next.criteria);});
     const client=new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',apiKey:'PRIVATE_KEY',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}});
-    await new SystemOneSpeechPolicy(client).decide(input());
+    await speechPolicy(client).decide(input());
     expect(requests.map(r=>r.path)).toEqual(['/v1/config','/v1/decision-model']);expect(requests[1].headers.authorization).toBe('Bearer PRIVATE_KEY');expect(requests[1].headers['ai-model-id']).toBe('test/native');
     expect(requests[1].body.providerOptions ?? {}).toEqual({});expect(JSON.stringify(requests[1].body)).not.toContain('PRIVATE_KEY');
     expect(()=>new DecisionClient({provider:'gateway',baseURL,modelId:'test/native',capabilities:{inputs:['text'],maxChoices:255,maxImages:0}})).toThrow('API key');
@@ -155,10 +157,10 @@ describe('early give-up configuration',()=>{
   it('offers the speech model\'s stuck/uncertain choices only when modelGiveUp is true',async()=>{
     const allowed=input().allowedActions,stops=(o?:{modelGiveUp?:boolean})=>speechChoices(allowed,o).map(c=>c.id).filter(id=>id.startsWith('stop:'));
     expect(stops()).toEqual(['stop:success']);expect(stops({modelGiveUp:false})).toEqual(['stop:success']);expect(stops({modelGiveUp:true})).toEqual(['stop:success','stop:stuck','stop:uncertain']);
-    const fake=new FakeSystemOneClient(['stop:success']);const policy=new SystemOneSpeechPolicy(fake);
+    const fake=new FakeSystemOneClient(['stop:success']);const policy=speechPolicy(fake);
     expect(await policy.decide(input())).toEqual({stop:'success',stopSource:'model'});
     expect(fake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success']);
-    const giveUpFake=new FakeSystemOneClient(['stop:stuck']);const giveUp=new SystemOneSpeechPolicy(giveUpFake,undefined,undefined,{modelGiveUp:true});
+    const giveUpFake=new FakeSystemOneClient(['stop:stuck']);const giveUp=speechPolicy(giveUpFake,{modelGiveUp:true});
     expect(await giveUp.decide(input())).toEqual({stop:'stuck',stopSource:'model'});
     expect(giveUpFake.requests[0]!.choices.map(c=>c.id).filter(id=>id.startsWith('stop:'))).toEqual(['stop:success','stop:stuck','stop:uncertain']);
   });
@@ -170,7 +172,7 @@ describe('speech repetition guard', () => {
   const atEnd = (n: number) => Array.from({ length: n }, (_, i) => ({ step: i + 1, decision: next, observation: said(['End of content']) }));
   it('stops as stuck without asking the model when the same action keeps producing the same speech', async () => {
     const fake = new FakeSystemOneClient(['intent:next']);
-    const policy = new SystemOneSpeechPolicy(fake, 12, undefined, { repetitionGuard: true, maxUnchangedTransitions: 4 });
+    const policy = speechPolicy(fake, { historyLimit: 12, repetitionGuard: true, maxUnchangedTransitions: 4 });
     const decision = await policy.decide({ ...input(), allowedActions: { intents: ['next'], keys: [], inputKeys: [], replaceText: false }, history: atEnd(4), observation: said(['End of content']) });
     expect(decision).toEqual({ stop: 'stuck', stopSource: 'exploration-guard' });
     expect(fake.requests).toHaveLength(0);
@@ -193,5 +195,25 @@ describe('typing candidates', () => {
       'Type the secret input password into the focused editable field',
       'Stop: goal appears complete; an independent verifier must confirm',
     ]);
+  });
+});
+
+describe('action results in the model history', () => {
+  const said = (speech: string[]) => ({ kind: 'screenreader' as const, provenance: 'simulation' as const, speech, outputEventIds: [], window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'fixture' } });
+  it('tells the model which actions failed and which changed nothing', async () => {
+    const fake = new FakeSystemOneClient(['intent:activate']);
+    await speechPolicy(fake).decide({ ...input(), observation: said(['Search, edit text']), history: [
+      { step: 1, decision: { action: { kind: 'typeText', input: 'name' } }, observation: said(['Search, heading level 2']), execution: { ok: false, error: 'PRIVATE_RAW_ERROR', failure: 'not-editable' } },
+      { step: 2, decision: { action: { kind: 'intent', intent: 'activate' } }, observation: said(['Search, heading level 2']), execution: { ok: true } },
+    ] });
+    expect(fake.requests[0]!.state.history).toEqual([
+      { step: 1, decision: { action: { kind: 'typeText', input: 'name' } }, speech: ['Search, heading level 2'], execution: { ok: false, failure: 'not-editable' }, changed: false },
+      { step: 2, decision: { action: { kind: 'intent', intent: 'activate' } }, speech: ['Search, heading level 2'], execution: { ok: true }, changed: true },
+    ]);
+    expect(JSON.stringify(fake.requests)).not.toContain('PRIVATE_RAW_ERROR');
+  });
+  it('keeps only the newest steps within the history limit', () => {
+    const steps = Array.from({ length: 5 }, (_, i) => ({ step: i + 1, decision: { action: { kind: 'intent' as const, intent: 'next' } }, observation: said([`item ${i}`]), execution: { ok: true } }));
+    expect(modelHistory(steps, said(['item 5']), 2).map(h => h.step)).toEqual([4, 5]);
   });
 });

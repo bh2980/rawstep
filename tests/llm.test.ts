@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { chooseCandidate, createLlmModel, generateStructured } from '@rawstep/policies/llm';
-import { LlmChoiceClient } from '@rawstep/project/llm';
-import { defaultInstructions, type Model } from '@rawstep/project/config';
+import { chooseCandidate, createLlmModel, generateStructured, LlmPlanner } from '@rawstep/policies/llm';
+import { llmChoiceModel } from '@rawstep/project/llm';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, type Model } from '@rawstep/project/config';
 
 const BASE = 'http://127.0.0.1:1/v1';
 const reply = (content: unknown, extra: Record<string, unknown> = {}, finish = 'stop') => Response.json({ id: 'r', created: 1, model: 'fixture', choices: [{ index: 0, finish_reason: finish, message: { role: 'assistant', content: typeof content === 'string' ? content : JSON.stringify(content) } }], ...extra });
@@ -75,21 +75,43 @@ describe('shared AI SDK LLM module', () => {
   });
 });
 
-describe('LlmChoiceClient', () => {
+describe('llmChoiceModel', () => {
   const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2, timeoutMs: 5000 };
-  const prompt = { id: 'baseline', name: 'b', version: '1', instructions: defaultInstructions.keyboard };
+  const prompt = { id: 'baseline', name: 'b', version: '1', instructions: DEFAULT_EXECUTOR_INSTRUCTIONS.keyboard };
   it('returns the choice with model and prompt evidence', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'stop:success' }));
-    const answer = await new LlmChoiceClient(model, prompt, 'sk-secret-key', fetcher).choose({ goal: 'g' }, candidates, [], new AbortController().signal);
+    const answer = await llmChoiceModel(model, prompt, 'sk-secret-key', fetcher).choose({ state: { goal: 'g' }, choices: candidates }, { signal: new AbortController().signal });
     expect(answer).toMatchObject({ choiceId: 'stop:success', model: { id: 'fixture', requestedId: 'fixture', runtime: 'openai-compatible-generative-choice' }, prompt: { id: 'baseline', version: '1' } });
-    expect(answer.prompt.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(answer.prompt?.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
   it('shows only a fixed message for provider failures and passes cancellation through', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'key:Tab', leaked: 'sk-secret-key' }));
-    const client = new LlmChoiceClient(model, prompt, 'sk-secret-key', fetcher);
-    const error = await client.choose({}, candidates, [], new AbortController().signal).catch((e: Error) => e);
+    const client = llmChoiceModel(model, prompt, 'sk-secret-key', fetcher);
+    const error = await client.choose({ state: {}, choices: candidates }, { signal: new AbortController().signal }).catch((e: Error) => e);
     expect((error as Error).message).toMatch(/^LLM choice failed/); expect((error as Error).message).not.toContain('sk-secret-key');
     const cancelled = new AbortController(); cancelled.abort(new Error('stopped'));
-    await expect(client.choose({}, candidates, [], cancelled.signal)).rejects.toThrow('stopped');
+    await expect(client.choose({ state: {}, choices: candidates }, { signal: cancelled.signal })).rejects.toThrow('stopped');
+  });
+});
+
+describe('LlmPlanner', () => {
+  const request = { goal: 'Add Thor Hammer to the cart', trigger: 'start' as const, speech: ['Toolshop, heading level 1'], actions: [{ id: 'intent:next', label: 'Screen reader intent: next' }], attempts: [] };
+  it('sends the plan request as JSON and returns a validated draft with versioned prompt evidence', async () => {
+    const draft = { complete: false, rationale: '', strategy: 'Search, then open the product', criteria: [{ id: 'C1', text: 'The product page title is heard' }], assumptions: [{ id: 'A1', text: 'There is a search field' }], phases: [{ title: 'Find the product', criteria: ['C1'], tasks: [{ goal: 'Move to the search field', done: 'Hear "Search, edit text"', cue: 'Search, edit text', serves: ['C1'], relies: ['A1'] }] }] };
+    const { calls, fetcher } = recorder(() => reply(draft));
+    const result = await new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal });
+    expect(result).toEqual({ draft, model: { id: 'fixture', runtime: 'openai-compatible-generative-plan' }, prompt: { id: 'rawstep-planner', version: expect.stringMatching(/^[0-9a-f]{12}$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) } });
+    const system = (body: { messages: { role: string; content: unknown }[] }) => JSON.stringify(body.messages);
+    expect(system(calls[0]!.body)).not.toContain('Additional instructions');
+    expect(JSON.stringify(calls[0]!.body)).toContain('Screen reader intent: next');
+    const extra = recorder(() => reply(draft));
+    const custom = await new LlmPlanner(llm(extra.fetcher), 'Plan like an expert screen reader user.').plan(request, { signal: new AbortController().signal });
+    expect(system(extra.calls[0]!.body)).toContain('Additional instructions:\\nPlan like an expert screen reader user.');
+    expect(custom.prompt!.sha256).not.toBe(result.prompt!.sha256);
+    expect(JSON.stringify(calls[0]!.body)).toContain('Thor Hammer');
+  });
+  it('rejects a draft of the wrong shape', async () => {
+    const { fetcher } = recorder(() => reply({ complete: false, steps: [{ goal: 'no done cue' }] }));
+    await expect(new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal })).rejects.toMatchObject({ code: 'llm-failed' });
   });
 });

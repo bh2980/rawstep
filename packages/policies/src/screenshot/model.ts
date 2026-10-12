@@ -1,4 +1,5 @@
 import type { Decision, ScreenshotObservation } from '@rawstep/core/contracts';
+import type { ModelHistoryEntry } from '../policy/history.js';
 
 export const SCREENSHOT_MODEL_PROTOCOL = 'rawstep-screenshot-choice-v1' as const;
 export type ScreenshotChoice = { id: string; label: string; decision: Decision };
@@ -9,7 +10,8 @@ export type ScreenshotModelRequest = {
   screenshot: ScreenshotObservation;
   previousScreenshot?: ScreenshotObservation;
   choices: ScreenshotChoice[];
-  history: { step: number; decision: Decision }[];
+  /** Recent steps with whether each action ran and whether the screen changed afterwards. */
+  history: ModelHistoryEntry[];
   visualState: { sha256: string; visits: number; unchangedTransitions: number };
 };
 export type ScreenshotModelResponse = {

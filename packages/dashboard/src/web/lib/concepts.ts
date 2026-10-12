@@ -2,7 +2,7 @@
  * Concepts explained once, in one sentence, where a person first meets them (spec §38). A dismissed concept is remembered in
  * localStorage; where storage is unavailable (a private window, blocked site data) the note simply shows again.
  */
-export const CONCEPTS = ['profile', 'check', 'decisionModel', 'inspect'] as const;
+export const CONCEPTS = ['conditions', 'check', 'decisionModel', 'inspect'] as const;
 export type Concept = (typeof CONCEPTS)[number];
 
 export const CONCEPTS_KEY = 'rawstep.concepts.dismissed';

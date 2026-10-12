@@ -3,7 +3,8 @@ import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSumma
 import type { RouteChange } from '../hooks/useRoute';
 import { formatDate } from '../lib/format';
 import { displayState, resultLabel, runGlyphKind } from '../lib/runStrip';
-import { isFinished, isLive, runProfileName, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf } from '../lib/runs';
+import type { ProjectConfig } from '@rawstep/project/config';
+import { isFinished, isLive, runConditions, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf, runModelsName } from '../lib/runs';
 import { HintBadge } from './HintBadge';
 import { Link } from './Link';
 import { RunGlyph } from './trace/RunStrip';
@@ -11,15 +12,17 @@ import { Checkbox } from './ui/checkbox';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 type Props = {
-  runs: RunRef[]; profiles: { id: string; name: string }[]; navigate: (change: RouteChange) => void;
+  runs: RunRef[]; navigate: (change: RouteChange) => void;
+  /** The project's conditions, for names a run did not record. */
+  config?: Partial<Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>>;
   /** Leaves out the task column, for a table of one task's runs. */
   hideTask?: boolean;
   /** "Run #n" of each run by id; adds a column with the number. */
   numbers?: ReadonlyMap<string, number>;
   /** Adds the friction hints of each finished run (one request per run, so only where the list is short). */
   showHints?: boolean;
-  /** Names the run profile next to the model. */
-  showProfile?: boolean;
+  /** Names the model combo, action set and environments next to the models. */
+  showConditions?: boolean;
   /** Current task names, so a renamed task shows its new name. */
   tasks?: readonly { id: string; name: string }[];
   /** Adds a checkbox column. Queued and running runs cannot be picked. */
@@ -35,7 +38,7 @@ const rowLink = 'rounded-sm after:absolute after:inset-0 focus-visible:outline-n
  * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, mode, result, actions and duration,
  * one 36px line each. The result is a glyph and its words; the colour only reinforces them.
  */
-export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHints, showProfile, tasks = [], selection }: Props) {
+export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints, showConditions, tasks = [], selection }: Props) {
   const { t } = useTranslation();
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(showHints ? runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })) : []);
@@ -74,8 +77,8 @@ export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHin
           {!hideTask && <TableCell className={cell + ' font-medium'}>
             {numbers ? label : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>}
           </TableCell>}
-          <TableCell className={cell + ' whitespace-nowrap'}>{run.snapshot.model.name}{showProfile && <span className="text-muted-foreground"> · {runProfileName(profiles, run)}</span>}</TableCell>
-          <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.mode}`)}</TableCell>
+          <TableCell className={cell + ' whitespace-nowrap'}>{runModelsName(run)}{showConditions && <ConditionsNote run={run} config={config} />}</TableCell>
+          <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.spec.mode}`)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums'}>{steps ?? '—'}</TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums text-muted-foreground'}>{seconds === undefined ? '—' : t('run.duration', { seconds: seconds.toFixed(1) })}</TableCell>
@@ -86,4 +89,10 @@ export function RunsTable({ runs, profiles, navigate, hideTask, numbers, showHin
       })}</TableBody>
     </Table>
   </div>;
+}
+
+/** The combo, action set and environments of a run, after its models. */
+function ConditionsNote({ run, config }: { run: RunRef['run']; config: Props['config'] }) {
+  const c = runConditions(run, config);
+  return <span className="text-muted-foreground"> · {[c.combo, c.actionSet, c.pageEnvironment, ...(c.mode === 'screenreader' ? [c.atEnvironment] : [])].join(' · ')}</span>;
 }

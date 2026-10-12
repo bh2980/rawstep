@@ -1,28 +1,44 @@
 import { z } from 'zod';
 import type { Task } from '@rawstep/core/contracts';
-import { idSchema as id, type Mode, type Model, type Permissions, type ProjectConfig, type Prompt, type RunSettings } from '@rawstep/project/config';
+import { idSchema as id, runRulesOverrideSchema, type Mode, type Model, type Permissions, type ProjectConfig } from '@rawstep/project/config';
+import type { RunSpec } from '@rawstep/project/execution';
 
+const ids = z.array(id).min(1).max(100).optional();
+/**
+ * An experiment: tasks × modes × conditions × repeats. A condition list left out means each task's own (its field, then its
+ * preset's, then the first shared item); `presetIds` expands into the conditions each preset names.
+ */
 export const planSchema = z.object({
   taskIds: z.array(id).min(1).max(100),
-  promptIds: z.array(id).min(1).max(50), mode: z.enum(['keyboard', 'screenreader']),
-  /** Profiles to compare (each brings its model, analysis model and conditions); omitted means each task's own profile. */
-  profileIds: z.array(id).min(1).max(100).optional(), repeats: z.number().int().min(1).max(100),
+  modes: z.array(z.enum(['keyboard', 'screenreader'])).min(1).max(2),
+  presetIds: ids, comboIds: ids, actionSetIds: ids, pageEnvironmentIds: ids, atEnvironmentIds: ids,
+  /** Run rules for this experiment only, over the project's, the preset's and the task's. */
+  runRules: runRulesOverrideSchema.optional(),
+  repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
   revision: z.string().optional(),
   diagnoseStop: z.boolean().optional(),
 }).strict();
 export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */
-export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: { keys: string[]; intents: string[] } } };
-/** One run to make. `modelName` is the profile's model, absent when the profile has none (then `reason` says so). */
-export type Combination = { key: string; taskId: string; modelName?: string; promptId: string; profileId: string; repeat: number; supported: boolean; reason?: string; permissions: Permissions; permissionSource: 'profile' | 'task' };
+export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: Record<'simulation' | 'voiceover' | 'nvda', { keys: string[]; intents: string[] }> } };
+/**
+ * One run to make: a task in a mode under one set of conditions. `modelName` is the combo's executor for the mode and `plannerName`
+ * its planner when the run plans; `reason` says why it cannot run, `warnings` what is worth knowing.
+ */
+export type Combination = {
+  key: string; taskId: string; mode: Mode; repeat: number;
+  comboId: string; actionSetId: string; pageEnvironmentId: string; atEnvironmentId: string; presetId?: string;
+  structure: 'solo' | 'planned'; modelName?: string; plannerName?: string;
+  supported: boolean; reason?: string; warnings: string[]; permissions: Permissions;
+};
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
   id: string; state: RunState; startedAt?: string; endedAt?: string; error?: string;
   /** Why a run could not start or failed without a recorded outcome: the error's code and its message, with keys and input values redacted. */
   errorDetail?: { code?: string; message: string };
-  /** `profile` is the resolved page environment; `runProfile` names the run profile. */
-  snapshot: { task: Task; taskName: string; model: Model; prompt: Prompt; mode: Mode; profile: unknown; globals: RunSettings; runProfile: { id: string; name: string } };
+  /** What the run was made with: the run spec (its task without secret values) and the task's name at the time. */
+  snapshot: { taskName: string; spec: RunSpec };
   /** `stage` and `step` say how far a failed run got; nothing else of the recorded outcome (its raw error text) is kept. */
   outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
@@ -31,7 +47,7 @@ export type RunRecord = Combination & {
   retryOf?: { experiment: string; run: string };
   diagnoseStop?: boolean;
 };
-export type RetryPreview = { revision: string; changedFields: string[]; original: RunRecord['snapshot']['task']; current: RunRecord['snapshot']['task'] };
+export type RetryPreview = { revision: string; changedFields: string[]; original: RunSpec['task']; current: RunSpec['task'] };
 export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest };
 /** Answer to deleting a task: the project as it is now, the task's file and whether Rawstep removed that file (a linked file elsewhere in the project is only unregistered). */
 export type DeleteTaskResult = { view: ConfigView; file: string; fileRemoved: boolean };

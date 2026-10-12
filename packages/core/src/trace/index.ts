@@ -192,6 +192,8 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
   if (["run.error", "run.aborted"].includes(type)) preserveRunPoint(original, redacted);
   if (["policy.decision", "policy.rejected", "action.result", "verifier.result", "verifier.evidence"].includes(type)) copy(original, redacted, ["step"]);
   if (type === "policy.rejected" && original.reasonCode === "action-not-allowed") redacted.reasonCode = original.reasonCode;
+  // The runner already reduced tainted policy evidence to opaque tokens and numbers; keep them as written.
+  if (type === "policy.evidence") { copy(original, redacted, ["step"]); if (record(original.summary)) redacted.summary = jsonCopy(original.summary); }
   if (type === "verifier.evidence") {
     copy(original, redacted, ["ruleIndex", "ruleType", "passed"]);
     if (record(original.witness) && record(redacted.witness)) {
@@ -207,7 +209,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
   }
   if (type === "policy.decision" && record(original.decision) && record(redacted.decision)) {
     copy(original.decision, redacted.decision, ["stop"]);
-    if (["model", "exploration-guard"].includes(String(original.decision.stopSource))) redacted.decision.stopSource = original.decision.stopSource;
+    if (["model", "planner", "exploration-guard", "orchestration-limit"].includes(String(original.decision.stopSource))) redacted.decision.stopSource = original.decision.stopSource;
   }
   const action = type === "policy.decision" && record(original.decision) ? original.decision.action : type === "action.result" ? original.action : undefined;
   const safeAction = type === "policy.decision" && record(redacted.decision) ? redacted.decision.action : type === "action.result" ? redacted.action : undefined;
@@ -322,7 +324,7 @@ export class TraceRecorder {
     if (typeof outcome.reason === 'string' && OUTCOME_REASONS.includes(outcome.reason)) safeOutcome.value.reason = outcome.reason;
     preserveRunPoint(outcome, safeOutcome.value);
     if (record(outcome.cancellation) && record(safeOutcome.value.cancellation)) preserveRunPoint(outcome.cancellation, safeOutcome.value.cancellation);
-    if (["model", "exploration-guard"].includes(String(outcome.policyStopSource))) safeOutcome.value.policyStopSource = outcome.policyStopSource;
+    if (["model", "planner", "exploration-guard", "orchestration-limit"].includes(String(outcome.policyStopSource))) safeOutcome.value.policyStopSource = outcome.policyStopSource;
     if (outcome.policyStop === "success" || outcome.policyStop === "stuck" || outcome.policyStop === "uncertain") safeOutcome.value.policyStop = outcome.policyStop;
     const next: RunTrace = { ...this.state, endedAt: new Date().toISOString(), outcome: safeOutcome.value,
       privacy: { ...this.state.privacy, redactionApplied: this.state.privacy.redactionApplied || safeOutcome.redacted } };

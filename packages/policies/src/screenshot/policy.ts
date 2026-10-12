@@ -2,6 +2,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { createHash } from 'node:crypto';
 import { inputLabel, type AllowedActions, type Decision, type DecisionPolicy, type InputDescriptor, type ScreenshotObservation } from '@rawstep/core/contracts';
 import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
+import { modelHistory } from '../policy/history.js';
 import { SCREENSHOT_MODEL_PROTOCOL, validateModelResponse, type ScreenshotChoice, type ScreenshotModelAdapter, type ScreenshotModelRequest, type ScreenshotModelResponse } from './model.js';
 
 export function screenshotHash(screenshot: ScreenshotObservation): string {
@@ -97,17 +98,11 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
     let choices = screenshotChoices(input.allowedActions, { modelGiveUp: this.options.modelGiveUp }, input.inputs);
     // Construct a fresh allowlisted request: never forward arbitrary input/observation/history objects.
     const pixels = (s: ScreenshotObservation): ScreenshotObservation => ({ pngBase64: s.pngBase64, viewport: { w: s.viewport.w, h: s.viewport.h } });
-    const decisionOnly = (decision: Decision): Decision => {
-      if ('stop' in decision) return { stop: decision.stop };
-      const action = decision.action;
-      if (action.kind === 'key') return { action: { kind: 'key', key: action.key } };
-      if (action.kind === 'typeText' || action.kind === 'replaceText') return { action: { kind: action.kind, input: action.input } };
-      throw new Error('Screenshot history cannot contain screen-reader intents.');
-    };
+    if (input.history.some(entry => 'action' in entry.decision && entry.decision.action.kind === 'intent')) throw new Error('Screenshot history cannot contain screen-reader intents.');
     if (input.observation.previousScreenshot) screenshotHash(input.observation.previousScreenshot);
     const request: ScreenshotModelRequest = { protocol: SCREENSHOT_MODEL_PROTOCOL, goal: input.goal,
       screenshot: pixels(input.observation.screenshot), ...(input.observation.previousScreenshot ? { previousScreenshot: pixels(input.observation.previousScreenshot) } : {}),
-      choices: structuredClone(choices), history: input.history.slice(-limits.historyLimit).map(entry => ({ step: entry.step, decision: decisionOnly(entry.decision) })),
+      choices: structuredClone(choices), history: modelHistory(input.history, input.observation, limits.historyLimit),
       visualState: { sha256, visits, unchangedTransitions } };
     if (this.options.focusGate) {
       const gateStartedAt = new Date().toISOString(), gateStarted = performance.now();
@@ -116,7 +111,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
       const originalChoices = choices;
       choices = restrictChoicesByVisualFocus(choices, focus, this.options.focusGate);
       request.choices = structuredClone(choices);
-      this.evidence.push({ kind: 'visual-focus-gate', startedAt: gateStartedAt, elapsedMs: performance.now() - gateStarted,
+      this.evidence.push({ kind: 'visual-focus-gate', role: 'focus', startedAt: gateStartedAt, elapsedMs: performance.now() - gateStarted,
         ...(focus.prompt ? { prompt: { ...focus.prompt } } : {}),
         model: { id: focus.model.id, runtime: focus.model.runtime, ...(focus.model.requestedId ? { requestedId: focus.model.requestedId } : {}), ...(focus.model.revision ? { revision: focus.model.revision } : {}) },
         choiceId: focus.choiceId, probabilities: focus.probabilities ? [...focus.probabilities] : undefined,
@@ -130,7 +125,7 @@ export class ScreenshotDecisionPolicy implements DecisionPolicy {
     const response = await this.options.model.choose(request, { signal: input.signal });
     input.signal.throwIfAborted();
     validateModelResponse(response, choices);
-    this.evidence.push({ kind: 'model-inference', model: { id: response.model.id, runtime: response.model.runtime, ...(response.model.requestedId ? { requestedId: response.model.requestedId } : {}), ...(response.model.revision ? { revision: response.model.revision } : {}) },
+    this.evidence.push({ kind: 'model-inference', role: 'executor', model: { id: response.model.id, runtime: response.model.runtime, ...(response.model.requestedId ? { requestedId: response.model.requestedId } : {}), ...(response.model.revision ? { revision: response.model.revision } : {}) },
       ...(response.prompt ? { prompt: { ...response.prompt } } : {}),
       startedAt, endedAt: new Date().toISOString(), elapsedMs: performance.now() - started,
       ...(response.inferenceMs !== undefined ? { inferenceMs: response.inferenceMs } : {}),

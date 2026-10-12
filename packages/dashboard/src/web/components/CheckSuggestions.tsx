@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
-import { profileAnalysisModel } from '@rawstep/project/config';
+import { suggestionModel } from '@rawstep/project/config';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
 import { describeRule } from '../lib/describeRule';
@@ -15,7 +15,6 @@ import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { ErrorView } from '../lib/errors';
 
 type Props = {
@@ -77,18 +76,16 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
 export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart }: Props) {
   const { t } = useTranslation();
   const modelId = useId();
-  // The analysis LLM of a run profile writes the suggestions; only profiles that have one are offered.
-  const models = view.config.profiles.flatMap(profile => { const model = profileAnalysisModel(view.config, profile); return model ? [{ id: profile.id, name: `${profile.name} · ${model.name}` }] : []; });
-  const [picked, setPicked] = useState('');
+  // The project's suggestion model writes the suggestions (its analysis model when none is set), as the server picks it.
+  const model = suggestionModel(view.config);
   const [loading, setLoading] = useState(false), [error, setError] = useState<ErrorView>();
   const [result, setResult] = useState<SuggestionResult>(), [added, setAdded] = useState<ReadonlySet<string>>(new Set());
-  const selected = models.find(model => model.id === picked) ?? models[0];
-  const ready = url.trim() !== '' && goal.trim() !== '' && selected !== undefined;
+  const ready = url.trim() !== '' && goal.trim() !== '' && model !== undefined;
   async function suggest() {
-    if (!selected) return;
+    if (!model) return;
     setLoading(true); setError(undefined); setResult(undefined); setAdded(new Set());
     try {
-      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim(), profileId: selected.id } }));
+      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim() } }));
     } catch (failure) {
       setError(describeApiError(failure, 'start'));
     } finally { setLoading(false); }
@@ -102,16 +99,10 @@ export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart 
       <h3 id={modelId + '-title'} className="text-base font-semibold">{t('checkSuggest.title')}</h3>
       <p className="text-[13px] leading-5 text-muted-foreground">{reference ? t('checkSuggest.referenceNote') : t('checkSuggest.description')}</p>
     </div>
-    {models.length === 0
-      ? <p role="status" className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.noModel')}</p>
+    {!model
+      ? <p role="status" className="text-sm leading-6 text-muted-foreground">{t('suggestModel.none')}</p>
       : <div className="grid gap-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor={modelId} className="text-xs text-muted-foreground">{t('checkSuggest.model')}</Label>
-          <Select value={selected?.id ?? ''} onValueChange={setPicked} disabled={loading}>
-            <SelectTrigger id={modelId} className="h-9 w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>{models.map(model => <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
+        <p className="text-xs leading-5 text-muted-foreground">{t('suggestModel.line', { model: model.name })}</p>
         <div className="grid justify-items-start gap-2">
           <Button type="button" variant="outline" disabled={!ready || loading} aria-describedby={modelId + '-note'} onClick={() => void suggest()}>{loading ? t('checkSuggest.loading') : t('checkSuggest.submit')}</Button>
           <p id={modelId + '-note'} role={loading ? 'status' : undefined} className="text-xs leading-5 text-muted-foreground">{loading ? t('checkSuggest.loadingNote') : !ready ? t('checkSuggest.needInput') : ''}</p>

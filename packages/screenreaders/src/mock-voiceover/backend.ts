@@ -12,6 +12,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
   'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
+  'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
 ]);
 
 const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next']);
@@ -64,6 +65,8 @@ export class MockVoiceOverBackend implements Backend {
   private nextWindow = 1;
   private sequence = 0;
   private lastAnnouncement?: string;
+  /** The document whose title was last spoken; a new one is announced by its title. */
+  private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
   private listeners = new Set<(event: unknown) => void>();
 
@@ -131,6 +134,16 @@ export class MockVoiceOverBackend implements Backend {
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
   }
 
+  /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
+  private announceText(text: string, kind: 'page-title'): void {
+    const output: BackendOutput = {
+      sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
+      raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
+    };
+    this.beginWindow().outputs.push(output);
+    this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
+  }
+
   private current(): CursorNode | undefined { return this.nodes.find(node => node.identity === this.cursor); }
 
   private currentFingerprint(): string { return JSON.stringify([this.cursor, this.current()?.semantic]); }
@@ -181,6 +194,13 @@ export class MockVoiceOverBackend implements Backend {
       }
     };
     for (const node of axNodes) if (!node.parentId || !byId.has(node.parentId)) visit(node, false, []);
+    // VoiceOver speaks the page title when a new document loads; the title is heard before anything on the page.
+    const root = axNodes.find(node => ['RootWebArea', 'WebArea'].includes(stringValue(node.role)) && (!node.parentId || !byId.has(node.parentId)));
+    if (root && identity(root) !== this.documentIdentity) {
+      this.documentIdentity = identity(root);
+      const title = stringValue(root.name).trim();
+      if (title) this.announceText(title, 'page-title');
+    }
     // AX values for password fields are intentionally discarded before formatting or emitting diagnostics.
     for (const node of next) {
       if ((!editableRoles.has(node.semantic.role) && !node.semantic.value) || node.backendDOMNodeId === undefined) continue;

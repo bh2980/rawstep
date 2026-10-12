@@ -5,7 +5,7 @@ import { api } from '../api';
 import { ENV_NAME, generateEnvName, kindLabelKey, providerTextKey } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
 import type { PageProps } from '../pages/types';
-import { Field, Panel, ReadonlyField, SecretField } from './forms';
+import { Choice, Field, Panel, ReadonlyField, SecretField } from './forms';
 import { AgentNote } from './AgentNote';
 import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
