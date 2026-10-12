@@ -1,11 +1,11 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { List } from 'lucide-react';
-import type { Connection } from '@rawstep/project/config';
+import { agentOf, type Connection } from '@rawstep/project/config';
 import type { DiscoveredModel } from '@rawstep/project/discover';
 import { api } from '../api';
 import { describeApiError, type ErrorView } from '../lib/errors';
-import { providerTextKey } from '../lib/connections';
+import { kindLabelKey, providerTextKey } from '../lib/connections';
 import { cn } from '../lib/utils';
 import { Choice, Field } from './forms';
 import { ErrorState } from './layout/ErrorState';
@@ -47,14 +47,14 @@ export function ModelPicker({ label, connections, connectionId, modelId, onChang
   const lower = filter.trim().toLowerCase();
   const matches = list?.filter(m => !lower || m.name.toLowerCase().includes(lower) || m.modelId.toLowerCase().includes(lower)) ?? [];
   const shown = matches.slice(0, VISIBLE_LIMIT);
-  const name = (c: Connection) => `${c.name} · ${t(`connections.kinds.${c.kind}.name`)}`;
+  const name = (c: Connection) => `${c.name} · ${t(`connections.kinds.${kindLabelKey(c)}.name`)}`;
   return <fieldset className="grid gap-3">
     <legend className="mb-3 text-sm font-semibold">{label}</legend>
     <div className="grid gap-3 sm:grid-cols-2">
       <Choice label={t('modelPicker.connection')} value={connection?.id ?? (none ? NONE : '')}
         onChange={next => { if (next === NONE) onNone?.(); else onChange({ connectionId: next, modelId: next === connectionId ? modelId : '' }); setModels(undefined); setError(undefined); }}
         options={[...(none ? [{ id: NONE, name: none }] : []), ...connections.map(c => ({ id: c.id, name: name(c) }))]} />
-      {connection && <Field label={t('modelPicker.modelId')} value={modelId} onChange={next => onChange({ connectionId: connection.id, modelId: next })} placeholder={t(connection.kind === 'llm' ? 'modelPicker.modelIdPlaceholderLlm' : 'modelPicker.modelIdPlaceholder')} />}
+      {connection && <Field label={t('modelPicker.modelId')} value={modelId} onChange={next => onChange({ connectionId: connection.id, modelId: next })} placeholder={t(agentOf(connection) ? 'modelPicker.modelIdPlaceholderAgent' : 'modelPicker.modelIdPlaceholder')} />}
     </div>
     {connection && <>
       <div className="flex flex-wrap items-center gap-3">

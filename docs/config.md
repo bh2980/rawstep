@@ -56,7 +56,7 @@ A connection is where models are reached: a provider preset (fixed address and k
 | `baseURL` | Only for `provider: custom`, and required there: the server address (HTTPS, or HTTP on this computer). |
 | `apiKeyEnv` | Only for `provider: custom`: the environment variable that holds the key, if the server needs one. |
 | `timeoutMs` | Request timeout, 100 to 600000 ms. |
-| `reasoningEffort` | Only for the CLI providers below: how hard the model thinks (`codex`: minimal–xhigh, `grok`: low–xhigh, `antigravity`: low–max). Unset uses the CLI's default. |
+| `reasoningEffort` | Only for the coding-agent CLI providers below (`minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each agent offers its own subset). Unset uses the agent's default. |
 
 Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 
@@ -66,14 +66,18 @@ Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic's OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
-| `llm` | `codex` | Codex CLI on this computer (`codex exec`), ChatGPT sign-in | none |
-| `llm` | `grok` | Grok CLI on this computer (`grok -p`), grok.com sign-in | none |
-| `llm` | `antigravity` | Antigravity CLI on this computer (`agy -p`), Google sign-in | none |
+| `llm` | `claudeCode` | runs `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | none (CLI login) |
+| `llm` | `codex` | runs `npx -y @agentclientprotocol/codex-acp@2.2.2` | none (CLI login) |
+| `llm` | `opencode` | runs `opencode acp` | none (CLI login) |
+| `llm` | `grok` | runs `grok agent stdio`, no images | none (CLI login) |
+| `llm` | `antigravity` | runs `agy_acp_server.par` (Google's separate ACP server from the ACP registry; put its folder on `PATH`) | none (its own Google sign-in) |
 | `llm` | `custom` | any OpenAI-compatible server (LM Studio, Ollama, ...), `baseURL` | optional, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway, called through the AI SDK's gateway provider; text only | `RAWSTEP_AI_GATEWAY_API_KEY` |
 | `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (shared with `llm`) |
 | `decision` | `custom` | any `/systemone`-compatible server, `baseURL` | optional, `apiKeyEnv` |
+
+**Coding-agent CLIs** (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`) are connections to a CLI spoken to over ACP (Agent Client Protocol, JSON-RPC over stdio) instead of an address. The CLI must be installed and logged in; its own subscription pays and there is no API key or `baseURL`. The commands are fixed in `PROVIDERS` and never read from the shared config. The two `npx` adapters are pinned and downloaded on first use, so the first call is slow. `modelId: "default"` keeps the agent's own model choice; the model list (dashboard 확인 and the model picker) starts the agent and shows `default` first. Grok takes no images, so it only fits screen-reader mode and analysis. Every decision runs in a fresh agent session in an empty temporary folder; file and terminal access is refused, permission requests are rejected, and the session is deleted after the call. Agents carry their own large system prompt, so each call uses more tokens and is slower than a direct API (about 4 to 13 s per decision measured).
 
 Connections to one preset provider share its key. `llm` models call the provider's chat API through the AI SDK. `decision` models call the AI SDK's experimental `decide` API: an in-house adapter for the `/systemone` protocol serves `typesafe`, `openrouter` and `custom`, and the AI SDK's gateway provider serves `gateway` (see [SystemOne decisions](./systemone.md)). Keyboard mode sends images, so it needs an `llm` with image input or a `decision` model on `typesafe`, `openrouter` or `custom`.
 
@@ -81,12 +85,12 @@ Connections to one preset provider share its key. `llm` models call the provider
 { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
 ```
 
-### Coding-agent CLIs (`codex`, `grok`, `antigravity`)
+### Coding-agent CLIs (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`)
 
-These run a CLI you already installed and signed in to, so planning and analysis need no API key. Rawstep starts the CLI once per call in an empty temporary folder, with its sandbox, one turn and no web or file tools where the CLI allows it (Codex also ignores your own Codex config: hooks, MCP servers, plugins). The answer is forced into a JSON schema and validated again by Rawstep. The model list comes from the CLI (`grok models`, `agy models`, Codex's model cache); `rawstep doctor` and the dashboard's connection check say whether the CLI is installed and signed in, without calling a model. Calls take seconds to minutes, so these suit roles called rarely (planner, analysis, check suggestions) rather than an executor called every step. Text only: keyboard-mode executors need images.
+These are spoken to over ACP, as described above. `antigravity` runs Google's ACP server `agy_acp_server.par`, a separate download from the ACP registry whose folder must be on `PATH`. It keeps its own Google sign-in, done once from the dashboard connection check's sign-in button; Rawstep never signs in on its own, and an agent without a sign-in method has to be signed in with its own CLI in a terminal. `reasoningEffort` picks how hard the agent thinks; each agent offers its own subset and an unknown value fails at run time.
 
 ```json
-{ "id": "codex", "name": "Codex CLI", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
+{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
 ```
 
 ## tasks[]
@@ -317,6 +321,7 @@ Settings of this computer, not of an experiment.
 |---|---|
 | `atEndpoints` | `{ voiceover, nvda }`: AT Driver WebSocket URLs of the native screen readers. Empty (the default) means the usual address of that screen reader's server: `ws://localhost:4382/session` for VoiceOver (Bocoup macOS server) and `ws://localhost:3031/session` for NVDA (PAC server). Loopback only. The simulation uses none. |
 | `browserExecutablePath` | Optional path to a trusted Chromium. Empty uses the bundled one. |
+| `browserEndpoint` | Optional address of a Chrome you started yourself with `--remote-debugging-port` (for example `http://localhost:9222`). Runs connect to it instead of launching a browser, so sites see an ordinary browser (not headless, `navigator.webdriver` false) and bot detection fires less. Loopback only. Each run uses its own isolated context in that Chrome and only disconnects at the end, so cookies from its normal tabs are not shared. `browserExecutablePath`, `headless` and proxy settings do not apply; combine with `personCheck` if a person should pass human checks in that window. Chrome only opens the port with a separate profile: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.rawstep-chrome"`. |
 | `headless` | Run the browser without a window (default true). |
 | `personCheck` | For real sites with a human check (Cloudflare and the like). Runs use a visible Chrome with a profile kept in `.rawstep/browser-profile`. When a check appears, the run pauses until a person passes it in that window (up to 5 minutes; the wait does not count against the time limit). Rawstep never answers a check itself. Default `false`. |
 

@@ -7,21 +7,16 @@ import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 import type { Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
-import { cliStructured, type CliModelOptions } from './cli.js';
-export { CLI_DRIVERS, cliStatus, listCliModels, strictJsonSchema, type CliModelOptions, type CliProvider, type CliReasoningEffort, type CliStatus } from './cli.js';
+import { AcpAgent, parseAgentJson } from '../acp/index.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
- * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...) or through a coding-agent CLI (Codex, Grok, Antigravity) with the person's own sign-in.
- * Provider error text can carry credentials or page content, so errors are never forwarded: callers only see a RawstepError
- * with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
+ * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...), or through a coding-agent CLI spoken to over ACP
+ * (`createAgentModel`) with the person's own sign-in. Provider error text can carry credentials or page content, so errors
+ * are never forwarded: callers only see a RawstepError with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
  */
-export type LlmModel = SdkLlmModel | CliLlmModel;
-export type CliLlmModel = { readonly kind: 'cli'; readonly modelId: string; readonly timeoutMs: number; readonly cli: CliModelOptions };
-export type SdkLlmModel = {
-  readonly kind?: 'sdk';
-  readonly model: LanguageModel;
-  /** The model ID that was requested; a response that names another model is rejected. */
+export type LlmModel = ({ readonly model: LanguageModel } | { readonly agent: AcpAgent; readonly reasoningEffort?: string }) & {
+  /** The model ID that was requested; a response that names another model is rejected. An agent's `default` keeps its own choice. */
   readonly modelId: string;
   readonly timeoutMs: number;
   /** Kept only to reject responses that echo the credential. */
@@ -43,13 +38,7 @@ const MESSAGES = {
 } as const;
 export const llmError = (code: keyof typeof MESSAGES) => new RawstepError(code, MESSAGES[code]);
 
-/** A coding-agent CLI as an LLM. An empty model ID lets the CLI pick its own default model. */
-export function createCliModel(options: Omit<CliModelOptions, 'timeoutMs'> & { timeoutMs?: number }): CliLlmModel {
-  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
-  return { kind: 'cli', modelId: options.modelId.trim(), timeoutMs, cli: { ...options, timeoutMs } };
-}
-export function createLlmModel(options: LlmModelOptions): SdkLlmModel {
+export function createLlmModel(options: LlmModelOptions): LlmModel {
   if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
   const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
@@ -61,6 +50,16 @@ export function createLlmModel(options: LlmModelOptions): SdkLlmModel {
   });
   return { model: provider.chatModel(options.modelId), modelId: options.modelId, timeoutMs, ...(options.apiKey ? { apiKey: options.apiKey } : {}) };
 }
+
+/** A coding-agent CLI as a model. The agent process starts on the first call; `close()` ends it. */
+export function createAgentModel(options: { agent: AcpAgent; modelId: string; timeoutMs?: number; reasoningEffort?: string }): LlmModel & { close(): Promise<void> } {
+  if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
+  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
+  return { agent: options.agent, modelId: options.modelId, timeoutMs, ...(options.reasoningEffort ? { reasoningEffort: options.reasoningEffort } : {}), close: () => options.agent.close() };
+}
+/** Ends an agent model's process; nothing to do for an HTTP model. */
+export const closeLlmModel = async (model: LlmModel): Promise<void> => { if ('agent' in model) await model.agent.close(); };
 
 export type StructuredRequest<T> = LlmCallOptions & {
   model: LlmModel; system: string; user: string; schema: z.ZodType<T>;
@@ -78,15 +77,10 @@ export type StructuredResult<T> = { object: T; modelId: string };
 export async function generateStructured<T>(request: StructuredRequest<T>): Promise<StructuredResult<T>> {
   const { model, signal } = request;
   if (signal?.aborted) throw llmError('llm-cancelled');
+  if ('agent' in model) return generateWithAgent(model, model.agent, request);
   const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    if (model.kind === 'cli') {
-      // The CLIs read text only here; a request that needs images cannot be served faithfully.
-      if (request.images?.length) throw new Error('images');
-      const object = await cliStructured(model.cli, { system: request.system, user: request.user, schema: request.schema, signal: abortSignal });
-      return { object, modelId: model.modelId || `${model.cli.provider}-default` };
-    }
     const content = request.images?.length
       ? [{ type: 'text' as const, text: request.user }, ...request.images.map(data => ({ type: 'file' as const, data, mediaType: 'image/png' }))]
       : request.user;
@@ -98,6 +92,27 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
     if (model.apiKey && result.text.includes(model.apiKey)) throw new Error('credential echoed');
     if (request.strictModel && result.response.modelId !== model.modelId) throw new Error('model changed');
     return { object: request.schema.parse(result.output), modelId: result.response.modelId };
+  } catch {
+    if (signal?.aborted) throw llmError('llm-cancelled');
+    if (timeout.aborted) throw llmError('llm-timeout');
+    throw llmError('llm-failed');
+  }
+}
+
+/** ACP has no system role and no JSON mode: the instructions lead the one text block and the reply is parsed for its JSON object. */
+async function generateWithAgent<T>(model: LlmModel & { reasoningEffort?: string }, agent: AcpAgent, request: StructuredRequest<T>): Promise<StructuredResult<T>> {
+  const { signal } = request;
+  try { await agent.start(signal); }
+  catch { if (signal?.aborted) throw llmError('llm-cancelled'); throw llmError('llm-failed'); }
+  // Starting (and an adapter download) is not part of the call's time.
+  const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
+  try {
+    const text = await agent.prompt({
+      text: request.system + '\nDo not use tools, files or the web; answer from this message only, with the JSON object and nothing else.\n\n' + request.user,
+      ...(request.images?.length ? { images: request.images } : {}), modelId: model.modelId, ...(model.reasoningEffort ? { reasoningEffort: model.reasoningEffort } : {}),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    return { object: request.schema.parse(parseAgentJson(text)), modelId: model.modelId };
   } catch {
     if (signal?.aborted) throw llmError('llm-cancelled');
     if (timeout.aborted) throw llmError('llm-timeout');
@@ -132,7 +147,7 @@ export class LlmChoiceModel implements ChoiceModel {
     const candidates = request.choices.map(({ id, label }) => ({ id, label }));
     try {
       const { choiceId } = await chooseCandidate({ model: this.llm, system: this.prompt.instructions, state: request.state, candidates, ...(request.images?.length ? { images: request.images } : {}), signal });
-      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: this.llm.kind === 'cli' ? `${this.llm.cli.provider}-cli-choice` : 'openai-compatible-generative-choice' },
+      return { choiceId, model: { id: this.llm.modelId, requestedId: this.llm.modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-choice' : 'openai-compatible-generative-choice' },
         prompt: { id: this.prompt.id, version: this.prompt.version, sha256: createHash('sha256').update(JSON.stringify({ instructions: this.prompt.instructions, choices: candidates })).digest('hex') } };
     } catch {
       signal.throwIfAborted();
@@ -192,6 +207,6 @@ export class LlmPlanner implements Planner {
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
     const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: draftSchema });
-    return { draft: object, model: { id: modelId, runtime: this.llm.kind === 'cli' ? `${this.llm.cli.provider}-cli-plan` : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
+    return { draft: object, model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
   }
 }

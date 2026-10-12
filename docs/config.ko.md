@@ -60,7 +60,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `baseURL` | `provider: custom`일 때만 쓰며 이때는 필수입니다. 서버 주소(HTTPS, 이 컴퓨터의 서버는 HTTP도 가능) |
 | `apiKeyEnv` | `provider: custom`일 때만. 키를 담은 환경변수 이름(선택, 대문자·숫자·`_`) |
 | `timeoutMs` | 모델 요청 제한 시간(100~600000, 기본 60000) |
-| `reasoningEffort` | 아래 CLI 제공자만. 추론 강도(`codex`: minimal~xhigh, `grok`: low~xhigh, `antigravity`: low~max). 비우면 CLI 기본값 |
+| `reasoningEffort` | 코딩 에이전트 CLI 제공자에만 씁니다(`minimal`, `low`, `medium`, `high`, `xhigh`, `max`; 에이전트마다 지원하는 값이 다름). 비우면 에이전트 기본값. |
 
 제공자는 `@rawstep/project/config`의 `PROVIDERS`에 한 번만 정의합니다.
 
@@ -70,26 +70,28 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic의 OpenAI 호환 주소) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
-| `llm` | `codex` | 이 컴퓨터의 Codex CLI(`codex exec`), ChatGPT 로그인 | 없음 |
-| `llm` | `grok` | 이 컴퓨터의 Grok CLI(`grok -p`), grok.com 로그인 | 없음 |
-| `llm` | `antigravity` | 이 컴퓨터의 Antigravity CLI(`agy -p`), Google 로그인 | 없음 |
+| `llm` | `claudeCode` | 실행: `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | 없음 (CLI 로그인) |
+| `llm` | `codex` | 실행: `npx -y @agentclientprotocol/codex-acp@2.2.2` | 없음 (CLI 로그인) |
+| `llm` | `opencode` | 실행: `opencode acp` | 없음 (CLI 로그인) |
+| `llm` | `grok` | 실행: `grok agent stdio`, 이미지 없음 | 없음 (CLI 로그인) |
+| `llm` | `antigravity` | 실행: `agy_acp_server.par` (ACP 레지스트리에서 받는 Google의 별도 ACP 서버, 폴더를 `PATH`에 둠) | 없음 (자체 Google 로그인) |
 | `llm` | `custom` | OpenAI 호환 서버(LM Studio, Ollama 등), `baseURL` | 선택, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway(AI SDK의 gateway provider 사용), 텍스트 전용 | `RAWSTEP_AI_GATEWAY_API_KEY` |
 | `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (`llm`과 같은 키) |
 | `decision` | `custom` | `/systemone` 호환 서버, `baseURL` | 선택, `apiKeyEnv` |
 
+**코딩 에이전트 CLI**(`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`)는 주소 대신 ACP(Agent Client Protocol, stdio 위의 JSON-RPC)로 말을 거는 CLI 연결입니다. CLI가 설치되어 로그인되어 있어야 하며, 호출 비용은 CLI 자체의 구독으로 나가므로 API 키도 `baseURL`도 없습니다. 실행 명령은 `PROVIDERS`에 고정되어 있고 공유 설정에서 읽지 않습니다. `npx` 어댑터 둘은 버전을 고정해 처음 쓸 때 내려받으므로 첫 호출이 느립니다. `modelId: "default"`는 에이전트가 정한 모델을 그대로 쓰며, 모델 목록(대시보드 확인과 모델 선택)은 에이전트를 띄워 `default`를 맨 앞에 보여 줍니다. Grok은 이미지를 받지 않아 스크린리더 모드와 분석에만 맞습니다. 판단마다 새 에이전트 세션을 빈 임시 폴더에서 열고, 파일·터미널 접근과 권한 요청은 거절하며, 호출이 끝나면 세션을 지웁니다. 에이전트는 자체 시스템 프롬프트가 커서 호출마다 토큰을 더 쓰고 직접 API보다 느립니다(판단 한 번에 약 4~13초 측정).
+
 같은 기본 제공자의 연결은 키 하나를 함께 씁니다. `llm`은 AI SDK로 제공자의 채팅 API를 호출하고, `decision`은 AI SDK의 실험적 `decide` API를 호출합니다. `typesafe`·`openrouter`·`custom`은 자체 `/systemone` 어댑터, `gateway`는 AI SDK의 gateway provider를 씁니다([SystemOne 결정 모델](./systemone.md)).
 
-### 코딩 에이전트 CLI (`codex`, `grok`, `antigravity`)
+### 코딩 에이전트 CLI (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`)
 
-이미 설치하고 로그인한 CLI를 쓰므로 계획·해설에 API 키가 필요 없습니다. Rawstep은 호출마다 빈 임시 폴더에서 CLI를 한 번 실행하고, CLI가 허용하는 한 샌드박스·한 턴·웹/파일 도구 없음으로 실행합니다(Codex는 개인 설정의 훅·MCP·플러그인도 쓰지 않습니다). 답은 JSON 스키마로 강제하고 Rawstep이 다시 검증합니다. 모델 목록은 CLI에서 읽고(`grok models`, `agy models`, Codex 모델 캐시), `rawstep doctor`와 대시보드 연결 확인은 모델을 부르지 않고 설치·로그인 여부만 봅니다. 호출이 몇 초에서 몇 분까지 걸리므로 매 단계 부르는 실행 모델보다 계획·해설·완료 확인 제안처럼 가끔 부르는 역할에 맞습니다. 텍스트만 받습니다.
+위에서 설명한 대로 ACP로 대화합니다. `antigravity`는 Google의 ACP 서버 `agy_acp_server.par`를 실행하며, ACP 레지스트리에서 따로 받아 그 폴더를 `PATH`에 둬야 합니다. 이 서버는 자체 Google 로그인을 유지하고, 대시보드 연결 확인의 로그인 버튼으로 한 번 로그인합니다. Rawstep은 스스로 로그인하지 않으며, 로그인 방법이 없는 에이전트는 터미널에서 그 CLI로 직접 로그인해야 합니다. `reasoningEffort`는 에이전트가 얼마나 깊이 생각할지 정하며, 에이전트마다 지원하는 값이 달라 모르는 값은 실행 때 실패합니다.
 
 ```json
-{ "id": "codex", "name": "Codex CLI", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
+{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
 ```
-
-키보드 모드는 이미지를 보내므로 이미지 입력을 지원하고 `maxImages`가 2 이상인 모델이 필요합니다(이미지를 받는 `llm`, 또는 `typesafe`·`openrouter`·`custom`의 `decision` 모델). 목록에 이름이 있다는 것만으로 이미지 지원을 확정하지 않으며, 확인하지 못한 기능은 미확인으로 남깁니다.
 
 ## tasks
 
@@ -319,6 +321,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `atEndpoints` | `{ voiceover, nvda }`. 네이티브 AT Driver의 loopback 주소. 비워 두면(기본) 그 스크린리더 서버의 일반적인 주소를 씁니다. VoiceOver(Bocoup macOS 서버)는 `ws://localhost:4382/session`, NVDA(PAC 서버)는 `ws://localhost:3031/session`입니다. 시뮬레이션은 쓰지 않습니다 |
 | `browserExecutablePath` | 쓸 Chromium 경로. 비우면 Playwright의 Chromium |
+| `browserEndpoint` | 직접 띄운 Chrome의 `--remote-debugging-port` 주소(예: `http://localhost:9222`). 비우지 않으면 브라우저를 새로 띄우지 않고 거기에 붙어, 사이트가 일반 브라우저(headless 아님, `navigator.webdriver` false)로 보므로 봇 판정이 줄어듭니다. loopback만 가능. 실행마다 그 Chrome 안에 분리된 컨텍스트를 열고 끝나면 연결만 끊으므로 평소 탭의 쿠키는 공유되지 않습니다. `browserExecutablePath`, `headless`, 프록시 설정은 적용되지 않으며, 그 창에서 사람이 봇 확인을 통과해야 하면 `personCheck`와 함께 쓰세요. Chrome은 별도 프로필에서만 포트를 엽니다: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.rawstep-chrome"` |
 | `headless` | 브라우저를 화면 없이 실행할지(기본 `true`) |
 | `personCheck` | Cloudflare 같은 봇 확인이 있는 실제 사이트용. 설치된 Chrome 창을 띄우고 프로필을 `.rawstep/browser-profile`에 유지하며, 봇 확인이 나오면 사람이 그 창에서 통과할 때까지(최대 5분, 실행 시간 제한에서 제외) 기다립니다. Rawstep이 확인을 대신 풀지는 않습니다. 기본 `false` |
 

@@ -72,7 +72,7 @@ export function SettingsPage(props: PageProps) {
   const blocked = (project.analysis.model && !project.analysis.model.modelId.trim()) || (project.suggestions.model && !project.suggestions.model.modelId.trim()) ? t('settingsPage.missingModelId') : undefined;
   const updateMachine = (part: Partial<MachineSettings>) => {
     setMachine({ ...machine, ...part });
-    if ('browserExecutablePath' in part) setBrowser({ kind: 'unchecked' });
+    if ('browserExecutablePath' in part || 'browserEndpoint' in part) setBrowser({ kind: 'unchecked' });
     if ('atEndpoints' in part) setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } });
   };
   async function checkBrowser() {
@@ -97,7 +97,7 @@ export function SettingsPage(props: PageProps) {
   // Only these slices are written, on top of the latest config, so edits made on other pages are kept.
   const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, project, machine }, undefined, props.view.revision); });
   const viewport = environmentViewport(config.pageEnvironments[0]!.profile, props.view.environmentPresets);
-  const visible = machine.personCheck || !machine.headless;
+  const connected = !!machine.browserEndpoint.trim(), visible = machine.personCheck || connected || !machine.headless;
   return <div className="grid max-w-3xl gap-5">
     <PageHeader title={t('settingsPage.heading')} description={t('settingsPage.intro')} />
     <SaveBar dirty={dirty} busy={props.busy} blocked={blocked} onSave={save} lead={<p className="text-[13px] leading-5 text-muted-foreground">{t('settingsPage.saveLead')}</p>} />
@@ -129,7 +129,7 @@ export function SettingsPage(props: PageProps) {
           <h3 id="machine-env" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('machine.env.title')}</h3>
           <dl className="grid">
             <EnvRow label={t('machine.env.browser')} status={browser} action={<Button variant="outline" size="sm" disabled={browser.kind === 'running' || props.busy} onClick={() => void checkBrowser()}>{t('machine.env.check')}</Button>}>
-              {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t('machine.env.browserHint')}</p>}
+              {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
             </EnvRow>
             {NATIVE.map(backend => <EnvRow key={backend} label={t(`conditions.backends.${backend}`)} status={drivers[backend]}
               action={<Button variant="outline" size="sm" disabled={drivers[backend].kind === 'running' || props.busy} onClick={() => void checkDriver(backend)}>{t('machine.env.check')}</Button>}>
@@ -158,8 +158,9 @@ export function SettingsPage(props: PageProps) {
 
         <section aria-labelledby="machine-browser" className="grid gap-5">
           <h3 id="machine-browser" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('machine.browserTitle')}</h3>
-          <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} hint={t('machine.browserPathHint')} />
-          <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck} disabled={machine.personCheck} onChange={show => updateMachine({ headless: !show })} />
+          <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} hint={t('machine.browserPathHint')} disabled={connected} />
+          <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" hint={t('machine.browserEndpointHint')} />
+          <Toggle label={t('machine.showBrowser')} hint={t('machine.showBrowserHint')} checked={!machine.headless || machine.personCheck || connected} disabled={machine.personCheck || connected} onChange={show => updateMachine({ headless: !show })} />
           <Toggle label={t('machine.personCheck')} hint={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => updateMachine({ personCheck })} />
         </section>
       </TabsContent>

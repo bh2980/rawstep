@@ -24,6 +24,8 @@ export type RunOptions = {
   includeSensitiveInputValues?: boolean;
   headless?: boolean;
   browserExecutablePath?: string;
+  /** Connect to a browser the person started with a remote debugging port instead of launching one (see `cdpEndpoint`). */
+  browserEndpoint?: string;
   proxyServer?: string;
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
   /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
@@ -38,7 +40,7 @@ export type RunOptions = {
    * shows a check it waits (up to `timeoutMs`, default 5 minutes) until the page is the site again. The wait does not count
    * against the task's time budget. Rawstep never answers a check itself.
    */
-  personCheck?: { userDataDir: string; timeoutMs?: number };
+  personCheck?: { userDataDir?: string; timeoutMs?: number };
 };
 const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
 /** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
@@ -155,7 +157,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { userDataDir: options.personCheck.userDataDir } : {}), executablePath: options.browserExecutablePath, proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       // A page opened bare for a human check gets its guards and the backend only after the check is passed.
       if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
@@ -243,7 +245,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       }
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
-    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
+    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : options.headless ?? false, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
     const observe = async (): Promise<Observation> => {
       stage = 'observation';

@@ -2,9 +2,9 @@ import { resolveTask, type VerifyRule } from '@rawstep/core/contracts';
 import { closeBrowserSession } from '@rawstep/browser/browser';
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
 import { z } from 'zod';
-import { generateStructured } from '@rawstep/policies/llm';
+import { closeLlmModel, generateStructured } from '@rawstep/policies/llm';
+import type { MachineSettings, Model } from '@rawstep/project/config';
 import { llmModelOf } from '@rawstep/project/llm';
-import { resolveBaseURL, type MachineSettings, type Model } from '@rawstep/project/config';
 import { record } from './http.js';
 import { openStartPage, readPageStructure } from './structure.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
@@ -44,7 +44,7 @@ const NOT_TRIED = (rule: VerifyRule): boolean => 'event' in rule || 'focused' in
  */
 export async function suggestChecks(options: {
   url: string; goal: string; projectDir: string; model: Model; apiKey?: string;
-  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath'>; signal?: AbortSignal;
+  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>; signal?: AbortSignal;
 }): Promise<SuggestionResult> {
   const session = await openStartPage({ url: options.url, projectDir: options.projectDir, machine: options.machine });
   try {
@@ -70,13 +70,14 @@ export async function suggestChecks(options: {
 }
 
 async function askModel(options: { model: Model; apiKey?: string; signal?: AbortSignal }, goal: string, structure: string): Promise<unknown[]> {
+  let llm: ReturnType<typeof llmModelOf> | undefined;
   try {
-    const llm = llmModelOf(options.model, 'rawstep-suggest', options.apiKey);
+    llm = llmModelOf(options.model, 'rawstep-suggest', options.apiKey);
     const { object } = await generateStructured({ model: llm, system: SYSTEM, user: JSON.stringify({ goal, pageStructure: structure }), signal: options.signal, schema: suggestionsSchema });
     return object.suggestions;
   } catch {
     options.signal?.throwIfAborted();
     // Provider text can carry credentials or page content; only the kind of failure leaves this function.
     throw new Error('완료 확인 제안 실패: 분석 모델의 연결과 응답 형식을 확인하세요. Provider 원문은 표시하지 않습니다.');
-  }
+  } finally { if (llm) await closeLlmModel(llm); }
 }

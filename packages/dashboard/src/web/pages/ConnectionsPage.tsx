@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import type { Combo, Connection, ProjectConfig, ProjectSettings } from '@rawstep/project/config';
+import { agentOf, type Combo, type Connection, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { ApiError, api } from '../api';
@@ -15,7 +15,7 @@ import { Link } from '../components/Link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { keyStatus, providerTextKey } from '../lib/connections';
+import { keyStatus, kindLabelKey, providerTextKey } from '../lib/connections';
 import { cn } from '../lib/utils';
 import type { PageProps } from './types';
 
@@ -82,6 +82,13 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
       setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
     } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
   }
+  async function signIn(connection: Connection) {
+    setChecks(current => ({ ...current, [connection.id]: { state: 'running' } }));
+    try {
+      const result = await api<ModelCheck>('/connections/sign-in', { method: 'POST', body: { connectionId: connection.id } });
+      setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
+    } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
+  }
   const uses = (id: string) => usesOf(config, id, t('connections.projectUser'), name => t('connections.ownedUser', { name }));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
@@ -106,9 +113,9 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
                 <span className="block font-medium break-all">{connection.name}</span>
-                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}</span>
+                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${connection.kind}.name`)}</TableCell>
+              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}</TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {users.length
                   ? <dl className="grid gap-0.5">{users.map(use => <div key={use.role} className="flex flex-wrap gap-x-1.5">
@@ -119,7 +126,7 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {result
-                  ? <CheckStatus check={result} />
+                  ? <CheckStatus check={result} signIn={agentOf(connection) ? { available: !!agentOf(connection)!.signIn, onClick: () => void signIn(connection) } : undefined} />
                   : <span className="grid gap-0.5"><span className={cn('font-medium', status === 'missing' && 'text-inspect')}>{t(`connections.status.${status}`)}</span><span className="text-xs text-muted-foreground">{t('connections.status.notChecked')}</span></span>}
               </TableCell>
               <TableCell className="px-3 py-2.5 text-right whitespace-nowrap"><span className="inline-flex gap-1.5">

@@ -26,7 +26,7 @@ import { DIAGNOSTIC_PATH } from './steps.js';
 import { suggestChecks } from './suggest.js';
 import { inspectStartPage } from './structure.js';
 import { estimateReach } from './reach.js';
-import { checkBrowser, checkConnection, checkModel } from './checks.js';
+import { checkBrowser, checkConnection, checkModel, signInAgent } from './checks.js';
 import type { RunEventMessage } from '../shared/api.js';
 
 /** Built UI: `dist/web` in a checkout, `dist/dashboard-web` inside the single `rawstep` package (whichever chunk this code was bundled into). */
@@ -118,7 +118,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path === '/api/backend/check' && method === 'POST') {
       const body = record(await jsonBody(req)), machine = machineSchema.parse(body.machine), backend = atBackendSchema.parse(body.backend);
       if (backend === 'simulation') {
-        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined });
+        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined, ...(machine.browserEndpoint.trim() ? { cdpEndpoint: machine.browserEndpoint.trim() } : {}) });
         await browser.close(); return send(res, { message: 'Chromium 연결 확인 완료. 스크린리더 출력은 DOM 기반 모의 관찰입니다.' });
       }
       if ((backend === 'voiceover' && process.platform !== 'darwin') || (backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
@@ -152,6 +152,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       }
       const inputs = body.inputs ?? defaultInputs(connection);
       return send(res, await checkModel({ ...connection, modelId: body.modelId, inputs, maxChoices: 255, maxImages: inputs.includes('image') ? 2 : 0 }, apiKey));
+    }
+    if (path === '/api/connections/sign-in' && method === 'POST') {
+      // Pressed by the person: the agent's own sign-in (it may reuse this computer's account or open a sign-in page).
+      const { connection } = await targetConnection(connectionTarget.parse(await jsonBody(req)));
+      return send(res, await signInAgent(connection));
     }
     if (path === '/api/connections/models' && method === 'POST') {
       const { connection, apiKey } = await targetConnection(connectionTarget.parse(await jsonBody(req)));

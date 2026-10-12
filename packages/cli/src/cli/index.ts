@@ -4,13 +4,13 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { cliStatus } from '@rawstep/project/llm';
+import { discover } from '@rawstep/project/discover';
 import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { ProjectError } from '@rawstep/project/errors';
-import { atEndpointOf, credentialRequirements, isCliProvider } from '@rawstep/project/config';
+import { agentOf, atEndpointOf, credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
@@ -22,11 +22,12 @@ export interface CliDependencies {
   startDashboard?: (options: { projectDir: string; port: number }) => Promise<{ url: string; close(): Promise<void> }>;
   runTask?: typeof runTask;
   /** Launches and closes a browser; rejects when none can start. */
-  launchBrowser?: (options: { executablePath?: string }) => Promise<void>;
+  launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
   /** Test seam: whether a coding-agent CLI is installed and signed in. */
-  cliStatus?: (provider: 'codex' | 'grok' | 'antigravity') => Promise<'signed-in' | 'signed-out' | 'missing'>;
+  /** Starts a coding-agent CLI over ACP and reads its models; rejects when it is missing or needs a sign-in. */
+  checkAgent?: (connection: { kind: 'llm'; provider: string }) => Promise<unknown>;
   cwd?: string;
   stdout?: (text: string) => void;
   stderr?: (text: string) => void;
@@ -191,17 +192,22 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     const c = read.config;
     report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.combos.length} model combos, ${c.actionSets.length} action sets, ${c.pageEnvironments.length} page environments)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
-  const executablePath = read?.config.machine.browserExecutablePath || undefined;
+  const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
   try {
-    await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, executablePath: options.executablePath }); await session.close(); }))({ ...(executablePath ? { executablePath } : {}) });
-    report(true, 'Browser', executablePath ? `launched ${executablePath}` : 'launched');
-  } catch (error) { report(false, 'Browser', `${errorDetails(error)}. Install one with \`npx playwright install chromium\` or set machine.browserExecutablePath in the config.`); }
+    await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, ...options }); await session.close(); }))({ ...(cdpEndpoint ? { cdpEndpoint } : executablePath ? { executablePath } : {}) });
+    report(true, 'Browser', cdpEndpoint ? `connected to ${cdpEndpoint}` : executablePath ? `launched ${executablePath}` : 'launched');
+  } catch (error) { report(false, 'Browser', `${errorDetails(error)}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`); }
   if (read) {
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;
-      if (isCliProvider(key.connection.provider)) {
-        const status = await (dependencies.cliStatus ?? cliStatus)(key.connection.provider);
-        report(status === 'signed-in', key.label, status === 'signed-in' ? 'installed and signed in' : status === 'missing' ? 'not found on this computer. Install the CLI first' : 'not signed in. Sign in with the CLI, then run doctor again');
+      if (agentOf(key.connection)) {
+        try {
+          await (dependencies.checkAgent ?? (connection => discover({ kind: 'llm', provider: connection.provider as never })))({ kind: 'llm', provider: key.connection.provider });
+          report(true, key.label, 'starts and lists its models (its own sign-in pays for calls)');
+        } catch (error) {
+          const code = error instanceof ProjectError ? error.code : '';
+          report(false, key.label, code === 'agent-missing' ? 'not found on this computer. Install it first' : code === 'agent-signed-out' ? 'needs a sign-in. Sign in from the dashboard connection check' : 'could not be started');
+        }
         continue;
       }
       if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }

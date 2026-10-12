@@ -51,6 +51,8 @@ export type DomEventRecord = {
 export type BrowserSession = {
   /** Absent for a persistent profile, whose context is the browser. */
   browser?: Browser;
+  /** True when the session runs in a browser the person started (`cdpEndpoint`); closing it only disconnects. */
+  connected?: boolean;
   context: BrowserContext;
   page: Page;
   network: NetworkLog;
@@ -111,6 +113,18 @@ export type CreateBrowserSessionOptions = {
    * spoofed and no check is answered automatically.
    */
   userDataDir?: string;
+  /**
+   * A Chromium the person started themselves with `--remote-debugging-port`, reached at this loopback address. Rawstep connects
+   * instead of launching, so the page sees an ordinary browser: no automation switch, not headless. The run gets its own isolated
+   * context in that browser and closing the session only disconnects. Launch settings (headless, executable, proxy, profile
+   * directory) do not apply.
+   */
+  cdpEndpoint?: string;
+  /**
+   * Open the start address bare and let human-check pages through, so a person can pass a check in the visible window. Implied by
+   * `userDataDir`; set it with `cdpEndpoint` to do the same in a connected browser.
+   */
+  personCheck?: boolean;
 };
 
 /** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
@@ -144,6 +158,20 @@ export function validateProxyServer(value: string): string {
   return proxy.href.replace(/\/$/, '');
 }
 
+/** A connected browser must be on this computer: a remote debugging port elsewhere would hand a browser to the network. */
+export function validateCdpEndpoint(value: string): string {
+  let endpoint: URL;
+  try { endpoint = new URL(value.trim()); } catch { throw new Error('Browser address must be a URL such as http://localhost:9222.'); }
+  if (!['http:', 'https:', 'ws:', 'wss:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Browser address must be an http(s) or ws(s) URL without credentials, such as http://localhost:9222.');
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)) throw new Error('Browser address must be on this computer (localhost, 127.0.0.1 or [::1]).');
+  return endpoint.href.replace(/\/$/, '');
+}
+
+async function connectChromium(endpoint: string): Promise<Browser> {
+  try { return await chromium.connectOverCDP(endpoint); }
+  catch (error) { throw new RawstepError("browser-setup", `No browser answered at ${endpoint}. Start Chrome with --remote-debugging-port and a separate --user-data-dir, then try again.`, { cause: error }); }
+}
+
 /**
  * An explicit executable is used as given. Otherwise Playwright's own Chromium is tried first and then the
  * installed Google Chrome, so a fresh machine works without `playwright install` when Chrome is present.
@@ -174,6 +202,9 @@ export async function createBrowserSession(
   options: CreateBrowserSessionOptions = {}
 ): Promise<BrowserSession> {
   const proxyServer = options.proxyServer === undefined ? undefined : validateProxyServer(options.proxyServer);
+  const cdpEndpoint = options.cdpEndpoint?.trim() ? validateCdpEndpoint(options.cdpEndpoint) : undefined;
+  if (cdpEndpoint && proxyServer) throw new RawstepError("browser-setup", "A proxy is a launch setting; set it on the browser you started yourself instead.");
+  const personCheck = !!options.userDataDir || !!options.personCheck;
   const browserLaunchStartedAt = Date.now();
   const launch = {
     headless: options.headless ?? true,
@@ -189,8 +220,8 @@ export async function createBrowserSession(
     ...(options.profile ? { colorScheme: options.profile.colorScheme, forcedColors: options.profile.forcedColors, contrast: options.profile.contrast, reducedMotion: options.profile.reducedMotion } : {}),
     viewport: options.profile?.viewport ?? { width: DEFAULT_VIEWPORT.w, height: DEFAULT_VIEWPORT.h }
   };
-  const persistent = options.userDataDir ? await launchPersistent(options.userDataDir, { ...launch, ...contextOptions }, options.executablePath) : undefined;
-  const browser = persistent ? undefined : await launchChromium(launch, options.executablePath);
+  const persistent = !cdpEndpoint && options.userDataDir ? await launchPersistent(options.userDataDir, { ...launch, ...contextOptions }, options.executablePath) : undefined;
+  const browser = persistent ? undefined : cdpEndpoint ? await connectChromium(cdpEndpoint) : await launchChromium(launch, options.executablePath);
   const closeBrowser = async () => { await (persistent ?? browser)!.close(); };
   const browserLaunchMs = Date.now() - browserLaunchStartedAt;
   const blockedNavigations: BlockedNavigationRecord[] = [];
@@ -245,6 +276,7 @@ export async function createBrowserSession(
 
     const session: BrowserSession = {
       ...(browser ? { browser } : {}),
+      ...(cdpEndpoint ? { connected: true } : {}),
       context,
       page,
       network,
@@ -322,7 +354,7 @@ export async function createBrowserSession(
             allowedOrigin,
             startUrlPrefix,
             policy: navigationPolicy,
-            allowBotChecks: !!options.userDataDir
+            allowBotChecks: personCheck
           });
           if (!reason) {
             // The independent native boundary below checks every redirect hop.
@@ -337,7 +369,7 @@ export async function createBrowserSession(
 
         stopNavigationGuard = await installNavigationRequestBoundary(context, page, {
           blockReason: (targetUrl, method) => options.navigation?.readOnly && method && !["GET","HEAD","OPTIONS"].includes(method) ? `Read-only run blocked ${method} navigation before transmission.` : getNavigationBlockReason(targetUrl, {
-            allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: !!options.userDataDir
+            allowedOrigin, startUrlPrefix, policy: navigationPolicy, allowBotChecks: personCheck
           }),
           onBlocked: recordBlockedNavigation,
           onFailure: (error) => {
@@ -350,7 +382,7 @@ export async function createBrowserSession(
           allowedOrigin,
           startUrlPrefix,
           policy: navigationPolicy,
-          allowBotChecks: !!options.userDataDir,
+          allowBotChecks: personCheck,
           onBlockedNavigation: recordBlockedNavigation,
           onInstallWarning: recordNavigationGuardWarning
         });
@@ -374,7 +406,7 @@ export async function createBrowserSession(
 
     // A person passing a human check gets the bare page: nothing is attached until the check is gone, and arming then reloads
     // the start address with every guard in place. Nothing is hidden and no check is answered.
-    if (options.userDataDir) {
+    if (personCheck) {
       await page.goto(url, { waitUntil: "load" });
       await waitForNetworkIdleBestEffort(page);
       session.armGuards = async () => { delete session.armGuards; try { await arm(); } catch (error) { throw await setupFailed(error); } };

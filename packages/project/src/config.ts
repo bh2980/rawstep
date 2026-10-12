@@ -14,11 +14,11 @@ const envName = z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/);
 export const modelKindSchema = z.enum(['llm', 'decision']);
 /** `llm`: a language model that reads the situation and picks a candidate (any OpenAI-compatible chat API). `decision`: a model that answers with probabilities over the candidates directly (the /systemone protocol, through the AI SDK's experimental decide API). */
 export type ModelKind = z.infer<typeof modelKindSchema>;
-export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'grok', 'antigravity', 'custom']);
+export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'claudeCode', 'codex', 'opencode', 'grok', 'antigravity', 'custom']);
 export const decisionProviderSchema = z.enum(['typesafe', 'gateway', 'openrouter', 'custom']);
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 export type DecisionProvider = z.infer<typeof decisionProviderSchema>;
-export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'codex', 'grok', 'antigravity', 'typesafe', 'gateway', 'custom']);
+export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'claudeCode', 'codex', 'opencode', 'grok', 'antigravity', 'typesafe', 'gateway', 'custom']);
 export type ProviderId = z.infer<typeof providerSchema>;
 /** Where models of one provider live. Defined once here so the CLI, the dashboard and the runner agree. */
 export type ProviderPreset = {
@@ -32,15 +32,21 @@ export type ProviderPreset = {
   listsModels: boolean;
   /** Whether images can reach the model through this provider (keyboard mode needs them). */
   images: boolean;
+  /**
+   * A coding-agent CLI reached over ACP instead of an address: the command Rawstep starts. Fixed here, never read from the shared
+   * config, because it runs a program. The agent's own login pays for the calls, so there is no key.
+   */
+  agent?: {
+    command: string; args: readonly string[];
+    /**
+     * The ACP sign-in method for agents that keep their own sign-in apart from their CLI (Antigravity). Rawstep calls it only when
+     * the person presses the sign-in button, never on its own, because it can reuse or open an account sign-in.
+     */
+    signIn?: string;
+  };
 };
-/** LLM providers that are coding-agent CLIs on this computer, run with the person's own sign-in. */
-export const CLI_PROVIDERS = ['codex', 'grok', 'antigravity'] as const;
-export type CliProviderId = (typeof CLI_PROVIDERS)[number];
-export const isCliProvider = (provider: string): provider is CliProviderId => (CLI_PROVIDERS as readonly string[]).includes(provider);
-/** The reasoning efforts each CLI accepts, in increasing order. */
-export const CLI_EFFORTS: Record<CliProviderId, readonly ('minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max')[]> = {
-  codex: ['minimal', 'low', 'medium', 'high', 'xhigh'], grok: ['low', 'medium', 'high', 'xhigh'], antigravity: ['low', 'medium', 'high', 'xhigh', 'max'],
-};
+/** Reasoning efforts a connection may ask a coding-agent CLI for; each agent offers its own subset (ACP `thought_level`). */
+export const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export const PROVIDERS = {
   llm: {
     openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyEnv: 'RAWSTEP_OPENAI_API_KEY', keyRequired: true, listsModels: true, images: true },
@@ -48,10 +54,14 @@ export const PROVIDERS = {
     anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyRequired: true, listsModels: true, images: true },
     google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyRequired: true, listsModels: true, images: true },
     openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyRequired: true, listsModels: true, images: true },
-    /** Coding-agent CLIs on this computer with the person's own sign-in: no address, no key. Text only. */
-    codex: { label: 'Codex CLI (ChatGPT sign-in)', keyRequired: false, listsModels: true, images: false },
-    grok: { label: 'Grok CLI (grok.com sign-in)', keyRequired: false, listsModels: true, images: false },
-    antigravity: { label: 'Antigravity CLI (Google sign-in)', keyRequired: false, listsModels: true, images: false },
+    /** Adapters from the ACP registry, pinned: npx downloads them on first use. */
+    claudeCode: { label: 'Claude Code', keyRequired: false, listsModels: true, images: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/claude-agent-acp@0.89.1'] } },
+    codex: { label: 'Codex', keyRequired: false, listsModels: true, images: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/codex-acp@2.2.2'] } },
+    /** Built into the installed CLI. */
+    opencode: { label: 'opencode', keyRequired: false, listsModels: true, images: true, agent: { command: 'opencode', args: ['acp'] } },
+    grok: { label: 'Grok Build', keyRequired: false, listsModels: true, images: false, agent: { command: 'grok', args: ['agent', 'stdio'] } },
+    /** Google's separate ACP server (not the `agy` CLI): downloaded by the person from the ACP registry and put on PATH. It keeps its own sign-in. */
+    antigravity: { label: 'Antigravity', keyRequired: false, listsModels: true, images: true, agent: { command: 'agy_acp_server.par', args: [], signIn: 'oauth-personal' } },
     custom: { label: 'Custom (OpenAI-compatible)', keyRequired: false, listsModels: true, images: true },
   },
   decision: {
@@ -86,15 +96,14 @@ export const connectionSchema = z.object({
   apiKeyEnv: envName.optional(),
   timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
   /** Only for coding-agent CLIs: how hard the model thinks (each CLI takes its own levels). Unset uses the CLI's default, which can be slow for planning. */
-  reasoningEffort: z.enum(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']).optional(),
+  reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
 }).strict().superRefine((connection, ctx) => {
   const preset = (PROVIDERS[connection.kind] as Record<string, ProviderPreset>)[connection.provider];
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (!preset) return issue('provider', `${connection.provider} is not a provider of ${connection.kind} models.`);
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
-  if (connection.reasoningEffort !== undefined && (!isCliProvider(connection.provider) || !CLI_EFFORTS[connection.provider].includes(connection.reasoningEffort)))
-    issue('reasoningEffort', isCliProvider(connection.provider) ? `${preset.label} does not take the reasoning effort ${connection.reasoningEffort}.` : 'Only CLI connections set a reasoning effort.');
+  if (connection.reasoningEffort !== undefined && !preset.agent) issue('reasoningEffort', 'Only coding-agent CLI connections set a reasoning effort.');
 });
 export type Connection = z.infer<typeof connectionSchema>;
 /** A model an agent decides with: a model ID on a connection and what that model can take. */
@@ -227,6 +236,11 @@ export const machineSchema = z.object({
   atEndpoints: z.object({ voiceover: z.string().default(''), nvda: z.string().default('') }).strict().default({ voiceover: '', nvda: '' }),
   browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
   /**
+   * A Chrome you started yourself with `--remote-debugging-port` (e.g. `http://localhost:9222`). Runs connect to it instead of
+   * launching one, so sites see an ordinary browser; each run gets its own isolated context there. Empty launches a browser.
+   */
+  browserEndpoint: z.string().default(''),
+  /**
    * For real sites with a human check (Cloudflare and the like): runs use a visible Chrome with a profile kept in
    * `.rawstep/browser-profile`, and pause while a person passes the check in that window. Rawstep never answers a check itself.
    */
@@ -290,7 +304,9 @@ export function resolveRepetitionGuard(setting: RunRules['repetitionGuard'], mod
   return setting === 'auto' ? mode === 'screenreader' || model.kind === 'llm' : setting === 'on';
 }
 /** Where the model is called: the preset address of its provider, or the address a custom connection carries. */
-export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL ?? '';
+/** The agent CLI a connection starts, when it is one; such a connection has no address or key. */
+export const agentOf = (model: Pick<Connection, 'kind' | 'provider'>): ProviderPreset['agent'] => providerPreset(model).agent;
+export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
 /** The environment variable that holds the connection's key, if it has one. */
 export const modelKeyEnv = (model: Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;
 export const modelKeyRequired = (model: Pick<Connection, 'kind' | 'provider'>): boolean => providerPreset(model).keyRequired;

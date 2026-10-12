@@ -185,7 +185,8 @@ export type SuggestionResult = { page: { title: string; url: string }; suggestio
  * Why a connection check did not end in `ready`. The words are the dashboard's own; nothing a provider sent is ever shown.
  * `unverified` is not a failure: the server answered but gave no model list to confirm the model against.
  */
+/** `cli-missing` / `cli-signed-out`: a coding-agent CLI connection whose program is not installed, or that needs the person to sign in first. */
 export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed' | 'cli-missing' | 'cli-signed-out';
-export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'cli-login' | 'none'; checkedAt: string };
+export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, one minimal decision, or a coding-agent CLI started over ACP. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'agent' | 'none'; checkedAt: string };
 /** One browser launch on request: the engine, its version and where it came from. */
-export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' } | { ok: false; kind: 'not-found' | 'launch-failed'; source: 'custom' | 'auto' };
+export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' | 'connected' } | { ok: false; kind: 'not-found' | 'launch-failed'; source: 'custom' | 'auto' | 'connected' };

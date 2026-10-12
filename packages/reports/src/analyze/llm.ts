@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { createLlmModel, generateStructured, type LlmModel } from '@rawstep/policies/llm';
+import { closeLlmModel, createLlmModel, generateStructured, type LlmModel } from '@rawstep/policies/llm';
 import type { RunTrace } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { validateAnalyzerResult, type AnalyzerResult, type TraceAnalyzer } from './index.js';
@@ -13,10 +13,8 @@ const resultSchema = z.object({
   })),
 });
 
-export type LlmAnalyzerOptions = {
-  /** A ready LLM (for example Codex CLI); otherwise the OpenAI-compatible endpoint at `baseURL` is used. */
-  llm?: LlmModel;
-  baseURL?: string; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
+/** `llm` replaces `baseURL` with a ready model (an agent CLI, say); the analyzer then ends that model after each analysis. */
+export type LlmAnalyzerOptions = { baseURL?: string; llm?: LlmModel; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
 /** All saved events remain; binary PNG payloads are explicitly omitted, never captioned. */
 export function analysisTracePayload(trace: Readonly<RunTrace>): string {
   if (!trace.endedAt || !trace.outcome || trace.privacy.inputValues !== 'redacted') throw new Error('LLM analysis requires a finalized, input-redacted trace.');
@@ -51,6 +49,6 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
       if (llm?.code === 'llm-cancelled') throw new RawstepError('analysis-cancelled', 'LLM analysis was cancelled.');
       if (llm?.code === 'llm-timeout') throw new RawstepError('analysis-timeout', 'LLM analysis timed out.');
       throw new RawstepError('analysis-failed', 'LLM analysis failed: connection, limits, or invalid evidence/JSON; raw provider details omitted for privacy.');
-    }
+    } finally { if (this.options.llm) await closeLlmModel(this.llm); }
   }
 }

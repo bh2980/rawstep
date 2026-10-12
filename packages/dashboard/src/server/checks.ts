@@ -1,8 +1,8 @@
 import { RawstepError } from '@rawstep/core/errors';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { cliStatus, listCliModels } from '@rawstep/policies/llm';
-import { isCliProvider, providerPreset, resolveBaseURL, type CliProviderId, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
+import { AcpAgent, AcpError } from '@rawstep/policies/acp';
+import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
 import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
@@ -10,9 +10,14 @@ import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
 type CheckedModel = Pick<Model, 'kind' | 'provider' | 'modelId' | 'baseURL' | 'inputs' | 'maxChoices' | 'maxImages'>;
 type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
 
+/** Starting an agent CLI takes seconds, and a first npx download longer. */
+const AGENT_TIMEOUT_MS = 120_000;
+/** A sign-in may wait for the person to finish it in a browser. */
+const SIGN_IN_TIMEOUT_MS = 300_000;
+
 const KINDS: Record<string, CheckKind> = {
   'model-unreachable': 'unreachable', 'model-http': 'rejected', 'invalid-base-url': 'invalid-address',
-  'model-list-missing': 'unverified', 'missing-credential': 'missing-key',
+  'model-list-missing': 'unverified', 'missing-credential': 'missing-key', 'agent-missing': 'cli-missing', 'agent-signed-out': 'cli-signed-out',
 };
 
 const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: kind === 'ready' || kind === 'unverified', kind, via, checkedAt: new Date().toISOString() });
@@ -23,24 +28,15 @@ const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: k
  * - LLMs and every provider with a model list (TypeSafe, OpenRouter and Gateway decision models too): the model list, which
  *   costs nothing. Ready means the server answered, the key was accepted and the model is in the list.
  * - A custom decision server has no list, so it gets one minimal two-choice decision through the same client a run uses.
- * - Coding-agent CLIs: whether the CLI is signed in (`codex login status`, or the model list for Grok and Antigravity), then
- *   whether the model is among the ones it lists.
+ * - Coding-agent CLIs: the agent is started over ACP and asked for its models (no prompt, nothing billed); a missing program
+ *   and a missing sign-in are told apart. Rawstep never signs an agent in during a check.
  */
-/** A coding-agent CLI: installed and signed in; with a model ID, that model is among the ones the CLI lists for this sign-in. */
-async function checkCli(provider: CliProviderId, modelId?: string): Promise<ModelCheck> {
-  const status = await cliStatus(provider);
-  if (status !== 'signed-in') return result(status === 'missing' ? 'cli-missing' : 'cli-signed-out', 'cli-login');
-  if (!modelId) return result('ready', 'cli-login');
-  const listed = await listCliModels(provider);
-  return result(listed.length === 0 ? 'unverified' : listed.some(m => m.id === modelId) ? 'ready' : 'model-not-listed', 'cli-login');
-}
 export async function checkModel(model: CheckedModel, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(model), key = apiKey?.trim() || undefined;
-  if (isCliProvider(model.provider)) return checkCli(model.provider, model.modelId);
   if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutMs = options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000);
   if (model.kind === 'decision' && model.provider === 'custom') return checkDecisionServer(model, key, timeoutMs, options.fetch);
-  const via = model.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : model.kind === 'decision' ? 'decision-catalog' : 'model-list';
   try {
     const listed = await discover({ kind: model.kind, provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
     if (listed.length === 0) return result('unverified', via);
@@ -52,16 +48,28 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
 
 /** Whether a connection answers with its key, without a model: its model list. A list-less server is `unverified` until a model is checked. */
 export async function checkConnection(connection: Pick<Connection, 'kind' | 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
-  if (isCliProvider(connection.provider)) return checkCli(connection.provider);
   const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const via = connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
   try {
-    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? 15000, ...(options.fetch ? { fetch: options.fetch } : {}) });
+    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000), ...(options.fetch ? { fetch: options.fetch } : {}) });
     return result('ready', via);
   } catch (error) {
     return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
   }
+}
+
+/**
+ * Signs a coding-agent CLI in with its own ACP sign-in method, then checks it like `checkConnection`. Only for the person's
+ * explicit request (the sign-in button): it can reuse an account the computer is signed in to, or open a sign-in page.
+ */
+export async function signInAgent(connection: Pick<Connection, 'kind' | 'provider'>): Promise<ModelCheck> {
+  const agent = providerPreset(connection).agent;
+  if (!agent?.signIn) return result('failed', 'agent');
+  const acp = new AcpAgent(agent);
+  try { await acp.signIn(agent.signIn, AbortSignal.timeout(SIGN_IN_TIMEOUT_MS)); return result('ready', 'agent'); }
+  catch (error) { return result(error instanceof AcpError && error.reason === 'start-failed' ? 'cli-missing' : 'cli-signed-out', 'agent'); }
+  finally { await acp.close(); }
 }
 
 async function checkDecisionServer(model: CheckedModel, apiKey: string | undefined, timeoutMs: number, fetcher: typeof fetch | undefined): Promise<ModelCheck> {
@@ -81,14 +89,15 @@ async function checkDecisionServer(model: CheckedModel, apiKey: string | undefin
 }
 
 /**
- * Starts the browser a run would use (the configured executable, otherwise Playwright's Chromium, otherwise installed Chrome),
- * reads its version and closes it again. Always headless: checking never opens a window.
+ * Starts the browser a run would use (the Chrome at the configured debugging address, otherwise the configured executable, otherwise
+ * Playwright's Chromium, otherwise installed Chrome), reads its version and closes it again. A launched browser is headless; a
+ * connected Chrome shows a blank tab for a moment and is then only disconnected.
  */
-export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath'>): Promise<BrowserCheck> {
-  const source = machine.browserExecutablePath.trim() ? 'custom' : 'auto';
+export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath' | 'browserEndpoint'>): Promise<BrowserCheck> {
+  const source = machine.browserEndpoint.trim() ? 'connected' : machine.browserExecutablePath.trim() ? 'custom' : 'auto';
   let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
   try {
-    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
+    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'connected' ? { cdpEndpoint: machine.browserEndpoint.trim() } : source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
     return { ok: true, name: 'Chromium', version: session.browser?.version() ?? 'unknown', source };
   } catch (error) {
     return { ok: false, kind: source === 'auto' && error instanceof RawstepError && error.code === 'browser-setup' ? 'not-found' : 'launch-failed', source };

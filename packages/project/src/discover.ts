@@ -1,7 +1,7 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
-import { listCliModels } from '@rawstep/policies/llm';
-import { isCliProvider, providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
+import { AcpAgent, AcpError } from '@rawstep/policies/acp';
+import { providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
 import { ProjectError } from './errors.js';
 
 export async function boundedJson(response: Response): Promise<unknown> {
@@ -23,6 +23,8 @@ export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoi
  * - Coding-agent CLIs: the models the CLI offers the person's sign-in.
  * - LLM providers: the OpenAI-style `GET {base}/models` list. Only OpenRouter says which models take images; for the
  *   others the inputs are unknown (`inputsKnown: false`) and the provider's default is assumed for a person to correct.
+ * - Agent CLIs (Claude Code, Codex, ...): the agent is started, asked for its model list, and closed again. `default` leaves
+ *   the choice to the agent's own setting. Whether images are taken comes from the agent itself.
  * - Decision providers: OpenRouter's `models?output_modalities=decisions` (with input modalities); TypeSafe's `/models`
  *   when it has one; the Vercel AI Gateway's decision and evaluation models; custom servers are typed by hand (empty list).
  * A failure means the list is unavailable: registering the model ID by hand always works.
@@ -33,8 +35,22 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
   if (provider === 'custom' && !target.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
   const timeoutMs = options.timeoutMs ?? Math.min(RAWSTEP_DEFAULTS.modelTimeoutMs, 30000);
   if (kind === 'decision' && provider === 'custom') return [];
-  // A coding-agent CLI lists the models of its sign-in; they take text here.
-  if (kind === 'llm' && isCliProvider(provider)) return (await listCliModels(provider)).map(m => ({ modelId: m.id, name: m.name, inputs: ['text'], inputsKnown: true }));
+  if (preset.agent) {
+    const agent = new AcpAgent(preset.agent);
+    try {
+      // Starting may download the adapter first: without an explicit limit it gets the agent start limit, not the list default.
+      const info = await agent.start(options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined);
+      const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
+      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true },
+        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true }))];
+    } catch (error) {
+      const reason = error instanceof AcpError ? error.reason : undefined;
+      if (reason === 'sign-in') throw new ProjectError('agent-signed-out', `${preset.label} needs a sign-in. Sign in from the connection check.`, 502);
+      if (reason === 'start-failed') throw new ProjectError('agent-missing', `Cannot start ${preset.agent.command}. Install ${preset.label} first.`, 502);
+      throw new ProjectError('model-unreachable', `Cannot start ${preset.label}. Check that it is installed and signed in.`, 502);
+    }
+    finally { await agent.close(); }
+  }
   if (kind === 'decision' && provider === 'gateway') {
     if (!apiKey) throw new ProjectError('missing-credential', 'Listing Vercel AI Gateway models needs its key. Enter the key first.');
     let models: { id: string; name: string }[];
