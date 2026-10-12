@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { credentialId, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
 import { api } from '../api';
-import { ENV_NAME, generateEnvName, providerTextKey } from '../lib/connections';
+import { ENV_NAME, generateEnvName, kindLabelKey, providerTextKey } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
 import type { PageProps } from '../pages/types';
 import { Field, Panel, ReadonlyField, SecretField } from './forms';
+import { AgentNote } from './AgentNote';
 import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
@@ -24,7 +25,7 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
   const [revision] = useState(props.view.revision);
   const [apiKey, setApiKey] = useState('');
   const patch = (part: Partial<Connection>) => setConnection({ ...connection, ...part });
-  const custom = connection.provider === 'custom', preset = providerPreset(connection), key = apiKey.trim();
+  const custom = connection.provider === 'custom', preset = providerPreset(connection), agent = preset.agent, key = apiKey.trim();
   const envInvalid = custom && !!connection.apiKeyEnv && !ENV_NAME.test(connection.apiKeyEnv);
   const valid = !!connection.name.trim() && !envInvalid && (!custom || !!connection.baseURL?.trim());
   const keySet = !!props.view.credentialStatus[credentialId(connection)] && !!modelKeyEnv(connection);
@@ -49,12 +50,12 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
     </DialogHeader>
     {error && <ErrorState alert view={error} />}
     <div className="grid gap-5">
-      <p className="text-sm text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${connection.kind}.name`), provider: providerName })}</p>
+      <p className="text-sm text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: providerName })}</p>
       <Field label={t('connections.name')} value={connection.name} onChange={name => patch({ name })} />
       {custom
         ? <Field label={t('connections.baseUrl')} value={connection.baseURL ?? ''} onChange={baseURL => patch({ baseURL })} />
-        : <ReadonlyField label={t('connections.baseUrl')} value={preset.baseURL ?? t('connections.endpointManaged')} hint={t('connections.endpointPresetHint', { provider: providerName })} />}
-      <SecretField label={t('connections.apiKey')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={reveal} hint={keyHint} />
+        : agent ? <ReadonlyField label={t('connections.command')} value={[agent.command, ...agent.args].join(' ')} /> : <ReadonlyField label={t('connections.baseUrl')} value={preset.baseURL ?? t('connections.endpointManaged')} hint={t('connections.endpointPresetHint', { provider: providerName })} />}
+      {agent ? <AgentNote preset={preset} /> : <SecretField label={t('connections.apiKey')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={reveal} hint={keyHint} />}
     </div>
     <Panel title={t('connections.advanced')} description={t('connections.advancedDescription')}>
       <Field label={t('connections.timeout')} type="number" value={String(connection.timeoutMs)} onChange={s => patch({ timeoutMs: Number(s) })} />

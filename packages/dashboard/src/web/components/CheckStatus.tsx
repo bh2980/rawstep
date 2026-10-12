@@ -20,7 +20,7 @@ export function CheckStatus({ check, className }: { check: CheckState; className
     <Icon aria-hidden="true" className={cn('mt-0.5 size-4 shrink-0', ready ? 'text-reach' : kind === 'running' || unverified ? 'text-muted-foreground' : 'text-missed')} />
     <div className="grid gap-0.5">
       <p className="text-sm font-semibold">{t(`modelCheck.title.${kind}`)}</p>
-      <p className="text-[13px] leading-5 text-muted-foreground">{t(`modelCheck.reason.${kind}`)}</p>
+      <p className="text-[13px] leading-5 text-muted-foreground">{t(`modelCheck.reason.${ready && check.state === 'done' && check.result.via === 'agent' ? 'readyAgent' : kind}`)}</p>
     </div>
   </div>;
 }

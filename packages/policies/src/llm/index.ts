@@ -4,16 +4,17 @@ import { z } from 'zod';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
+import { AcpAgent, parseAgentJson } from '../acp/index.js';
 
 /**
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
- * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...). Provider error text can carry
+ * (OpenAI, OpenRouter, Vercel AI Gateway, LM Studio, Ollama, ...), or through a coding-agent CLI spoken to over ACP
+ * (`createAgentModel`). Provider error text can carry
  * credentials or page content, so SDK errors are never forwarded: callers only see a RawstepError
  * with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
  */
-export type LlmModel = {
-  readonly model: LanguageModel;
-  /** The model ID that was requested; a response that names another model is rejected. */
+export type LlmModel = ({ readonly model: LanguageModel } | { readonly agent: AcpAgent }) & {
+  /** The model ID that was requested; a response that names another model is rejected. An agent's `default` keeps its own choice. */
   readonly modelId: string;
   readonly timeoutMs: number;
   /** Kept only to reject responses that echo the credential. */
@@ -48,6 +49,16 @@ export function createLlmModel(options: LlmModelOptions): LlmModel {
   return { model: provider.chatModel(options.modelId), modelId: options.modelId, timeoutMs, ...(options.apiKey ? { apiKey: options.apiKey } : {}) };
 }
 
+/** A coding-agent CLI as a model. The agent process starts on the first call; `close()` ends it. */
+export function createAgentModel(options: { agent: AcpAgent; modelId: string; timeoutMs?: number }): LlmModel & { close(): Promise<void> } {
+  if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
+  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
+  return { agent: options.agent, modelId: options.modelId, timeoutMs, close: () => options.agent.close() };
+}
+/** Ends an agent model's process; nothing to do for an HTTP model. */
+export const closeLlmModel = async (model: LlmModel): Promise<void> => { if ('agent' in model) await model.agent.close(); };
+
 export type StructuredRequest<T> = LlmCallOptions & {
   model: LlmModel; system: string; user: string; schema: z.ZodType<T>;
   /** Base64 PNG strings, sent as image parts after the text. */
@@ -64,6 +75,7 @@ export type StructuredResult<T> = { object: T; modelId: string };
 export async function generateStructured<T>(request: StructuredRequest<T>): Promise<StructuredResult<T>> {
   const { model, signal } = request;
   if (signal?.aborted) throw llmError('llm-cancelled');
+  if ('agent' in model) return generateWithAgent(model, model.agent, request);
   const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
   const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
@@ -78,6 +90,27 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
     if (model.apiKey && result.text.includes(model.apiKey)) throw new Error('credential echoed');
     if (request.strictModel && result.response.modelId !== model.modelId) throw new Error('model changed');
     return { object: request.schema.parse(result.output), modelId: result.response.modelId };
+  } catch {
+    if (signal?.aborted) throw llmError('llm-cancelled');
+    if (timeout.aborted) throw llmError('llm-timeout');
+    throw llmError('llm-failed');
+  }
+}
+
+/** ACP has no system role and no JSON mode: the instructions lead the one text block and the reply is parsed for its JSON object. */
+async function generateWithAgent<T>(model: LlmModel, agent: AcpAgent, request: StructuredRequest<T>): Promise<StructuredResult<T>> {
+  const { signal } = request;
+  try { await agent.start(signal); }
+  catch { if (signal?.aborted) throw llmError('llm-cancelled'); throw llmError('llm-failed'); }
+  // Starting (and an adapter download) is not part of the call's time.
+  const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
+  try {
+    const text = await agent.prompt({
+      text: request.system + '\nDo not use tools, files or the web; answer from this message only, with the JSON object and nothing else.\n\n' + request.user,
+      ...(request.images?.length ? { images: request.images } : {}), modelId: model.modelId,
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    return { object: request.schema.parse(parseAgentJson(text)), modelId: model.modelId };
   } catch {
     if (signal?.aborted) throw llmError('llm-cancelled');
     if (timeout.aborted) throw llmError('llm-timeout');

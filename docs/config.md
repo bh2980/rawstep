@@ -41,11 +41,17 @@ Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic's OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `claudeCode` | runs `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | none (CLI login) |
+| `llm` | `codex` | runs `npx -y @agentclientprotocol/codex-acp@2.2.2` | none (CLI login) |
+| `llm` | `opencode` | runs `opencode acp` | none (CLI login) |
+| `llm` | `grok` | runs `grok agent stdio`, no images | none (CLI login) |
 | `llm` | `custom` | any OpenAI-compatible server (LM Studio, Ollama, ...), `baseURL` | optional, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway, called through the AI SDK's gateway provider; text only | `RAWSTEP_AI_GATEWAY_API_KEY` |
 | `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (shared with `llm`) |
 | `decision` | `custom` | any `/systemone`-compatible server, `baseURL` | optional, `apiKeyEnv` |
+
+**Coding-agent CLIs** (`claudeCode`, `codex`, `opencode`, `grok`) are connections to a CLI spoken to over ACP (Agent Client Protocol, JSON-RPC over stdio) instead of an address. The CLI must be installed and logged in; its own subscription pays and there is no API key or `baseURL`. The commands are fixed in `PROVIDERS` and never read from the shared config. The two `npx` adapters are pinned and downloaded on first use, so the first call is slow. `modelId: "default"` keeps the agent's own model choice; the model list (dashboard 확인 and the model picker) starts the agent and shows `default` first. Grok takes no images, so it only fits screen-reader mode and analysis. Every decision runs in a fresh agent session in an empty temporary folder; file and terminal access is refused, permission requests are rejected, and the session is deleted after the call. Agents carry their own large system prompt, so each call uses more tokens and is slower than a direct API (about 4 to 13 s per decision measured).
 
 Connections to one preset provider share its key. `llm` models call the provider's chat API through the AI SDK. `decision` models call the AI SDK's experimental `decide` API: an in-house adapter for the `/systemone` protocol serves `typesafe`, `openrouter` and `custom`, and the AI SDK's gateway provider serves `gateway` (see [SystemOne decisions](./systemone.md)). Keyboard mode sends images, so it needs an `llm` with image input or a `decision` model on `typesafe`, `openrouter` or `custom`.
 

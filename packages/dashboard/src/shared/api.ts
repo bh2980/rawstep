@@ -147,6 +147,6 @@ export type SuggestionResult = { page: { title: string; url: string }; suggestio
  * `unverified` is not a failure: the server answered but gave no model list to confirm the model against.
  */
 export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed';
-export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'none'; checkedAt: string };
+export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, or one minimal decision. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'agent' | 'none'; checkedAt: string };
 /** One browser launch on request: the engine, its version and where it came from. */
 export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' | 'connected' } | { ok: false; kind: 'not-found' | 'launch-failed'; source: 'custom' | 'auto' | 'connected' };

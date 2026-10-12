@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import type { Connection, RunProfile } from '@rawstep/project/config';
+import { agentOf, type Connection, type RunProfile } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { ApiError, api } from '../api';
@@ -15,7 +15,7 @@ import { Link } from '../components/Link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { keyStatus, providerTextKey } from '../lib/connections';
+import { keyStatus, kindLabelKey, providerTextKey } from '../lib/connections';
 import { cn } from '../lib/utils';
 import type { PageProps } from './types';
 
@@ -72,9 +72,9 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
                 <span className="block font-medium break-all">{connection.name}</span>
-                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}</span>
+                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${connection.kind}.name`)}</TableCell>
+              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}</TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {users.length
                   ? users.map((profile, index) => <span key={profile.id}>{index > 0 && ', '}<Link to={{ view: 'profiles' }} navigate={navigate} className="underline underline-offset-2">{profile.name}</Link></span>)

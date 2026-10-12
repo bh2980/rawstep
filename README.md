@@ -76,7 +76,7 @@ The runner owns action restrictions, named-input gates, navigation boundaries, t
 
 A connection is where models are reached (type and provider, plus an address for a custom server); a run profile picks the model on a connection. `npx rawstep ui` walks through both, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)). A profile without a model cannot run. To compare models, compare profiles that differ only in the model.
 
-- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama). It can also be a profile's analysis model and run completion-check suggestions.
+- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama), or a logged-in coding-agent CLI over ACP (Claude Code, Codex, opencode, Grok Build; no API key, slower per call). It can also be a profile's analysis model and run completion-check suggestions.
 - **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
 
 Keyboard mode sends screenshots, so the profile's model must be an LLM with image input or a decision model on TypeSafe, OpenRouter or a custom server. Register `examples/screenshot/task.json` as a task, then:
