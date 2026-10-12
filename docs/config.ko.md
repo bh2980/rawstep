@@ -60,7 +60,6 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `baseURL` | `provider: custom`일 때만 쓰며 이때는 필수입니다. 서버 주소(HTTPS, 이 컴퓨터의 서버는 HTTP도 가능) |
 | `apiKeyEnv` | `provider: custom`일 때만. 키를 담은 환경변수 이름(선택, 대문자·숫자·`_`) |
 | `timeoutMs` | 모델 요청 제한 시간(100~600000, 기본 60000) |
-| `reasoningEffort` | 코딩 에이전트 CLI 제공자에만 씁니다(`minimal`, `low`, `medium`, `high`, `xhigh`, `max`; 에이전트마다 지원하는 값이 다름). 비우면 에이전트 기본값. |
 
 제공자는 `@rawstep/project/config`의 `PROVIDERS`에 한 번만 정의합니다.
 
@@ -90,7 +89,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 위에서 설명한 대로 ACP로 대화합니다. `antigravity`는 Google의 ACP 서버 `agy_acp_server.par`를 실행하며, ACP 레지스트리에서 따로 받아 그 폴더를 `PATH`에 둬야 합니다. 이 서버는 자체 Google 로그인을 유지하고, 대시보드 연결 확인의 로그인 버튼으로 한 번 로그인합니다. Rawstep은 스스로 로그인하지 않으며, 로그인 방법이 없는 에이전트는 터미널에서 그 CLI로 직접 로그인해야 합니다. `reasoningEffort`는 에이전트가 얼마나 깊이 생각할지 정하며, 에이전트마다 지원하는 값이 달라 모르는 값은 실행 때 실패합니다.
 
 ```json
-{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
+{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000 }
 ```
 
 ## tasks
@@ -114,16 +113,17 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `id`, `name` | 식별자와 표시 이름. `--combo`는 둘 중 아무거나 받습니다 |
 | `structure` | `solo`(기본): 그 모드의 실행 모델이 모든 행동을 정합니다. `planned`: 계획 LLM이 계획 문서를 쓰고 실행 모델이 작업을 하나씩 수행합니다 |
-| `planner` | `{ connectionId, modelId, instructions }`. `structure`가 `planned`이면 필수이며 `llm` 연결이어야 합니다. 아직 스크린리더 모드에서만 씁니다 |
+| `planner` | `{ connectionId, modelId, reasoningEffort?, instructions }`. `structure`가 `planned`이면 필수이며 `llm` 연결이어야 합니다. 아직 스크린리더 모드에서만 씁니다 |
 | `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 모델 조합으로 실행할 수 없습니다 |
-| `analysis` | 선택. 이 조합의 실행을 해설하는 `llm` 연결의 `{ connectionId, modelId }`. 없으면 `project.analysis.model`을 씁니다 |
+| `analysis` | 선택. 이 조합의 실행을 해설하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 `project.analysis.model`을 씁니다 |
 | `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
 
-실행 모델은 `{ connectionId, modelId, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`입니다.
+실행 모델은 `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`입니다.
 
 | 필드 | 설명 |
 |---|---|
 | `connectionId`, `modelId` | 연결 id, 제공자에서 쓰는 모델 이름 |
+| `reasoningEffort` | 선택. 에이전트가 주는 추론 강도 중 하나(코딩 에이전트 CLI 연결만 의미가 있음). 비우면 에이전트 기본값(Codex는 xhigh로 느림) |
 | `inputs` | `["text"]` 또는 `["text", "image"]` |
 | `maxChoices`, `maxImages` | 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2) |
 | `instructions` | 실행 모델에 주는 지침(필수). [프롬프트 안내](./prompts.ko.md) |
@@ -311,7 +311,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `analysis.model` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 모델 조합에 자체 `analysis`가 없으면 이 모델로 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다. 키가 없어도 실행은 막지 않고 분석만 건너뜁니다 |
 | `analysis.instructions` | 선택. 분석 초점. 작업의 `analysisInstructions`가 이 값을 대체합니다 |
-| `suggestions.model` | 선택. 작업을 쓸 때 완료 확인을 제안하는 `llm` 연결의 `{ connectionId, modelId }`. 없으면 분석 모델을 씁니다 |
+| `suggestions.model` | 선택. 작업을 쓸 때 완료 확인을 제안하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 분석 모델을 씁니다 |
 
 ## machine
 

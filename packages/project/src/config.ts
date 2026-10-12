@@ -45,8 +45,12 @@ export type ProviderPreset = {
     signIn?: string;
   };
 };
-/** Reasoning efforts a connection may ask a coding-agent CLI for; each agent offers its own subset (ACP `thought_level`). */
-export const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+/**
+ * How hard a coding-agent CLI's model thinks, set per model choice: one of the levels the agent itself offers (ACP `thought_level`;
+ * Codex offers low…ultra, Claude Code default…max). Unset keeps the agent's own default, which can be slow (Codex: xhigh).
+ * An agent that offers no levels ignores it; one that does refuses a level it does not offer.
+ */
+const reasoningEffort = z.string().trim().min(1).max(40).optional();
 export const PROVIDERS = {
   llm: {
     openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyEnv: 'RAWSTEP_OPENAI_API_KEY', keyRequired: true, listsModels: true, images: true },
@@ -95,20 +99,17 @@ export const connectionSchema = z.object({
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
   timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
-  /** Only for coding-agent CLIs: how hard the model thinks (each CLI takes its own levels). Unset uses the CLI's default, which can be slow for planning. */
-  reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
 }).strict().superRefine((connection, ctx) => {
   const preset = (PROVIDERS[connection.kind] as Record<string, ProviderPreset>)[connection.provider];
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (!preset) return issue('provider', `${connection.provider} is not a provider of ${connection.kind} models.`);
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
-  if (connection.reasoningEffort !== undefined && !preset.agent) issue('reasoningEffort', 'Only coding-agent CLI connections set a reasoning effort.');
 });
 export type Connection = z.infer<typeof connectionSchema>;
 /** A model an agent decides with: a model ID on a connection and what that model can take. */
 export const modelChoiceSchema = z.object({
-  connectionId: id, modelId: text,
+  connectionId: id, modelId: text, reasoningEffort,
   inputs: z.array(z.enum(['text', 'image'])).min(1).max(2),
   maxChoices: z.number().int().min(1).max(10000).default(255),
   maxImages: z.number().int().min(0).max(10).default(2),
@@ -116,7 +117,7 @@ export const modelChoiceSchema = z.object({
 export type ModelChoice = z.infer<typeof modelChoiceSchema>;
 
 /** An LLM on a connection (planner, analysis or check suggestions). */
-export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text }).strict();
+export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text, reasoningEffort }).strict();
 export type AnalysisChoice = z.infer<typeof analysisChoiceSchema>;
 const count = (min: number, max: number, fallback: number) => z.number().int().min(min).max(max).default(fallback);
 /**
@@ -173,7 +174,7 @@ export type Executor = z.infer<typeof executorSchema>;
  * and with the listed actions), never replacing them. They must not carry page knowledge a real user would not have, or the run
  * stops measuring how hard the page is to find one's way around.
  */
-export const plannerSchema = z.object({ connectionId: id, modelId: text, instructions: z.string().max(16384).default('') }).strict();
+export const plannerSchema = z.object({ connectionId: id, modelId: text, reasoningEffort, instructions: z.string().max(16384).default('') }).strict();
 export type PlannerChoice = z.infer<typeof plannerSchema>;
 /**
  * Which model does what. `solo`: the executor of the mode decides every action. `planned`: the planner LLM writes a plan document
@@ -285,7 +286,7 @@ export type ProjectConfig = z.infer<typeof configSchema>;
  * A model as a run calls it: a connection plus the model ID and capabilities a combo picked. `id` is the connection's,
  * so keys and checks are per connection.
  */
-export type Model = Pick<Connection, 'id' | 'kind' | 'provider' | 'baseURL' | 'apiKeyEnv' | 'timeoutMs' | 'reasoningEffort'> & { name: string; modelId: string; inputs: ('text' | 'image')[]; maxChoices: number; maxImages: number };
+export type Model = Pick<Connection, 'id' | 'kind' | 'provider' | 'baseURL' | 'apiKeyEnv' | 'timeoutMs'> & { name: string; modelId: string; reasoningEffort?: string; inputs: ('text' | 'image')[]; maxChoices: number; maxImages: number };
 /** Instructions as a run records them: `id` and `version` identify them in policy evidence. */
 export type Prompt = { id: string; name: string; version: string; instructions: string };
 export type Mode = 'keyboard' | 'screenreader';
@@ -325,17 +326,20 @@ export function credentialRequirements(config: Pick<ProjectConfig, 'connections'
 export function defaultInputs(connection: Pick<Connection, 'kind' | 'provider'>): ModelChoice['inputs'] {
   return providerPreset(connection).images ? ['text', 'image'] : ['text'];
 }
+/** How a run names a model: connection and model ID, and the reasoning effort when one is set. */
+const modelName = (connection: Pick<Connection, 'name'>, choice: { modelId: string; reasoningEffort?: string | undefined }) =>
+  `${connection.name} · ${choice.modelId}${choice.reasoningEffort ? ` (${choice.reasoningEffort})` : ''}`;
 /** A model choice joined with its connection; undefined when the connection is gone. */
 function joined(config: Pick<ProjectConfig, 'connections'>, choice: ModelChoice | undefined): Model | undefined {
   const connection = choice && config.connections.find(c => c.id === choice.connectionId);
   if (!choice || !connection) return undefined;
-  return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: [...choice.inputs], maxChoices: choice.maxChoices, maxImages: choice.inputs.includes('image') ? choice.maxImages : 0 };
+  return { ...structuredClone(connection), name: modelName(connection, choice), modelId: choice.modelId, ...(choice.reasoningEffort ? { reasoningEffort: choice.reasoningEffort } : {}), inputs: [...choice.inputs], maxChoices: choice.maxChoices, maxImages: choice.inputs.includes('image') ? choice.maxImages : 0 };
 }
 /** An LLM choice joined with its connection; undefined when there is none, the connection is gone or is not an LLM. */
 function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoice | undefined): Model | undefined {
   const connection = choice && config.connections.find(c => c.id === choice.connectionId);
   if (!choice || !connection || connection.kind !== 'llm') return undefined;
-  return { ...structuredClone(connection), name: `${connection.name} · ${choice.modelId}`, modelId: choice.modelId, inputs: ['text'], maxChoices: 255, maxImages: 0 };
+  return { ...structuredClone(connection), name: modelName(connection, choice), modelId: choice.modelId, ...(choice.reasoningEffort ? { reasoningEffort: choice.reasoningEffort } : {}), inputs: ['text'], maxChoices: 255, maxImages: 0 };
 }
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
 export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>, mode: Mode): Model | undefined => joined(config, combo.executors[mode]);

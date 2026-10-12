@@ -16,7 +16,8 @@ export async function boundedJson(response: Response): Promise<unknown> {
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export type DiscoverOptions = { timeoutMs?: number; fetch?: typeof fetch };
 /** A model a connection offers. `inputsKnown` is false when the provider does not say what the model takes. */
-export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoice['inputs']; inputsKnown: boolean; maxChoices?: number };
+/** `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its own default as `defaultEffort`. */
+export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoice['inputs']; inputsKnown: boolean; maxChoices?: number; efforts?: string[]; defaultEffort?: string };
 
 /**
  * The models a connection offers, for a run profile to pick from.
@@ -41,8 +42,9 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
       // Starting may download the adapter first: without an explicit limit it gets the agent start limit, not the list default.
       const info = await agent.start(options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined);
       const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
-      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true },
-        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true }))];
+      const levels = info.efforts.length ? { efforts: info.efforts, ...(info.currentEffort ? { defaultEffort: info.currentEffort } : {}) } : {};
+      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true, ...levels },
+        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true, ...levels }))];
     } catch (error) {
       const reason = error instanceof AcpError ? error.reason : undefined;
       if (reason === 'sign-in') throw new ProjectError('agent-signed-out', `${preset.label} needs a sign-in. Sign in from the connection check.`, 502);

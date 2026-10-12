@@ -158,7 +158,6 @@ describe('public API surface', () => {
       "PROVIDERS",
       "ProjectError",
       "ProjectStore",
-      "REASONING_EFFORTS",
       "actionSetSchema",
       "agentOf",
       "analysisChoiceSchema",

@@ -11,7 +11,7 @@ import { join } from 'node:path';
  */
 export type AcpAgentSpec = { command: string; args: readonly string[] };
 export type AcpModelOption = { value: string; name: string };
-export type AcpAgentInfo = { name: string; version: string; images: boolean; models: AcpModelOption[]; currentModel?: string; efforts: string[] };
+export type AcpAgentInfo = { name: string; version: string; images: boolean; models: AcpModelOption[]; currentModel?: string; efforts: string[]; currentEffort?: string };
 export type AcpPromptRequest = { text: string; images?: readonly string[]; modelId?: string; reasoningEffort?: string; signal?: AbortSignal };
 
 export class AcpError extends Error {
@@ -154,12 +154,12 @@ export class AcpAgent {
     }) as Session;
     await this.endSession(probe.sessionId);
     const models = probe.configOptions?.find(o => o.category === 'model');
-    const efforts = probe.configOptions?.find(o => o.category === 'thought_level')?.options?.map(o => o.value) ?? [];
+    const thought = probe.configOptions?.find(o => o.category === 'thought_level'), efforts = thought?.options?.map(o => o.value) ?? [];
     return {
       name: init.agentInfo?.name ?? this.spec.command, version: init.agentInfo?.version ?? 'unknown',
       images: init.agentCapabilities?.promptCapabilities?.image === true,
       models: (models?.options ?? []).map(({ value, name }) => ({ value, name })),
-      ...(models?.currentValue ? { currentModel: models.currentValue } : {}), efforts,
+      ...(models?.currentValue ? { currentModel: models.currentValue } : {}), efforts, ...(thought?.currentValue ? { currentEffort: thought.currentValue } : {}),
     };
   }
 

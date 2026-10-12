@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { REASONING_EFFORTS, credentialId, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
+import { credentialId, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
 import { api } from '../api';
 import { ENV_NAME, generateEnvName, kindLabelKey, providerTextKey } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
@@ -56,9 +56,6 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
         ? <Field label={t('connections.baseUrl')} value={connection.baseURL ?? ''} onChange={baseURL => patch({ baseURL })} />
         : agent ? <ReadonlyField label={t('connections.command')} value={[agent.command, ...agent.args].join(' ')} /> : <ReadonlyField label={t('connections.baseUrl')} value={preset.baseURL ?? t('connections.endpointManaged')} hint={t('connections.endpointPresetHint', { provider: providerName })} />}
       {agent ? <AgentNote preset={preset} /> : <SecretField label={t('connections.apiKey')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={reveal} hint={keyHint} />}
-      {agent && <Choice label={t('connections.reasoningEffort')} value={connection.reasoningEffort ?? 'default'}
-        onChange={v => { const { reasoningEffort: _removed, ...rest } = connection; setConnection(v === 'default' ? rest : { ...rest, reasoningEffort: v as NonNullable<Connection['reasoningEffort']> }); }}
-        options={(['default', ...REASONING_EFFORTS] as const).map(id => ({ id, name: t(`connections.efforts.${id}`) }))} />}
     </div>
     <Panel title={t('connections.advanced')} description={t('connections.advancedDescription')}>
       <Field label={t('connections.timeout')} type="number" value={String(connection.timeoutMs)} onChange={s => patch({ timeoutMs: Number(s) })} />

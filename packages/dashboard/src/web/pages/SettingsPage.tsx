@@ -7,7 +7,7 @@ import { ApiError, api } from '../api';
 import { SaveBar } from '../components/conditions/SaveBar';
 import { Field, Toggle } from '../components/forms';
 import { PageHeader } from '../components/layout/PageHeader';
-import { ModelPicker } from '../components/ModelPicker';
+import { effortOf, ModelPicker } from '../components/ModelPicker';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { environmentViewport, sameValue } from '../lib/conditions';
@@ -110,16 +110,16 @@ export function SettingsPage(props: PageProps) {
       <TabsContent value="project" className="grid gap-7">
         <section aria-labelledby="settings-analysis" className="grid gap-4">
           <NoEffectHead id="settings-analysis" title={t('settingsPage.analysis.title')} intro={t('settingsPage.analysis.intro')} />
-          <ModelPicker label={t('settingsPage.analysis.model')} connections={llms} connectionId={project.analysis.model?.connectionId} modelId={project.analysis.model?.modelId ?? ''}
+          <ModelPicker label={t('settingsPage.analysis.model')} connections={llms} connectionId={project.analysis.model?.connectionId} modelId={project.analysis.model?.modelId ?? ''} reasoningEffort={project.analysis.model?.reasoningEffort}
             none={t('settingsPage.analysis.rulesOnly')} onNone={() => { const { model: _removed, ...rest } = project.analysis; setProject({ ...project, analysis: rest }); }}
-            onChange={next => setProject({ ...project, analysis: { ...project.analysis, model: { connectionId: next.connectionId, modelId: next.modelId } } })} />
+            onChange={next => setProject({ ...project, analysis: { ...project.analysis, model: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) } } })} />
           <Field label={t('settingsPage.analysis.instructions')} multiline value={project.analysis.instructions} onChange={instructions => setProject({ ...project, analysis: { ...project.analysis, instructions } })} hint={t('settingsPage.analysis.instructionsHint')} />
         </section>
         <section aria-labelledby="settings-suggestions" className="grid gap-4">
           <NoEffectHead id="settings-suggestions" title={t('settingsPage.suggestions.title')} intro={t('settingsPage.suggestions.intro')} />
-          <ModelPicker label={t('settingsPage.suggestions.model')} connections={llms} connectionId={project.suggestions.model?.connectionId} modelId={project.suggestions.model?.modelId ?? ''}
+          <ModelPicker label={t('settingsPage.suggestions.model')} connections={llms} connectionId={project.suggestions.model?.connectionId} modelId={project.suggestions.model?.modelId ?? ''} reasoningEffort={project.suggestions.model?.reasoningEffort}
             none={t('settingsPage.suggestions.sameAsAnalysis')} onNone={() => setProject({ ...project, suggestions: {} })}
-            onChange={next => setProject({ ...project, suggestions: { model: { connectionId: next.connectionId, modelId: next.modelId } } })} />
+            onChange={next => setProject({ ...project, suggestions: { model: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) } } })} />
         </section>
       </TabsContent>
 

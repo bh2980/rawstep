@@ -56,7 +56,6 @@ A connection is where models are reached: a provider preset (fixed address and k
 | `baseURL` | Only for `provider: custom`, and required there: the server address (HTTPS, or HTTP on this computer). |
 | `apiKeyEnv` | Only for `provider: custom`: the environment variable that holds the key, if the server needs one. |
 | `timeoutMs` | Request timeout, 100 to 600000 ms. |
-| `reasoningEffort` | Only for the coding-agent CLI providers below (`minimal`, `low`, `medium`, `high`, `xhigh`, `max`; each agent offers its own subset). Unset uses the agent's default. |
 
 Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 
@@ -90,7 +89,7 @@ Connections to one preset provider share its key. `llm` models call the provider
 These are spoken to over ACP, as described above. `antigravity` runs Google's ACP server `agy_acp_server.par`, a separate download from the ACP registry whose folder must be on `PATH`. It keeps its own Google sign-in, done once from the dashboard connection check's sign-in button; Rawstep never signs in on its own, and an agent without a sign-in method has to be signed in with its own CLI in a terminal. `reasoningEffort` picks how hard the agent thinks; each agent offers its own subset and an unknown value fails at run time.
 
 ```json
-{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000, "reasoningEffort": "medium" }
+{ "id": "codex", "name": "Codex", "kind": "llm", "provider": "codex", "timeoutMs": 180000 }
 ```
 
 ## tasks[]
@@ -114,16 +113,17 @@ A model combo says which models act. It is an experiment condition: to compare m
 |---|---|
 | `id`, `name` | Identifier and display name. `--combo` accepts either. |
 | `structure` | `solo` (default): the executor of the mode decides every action. `planned`: a planner LLM writes a plan document and the executor carries out one task at a time. |
-| `planner` | `{ connectionId, modelId, instructions }`. Required when `structure` is `planned`; the connection must be an `llm`. Screen reader mode only for now. |
+| `planner` | `{ connectionId, modelId, reasoningEffort?, instructions }`. Required when `structure` is `planned`; the connection must be an `llm`. Screen reader mode only for now. |
 | `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo. |
-| `analysis` | Optional `{ connectionId, modelId }` of an `llm` connection that explains this combo's runs. Without it, `project.analysis.model` is used. |
+| `analysis` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that explains this combo's runs. Without it, `project.analysis.model` is used. |
 | `owner`, `copiedFrom` | Set on task-only copies; leave them out otherwise. |
 
-An executor is `{ connectionId, modelId, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`:
+An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`:
 
 | Field | Meaning |
 |---|---|
 | `connectionId`, `modelId` | The connection, and the identifier sent to the provider. |
+| `reasoningEffort` | Optional. A level the agent offers (only meaningful on coding-agent CLI connections); unset = the agent's default (Codex: `xhigh`, which is slow). Also allowed on a combo's `planner` and `analysis`, and on `project.analysis.model` and `project.suggestions.model`. |
 | `inputs` | `["text"]` or `["text", "image"]`. |
 | `maxChoices`, `maxImages` | The candidate and image limits (defaults 255 and 2). |
 | `instructions` | The executor prompt (required), see [prompts](./prompts.md). |
@@ -309,9 +309,9 @@ Settings shared by the project that never change a run's outcome.
 
 | Field | Meaning |
 |---|---|
-| `analysis.model` | Optional `{ connectionId, modelId }` of an `llm` connection. When set (and the combo has no `analysis` of its own), an LLM analysis is added to every run (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. A missing key skips the analysis and never blocks a run. |
+| `analysis.model` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection. When set (and the combo has no `analysis` of its own), an LLM analysis is added to every run (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. A missing key skips the analysis and never blocks a run. |
 | `analysis.instructions` | Optional analysis focus. A task's `analysisInstructions` override it. |
-| `suggestions.model` | Optional `{ connectionId, modelId }` of an `llm` connection that suggests completion checks while a task is written. The analysis model is used when unset. |
+| `suggestions.model` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that suggests completion checks while a task is written. The analysis model is used when unset. |
 
 ## machine
 

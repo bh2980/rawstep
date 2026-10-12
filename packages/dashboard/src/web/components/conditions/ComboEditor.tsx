@@ -6,7 +6,7 @@ import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { Advanced, Field, Panel, Toggle } from '../forms';
 import { RadioRows } from '../layout/RadioRows';
-import { ModelPicker } from '../ModelPicker';
+import { effortOf, ModelPicker } from '../ModelPicker';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
@@ -73,9 +73,9 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
       </Tabs>
     </RoleCard>
     <RoleCard title={t('conditions.combo.analysis.title')} tag={t('conditions.noEffect')} intro={t('conditions.combo.analysis.intro')} compact={compact} muted>
-      <ModelPicker label={t('conditions.combo.analysis.model')} connections={llms} connectionId={combo.analysis?.connectionId} modelId={combo.analysis?.modelId ?? ''}
+      <ModelPicker label={t('conditions.combo.analysis.model')} connections={llms} connectionId={combo.analysis?.connectionId} modelId={combo.analysis?.modelId ?? ''} reasoningEffort={combo.analysis?.reasoningEffort}
         none={t('conditions.combo.analysis.projectDefault')} onNone={() => setAnalysis(undefined)}
-        onChange={next => setAnalysis({ connectionId: next.connectionId, modelId: next.modelId })} />
+        onChange={next => setAnalysis({ connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) })} />
     </RoleCard>
   </div>;
 }
@@ -108,11 +108,12 @@ function Pipeline({ combo, connections, compact }: { combo: Combo; connections: 
     { label: t('conditions.combo.pipeline.page'), detail: t('conditions.combo.pipeline.pageDetail') },
   ];
   return <figure className="grid gap-2" aria-label={t('conditions.combo.pipeline.label')}>
-    <ol className={cn('flex flex-col items-stretch gap-1 sm:flex-row sm:flex-wrap sm:items-center', compact && 'text-xs')}>
+    {/* One row from sm up: boxes keep their natural width and only shrink (shortening long model IDs) when the row is full, instead of wrapping the last box onto its own line. */}
+    <ol className={cn('flex flex-col items-stretch gap-1 sm:flex-row sm:items-center', compact && 'text-xs')}>
       {nodes.map((node, index) => <Fragment key={node.label}>
-        {index > 0 && <li aria-hidden="true" className="flex justify-center text-muted-foreground sm:block"><ArrowRight className="hidden size-4 sm:block" /><ArrowDown className="size-4 sm:hidden" /></li>}
-        <li className={cn('grid min-w-0 gap-0.5 border px-2.5 py-1.5', node.role ? 'border-trace bg-trace-soft' : 'border-edge-strong bg-surface')}>
-          <span className={cn('font-medium', compact ? 'text-xs' : 'text-[13px]')}>{node.label}</span>
+        {index > 0 && <li aria-hidden="true" className="flex shrink-0 justify-center text-muted-foreground sm:block"><ArrowRight className="hidden size-4 sm:block" /><ArrowDown className="size-4 sm:hidden" /></li>}
+        <li title={node.detail} className={cn('grid min-w-0 gap-0.5 border px-2.5 py-1.5 sm:flex-[1_1_auto]', node.role ? 'border-trace bg-trace-soft' : 'border-edge-strong bg-surface')}>
+          <span className={cn('font-medium whitespace-nowrap', compact ? 'text-xs' : 'text-[13px]')}>{node.label}</span>
           {node.detail && <span className="truncate font-mono text-xs text-muted-foreground">{node.detail}</span>}
         </li>
       </Fragment>)}
@@ -129,8 +130,8 @@ function PlannerCard({ combo, onChange, llms, compact }: { combo: Combo; onChang
   const planner = combo.planner;
   return <RoleCard title={t('conditions.combo.planner.title')} tag={t('conditions.combo.condition')} intro={t('conditions.combo.planner.intro')} compact={compact}>
     {llms.length
-      ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''}
-        onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, instructions: planner?.instructions ?? '' } })} />
+      ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''} reasoningEffort={planner?.reasoningEffort}
+        onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), instructions: planner?.instructions ?? '' } })} />
       : <p className="text-sm leading-6 text-inspect">{t('conditions.combo.planner.noLlm')}</p>}
     {planner && <div className="grid gap-1.5">
       <Field label={t('conditions.combo.planner.instructions')} multiline plain value={planner.instructions} placeholder={t('conditions.combo.planner.instructionsPlaceholder')}
@@ -157,13 +158,14 @@ function ExecutorFields({ mode, executor, onChange, connections }: ExecutorProps
   const connection = executor && connections.find(c => c.id === executor.connectionId);
   const set = (part: Partial<Executor>) => executor && onChange({ ...executor, ...part });
   return <div className="grid content-start gap-4">
-    <ModelPicker label={t('conditions.combo.executor.model', { mode: t(`conditions.modes.${mode}`) })} connections={connections} connectionId={executor?.connectionId} modelId={executor?.modelId ?? ''}
+    <ModelPicker label={t('conditions.combo.executor.model', { mode: t(`conditions.modes.${mode}`) })} connections={connections} connectionId={executor?.connectionId} modelId={executor?.modelId ?? ''} reasoningEffort={executor?.reasoningEffort}
       none={t('conditions.combo.executor.none')} onNone={() => onChange(undefined)}
       onChange={next => {
         const picked = connections.find(c => c.id === next.connectionId)!;
         const base = !executor || executor.connectionId !== next.connectionId ? { ...blankExecutor(picked, mode), ...(executor ? { instructions: executor.instructions, historyLimit: executor.historyLimit } : {}) } : executor;
         const inputs = next.picked?.inputsKnown ? next.picked.inputs : base.inputs;
-        onChange({ ...base, connectionId: next.connectionId, modelId: next.modelId, inputs, ...(next.picked?.maxChoices ? { maxChoices: next.picked.maxChoices } : {}), ...(picked.kind === 'llm' ? { focusGate: false } : {}) });
+        const { reasoningEffort: _old, ...kept } = base;
+        onChange({ ...kept, connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), inputs, ...(next.picked?.maxChoices ? { maxChoices: next.picked.maxChoices } : {}), ...(picked.kind === 'llm' ? { focusGate: false } : {}) });
       }} />
     {!executor && <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.executor.unusedHint', { mode: t(`conditions.modes.${mode}`) })}</p>}
     {executor && <>
