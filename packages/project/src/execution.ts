@@ -54,7 +54,7 @@ export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<Ru
 export const executeRun: RunExecutor = async ({ task, model, prompt, executor, mode, settings, environment, backend, permissions, conditions, diagnoseStop, plannerModel, plannerInstructions }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
   const plannerLlm = mode === 'screenreader' && plannerModel ? llmModelOf(plannerModel, 'rawstep-planner', plannerApiKey) : undefined;
-  const chooser = model.kind === 'llm' ? llmChoiceModel(model, plannerLlm ? orchestratedPrompt(prompt) : prompt, apiKey) : undefined;
+  const chooser = model.kind === 'llm' ? llmChoiceModel(model, plannerLlm ? orchestratedPrompt(prompt, settings.runRules.taskControl) : prompt, apiKey) : undefined;
   // Agent CLIs start before the task's clock (an adapter download is not the task) and end with the run.
   try {
     if (plannerLlm) await prepareLlmModel(plannerLlm, plannerModel!.name, signal);
@@ -72,7 +72,8 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
     const limits = { maxStateVisits: rules.maxStateVisits, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechPolicy = (choice: ChoiceModel): DecisionPolicy => planner
-      ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit })
+      ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
+        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor })
       : new SpeechDecisionPolicy(choice, speechOptions);
     let policy: DecisionPolicy;
     let screenshotModel: ScreenshotModelAdapter | undefined;
@@ -87,7 +88,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
         screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
         policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: executor.focusGate ? {} : undefined, model: screenshotModel });
       } else {
-        policy = speechPolicy(new SystemOneChoiceModel(client, planner ? orchestratedPrompt(prompt) : prompt));
+        policy = speechPolicy(new SystemOneChoiceModel(client, planner ? orchestratedPrompt(prompt, rules.taskControl) : prompt));
       }
     }
     const endpoint = machine.browserEndpoint.trim();

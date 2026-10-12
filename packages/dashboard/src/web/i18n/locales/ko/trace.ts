@@ -149,6 +149,7 @@ export const traceUi = {
       failures: '행동이 연달아 실패',
       'no-change': '행동해도 발화가 바뀌지 않음',
       'task-limit': '작업의 행동 한도 도달',
+      'low-confidence': '실행 모델이 연달아 확신 없이 고름',
       checkpoint: '단계 체크포인트',
       'plan-finished': '작업을 모두 마쳐 마지막 점검',
     },

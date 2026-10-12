@@ -62,10 +62,12 @@ describe('plan document', () => {
   });
 });
 
+/** The executor-claims mode (meta options offered), kept for comparison; Rawstep's own task control is tested below. */
+const EXECUTOR_CLAIMS = { taskControl: 'executor' } as const;
 describe('orchestrated speech policy', () => {
   it('plans with the real actions, then gives the executor the current task, the plan outline and the next task', async () => {
     const p = planner(draft({ Find: ['Move to Add to cart'], Buy: ['Activate it'] })), e = executor('intent:form.next');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'form.next' } });
     expect(p.requests[0]).toMatchObject({ trigger: 'start', attempts: [] });
     expect(p.requests[0]!.actions.map(a => a.id)).toEqual(['intent:next', 'intent:activate', 'intent:form.next']);
@@ -80,7 +82,7 @@ describe('orchestrated speech policy', () => {
   });
   it('checks a claimed completion, reviews the finished phase, and moves on within the same runner step', async () => {
     const p = planner(draft({ Find: ['Find the button'], Buy: ['Activate it'] }), draft({ Find: [['t1', 'Find the button']], Buy: [['t2', 'Activate it']] }, 'Phase 1 met C1.')), e = executor('task:done', 'intent:activate');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     expect(await policy.decide(input({ observation: said('Find the button') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(e.requests[1]!.state).toMatchObject({ currentTask: { goal: 'Activate it' } });
     const done = evidence(policy).find(k => k.kind === 'orchestration-task' && k.toStatus === 'done');
@@ -92,7 +94,7 @@ describe('orchestrated speech policy', () => {
   it('asks for a new plan with the executor\'s reason and the attempts linked to their tasks', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Move by form controls'] }, 'Not heard after 3 moves.')), e = executor('intent:next', 'intent:next', 'intent:next', 'help:no-cue', 'intent:form.next');
     // (one phase, so no checkpoint call in between)
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     await policy.decide(input());
     await policy.decide(input({ history: [acted(1, 'next', 'Banner')], observation: said('Logo') }));
     await policy.decide(input({ history: [acted(1, 'next', 'Banner'), acted(2, 'next', 'Logo')], observation: said('Search') }));
@@ -105,13 +107,13 @@ describe('orchestrated speech policy', () => {
   });
   it('replans after repeated failures or no change on the current task', async () => {
     const failing = planner(draft({ Type: ['Type the term'] }), draft({ Type: ['Find the field first'] })), e1 = executor('intent:activate', 'intent:activate', 'intent:next');
-    const p1 = new OrchestratedSpeechPolicy(failing.planner, e1.executor);
+    const p1 = new OrchestratedSpeechPolicy(failing.planner, e1.executor, EXECUTOR_CLAIMS);
     await p1.decide(input());
     await p1.decide(input({ history: [acted(1, 'activate', 'Search, heading', false)] }));
     await p1.decide(input({ history: [acted(1, 'activate', 'Search, heading', false), acted(2, 'activate', 'Search, heading', false)] }));
     expect(failing.requests.map(r => r.trigger)).toEqual(['start', 'failures']);
     const still = planner(draft({ Cart: ['Find the cart'] }), draft({ Cart: ['Use headings'] })), e2 = executor('intent:next', 'intent:activate', 'intent:next', 'intent:next');
-    const p2 = new OrchestratedSpeechPolicy(still.planner, e2.executor);
+    const p2 = new OrchestratedSpeechPolicy(still.planner, e2.executor, EXECUTOR_CLAIMS);
     const h = [acted(1, 'next', 'Banner'), acted(2, 'activate', 'Banner'), acted(3, 'next', 'Banner')];
     await p2.decide(input());
     for (let i = 1; i <= 3; i++) await p2.decide(input({ history: h.slice(0, i), observation: said('Banner') }));
@@ -119,7 +121,7 @@ describe('orchestrated speech policy', () => {
   });
   it('lets a fresh plan run before the repetition guard can stop it', async () => {
     const p = planner(draft({ Cart: ['Find the cart'] }), draft({ Cart: ['Try next'] })), e = executor('intent:next', 'intent:next', 'intent:next', 'intent:next', 'intent:next');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { repetitionGuard: true, maxUnchangedTransitions: 4, noChangeLimit: 3 });
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { ...EXECUTOR_CLAIMS, repetitionGuard: true, maxUnchangedTransitions: 4, noChangeLimit: 3 });
     const h = [1, 2, 3, 4].map(i => acted(i, 'next', 'End of content'));
     await policy.decide(input());
     for (let i = 1; i <= 3; i++) await policy.decide(input({ history: h.slice(0, i), observation: said('End of content') }));
@@ -127,7 +129,7 @@ describe('orchestrated speech policy', () => {
   });
   it('stops with its own stop sources: the planner judging the goal done, or running out of new plans', async () => {
     const p = planner(draft({ Any: ['Anything'] })), e = executor('intent:next', 'intent:next', 'intent:next');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { maxReplans: 1, stepActionLimit: 1 });
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { ...EXECUTOR_CLAIMS, maxReplans: 1, stepActionLimit: 1 });
     expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1'), acted(2, 'next', 'Price')] }))).toEqual({ stop: 'stuck', stopSource: 'orchestration-limit' });
@@ -139,7 +141,7 @@ describe('orchestrated speech policy', () => {
   it('turns down a "done" claim whose cue was not heard: the task stays open and the executor must act', async () => {
     const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart' }] }] });
     const e = executor('task:done', 'intent:activate');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     expect(await policy.decide(input({ observation: said('Add to cart, button') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(e.requests[1]!.choices.map(c => c.id)).not.toContain('task:done');
     // Asking whether it is already done would be the same claim again.
@@ -153,7 +155,7 @@ describe('orchestrated speech policy', () => {
   });
   it('lets the executor ask for help only after a few actions on the task, and never pick a stop', async () => {
     const p = planner(draft({ Find: ['Find the button'] })), e = executor('intent:next', 'intent:next', 'intent:next', 'help:no-cue', 'intent:next');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     const history = [acted(1, 'next', 'Quantity, 1'), acted(2, 'next', 'Price'), acted(3, 'next', 'Stock')];
     for (let n = 0; n <= 3; n++) await policy.decide(input({ history: history.slice(0, n) }));
     const helps = (i: number) => e.requests[i]!.choices.map(c => c.id).filter(id => id.startsWith('help:') || id.startsWith('stop:'));
@@ -162,14 +164,57 @@ describe('orchestrated speech policy', () => {
   });
   it('asks for the next plan when every task is finished', async () => {
     const p = planner(draft({ Only: ['Only task'] }), draft({ Check: ['Check the cart'] })), e = executor('task:done', 'intent:next');
-    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS);
     await policy.decide(input({ observation: said('Only task') }));
     expect(p.requests.map(r => r.trigger)).toEqual(['start', 'plan-finished']);
     expect(p.requests[1]!.document!.phases[0]!.tasks[0]).toMatchObject({ status: 'done', ending: { verified: 'heard' } });
   });
-  it('appends the executor guide to the run prompt under a separate ID', () => {
-    const prompt = orchestratedPrompt({ id: 'baseline', version: '1', instructions: 'Base.' });
-    expect(prompt.id).toBe('baseline.orchestrated'); expect(prompt.instructions).toMatch(/^Base\.\nYou carry out one task of a plan/);
+  it('appends the executor guide to the run prompt under a separate ID for each kind of task control', () => {
+    const claims = orchestratedPrompt({ id: 'baseline', version: '1', instructions: 'Base.' }, 'executor');
+    expect(claims.id).toBe('baseline.orchestrated'); expect(claims.instructions).toMatch(/^Base\.\nYou carry out one task of a plan.*Current task done/);
+    const actions = orchestratedPrompt({ id: 'baseline', version: '1', instructions: 'Base.' });
+    expect(actions.id).toBe('baseline.orchestrated-actions'); expect(actions.instructions).toMatch(/always pick an action/); expect(actions.instructions).not.toMatch(/Current task done/);
+  });
+});
+
+describe('orchestrated speech policy under Rawstep\'s task control (default)', () => {
+  /** An executor that also reports probabilities, as a decision model does. */
+  function scored(...answers: [string, number][]) {
+    const requests: ChoiceRequest[] = [];
+    const value: ChoiceModel = { inputs: ['text'], choose: async request => {
+      requests.push(structuredClone(request));
+      const [choiceId, top] = answers[Math.min(requests.length - 1, answers.length - 1)]!;
+      return { choiceId, model: { id: 'jev', runtime: 'test' }, probabilities: request.choices.map(c => c.id === choiceId ? top : (1 - top) / Math.max(1, request.choices.length - 1)) };
+    } };
+    return { executor: value, requests };
+  }
+  it('offers the executor actions only: no "done" claim and no help request', async () => {
+    const p = planner(draft({ Find: ['Find the button'] })), e = scored(['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    let history: HistoryEntry[] = [];
+    for (let step = 1; step <= 4; step++) { await policy.decide(input({ history })); history = [...history, acted(step, 'next', `item ${step}`)]; }
+    expect(e.requests.every(r => r.choices.every(c => c.id.startsWith('intent:')))).toBe(true);
+  });
+  it('finishes a task by itself when its cue is heard, without asking the executor, and goes on to the next', async () => {
+    const p = planner(draft({ Find: ['Find the button', 'Activate it'] })), e = scored(['intent:activate', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    expect(await policy.decide(input({ observation: said('Find the button, button') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(e.requests).toHaveLength(1);
+    expect(e.requests[0]!.state).toMatchObject({ currentTask: { goal: 'Activate it' } });
+    const kinds = evidence(policy);
+    expect(kinds.find(k => k.kind === 'orchestration-cue')).toMatchObject({ taskId: 't1', verified: 'heard', source: 'rawstep' });
+    expect(kinds.find(k => k.kind === 'orchestration-task' && k.toStatus === 'done')).toMatchObject({ taskId: 't1', ending: { verified: 'heard' } });
+  });
+  it('asks for a new plan after low-confidence choices in a row, and not after confident ones', async () => {
+    const run = async (top: number) => {
+      const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Move by headings'] })), e = scored(['intent:next', top]);
+      const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { confidenceFloor: 0.25 });
+      let history: HistoryEntry[] = [];
+      for (let step = 1; step <= 3; step++) { await policy.decide(input({ history })); history = [...history, acted(step, 'next', `item ${step}`)]; }
+      return p.requests.map(r => r.trigger);
+    };
+    expect(await run(0.1)).toEqual(['start', 'low-confidence']);
+    expect(await run(0.8)).toEqual(['start']);
   });
 });
 
@@ -187,7 +232,7 @@ describe('orchestrated policy inside the runner', () => {
       // The executor first claims the task done before anything happened; the cue is not heard, so the claim is turned down.
       const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart' }] }] }), e = executor('task:done', 'intent:activate');
       const trace = await runTask({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
-        backend, policy: new OrchestratedSpeechPolicy(p.planner, e.executor), outDir: dir, browserSessionFactory: async () => session as never,
+        backend, policy: new OrchestratedSpeechPolicy(p.planner, e.executor, EXECUTOR_CLAIMS), outDir: dir, browserSessionFactory: async () => session as never,
         verifier: async () => ({ passed: pressed > 0, failures: pressed > 0 ? [] : ['not yet'] }) });
       expect(trace.outcome?.status).toBe('success');
       const kinds = trace.events.filter(ev => ev.type === 'policy.evidence').map(ev => (ev.data as { evidence: { kind: string } }).evidence.kind);

@@ -141,6 +141,17 @@ export const runRulesSchema = z.object({
   failureLimit: count(1, 100, 2),
   /** With a planner: actions in a row on one task that changed nothing before a new plan is requested. */
   noChangeLimit: count(1, 100, 3),
+  /**
+   * With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is
+   * heard, and Rawstep's signals (including low executor confidence) ask for a new plan. `executor`: the executor may also claim a
+   * task done and ask for help, as before (kept for comparison: decision models pick those options far too often).
+   */
+  taskControl: z.enum(['rawstep', 'executor']).default('rawstep'),
+  /**
+   * With `rawstep` task control: an executor choice counts as low confidence when its top probability is less than this far from a
+   * uniform guess among the choices (0) towards certainty (1); two in a row ask for a new plan.
+   */
+  confidenceFloor: z.number().min(0).max(1).default(0.25),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**
@@ -156,6 +167,8 @@ export const runRulesOverrideSchema = z.object({
   stepActionLimit: z.number().int().min(1).max(1000).optional(),
   failureLimit: z.number().int().min(1).max(100).optional(),
   noChangeLimit: z.number().int().min(1).max(100).optional(),
+  taskControl: z.enum(['rawstep', 'executor']).optional(),
+  confidenceFloor: z.number().min(0).max(1).optional(),
 }).strict();
 export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
 /** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */

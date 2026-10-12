@@ -10,7 +10,7 @@ export type AssumptionStatus = 'open' | 'held' | 'broken';
 /** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
 export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
  * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;

@@ -42,8 +42,23 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
   noChangeLimit?: number;
   /** Past actions the planner sees (default 60). */
   plannerHistoryLimit?: number;
+  /**
+   * Who decides that a task is finished or that the plan needs revising. `rawstep` (default): the executor only picks actions; a
+   * task ends when its cue is heard, and a new plan is requested on Rawstep's signals (failures, no change, the task limit, low
+   * executor confidence). `executor`: the executor may also claim "done" (checked against the cue) and ask for a new plan. A
+   * decision model picks those meta options far too often when they echo the task's words, so they are off unless compared.
+   */
+  taskControl?: 'rawstep' | 'executor';
+  /**
+   * With `rawstep` task control: a choice counts as low confidence when its top probability is less than this far from a uniform
+   * guess (1/n) towards certainty (1): 0 is a coin toss among n choices, 1 is sure. A fixed probability would mean something
+   * different with 3 choices than with 15. Default 0.25.
+   */
+  confidenceFloor?: number;
+  /** How many low-confidence choices in a row on one task ask for a new plan (default 2). */
+  lowConfidenceSteps?: number;
 };
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit };
+const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2 };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
 /**
@@ -58,13 +73,25 @@ const HELP: Record<HelpReason, string> = {
   'already-done': 'Ask for a new plan: the current task already looks done, or the page is not what the plan expected',
 };
 
-/** Added to the executor's prompt: how to read the plan and when to use the task choices. */
+/** How far the top probability is from a uniform guess (0) towards certainty (1); undefined without probabilities. */
+export function confidenceOf(probabilities: readonly number[] | undefined): number | undefined {
+  if (!probabilities || probabilities.length < 2) return undefined;
+  const uniform = 1 / probabilities.length;
+  return Math.max(0, (Math.max(...probabilities) - uniform) / (1 - uniform));
+}
+/** Added to the executor's prompt when Rawstep controls the tasks: the executor only moves. */
+export const ACTION_ONLY_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: pick the action that brings currentTask.goal closer while keeping the overall goal in mind; plan shows where the run is. ' +
+  'Rawstep moves on to the next task by itself when currentTask.cue is heard, and asks for a new plan when the task stops making progress, so always pick an action. ' +
+  'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
+/** Added to the executor's prompt when the executor may claim tasks done and ask for help: how to read the plan and when to use the task choices. */
 export const ORCHESTRATED_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: work toward currentTask.goal while keeping the overall goal in mind; plan shows where the run is. ' +
   'Choose "Current task done" only when the speech shows currentTask.done; Rawstep checks it against currentTask.cue and turns the claim down when the cue was not heard. Choose an "Ask for a new plan" option, with the matching reason, when the task cannot be done with the available actions. ' +
   'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
 /** The run's prompt with the executor guide appended; a new ID keeps its evidence apart from the plain prompt's. */
-export function orchestratedPrompt<P extends { id: string; version: string; instructions: string }>(prompt: P): P {
-  return { ...prompt, id: `${prompt.id}.orchestrated`.slice(0, 128), instructions: `${prompt.instructions}\n${ORCHESTRATED_EXECUTOR_GUIDE}` };
+export function orchestratedPrompt<P extends { id: string; version: string; instructions: string }>(prompt: P, taskControl: 'rawstep' | 'executor' = 'rawstep'): P {
+  return taskControl === 'executor'
+    ? { ...prompt, id: `${prompt.id}.orchestrated`.slice(0, 128), instructions: `${prompt.instructions}\n${ORCHESTRATED_EXECUTOR_GUIDE}` }
+    : { ...prompt, id: `${prompt.id}.orchestrated-actions`.slice(0, 128), instructions: `${prompt.instructions}\n${ACTION_ONLY_EXECUTOR_GUIDE}` };
 }
 
 type Input = Parameters<DecisionPolicy['decide']>[0];
@@ -87,9 +114,16 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private taskFrom = 0;
   /** The task and plan version each executed step served, by runner step. */
   private readonly served = new Map<number, { taskId: string; planVersion: number }>();
+  private readonly control: 'rawstep' | 'executor';
+  private readonly confidenceFloor: number;
+  /** Executor choices in a row on the current task whose top probability was below the floor. */
+  private lowConfidence = 0;
   constructor(readonly planner: Planner, readonly executor: ChoiceModel, private readonly options: OrchestrationOptions = {}) {
     if (!executor.inputs.includes('text')) throw new Error('The executor needs a model that takes text.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
+    this.control = options.taskControl ?? 'rawstep';
+    this.confidenceFloor = options.confidenceFloor ?? 0.25;
+    if (!(this.confidenceFloor >= 0 && this.confidenceFloor <= 1)) throw new Error('Invalid orchestration confidence floor.');
     for (const [key, value] of Object.entries(this.limits)) {
       if (!Number.isSafeInteger(value) || value < (key === 'maxReplans' ? 0 : 1) || value > 10_000) throw new Error(`Invalid orchestration limit ${key}.`);
     }
@@ -122,16 +156,23 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         for (const title of unreviewed) markCheckpoint(this.doc!, title, step);
         continue;
       }
+      // Under Rawstep's task control a task ends when its cue is heard after an action: the executor never has to say so.
+      if (this.control === 'rawstep' && verifyCue(task, input.observation.speech) === 'heard') {
+        this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: 'heard', source: 'rawstep' });
+        await this.finishTask(input, step, doc, task, 'heard');
+        continue;
+      }
       // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
       const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision);
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
       const tried = taskAttempts.filter(h => 'action' in h.decision).length;
       // Help needs a few actions on the task since its plan: asking before acting throws away a plan nobody tested.
       // A task that already looks done is claimed done instead, and Rawstep checks the cue.
+      const meta = this.control === 'executor';
       const candidates: ChoiceCandidate[] = [...actions.map(({ id, label }) => ({ id, label })),
-        ...(refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
+        ...(!meta || refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
         // Right after a turned-down "done", "already done" is the same claim in other words.
-        ...(tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
+        ...(meta && tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
       const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {
@@ -158,12 +199,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
           this.evidence.push({ kind: 'orchestration-claim', taskId: task.id, planVersion: doc.version, verified, accepted: false, rejected: task.rejected });
           continue;
         }
-        const phase = phaseOf(doc, task.id);
-        const done = finishCurrent(doc, step, verified)!;
-        this.taskEvent(done, 'active');
-        // A finished phase is reviewed before the next one starts (with nothing left, the final review below covers it).
-        if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); continue; }
-        this.startTask(input);
+        await this.finishTask(input, step, doc, task, verified);
         continue;
       }
       if (response.choiceId.startsWith('help:')) {
@@ -171,6 +207,9 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         if (this.replans >= this.limits.maxReplans) return this.giveUp(step, 'help');
         await this.replan(input, step, 'help', help); continue;
       }
+      // A top probability close to a uniform guess is the executor not knowing what to do; a few in a row ask for a new plan.
+      const confidence = confidenceOf(response.probabilities);
+      this.lowConfidence = confidence !== undefined && confidence < this.confidenceFloor ? this.lowConfidence + 1 : 0;
       task.actions++;
       this.served.set(step, { taskId: task.id, planVersion: doc.version });
       return structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
@@ -178,10 +217,20 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     return this.giveUp(step, 'plan-finished');
   }
 
+  /** Ends the current task (its cue verified as given) and starts the next, reviewing a finished phase first. */
+  private async finishTask(input: Input, step: number, doc: PlanDocument, task: PlanTask, verified: NonNullable<ReturnType<typeof verifyCue>>): Promise<void> {
+    const phase = phaseOf(doc, task.id);
+    const done = finishCurrent(doc, step, verified)!;
+    this.taskEvent(done, 'active');
+    // A finished phase is reviewed before the next one starts (with nothing left, the final review covers it).
+    if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
+    this.startTask(input);
+  }
   /** What went wrong on the current task, if anything warrants a new plan. */
   private trigger(input: Input): PlanTrigger | undefined {
     const task = this.doc && currentTask(this.doc);
     if (!task) return undefined;
+    if (this.control === 'rawstep' && this.lowConfidence >= this.limits.lowConfidenceSteps) return 'low-confidence';
     const since = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom).filter(h => 'action' in h.decision);
     const last = (n: number) => since.length >= n ? since.slice(-n) : undefined;
     if (last(this.limits.failureLimit)?.every(h => h.execution?.ok === false)) return 'failures';
@@ -216,6 +265,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   /** The current task (if any) starts now: its attempts count from here. */
   private startTask(input: Input): void {
     this.taskFrom = input.history.length;
+    this.lowConfidence = 0;
     const task = this.doc && currentTask(this.doc);
     if (task && task.actions === 0) this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: 'pending', toStatus: 'active', actions: 0 });
   }
