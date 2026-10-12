@@ -19,7 +19,7 @@ const flag = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args
 const project = resolve(args[0] && !args[0].startsWith('--') ? args[0] : '.');
 const spec = JSON.parse(readFileSync(join(project, 'experiment.json'), 'utf8'));
 const pick = (list, value) => value ? list.filter(item => value.split(',').includes(item.id ?? item)) : list;
-const tasks = pick(spec.tasks, flag('tasks')), combos = pick(spec.combos, flag('combos')), repeat = Number(flag('repeat') ?? spec.repeat ?? 1);
+const tasks = pick(spec.tasks, flag('tasks')), combos = flag('combos') ? flag('combos').split(',') : spec.combos, repeat = Number(flag('repeat') ?? spec.repeat ?? 1);
 const cli = resolve(import.meta.dirname, '../packages/cli/dist/cli/bin.js');
 
 function envFrom(path) {
