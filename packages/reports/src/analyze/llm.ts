@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { createLlmModel, generateStructured, type LlmModel } from '@rawstep/policies/llm';
+import { closeLlmModel, createLlmModel, generateStructured, type LlmModel } from '@rawstep/policies/llm';
 import type { RunTrace } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { validateAnalyzerResult, type AnalyzerResult, type TraceAnalyzer } from './index.js';
@@ -13,7 +13,8 @@ const resultSchema = z.object({
   })),
 });
 
-export type LlmAnalyzerOptions = { baseURL: string; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
+/** `llm` replaces `baseURL` with a ready model (an agent CLI, say); the analyzer then ends that model after each analysis. */
+export type LlmAnalyzerOptions = { baseURL?: string; llm?: LlmModel; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
 /** All saved events remain; binary PNG payloads are explicitly omitted, never captioned. */
 export function analysisTracePayload(trace: Readonly<RunTrace>): string {
   if (!trace.endedAt || !trace.outcome || trace.privacy.inputValues !== 'redacted') throw new Error('LLM analysis requires a finalized, input-redacted trace.');
@@ -29,7 +30,8 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
     if (options.instructions !== undefined && (typeof options.instructions !== 'string' || Buffer.byteLength(options.instructions) > 16384)) throw new Error('Invalid analysis instructions.');
     const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs; this.maxInput = options.maxInputBytes ?? 1_000_000;
     if (![timeoutMs, this.maxInput].every(v => Number.isSafeInteger(v) && v > 0 && v <= 2_147_483_647)) throw new Error('Invalid analysis limits.');
-    try { this.llm = createLlmModel({ baseURL: options.baseURL, modelId: options.model, apiKey: options.apiKey, timeoutMs, name: 'rawstep-analysis', fetch: options.fetch }); }
+    if (options.llm) { this.llm = options.llm; return; }
+    try { this.llm = createLlmModel({ baseURL: options.baseURL ?? '', modelId: options.model, apiKey: options.apiKey, timeoutMs, name: 'rawstep-analysis', fetch: options.fetch }); }
     catch { throw new Error('Analysis requires HTTPS or loopback HTTP without URL credentials/query/fragment.'); }
   }
   async analyze(trace: Readonly<RunTrace>): Promise<AnalyzerResult> {
@@ -46,6 +48,6 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
       if (llm?.code === 'llm-cancelled') throw new RawstepError('analysis-cancelled', 'LLM analysis was cancelled.');
       if (llm?.code === 'llm-timeout') throw new RawstepError('analysis-timeout', 'LLM analysis timed out.');
       throw new RawstepError('analysis-failed', 'LLM analysis failed: connection, limits, or invalid evidence/JSON; raw provider details omitted for privacy.');
-    }
+    } finally { if (this.options.llm) await closeLlmModel(this.llm); }
   }
 }

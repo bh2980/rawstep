@@ -18,11 +18,11 @@ const envName = z.string().regex(/^[A-Z][A-Z0-9_]{0,100}$/);
 export const modelKindSchema = z.enum(['llm', 'decision']);
 /** `llm`: a language model that reads the situation and picks a candidate (any OpenAI-compatible chat API). `decision`: a model that answers with probabilities over the candidates directly (the /systemone protocol, through the AI SDK's experimental decide API). */
 export type ModelKind = z.infer<typeof modelKindSchema>;
-export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'custom']);
+export const llmProviderSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'claudeCode', 'codex', 'opencode', 'grok', 'custom']);
 export const decisionProviderSchema = z.enum(['typesafe', 'gateway', 'openrouter', 'custom']);
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 export type DecisionProvider = z.infer<typeof decisionProviderSchema>;
-export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'typesafe', 'gateway', 'custom']);
+export const providerSchema = z.enum(['openai', 'anthropic', 'google', 'openrouter', 'claudeCode', 'codex', 'opencode', 'grok', 'typesafe', 'gateway', 'custom']);
 export type ProviderId = z.infer<typeof providerSchema>;
 /** Where models of one provider live. Defined once here so the CLI, the dashboard and the runner agree. */
 export type ProviderPreset = {
@@ -36,6 +36,11 @@ export type ProviderPreset = {
   listsModels: boolean;
   /** Whether images can reach the model through this provider (keyboard mode needs them). */
   images: boolean;
+  /**
+   * A coding-agent CLI reached over ACP instead of an address: the command Rawstep starts. Fixed here, never read from the shared
+   * config, because it runs a program. The agent's own login pays for the calls, so there is no key.
+   */
+  agent?: { command: string; args: readonly string[] };
 };
 export const PROVIDERS = {
   llm: {
@@ -44,6 +49,12 @@ export const PROVIDERS = {
     anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyRequired: true, listsModels: true, images: true },
     google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyRequired: true, listsModels: true, images: true },
     openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyRequired: true, listsModels: true, images: true },
+    /** Adapters from the ACP registry, pinned: npx downloads them on first use. */
+    claudeCode: { label: 'Claude Code', keyRequired: false, listsModels: true, images: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/claude-agent-acp@0.89.1'] } },
+    codex: { label: 'Codex', keyRequired: false, listsModels: true, images: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/codex-acp@2.2.2'] } },
+    /** Built into the installed CLI. */
+    opencode: { label: 'opencode', keyRequired: false, listsModels: true, images: true, agent: { command: 'opencode', args: ['acp'] } },
+    grok: { label: 'Grok Build', keyRequired: false, listsModels: true, images: false, agent: { command: 'grok', args: ['agent', 'stdio'] } },
     custom: { label: 'Custom (OpenAI-compatible)', keyRequired: false, listsModels: true, images: true },
   },
   decision: {
@@ -204,6 +215,8 @@ export function resolveRepetitionGuard(setting: Policy['repetitionGuard'], model
   return setting === 'auto' ? mode === 'screenreader' || model.kind === 'llm' : setting === 'on';
 }
 /** Where the model is called: the preset address of its provider, or the address a custom connection carries. */
+/** The agent CLI a connection starts, when it is one; such a connection has no address or key. */
+export const agentOf = (model: Pick<Connection, 'kind' | 'provider'>): ProviderPreset['agent'] => providerPreset(model).agent;
 export const resolveBaseURL = (model: Pick<Connection, 'kind' | 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
 /** The environment variable that holds the connection's key, if it has one. */
 export const modelKeyEnv = (model: Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;

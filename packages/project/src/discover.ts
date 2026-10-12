@@ -1,5 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
+import { AcpAgent } from '@rawstep/policies/acp';
 import { providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
 import { ProjectError } from './errors.js';
 
@@ -21,6 +22,8 @@ export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoi
  * The models a connection offers, for a run profile to pick from.
  * - LLM providers: the OpenAI-style `GET {base}/models` list. Only OpenRouter says which models take images; for the
  *   others the inputs are unknown (`inputsKnown: false`) and the provider's default is assumed for a person to correct.
+ * - Agent CLIs (Claude Code, Codex, ...): the agent is started, asked for its model list, and closed again. `default` leaves
+ *   the choice to the agent's own setting. Whether images are taken comes from the agent itself.
  * - Decision providers: OpenRouter's `models?output_modalities=decisions` (with input modalities); TypeSafe's `/models`
  *   when it has one; the Vercel AI Gateway's decision and evaluation models; custom servers are typed by hand (empty list).
  * A failure means the list is unavailable: registering the model ID by hand always works.
@@ -31,6 +34,17 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
   if (provider === 'custom' && !target.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
   const timeoutMs = options.timeoutMs ?? Math.min(RAWSTEP_DEFAULTS.modelTimeoutMs, 30000);
   if (kind === 'decision' && provider === 'custom') return [];
+  if (preset.agent) {
+    const agent = new AcpAgent(preset.agent);
+    try {
+      // Starting may download the adapter first, so it gets the agent start limit rather than the list limit.
+      const info = await agent.start();
+      const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
+      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true },
+        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true }))];
+    } catch { throw new ProjectError('model-unreachable', `Cannot start ${preset.label}. Check that it is installed and logged in.`, 502); }
+    finally { await agent.close(); }
+  }
   if (kind === 'decision' && provider === 'gateway') {
     if (!apiKey) throw new ProjectError('missing-credential', 'Listing Vercel AI Gateway models needs its key. Enter the key first.');
     let models: { id: string; name: string }[];

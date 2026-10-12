@@ -6,11 +6,12 @@ import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } f
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileAnalysisModel, resolveBaseURL, taskProfile, type Mode, type Model, type ProjectConfig } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, agentOf, findByIdOrName, modelKeyEnv, modelKeyRequired, profileAnalysisModel, resolveBaseURL, taskProfile, type Mode, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
 import { ProjectStore, atomicJson } from './store.js';
 import { assertRunnable, checkRun, defaultPrompt } from './plan.js';
 import { executeRun, type RunExecutor, type RunSpec } from './execution.js';
+import { languageModelOf } from './llm.js';
 
 export type FinalizeOptions = {
   /** A run directory to compare the hints with (the fastest goal-reaching run of the task). */
@@ -138,7 +139,7 @@ export async function requireKey(store: ProjectStore, model: Model): Promise<str
 }
 /** The trace analyzer of an LLM model. */
 export function llmAnalyzer(model: Model, apiKey: string | undefined, instructions?: string, signal?: AbortSignal): LlmTraceAnalyzer {
-  return new LlmTraceAnalyzer({ baseURL: resolveBaseURL(model), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
+  return new LlmTraceAnalyzer({ ...(agentOf(model) ? { llm: languageModelOf(model, { name: 'rawstep-analysis' }) } : { baseURL: resolveBaseURL(model) }), model: model.modelId, apiKey, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
 }
 
 /** The analysis LLM of a run profile (by id or name; by default the first profile that has one) as a trace analyzer. */

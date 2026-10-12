@@ -47,11 +47,17 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `llm` | `anthropic` | `https://api.anthropic.com/v1` (Anthropic의 OpenAI 호환 주소) | `RAWSTEP_ANTHROPIC_API_KEY` |
 | `llm` | `google` | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` |
 | `llm` | `openrouter` | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` |
+| `llm` | `claudeCode` | 실행: `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | 없음 (CLI 로그인) |
+| `llm` | `codex` | 실행: `npx -y @agentclientprotocol/codex-acp@2.2.2` | 없음 (CLI 로그인) |
+| `llm` | `opencode` | 실행: `opencode acp` | 없음 (CLI 로그인) |
+| `llm` | `grok` | 실행: `grok agent stdio`, 이미지 없음 | 없음 (CLI 로그인) |
 | `llm` | `custom` | OpenAI 호환 서버(LM Studio, Ollama 등), `baseURL` | 선택, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
 | `decision` | `gateway` | Vercel AI Gateway(AI SDK의 gateway provider 사용), 텍스트 전용 | `RAWSTEP_AI_GATEWAY_API_KEY` |
 | `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (`llm`과 같은 키) |
 | `decision` | `custom` | `/systemone` 호환 서버, `baseURL` | 선택, `apiKeyEnv` |
+
+**코딩 에이전트 CLI**(`claudeCode`, `codex`, `opencode`, `grok`)는 주소 대신 ACP(Agent Client Protocol, stdio 위의 JSON-RPC)로 말을 거는 CLI 연결입니다. CLI가 설치되어 로그인되어 있어야 하며, 호출 비용은 CLI 자체의 구독으로 나가므로 API 키도 `baseURL`도 없습니다. 실행 명령은 `PROVIDERS`에 고정되어 있고 공유 설정에서 읽지 않습니다. `npx` 어댑터 둘은 버전을 고정해 처음 쓸 때 내려받으므로 첫 호출이 느립니다. `modelId: "default"`는 에이전트가 정한 모델을 그대로 쓰며, 모델 목록(대시보드 확인과 모델 선택)은 에이전트를 띄워 `default`를 맨 앞에 보여 줍니다. Grok은 이미지를 받지 않아 스크린리더 모드와 분석에만 맞습니다. 판단마다 새 에이전트 세션을 빈 임시 폴더에서 열고, 파일·터미널 접근과 권한 요청은 거절하며, 호출이 끝나면 세션을 지웁니다. 에이전트는 자체 시스템 프롬프트가 커서 호출마다 토큰을 더 쓰고 직접 API보다 느립니다(판단 한 번에 약 4~13초 측정).
 
 같은 기본 제공자의 연결은 키 하나를 함께 씁니다. `llm`은 AI SDK로 제공자의 채팅 API를 호출하고, `decision`은 AI SDK의 실험적 `decide` API를 호출합니다. `typesafe`·`openrouter`·`custom`은 자체 `/systemone` 어댑터, `gateway`는 AI SDK의 gateway provider를 씁니다([SystemOne 결정 모델](./systemone.md)).
 

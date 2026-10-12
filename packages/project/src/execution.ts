@@ -36,40 +36,48 @@ export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<Ru
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
 export const executeRun: RunExecutor = async ({ task, model, prompt, mode, settings: globals, environment, permissions, diagnoseStop }, { outDir, apiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
-  const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
-  const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
-  const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
-  const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
-  const speechGuard = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions };
-  let policy: DecisionPolicy;
-  let screenshotModel: ScreenshotModelAdapter | undefined;
-  if (model.kind === 'llm') {
-    const client = new LlmChoiceClient(model, prompt, apiKey);
-    screenshotModel = new LlmScreenshotAdapter(client);
-    policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(client, limits.historyLimit, speechGuard);
-  } else {
-    const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
-      capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
-    await client.prepare({ signal: setupSignal });
-    if (mode === 'keyboard') {
-      screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
-      policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
+  // An agent CLI behind an llm connection starts before the task's clock (an adapter download is not the task) and ends with the run.
+  const llmClient = model.kind === 'llm' ? new LlmChoiceClient(model, prompt, apiKey) : undefined;
+  try {
+    await llmClient?.prepare(signal);
+    return await runWithModel(llmClient);
+  } finally { await llmClient?.close(); }
+
+  async function runWithModel(llmClient: LlmChoiceClient | undefined) {
+    const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
+    const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
+    const { repetitionGuard: guardSetting, modelGiveUp, ...limits } = globals.policy;
+    const early = { repetitionGuard: resolveRepetitionGuard(guardSetting, model, mode), modelGiveUp };
+    const speechGuard = { modelGiveUp, repetitionGuard: early.repetitionGuard, maxUnchangedTransitions: limits.maxUnchangedTransitions };
+    let policy: DecisionPolicy;
+    let screenshotModel: ScreenshotModelAdapter | undefined;
+    if (llmClient) {
+      screenshotModel = new LlmScreenshotAdapter(llmClient);
+      policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : new LlmSpeechPolicy(llmClient, limits.historyLimit, speechGuard);
     } else {
-      policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, speechGuard);
+      const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
+        capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages } });
+      await client.prepare({ signal: setupSignal });
+      if (mode === 'keyboard') {
+        screenshotModel = new SystemOneScreenshotAdapter(client, prompt);
+        policy = new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: limits.focusGate ? {} : undefined, model: screenshotModel });
+      } else {
+        policy = new SystemOneSpeechPolicy(client, limits.historyLimit, prompt, speechGuard);
+      }
     }
+    const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
+      headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
+      browserExecutablePath: globals.browserExecutablePath || undefined,
+      ...(globals.browserEndpoint.trim() ? { browserEndpoint: globals.browserEndpoint.trim() } : {}),
+      ...(globals.personCheck && globals.browserEndpoint.trim() ? { personCheck: {} } : globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
+    setupSignal.throwIfAborted();
+    if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
+    const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
+    if (mode === 'keyboard') return await runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) });
+    // Screen reader runs keep a screenshot per step for people reading the run; the model never sees it.
+    if (globals.backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
+    const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
+    try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
+    finally { await driver.stop(); }
   }
-  const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}),
-    headless: mode === 'screenreader' && globals.backend !== 'simulation' ? false : globals.headless,
-    browserExecutablePath: globals.browserExecutablePath || undefined,
-    ...(globals.browserEndpoint.trim() ? { browserEndpoint: globals.browserEndpoint.trim() } : {}),
-    ...(globals.personCheck && globals.browserEndpoint.trim() ? { personCheck: {} } : globals.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
-  setupSignal.throwIfAborted();
-  if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
-  const resolvedTask = { ...task, mode, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
-  if (mode === 'keyboard') return runScreenshotTask(resolvedTask, { ...common, ...(diagnoseStop ? { stopReasonModel: screenshotModel, stopReasonTimeoutMs: Math.min(30000, model.timeoutMs) } : {}) });
-  // Screen reader runs keep a screenshot per step for people reading the run; the model never sees it.
-  if (globals.backend === 'simulation') return runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
-  const url = atEndpointOf(globals), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
-  try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: globals.backend, url }) }); }
-  finally { await driver.stop(); }
 };

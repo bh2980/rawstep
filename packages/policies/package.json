@@ -49,6 +49,11 @@
       "types": "./dist/llm/index.d.ts",
       "import": "./dist/llm/index.js",
       "default": "./dist/llm/index.js"
+    },
+    "./acp": {
+      "types": "./dist/acp/index.d.ts",
+      "import": "./dist/acp/index.js",
+      "default": "./dist/acp/index.js"
     }
   },
   "engines": {

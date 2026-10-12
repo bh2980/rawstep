@@ -9,6 +9,9 @@ import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
 type CheckedModel = Pick<Model, 'kind' | 'provider' | 'modelId' | 'baseURL' | 'inputs' | 'maxChoices' | 'maxImages'>;
 type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
 
+/** Starting an agent CLI takes seconds, and a first npx download longer. */
+const AGENT_TIMEOUT_MS = 120_000;
+
 const KINDS: Record<string, CheckKind> = {
   'model-unreachable': 'unreachable', 'model-http': 'rejected', 'invalid-base-url': 'invalid-address',
   'model-list-missing': 'unverified', 'missing-credential': 'missing-key',
@@ -26,7 +29,7 @@ const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: k
 export async function checkModel(model: CheckedModel, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(model), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutMs = options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000);
   if (model.kind === 'decision' && model.provider === 'custom') return checkDecisionServer(model, key, timeoutMs, options.fetch);
   const via = model.kind === 'decision' ? 'decision-catalog' : 'model-list';
   try {
@@ -42,9 +45,9 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
 export async function checkConnection(connection: Pick<Connection, 'kind' | 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const via = connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
   try {
-    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? 15000, ...(options.fetch ? { fetch: options.fetch } : {}) });
+    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000), ...(options.fetch ? { fetch: options.fetch } : {}) });
     return result('ready', via);
   } catch (error) {
     return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
