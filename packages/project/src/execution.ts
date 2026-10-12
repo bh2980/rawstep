@@ -76,7 +76,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
     const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechPolicy = (choice: ChoiceModel): DecisionPolicy => planner
       ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
-        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor })
+        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey })
       : new SpeechDecisionPolicy(choice, speechOptions);
     let policy: DecisionPolicy;
     let screenshotModel: ScreenshotModelAdapter | undefined;

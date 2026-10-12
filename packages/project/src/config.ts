@@ -152,6 +152,11 @@ export const runRulesSchema = z.object({
    * uniform guess among the choices (0) towards certainty (1); two in a row ask for a new plan.
    */
   confidenceFloor: z.number().min(0).max(1).default(0.25),
+  /**
+   * With a planner: what the simulated user does before the first plan. `headings` lists the page's headings (a VoiceOver user's
+   * rotor) as the first action, counted as a step; the action set must allow the `headings.list` intent.
+   */
+  survey: z.enum(['none', 'headings']).default('none'),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**
@@ -169,6 +174,7 @@ export const runRulesOverrideSchema = z.object({
   noChangeLimit: z.number().int().min(1).max(100).optional(),
   taskControl: z.enum(['rawstep', 'executor']).optional(),
   confidenceFloor: z.number().min(0).max(1).optional(),
+  survey: z.enum(['none', 'headings']).optional(),
 }).strict();
 export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
 /** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */

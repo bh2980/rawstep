@@ -1,0 +1,16 @@
+{
+  "id": "notify-orders-ctx",
+  "url": "pages/notification-settings.html",
+  "goal": "In account settings, turn on email notifications for order updates and save the change.",
+  "verify": {
+    "all": [
+      {
+        "textVisible": "Order updates are on"
+      }
+    ]
+  },
+  "mode": "screenreader",
+  "maxSteps": 40,
+  "timeoutMs": 600000,
+  "context": "PhoneShop, an online store. This is the account settings page of a signed-in customer."
+}

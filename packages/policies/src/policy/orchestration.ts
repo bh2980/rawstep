@@ -10,6 +10,8 @@ import { currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOpti
 export type TaskAttempt = ModelHistoryEntry & { taskId: string; planVersion: number };
 export type PlanRequest = {
   goal: string;
+  /** What the user knows about the site and page before starting (the task's context), when given. */
+  context?: string;
   trigger: PlanTrigger;
   /** Why the executor asked for help, when it did. */
   help?: HelpReason;
@@ -57,6 +59,11 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
   confidenceFloor?: number;
   /** How many low-confidence choices in a row on one task ask for a new plan (default 2). */
   lowConfidenceSteps?: number;
+  /**
+   * What the simulated user does before the first plan. `headings`: list the page's headings (a VoiceOver user's rotor, VO+U) with
+   * the `headings.list` intent; it is an action like any other and counts as a step. The planner then plans from what that list said.
+   */
+  survey?: 'none' | 'headings';
 };
 const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2 };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
@@ -119,6 +126,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private readonly confidenceFloor: number;
   /** Executor choices in a row on the current task whose top probability was below the floor. */
   private lowConfidence = 0;
+  private surveyed = false;
   constructor(readonly planner: Planner, readonly executor: ChoiceModel, private readonly options: OrchestrationOptions = {}) {
     if (!executor.inputs.includes('text')) throw new Error('The executor needs a model that takes text.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
@@ -139,6 +147,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const guarded = speechGuardStop(this.options, { ...input, history: input.history.slice(this.planFrom) });
     if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
     const step = (input.history.at(-1)?.step ?? 0) + 1;
+    // A survey before the first plan is the user's own move, so it is taken as an action and the plan is written on what it said.
+    if (!this.doc && this.options.survey === 'headings' && !this.surveyed && input.allowedActions.intents.includes('headings.list')) {
+      this.surveyed = true;
+      this.evidence.push({ kind: 'orchestration-survey', survey: 'headings', step });
+      return { action: { kind: 'intent', intent: 'headings.list' } };
+    }
     if (!this.doc) await this.replan(input, step, 'start');
     else {
       const trigger = this.trigger(input);
@@ -166,7 +180,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
       // Under Rawstep's task control a task the plan marks as only moving offers no activation (plan doc §12: this removed the
       // executor's mistaken presses without costing the presses a pressing task needs).
-      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision)
+      // The headings survey is the user's move before the first plan, not an executor choice.
+      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision && !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'))
         .filter(c => !(this.control === 'rawstep' && task.activates === false && 'action' in c.decision && c.decision.action.kind === 'intent' && c.decision.action.intent === 'activate'));
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
       const tried = taskAttempts.filter(h => 'action' in h.decision).length;
@@ -251,7 +266,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
-    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
+    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');

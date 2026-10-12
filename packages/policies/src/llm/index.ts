@@ -170,6 +170,8 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'Write "done" as what is heard, never as what the executor did ("I found it" cannot be checked).',
   'Set "activates" to false for a task that only moves the cursor and true for a task that ends by activating the current item (pressing a',
   'button, opening a disclosure, checking a box): a moving task offers the executor no activation. Keep moving and pressing in separate tasks.',
+  '"context", when present, is what the user knows about the site and page before starting (the kind of site and page); use it for common',
+  'conventions of such pages, still as assumptions. When "speech" lists the page\'s headings, the user surveyed them first: plan from that list.',
   'The run starts on the page where the task begins; when the goal says which page that is (for example "on the product page"), plan from that page',
   'instead of navigating to it. "title" is the page title the screen reader announced when the page loaded; many sites use one title for every page.',
   'Base everything on what has been heard so far; treat conventions as assumptions, never as facts about this page.',

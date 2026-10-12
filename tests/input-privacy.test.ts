@@ -47,11 +47,11 @@ describe('resolveTask inputOptions', () => {
   });
   describe('goal check', () => {
     it('rejects a goal containing a sensitive value of 4 or more characters', () => {
-      expect(() => resolveTask({ ...base, goal: 'Type hunter2-secret into the password field', input: { password: 'hunter2-secret' } })).toThrow(/goal contains the value of input password/);
+      expect(() => resolveTask({ ...base, goal: 'Type hunter2-secret into the password field', input: { password: 'hunter2-secret' } })).toThrow(/goal or context contains the value of input password/);
     });
     it('treats inputs as sensitive by default, with an empty options object, and with sensitive: true', () => {
       for (const inputOptions of [undefined, {}, { code: {} }, { code: { sensitive: true } }]) {
-        expect(() => resolveTask({ ...base, goal: 'Enter 1234 now', input: { code: '1234' }, ...(inputOptions ? { inputOptions } : {}) })).toThrow(/goal contains the value/);
+        expect(() => resolveTask({ ...base, goal: 'Enter 1234 now', input: { code: '1234' }, ...(inputOptions ? { inputOptions } : {}) })).toThrow(/goal or context contains the value/);
       }
     });
     it('applies the check at the exact 4 character boundary and is case-sensitive', () => {

@@ -13,9 +13,10 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
+  'headings.list reads every heading with its level in one announcement, like opening the VoiceOver rotor on headings (VO+U) and listening through it; the cursor does not move.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
 const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
 /** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
 const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
@@ -135,7 +136,7 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
@@ -238,7 +239,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
-    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
+    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','headings.list':'rotor_headings'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
       await this.refresh(signal);
@@ -253,7 +254,8 @@ export class MockVoiceOverBackend implements Backend {
           this.cursor = this.nodes[index]!.identity;
           this.announce(this.current());
         } else this.announce(undefined, move.none);
-      } else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
+      } else if (action.kind === 'intent' && action.intent === 'headings.list') this.announceText(headingsList(this.nodes), 'headings-list');
+      else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
       else if (action.kind === 'intent' && action.intent === 'readFocused') {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
       } else {
@@ -403,4 +405,10 @@ function hasUnmodeledContext(node: AXNode, byId: Map<string, AXNode>): boolean {
   const visited=new Set<string>();let parent=node.parentId ? byId.get(node.parentId) : undefined;
   while(parent&&!visited.has(parent.nodeId)){visited.add(parent.nodeId);if(['group','radiogroup','list','listitem','main','navigation','banner','contentinfo','complementary','form','dialog','alertdialog','table','grid'].includes(stringValue(parent.role)))return true;parent=parent.parentId?byId.get(parent.parentId):undefined;}
   return false;
+}
+/** The rotor's headings list as one announcement: each heading with its level, in page order. */
+function headingsList(nodes: readonly CursorNode[]): string {
+  const headings = nodes.filter(node => node.semantic.role === 'heading');
+  if (!headings.length) return 'Headings, no items';
+  return `Headings, ${headings.length} items: ` + headings.map(node => `${node.semantic.name}, level ${node.semantic.level ?? '?'}`).join('; ');
 }

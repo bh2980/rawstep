@@ -4,7 +4,7 @@
 // The experiment is described by <project>/experiment.json (tasks with their shortest paths, combos, repeats); see
 // examples/orchestration. Results go to <project>/.rawstep/experiments-cli/<timestamp>/ (summary.md, summary.json, one folder per run).
 //
-// Usage: node scripts/orchestration-experiment.mjs <project-dir> [--repeat <n>] [--tasks a,b] [--combos x,y] [--env-file <path>]
+// Usage: node scripts/orchestration-experiment.mjs <project-dir> [--spec <file>] [--into <dir>] [--repeat <n>] [--tasks a,b] [--combos x,y] [--env-file <path>]
 //          [--summarize <dir>] [--retry-errors <dir>]
 // --env-file reads KEY=value lines (e.g. a .env.local elsewhere) into the runs' environment without copying the file.
 // --summarize only tabulates an existing results folder; --retry-errors reruns only its runs that ended in an error, then tabulates.
@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path';
 const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
 const project = resolve(args[0] && !args[0].startsWith('--') ? args[0] : '.');
-const spec = JSON.parse(readFileSync(join(project, 'experiment.json'), 'utf8'));
+const spec = JSON.parse(readFileSync(join(project, flag('spec') ?? 'experiment.json'), 'utf8'));
 const pick = (list, value) => value ? list.filter(item => value.split(',').includes(item.id ?? item)) : list;
 const tasks = pick(spec.tasks, flag('tasks')), combos = flag('combos') ? flag('combos').split(',') : spec.combos, repeat = Number(flag('repeat') ?? spec.repeat ?? 1);
 const cli = resolve(import.meta.dirname, '../packages/cli/dist/cli/bin.js');
@@ -28,8 +28,10 @@ function envFrom(path) {
     .map(([, key, value]) => { try { return [key, value.startsWith('"') ? JSON.parse(value) : value]; } catch { return [key, value]; } }).filter(([, value]) => value));
 }
 
+/** A condition is a model combo id, or `preset:<id>` for a preset (combo, action set and run rules together). */
+const conditionArgs = condition => condition.startsWith('preset:') ? ['--preset', condition.slice(7)] : ['--combo', condition];
 const runOnce = (task, combo, out, env, times = repeat) => new Promise(done => {
-  const child = spawn(process.execPath, [cli, 'run', task.id, '--combo', combo, '--mode', 'screenreader', '--repeat', String(times), '--out', out, '--project', project],
+  const child = spawn(process.execPath, [cli, 'run', task.id, ...conditionArgs(combo), '--mode', 'screenreader', '--repeat', String(times), '--out', out, '--project', project],
     { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   child.stdout.on('data', d => { log += d; }); child.stderr.on('data', d => { log += d; });
@@ -64,7 +66,7 @@ function measure(dir) {
 function summarize(root) {
   const rows = [];
   for (const task of tasks) for (const combo of combos) {
-    const base = join(root, task.id, combo);
+    const base = join(root, task.id, combo.replace(":", "-"));
     if (!existsSync(base)) continue;
     for (const run of readdirSync(base).filter(name => /^run-\d+$/.test(name)).sort()) {
       try { rows.push({ task: task.id, combo, run, minimal: task.minimal, ...measure(join(base, run)) }); }
@@ -96,7 +98,7 @@ function summarize(root) {
 /** Reruns, once each, the runs of a results folder that ended in an error, putting each new run in the old one's place. */
 async function retryErrors(root, env) {
   for (const task of tasks) for (const combo of combos) {
-    const base = join(root, task.id, combo);
+    const base = join(root, task.id, combo.replace(":", "-"));
     if (!existsSync(base)) continue;
     for (const run of readdirSync(base).filter(name => /^run-\d+$/.test(name)).sort()) {
       let errored = false;
@@ -120,12 +122,15 @@ const existing = flag('summarize'), retry = flag('retry-errors');
 if (existing) summarize(resolve(existing));
 else if (retry) { await retryErrors(resolve(retry), envFrom(flag('env-file'))); summarize(resolve(retry)); }
 else {
-  const root = join(project, '.rawstep', 'experiments-cli', new Date().toISOString().replace(/[:.]/g, '-'));
+  // --into continues an earlier results folder: conditions that already have runs there are skipped.
+  const root = flag('into') ? resolve(flag('into')) : join(project, '.rawstep', 'experiments-cli', new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(root, { recursive: true });
   const env = envFrom(flag('env-file'));
   // One run at a time: browsers and models are not shared, and the machine's memory is limited.
   for (const task of tasks) for (const combo of combos) {
-    const out = join(root, task.id, combo);
+    const out = join(root, task.id, combo.replace(":", "-"));
+    if (existsSync(out) && readdirSync(out).some(name => /^run-\d+$/.test(name))) { console.log(`${task.id} × ${combo}: already run, skipped`); continue; }
+    rmSync(out, { recursive: true, force: true });
     mkdirSync(out, { recursive: true });
     process.stdout.write(`${task.id} × ${combo} × ${repeat}… `);
     const code = await runOnce(task, combo, out, env);

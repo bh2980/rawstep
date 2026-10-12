@@ -55,6 +55,14 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.backend.observe()).speech[0]).toBe('Cart');
   });
 
+  it('lists every heading with its level in one announcement without moving the cursor', async () => {
+    const f = await fixture('<h1>Shop</h1><p>Intro</p><h2>Products</h2><button>Buy</button><h3>Reviews</h3>');
+    expect(await f.intent('headings.list')).toEqual(['Headings, 3 items: Shop, level 1; Products, level 2; Reviews, level 3']);
+    expect(await f.intent('readCurrent')).toEqual(['Shop, heading, level 1']);
+    const none = await fixture('<p>Plain page</p>');
+    expect(await none.intent('headings.list')).toEqual(['Headings, no items']);
+  });
+
   it('uses actual AX names/roles, traverses exposed descendants and static/offscreen content without duplicate control text', async () => {
     const f = await fixture(`<div role="none"><h2>Welcome</h2><p>Read this introduction</p></div>
       <button><span>Continue</span></button><button style="opacity:0">Transparent</button>

@@ -37,6 +37,11 @@ describe('retained task, action and configuration contracts', () => {
   it.each(['javascript:alert(1)','data:text/html,hello','ftp://example.test','ws://example.test'])('rejects unsafe task URL %s', url => {
     expect(() => resolveTask({...task,url})).toThrow(/URL/);
   });
+  it('keeps what the user knows before starting as context, short and free of secret input values', () => {
+    expect(resolveTask({ ...task, context: 'PhoneShop, an online store; a product page' }).context).toBe('PhoneShop, an online store; a product page');
+    expect(() => resolveTask({ ...task, context: 'x'.repeat(1001) })).toThrow(/context/);
+    expect(() => resolveTask({ ...task, input: { pin: '4821' }, context: 'Use 4821 to log in' })).toThrow(/context/);
+  });
   it('resolves relative fixture URLs against their task directory', () => {
     expect(resolveTask({...task,url:'../../fixtures/simple-cta.html'},resolve('examples/tasks')).url).toBe(pathToFileURL(resolve('fixtures/simple-cta.html')).href);
   });

@@ -40,6 +40,30 @@
       "comboId": "jev-solo",
       "actionSetId": "nav",
       "atEnvironmentId": "simulation"
+    },
+    {
+      "id": "shop-cart-ctx",
+      "name": "shop-cart-ctx",
+      "file": "tasks/shop-cart-ctx.json",
+      "comboId": "jev-solo",
+      "actionSetId": "nav",
+      "atEnvironmentId": "simulation"
+    },
+    {
+      "id": "help-returns-ctx",
+      "name": "help-returns-ctx",
+      "file": "tasks/help-returns-ctx.json",
+      "comboId": "jev-solo",
+      "actionSetId": "nav",
+      "atEnvironmentId": "simulation"
+    },
+    {
+      "id": "notify-orders-ctx",
+      "name": "notify-orders-ctx",
+      "file": "tasks/notify-orders-ctx.json",
+      "comboId": "jev-solo",
+      "actionSetId": "nav",
+      "atEnvironmentId": "simulation"
     }
   ],
   "combos": [
@@ -206,6 +230,34 @@
         "typeText": false,
         "replaceText": false
       }
+    },
+    {
+      "id": "nav-survey",
+      "name": "이동 + 제목 이동 + 제목 목록",
+      "keyboard": {
+        "keys": [
+          "Tab",
+          "Shift+Tab",
+          "Enter",
+          "Space"
+        ],
+        "intents": [],
+        "typeText": false,
+        "replaceText": false
+      },
+      "screenreader": {
+        "keys": [],
+        "intents": [
+          "next",
+          "previous",
+          "activate",
+          "heading.next",
+          "heading.previous",
+          "headings.list"
+        ],
+        "typeText": false,
+        "replaceText": false
+      }
     }
   ],
   "pageEnvironments": [
@@ -222,7 +274,17 @@
       "backend": "simulation"
     }
   ],
-  "presets": [],
+  "presets": [
+    {
+      "id": "guided-survey",
+      "name": "Codex 계획(작성 지침) + 제목 훑기",
+      "comboId": "codex-plan-guided",
+      "actionSetId": "nav-survey",
+      "runRules": {
+        "survey": "headings"
+      }
+    }
+  ],
   "runRules": {
     "repetitionGuard": "auto",
     "maxStateVisits": 5,

@@ -207,6 +207,18 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'next', 'Phones, link')] }));
     expect(e.requests[1]!.choices.map(c => c.id)).toContain('intent:activate');
   });
+  it('surveys the headings as the first action before planning, plans from what it said, and never offers the survey to the executor', async () => {
+    const p = planner(draft({ Buy: ['Find the button'] })), e = scored(['intent:next', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { survey: 'headings' });
+    const allowed = { intents: ['next', 'activate', 'headings.list'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed }))).toEqual({ action: { kind: 'intent', intent: 'headings.list' } });
+    expect(p.requests).toHaveLength(0);
+    expect(evidence(policy).find(k => k.kind === 'orchestration-survey')).toMatchObject({ survey: 'headings', step: 1 });
+    const listed = 'Headings, 2 items: Shop, level 1; Add to cart, level 2';
+    await policy.decide(input({ allowedActions: allowed, context: 'PhoneShop, an online store; a product page', observation: said(listed), history: [{ step: 1, decision: { action: { kind: 'intent', intent: 'headings.list' } }, observation: said('Shop'), execution: { ok: true } }] }));
+    expect(p.requests[0]).toMatchObject({ trigger: 'start', speech: [listed], context: 'PhoneShop, an online store; a product page' });
+    expect(e.requests[0]!.choices.map(c => c.id)).not.toContain('intent:headings.list');
+  });
   it('offers the executor actions only: no "done" claim and no help request', async () => {
     const p = planner(draft({ Find: ['Find the button'] })), e = scored(['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
