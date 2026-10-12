@@ -80,7 +80,7 @@ export function MachinePage(props: PageProps) {
       <h3 id="machine-env" className="border-b border-edge-strong pb-1.5 text-sm font-semibold">{t('machine.env.title')}</h3>
       <dl className="grid">
         <EnvRow label={t('machine.env.browser')} status={browser} action={<Button variant="outline" size="sm" disabled={browser.kind === 'running' || props.busy} onClick={() => void checkBrowser()}>{t('machine.env.check')}</Button>}>
-          {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t('machine.env.browserHint')}</p>}
+          {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
         </EnvRow>
         <EnvRow label={t('machine.env.driver')} status={native ? driver : { kind: 'ready', text: t('machine.backends.simulation'), note: t('machine.env.driverSimulationNote') }}
           action={native ? <Button variant="outline" size="sm" disabled={driver.kind === 'running' || props.busy} onClick={() => void checkDriver()}>{t('machine.env.check')}</Button> : undefined}>
