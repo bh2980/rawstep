@@ -14,12 +14,14 @@
         {
           "goal": "Move to the 'Add to cart' button",
           "done": "Hear 'Add to cart, button'",
-          "cue": "Add to cart, button"
+          "cue": "Add to cart, button",
+          "activates": false
         },
         {
           "goal": "Press the 'Add to cart' button",
           "done": "Hear that the product was added",
-          "cue": "Product added to cart"
+          "cue": "Product added to cart",
+          "activates": true
         }
       ]
     }

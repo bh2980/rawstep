@@ -14,17 +14,20 @@
         {
           "goal": "Move by headings to the 'Product description' heading",
           "done": "Hear 'Product description, heading'",
-          "cue": "Product description, heading"
+          "cue": "Product description, heading",
+          "activates": false
         },
         {
           "goal": "Move to the next item until you hear 'Add to cart, button'",
           "done": "Hear 'Add to cart, button'",
-          "cue": "Add to cart, button"
+          "cue": "Add to cart, button",
+          "activates": false
         },
         {
           "goal": "Press the 'Add to cart' button",
           "done": "Hear that the product was added",
-          "cue": "Product added to cart"
+          "cue": "Product added to cart",
+          "activates": true
         }
       ]
     }

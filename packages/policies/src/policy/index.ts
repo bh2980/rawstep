@@ -23,7 +23,7 @@ export async function loadPolicy(modulePath: string, options: { fresh?: boolean 
 export type { ChoiceCandidate, ChoiceModel, ChoiceRequest, ChoiceResult } from './choice.js';
 export { actionOnly, modelHistory } from './history.js';
 export type { ModelHistoryEntry } from './history.js';
-export { SpeechDecisionPolicy, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
+export { SpeechDecisionPolicy, currentItem, currentItemState, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
 export type { SpeechGuard, SpeechPolicyOptions } from './speech.js';
 export { ACTION_ONLY_EXECUTOR_GUIDE, ORCHESTRATED_EXECUTOR_GUIDE, OrchestratedSpeechPolicy, confidenceOf, orchestratedPrompt } from './orchestration.js';
 export { FixedPlanner, planDraftSchema, planFileSchema } from './fixed-plan.js';

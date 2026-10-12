@@ -31,6 +31,11 @@ export type PlanTask = {
   /** The exact words the screen reader should say when the task is done; empty when they cannot be predicted. Rawstep checks a
    * "done" claim against them. */
   cue: string;
+  /**
+   * Whether the task ends by activating something (pressing a button, opening a disclosure, checking a box). A task that only
+   * moves offers the executor no activation: a decision model otherwise presses items whose words resemble the goal. Unset: both.
+   */
+  activates?: boolean;
   /** "Done" claims Rawstep turned down because the cue was not heard. */
   rejected: number;
   /** Criteria this task works toward and assumptions it relies on. */
@@ -83,7 +88,7 @@ export type PlanDraft = {
   complete: boolean; rationale: string; strategy: string;
   criteria: { id: string; text: string; status?: CriterionStatus }[];
   assumptions: { id: string; text: string; status?: AssumptionStatus }[];
-  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string; serves?: string[]; relies?: string[] }[] }[];
+  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string; activates?: boolean; serves?: string[]; relies?: string[] }[] }[];
 };
 
 const open = (t: PlanTask) => t.status === 'pending' || t.status === 'active';
@@ -115,7 +120,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', ...(task.activates !== undefined ? { activates: task.activates } : {}), serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {

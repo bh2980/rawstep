@@ -14,17 +14,20 @@
         {
           "goal": "Move by headings to the 'Notifications' heading",
           "done": "Hear 'Notifications, heading'",
-          "cue": "Notifications, heading"
+          "cue": "Notifications, heading",
+          "activates": false
         },
         {
           "goal": "Move to the next item until you hear 'Order updates, unchecked, checkbox'",
           "done": "Hear 'Order updates, unchecked, checkbox'",
-          "cue": "Order updates, unchecked"
+          "cue": "Order updates, unchecked",
+          "activates": false
         },
         {
           "goal": "Press to check the 'Order updates' checkbox",
           "done": "Hear 'Order updates, checked'",
-          "cue": "Order updates, checked"
+          "cue": "Order updates, checked",
+          "activates": true
         }
       ]
     },
@@ -34,12 +37,14 @@
         {
           "goal": "Move to the next item until you hear 'Save changes, button'",
           "done": "Hear 'Save changes, button'",
-          "cue": "Save changes, button"
+          "cue": "Save changes, button",
+          "activates": false
         },
         {
           "goal": "Press the 'Save changes' button",
           "done": "Hear that the settings were saved",
-          "cue": "Order updates are on"
+          "cue": "Order updates are on",
+          "activates": true
         }
       ]
     }

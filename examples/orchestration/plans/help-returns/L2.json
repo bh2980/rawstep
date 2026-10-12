@@ -14,12 +14,14 @@
         {
           "goal": "Move to the 'How do I return an item?' button",
           "done": "Hear 'How do I return an item?'",
-          "cue": "How do I return an item?"
+          "cue": "How do I return an item?",
+          "activates": false
         },
         {
           "goal": "Open the 'How do I return an item?' answer",
           "done": "Hear the return deadline",
-          "cue": "within 30 days"
+          "cue": "within 30 days",
+          "activates": true
         }
       ]
     }

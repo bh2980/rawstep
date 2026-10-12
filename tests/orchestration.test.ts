@@ -188,6 +188,25 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     } };
     return { executor: value, requests };
   }
+  it('labels actions in plain words and gives the item the cursor is on as state, never in a label', async () => {
+    const p = planner(draft({ Buy: ['Press it'] })), e = scored(['intent:activate', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    await policy.decide(input({ observation: said('Add to cart, button') }));
+    expect(e.requests[0]!.choices.map(c => c.label)).toEqual(['Move to the next item', 'Activate the current item', 'Jump to the next form control']);
+    expect(e.requests[0]!.state).toMatchObject({ currentItem: 'Add to cart, button' });
+    // An activation that said nothing leaves the item it was on as the current one.
+    await policy.decide(input({ observation: said(), history: [{ step: 1, decision: { action: { kind: 'intent', intent: 'activate' } }, observation: said('Add to cart, button'), execution: { ok: true } }] }));
+    expect(e.requests[1]!.state).toMatchObject({ currentItem: 'Add to cart, button' });
+  });
+  it('offers no activation on a task the plan marks as only moving', async () => {
+    const moving = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Move to the button', done: 'Hear it', cue: 'Add to cart', activates: false }, { goal: 'Press it', done: 'Hear added', cue: 'Added', activates: true }] }] };
+    const p = planner(moving), e = scored(['intent:next', 0.9], ['intent:activate', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    await policy.decide(input({ observation: said('Phones, link') }));
+    expect(e.requests[0]!.choices.map(c => c.id)).not.toContain('intent:activate');
+    await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'next', 'Phones, link')] }));
+    expect(e.requests[1]!.choices.map(c => c.id)).toContain('intent:activate');
+  });
   it('offers the executor actions only: no "done" claim and no help request', async () => {
     const p = planner(draft({ Find: ['Find the button'] })), e = scored(['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);

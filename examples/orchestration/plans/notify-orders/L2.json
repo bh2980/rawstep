@@ -14,12 +14,14 @@
         {
           "goal": "Move to the 'Order updates' checkbox",
           "done": "Hear 'Order updates, unchecked, checkbox'",
-          "cue": "Order updates"
+          "cue": "Order updates",
+          "activates": false
         },
         {
           "goal": "Check the 'Order updates' checkbox",
           "done": "Hear 'Order updates, checked'",
-          "cue": "Order updates, checked"
+          "cue": "Order updates, checked",
+          "activates": true
         }
       ]
     },
@@ -29,12 +31,14 @@
         {
           "goal": "Move to the 'Save changes' button",
           "done": "Hear 'Save changes, button'",
-          "cue": "Save changes, button"
+          "cue": "Save changes, button",
+          "activates": false
         },
         {
           "goal": "Press the 'Save changes' button",
           "done": "Hear that the settings were saved",
-          "cue": "Order updates are on"
+          "cue": "Order updates are on",
+          "activates": true
         }
       ]
     }

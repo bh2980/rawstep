@@ -4,7 +4,7 @@ import type { ChoiceCandidate, ChoiceModel } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
 import { applyDraft, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, verifyCue,
   type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
-import { speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
+import { currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
 /** One past action as the planner reads it: the task it belonged to and what happened. */
 export type TaskAttempt = ModelHistoryEntry & { taskId: string; planVersion: number };
@@ -81,6 +81,7 @@ export function confidenceOf(probabilities: readonly number[] | undefined): numb
 }
 /** Added to the executor's prompt when Rawstep controls the tasks: the executor only moves. */
 export const ACTION_ONLY_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: pick the action that brings currentTask.goal closer while keeping the overall goal in mind; plan shows where the run is. ' +
+  'currentItem is what the screen reader cursor is on now; activating presses or opens it. ' +
   'Rawstep moves on to the next task by itself when currentTask.cue is heard, and asks for a new plan when the task stops making progress, so always pick an action. ' +
   'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
 /** Added to the executor's prompt when the executor may claim tasks done and ask for help: how to read the plan and when to use the task choices. */
@@ -163,7 +164,10 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         continue;
       }
       // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
-      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision);
+      // Under Rawstep's task control a task the plan marks as only moving offers no activation (plan doc §12: this removed the
+      // executor's mistaken presses without costing the presses a pressing task needs).
+      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision)
+        .filter(c => !(this.control === 'rawstep' && task.activates === false && 'action' in c.decision && c.decision.action.kind === 'intent' && c.decision.action.intent === 'activate'));
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
       const tried = taskAttempts.filter(h => 'action' in h.decision).length;
       // Help needs a few actions on the task since its plan: asking before acting throws away a plan nobody tested.
@@ -180,7 +184,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: task.cue } : {}), actions: tried, actionLimit: this.limits.stepActionLimit,
           ...(task.rejected ? { claimsTurnedDown: task.rejected } : {}) }, ...(next ? { nextTask: next.goal } : {}),
         taskAttempts,
-        speech: [...input.observation.speech], history: modelHistory(input.history, input.observation, this.limits.historyLimit),
+        speech: [...input.observation.speech], ...currentItemState(input), history: modelHistory(input.history, input.observation, this.limits.historyLimit),
       }, choices: candidates }, { signal: input.signal });
       input.signal.throwIfAborted();
       if (!candidates.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
