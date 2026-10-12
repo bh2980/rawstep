@@ -2,9 +2,10 @@ import { readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createBrowserSession } from '@rawstep/browser/browser';
+import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
+import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
@@ -177,7 +178,11 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, ...options }); await session.close(); }))({ ...(cdpEndpoint ? { cdpEndpoint } : executablePath ? { executablePath } : {}) });
     report(true, 'Browser', cdpEndpoint ? `connected to ${cdpEndpoint}` : executablePath ? `launched ${executablePath}` : 'launched');
-  } catch (error) { report(false, 'Browser', `${errorDetails(error)}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`); }
+  } catch (error) {
+    const connect = findRawstepError(error, e => e instanceof BrowserConnectError);
+    if (connect) report(false, 'Browser', `${connect.message} The address comes from machine.browserEndpoint in the config.`);
+    else report(false, 'Browser', `${errorDetails(error)}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`);
+  }
   if (read) {
     for (const key of credentialRequirements(read.config)) {
       const label = `Key ${key.label}`;
