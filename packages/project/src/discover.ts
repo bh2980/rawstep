@@ -37,8 +37,8 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
   if (preset.agent) {
     const agent = new AcpAgent(preset.agent);
     try {
-      // Starting may download the adapter first, so it gets the agent start limit rather than the list limit.
-      const info = await agent.start();
+      // Starting may download the adapter first: without an explicit limit it gets the agent start limit, not the list default.
+      const info = await agent.start(options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined);
       const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
       return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true },
         ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true }))];

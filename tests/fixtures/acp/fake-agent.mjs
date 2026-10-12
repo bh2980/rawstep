@@ -19,6 +19,7 @@ async function handle(message) {
   log(message);
   if (!message.method) { waiting.get(message.id)?.(message); waiting.delete(message.id); return; }
   const { id, method, params } = message;
+  if (method === 'initialize' && config.hangInit) return;
   if (method === 'initialize') return send({ id, result: { protocolVersion: config.protocolVersion ?? 1, agentInfo: { name: 'fake', version: '9' },
     agentCapabilities: { promptCapabilities: { image: config.images !== false }, sessionCapabilities: { delete: {} } } } });
   if (method === 'session/new') return send({ id, result: { sessionId: `s${++sessions}`, configOptions: [{ id: 'model', category: 'model', type: 'select', currentValue: 'small',

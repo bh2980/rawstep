@@ -29,7 +29,6 @@ describe('ACP agent client', () => {
     const { agent, received } = fake();
     expect(await agent.prompt({ text: 'choose', images: ['iVBORw0KGgo='], modelId: 'large' })).toBe('{"choiceId":"a"}');
     expect(await agent.prompt({ text: 'again', modelId: 'small' })).toBe('{"choiceId":"a"}');
-    await new Promise(r => setTimeout(r, 50));
     const log = received(), methods = log.map(m => m.method);
     const cwd = log.find(m => m.method === 'session/new').params.cwd;
     expect(cwd).toMatch(/rawstep-agent-/);
@@ -70,6 +69,17 @@ describe('ACP agent client', () => {
     await agent.close();
     process.env.FAKE_ACP = '{}';
     expect(await agent.prompt({ text: 'x' })).toBe('{"choiceId":"a"}');
+  });
+  it('has the session deleted before a one-shot caller closes the agent', async () => {
+    const { agent, received } = fake();
+    await agent.prompt({ text: 'only call' });
+    await agent.close();
+    expect(received().filter(m => m.method === 'session/delete').map(m => m.params.sessionId)).toEqual(['s1', 's2']);
+  });
+  it('gives up starting at the caller\'s deadline', async () => {
+    const started = Date.now();
+    await expect(fake({ hangInit: true }).agent.start(AbortSignal.timeout(200))).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(5000);
   });
   it('reports a command that does not exist as a start failure', async () => {
     const agent = new AcpAgent({ command: 'rawstep-no-such-agent-cli', args: [] }); open.push(agent);

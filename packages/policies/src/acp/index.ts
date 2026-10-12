@@ -23,6 +23,8 @@ type Session = { sessionId: string; configOptions?: { id: string; category?: str
 const PROTOCOL_VERSION = 1;
 /** Starting may download an adapter (npx) and log in the agent; that is slower than one call and does not count against it. */
 export const ACP_START_TIMEOUT_MS = 180_000;
+/** How long removing a finished session may take before Rawstep moves on. */
+const SESSION_CLOSE_TIMEOUT_MS = 5_000;
 
 export class AcpAgent {
   private child?: ChildProcessWithoutNullStreams;
@@ -69,9 +71,17 @@ export class AcpAgent {
       } finally { request.signal?.removeEventListener('abort', cancel); }
     } finally {
       this.chunks.delete(session.sessionId);
-      // Sessions are saved in the agent's own history; remove each one so runs do not fill it.
-      if (this.sessionClose && !this.failure) void this.request(this.sessionClose, { sessionId: session.sessionId }).catch(() => undefined);
+      await this.endSession(session.sessionId);
     }
+  }
+
+  /**
+   * Sessions are saved in the agent's own history; each one is removed, and the removal is awaited so a caller that closes the
+   * agent right after its only prompt does not kill the agent before it has deleted the session.
+   */
+  private async endSession(sessionId: string): Promise<void> {
+    if (!this.sessionClose || this.failure) return;
+    await this.request(this.sessionClose, { sessionId }, AbortSignal.timeout(SESSION_CLOSE_TIMEOUT_MS)).catch(() => undefined);
   }
 
   /** Ends the agent; a later call starts it again. */
@@ -118,7 +128,7 @@ export class AcpAgent {
     this.sessionClose = sessions?.delete ? 'session/delete' : sessions?.close ? 'session/close' : undefined;
     // The model list comes with a session; read it once from a throwaway one.
     const probe = await this.request('session/new', { cwd: this.cwd, mcpServers: [] }, timeout) as Session;
-    if (this.sessionClose) void this.request(this.sessionClose, { sessionId: probe.sessionId }).catch(() => undefined);
+    await this.endSession(probe.sessionId);
     const models = probe.configOptions?.find(o => o.category === 'model');
     return {
       name: init.agentInfo?.name ?? this.spec.command, version: init.agentInfo?.version ?? 'unknown',
