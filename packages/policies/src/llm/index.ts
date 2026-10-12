@@ -7,6 +7,7 @@ import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 import type { Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
+import { planDraftSchema } from '../policy/fixed-plan.js';
 import { AcpAgent, parseAgentJson } from '../acp/index.js';
 
 /**
@@ -156,20 +157,6 @@ export class LlmChoiceModel implements ChoiceModel {
   }
 }
 
-const ref = z.string().regex(/^[A-Z][0-9]{1,3}$/);
-const draftSchema = z.object({
-  complete: z.boolean(),
-  rationale: z.string().max(2000),
-  strategy: z.string().max(500),
-  criteria: z.array(z.object({ id: ref, text: z.string().min(1).max(300), status: z.enum(['open', 'met', 'unmet']).optional() }).strict()).max(10),
-  assumptions: z.array(z.object({ id: ref, text: z.string().min(1).max(300), status: z.enum(['open', 'held', 'broken']).optional() }).strict()).max(10),
-  phases: z.array(z.object({
-    title: z.string().min(1).max(200),
-    criteria: z.array(ref).max(10).optional(),
-    tasks: z.array(z.object({ keep: z.string().max(20).optional(), goal: z.string().min(1).max(300), done: z.string().min(1).max(300), cue: z.string().max(120),
-      serves: z.array(ref).max(10).optional(), relies: z.array(ref).max(10).optional() }).strict()).max(8),
-  }).strict()).max(6),
-}).strict();
 /** The planner's standing rules; an agent's own instructions are added after them, never in their place. */
 export const SPEECH_PLANNER_INSTRUCTIONS = [
   'You plan for a screen reader user who is trying to reach a goal on a web page. Another, much simpler model carries out your plan one task at a time:',
@@ -207,7 +194,7 @@ export class LlmPlanner implements Planner {
     this.prompt = { id: 'rawstep-planner', version: sha256.slice(0, 12), sha256 };
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
-    const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: draftSchema });
+    const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: planDraftSchema });
     return { draft: object, model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
   }
 }

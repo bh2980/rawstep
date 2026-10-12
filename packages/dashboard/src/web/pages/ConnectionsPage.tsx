@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import { agentOf, type Combo, type Connection, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
+import { agentOf, isFilePlanner, type Combo, type Connection, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import type { RouteChange } from '../hooks/useRoute';
 import { ApiError, api } from '../api';
@@ -30,7 +30,7 @@ function usesOf(config: ProjectConfig, id: string, projectLabel: string, ownedLa
   const combo = (c: Combo) => ({ label: c.owner ? ownedLabel(c.name) : c.name, to: { view: 'conditions' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
-    planner: config.combos.filter(c => c.structure === 'planned' && c.planner?.connectionId === id).map(combo),
+    planner: config.combos.filter(c => c.structure === 'planned' && !isFilePlanner(c.planner) && c.planner?.connectionId === id).map(combo),
     screenreader: config.combos.filter(c => c.executors.screenreader?.connectionId === id).map(combo),
     keyboard: config.combos.filter(c => c.executors.keyboard?.connectionId === id).map(combo),
     analysis: [...config.combos.filter(c => c.analysis?.connectionId === id).map(combo), ...(config.project.analysis.model?.connectionId === id ? [project] : [])],
@@ -42,7 +42,7 @@ function usesOf(config: ProjectConfig, id: string, projectLabel: string, ownedLa
 function withoutConnection(combo: Combo, id: string): Combo {
   const { planner, executors, analysis, ...rest } = combo;
   const { screenreader, keyboard } = executors;
-  const keepPlanner = planner && planner.connectionId !== id;
+  const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
   return {
     ...rest, structure: combo.structure === 'planned' && !keepPlanner ? 'solo' : combo.structure, ...(keepPlanner ? { planner } : {}),
     executors: { ...(screenreader && screenreader.connectionId !== id ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },

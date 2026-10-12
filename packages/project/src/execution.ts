@@ -4,7 +4,7 @@ import { runScreenshotTask } from '@rawstep/browser/screenshot';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { DecisionClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { OrchestratedSpeechPolicy, orchestratedPrompt, renderPlanMarkdown, SpeechDecisionPolicy, type ChoiceModel } from '@rawstep/policies/policy';
+import { FixedPlanner, OrchestratedSpeechPolicy, orchestratedPrompt, renderPlanMarkdown, SpeechDecisionPolicy, type ChoiceModel, type PlanDraft, type Planner } from '@rawstep/policies/policy';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicJson } from './store.js';
@@ -37,6 +37,8 @@ export type RunSpec = {
   diagnoseStop?: boolean;
   /** Screen reader runs of a planned combo: the LLM that writes the plan document for `model` to carry out, and its added instructions. */
   plannerModel?: Model; plannerInstructions?: string;
+  /** Instead of a planner model: a plan written beforehand, as read from its file (see `loadPlanFile`). */
+  plannerPlan?: { file: string; draft: PlanDraft; sha256: string };
 };
 export type RunExecution = {
   outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
@@ -51,20 +53,21 @@ export type RunExecution = {
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
 /** Builds the decision policy for the model's kind and runs the task on the backend the mode and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, executor, mode, settings, environment, backend, permissions, conditions, diagnoseStop, plannerModel, plannerInstructions }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
+export const executeRun: RunExecutor = async ({ task, model, prompt, executor, mode, settings, environment, backend, permissions, conditions, diagnoseStop, plannerModel, plannerInstructions, plannerPlan }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
   const plannerLlm = mode === 'screenreader' && plannerModel ? llmModelOf(plannerModel, 'rawstep-planner', plannerApiKey) : undefined;
-  const chooser = model.kind === 'llm' ? llmChoiceModel(model, plannerLlm ? orchestratedPrompt(prompt, settings.runRules.taskControl) : prompt, apiKey) : undefined;
+  const fixedPlan = mode === 'screenreader' && plannerPlan ? plannerPlan : undefined;
+  const chooser = model.kind === 'llm' ? llmChoiceModel(model, plannerLlm || fixedPlan ? orchestratedPrompt(prompt, settings.runRules.taskControl) : prompt, apiKey) : undefined;
   // Agent CLIs start before the task's clock (an adapter download is not the task) and end with the run.
   try {
     if (plannerLlm) await prepareLlmModel(plannerLlm, plannerModel!.name, signal);
     if (chooser) await prepareLlmModel(chooser.llm, model.name, signal);
-    return await runWith(plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions) : undefined);
+    return await runWith(plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions) : fixedPlan ? new FixedPlanner(fixedPlan.draft, { file: fixedPlan.file, sha256: fixedPlan.sha256 }) : undefined);
   } finally {
     await Promise.all([plannerLlm && closeLlmModel(plannerLlm), chooser && closeLlmModel(chooser.llm)]);
   }
 
-  async function runWith(planner: LlmPlanner | undefined): Promise<RunTrace> {
+  async function runWith(planner: Planner | undefined): Promise<RunTrace> {
     const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
     const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
     const { machine, runRules: rules } = settings;

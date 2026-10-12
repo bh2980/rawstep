@@ -6,7 +6,7 @@ import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@raws
 import type { Task } from '@rawstep/core/contracts';
 import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, taskConditions, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
-import { assertRunnable, checkRun, resolvePermissions, runSpecOf, type RunConditions } from '@rawstep/project/plan';
+import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
 import { finalizeRun, llmAnalyzer } from '@rawstep/project/run';
 import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecord, type RetryPreview } from '../shared/config.js';
@@ -113,7 +113,7 @@ export class ExperimentQueue {
       const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: { ...task, runRules: { ...task.runRules, ...request.runRules } }, mode: row.mode, ...conditions!, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) }));
       const analysisModel = check.analysisModel;
       if (analysisModel && !keyed.has(analysisModel.id)) keyed.set(analysisModel.id, !modelKeyRequired(analysisModel) || await this.store.credential(analysisModel) ? analysisModel.id : undefined);
-      const spec = runSpecOf(safeTask(tasks[row.taskId]!), row.mode, conditions!, check, request.diagnoseStop);
+      const spec = { ...runSpecOf(safeTask(tasks[row.taskId]!), row.mode, conditions!, check, request.diagnoseStop), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(this.store, check.plannerPlanFile) } : {}) };
       const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', taskFile: task.file, analysisInstructions: check.settings.analysisInstructions,
         snapshot: { taskName: task.name, spec }, ...(analysisModel && keyed.get(analysisModel.id) ? { analysisModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));

@@ -113,7 +113,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `id`, `name` | 식별자와 표시 이름. `--combo`는 둘 중 아무거나 받습니다 |
 | `structure` | `solo`(기본): 그 모드의 실행 모델이 모든 행동을 정합니다. `planned`: 계획 LLM이 계획 문서를 쓰고 실행 모델이 작업을 하나씩 수행합니다 |
-| `planner` | `{ connectionId, modelId, reasoningEffort?, instructions }`. `structure`가 `planned`이면 필수이며 `llm` 연결이어야 합니다. 아직 스크린리더 모드에서만 씁니다 |
+| `planner` | `structure`가 `planned`이면 필수이며 아직 스크린리더 모드에서만 씁니다. LLM `{ connectionId, modelId, reasoningEffort?, instructions }`(`llm` 연결이어야 함) 또는 계획 파일 `{ planFile }`([계획 파일](#계획-파일) 참고) 중 하나입니다 |
 | `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 모델 조합으로 실행할 수 없습니다 |
 | `analysis` | 선택. 이 조합의 실행을 해설하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 `project.analysis.model`을 씁니다 |
 | `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
@@ -218,11 +218,13 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `stepActionLimit` | 12 | 계획 모델이 있을 때 작업 하나에서 이 횟수만큼 행동하면 새 계획을 요청합니다 |
 | `failureLimit` | 2 | 계획 모델이 있을 때 한 작업에서 행동이 연달아 이만큼 실패하면 새 계획을 요청합니다 |
 | `noChangeLimit` | 3 | 계획 모델이 있을 때 한 작업에서 아무것도 바뀌지 않은 행동이 연달아 이만큼이면 새 계획을 요청합니다 |
+| `taskControl` | `rawstep` | 계획 모델이 있을 때 작업 종료와 재계획을 누가 정하는지. `rawstep`: 실행 모델은 행동만 고르고, 작업은 cue가 들리면 끝나며, Rawstep의 신호(위 한도, 반복, 실행 모델의 낮은 확신 — `confidenceFloor` 참고)가 새 계획을 요청합니다. `executor`: 실행 모델이 작업 완료를 선언하거나 도움을 요청할 수도 있습니다. 비교용으로 남겨 둔 값입니다 |
+| `confidenceFloor` | 0.25 | `taskControl: "rawstep"`일 때 실행 모델이 얼마나 불확실해도 되는지. 정규화한 값으로, 가장 높은 확률이 무작위 추측(1/n)에서 확신(1) 쪽으로 얼마나 떨어져 있는지입니다. 낮은 선택이 연속 두 번 나오면 새 계획을 요청합니다 |
 
 덮어쓰기는 기본값을 채우지 않습니다. 프리셋이나 작업이 빼 둔 필드는 아래 계층의 값을 그대로 씁니다.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25 }
 ```
 
 ## 전체 예시
@@ -271,7 +273,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
   "presets": [
     { "id": "narrow-planned", "name": "Narrow page, planned", "comboId": "plan-and-jev", "pageEnvironmentId": "narrow", "runRules": { "maxReplans": 6 } }
   ],
-  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 },
+  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25 },
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "Focus on where the page made the run detour." },
     "suggestions": {}
@@ -300,6 +302,26 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 다시 계획한 지점, 도움 요청, 포기한 작업, 완료 문구를 듣지 못한 작업, 틀린 가정, 미충족 성공 기준은 마찰 힌트(`replan`, `help-request`, `task-limit`, `unverified-done`)입니다. 실행이 다시 생각해야 했던 곳을 가리킬 뿐 이유는 단정하지 않습니다. 페이지가 어려웠을 수도, 계획이 틀렸을 수도 있습니다.
 
 `planner.instructions`는 Rawstep의 계획 규칙(계획 문서 형식, 들은 것과 허용 행동만으로 계획)에 더해지며 규칙을 대체하지 않습니다. 버튼이 어디 있는지처럼 실제 사용자가 알 수 없는 페이지 지식은 넣지 마세요. Rawstep이 재려는 어려움이 가려집니다. "경험 많은 스크린리더 사용자처럼 계획한다" 같은 전략이나 사용자 유형에 관한 지침은 괜찮습니다. 계획 지침은 계획 근거에 sha256 지문으로 기록됩니다.
+
+### 계획 파일
+
+계획 모델 대신 미리 써 둔 계획을 읽을 수 있습니다: `"planner": { "planFile": "plans/{task}/plan.json" }`. 경로는 프로젝트 기준 상대 경로이고 `.json`으로 끝나야 합니다. `{task}`는 작업 파일 이름(`.json` 제외)으로 바뀌어, 조합 하나로 작업마다 자기 계획을 읽게 할 수 있습니다(작업 파일이 `tasks/checkout.json`이고 경로가 `plans/{task}/L2.json`이면 `plans/checkout/L2.json`을 읽습니다).
+
+파일 형식은 계획 모델의 초안과 같습니다. `strategy`, `criteria`(`C1`...), `assumptions`(`A1`...), 그리고 `tasks`를 담은 `phases`로 이루어지며, 작업마다 `goal`, `done`, `cue`(끝났을 때 들려야 하는 말)가 필요하고 `serves`, `relies`는 선택입니다. `complete`와 `rationale`도 선택입니다.
+
+```json
+{
+  "strategy": "Find the product, add it to the cart, then open the cart.",
+  "criteria": [{ "id": "C1", "text": "The user hears that the item is in the cart." }],
+  "assumptions": [{ "id": "A1", "text": "The product page has an \"Add to cart\" button." }],
+  "phases": [{ "title": "Add the product", "criteria": ["C1"], "tasks": [
+    { "goal": "Move to the 'Add to cart' button", "done": "The user hears \"Add to cart, button\"", "cue": "Add to cart, button", "serves": ["C1"], "relies": ["A1"] },
+    { "goal": "Activate the 'Add to cart' button", "done": "The user hears that the item was added", "cue": "added to cart", "serves": ["C1"] }
+  ] }]
+}
+```
+
+실행 중에는 계획이 바뀌지 않습니다. 새 계획을 요청해야 할 상황이면 막힌 작업을 포기로 기록하고 다음 작업으로 넘어갑니다. 사람이 쓴 계획을 돌릴 때, 계획 모델이 쓴 계획을 저장해 다시 돌릴 때, 계획을 고정한 채 실행 모델·행동·환경만 바꿔 비교하는 실험에 씁니다.
 
 모델이 보는 행동 이력에는 각 행동의 실행 결과(`ok`, 실패하면 `not-editable` 또는 `backend` 코드이며 원본 오류 문구는 아님)와 그 뒤 발화·스크린샷이 바뀌었는지(`changed`)가 들어 있습니다.
 

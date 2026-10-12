@@ -541,12 +541,18 @@ describe('run checks', () => {
       expect(keyboard.problem).toBeUndefined(); expect(keyboard.plannerModel).toBeUndefined(); expect(keyboard.plannerInstructions).toBeUndefined();
       expect(keyboard.warnings).toEqual([expect.stringMatching(/Keyboard runs do not use the planner/)]);
     });
-    it('need a planner on an LLM connection in screen reader mode, and count its four plan choices', () => {
+    it('need a planner on an LLM connection or a plan file in screen reader mode, and count the four task choices only when the executor controls tasks', () => {
       expect(check(setup(), c => { c.combos[0] = plannedWith(c.combos[0]!, 'b'); }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
       expect(check(setup(), c => { c.combos[0] = plannedWith(c.combos[0]!, 'b'); }).problem).toBeUndefined();
-      const choices = (maxChoices: number) => check(setup(), c => { planned(c); choiceOf(c, 'screenreader').maxChoices = maxChoices; }, { mode: 'screenreader' }).problem?.code;
+      const choices = (maxChoices: number, executorControls = false) => check(setup(), c => { planned(c); choiceOf(c, 'screenreader').maxChoices = maxChoices; if (executorControls) c.runRules.taskControl = 'executor'; }, { mode: 'screenreader' }).problem?.code;
       const base = check(setup(), () => {}, { mode: 'screenreader' }).permissions, count = base.keys.length + base.intents.length + 1;
-      expect(choices(count + 3)).toBe('too-many-choices'); expect(choices(count + 4)).toBeUndefined();
+      expect(choices(count)).toBeUndefined();
+      expect(choices(count + 3, true)).toBe('too-many-choices'); expect(choices(count + 4, true)).toBeUndefined();
+    });
+    it('give a file planner the task\'s own plan file, and record it in the conditions', () => {
+      const filed = check(setup(), c => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
+      expect(filed.problem).toBeUndefined(); expect(filed.plannerPlanFile).toBe('plans/cart/L2.json'); expect(filed.plannerModel).toBeUndefined();
+      expect(check(setup(), c => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: {} }).problem?.code).toBe('plan-file-task');
     });
   });
   describe('assistive technology', () => {

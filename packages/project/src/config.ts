@@ -187,8 +187,20 @@ export type Executor = z.infer<typeof executorSchema>;
  * and with the listed actions), never replacing them. They must not carry page knowledge a real user would not have, or the run
  * stops measuring how hard the page is to find one's way around.
  */
-export const plannerSchema = z.object({ connectionId: id, modelId: text, reasoningEffort, instructions: z.string().max(16384).default('') }).strict();
+export const llmPlannerSchema = z.object({ connectionId: id, modelId: text, reasoningEffort, instructions: z.string().max(16384).default('') }).strict();
+/**
+ * A plan written beforehand instead of a planner model: a project-relative JSON file in the plan draft format (phases of tasks with
+ * their cues). `{task}` in the path is the task file's name without `.json`, so one combo can give every task its own plan
+ * (`plans/{task}/L2.json`). The plan never changes during a run; a stuck task is abandoned and the next one starts.
+ */
+export const filePlannerSchema = z.object({ planFile: z.string().trim().min(1).max(500).refine(path => path.endsWith('.json'), 'A plan file is a .json file.') }).strict();
+export const plannerSchema = z.union([llmPlannerSchema, filePlannerSchema]);
 export type PlannerChoice = z.infer<typeof plannerSchema>;
+export type LlmPlannerChoice = z.infer<typeof llmPlannerSchema>;
+export const isFilePlanner = (planner: PlannerChoice | undefined): planner is z.infer<typeof filePlannerSchema> => !!planner && 'planFile' in planner;
+/** The plan file a task reads under a file planner: `{task}` becomes the task file's name without `.json`. */
+export const planFileOf = (planner: z.infer<typeof filePlannerSchema>, task: Pick<ManagedTask, 'file'>): string =>
+  planner.planFile.replaceAll('{task}', task.file.replace(/^.*\//, '').replace(/\.json$/, ''));
 /**
  * Which model does what. `solo`: the executor of the mode decides every action. `planned`: the planner LLM writes a plan document
  * and the executor carries out one task at a time (screen reader mode for now). `analysis` explains finished runs; it never
@@ -288,7 +300,7 @@ export const configSchema = z.object({
       const executor = combo.executors[mode];
       if (executor && !ids.has(executor.connectionId)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'executors', mode, 'connectionId'], message: `Model combo ${combo.name} uses a connection that does not exist.` });
     }
-    if (!llm(combo.planner)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'planner', 'connectionId'], message: `Model combo ${combo.name} must plan with an LLM connection.` });
+    if (!isFilePlanner(combo.planner) && !llm(combo.planner)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'planner', 'connectionId'], message: `Model combo ${combo.name} must plan with an LLM connection.` });
     if (!llm(combo.analysis)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'analysis', 'connectionId'], message: `Model combo ${combo.name} must explain runs with an LLM connection.` });
   });
   if (!llm(config.project.analysis.model)) ctx.addIssue({ code: 'custom', path: ['project', 'analysis', 'model', 'connectionId'], message: 'Post-run analysis needs an LLM connection.' });
@@ -357,7 +369,7 @@ function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoic
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
 export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>, mode: Mode): Model | undefined => joined(config, combo.executors[mode]);
 /** The LLM a planned combo plans with; undefined for a solo combo. */
-export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' ? llmOf(config, combo.planner) : undefined;
+export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
 export const projectAnalysisModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.analysis.model);
 /** The LLM that explains a combo's runs: its own, otherwise the project's. */

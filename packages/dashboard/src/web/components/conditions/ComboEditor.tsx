@@ -1,7 +1,7 @@
 import { Fragment, useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, CornerUpLeft, RotateCcw } from 'lucide-react';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode } from '@rawstep/project/config';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, isFilePlanner, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode } from '@rawstep/project/config';
 import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { Advanced, Field, Panel, Toggle } from '../forms';
@@ -95,7 +95,8 @@ function RoleCard({ title, tag, intro, children, compact, muted }: { title: stri
 /** How the roles hand work on, drawn as boxes and arrows; it is also a list in reading order, and the loop back to the planner is a sentence. */
 function Pipeline({ combo, connections, compact }: { combo: Combo; connections: readonly Connection[]; compact?: boolean | undefined }) {
   const { t } = useTranslation();
-  const model = (choice: { connectionId: string; modelId: string } | undefined) => {
+  const model = (choice: { connectionId: string; modelId: string } | { planFile: string } | undefined) => {
+    if (choice && 'planFile' in choice) return choice.planFile;
     const connection = choice && connections.find(c => c.id === choice.connectionId);
     return connection ? choice.modelId.trim() || connection.name : t('conditions.combo.pipeline.unset');
   };
@@ -124,24 +125,52 @@ function Pipeline({ combo, connections, compact }: { combo: Combo; connections: 
   </figure>;
 }
 
-/** The planner LLM: it writes and corrects the plan document. Its instructions follow Rawstep's rules, which are shown but cannot change. */
+const PLAN_FILE_DEFAULT = 'plans/{task}/plan.json';
+const PLAN_FILE_EXAMPLE = JSON.stringify({
+  strategy: 'Find the product, add it to the cart, then open the cart.',
+  criteria: [{ id: 'C1', text: 'The user hears that the item is in the cart.' }],
+  assumptions: [{ id: 'A1', text: 'The product page has an "Add to cart" button.' }],
+  phases: [{ title: 'Add the product', criteria: ['C1'], tasks: [
+    { goal: "Move to the 'Add to cart' button", done: 'The user hears "Add to cart, button"', cue: 'Add to cart, button', serves: ['C1'], relies: ['A1'] },
+    { goal: "Activate the 'Add to cart' button", done: 'The user hears that the item was added', cue: 'added to cart', serves: ['C1'] },
+  ] }],
+}, null, 2);
+
+/** The planner: an LLM that writes and corrects the plan document, or a plan file written beforehand. The LLM follows Rawstep's rules, which are shown but cannot change. */
 function PlannerCard({ combo, onChange, llms, compact }: { combo: Combo; onChange: (combo: Combo) => void; llms: readonly Connection[]; compact?: boolean | undefined }) {
   const { t } = useTranslation();
   const planner = combo.planner;
+  const source = isFilePlanner(planner) ? 'file' : 'llm';
+  const setSource = (next: 'llm' | 'file') => {
+    if (next === source) return;
+    const llm = llms[0];
+    const { planner: _old, ...rest } = combo;
+    onChange({ ...rest, ...(next === 'file' ? { planner: { planFile: PLAN_FILE_DEFAULT } } : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
+  };
+  const sourceRows = (['llm', 'file'] as const).map(id => ({ id, label: t(`conditions.combo.planner.source.${id}`) }));
   return <RoleCard title={t('conditions.combo.planner.title')} tag={t('conditions.combo.condition')} intro={t('conditions.combo.planner.intro')} compact={compact}>
-    {llms.length
-      ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''} reasoningEffort={planner?.reasoningEffort}
-        onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), instructions: planner?.instructions ?? '' } })} />
-      : <p className="text-sm leading-6 text-inspect">{t('conditions.combo.planner.noLlm')}</p>}
-    {planner && <div className="grid gap-1.5">
-      <Field label={t('conditions.combo.planner.instructions')} multiline plain value={planner.instructions} placeholder={t('conditions.combo.planner.instructionsPlaceholder')}
-        onChange={instructions => onChange({ ...combo, planner: { ...planner, instructions } })} />
-      <p className="border-l-2 border-inspect pl-2.5 text-xs leading-5 text-inspect">{t('conditions.combo.planner.pageKnowledge')}</p>
-    </div>}
-    <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.planner.limits')}</p>
-    <Panel title={t('conditions.combo.planner.builtIn')} description={t('conditions.combo.planner.builtInDescription')}>
-      <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLANNER_RULES}</pre>
-    </Panel>
+    <RadioRows legend={t('conditions.combo.planner.sourceLegend')} value={source} onChange={setSource} rows={sourceRows} />
+    {isFilePlanner(planner) ? <>
+      <Field label={t('conditions.combo.planner.planFile')} value={planner.planFile} placeholder={PLAN_FILE_DEFAULT} hint={t('conditions.combo.planner.planFileHint')}
+        onChange={planFile => onChange({ ...combo, planner: { planFile } })} />
+      <Panel title={t('conditions.combo.planner.planFileExample')} description={t('conditions.combo.planner.planFileExampleDescription')}>
+        <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLAN_FILE_EXAMPLE}</pre>
+      </Panel>
+    </> : <>
+      {llms.length
+        ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''} reasoningEffort={planner?.reasoningEffort}
+          onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), instructions: planner?.instructions ?? '' } })} />
+        : <p className="text-sm leading-6 text-inspect">{t('conditions.combo.planner.noLlm')}</p>}
+      {planner && <div className="grid gap-1.5">
+        <Field label={t('conditions.combo.planner.instructions')} multiline plain value={planner.instructions} placeholder={t('conditions.combo.planner.instructionsPlaceholder')}
+          onChange={instructions => onChange({ ...combo, planner: { ...planner, instructions } })} />
+        <p className="border-l-2 border-inspect pl-2.5 text-xs leading-5 text-inspect">{t('conditions.combo.planner.pageKnowledge')}</p>
+      </div>}
+      <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.planner.limits')}</p>
+      <Panel title={t('conditions.combo.planner.builtIn')} description={t('conditions.combo.planner.builtInDescription')}>
+        <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLANNER_RULES}</pre>
+      </Panel>
+    </>}
   </RoleCard>;
 }
 

@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import {
-  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs,
+  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, isFilePlanner,
   type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type ProjectConfig, type RunRules,
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
@@ -32,7 +32,7 @@ export function structureLabel(structure: Combo['structure']): string {
  * mode uses (keyboard runs never plan yet).
  */
 export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors'>, connections: readonly Connection[], mode?: Mode): string {
-  const planner = combo.structure === 'planned' ? shortName(combo.planner, connections) ?? t('conditions.summary.noModel') : undefined;
+  const planner = combo.structure !== 'planned' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : shortName(combo.planner, connections) ?? t('conditions.summary.noModel');
   if (mode) {
     const executor = shortName(combo.executors[mode], connections);
     if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
@@ -143,7 +143,7 @@ export function comboBlocker(combo: Combo): 'name' | 'planner' | 'modelId' | 'in
   const executors = MODES.flatMap(mode => combo.executors[mode] ? [combo.executors[mode]] : []);
   if (!combo.name.trim()) return 'name';
   if (combo.structure === 'planned' && !combo.planner) return 'planner';
-  if ((combo.structure === 'planned' && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim()) || (combo.analysis && !combo.analysis.modelId.trim())) return 'modelId';
+  if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim()) || (combo.analysis && !combo.analysis.modelId.trim())) return 'modelId';
   if (executors.some(e => !e.instructions.trim())) return 'instructions';
   return undefined;
 }

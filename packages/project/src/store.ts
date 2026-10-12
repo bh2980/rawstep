@@ -64,7 +64,7 @@ export class ProjectStore {
     const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
     for (const combo of config.combos) {
       for (const executor of Object.values(combo.executors)) if (executor && !kindOf(executor.connectionId)) throw new ProjectError('combo-connection-missing', 'A model combo uses a connection that does not exist.');
-      if (combo.planner && kindOf(combo.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+      if (combo.planner && !('planFile' in combo.planner) && kindOf(combo.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
       if (combo.analysis && kindOf(combo.analysis.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     }
     if (config.project.analysis.model && kindOf(config.project.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');

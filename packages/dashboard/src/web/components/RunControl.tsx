@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from 'react';
 import { Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
-  resolveRunRules, taskConditions,
+  isFilePlanner, resolveRunRules, taskConditions,
   type ActionSet, type AtEnvironment, type Combo, type ManagedTask, type Mode, type PageEnvironment, type ProjectConfig, type RunRulesOverride,
 } from '@rawstep/project/config';
 import type { RouteChange } from '../hooks/useRoute';
@@ -277,7 +277,7 @@ function SourceChip({ source }: { source: ConditionSource }) {
  */
 function RunModels({ config, combo, mode }: { config: ProjectConfig; combo: Combo; mode: Mode }) {
   const { t } = useTranslation();
-  const planner = combo.structure === 'planned' ? choiceName(combo.planner, config.connections) : undefined;
+  const planner = combo.structure !== 'planned' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : choiceName(combo.planner, config.connections);
   const executor = choiceName(combo.executors[mode], config.connections);
   const analysis = choiceName(combo.analysis, config.connections), projectAnalysis = choiceName(config.project.analysis.model, config.connections);
   const rows: { role: string; model: string; note?: string; tag: 'condition' | 'none' }[] = [
