@@ -251,8 +251,10 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
     await policy.decide(input({ observation: said('Phones, link') }));
     expect(e.requests[0]!.choices.map(c => c.id)).not.toContain('intent:activate');
-    await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'next', 'Phones, link')] }));
-    expect(e.requests[1]!.choices.map(c => c.id)).toContain('intent:activate');
+    // The pressing task allows only activation: nothing is left to decide, so the executor is not asked.
+    expect(await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'next', 'Phones, link')] }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(e.requests).toHaveLength(1);
+    expect(evidence(policy)).toContainEqual(expect.objectContaining({ kind: 'orchestration-only-choice', choiceId: 'intent:activate' }));
   });
   it('surveys the headings as the first action before planning, plans from what it said, and never offers the survey to the executor', async () => {
     const p = planner(draft({ Buy: ['Find the button'] })), e = scored(['intent:next', 0.9]);
@@ -268,14 +270,15 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
   });
   it('offers only the task\'s moves (written with or without the action id prefix), keeps activation to activates, and tells the planner where the cursor is', async () => {
     const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['intent:heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
-    const p = planner(byHeadings), e = scored(['intent:heading.next', 0.9], ['intent:activate', 0.9]);
+    const p = planner(byHeadings), e = scored(['intent:activate', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
     const allowed = { intents: ['next', 'previous', 'activate', 'heading.next', 'heading.previous'], keys: [], inputKeys: [], replaceText: false };
-    await policy.decide(input({ allowedActions: allowed, observation: said('Help center, heading, level 1') }));
+    // The moving task allows one move only: it is taken without asking the executor.
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Help center, heading, level 1') }))).toEqual({ action: { kind: 'intent', intent: 'heading.next' } });
     expect(p.requests[0]).toMatchObject({ currentItem: 'Help center, heading, level 1' });
-    expect(e.requests[0]!.choices.map(c => c.id)).toEqual(['intent:heading.next']);
+    expect(e.requests).toHaveLength(0);
     await policy.decide(input({ allowedActions: allowed, observation: said('Returns, heading, level 2'), history: [acted(1, 'heading.next', 'Help center, heading, level 1')] }));
-    expect(e.requests[1]!.choices.map(c => c.id)).toEqual(['intent:next', 'intent:activate']);
+    expect(e.requests[0]!.choices.map(c => c.id)).toEqual(['intent:next', 'intent:activate']);
   });
   it('offers the executor actions only: no "done" claim and no help request', async () => {
     const p = planner(draft({ Find: ['Find the button'] })), e = scored(['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9]);
@@ -297,10 +300,11 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     const history = [acted(1, 'next', 'Notifications, heading, level 2'), acted(2, 'next', 'Email notifications, group')];
     expect(await policy.decide(input({ allowedActions: allowed, observation: said('Order updates, unchecked, checkbox'), history }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(asked).toEqual(['Email notifications, group', 'Order updates, unchecked, checkbox']);
-    expect(e.requests[2]!.state).toMatchObject({ currentTask: { goal: 'Check it' } });
-    // A pressing task without moves presses where the moving task ended.
-    expect(e.requests[2]!.choices.map(c => c.id)).toEqual(['intent:activate']);
-    expect(evidence(policy)).toContainEqual(expect.objectContaining({ kind: 'orchestration-cue', verified: 'recognized', heard: 'Order updates, unchecked, checkbox', source: 'planner' }));
+    // A pressing task without moves presses where the moving task ended; with one action left, the executor is not asked.
+    expect(e.requests).toHaveLength(2);
+    const found = evidence(policy);
+    expect(found).toContainEqual(expect.objectContaining({ kind: 'orchestration-cue', verified: 'recognized', heard: 'Order updates, unchecked, checkbox', source: 'planner' }));
+    expect(found).toContainEqual(expect.objectContaining({ kind: 'orchestration-only-choice', choiceId: 'intent:activate' }));
   });
   it('counts only what an action on the task made the reader say, never speech heard before it', async () => {
     const plan = { ...draft({}), phases: [{ title: 'Enter', tasks: [{ goal: 'Activate Skip to content', done: 'Hear the product', cue: 'Samsung galaxy s6', activates: true, moves: ['next'] }, { goal: 'Then', done: 'x', cue: 'x' }] }] };

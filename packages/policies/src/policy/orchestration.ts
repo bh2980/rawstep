@@ -266,6 +266,14 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         this.served.set(step, { taskId: task.id, planVersion: doc.version });
         return structuredClone(actions.find(c => c.id === choiceId)!.decision);
       }
+      // One candidate leaves nothing to decide: the plan already chose it, so no model is asked (and no call is spent).
+      if (candidates.length === 1 && actions.some(c => c.id === candidates[0]!.id)) {
+        this.evidence.push({ kind: 'orchestration-only-choice', taskId: task.id, planVersion: doc.version, choiceId: candidates[0]!.id,
+          uncertainty: 'The task allowed one action; it was taken without asking the executor.' });
+        task.actions++;
+        this.served.set(step, { taskId: task.id, planVersion: doc.version });
+        return structuredClone(actions.find(c => c.id === candidates[0]!.id)!.decision);
+      }
       const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {
