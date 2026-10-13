@@ -6,10 +6,11 @@ export const taskUi = {
     goal: '목표',
     goalNote: '이 문장은 모델에게 그대로 전달됩니다.',
     verifyTitle: '완료 확인',
-    detailsTitle: '입력값 · 이름 · 실행 프로필',
+    detailsTitle: '입력값 · 이름',
     detailsSummary: '이름 {{name}} · 입력값 {{count}}개',
     inputsTitle: '입력값',
-    profileTitle: '실행 프로필',
+    profileWill: '{{who}}가 실행하고, {{ai}}.',
+    profileLater: '만든 뒤 작업 화면에서 바꿀 수 있습니다.',
     name: '이름 (선택)',
     nameHint: '비워 두면 시작 주소의 도메인을 이름으로 씁니다.',
     fallbackName: '새 작업',
@@ -189,7 +190,7 @@ export const taskUi = {
     problem: {
       noExecutor: '이 실행 프로필에는 {{mode}} 실행 모델이 없습니다. 프로필을 고쳐 이 모드의 실행 모델을 고르세요.',
       noKey: '실행 모델 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
-      noPlanner: '이 실행 프로필은 계획 + 실행 구조인데 계획 모델(LLM)이 없습니다.',
+      noPlanner: '이 실행 프로필에 계획 모델(LLM)이 없습니다.',
       noPlannerKey: '계획 모델 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
       needsImages: '이 실행 프로필의 키보드 실행 모델은 화면 이미지를 받지 않아 키보드 모드로 실행할 수 없습니다.',
     },
@@ -249,7 +250,7 @@ export const taskUi = {
   /** Names of the experiment conditions and model roles, shared by the run box, experiments, the run log and the run header. */
   runConditions: {
     structure: '구조',
-    structures: { solo: '단독', planned: '계획 + 실행' },
+    structures: { solo: '계획 없음', planned: '계획' },
     profile: '프로필',
     roles: { planner: '계획 모델', executor: '실행 모델', analysis: '해설 모델' },
     noEffect: '결과에 영향 없음',

@@ -9,6 +9,8 @@ import { Field, Panel } from '../components/forms';
 import { PageHeader, SectionHead } from '../components/layout/PageHeader';
 import { TaskProfileField } from '../components/TaskProfileField';
 import { ProjectPathField } from '../components/ProjectPathField';
+import { aiSummary } from '../components/ProfileEditor';
+import { personaOf } from '../lib/persona';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
@@ -30,6 +32,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [context, setContext] = useState(''), [name, setName] = useState('');
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
   const [profileId, setProfileId] = useState<string>();
+  const profile = config.profiles.find(item => item.id === profileId) ?? config.profiles[0]!;
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
   const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
@@ -63,6 +66,10 @@ export function NewTaskPage({ navigate, ...props }: Props) {
       <CheckEditor rules={rules} onChange={setRules} url={url} />
       <CheckSuggestions view={props.view} url={url} goal={goal} onAdd={rule => setRules(current => [...current, rule])} />
     </section>
+    <section className="grid max-w-xl gap-2">
+      <TaskProfileField profiles={config.profiles} value={profileId} onChange={setProfileId} />
+      <p className="text-xs leading-5 text-muted-foreground">{t('newTask.profileWill', { who: t(`persona.${personaOf('screenreader', profile)}.name`), ai: aiSummary(profile, 'screenreader') })} {t('newTask.profileLater')}</p>
+    </section>
     <Panel title={t('newTask.detailsTitle')} description={t('newTask.detailsSummary', { name: title, count: inputCount })}>
       <div className="grid gap-3">
         <h3 className="text-sm font-semibold">{t('newTask.inputsTitle')}</h3>
@@ -71,10 +78,6 @@ export function NewTaskPage({ navigate, ...props }: Props) {
       <div className="grid gap-3">
         <h3 className="text-sm font-semibold">{t('newTask.name')}</h3>
         <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
-      </div>
-      <div className="grid gap-3">
-        <h3 className="text-sm font-semibold">{t('newTask.profileTitle')}</h3>
-        <TaskProfileField profiles={config.profiles} value={profileId} onChange={setProfileId} />
       </div>
     </Panel>
     <footer className="grid gap-2 border-t border-edge-strong pt-4">

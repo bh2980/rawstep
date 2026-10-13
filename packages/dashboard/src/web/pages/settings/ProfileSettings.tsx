@@ -8,7 +8,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Link } from '../../components/Link';
 import { ProfileEditor } from '../../components/ProfileEditor';
 import { Button } from '../../components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { COMBO_PRESETS, comboBlocker, comboFromPreset, comboSummary, sameValue } from '../../lib/conditions';
@@ -20,7 +20,7 @@ const newId = () => crypto.randomUUID();
 const same = sameValue;
 
 /** A new profile from a starting point for who decides, with Rawstep's default actions, page, screen reader and rules. */
-export function profileFromPreset(preset: (typeof COMBO_PRESETS)[keyof typeof COMBO_PRESETS][number], id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
+export function profileFromPreset(preset: (typeof COMBO_PRESETS)[number], id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
   const { structure, planner, executors } = comboFromPreset(preset, id, name, config.connections);
   return { ...defaultProfile(id, name), structure, executors, ...(planner ? { planner } : {}) };
 }
@@ -59,7 +59,6 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
     const tasks = latest.tasks.map(task => task.profileId && !ids.has(task.profileId) ? (({ profileId: _gone, ...rest }) => rest)(task) : task);
     await props.save({ ...latest, profiles: items, tasks }, undefined, props.view.revision);
   });
-  const groups = (['solo', 'planned'] as const);
   const users = selected ? usedBy(selected.id) : [];
   return <div className="grid gap-5">
     <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} />
@@ -77,14 +76,10 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
         <DropdownMenu>
           <DropdownMenuTrigger asChild><Button variant="outline" className="justify-self-start"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-80">
-            {groups.map((structure, index) => <div key={structure}>
-              {index > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className="text-xs text-muted-foreground">{t(`conditions.structure.${structure}.name`)}</DropdownMenuLabel>
-              {COMBO_PRESETS[structure].map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
-                <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
-                <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
-              </DropdownMenuItem>)}
-            </div>)}
+            {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
+              <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
+              <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
+            </DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>
         {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}

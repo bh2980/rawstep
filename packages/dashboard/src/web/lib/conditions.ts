@@ -23,9 +23,6 @@ function shortName(choice: Choice | undefined, connections: readonly Connection[
   return connection ? choice.modelId.trim() || connection.name : undefined;
 }
 
-export function structureLabel(structure: Combo['structure']): string {
-  return t(`conditions.structure.${structure}.name`);
-}
 
 /**
  * A model combo in one line, as lists show it: "계획 + 실행: gemini-flash → jev" or "단독: jev". With a mode, the models a run in that
@@ -110,23 +107,20 @@ export function actionLabel(intent: string): string {
   return i18n.exists(key) && typeof i18n.t(key as 'conditions.intents.next') === 'string' ? i18n.t(key as 'conditions.intents.next') : intent;
 }
 
-/** The combos a person can start from, by structure. Model IDs stay empty: the person types or picks them, and saving waits for them. */
-export const COMBO_PRESETS = { solo: ['blank', 'decision', 'llm'], planned: ['plannedDecision', 'plannedLlm'] } as const;
-export type ComboPreset = (typeof COMBO_PRESETS)[keyof typeof COMBO_PRESETS][number];
+/**
+ * The profiles a person can start from. Every one plans (screen reader runs always do): Rawstep follows the plan, or a decision model
+ * or an LLM picks within each task. Model IDs stay empty: the person types or picks them, and saving waits for them.
+ */
+export const COMBO_PRESETS = ['plannedFollow', 'plannedDecision', 'plannedLlm'] as const;
+export type ComboPreset = (typeof COMBO_PRESETS)[number];
 
 /** A new combo from a starting point, on the first connection of each kind the project has. */
 export function comboFromPreset(preset: ComboPreset, id: string, name: string, connections: readonly Connection[]): Combo {
   const decision = connections.find(c => c.kind === 'decision'), llm = connections.find(c => c.kind === 'llm');
-  const combo: Combo = { id, name, structure: 'solo', executors: {} };
-  if (preset === 'decision' && decision) combo.executors.screenreader = blankExecutor(decision, 'screenreader');
-  if (preset === 'llm' && llm) combo.executors = { screenreader: blankExecutor(llm, 'screenreader'), keyboard: blankExecutor(llm, 'keyboard') };
-  if (preset === 'plannedDecision' || preset === 'plannedLlm') {
-    combo.structure = 'planned';
-    if (llm) combo.planner = { connectionId: llm.id, modelId: '', instructions: '' };
-    const executor = preset === 'plannedDecision' ? decision : llm;
-    if (executor) combo.executors.screenreader = blankExecutor(executor, 'screenreader');
-  }
-  return combo;
+  if (!llm) return { id, name, structure: 'solo', executors: {} };
+  const executor = preset === 'plannedDecision' ? decision : preset === 'plannedLlm' ? llm : undefined;
+  return { id, name, structure: 'planned', planner: { connectionId: llm.id, modelId: '', instructions: '' },
+    executors: { screenreader: executor ? blankExecutor(executor, 'screenreader') : { followPlan: true } } };
 }
 
 /** Why a combo cannot be saved yet, if it cannot: no name, a planned combo without a planner, a model without its ID, empty instructions. */

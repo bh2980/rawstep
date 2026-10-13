@@ -141,12 +141,12 @@ describe('settings helpers', () => {
     expect(comboSummary(bare, connections)).toBe('실행 모델 없음');
     expect(comboModesOf(bare, connections)).toEqual([]);
     const solo = profileWith('s', 'jev', 'jev-latest');
-    expect(comboSummary(solo, connections)).toBe('단독: jev-latest (두 모드)');
+    expect(comboSummary(solo, connections)).toBe('계획 없이 jev-latest (두 모드)');
     expect(comboModesOf(solo, connections)).toEqual(['screenreader', 'keyboard']);
     const planned = plannedWith(solo, 'writer', 'planner-fixture');
-    expect(comboSummary(planned, connections, 'screenreader')).toBe('계획 + 실행: planner-fixture → jev-latest');
+    expect(comboSummary(planned, connections, 'screenreader')).toBe('planner-fixture 계획 → jev-latest');
     // Keyboard runs do not plan yet.
-    expect(comboSummary(planned, connections, 'keyboard')).toBe('단독: jev-latest');
+    expect(comboSummary(planned, connections, 'keyboard')).toBe('계획 없이 jev-latest');
     // A text-only keyboard executor cannot run keyboard mode.
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
