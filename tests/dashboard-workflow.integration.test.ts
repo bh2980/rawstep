@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ProjectStore } from '@rawstep/project/store';
@@ -11,9 +11,12 @@ afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await wo
 it('executes the real Runner over HTTP with two run profiles/two page environments, LLM choices and text-only simulated speech', async () => {
   const fixture = await dashboardFixture(); cleanup.push(fixture.close);
   const speechProfile = fixture.config.profiles[0]!, speechModel = { ...speechProfile.executors.screenreader!, modelId: 'fixture-speech', inputs: ['text' as const], maxImages: 0 };
-  fixture.config.profiles.push({ ...speechProfile, id: 'fixture-speech', name: 'fixture-speech', mode: 'screenreader', executors: { ...speechProfile.executors, screenreader: speechModel } });
+  // Screen reader runs always plan: a plan file with one pressing task, carried out by the decision model.
+  fixture.config.profiles.push({ ...speechProfile, id: 'fixture-speech', name: 'fixture-speech', mode: 'screenreader', planner: { planFile: 'plan.json' }, executors: { ...speechProfile.executors, screenreader: speechModel } });
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-browser-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
+  await writeFile(join(dir, 'plan.json'), JSON.stringify({ strategy: 'Press the button.', criteria: [{ id: 'C1', text: 'The user hears Done.' }], assumptions: [],
+    phases: [{ title: 'Press', tasks: [{ goal: 'Press the Complete fixture button', done: 'The user hears "Done"', cue: { name: 'Done', role: 'text' }, activates: true, moves: ['next'], serves: ['C1'] }] }] }));
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
   const request: PlanRequest = { taskIds: ['fixture-task'], profileIds: ['fixture-a', 'fixture-b', 'fixture-a-narrow', 'fixture-b-narrow'], repeats: 1 };
   const experiment = await app.queue.create(request);

@@ -36,7 +36,8 @@ export async function dashboardFixture() {
   const a = profileOn('fixture-a', 'fixture', 'fixture-a'), b = profileOn('fixture-b', 'fixture', 'fixture-b', careful);
   config.profiles = [a, b, profileOn('fixture-llm', 'fixture-llm', 'fixture-llm'), { ...a, id: 'fixture-a-narrow', name: 'fixture-a-narrow', page: 'narrow' }, { ...b, id: 'fixture-b-narrow', name: 'fixture-b-narrow', page: 'narrow' }];
   config.tasks = [{ id: 'fixture-task', name: '버튼 활성화 fixture', file: 'task.json' }];
-  config.machine.browserExecutablePath = process.env.RAWSTEP_TEST_BROWSER_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  // Without a path Rawstep launches Playwright's Chromium, then the installed Chrome, so the fixture runs on any host.
+  if (process.env.RAWSTEP_TEST_BROWSER_PATH) config.machine.browserExecutablePath = process.env.RAWSTEP_TEST_BROWSER_PATH;
   const task = { id: 'fixture-task', url: url + '/task', goal: 'Complete fixture button', mode: 'keyboard', maxSteps: 8, timeoutMs: 10000, verify: { all: [{ textVisibleExact: 'Done' }] } };
   return { url, config, task, requests, close: () => new Promise<void>((accept, reject) => server.close(e => e ? reject(e) : accept())) };
 }
