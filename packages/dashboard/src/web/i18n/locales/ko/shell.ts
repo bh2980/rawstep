@@ -1,5 +1,23 @@
 /** Strings for the app shell and the pages of the left navigation: home, tasks and run history. */
 export const shell = {
+  pathField: {
+    base: '프로젝트 폴더 안의 경로를 적습니다. 기준 폴더:',
+    baseOrUrl: 'https:// 웹 주소, 또는 프로젝트 폴더 안의 HTML 파일 경로를 적습니다. 기준 폴더:',
+    browse: '찾아보기',
+    found: '프로젝트에 있는 파일입니다.',
+    missing: '프로젝트에 이 파일이 없습니다.',
+    forTask: '{{task}} → {{file}}',
+    perTask: '{task}는 작업 파일 이름으로 바뀝니다. 이 프로필을 쓰는 작업이 생기면 작업마다 파일이 있는지 보여 줍니다.',
+    webAddress: '웹 주소입니다.',
+    example: '예: {{example}}',
+    listFailed: '프로젝트 파일 목록을 읽지 못해 파일이 있는지 확인할 수 없습니다.',
+    pickDescription: '{{kinds}} 파일을 고르면 기준 폴더에서의 경로가 들어갑니다. 기준 폴더:',
+    search: '파일 이름으로 찾기',
+    listLabel: '프로젝트 파일',
+    none: '맞는 파일이 없습니다.',
+    loading: '파일 목록을 읽는 중입니다.',
+    truncated: '파일이 많아 일부만 보입니다. 이름으로 찾아보세요.',
+  },
   nav: {
     label: '주 메뉴',
     description: '작업, 실행 기록, 설정으로 이동합니다.',

@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { Advanced, Choice, Field, Panel, Toggle } from '../forms';
 import { InfoTip } from '../layout/InfoTip';
 import { effortOf, ModelPicker } from '../ModelPicker';
+import { ProjectPathField } from '../ProjectPathField';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
@@ -40,6 +41,8 @@ type Props = {
   combo: Combo; onChange: (combo: Combo) => void; connections: readonly Connection[]; compact?: boolean;
   /** Only this mode's executor, without the mode tabs: a task page edits the mode it runs. */
   only?: Mode;
+  /** Tasks that run with this profile, so a plan file path is checked for each of them. */
+  tasks?: readonly { name: string; file: string }[];
 };
 
 /**
@@ -47,7 +50,7 @@ type Props = {
  * it out itself or an executor model picks within each task. Keyboard runs do not plan yet, so their executor model picks every move.
  * A profile from before planning was required has no planner; it says so and offers one.
  */
-export function ComboEditor({ combo, onChange, connections, compact, only }: Props) {
+export function ComboEditor({ combo, onChange, connections, compact, only, tasks }: Props) {
   const { t } = useTranslation();
   const llms = connections.filter(c => c.kind === 'llm');
   const planned = combo.structure === 'planned';
@@ -71,7 +74,7 @@ export function ComboEditor({ combo, onChange, connections, compact, only }: Pro
   return <div className={cn('grid min-w-0 [&>section:not(:first-child)]:border-t', compact ? 'gap-4 [&>section:not(:first-child)]:pt-4' : 'gap-8 [&>section:not(:first-child)]:pt-6')}>
     {!connections.length && <p className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-sm leading-6">{t('conditions.combo.noConnections')}</p>}
     {modes.includes('screenreader') && (planned
-      ? <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} />
+      ? <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} tasks={tasks ?? []} />
       : <section className="grid justify-items-start gap-2 border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3">
         <p className="text-sm leading-6">{t('conditions.combo.noPlan')}</p>
         <Button type="button" size="sm" variant="outline" disabled={!llms.length} onClick={plan}>{t('conditions.combo.addPlanner')}</Button>
@@ -121,7 +124,7 @@ const PLAN_FILE_EXAMPLE = JSON.stringify({
 }, null, 2);
 
 /** The planner: an LLM that writes and corrects the plan document, or a plan file written beforehand. The LLM follows Rawstep's rules, which are shown but cannot change. */
-function PlannerGroup({ combo, onChange, llms, compact }: { combo: Combo; onChange: (combo: Combo) => void; llms: readonly Connection[]; compact?: boolean | undefined }) {
+function PlannerGroup({ combo, onChange, llms, compact, tasks }: { combo: Combo; onChange: (combo: Combo) => void; llms: readonly Connection[]; compact?: boolean | undefined; tasks: readonly { name: string; file: string }[] }) {
   const { t } = useTranslation();
   const planner = combo.planner;
   const source = isFilePlanner(planner) ? 'file' : 'llm';
@@ -135,8 +138,8 @@ function PlannerGroup({ combo, onChange, llms, compact }: { combo: Combo; onChan
   return <Group title={t('conditions.combo.planner.title')} compact={compact} info={tip(t('conditions.combo.planner.intro'))}>
     <InlineRadio legend={t('conditions.combo.planner.sourceLegend')} value={source} onChange={setSource} rows={(['llm', 'file'] as const).map(id => ({ id, label: t(`conditions.combo.planner.source.${id}`) }))} />
     {isFilePlanner(planner) ? <>
-      <Field label={t('conditions.combo.planner.planFile')} value={planner.planFile} placeholder={PLAN_FILE_DEFAULT} hint={t('conditions.combo.planner.planFileHint')} info={tip(t('conditions.combo.planner.planFileInfo'))}
-        onChange={planFile => onChange({ ...combo, planner: { planFile } })} />
+      <ProjectPathField label={t('conditions.combo.planner.planFile')} value={planner.planFile} extensions={['.json']} tasks={tasks} example={PLAN_FILE_DEFAULT}
+        info={<>{t('conditions.combo.planner.planFileHint')} {tip(t('conditions.combo.planner.planFileInfo'))}</>} onChange={planFile => onChange({ ...combo, planner: { planFile } })} />
       <Panel title={t('conditions.combo.planner.planFileExample')}>
         <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLAN_FILE_EXAMPLE}</pre>
       </Panel>

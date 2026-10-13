@@ -3,7 +3,6 @@ export const taskUi = {
   newTask: {
     title: '새 작업',
     url: '시작 주소',
-    urlHint: 'https:// 주소 또는 프로젝트 안의 HTML 파일 경로',
     goal: '목표',
     goalNote: '이 문장은 모델에게 그대로 전달됩니다.',
     verifyTitle: '완료 확인',
@@ -203,7 +202,6 @@ export const taskUi = {
     basicsTitle: '기본 정보',
     name: '이름',
     url: '시작 URL',
-    urlHint: 'https:// 주소 또는 프로젝트 안의 HTML 파일 경로',
     goal: '목표',
     goalHint: '완료할 일을 한두 문장으로 설명합니다. 이 문장은 모델에게 그대로 전달됩니다.',
     invalidJson: 'Task JSON을 읽지 못했습니다.',

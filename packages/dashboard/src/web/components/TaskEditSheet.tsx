@@ -5,6 +5,7 @@ import { describeApiError, type ErrorView } from '../lib/errors';
 import { inputProblems } from '../lib/taskInputs';
 import { ErrorState } from './layout/ErrorState';
 import { Choice, Field } from './forms';
+import { ProjectPathField } from './ProjectPathField';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from './ui/sheet';
@@ -70,7 +71,7 @@ function EditForm({ initial, otherChanges, busy, onSave, bases, close }: Omit<Pr
   return <>
     <form id="task-edit-form" className="grid flex-1 content-start gap-5 overflow-y-auto px-4 pb-2" onSubmit={event => { event.preventDefault(); if (filled && inputsOk && !busy) void save(false); }}>
       <Field label={t('taskSettings.name')} value={basics.name} onChange={name => patch({ name })} />
-      <Field label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} hint={t('taskSettings.urlHint')} />
+      <ProjectPathField label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} extensions={['.html', '.htm']} allowUrl example="https://example.com/product/1" />
       <Field label={t('taskSettings.goal')} multiline plain value={basics.goal} onChange={goal => patch({ goal })} hint={t('taskSettings.goalHint')} />
       <Field label={t('taskEdit.context')} multiline plain value={basics.context} onChange={context => patch({ context })} hint={t('taskEdit.contextHint')} placeholder={t('taskEdit.contextPlaceholder')} />
       <section aria-labelledby="task-edit-compare" className="grid gap-4 border-t border-edge-strong pt-4">

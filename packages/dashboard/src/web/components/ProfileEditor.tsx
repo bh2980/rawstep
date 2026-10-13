@@ -95,7 +95,8 @@ export function ProfileEditor({ profile, onChange, view, mode, onMode, inputName
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
         capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} {...(mode ? { only: mode } : {})} backend={profile.screenReader} compact />
     </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact {...(mode ? { only: mode } : {})} />,
+    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact {...(mode ? { only: mode } : {})}
+      tasks={view.config.tasks.filter(task => (task.profileId ?? view.config.profiles[0]?.id) === profile.id)} />,
     where: <div className="grid gap-6">
       {runMode === 'screenreader' && <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />}
       <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />

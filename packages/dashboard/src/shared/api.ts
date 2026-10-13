@@ -203,3 +203,6 @@ export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachab
 export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, one minimal decision, or a coding-agent CLI started over ACP. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'agent' | 'none'; checkedAt: string };
 /** One browser launch on request: the engine, its version and where it came from. */
 export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' | 'connected' } | { ok: false; kind: 'not-found' | 'launch-failed' | 'connect-not-listening' | 'connect-refused' | 'connect-not-devtools'; source: 'custom' | 'auto' | 'connected' };
+
+/** The files of the project, for picking a path: project-relative with forward slashes, and the project folder they are relative to. */
+export type ProjectFiles = { root: string; files: string[]; truncated: boolean };

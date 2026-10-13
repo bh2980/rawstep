@@ -8,8 +8,8 @@ import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
 import { PageHeader, SectionHead } from '../components/layout/PageHeader';
 import { TaskProfileField } from '../components/TaskProfileField';
+import { ProjectPathField } from '../components/ProjectPathField';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
 import { inputProblems } from '../lib/taskInputs';
@@ -47,11 +47,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   const reason = missing.length ? t('newTask.missingLine', { items: missing.map(key => t(`newTask.missing.${key}`)).join(', ') }) : !inputsOk ? t('newTask.inputInvalid') : '';
   return <div className="grid max-w-3xl gap-6">
     <PageHeader title={t('newTask.title')} />
-    <section className="grid gap-2">
-      <SectionHead id={id + '-url-title'} title={t('newTask.url')} />
-      <Input aria-labelledby={id + '-url-title'} aria-describedby={id + '-url-hint'} className="h-10 font-mono text-sm md:text-sm" placeholder="https://" value={url} onChange={event => setUrl(event.target.value)} />
-      <p id={id + '-url-hint'} className="text-xs leading-5 text-muted-foreground">{t('newTask.urlHint')}</p>
-    </section>
+    <ProjectPathField label={t('newTask.url')} value={url} onChange={setUrl} extensions={['.html', '.htm']} allowUrl example="https://example.com/product/1" />
     <section className="grid gap-2">
       <SectionHead id={id + '-goal-title'} title={t('newTask.goal')} />
       <Textarea aria-labelledby={id + '-goal-title'} aria-describedby={id + '-goal-note'} rows={3} className="min-h-20 text-sm leading-6 md:text-sm" value={goal} onChange={event => setGoal(event.target.value)} />

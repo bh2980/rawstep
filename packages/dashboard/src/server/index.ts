@@ -26,6 +26,7 @@ import { DIAGNOSTIC_PATH } from './steps.js';
 import { suggestChecks } from './suggest.js';
 import { inspectStartPage } from './structure.js';
 import { estimateReach } from './reach.js';
+import { listProjectFiles } from './files.js';
 import { checkBrowser, checkConnection, checkModel, signInAgent } from './checks.js';
 import type { RunEventMessage } from '../shared/api.js';
 
@@ -158,6 +159,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const { connection } = await targetConnection(connectionTarget.parse(await jsonBody(req)));
       return send(res, await signInAgent(connection));
     }
+    if (path === '/api/files' && method === 'GET') return send(res, await listProjectFiles(store.root));
     if (path === '/api/connections/models' && method === 'POST') {
       const { connection, apiKey } = await targetConnection(connectionTarget.parse(await jsonBody(req)));
       return send(res, await discover(connection, apiKey));
