@@ -141,7 +141,8 @@ export function comboFromPreset(preset: ComboPreset, id: string, name: string, c
 
 /** Why a combo cannot be saved yet, if it cannot: no name, a planned combo without a planner, a model without its ID, empty instructions. */
 export function comboBlocker(combo: Combo): 'name' | 'planner' | 'modelId' | 'instructions' | undefined {
-  const executors = MODES.flatMap(mode => combo.executors[mode] ? [combo.executors[mode]] : []);
+  // A mode that follows the plan hides its executor, so an unfinished one there does not block saving.
+  const executors = MODES.flatMap(mode => combo.executors[mode] && !followsPlan(combo, mode) ? [combo.executors[mode]] : []);
   if (!combo.name.trim()) return 'name';
   if (combo.structure === 'planned' && !combo.planner) return 'planner';
   if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim()) || (combo.analysis && !combo.analysis.modelId.trim())) return 'modelId';

@@ -176,6 +176,10 @@ describe('settings helpers', () => {
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
     expect(comboBlocker({ ...bare, structure: 'planned' })).toBe('planner');
+    // A planned combo that follows its plan hides the screen reader executor: an empty one there does not block.
+    const unfinished = { ...bare, executors: { screenreader: { ...(bare.executors.screenreader ?? bare.executors.keyboard)!, modelId: '' } } };
+    expect(comboBlocker({ ...unfinished, structure: 'planned', followPlan: true, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
+    expect(comboBlocker({ ...unfinished, structure: 'planned', planner: { planFile: 'plans/p.json' } })).toBe('modelId');
     expect(comboBlocker(plannedWith(solo, 'writer', ''))).toBe('modelId');
     expect(comboBlocker(planned)).toBeUndefined();
     const executor = solo.executors.screenreader;

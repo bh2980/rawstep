@@ -114,7 +114,8 @@ A model combo says which models act. It is an experiment condition: to compare m
 | `id`, `name` | Identifier and display name. `--combo` accepts either. |
 | `structure` | `solo` (default): the executor of the mode decides every action. `planned`: a planner LLM writes a plan document and the executor carries out one task at a time. |
 | `planner` | Required when `structure` is `planned`; screen reader mode only for now. Either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). |
-| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo. |
+| `followPlan` | Planned combos only. `true`: screen reader runs use no executor model; Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move). Every judgement is the planner's and the cue's, so a run costs only planner calls and repeats vary less. The dashboard turns it on for a new planned combo. |
+| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo (a screen reader run of a combo with `followPlan` needs none). |
 | `analysis` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that explains this combo's runs. Without it, `project.analysis.model` is used. |
 | `owner`, `copiedFrom` | Set on task-only copies; leave them out otherwise. |
 
@@ -215,16 +216,19 @@ When a run stops early and, with a planner, when it plans again. The top-level `
 | `maxUnchangedTransitions` | 4 | The same action producing the same speech or screen this many times in a row stops the run as stuck. |
 | `modelGiveUp` | `false` | Whether the executor may end a run by choosing `stop:stuck` or `stop:uncertain`. Off, the model is offered only `stop:success`, and a run ends at the goal, a limit or a guard. |
 | `maxReplans` | 4 | With a planner: corrections of the plan before the run stops (checkpoints do not count). |
-| `stepActionLimit` | 12 | With a planner: actions on one task before a new plan is requested. |
+| `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count; one task never runs past three times this. |
 | `failureLimit` | 2 | With a planner: failed actions in a row on one task before a new plan is requested. |
 | `noChangeLimit` | 3 | With a planner: actions in a row on one task that changed nothing before a new plan is requested. |
 | `taskControl` | `rawstep` | With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is heard, and Rawstep's own signals (the limits above, repetition, and low executor confidence, see `confidenceFloor`) ask for a new plan. `executor`: the executor may also claim a task is done or ask for help; kept for comparison. |
+| `executorLatitude` | `none` | With a planner and an executor model: how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. |
+| `survey` | `none` | With a planner: `headings` lists the page's headings (the VoiceOver rotor) as the first action, before the first plan. The action set must allow `headings.list`. |
+| `confirmationGrace` | 5 | Screen reader runs: when the goal is reached but nothing the user heard said so (shown, not announced), the run goes on this many actions before it ends. Those actions are the user's not knowing whether it worked; `goal.reached` in the trace records the step and whether it was heard. 0 ends at once. |
 | `confidenceFloor` | 0.25 | With `taskControl: "rawstep"`: how unsure the executor may be before Rawstep asks for a new plan. Normalised: how far the top probability is from a uniform guess (1/n for n choices) towards certainty (1). Two low choices in a row ask for a new plan. |
 
 Overrides never fill in defaults: a field a preset or a task leaves out keeps the layer below.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "executorLatitude": "none", "confirmationGrace": 5 }
 ```
 
 ## Example

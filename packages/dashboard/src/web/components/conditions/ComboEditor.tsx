@@ -49,7 +49,8 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
     if (structure === combo.structure) return;
     if (structure === 'solo') { const { planner: _dropped, followPlan: _follow, ...rest } = combo; onChange({ ...rest, structure }); return; }
     const llm = llms[0];
-    onChange({ ...combo, structure, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
+    // A new planned combo follows its plan without an executor model: steadier and cheaper (the default after the comparison runs).
+    onChange({ ...combo, structure, followPlan: true, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
   };
   const setExecutor = (mode: Mode) => (executor: Executor | undefined) => {
     const { [mode]: _old, ...rest } = combo.executors;
