@@ -89,7 +89,7 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
         </DropdownMenu>
         {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}
       </div>
-      {selected && <div className="grid min-w-0 content-start gap-8">
+      {selected && <div className="grid min-w-0 max-w-5xl content-start gap-8">
         <div className="flex items-start justify-between gap-3 border-b border-edge pb-3">
           <div className="grid min-w-0 flex-1 gap-1">
             <Label htmlFor="profile-name" className="sr-only">{t('profile.name')}</Label>

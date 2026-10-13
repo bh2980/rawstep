@@ -76,7 +76,7 @@ function Dashboard() {
     <div className="flex min-h-0 flex-1">
       {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} /></aside>}
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
-        <div className="mx-auto grid max-w-7xl gap-4">
+        <div className="grid gap-4">
           {!compare.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>

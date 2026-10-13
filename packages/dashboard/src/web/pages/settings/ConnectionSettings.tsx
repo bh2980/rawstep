@@ -95,7 +95,7 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const uses = (id: string) => usesOf(config, id, t('connections.projectUser'));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
-  return <div className="grid gap-5">
+  return <div className="grid max-w-4xl gap-5">
     <PageHeader title={t('settingsNav.sections.connections')} info={t('settingsNav.info.connections')}
       actions={config.connections.length > 0 && <Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
     {config.connections.length === 0

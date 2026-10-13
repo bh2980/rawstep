@@ -113,7 +113,7 @@ export function RunSetup({ pageProps, taskId, active, onRun, navigate }: Props) 
   };
 
   const stops = stopSummary(draft, mode);
-  return <section id="task-run-control" aria-labelledby={id} className="grid gap-3 rounded-lg border border-edge-strong bg-surface px-4 py-3">
+  return <section id="task-run-control" aria-labelledby={id} className="grid max-w-5xl gap-3 rounded-lg border border-edge-strong bg-surface px-4 py-3">
     <h2 id={id} className="sr-only">{t('runSetup.title')}</h2>
     <p className="text-[16.5px] leading-9">{fill(sentence, parts)}</p>
 

@@ -49,14 +49,14 @@ export function TaskOverview({ taskId, runs, numbers, findings, navigate, onRun,
   return <div className="grid gap-8">
     {facts && facts.runs > 0 && <section aria-labelledby="results-current" className="grid gap-3">
       <h2 id="results-current" className="text-sm font-semibold">{current ? t('taskPage.results.title', { count: current.runs }) : t('taskPage.results.none')}</h2>
-      {current && <dl aria-label={t('taskPage.factsLabel')} className="grid gap-3 sm:grid-cols-3">
+      {current && <dl aria-label={t('taskPage.factsLabel')} className="grid max-w-5xl gap-3 sm:grid-cols-3">
         <Stat label={t('taskPage.results.moves')} value={<>{formatSteps(current.medianSteps)}{minimalSteps !== undefined && <span className="text-base font-normal text-muted-foreground"> {t('taskPage.results.minimal', { n: minimalSteps })}</span>}</>}
           note={<>{t('taskPage.results.reached', { reached: current.reached, runs: current.runs })}{current.minSteps !== null && current.maxSteps !== null && current.minSteps !== current.maxSteps && <> · {t('taskPage.results.spread', { min: current.minSteps, max: current.maxSteps })}</>}</>} />
         <Stat label={t('taskPage.results.lost')} value={<span className="text-lg">{current.topTarget ? targetLabel(current.topTarget) : t('taskPage.results.lostNone')}</span>} />
         {mode === 'screenreader' && <Stat warn={current.unheard > 0} label={t('taskPage.results.unheard')} info={t('taskPage.results.unheardInfo')}
           value={<span className="text-lg">{current.unheard > 0 ? t('taskPage.results.unheardCount', { unheard: current.unheard, reached: current.reached }) : t('taskPage.results.unheardNone')}</span>} />}
       </dl>}
-      {others.length > 0 && <div className="overflow-x-auto">
+      {others.length > 0 && <div className="max-w-5xl overflow-x-auto">
         <table className="w-full min-w-[30rem] text-[13px] tabular-nums">
           <caption className="pb-1 text-left text-xs text-muted-foreground">{t('taskPage.results.others')}</caption>
           <thead><tr className="border-b border-edge text-xs text-muted-foreground">
