@@ -6,7 +6,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { browserApps, frontmostApp, openInBrowser, serveDirectory, type BrowserName } from "./host.js";
+import { activateBrowser, browserApps, frontmostApp, openInBrowser, requireFrontmost, serveDirectory, type BrowserName } from "./host.js";
 import { spoken, VoSession, type Heard } from "./session.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +22,7 @@ const listen = { quietMs: Number(values.quiet), maxWaitMs: Number(values["max-wa
 const show = (label: string, heard: Heard) =>
   console.log(`${label.padEnd(16)} ${spoken(heard).join(" | ") || "(silence)"}${heard.reason === "deadline" ? "  [still talking]" : ""}`);
 
-const session = new VoSession(values.url);
+const session = new VoSession(values.url, requireFrontmost(browser));
 const fixtures = values.page ? await serveDirectory(join(packageRoot, "fixtures")) : undefined;
 try {
   await session.start();
@@ -30,7 +30,7 @@ try {
     await openInBrowser(browser, `${fixtures.origin}/${values.page}`);
     // Auto-read speaks the whole page after load; wait for it to stop, however long that is.
     show("(page load)", await session.listen({ quietMs: 2_000, maxWaitMs: 60_000 }));
-  }
+  } else await activateBrowser(browser);
   for (const chord of positionals) {
     await session.press(chord);
     show(chord, await session.listen(listen));

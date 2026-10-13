@@ -47,3 +47,20 @@ const tree = await dumpAxTree("Safari");
 
 It only reads AX attributes: no activation, keys or clicks, so VoiceOver and focus are undisturbed. Depth or node caps set `truncated` and `childrenTruncated` on the cut nodes.
 The terminal app that runs it needs Accessibility permission (System Settings > Privacy & Security); without it the dumper exits 2. Chrome exposes its web tree only while an assistive technology such as VoiceOver is on.
+
+## Case sets
+
+A case set is a directory of small pages plus `cases.json` (types in `src/cases.ts`): each case names a page and the chords to press on it. Every page is a "Before marker" button, the element variant, an "After marker" button; names are unique on the page.
+
+```sh
+corepack pnpm --filter vo-corpus generate                 # writes data/cases/elements-v1/{pages/*.html,cases.json}
+corepack pnpm --filter vo-corpus generate --out some/dir
+```
+
+`elements-v1` (`src/generate/elements.ts`) has one table row per HTML/ARIA element variant (role × state × name source, about 220 pages). Each page is shared by its cases, id `<variant>.<command>`, with the command in `axes.command`:
+
+- `next`: VO+Right through the whole variant (items + 2 presses), then VO+Left. Every variant
+- `tab`: Tab, Shift+Tab. Only variants whose target takes keyboard focus
+- `activate`: VO+Right, VO+Space. Only buttons, checkboxes, radios, switches, summary, tabs, and links to `#id` on the same page
+
+To add a variant, add a row to the table; `{N}` in the snippet becomes the variant's unique name words.

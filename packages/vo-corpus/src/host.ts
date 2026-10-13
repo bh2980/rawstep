@@ -70,9 +70,21 @@ export async function serveDirectory(directory: string): Promise<{ origin: strin
 /** Opens the URL in the browser and brings it to the front, so VoiceOver reads it. */
 export async function openInBrowser(browser: BrowserName, url: string): Promise<void> {
   await run("open", ["-a", browserApps[browser], url]);
+  await activateBrowser(browser);
+}
+
+export async function activateBrowser(browser: BrowserName): Promise<void> {
   await run("osascript", ["-e", `tell application "${browserApps[browser]}" to activate`]);
 }
 
 export async function frontmostApp(): Promise<string | undefined> {
   return output("osascript", ["-e", 'tell application "System Events" to get name of first application process whose frontmost is true']);
+}
+
+/** A beforePress guard: refuses to send keys unless the browser is in front, so nothing else (a system dialog) gets them. */
+export function requireFrontmost(browser: BrowserName): (chord: string) => Promise<void> {
+  return async chord => {
+    const front = await frontmostApp();
+    if (front !== browserApps[browser]) throw new Error(`Stopped before ${chord}: ${front ?? "an unknown app"} is in front, not ${browserApps[browser]}. Nothing was pressed.`);
+  };
 }

@@ -45,7 +45,11 @@ export class VoSession {
   private wake?: () => void;
   private failure?: string;
 
-  constructor(url: string) {
+  /**
+   * `beforePress` runs before every chord and throws to stop the session. Collection passes a frontmost-app check:
+   * VoiceOver keys go to whatever is in front, and a system dialog (a permission prompt) must never receive them.
+   */
+  constructor(url: string, private readonly beforePress?: (chord: string) => Promise<void>) {
     this.client = new AtDriverClient({ url, commandTimeoutMs: 15_000 });
     this.client.subscribe(event => {
       if (event.type === "output") {
@@ -68,6 +72,7 @@ export class VoSession {
   /** Sends one chord. Speech it causes is collected by the next listen(). */
   async press(chord: string): Promise<void> {
     if (this.failure) throw new Error(this.failure);
+    await this.beforePress?.(chord);
     await this.client.request("interaction.userIntent", { name: "pressKeys", keys: chordKeys(chord) });
   }
 
