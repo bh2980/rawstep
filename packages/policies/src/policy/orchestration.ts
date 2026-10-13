@@ -161,9 +161,16 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   async decide(input: Input): Promise<Decision> {
     this.evidence = []; input.signal.throwIfAborted();
     if (input.observation.kind !== 'screenreader') throw new Error('The orchestrated speech policy requires screen reader observations.');
-    const guarded = speechGuardStop(this.options, { ...input, history: input.history.slice(this.planFrom) });
-    if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
     const step = (input.history.at(-1)?.step ?? 0) + 1;
+    // The same speech over and over ("End of content") means the plan led nowhere, not that the user would stop: a person turns back
+    // and tries something else. While replans remain the planner gets that chance; only then does the guard end the run.
+    const guarded = speechGuardStop(this.options, { ...input, history: input.history.slice(this.planFrom) });
+    let repeated = false;
+    if (guarded) {
+      this.evidence.push(guarded.evidence);
+      if (!this.doc || this.replans >= this.limits.maxReplans) return guarded.decision;
+      repeated = true;
+    }
     // A survey before the first plan is the user's own move, so it is taken as an action and the plan is written on what it said.
     if (!this.doc && this.options.survey === 'headings' && !this.surveyed && input.allowedActions.intents.includes('headings.list')) {
       this.surveyed = true;
@@ -172,7 +179,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     }
     if (!this.doc) await this.replan(input, step, 'start');
     else {
-      const trigger = this.trigger(input);
+      const trigger = repeated ? 'no-change' : this.trigger(input);
       if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
     }
     // A "done" claim turned down in this step is not offered again until an action has been taken.

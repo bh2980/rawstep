@@ -136,6 +136,17 @@ describe('orchestrated speech policy', () => {
     for (let i = 1; i <= 3; i++) await policy.decide(input({ history: h.slice(0, i), observation: said('End of content') }));
     expect(await policy.decide(input({ history: h, observation: said('End of content') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
   });
+  it('hands repeated speech to the planner while replans remain, and lets the guard stop the run only after that', async () => {
+    const h = [1, 2, 3].map(i => acted(i, 'next', 'End of content'));
+    const p = planner(draft({ Read: ['Read the answer'] }), draft({ Read: ['Go back and open the question'] }));
+    const policy = new OrchestratedSpeechPolicy(p.planner, executor('intent:next', 'intent:next').executor, { repetitionGuard: true, maxUnchangedTransitions: 2, noChangeLimit: 5 });
+    await policy.decide(input());
+    expect(await policy.decide(input({ history: h, observation: said('End of content') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(p.requests.map(r => r.trigger)).toEqual(['start', 'no-change']);
+    const last = new OrchestratedSpeechPolicy(planner(draft({ Read: ['Read the answer'] })).planner, executor('intent:next').executor, { repetitionGuard: true, maxUnchangedTransitions: 2, noChangeLimit: 5, maxReplans: 0 });
+    await last.decide(input());
+    expect(await last.decide(input({ history: h, observation: said('End of content') }))).toEqual({ stop: 'stuck', stopSource: 'exploration-guard' });
+  });
   it('stops with its own stop sources: the planner judging the goal done, or running out of new plans', async () => {
     const p = planner(draft({ Any: ['Anything'] })), e = executor('intent:next', 'intent:next', 'intent:next');
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { ...EXECUTOR_CLAIMS, maxReplans: 1, stepActionLimit: 1 });
