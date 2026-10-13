@@ -5,7 +5,7 @@ import type { Profile } from '@rawstep/project/config';
 import type { Experiment } from '../../shared/config';
 import type { RouteChange } from '../hooks/useRoute';
 import { t as translate } from '../i18n';
-import { personaOf } from '../lib/persona';
+import { personaName, personaOf } from '../lib/persona';
 import { comboProblem, QUICK_RUN_REPEATS, startRun } from '../lib/quickRun';
 import { cn } from '../lib/utils';
 import type { PageProps } from '../pages/types';
@@ -123,7 +123,7 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
 
 /** A profile in one line: who uses the page, where it is heard, which AI thinks. */
 export function profileLine(profile: Profile): string {
-  const who = translate(`persona.${personaOf(profile.mode, profile)}.name`);
+  const who = personaName(profile.mode, personaOf(profile.mode, profile));
   const where = profile.mode === 'screenreader' ? translate(`conditions.backends.${profile.screenReader}`) : translate('runDialog.keyboard');
   return `${who} · ${where} · ${aiSummary(profile, profile.mode)}`;
 }

@@ -57,11 +57,23 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
     await props.save({ ...props.view.config, profiles: items }, undefined, props.view.revision);
   });
   return <div className="grid gap-5">
-    <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} />
-    <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-      <div className="grid gap-3 lg:sticky lg:top-0">
-        {/* A long list scrolls on its own, so the editor beside it stays put. */}
-        <ul aria-label={t('profile.listLabel')} className="grid max-h-72 overflow-y-auto overscroll-contain border-y border-edge-strong lg:max-h-[calc(100vh-15rem)]">
+    <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} actions={
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button variant="outline"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
+          <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
+          <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
+        </DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+    } />
+    <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch">
+      <div className="flex flex-col gap-3">
+        {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}
+        {/* A long list scrolls on its own; beside the editor it is exactly as tall as the editor. */}
+        <div className="relative lg:min-h-48 lg:flex-1">
+        <ul aria-label={t('profile.listLabel')} className="grid max-h-72 content-start overflow-y-auto overscroll-contain border-y border-edge-strong lg:absolute lg:inset-0 lg:max-h-none">
           {items.map(item => <li key={item.id} className="border-b border-edge last:border-b-0">
             <button type="button" aria-current={item.id === selected?.id ? 'true' : undefined} onClick={() => setSelectedId(item.id)}
               data-selected={item.id === selected?.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2 pr-3 pl-4 text-left text-sm', item.id === selected?.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>
@@ -70,16 +82,7 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
             </button>
           </li>)}
         </ul>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button variant="outline" className="justify-self-start"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-80">
-            {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
-              <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
-              <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
-            </DropdownMenuItem>)}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}
+        </div>
       </div>
       {selected && <div className="grid min-w-0 max-w-5xl content-start gap-8">
         <div className="flex items-start justify-between gap-3 border-b border-edge pb-3">

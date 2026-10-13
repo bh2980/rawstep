@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { executorModel, followsPlan, isFilePlanner, runRulesSchema, type Combo, type Mode, type Profile, type RunRules } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { t as translate } from '../i18n';
-import { environmentViewport } from '../lib/conditions';
-import { personaOf, PERSONAS, withPersona, type Persona } from '../lib/persona';
+import { environmentViewport, MODES } from '../lib/conditions';
+import { personaName, personaOf, PRESETS, withPreset } from '../lib/persona';
 import { cn } from '../lib/utils';
 import { ActionSetEditor } from './conditions/ActionSetEditor';
 import { AtEnvironmentEditor } from './conditions/AtEnvironmentEditor';
@@ -65,28 +65,24 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   const id = useId();
   const [open, setOpen] = useState<Question>(initiallyOpen);
   const runMode = profile.mode, persona = personaOf(runMode, profile);
-  // The persona sets the mode and, for a screen reader user, the actions: both are the profile's own.
-  const pick = (next: Exclude<Persona, 'custom'>) => { const result = withPersona(profile, next); onChange({ ...result.profile, mode: result.mode }); };
   const combo: Combo = { id: profile.id, name: profile.name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
   const setCombo = ({ structure, planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, structure, executors, ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
   const stops = stopSummary(profile, runMode);
   const summaries: Record<Question, ReactNode> = {
-    who: t(`persona.${persona}.name`),
+    who: personaName(runMode, persona),
     ai: aiSummary(profile, runMode),
     where: runMode === 'keyboard' ? t('profile.questions.whereKeyboard', { width, height }) : t('profile.questions.whereScreenReader', { backend: t(`conditions.backends.${profile.screenReader}`), width, height }),
     stop: stops.map((part, index) => <span key={part.text}>{index > 0 && ' · '}<span className={part.changed ? 'text-trace' : undefined}>{part.text}</span></span>),
   };
-  const personas = PERSONAS;
   const bodies: Record<Question, ReactNode> = {
     who: <div className="grid gap-4">
-      <div role="radiogroup" aria-label={t('persona.label')} className="flex flex-wrap gap-2">
-        {personas.map(item => <button key={item} type="button" role="radio" aria-checked={persona === item} onClick={() => pick(item)} title={t(`persona.${item}.hint`)}
-          className={cn('rounded-md border px-3 py-1.5 text-left text-[13px]', persona === item ? 'border-trace bg-trace-soft font-medium text-trace' : 'border-edge-strong hover:bg-raised')}>
-          {t(`persona.${item}.name`)}
-        </button>)}
+      <Segments label={t('persona.modeLabel')} value={runMode} onChange={mode => onChange({ ...profile, mode })} items={MODES.map(mode => ({ id: mode, name: t(`persona.modes.${mode}`) }))} tabs />
+      <div className="grid gap-1.5">
+        <Segments label={t('persona.presetLabel')} value={persona} onChange={preset => preset !== 'custom' && onChange(withPreset(profile, runMode, preset))}
+          items={[...PRESETS[runMode].map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), ...(persona === 'custom' ? [{ id: 'custom' as const, name: t('persona.custom.preset') }] : [])]} />
+        <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
       </div>
-      <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
         capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} only={runMode} backend={profile.screenReader} compact />
     </div>,
@@ -116,5 +112,27 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
     <section id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${open}`} className="min-w-0 rounded-md border border-edge-strong px-4 py-4">
       {bodies[open]}
     </section>
+  </div>;
+}
+
+/**
+ * A row of choices, the picked one marked; a radio group for screen readers. `tabs` draws the top-level choice as underlined tabs;
+ * otherwise the choices are small chips after a visible label.
+ */
+function Segments<T extends string>({ label, value, onChange, items, tabs }: { label: string; value: T; onChange: (value: T) => void; items: { id: T; name: string }[]; tabs?: boolean }) {
+  if (tabs) return <div role="radiogroup" aria-label={label} className="flex gap-1 border-b border-edge">
+    {items.map(item => <button key={item.id} type="button" role="radio" aria-checked={value === item.id} onClick={() => onChange(item.id)}
+      className={cn('-mb-px border-b-2 px-3 pb-2 text-sm', value === item.id ? 'border-trace font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+      {item.name}
+    </button>)}
+  </div>;
+  return <div className="flex flex-wrap items-center gap-2">
+    <span aria-hidden="true" className="text-[13px] text-muted-foreground">{label}</span>
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+      {items.map(item => <button key={item.id} type="button" role="radio" aria-checked={value === item.id} onClick={() => onChange(item.id)}
+        className={cn('rounded-full border px-2.5 py-0.5 text-[13px]', value === item.id ? 'border-trace bg-trace-soft font-medium text-trace' : 'border-edge-strong hover:bg-raised')}>
+        {item.name}
+      </button>)}
+    </div>
   </div>;
 }

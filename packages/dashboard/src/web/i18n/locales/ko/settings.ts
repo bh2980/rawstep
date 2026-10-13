@@ -211,12 +211,17 @@ export const settings = {
     },
   },
   persona: {
-    novice: { name: '처음 쓰는 스크린리더 사용자', short: '처음 쓰는 스크린리더 사용자', hint: '다음·이전 항목으로 한 칸씩 듣고 누릅니다.' },
-    expert: { name: '익숙한 스크린리더 사용자', short: '익숙한 스크린리더 사용자', hint: '제목 목록을 먼저 훑고, 제목·폼 컨트롤로 건너뛰며, 작업의 입력값을 씁니다.' },
-    keyboard: { name: '키보드 사용자', short: '키보드 사용자', hint: '화면을 보며 Tab·Enter 같은 키로 움직입니다.' },
-    custom: { name: '동작을 직접 고른 스크린리더 사용자', short: '동작을 직접 고른 사용자', hint: '아래에서 고른 동작만 씁니다.' },
     label: '사용자',
+    modeLabel: '쓰는 방법',
+    modes: { screenreader: '스크린리더', keyboard: '키보드' },
+    presetLabel: '시작점',
+    novice: { name: '처음 쓰는 스크린리더 사용자', preset: '처음 쓰는 사용자', hint: '다음·이전 항목으로 한 칸씩 듣고 누릅니다.' },
+    expert: { name: '익숙한 스크린리더 사용자', preset: '익숙한 사용자', hint: '제목 목록을 먼저 훑고, 제목·폼 컨트롤로 건너뛰며, 작업의 입력값을 씁니다.' },
+    basic: { name: '키보드 사용자', preset: '기본 키', hint: '화면을 보며 Tab·Shift+Tab·Enter·Space로 움직입니다.' },
+    widgets: { name: '키보드 사용자 (위젯 키까지)', preset: '위젯 키까지', hint: '방향키·Esc·Home·End로 메뉴·탭·대화상자도 다루고, 작업의 입력값을 씁니다.' },
+    custom: { screenreader: '동작을 직접 고른 스크린리더 사용자', keyboard: '키를 직접 고른 키보드 사용자', preset: '직접 고름', hint: '아래에서 고른 동작만 씁니다.' },
   },
+
   settingsPage: {
     missingModelId: '고른 모델의 모델 ID를 입력해야 저장할 수 있습니다.',
     analysis: {
