@@ -11,11 +11,14 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
   'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
+  'Live regions (status, alert, log, aria-live polite/assertive): new text is spoken once after the speech of the action that caused it, without the role and without timing or interruption; an empty live region is not a cursor stop (documented VoiceOver/Safari support for role=status, a11ysupport.io 2020; the empty-region skip is inferred).',
+  'List markers (bullets, "1.") are not cursor stops: VoiceOver reads a list item\'s content directly (inferred; markers are not separate accessibility objects in WebKit).',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
+  'headings.list reads every heading with its level in one announcement, like opening the VoiceOver rotor on headings (VO+U) and listening through it; the cursor does not move.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
 const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
 /** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
 const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
@@ -29,9 +32,12 @@ const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape']);
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 // Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
-const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator']);
+// List markers (bullets, "1.") are not stops either: VoiceOver reads a list item's content directly.
+const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator', 'ListMarker']);
+/** Live regions: their new text is announced when it changes; with nothing in them they are not a stop. */
+const liveRoles = new Set(['status', 'alert', 'log', 'marquee', 'timer']);
 // LabelText is Chromium's role for <label>: its text is read from the StaticText inside, so an unnamed label adds nothing.
-const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form', 'LabelText'])
+const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 'listitem', 'main', 'navigation', 'banner', 'contentinfo', 'complementary', 'form', 'LabelText', ...liveRoles])
 const clickableRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab']);
 const editableRoles = new Set(['textbox', 'searchbox', 'spinbutton', 'combobox']);
 
@@ -68,6 +74,10 @@ export class MockVoiceOverBackend implements Backend {
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
+  /** Each live region's text as last seen (undefined before the first look: what a page loads with is not announced). */
+  private liveTexts?: Map<string, string>;
+  /** Live-region text that changed, spoken after the speech of the action that changed it. */
+  private pendingLive: string[] = [];
   private listeners = new Set<(event: unknown) => void>();
 
   attachSession(session: BackendSession): void {
@@ -135,13 +145,18 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
     };
     this.beginWindow().outputs.push(output);
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
+  }
+
+  /** Speaks live-region changes queued by the last refresh, after whatever the action itself said (a polite announcement). */
+  private flushLive(): void {
+    for (const text of this.pendingLive.splice(0)) this.announceText(text, 'live-region');
   }
 
   private current(): CursorNode | undefined { return this.nodes.find(node => node.identity === this.cursor); }
@@ -194,6 +209,15 @@ export class MockVoiceOverBackend implements Backend {
       }
     };
     for (const node of axNodes) if (!node.parentId || !byId.has(node.parentId)) visit(node, false, []);
+    // Live regions: text that appeared or changed since the last look is queued to be spoken (not what the page loaded with).
+    const live = new Map<string, string>();
+    for (const node of axNodes) {
+      const politeness = property(node, 'live');
+      if (node.ignored || !(liveRoles.has(stringValue(node.role)) || politeness === 'polite' || politeness === 'assertive')) continue;
+      live.set(identity(node), regionText(node, byId));
+    }
+    if (this.liveTexts) for (const [id, text] of live) if (text && text !== this.liveTexts.get(id)) this.pendingLive.push(text);
+    this.liveTexts = live;
     // VoiceOver speaks the page title when a new document loads; the title is heard before anything on the page.
     const root = axNodes.find(node => ['RootWebArea', 'WebArea'].includes(stringValue(node.role)) && (!node.parentId || !byId.has(node.parentId)));
     if (root && identity(root) !== this.documentIdentity) {
@@ -238,7 +262,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
-    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
+    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','headings.list':'rotor_headings'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
       await this.refresh(signal);
@@ -253,7 +277,8 @@ export class MockVoiceOverBackend implements Backend {
           this.cursor = this.nodes[index]!.identity;
           this.announce(this.current());
         } else this.announce(undefined, move.none);
-      } else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
+      } else if (action.kind === 'intent' && action.intent === 'headings.list') this.announceText(headingsList(this.nodes), 'headings-list');
+      else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
       else if (action.kind === 'intent' && action.intent === 'readFocused') {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
       } else {
@@ -269,6 +294,7 @@ export class MockVoiceOverBackend implements Backend {
         await this.refresh(signal);
         this.announce(this.current());
       }
+      this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
       signal?.throwIfAborted();
       return receipt;
@@ -351,6 +377,7 @@ export class MockVoiceOverBackend implements Backend {
       signal?.throwIfAborted();
       if (this.lastCurrentFingerprint !== undefined && this.lastCurrentFingerprint !== this.currentFingerprint() && this.wording) this.sourceCommand = 'asynchronous_semantic_change';
       if (this.lastCurrentFingerprint !== this.currentFingerprint()) this.announce(this.current(), 'No accessible content', false);
+      this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
       signal?.throwIfAborted();
       const observation = {
@@ -403,4 +430,22 @@ function hasUnmodeledContext(node: AXNode, byId: Map<string, AXNode>): boolean {
   const visited=new Set<string>();let parent=node.parentId ? byId.get(node.parentId) : undefined;
   while(parent&&!visited.has(parent.nodeId)){visited.add(parent.nodeId);if(['group','radiogroup','list','listitem','main','navigation','banner','contentinfo','complementary','form','dialog','alertdialog','table','grid'].includes(stringValue(parent.role)))return true;parent=parent.parentId?byId.get(parent.parentId):undefined;}
   return false;
+}
+/** The text inside a live region, as one utterance: its visible text nodes in order. */
+function regionText(node: AXNode, byId: Map<string, AXNode>): string {
+  const parts: string[] = [], seen = new Set<string>();
+  const walk = (current: AXNode) => {
+    if (seen.has(current.nodeId)) return;
+    seen.add(current.nodeId);
+    if (!current.ignored && stringValue(current.role) === 'StaticText') { const text = stringValue(current.name).trim(); if (text) parts.push(text); }
+    for (const childId of current.childIds ?? []) { const child = byId.get(childId); if (child) walk(child); }
+  };
+  walk(node);
+  return parts.join(' ');
+}
+/** The rotor's headings list as one announcement: each heading with its level, in page order. */
+function headingsList(nodes: readonly CursorNode[]): string {
+  const headings = nodes.filter(node => node.semantic.role === 'heading');
+  if (!headings.length) return 'Headings, no items';
+  return `Headings, ${headings.length} items: ` + headings.map(node => `${node.semantic.name}, level ${node.semantic.level ?? '?'}`).join('; ');
 }

@@ -77,14 +77,14 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 npx rawstep run checkout --environment narrow
 npx rawstep run checkout --environment zoom-200
 npx rawstep run checkout --combo plan-and-jev --mode screenreader --at voiceover
-npx rawstep run checkout --preset narrow-beginner --max-replans 6
+npx rawstep run checkout --preset narrow-beginner --rule maxReplans=6
 ```
 
 페이지 환경의 `profile`은 `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 이름이나 객체로 지정합니다. 요청한 값과 관측한 값을 함께 기록하며, 브라우저 미디어 에뮬레이션과 네이티브 OS 설정은 구분합니다. 사용할 수 없는 환경은 적용했다고 주장하지 않고 unsupported로 남깁니다. [환경 프로필 안내](./docs/environment-profiles.md)를 참고하세요.
 
 ## 대시보드
 
-`npx rawstep ui`가 `127.0.0.1`에서 대시보드를 엽니다. 메뉴는 세 묶음입니다. **홈·작업·실행 기록**, **실험 조건·연결**, **설정**. 작업 화면의 실행 상자에서 프리셋이나 조건(공용 항목 불러오기, 작업 전용 사본으로 고치기, 새로 만들기)을 고르고 이 실행에 쓰는 모델을 확인한 뒤 실행합니다. 실험 조건 화면에는 모델 조합·행동 조합·환경·실행 규칙·실행 프리셋 탭이 있고, 연결 화면은 각 연결을 계획·실행·해설·제안 중 어느 역할이 쓰는지 보여 줍니다. 설정은 프로젝트(해설·제안 모델)와 이 컴퓨터(AT Driver 주소, 브라우저, 봇 확인)로 나뉩니다. 실행 상세는 계획 문서(단계, 현재 작업, 버전 이력)와 작업별 행동, 모델 호출을 보여 줍니다. [대시보드 안내](./docs/dashboard-plan.ko.md)를 참고하세요.
+`npx rawstep ui`가 `127.0.0.1`에서 대시보드를 엽니다. 메뉴는 세 묶음입니다. **홈·작업·실행 기록**, **실험 조건·연결**, **설정**. 작업 화면의 실행 상자에서 프리셋이나 조건(공용 항목 불러오기, 작업 전용 사본으로 고치기, 새로 만들기)을 고르고 이 실행에 쓰는 모델을 확인한 뒤 실행합니다. 실험 조건 화면에는 모델 조합·행동 조합·환경·실행 규칙·실행 프리셋 탭이 있고, 연결 화면은 각 연결을 계획·실행·해설·제안 중 어느 역할이 쓰는지 보여 줍니다. 설정은 프로젝트(해설·제안 모델)와 이 컴퓨터(AT Driver 주소, 브라우저, 봇 확인)로 나뉩니다. 실행 상세는 계획 문서(단계, 현재 작업, 버전 이력)와 작업별 행동, 모델 호출을 보여 줍니다.
 
 ## 설정 파일
 
@@ -101,7 +101,7 @@ corepack pnpm --filter @rawstep/browser exec playwright install chromium
 npm run rawstep -- --help
 ```
 
-체크아웃의 CLI는 먼저 빌드해야 합니다. 기존의 신뢰할 수 있는 Chromium을 쓰려면 `machine.browserExecutablePath`를 설정하세요. 테스트에는 `RAWSTEP_TEST_BROWSER_PATH`도 사용할 수 있습니다. 브라우저 sandbox를 끄는 옵션은 필요하지 않습니다. 자세한 내용은 [로컬 개발 안내](./docs/local-development.md)에 있습니다. 대시보드 UI를 개발할 때는 `npm run dashboard:dev`를 사용하고, 구성은 [대시보드 안내](./docs/dashboard-plan.ko.md)에 있습니다.
+체크아웃의 CLI는 먼저 빌드해야 합니다. 기존의 신뢰할 수 있는 Chromium을 쓰려면 `machine.browserExecutablePath`를 설정하세요. 테스트에는 `RAWSTEP_TEST_BROWSER_PATH`도 사용할 수 있습니다. 브라우저 sandbox를 끄는 옵션은 필요하지 않습니다. 자세한 내용은 [로컬 개발 안내](./docs/local-development.md)에 있습니다. 대시보드 UI를 개발할 때는 `npm run dashboard:dev`를 사용합니다.
 
 기본 `npm test`는 브라우저를 실행하지 않습니다. 실제 browser 테스트는 `test:integration`으로 worker 1개에서 순차 실행하고, `test:all`과 `check`는 전체 범위를 검증합니다.
 

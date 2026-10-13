@@ -20,7 +20,7 @@ The `rawstep` executable reads [`rawstep.config.json`](./config.md) in the proje
 
 ```sh
 rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
-                   [--at <id|name>] [--mode keyboard|screenreader] [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
+                   [--at <id|name>] [--mode keyboard|screenreader] [--rule <name>=<value>]... [--diagnose-stop]
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
@@ -34,13 +34,12 @@ rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>
 | `--environment` | The page environment, resolved the same way. |
 | `--at` | The assistive technology, resolved the same way. Only screen reader runs use it. |
 | `--mode` | `keyboard` |
-| `--max-replans` | The run rules' `maxReplans` (0 to 100). With a planner: how many times the plan may be corrected before the run stops. |
-| `--max-task-actions` | The run rules' `stepActionLimit` (1 to 1000). With a planner: actions on one task before a new plan is requested. |
+| `--rule` | None. `--rule <name>=<value>` overrides one [run rule](./config.md#runrules) for these runs, such as `--rule maxReplans=2 --rule survey=headings`. Repeat it for more rules; if a rule is given twice, the last wins. Numbers, `true` or `false`, and the rule's choices are checked as in the config. |
 | `--diagnose-stop` | Off. Keyboard mode only: after a run that stopped early, a separate bounded call asks the executor why. Its scores are uncertain hypotheses and never change the outcome. |
 | `--repeat` | `1` (at most 100). Each repeat is compared with the fastest repeat that reached the goal. |
 | `--out` | `<project>/.rawstep/runs/<timestamp>-<id>/`, with one `run-<n>/` directory per repeat. |
 
-`--max-replans` and `--max-task-actions` override the run rules for these runs only (project defaults, then the preset's, then the task's, then these). The other run rules are set in the config or the dashboard.
+`--rule` overrides the run rules for these runs only (project defaults, then the preset's, then the task's, then these). Rules you do not override are set in the config or the dashboard.
 
 ### Output
 

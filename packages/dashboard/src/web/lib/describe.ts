@@ -113,7 +113,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       const help = str(d.help);
       return t('hints.text.helpRequest', { reason: help ? t(`hints.text.helpReasons.${help}`, { defaultValue: help }) : t('hints.text.helpReasons.none'), version: String(d.version ?? '') });
     }
-    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
+    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'low-confidence' ? 'hints.text.replanLowConfidence' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
     case 'task-limit': return t('hints.text.taskLimit', { version: String(d.version ?? '') });
     case 'unverified-done': return t('hints.text.unverifiedDone', { task: str(d.taskId) ?? '' });
     case 'focus-left-page': {

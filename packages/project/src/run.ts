@@ -10,7 +10,7 @@ import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, p
 import { ProjectError } from './errors.js';
 import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
-import { assertRunnable, checkRun, runSpecOf, type RunConditions } from './plan.js';
+import { assertRunnable, checkRun, loadPlanFile, runSpecOf, type RunConditions } from './plan.js';
 import { executeRun, type RunExecutor, type RunSpec } from './execution.js';
 
 export type FinalizeOptions = {
@@ -122,7 +122,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const analyse = analysisModel && (analysisKey || !modelKeyRequired(analysisModel)) ? analysisModel : undefined;
   if (analysisModel && !analyse) warnings.push(`The key for the analysis model "${analysisModel.name}" is not set; the runs get the rule-based analysis only.`);
   const atDriverCommand = mode === 'screenreader' && conditions.atEnvironment.backend !== 'simulation' ? await store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
-  const spec: RunSpec = runSpecOf(source, mode, conditions, check, options.diagnoseStop);
+  const spec: RunSpec = { ...runSpecOf(source, mode, conditions, check, options.diagnoseStop), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(store, check.plannerPlanFile) } : {}) };
   const root = options.outDir ? resolve(options.outDir) : join(projectDir, '.rawstep', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`);
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');

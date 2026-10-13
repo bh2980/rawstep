@@ -1,4 +1,4 @@
-import { comboExecutor, comboPlanner, credentialId, modelKeyRequired, taskConditions, type Combo, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
+import { comboExecutor, comboPlanner, isFilePlanner, credentialId, modelKeyRequired, taskConditions, type Combo, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { api } from '../api';
 import { t } from '../i18n';
 import type { Combination, ConfigView, Experiment, PlanRequest } from '../../shared/config.js';
@@ -16,7 +16,7 @@ export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credent
   const executor = comboExecutor(config, combo, mode);
   if (!executor) return t('runBox.problem.noExecutor', { mode: t(`sidebar.modes.${mode}`) });
   if (missingKey(executor)) return t('runBox.problem.noKey');
-  if (combo.structure === 'planned' && mode === 'screenreader') {
+  if (combo.structure === 'planned' && mode === 'screenreader' && !isFilePlanner(combo.planner)) {
     const planner = comboPlanner(config, combo);
     if (!planner) return t('runBox.problem.noPlanner');
     if (missingKey(planner)) return t('runBox.problem.noPlannerKey');

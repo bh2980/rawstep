@@ -10,13 +10,13 @@ export type AssumptionStatus = 'open' | 'held' | 'broken';
 /** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
 export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
  * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
  * `unchecked` means the task had no cue to compare.
  */
-export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'not-heard' | 'unchecked' };
+export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'recognized' | 'not-heard' | 'unchecked' };
 /** Something the user must be able to hear for the goal to count as reached, in the planner's words. */
 export type Criterion = { id: string; text: string; status: CriterionStatus; addedIn: number };
 /** An expectation from common UI conventions the plan rests on; running the plan shows whether it held. */
@@ -28,9 +28,23 @@ export type PlanTask = {
   goal: string;
   /** What the user hears when the task is done, in the planner's words. */
   done: string;
-  /** The exact words the screen reader should say when the task is done; empty when they cannot be predicted. Rawstep checks a
-   * "done" claim against them. */
+  /** The name words the user expects to hear when the task is done (a guess: the planner has not heard the item yet); empty when
+   * they cannot be predicted. See `matchCue`. */
   cue: string;
+  /** The role the user expects that item to have ("button", "link"…), when it can be told from common conventions. */
+  cueRole?: CueRole;
+  /** The state the item should be in when the task is done ("checked"…). */
+  cueState?: CueState;
+  /**
+   * Whether the task ends by activating something (pressing a button, opening a disclosure, checking a box). A task that only
+   * moves offers the executor no activation: a decision model otherwise presses items whose words resemble the goal. Unset: both.
+   */
+  activates?: boolean;
+  /**
+   * The movement actions the executor may use on this task (for example `heading.next`): the plan's navigation method, enforced.
+   * A decision model otherwise ignores "move by headings" and pages item by item, or swings between next and previous. Unset: all.
+   */
+  moves?: string[];
   /** "Done" claims Rawstep turned down because the cue was not heard. */
   rejected: number;
   /** Criteria this task works toward and assumptions it relies on. */
@@ -83,7 +97,7 @@ export type PlanDraft = {
   complete: boolean; rationale: string; strategy: string;
   criteria: { id: string; text: string; status?: CriterionStatus }[];
   assumptions: { id: string; text: string; status?: AssumptionStatus }[];
-  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string; serves?: string[]; relies?: string[] }[] }[];
+  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string | DraftCue; activates?: boolean; moves?: string[]; serves?: string[]; relies?: string[] }[] }[];
 };
 
 const open = (t: PlanTask) => t.status === 'pending' || t.status === 'active';
@@ -115,7 +129,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, ...draftCue(task.cue), ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {
@@ -158,16 +172,76 @@ export function failCurrent(doc: PlanDocument, step: number): void {
   const task = currentTask(doc);
   if (task) { task.status = 'failed'; task.ending = { reason: 'limit', step }; }
 }
+/** Roles a cue may name, with the words a screen reader says for each (any one of the word groups). `text` is plain text: no role. */
+const ROLE_WORDS = {
+  button: [['button']], link: [['link']], checkbox: [['checkbox']], radio: [['radio']], heading: [['heading']], tab: [['tab']], image: [['image']],
+  'text field': [['text', 'field'], ['edit', 'text'], ['search', 'field']], 'menu item': [['menu', 'item']], 'combo box': [['combo', 'box'], ['pop', 'up', 'button']], text: [],
+} as const satisfies Record<string, readonly (readonly string[])[]>;
+export type CueRole = keyof typeof ROLE_WORDS;
+export const CUE_STATES = ['checked', 'unchecked', 'expanded', 'collapsed', 'selected'] as const;
+export type CueState = typeof CUE_STATES[number];
+/** A cue as the planner writes it: the name it expects to hear, and the role and state when it can tell them. */
+export type DraftCue = { name: string; role?: string; state?: string };
+const ROLE_ALIASES: Record<string, CueRole> = { 'radio button': 'radio', textbox: 'text field', 'text box': 'text field', 'search field': 'text field', input: 'text field',
+  combobox: 'combo box', 'pop-up button': 'combo box', menuitem: 'menu item', 'plain text': 'text', paragraph: 'text', static: 'text' };
+/** The planner's cue as task fields; a role or state Rawstep does not know is dropped (the name still counts). */
+function draftCue(cue: string | DraftCue | undefined): Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'> {
+  if (!cue) return { cue: '' };
+  if (typeof cue === 'string') return { cue: cue.trim() };
+  const role = cue.role?.trim().toLowerCase(), state = cue.state?.trim().toLowerCase() as CueState | undefined;
+  const known = role && (role in ROLE_WORDS ? role as CueRole : ROLE_ALIASES[role]);
+  return { cue: cue.name.trim(), ...(known ? { cueRole: known } : {}), ...(state && CUE_STATES.includes(state) ? { cueState: state } : {}) };
+}
+/** The cue as one line, for the executor and the plan document: "Add to cart (button)". */
+export function cueText(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>): string {
+  const extra = [task.cueRole, task.cueState].filter(Boolean).join(', ');
+  return task.cue ? `${task.cue}${extra ? ` (${extra})` : ''}` : extra ? `(${extra})` : '';
+}
+
+const ROLE_TOKENS = new Set(['button', 'link', 'checkbox', 'radio', 'heading', 'tab', 'image', 'field', 'menu', 'combo', 'group', 'navigation', 'list', 'region', 'banner', 'search', 'edit']);
+/** Words a screen reader adds to names: roles, states, levels, and small words that say nothing about which item it is. */
+const NOT_NAME = new Set([...ROLE_TOKENS, ...CUE_STATES, 'level', 'item', 'items', 'text', 'up', 'pop', 'box', 'main', 'dimmed', 'visited',
+  'the', 'and', 'for', 'with', 'your', 'you', 'this', 'that', 'of', 'to', 'on', 'in', 'a', 'an']);
+const tokens = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+/** Name words: numbers count ("Cart, 1 item"), except a heading's level number. */
+const nameWords = (text: string) => new Set(tokens(text).filter((w, i, all) => (w.length > 1 || /\d/.test(w)) && !NOT_NAME.has(w) && all[i - 1] !== 'level')
+  .map(w => w.replace(/(?<=..)s$/, '')));
 /**
- * Whether a task's completion cue was heard: its `cue`, else words quoted in its "done" (straight or curly quotes). Matching
- * ignores case and spacing. A task with neither cannot be checked.
+ * How one spoken item compares with a task's cue, the way a person listening would tell. The role and state must be the ones the
+ * cue expects ("Cart (0), link" is not the "Add to cart" button; "Special offers, checked" is not "Order updates" checked). Then:
+ * - `heard`: every cue name word was said, and either the cue named a role or the item says nothing beyond the cue's words;
+ * - `candidate`: some cue name words were said: the cue was written before the item was heard, so its wording is a guess
+ *   ("Email notifications for order updates" for "Order updates, unchecked, checkbox") and the planner is asked;
+ * - `no`: otherwise. A cue with no name words (only "checked") is heard when all its words were said as words.
  */
-export function verifyCue(task: Pick<PlanTask, 'cue' | 'done'>, heard: readonly string[]): NonNullable<TaskEnding['verified']> {
-  const quoted = task.cue ? [task.cue] : [...task.done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => m[1]!.trim()).filter(Boolean);
-  if (!quoted.length) return 'unchecked';
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-  const said = heard.map(norm).join('\n');
-  return quoted.some(q => said.includes(norm(q))) ? 'heard' : 'not-heard';
+export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, item: string): 'heard' | 'candidate' | 'no' {
+  const said = tokens(item);
+  if (task.cueRole) {
+    const groups: readonly (readonly string[])[] = ROLE_WORDS[task.cueRole];
+    const ok = groups.length ? groups.some(group => group.every(w => said.includes(w))) : !said.some(w => ROLE_TOKENS.has(w));
+    if (!ok) return 'no';
+  }
+  if (task.cueState && !said.includes(task.cueState)) return 'no';
+  const cue = nameWords(task.cue), named = nameWords(item);
+  if (!cue.size) {
+    // A cue with only a role and state ("the unnamed button before Reviews") is heard on any item that has them.
+    if (task.cueRole || task.cueState) return 'heard';
+    const want = tokens(task.cue); return want.length && want.every(w => said.includes(w)) ? 'heard' : 'no';
+  }
+  // An item of the expected role with no name at all ("button") might be the one: a listener wonders, so the planner is asked.
+  if (task.cueRole && !named.size) return 'candidate';
+  const all = [...cue].every(w => named.has(w)), some = [...cue].some(w => named.has(w));
+  if (all && (task.cueRole || [...named].every(w => cue.has(w)))) return 'heard';
+  return some ? 'candidate' : 'no';
+}
+/**
+ * Whether a task's completion cue was heard in any spoken line: its `cue`, else words quoted in its "done" (straight or curly
+ * quotes). A task with neither cannot be checked.
+ */
+export function verifyCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState' | 'done'>, heard: readonly string[]): NonNullable<TaskEnding['verified']> {
+  const cues = task.cue || task.cueRole || task.cueState ? [task] : [...task.done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => ({ cue: m[1]!.trim() })).filter(c => c.cue);
+  if (!cues.length) return 'unchecked';
+  return cues.some(cue => heard.some(line => matchCue(cue, line) === 'heard')) ? 'heard' : 'not-heard';
 }
 /** One line per task for the executor: where the run is, without the planner's free-form reasoning. */
 export function planOutline(doc: PlanDocument): { number: string; phase: string; task: string; status: TaskStatus }[] {
@@ -186,7 +260,7 @@ export function renderPlanMarkdown(doc: PlanDocument): string {
     for (const t of phase.tasks) {
       const refs = [...t.serves, ...t.relies].join(', ');
       lines.push(`- ${box[t.status]} ${t.number} ${t.goal}${refs ? ` _(${refs})_` : ''}${doc.current === t.id ? ' ← current' : ''}`,
-        `  - done: ${t.done}${t.cue ? ` · cue "${t.cue}"` : ''} · actions: ${t.actions}${t.rejected ? ` · claims turned down: ${t.rejected}` : ''}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
+        `  - done: ${t.done}${t.cue ? ` · cue "${cueText(t)}"` : ''} · actions: ${t.actions}${t.rejected ? ` · claims turned down: ${t.rejected}` : ''}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
     }
     lines.push('');
   }

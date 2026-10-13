@@ -1,13 +1,14 @@
 import { Fragment, useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, CornerUpLeft, RotateCcw } from 'lucide-react';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode } from '@rawstep/project/config';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode, type PlanFollowerChoice } from '@rawstep/project/config';
 import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { Advanced, Field, Panel, Toggle } from '../forms';
 import { RadioRows } from '../layout/RadioRows';
 import { effortOf, ModelPicker } from '../ModelPicker';
 import { Button } from '../ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 /**
@@ -47,11 +48,13 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
   const llms = connections.filter(c => c.kind === 'llm');
   const setStructure = (structure: Combo['structure']) => {
     if (structure === combo.structure) return;
-    if (structure === 'solo') { const { planner: _dropped, ...rest } = combo; onChange({ ...rest, structure }); return; }
+    // A solo combo has no plan to follow: its screen reader slot keeps a model or is emptied.
+    if (structure === 'solo') { const { planner: _dropped, ...rest } = combo; onChange({ ...rest, structure, executors: { ...(executorModel(combo, 'screenreader') ? { screenreader: executorModel(combo, 'screenreader')! } : {}), ...(combo.executors.keyboard ? { keyboard: combo.executors.keyboard } : {}) } }); return; }
     const llm = llms[0];
-    onChange({ ...combo, structure, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
+    // A new planned combo follows its plan without an executor model: steadier and cheaper (the default after the comparison runs).
+    onChange({ ...combo, structure, executors: { ...combo.executors, screenreader: { followPlan: true } }, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
   };
-  const setExecutor = (mode: Mode) => (executor: Executor | undefined) => {
+  const setExecutor = (mode: Mode) => (executor: Executor | PlanFollowerChoice | undefined) => {
     const { [mode]: _old, ...rest } = combo.executors;
     onChange({ ...combo, executors: executor ? { ...rest, [mode]: executor } : rest });
   };
@@ -64,11 +67,15 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
     <RoleCard title={t('conditions.combo.executor.title')} tag={t('conditions.combo.condition')} intro={t('conditions.combo.executor.intro')} compact={compact}>
       <Tabs defaultValue={combo.executors.screenreader || !combo.executors.keyboard ? 'screenreader' : 'keyboard'} className="gap-4">
         <TabsList variant="line" aria-label={t('conditions.combo.executor.modesLabel')}>
-          {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
+          {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && !followsPlan(combo, mode) && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
         </TabsList>
         {MODES.map(mode => <TabsContent key={mode} value={mode} className="grid gap-4">
           {mode === 'keyboard' && combo.structure === 'planned' && <p className="text-xs leading-5 text-inspect">{t('conditions.combo.executor.keyboardAlone')}</p>}
-          <ExecutorFields mode={mode} executor={combo.executors[mode]} onChange={setExecutor(mode)} connections={connections} />
+          {mode === 'screenreader' && combo.structure === 'planned' && <Toggle label={t('conditions.combo.executor.followPlan')} hint={t('conditions.combo.executor.followPlanHint')} checked={followsPlan(combo, mode)}
+            onChange={on => setExecutor(mode)(on ? { followPlan: true } : undefined)} />}
+          {followsPlan(combo, mode)
+            ? <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.executor.followPlanOn')}</p>
+            : <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor(mode)} connections={connections} planned={combo.structure === 'planned'} />}
         </TabsContent>)}
       </Tabs>
     </RoleCard>
@@ -95,15 +102,16 @@ function RoleCard({ title, tag, intro, children, compact, muted }: { title: stri
 /** How the roles hand work on, drawn as boxes and arrows; it is also a list in reading order, and the loop back to the planner is a sentence. */
 function Pipeline({ combo, connections, compact }: { combo: Combo; connections: readonly Connection[]; compact?: boolean | undefined }) {
   const { t } = useTranslation();
-  const model = (choice: { connectionId: string; modelId: string } | undefined) => {
+  const model = (choice: { connectionId: string; modelId: string } | { planFile: string } | undefined) => {
+    if (choice && 'planFile' in choice) return choice.planFile;
     const connection = choice && connections.find(c => c.id === choice.connectionId);
     return connection ? choice.modelId.trim() || connection.name : t('conditions.combo.pipeline.unset');
   };
   const planned = combo.structure === 'planned';
-  const executor = planned || combo.executors.screenreader || !combo.executors.keyboard ? combo.executors.screenreader : combo.executors.keyboard;
+  const executor = planned || combo.executors.screenreader || !combo.executors.keyboard ? executorModel(combo, 'screenreader') : executorModel(combo, 'keyboard');
   const nodes: { label: string; detail?: string; role?: boolean }[] = [
     ...(planned ? [{ label: t('conditions.combo.pipeline.planner'), detail: model(combo.planner), role: true }, { label: t('conditions.combo.pipeline.document'), detail: t('conditions.combo.pipeline.documentDetail') }] : []),
-    { label: t('conditions.combo.pipeline.executor'), detail: model(executor), role: true },
+    { label: t('conditions.combo.pipeline.executor'), detail: followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : model(executor), role: true },
     { label: t('conditions.combo.pipeline.action') },
     { label: t('conditions.combo.pipeline.page'), detail: t('conditions.combo.pipeline.pageDetail') },
   ];
@@ -124,35 +132,63 @@ function Pipeline({ combo, connections, compact }: { combo: Combo; connections: 
   </figure>;
 }
 
-/** The planner LLM: it writes and corrects the plan document. Its instructions follow Rawstep's rules, which are shown but cannot change. */
+const PLAN_FILE_DEFAULT = 'plans/{task}/plan.json';
+const PLAN_FILE_EXAMPLE = JSON.stringify({
+  strategy: 'Find the product, add it to the cart, then open the cart.',
+  criteria: [{ id: 'C1', text: 'The user hears that the item is in the cart.' }],
+  assumptions: [{ id: 'A1', text: 'The product page has an "Add to cart" button.' }],
+  phases: [{ title: 'Add the product', criteria: ['C1'], tasks: [
+    { goal: "Move to the 'Add to cart' button", done: 'The user hears "Add to cart, button"', cue: 'Add to cart, button', serves: ['C1'], relies: ['A1'] },
+    { goal: "Activate the 'Add to cart' button", done: 'The user hears that the item was added', cue: 'added to cart', serves: ['C1'] },
+  ] }],
+}, null, 2);
+
+/** The planner: an LLM that writes and corrects the plan document, or a plan file written beforehand. The LLM follows Rawstep's rules, which are shown but cannot change. */
 function PlannerCard({ combo, onChange, llms, compact }: { combo: Combo; onChange: (combo: Combo) => void; llms: readonly Connection[]; compact?: boolean | undefined }) {
   const { t } = useTranslation();
   const planner = combo.planner;
+  const source = isFilePlanner(planner) ? 'file' : 'llm';
+  const setSource = (next: 'llm' | 'file') => {
+    if (next === source) return;
+    const llm = llms[0];
+    const { planner: _old, ...rest } = combo;
+    onChange({ ...rest, ...(next === 'file' ? { planner: { planFile: PLAN_FILE_DEFAULT } } : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
+  };
+  const sourceRows = (['llm', 'file'] as const).map(id => ({ id, label: t(`conditions.combo.planner.source.${id}`) }));
   return <RoleCard title={t('conditions.combo.planner.title')} tag={t('conditions.combo.condition')} intro={t('conditions.combo.planner.intro')} compact={compact}>
-    {llms.length
-      ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''} reasoningEffort={planner?.reasoningEffort}
-        onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), instructions: planner?.instructions ?? '' } })} />
-      : <p className="text-sm leading-6 text-inspect">{t('conditions.combo.planner.noLlm')}</p>}
-    {planner && <div className="grid gap-1.5">
-      <Field label={t('conditions.combo.planner.instructions')} multiline plain value={planner.instructions} placeholder={t('conditions.combo.planner.instructionsPlaceholder')}
-        onChange={instructions => onChange({ ...combo, planner: { ...planner, instructions } })} />
-      <p className="border-l-2 border-inspect pl-2.5 text-xs leading-5 text-inspect">{t('conditions.combo.planner.pageKnowledge')}</p>
-    </div>}
-    <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.planner.limits')}</p>
-    <Panel title={t('conditions.combo.planner.builtIn')} description={t('conditions.combo.planner.builtInDescription')}>
-      <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLANNER_RULES}</pre>
-    </Panel>
+    <RadioRows legend={t('conditions.combo.planner.sourceLegend')} value={source} onChange={setSource} rows={sourceRows} />
+    {isFilePlanner(planner) ? <>
+      <Field label={t('conditions.combo.planner.planFile')} value={planner.planFile} placeholder={PLAN_FILE_DEFAULT} hint={t('conditions.combo.planner.planFileHint')}
+        onChange={planFile => onChange({ ...combo, planner: { planFile } })} />
+      <Panel title={t('conditions.combo.planner.planFileExample')} description={t('conditions.combo.planner.planFileExampleDescription')}>
+        <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLAN_FILE_EXAMPLE}</pre>
+      </Panel>
+    </> : <>
+      {llms.length
+        ? <ModelPicker label={t('conditions.combo.planner.model')} connections={llms} connectionId={planner?.connectionId} modelId={planner?.modelId ?? ''} reasoningEffort={planner?.reasoningEffort}
+          onChange={next => onChange({ ...combo, planner: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), instructions: planner?.instructions ?? '' } })} />
+        : <p className="text-sm leading-6 text-inspect">{t('conditions.combo.planner.noLlm')}</p>}
+      {planner && <div className="grid gap-1.5">
+        <Field label={t('conditions.combo.planner.instructions')} multiline plain value={planner.instructions} placeholder={t('conditions.combo.planner.instructionsPlaceholder')}
+          onChange={instructions => onChange({ ...combo, planner: { ...planner, instructions } })} />
+        <p className="border-l-2 border-inspect pl-2.5 text-xs leading-5 text-inspect">{t('conditions.combo.planner.pageKnowledge')}</p>
+      </div>}
+      <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.planner.limits')}</p>
+      <Panel title={t('conditions.combo.planner.builtIn')} description={t('conditions.combo.planner.builtInDescription')}>
+        <pre lang="en" className="max-h-64 overflow-y-auto border border-edge bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap">{PLANNER_RULES}</pre>
+      </Panel>
+    </>}
   </RoleCard>;
 }
 
-type ExecutorProps = { mode: Mode; executor: Executor | undefined; onChange: (executor: Executor | undefined) => void; connections: readonly Connection[] };
+type ExecutorProps = { mode: Mode; executor: Executor | undefined; onChange: (executor: Executor | undefined) => void; connections: readonly Connection[]; planned?: boolean };
 
 /**
  * The executor of one mode: the model, what it takes, the instructions it gets on every action and how much history it sees. Keyboard
  * runs send two screenshots, so a keyboard executor needs image input; the probability-based focus judgement is for decision models
  * in keyboard mode only.
  */
-function ExecutorFields({ mode, executor, onChange, connections }: ExecutorProps) {
+function ExecutorFields({ mode, executor, onChange, connections, planned }: ExecutorProps) {
   const { t } = useTranslation();
   const keyboard = mode === 'keyboard', images = executor?.inputs.includes('image') ?? false;
   const connection = executor && connections.find(c => c.id === executor.connectionId);
@@ -172,6 +208,15 @@ function ExecutorFields({ mode, executor, onChange, connections }: ExecutorProps
       {keyboard && <Toggle label={t('conditions.combo.executor.images')} hint={t('conditions.combo.executor.imagesHint')} checked={images}
         onChange={on => set({ inputs: on ? ['text', 'image'] : ['text'], maxImages: on ? Math.max(2, executor.maxImages) : executor.maxImages })} />}
       {keyboard && !images && <p className="text-xs leading-5 text-inspect">{t('conditions.combo.executor.keyboardNeedsImages')}</p>}
+      {/* How much the executor decides inside a planned task (screen reader runs only). */}
+      {planned && !keyboard && <div className="grid gap-1.5">
+        <label htmlFor="executor-latitude" className="text-sm font-medium">{t('conditions.combo.executor.latitude')}</label>
+        <Select value={executor.latitude} onValueChange={latitude => set({ latitude: latitude as Executor['latitude'] })}>
+          <SelectTrigger id="executor-latitude" className="w-full sm:w-72" aria-describedby="executor-latitude-hint"><SelectValue /></SelectTrigger>
+          <SelectContent>{(['none', 'direction', 'method'] as const).map(value => <SelectItem key={value} value={value}>{t(`conditions.combo.executor.latitudes.${value}`)}</SelectItem>)}</SelectContent>
+        </Select>
+        <p id="executor-latitude-hint" className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.executor.latitudeHint')}</p>
+      </div>}
       <div className="grid gap-1.5">
         <Field label={t('conditions.combo.executor.instructions')} multiline value={executor.instructions} onChange={instructions => set({ instructions })} hint={t('conditions.combo.executor.instructionsHint')} />
         {executor.instructions !== DEFAULT_EXECUTOR_INSTRUCTIONS[mode] && <Button type="button" variant="ghost" size="sm" className="-ml-2 justify-self-start text-muted-foreground"

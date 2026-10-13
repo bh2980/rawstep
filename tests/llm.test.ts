@@ -110,6 +110,14 @@ describe('LlmPlanner', () => {
     expect(custom.prompt!.sha256).not.toBe(result.prompt!.sha256);
     expect(JSON.stringify(calls[0]!.body)).toContain('Thor Hammer');
   });
+  it('shapes tasks for the executor latitude: separate moving and pressing by default, one task per target when the executor decides', () => {
+    const none = new LlmPlanner(llm(recorder(() => reply({})).fetcher)), direction = new LlmPlanner(llm(recorder(() => reply({})).fetcher), '', 'direction');
+    const method = new LlmPlanner(llm(recorder(() => reply({})).fetcher), '', 'method');
+    expect(none.instructions).toContain('Keep moving and pressing in separate tasks.');
+    expect(direction.instructions).not.toContain('Keep moving and pressing in separate tasks.');
+    expect(direction.instructions).toContain('may also go the opposite way');
+    expect(method.instructions).toContain('may use any movement');
+  });
   it('rejects a draft of the wrong shape', async () => {
     const { fetcher } = recorder(() => reply({ complete: false, steps: [{ goal: 'no done cue' }] }));
     await expect(new LlmPlanner(llm(fetcher)).plan(request, { signal: new AbortController().signal })).rejects.toMatchObject({ code: 'llm-failed' });

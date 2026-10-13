@@ -14,7 +14,7 @@ import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
-import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
+import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
 
@@ -129,9 +129,7 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
       ...(options.environment ? { pageEnvironment: String(options.environment) } : {}),
       ...(options.at ? { atEnvironment: String(options.at) } : {}),
       ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
-      ...(options['max-replans'] !== undefined || options['max-task-actions'] !== undefined ? { runRules: {
-        ...(options['max-replans'] !== undefined ? { maxReplans: Number(options['max-replans']) } : {}),
-        ...(options['max-task-actions'] !== undefined ? { stepActionLimit: Number(options['max-task-actions']) } : {}) } } : {}),
+      ...(options.rule ? { runRules: parseRunRules(options.rule as string[]) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
   } catch (error) {
@@ -151,9 +149,9 @@ const elementText = (finding: HintFinding) => finding.target ? `${finding.target
 /** One block per run, then the findings gathered across runs: Page findings first, then Model. */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
-  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
+  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
   if (c.combo) {
-    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? '?'} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
+    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
       `  actions ${c.actionSet?.name ?? '?'} · page ${c.pageEnvironment?.name ?? '?'} · ${c.atEnvironment?.name ?? '?'}`);
     for (const warning of result.warnings) lines.push(`  note: ${warning}`);
     lines.push('');

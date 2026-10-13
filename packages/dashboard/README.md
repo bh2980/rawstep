@@ -50,4 +50,4 @@ RAWSTEP_TEST_BROWSER_PATH=/path/to/chromium npm run test:integration
 npm run test:package
 ```
 
-Local packing includes eight tarballs, including the private dashboard required by the CLI. Install the full documented dependency closure when using unpublished local packages. See `docs/dashboard-plan.ko.md` for the implementation requirements and evidence limits.
+Local packing includes eight tarballs, including the private dashboard required by the CLI. Install the full documented dependency closure when using unpublished local packages.

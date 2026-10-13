@@ -56,6 +56,12 @@ export type Task = {
   mode?: 'screenreader' | 'keyboard';
   url: string;
   goal: string;
+  /**
+   * What the simulated user knows before starting, written by the person setting up the task: the kind of site and page ("PhoneShop,
+   * an online store; a product page"), or what a search result said. Never this page's structure, which a user only learns by
+   * moving through it. Planners read it; it is part of the user being simulated.
+   */
+  context?: string;
   profile?: EnvironmentProfile;
   maxSteps?: number;
   timeoutMs?: number;
@@ -105,6 +111,8 @@ export interface DecisionPolicy {
   takeDecisionEvidence?(): readonly unknown[];
   decide(input: {
     goal: string;
+    /** The task's `context`: what the user knows about the site and page before starting. */
+    context?: string;
     observation: Observation;
     history: readonly HistoryEntry[];
     allowedActions: AllowedActions;
@@ -159,10 +167,12 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
+  onlyKeys(raw, ['id','url','goal','context','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
   if (raw.mode !== undefined && raw.mode !== 'screenreader' && raw.mode !== 'keyboard') throw new Error('Task mode must be screenreader or keyboard.');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
+  const context = raw.context === undefined ? undefined : text(raw.context, 'Task context');
+  if (context && context.length > 1000) throw new Error('Task context must be at most 1000 characters.');
   if (!object(raw.verify) || !Array.isArray(raw.verify.all) || raw.verify.all.length === 0) throw new Error('Task verify.all must contain at least one independent verification rule.');
   onlyKeys(raw.verify, ['all'], 'Task verify');
   const rules = raw.verify.all.map(rule => validateVerifyRule(rule));
@@ -182,7 +192,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   // The goal goes to the model verbatim; a sensitive value written there would defeat input hiding.
   for (const [name, value] of Object.entries((input ?? {}) as Record<string, string>)) {
     const sensitive = (object(inputOptions) && object(inputOptions[name]) ? inputOptions[name].sensitive : undefined) !== false;
-    if (sensitive && value.length >= 4 && goal.includes(value)) throw new Error(`Task goal contains the value of input ${name}; refer to the input by name instead.`);
+    if (sensitive && value.length >= 4 && (goal.includes(value) || context?.includes(value))) throw new Error(`Task goal or context contains the value of input ${name}; refer to the input by name instead.`);
     // Script sources are saved in traces and reports like the rest of the task.
     if (sensitive && value.length >= 4 && scriptSources(rules).some(source => source.includes(value))) throw new Error(`A script rule contains the value of input ${name}; check for the field state instead of its value.`);
   }
@@ -197,7 +207,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
     if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) throw new Error('Task URL must use http, https, or file.');
     resolvedUrl = parsed.href;
   } else resolvedUrl = pathToFileURL(isAbsolute(url) ? url : resolve(baseDir, url)).href;
-  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
+  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(context ? { context } : {}), ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
 }
 export function validateNavigation(value: unknown): NavigationPolicy {
   if (value === undefined) return { strategy: 'same-origin' };

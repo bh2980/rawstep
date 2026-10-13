@@ -241,8 +241,8 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     if (trigger === 'help') add({ kind: 'help-request', certainty: 'observed', steps: [item.step],
       summary: `The executor asked for a new plan (${String(item.data.help ?? 'no reason')}); the planner wrote plan v${String(version)}.`,
       detail: { help: item.data.help, version }, evidence: [item.id] }, focusBefore(item.step - 1));
-    else if (trigger === 'failures' || trigger === 'no-change') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
-      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
+    else if (trigger === 'failures' || trigger === 'no-change' || trigger === 'low-confidence' || trigger === 'oscillation') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
+      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : trigger === 'low-confidence' ? `The executor kept choosing with low confidence, so the planner wrote plan v${String(version)}.` : trigger === 'oscillation' ? `The cursor kept going back and forth between the same two items, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
       detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
     else if (trigger === 'task-limit') add({ kind: 'task-limit', certainty: 'observed', steps: [item.step],
       summary: `A task used up its actions, so the planner wrote plan v${String(version)}.`, detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));

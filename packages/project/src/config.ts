@@ -131,16 +131,37 @@ export const runRulesSchema = z.object({
   maxStateVisits: count(1, 10000, RAWSTEP_DEFAULTS.policy.maxStateVisits),
   /** The same action producing the same speech or screen this many times in a row stops the run as stuck. */
   maxUnchangedTransitions: count(1, 10000, RAWSTEP_DEFAULTS.policy.maxUnchangedTransitions),
+  /**
+   * Screen reader runs: actions the run goes on after the goal is reached when the user heard nothing saying so (a confirmation shown
+   * but not announced). 0 stops at once, as before. The extra actions are the user's not knowing whether it worked.
+   */
+  confirmationGrace: count(0, 100, 5),
   /** Whether the executor may end a run by choosing "stuck" or "uncertain". Off: a run ends at the goal, a limit or a guard. */
   modelGiveUp: z.boolean().default(false),
   /** With a planner: corrections of the plan before the run stops (checkpoints do not count). */
   maxReplans: count(0, 100, RAWSTEP_DEFAULTS.orchestration.maxReplans),
-  /** With a planner: actions on one task before a new plan is requested. */
+  /** With a planner: actions on one task without hearing anything new before a new plan is requested (never past three times this). */
   stepActionLimit: count(1, 1000, RAWSTEP_DEFAULTS.orchestration.stepActionLimit),
   /** With a planner: failed actions in a row on one task before a new plan is requested. */
   failureLimit: count(1, 100, 2),
   /** With a planner: actions in a row on one task that changed nothing before a new plan is requested. */
   noChangeLimit: count(1, 100, 3),
+  /**
+   * With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is
+   * heard, and Rawstep's signals (including low executor confidence) ask for a new plan. `executor`: the executor may also claim a
+   * task done and ask for help, as before (kept for comparison: decision models pick those options far too often).
+   */
+  taskControl: z.enum(['rawstep', 'executor']).default('rawstep'),
+  /**
+   * With `rawstep` task control: an executor choice counts as low confidence when its top probability is less than this far from a
+   * uniform guess among the choices (0) towards certainty (1); two in a row ask for a new plan.
+   */
+  confidenceFloor: z.number().min(0).max(1).default(0.25),
+  /**
+   * With a planner: what the simulated user does before the first plan. `headings` lists the page's headings (a VoiceOver user's
+   * rotor) as the first action, counted as a step; the action set must allow the `headings.list` intent.
+   */
+  survey: z.enum(['none', 'headings']).default('none'),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**
@@ -151,11 +172,15 @@ export const runRulesOverrideSchema = z.object({
   repetitionGuard: z.enum(['auto', 'on', 'off']).optional(),
   maxStateVisits: z.number().int().min(1).max(10000).optional(),
   maxUnchangedTransitions: z.number().int().min(1).max(10000).optional(),
+  confirmationGrace: z.number().int().min(0).max(100).optional(),
   modelGiveUp: z.boolean().optional(),
   maxReplans: z.number().int().min(0).max(100).optional(),
   stepActionLimit: z.number().int().min(1).max(1000).optional(),
   failureLimit: z.number().int().min(1).max(100).optional(),
   noChangeLimit: z.number().int().min(1).max(100).optional(),
+  taskControl: z.enum(['rawstep', 'executor']).optional(),
+  confidenceFloor: z.number().min(0).max(1).optional(),
+  survey: z.enum(['none', 'headings']).optional(),
 }).strict();
 export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
 /** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */
@@ -167,15 +192,41 @@ export const executorSchema = modelChoiceSchema.extend({
   historyLimit: count(1, 10000, RAWSTEP_DEFAULTS.policy.historyLimit),
   /** Keyboard mode, decision models only: a separate focus judgement narrows the candidates before each action. */
   focusGate: z.boolean().default(false),
+  /**
+   * Screen reader runs of a planned combo: how much the executor decides inside a task. `none`: the plan fixes the method, the
+   * direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same
+   * way. `method`: the executor may use any movement. Solo combos and keyboard runs ignore it.
+   */
+  latitude: z.enum(['none', 'direction', 'method']).default('none'),
 }).strict();
 export type Executor = z.infer<typeof executorSchema>;
+/**
+ * In place of a screen reader executor model in a planned combo: Rawstep carries out the plan as written (a pressing task presses, a
+ * moving task uses its first move). Every judgement is the planner's and the cue's, and a run costs only planner calls.
+ */
+export const planFollowerSchema = z.object({ followPlan: z.literal(true) }).strict();
+export type PlanFollowerChoice = z.infer<typeof planFollowerSchema>;
+/** Whether an executor slot holds the plan follower rather than a model. */
+export const isPlanFollowerChoice = (executor: Executor | PlanFollowerChoice | undefined): executor is PlanFollowerChoice => !!executor && 'followPlan' in executor;
 /**
  * The LLM that plans. `instructions` are added to Rawstep's planner rules (plan document format, plan only from what was heard
  * and with the listed actions), never replacing them. They must not carry page knowledge a real user would not have, or the run
  * stops measuring how hard the page is to find one's way around.
  */
-export const plannerSchema = z.object({ connectionId: id, modelId: text, reasoningEffort, instructions: z.string().max(16384).default('') }).strict();
+export const llmPlannerSchema = z.object({ connectionId: id, modelId: text, reasoningEffort, instructions: z.string().max(16384).default('') }).strict();
+/**
+ * A plan written beforehand instead of a planner model: a project-relative JSON file in the plan draft format (phases of tasks with
+ * their cues). `{task}` in the path is the task file's name without `.json`, so one combo can give every task its own plan
+ * (`plans/{task}/L2.json`). The plan never changes during a run; a stuck task is abandoned and the next one starts.
+ */
+export const filePlannerSchema = z.object({ planFile: z.string().trim().min(1).max(500).refine(path => path.endsWith('.json'), 'A plan file is a .json file.') }).strict();
+export const plannerSchema = z.union([llmPlannerSchema, filePlannerSchema]);
 export type PlannerChoice = z.infer<typeof plannerSchema>;
+export type LlmPlannerChoice = z.infer<typeof llmPlannerSchema>;
+export const isFilePlanner = (planner: PlannerChoice | undefined): planner is z.infer<typeof filePlannerSchema> => !!planner && 'planFile' in planner;
+/** The plan file a task reads under a file planner: `{task}` becomes the task file's name without `.json`. */
+export const planFileOf = (planner: z.infer<typeof filePlannerSchema>, task: Pick<ManagedTask, 'file'>): string =>
+  planner.planFile.replaceAll('{task}', task.file.replace(/^.*\//, '').replace(/\.json$/, ''));
 /**
  * Which model does what. `solo`: the executor of the mode decides every action. `planned`: the planner LLM writes a plan document
  * and the executor carries out one task at a time (screen reader mode for now). `analysis` explains finished runs; it never
@@ -185,11 +236,12 @@ export const comboSchema = z.object({
   id, name: text, ...ownership,
   structure: z.enum(['solo', 'planned']).default('solo'),
   planner: plannerSchema.optional(),
-  /** A mode without an executor cannot run with this combo. */
-  executors: z.object({ screenreader: executorSchema.optional(), keyboard: executorSchema.optional() }).strict(),
+  /** A mode without an executor cannot run with this combo. A planned combo's screen reader executor may follow the plan instead of a model. */
+  executors: z.object({ screenreader: z.union([executorSchema, planFollowerSchema]).optional(), keyboard: executorSchema.optional() }).strict(),
   analysis: analysisChoiceSchema.optional(),
 }).strict().superRefine((combo, ctx) => {
   if (combo.structure === 'planned' && !combo.planner) ctx.addIssue({ code: 'custom', path: ['planner'], message: `Model combo ${combo.name} plans, so it needs a planner.` });
+  if (isPlanFollowerChoice(combo.executors.screenreader) && combo.structure !== 'planned') ctx.addIssue({ code: 'custom', path: ['executors', 'screenreader'], message: `Model combo ${combo.name} has no plan to follow.` });
 });
 export type Combo = z.infer<typeof comboSchema>;
 /** What the simulated user may do in each mode: keyboard keys, screen reader intents and named-input typing. */
@@ -272,10 +324,10 @@ export const configSchema = z.object({
   const llm = (choice: { connectionId: string } | undefined) => !choice || config.connections.find(c => c.id === choice.connectionId)?.kind === 'llm';
   config.combos.forEach((combo, i) => {
     for (const mode of ['screenreader', 'keyboard'] as const) {
-      const executor = combo.executors[mode];
+      const executor = executorModel(combo, mode);
       if (executor && !ids.has(executor.connectionId)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'executors', mode, 'connectionId'], message: `Model combo ${combo.name} uses a connection that does not exist.` });
     }
-    if (!llm(combo.planner)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'planner', 'connectionId'], message: `Model combo ${combo.name} must plan with an LLM connection.` });
+    if (!isFilePlanner(combo.planner) && !llm(combo.planner)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'planner', 'connectionId'], message: `Model combo ${combo.name} must plan with an LLM connection.` });
     if (!llm(combo.analysis)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'analysis', 'connectionId'], message: `Model combo ${combo.name} must explain runs with an LLM connection.` });
   });
   if (!llm(config.project.analysis.model)) ctx.addIssue({ code: 'custom', path: ['project', 'analysis', 'model', 'connectionId'], message: 'Post-run analysis needs an LLM connection.' });
@@ -341,10 +393,23 @@ function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoic
   if (!choice || !connection || connection.kind !== 'llm') return undefined;
   return { ...structuredClone(connection), name: modelName(connection, choice), modelId: choice.modelId, ...(choice.reasoningEffort ? { reasoningEffort: choice.reasoningEffort } : {}), inputs: ['text'], maxChoices: 255, maxImages: 0 };
 }
+/** The stand-in "model" of a combo whose screen reader executor follows the plan: it takes no key and is never called. */
+export const PLAN_FOLLOWER: Model = { id: 'rawstep-plan-follower', kind: 'decision', provider: 'custom', timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs, name: 'Rawstep · follows the plan',
+  modelId: 'follow-plan', inputs: ['text'], maxChoices: 255, maxImages: 0 };
+export const isPlanFollower = (model: Pick<Model, 'id'> | undefined): boolean => model?.id === PLAN_FOLLOWER.id;
+/** Whether a combo carries out its plan without an executor model in this mode. */
+export const followsPlan = (combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): boolean =>
+  mode === 'screenreader' && combo.structure === 'planned' && isPlanFollowerChoice(combo.executors.screenreader);
+/** The executor model a combo has for a mode (its settings and instructions); undefined when it has none or follows the plan. */
+export const executorModel = (combo: Pick<Combo, 'executors'>, mode: Mode): Executor | undefined => {
+  const executor = combo.executors[mode];
+  return isPlanFollowerChoice(executor) ? undefined : executor;
+};
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
-export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>, mode: Mode): Model | undefined => joined(config, combo.executors[mode]);
+export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): Model | undefined =>
+  followsPlan(combo, mode) ? structuredClone(PLAN_FOLLOWER) : joined(config, executorModel(combo, mode));
 /** The LLM a planned combo plans with; undefined for a solo combo. */
-export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' ? llmOf(config, combo.planner) : undefined;
+export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
 export const projectAnalysisModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.analysis.model);
 /** The LLM that explains a combo's runs: its own, otherwise the project's. */

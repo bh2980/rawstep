@@ -4,7 +4,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { parseConfig, projectAnalysisModel } from '@rawstep/project/config';
+import { parseConfig, projectAnalysisModel, type Executor } from '@rawstep/project/config';
 import { ProjectStore } from '@rawstep/project/store';
 
 const run = promisify(execFile);
@@ -161,12 +161,12 @@ describe('migrate-config.mjs', () => {
     await migrate(dir);
     const config = parseConfig(await json(join(dir, 'rawstep.config.json')));
     expect(config.machine.browserEndpoint).toBe('http://localhost:9222');
-    expect(config.combos.find(c => c.id === 'main')!.executors.screenreader!.instructions).toBe('Shared speech');
+    expect((config.combos.find(c => c.id === 'main')!.executors.screenreader as Executor).instructions).toBe('Shared speech');
     const taskA = config.tasks.find(t => t.id === 'a')!, taskB = config.tasks.find(t => t.id === 'b')!;
     expect(taskA.comboId).toBeUndefined();
     const own = config.combos.find(c => c.id === taskB.comboId)!;
     expect(own).toMatchObject({ owner: 'b', copiedFrom: 'main' });
-    expect([own.executors.screenreader!.instructions, own.executors.keyboard!.instructions]).toEqual(['Own speech', 'Own keys']);
+    expect([(own.executors.screenreader as Executor).instructions, own.executors.keyboard!.instructions]).toEqual(['Own speech', 'Own keys']);
   });
   it('refuses a config of an unknown version without touching it', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);

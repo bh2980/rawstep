@@ -193,7 +193,7 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
         {verified && <span className="text-muted-foreground">· {t(`planDoc.verified.${verified}`)}</span>}
       </p>
       <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.doneCue')}</span> {task.done || '—'}</p>
-      <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.cue')}</span> {task.cue ? <span className="font-mono">"{task.cue}"</span> : <span className="text-muted-foreground">{t('planDoc.noCue')}</span>}
+      <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.cue')}</span> {task.cue ? <span className="font-mono">"{task.cue}"{task.cueRole || task.cueState ? ` (${[task.cueRole, task.cueState].filter(Boolean).join(', ')})` : ''}</span> : <span className="text-muted-foreground">{t('planDoc.noCue')}</span>}
         {task.rejected > 0 && <span className="ml-2 text-inspect">{t('planDoc.claimsRefused', { count: task.rejected })}</span>}</p>
       {(task.serves.length > 0 || task.relies.length > 0) && <p className="font-mono text-xs text-muted-foreground">{[...task.serves, ...task.relies].join(', ')}</p>}
       {endingLabel(doc, task) && task.status !== 'done' && <p className="text-sm text-muted-foreground">{endingLabel(doc, task)}</p>}

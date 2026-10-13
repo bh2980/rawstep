@@ -20,6 +20,12 @@ export type RunOptions = {
   outDir: string;
   allowedActions?: { intents?: readonly string[]; keys?: readonly string[]; inputKeys?: readonly string[]; typeText?: boolean; replaceText?: boolean };
   diagnosticScreenshots?: boolean;
+  /**
+   * Screen reader runs: actions the run goes on after the goal is reached when nothing the user heard said so (default 0: stop at
+   * once). The page may show "Added to cart" without announcing it; stopping there would hide the user's not knowing. Within the
+   * grace the policy may stop, and the run ends when it runs out; `goal.reached` records the step and whether it was heard.
+   */
+  confirmationGrace?: number;
   /** Explicit opt-in: raw input keystrokes, echoed speech and screenshots may expose secrets. */
   includeSensitiveInputValues?: boolean;
   headless?: boolean;
@@ -334,10 +340,12 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
     await diagnosticScreenshot(0);
+    const grace = observation.kind === 'screenreader' ? Math.max(0, Math.floor(options.confirmationGrace ?? 0)) : 0;
+    let reached: { step: number; heard: boolean | undefined } | undefined;
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
-      const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
+      const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
       for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
         append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
       }
@@ -394,8 +402,22 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
       await diagnosticScreenshot(step);
-      if ((await verify(step)).passed) { outcome = { status: 'success', reason: 'verified' }; break; }
+      if ((await verify(step)).passed) {
+        // Reached: stop unless the user could not have heard it, then give them a few actions to notice (or not).
+        if (reached === undefined) {
+          const heard = confirmationHeard(task, observation);
+          reached = { step, heard };
+          append('goal.reached', { step, heard: heard ?? 'unknown', grace: heard === false ? grace : 0 });
+        }
+        if (reached.heard !== false || step - reached.step >= grace) { outcome = { status: 'success', reason: 'verified' }; break; }
+      } else if (reached !== undefined) {
+        // An action in the grace undid the goal (a second press unchecked the box): the run goes on as before it was reached.
+        append('goal.lost', { step, reachedAt: reached.step });
+        reached = undefined;
+      }
     }
+    // The step limit cut the grace short: the goal still held at the last check, so the run reached it.
+    if (reached !== undefined && outcome.reason === 'maxSteps') outcome = { status: 'success', reason: 'verified' };
   } catch (error) {
     bestEffortEvidence(() => {
     if (error instanceof BrowserSetupError) {
@@ -537,3 +559,26 @@ function redactVerificationWitness(witness: VerificationWitness): Record<string,
   }
   return safe;
 }
+
+/** The words of a task's text goal rules (what the page shows or says when the goal is reached), from nested any/all/not rules too. */
+function goalTexts(rules: readonly unknown[]): string[] {
+  return rules.flatMap(rule => {
+    if (!rule || typeof rule !== 'object') return [];
+    const r = rule as Record<string, unknown>;
+    const own = ['textVisible', 'textVisibleExact', 'activatedAnnouncementIncludes', 'titleIncludes'].flatMap(key => typeof r[key] === 'string' ? [r[key] as string] : []);
+    const nested = Array.isArray(r.any) ? goalTexts(r.any) : Array.isArray(r.all) ? goalTexts(r.all) : [];
+    return [...own, ...nested];
+  });
+}
+/**
+ * Whether the speech after the action that reached the goal said so: one of the goal's texts was spoken. Undefined when the goal has
+ * no text to listen for (a URL or a script), and for keyboard runs, which hear nothing.
+ */
+export function confirmationHeard(task: Pick<Task, 'verify'>, observation: Observation): boolean | undefined {
+  if (observation.kind !== 'screenreader') return undefined;
+  const texts = goalTexts(task.verify.all ?? []).map(t => t.toLowerCase().trim()).filter(Boolean);
+  if (!texts.length) return undefined;
+  const said = observation.speech.join('\n').toLowerCase();
+  return texts.some(text => said.includes(text));
+}
+

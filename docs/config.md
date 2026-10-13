@@ -40,7 +40,7 @@ An experiment is **task × model combo × action set × page environment × assi
 | assistive technology (`atEnvironments`) | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
 | run rules (`runRules`) | When a run counts as stuck, and when a planned run plans again. |
 
-A preset bundles some of them. The conditions a run uses are picked in this order: the task's own field, then the task's preset, then the first shared item of the list. Run rules layer the same way: project defaults, then the preset's, then the task's. `rawstep run` options (`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--max-replans`, `--max-task-actions`) override these for that run. Every run records the full content of the conditions it used (and which shared item a task-only copy came from), so runs are compared by content, not by name.
+A preset bundles some of them. The conditions a run uses are picked in this order: the task's own field, then the task's preset, then the first shared item of the list. Run rules layer the same way: project defaults, then the preset's, then the task's. `rawstep run` options (`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--rule`) override these for that run. Every run records the full content of the conditions it used (and which shared item a task-only copy came from), so runs are compared by content, not by name.
 
 Anything that changes how a run ends is a condition. The analysis model is not: it explains a finished run and never changes its outcome.
 
@@ -113,12 +113,12 @@ A model combo says which models act. It is an experiment condition: to compare m
 |---|---|
 | `id`, `name` | Identifier and display name. `--combo` accepts either. |
 | `structure` | `solo` (default): the executor of the mode decides every action. `planned`: a planner LLM writes a plan document and the executor carries out one task at a time. |
-| `planner` | `{ connectionId, modelId, reasoningEffort?, instructions }`. Required when `structure` is `planned`; the connection must be an `llm`. Screen reader mode only for now. |
-| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo. |
+| `planner` | Required when `structure` is `planned`; screen reader mode only for now. Either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). |
+| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo. In a planned combo the screen reader executor may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a task whose action set types into inputs is rejected before the run. The dashboard picks this for a new planned combo. |
 | `analysis` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that explains this combo's runs. Without it, `project.analysis.model` is used. |
 | `owner`, `copiedFrom` | Set on task-only copies; leave them out otherwise. |
 
-An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`:
+An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate, latitude }`:
 
 | Field | Meaning |
 |---|---|
@@ -129,6 +129,7 @@ An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, m
 | `instructions` | The executor prompt (required), see [prompts](./prompts.md). |
 | `historyLimit` | How many past steps the model sees (default 12). |
 | `focusGate` | Keyboard mode with a `decision` model only (default `false`): a separate focus judgement narrows the candidates before each action. An `llm` executor with `focusGate` is rejected before the run. |
+| `latitude` | Screen reader runs of a planned combo (default `none`): how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. The planner shapes its tasks to match. |
 
 A keyboard executor needs image input and a `maxImages` of at least 2; a screen reader executor needs text input. A combo's `analysis` and `planner` must be on `llm` connections, and every executor must name an existing connection.
 
@@ -206,7 +207,7 @@ A preset is a saved set of conditions, picked as one. Every field is optional: w
 
 ## runRules
 
-When a run stops early and, with a planner, when it plans again. The top-level `runRules` holds the project's defaults; a preset's `runRules`, a task's `runRules` and the `--max-replans` and `--max-task-actions` options override any of the fields. Each run records the rules it ran with.
+When a run stops early and, with a planner, when it plans again. The top-level `runRules` holds the project's defaults; a preset's `runRules`, a task's `runRules` and the `--rule <name>=<value>` option overrides any of the fields for one run. Each run records the rules it ran with.
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -215,14 +216,18 @@ When a run stops early and, with a planner, when it plans again. The top-level `
 | `maxUnchangedTransitions` | 4 | The same action producing the same speech or screen this many times in a row stops the run as stuck. |
 | `modelGiveUp` | `false` | Whether the executor may end a run by choosing `stop:stuck` or `stop:uncertain`. Off, the model is offered only `stop:success`, and a run ends at the goal, a limit or a guard. |
 | `maxReplans` | 4 | With a planner: corrections of the plan before the run stops (checkpoints do not count). |
-| `stepActionLimit` | 12 | With a planner: actions on one task before a new plan is requested. |
+| `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count; one task never runs past three times this. |
 | `failureLimit` | 2 | With a planner: failed actions in a row on one task before a new plan is requested. |
 | `noChangeLimit` | 3 | With a planner: actions in a row on one task that changed nothing before a new plan is requested. |
+| `taskControl` | `rawstep` | With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is heard, and Rawstep's own signals (the limits above, repetition, and low executor confidence, see `confidenceFloor`) ask for a new plan. `executor`: the executor may also claim a task is done or ask for help; kept for comparison. |
+| `survey` | `none` | With a planner: `headings` lists the page's headings (the VoiceOver rotor) as the first action, before the first plan. The action set must allow `headings.list`. |
+| `confirmationGrace` | 5 | Screen reader runs: when the goal is reached but nothing the user heard said so (shown, not announced), the run goes on this many actions before it ends. Those actions are the user's not knowing whether it worked; `goal.reached` in the trace records the step and whether it was heard. 0 ends at once. |
+| `confidenceFloor` | 0.25 | With `taskControl: "rawstep"`: how unsure the executor may be before Rawstep asks for a new plan. Normalised: how far the top probability is from a uniform guess (1/n for n choices) towards certainty (1). Two low choices in a row ask for a new plan. |
 
 Overrides never fill in defaults: a field a preset or a task leaves out keeps the layer below.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "confirmationGrace": 5 }
 ```
 
 ## Example
@@ -300,6 +305,26 @@ A run stops with one of these sources, kept distinct in the trace: `model` (the 
 Replans, help requests, abandoned tasks, tasks whose cue was not heard, broken assumptions and unmet criteria are friction hints (`replan`, `help-request`, `task-limit`, `unverified-done`). They point at where a run needed to think again and do not say why: the page may have been hard, or the plan wrong.
 
 `planner.instructions` are added to Rawstep's planner rules (plan document format, plan only from what was heard and with the listed actions), never replacing them. Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance ("plan like an experienced screen reader user") is fine. Planner instructions are fingerprinted (sha256) in the plan evidence.
+
+### File planner
+
+Instead of a planner model, a combo can read a plan written beforehand: `"planner": { "planFile": "plans/{task}/plan.json" }`. The path is relative to the project and must end in `.json`. `{task}` becomes the task file's name without `.json`, so one combo gives every task its own plan (`plans/{task}/L2.json` for a task file `tasks/checkout.json` reads `plans/checkout/L2.json`).
+
+The file has the planner's draft format: `strategy`, `criteria` (`C1`...), `assumptions` (`A1`...) and `phases` of `tasks`, each with `goal`, `done` and `cue` (the words the user should hear when it is finished), and optionally `serves` and `relies`. `complete` and `rationale` are optional.
+
+```json
+{
+  "strategy": "Find the product, add it to the cart, then open the cart.",
+  "criteria": [{ "id": "C1", "text": "The user hears that the item is in the cart." }],
+  "assumptions": [{ "id": "A1", "text": "The product page has an \"Add to cart\" button." }],
+  "phases": [{ "title": "Add the product", "criteria": ["C1"], "tasks": [
+    { "goal": "Move to the 'Add to cart' button", "done": "The user hears \"Add to cart, button\"", "cue": "Add to cart, button", "serves": ["C1"], "relies": ["A1"] },
+    { "goal": "Activate the 'Add to cart' button", "done": "The user hears that the item was added", "cue": "added to cart", "serves": ["C1"] }
+  ] }]
+}
+```
+
+The plan never changes during a run. Where Rawstep would ask for a new plan, the stuck task is recorded as abandoned and the next task starts. Use it to run plans written by a person, to run a plan saved from a planner model again, and in experiments that hold the plan fixed while the executor, actions or environment vary.
 
 The model's action history includes each action's execution result (`ok`, and for a failure the code `not-editable` or `backend`, never the raw error text) and whether the speech or screenshot changed afterwards (`changed`).
 

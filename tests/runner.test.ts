@@ -14,14 +14,14 @@ const dirs: string[] = [];
 afterEach(async () => { vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 async function out() { const path = await mkdtemp(join(tmpdir(),'rawstep-runner-v2-')); dirs.push(path); return path; }
 const task: Task = { id:'test',url:'https://example.com/task',goal:'Activate start',maxSteps:3,timeoutMs:2000,verify:{all:[{titleIncludes:'Done'}]} };
-function fixture() {
+function fixture(said = 'Real captured utterance') {
   const listeners = new Set<(event: unknown) => void>();
   let sequence = 0;
   const backend: Backend = {
     capabilities:{intents:['next','activate'],keys:['Tab','Enter'],textEntry:true,replaceText:true},
     start:vi.fn(async () => ({screenReader:'mock',screenReaderVersion:'unknown'})),
     execute:vi.fn(async (action:BackendAction) => ({id:'command-1',action})),
-    observe:vi.fn(async () => { const output = {sequence:++sequence,receivedAt:new Date().toISOString(),text:'Real captured utterance',raw:{method:'interaction.capturedOutput',params:{data:'Real captured utterance'}}}; for(const listener of listeners) listener({type:'output',output}); return {windowId:`w-${sequence}`,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[output],speech:[output.text]}; }),
+    observe:vi.fn(async () => { const output = {sequence:++sequence,receivedAt:new Date().toISOString(),text:said,raw:{method:'interaction.capturedOutput',params:{data:said}}}; for(const listener of listeners) listener({type:'output',output}); return {windowId:`w-${sequence}`,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[output],speech:[output.text]}; }),
     close:vi.fn(async () => {}),
     subscribe:listener => { listeners.add(listener); return () => listeners.delete(listener); }
   };
@@ -386,5 +386,31 @@ describe('model-neutral runner',()=>{
       expect((evidence.data as {witness:{event:object}}).witness.event).toEqual({kind:'appeared',step:1,role:'status'});
       for(const path of ['trace.json','trace.jsonl'])expect(await readFile(join(dir,path),'utf8')).not.toContain('Secret Value');
     });
+  });
+});
+describe('a goal reached without the user hearing so', () => {
+  const shop: Task = { ...task, maxSteps: 10, verify: { all: [{ textVisible: 'Added to cart' }] } };
+  const next = { action: { kind: 'intent' as const, intent: 'next' } };
+  const run = async (f: ReturnType<typeof fixture>, confirmationGrace?: number) => runTask(shop, { ...f, outDir: await out(), policy: new ScriptedPolicy(Array(10).fill(next)), ...(confirmationGrace !== undefined ? { confirmationGrace } : {}) });
+  it('goes on for the grace when the confirmation was only shown, and records when it was reached', async () => {
+    const trace = await run(fixture(), 2);
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 3 });
+    expect(trace.events.find(e => e.type === 'goal.reached')?.data).toMatchObject({ step: 1, heard: false, grace: 2 });
+  });
+  it('keeps a reached goal as reached when the step limit cuts the grace short', async () => {
+    const trace = await run(fixture(), 50);
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 10 });
+  });
+  it('stops at once when the user heard it, or without a grace', async () => {
+    expect((await run(fixture('Added to cart'), 2)).outcome).toMatchObject({ status: 'success', steps: 1 });
+    expect((await run(fixture())).outcome).toMatchObject({ status: 'success', steps: 1 });
+  });
+  it('carries on as before when an action in the grace undoes the goal', async () => {
+    const f = fixture(); let calls = 0;
+    f.verifier.mockImplementation(async () => ({ passed: ++calls !== 2, failures: calls === 2 ? ['undone'] : [] }));
+    const trace = await run(f, 2);
+    expect(trace.events.filter(e => e.type === 'goal.reached').map(e => (e.data as { step: number }).step)).toEqual([1, 3]);
+    expect(trace.events.some(e => e.type === 'goal.lost')).toBe(true);
+    expect(trace.outcome).toMatchObject({ status: 'success', steps: 5 });
   });
 });

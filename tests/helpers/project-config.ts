@@ -9,7 +9,7 @@ export const connection = (id: string, extra: Partial<Connection> = {}): Connect
 export const instructions = { keyboard: 'Keyboard fixture instructions.', screenreader: 'Screen reader fixture instructions.' } as const;
 /** A solo model combo whose executor in both modes is `modelId` on `connectionId`, taking text and images. */
 export const comboWith = (id: string, connectionId: string, modelId = 'm-' + connectionId, name = id): Combo => {
-  const model = { connectionId, modelId, inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2, historyLimit: 12, focusGate: false };
+  const model = { connectionId, modelId, inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2, historyLimit: 12, focusGate: false, latitude: 'none' as const };
   return { ...defaultCombo(id, name), executors: { keyboard: { ...model, instructions: instructions.keyboard }, screenreader: { ...model, instructions: instructions.screenreader } } };
 };
 /** The same combo planning with `plannerModelId` on the LLM connection `plannerConnectionId`. */

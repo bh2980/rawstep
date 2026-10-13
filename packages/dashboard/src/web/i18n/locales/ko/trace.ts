@@ -141,7 +141,7 @@ export const traceUi = {
     status: { pending: '대기', active: '진행 중', done: '완료', abandoned: '포기', failed: '실패' },
     abandonedIn: 'v{{version}}에서 포기 · {{reason}}',
     failedLimit: '재계획 한도에 닿아 실패로 닫힘',
-    verified: { heard: '완료 조건 들림', 'not-heard': '완료 조건 안 들림', unchecked: '확인할 문구 없음' },
+    verified: { heard: '완료 조건 들림', recognized: '다른 문구로 들렸지만 같은 항목으로 판단', 'not-heard': '완료 조건 안 들림', unchecked: '확인할 문구 없음' },
     ending: { done: '작업 완료', replaced: '계획에서 빠짐', limit: '한도로 닫힘' },
     triggers: {
       start: '처음 계획',
@@ -149,6 +149,8 @@ export const traceUi = {
       failures: '행동이 연달아 실패',
       'no-change': '행동해도 발화가 바뀌지 않음',
       'task-limit': '작업의 행동 한도 도달',
+      'low-confidence': '실행 모델이 연달아 확신 없이 고름',
+      oscillation: '같은 두 항목 사이를 오감',
       checkpoint: '단계 체크포인트',
       'plan-finished': '작업을 모두 마쳐 마지막 점검',
     },

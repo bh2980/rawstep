@@ -55,6 +55,33 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.backend.observe()).speech[0]).toBe('Cart');
   });
 
+  it('reads list items without stopping on their markers, and skips an empty live region', async () => {
+    const f = await fixture(`<ul><li><a href="#a">Home</a></li><li><a href="#b">Phones</a></li></ul><ol><li>First</li></ol><p role="status"></p><p>After</p>`);
+    const actual = [...f.initial.speech];
+    for (let index = 0; index < 5; index++) actual.push(...await f.intent('next'));
+    expect(actual.map(line => line.trim())).not.toEqual(expect.arrayContaining(['•']));
+    expect(actual.some(line => /^\d+\.$/.test(line.trim()))).toBe(false);
+    expect(actual).not.toContain('status');
+    expect(actual).toContain('After');
+  });
+  it('speaks new live-region text once after the action that changed it, and nothing for what the page loaded with or a region that is not live', async () => {
+    const f = await fixture(`<button id="b">Add to cart</button><p role="status" id="s">Loaded text</p><p id="quiet"></p>
+      <script>document.getElementById('b').addEventListener('click', () => { document.getElementById('s').textContent = 'Product added to cart'; document.getElementById('quiet').textContent = 'Shown only'; });</script>`);
+    expect(f.initial.speech.join(' ')).not.toContain('Loaded text');
+    expect(await f.intent('activate')).toEqual(['Add to cart, button', 'Product added to cart']);
+    // Spoken once: the next observation does not repeat it, and the unannounced paragraph is never spoken by itself.
+    expect((await f.backend.observe()).speech).toEqual([]);
+    const later = await f.intent('next');
+    expect(later.join(' ')).not.toContain('Shown only');
+  });
+  it('lists every heading with its level in one announcement without moving the cursor', async () => {
+    const f = await fixture('<h1>Shop</h1><p>Intro</p><h2>Products</h2><button>Buy</button><h3>Reviews</h3>');
+    expect(await f.intent('headings.list')).toEqual(['Headings, 3 items: Shop, level 1; Products, level 2; Reviews, level 3']);
+    expect(await f.intent('readCurrent')).toEqual(['Shop, heading, level 1']);
+    const none = await fixture('<p>Plain page</p>');
+    expect(await none.intent('headings.list')).toEqual(['Headings, no items']);
+  });
+
   it('uses actual AX names/roles, traverses exposed descendants and static/offscreen content without duplicate control text', async () => {
     const f = await fixture(`<div role="none"><h2>Welcome</h2><p>Read this introduction</p></div>
       <button><span>Continue</span></button><button style="opacity:0">Transparent</button>
