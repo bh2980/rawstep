@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { i18n } from '../../i18n';
 import { Check, Minus } from 'lucide-react';
 import type { ActionSet, AtBackend, Mode, Permissions } from '@rawstep/project/config';
 import type { ConfigView } from '../../../shared/config';
@@ -69,11 +70,19 @@ function Support({ ok }: { ok: boolean }) {
     : <span className="inline-flex items-center gap-1 text-inspect"><Minus aria-hidden="true" className="size-3.5" />{t('conditions.actionSet.unsupported')}</span>;
 }
 
-function AllowCell({ label, checked, onChange }: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
+/** A checkbox row label; a key also says, in small words, what it does. */
+function AllowCell({ label, note, checked, onChange }: { label: string; note?: string | undefined; checked: boolean; onChange: (on: boolean) => void }) {
   const id = useId();
   return <TableCell className="px-3 py-2 whitespace-normal">
-    <span className="flex items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} /><label htmlFor={id} className="cursor-pointer text-sm">{label}</label></span>
+    <span className="flex items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} />
+      <label htmlFor={id} className="cursor-pointer text-sm">{label}{note && <span className="ml-2 text-xs text-muted-foreground">{note}</span>}</label></span>
   </TableCell>;
+}
+
+/** What a key does, for the keys table; a key without words shows none. */
+function keyRole(key: string): string | undefined {
+  const path = `conditions.actionSet.keyRoles.${key}`;
+  return i18n.exists(path) ? i18n.t(path as 'conditions.actionSet.allowedKey') : undefined;
 }
 
 /**
@@ -89,11 +98,11 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
     <Table className={cn('table-fixed', backends.length > 1 && 'min-w-[32rem]')}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader><TableRow className="bg-raised hover:bg-raised">
-        <TableHead scope="col" className={cn(head, 'w-56')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
+        <TableHead scope="col" className={cn(head, 'w-72')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
-        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
+        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
         {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} /></TableCell>)}
       </TableRow>)}</TableBody>
     </Table>
@@ -116,7 +125,7 @@ function KeyboardActions({ value, onChange, capabilities }: { value: Permissions
           <TableHead scope="col" className={head}>{t('conditions.actionSet.keyboardBackend')}</TableHead>
         </TableRow></TableHeader>
         <TableBody>{keys.map(key => <TableRow key={key}>
-          <AllowCell label={key} checked={value.keys.includes(key)} onChange={on => onChange({ ...value, keys: toggle(value.keys, key, on) })} />
+          <AllowCell label={key} note={keyRole(key)} checked={value.keys.includes(key)} onChange={on => onChange({ ...value, keys: toggle(value.keys, key, on) })} />
           <TableCell className="px-3 py-2 text-[13px]"><Support ok={capabilities.keys.includes(key)} /></TableCell>
         </TableRow>)}</TableBody>
       </Table>

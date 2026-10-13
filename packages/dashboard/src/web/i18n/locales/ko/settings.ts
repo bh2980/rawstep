@@ -367,6 +367,13 @@ export const settings = {
       unsupported: '지원 안 함',
       allowed: '허용 동작',
       allowedKey: '허용 키',
+      keyRoles: {
+        Tab: '다음 포커스로', 'Shift+Tab': '이전 포커스로', Enter: '링크·버튼 누르기, 폼 보내기', Space: '버튼 누르기·체크, 아래로 스크롤',
+        Escape: '메뉴·대화상자 닫기', ArrowUp: '메뉴·목록에서 위로', ArrowDown: '메뉴·목록에서 아래로', ArrowLeft: '탭·라디오에서 왼쪽으로',
+        ArrowRight: '탭·라디오에서 오른쪽으로', Home: '처음으로', End: '끝으로', PageUp: '한 화면 위로', PageDown: '한 화면 아래로',
+        Backspace: '앞 글자 지우기', Delete: '뒤 글자 지우기', 'Shift+Space': '한 화면 위로 스크롤', 'Alt+ArrowLeft': '이전 페이지로(뒤로 가기)',
+        'Shift+Enter': '줄 바꾸기', 'Mod+A': '모두 선택',
+      },
       screenreaderIntro: '보조기술마다 지원 여부를 함께 보여 줍니다. 지원하지 않는 보조기술로는 실행 전에 막습니다.',
       intentsCaption: '스크린리더 동작과 보조기술별 지원 여부',
       keysDescription: 'Tab, Enter처럼 키를 그대로 누르는 동작입니다. 스크린리더 사용자도 폼이나 메뉴에서 씁니다.',
