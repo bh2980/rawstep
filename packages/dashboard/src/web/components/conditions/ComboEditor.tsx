@@ -1,7 +1,7 @@
 import { Fragment, useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, CornerUpLeft, RotateCcw } from 'lucide-react';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, isFilePlanner, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode } from '@rawstep/project/config';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, followsPlan, isFilePlanner, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode } from '@rawstep/project/config';
 import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { Advanced, Field, Panel, Toggle } from '../forms';
@@ -64,7 +64,7 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
     <RoleCard title={t('conditions.combo.executor.title')} tag={t('conditions.combo.condition')} intro={t('conditions.combo.executor.intro')} compact={compact}>
       <Tabs defaultValue={combo.executors.screenreader || !combo.executors.keyboard ? 'screenreader' : 'keyboard'} className="gap-4">
         <TabsList variant="line" aria-label={t('conditions.combo.executor.modesLabel')}>
-          {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
+          {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && !followsPlan(combo, mode) && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
         </TabsList>
         {MODES.map(mode => <TabsContent key={mode} value={mode} className="grid gap-4">
           {mode === 'keyboard' && combo.structure === 'planned' && <p className="text-xs leading-5 text-inspect">{t('conditions.combo.executor.keyboardAlone')}</p>}
