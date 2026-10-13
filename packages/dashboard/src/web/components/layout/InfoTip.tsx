@@ -4,12 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
-/**
- * For an ⓘ inside a form field: it shows only while the field (the nearest `group`) is pointed at or holds focus, so a list of fields
- * does not read as a list of icons. It is still in the tab order and appears when it takes focus.
- */
-export const INFO_REVEAL = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100';
-
 /** How long the pointer may be away from the ⓘ and its note before a note opened by hovering closes. */
 const LEAVE_MS = 150;
 
