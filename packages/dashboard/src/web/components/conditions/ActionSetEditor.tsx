@@ -62,23 +62,6 @@ export function ActionSetEditor({ actionSet, onChange, capabilities, inputNames,
   </Tabs>;
 }
 
-/**
- * The keys a person presses for each screen reader command, shown beside the command when one screen reader is picked. The simulation
- * follows VoiceOver's commands. VO is Control+Option; NVDA's commands are browse-mode quick navigation.
- */
-const COMMANDS: Record<AtBackend, Readonly<Record<string, string>>> = (() => {
-  const voiceover = {
-    next: 'VO+→', previous: 'VO+←', activate: 'VO+Space', readCurrent: 'VO+F3', readFocused: 'VO+F4',
-    'heading.next': 'VO+⌘H', 'heading.previous': 'VO+⌘⇧H', 'form.next': 'VO+⌘J', 'form.previous': 'VO+⌘⇧J',
-    'link.next': 'VO+⌘L', 'link.previous': 'VO+⌘⇧L', 'headings.list': 'VO+U', 'links.list': 'VO+U',
-    interact: 'VO+⇧↓', stopInteracting: 'VO+⇧↑',
-  };
-  return { simulation: voiceover, voiceover, nvda: {
-    next: '↓', previous: '↑', activate: 'Enter', readCurrent: 'NVDA+↑', readFocused: 'NVDA+Tab',
-    'heading.next': 'H', 'heading.previous': '⇧H', 'form.next': 'F', 'form.previous': '⇧F', 'link.next': 'K', 'link.previous': '⇧K',
-  } };
-})();
-
 /** A support mark: a check, or the words "지원 안 함" (never colour alone). */
 function Support({ ok }: { ok: boolean }) {
   const { t } = useTranslation();
@@ -120,7 +103,7 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
-        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : backends.length === 1 ? COMMANDS[backends[0]!][name] : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
+        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
         {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} /></TableCell>)}
       </TableRow>)}</TableBody>
     </Table>

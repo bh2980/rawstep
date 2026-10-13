@@ -367,7 +367,7 @@ export const settings = {
         PageUp: '한 화면 위', PageDown: '한 화면 아래', Backspace: '앞 글자 지움', Delete: '뒤 글자 지움', 'Shift+Space': '한 화면 위',
         'Alt+ArrowLeft': '뒤로 가기', 'Shift+Enter': '줄 바꿈', 'Mod+A': '모두 선택',
       },
-      screenreaderIntro: '명령 옆에 그 보조기술에서 누르는 키를 적습니다(VO는 Control+Option). 지원하지 않는 보조기술로는 실행 전에 막습니다.',
+      screenreaderIntro: '보조기술마다 지원 여부를 함께 보여 줍니다. 지원하지 않는 보조기술로는 실행 전에 막습니다.',
       intentsCaption: '스크린리더 동작과 보조기술별 지원 여부',
       keysDescription: 'Tab, Enter처럼 키를 그대로 누르는 동작입니다. 스크린리더 사용자도 폼이나 메뉴에서 씁니다.',
       keysCaption: '스크린리더에 보내는 키와 보조기술별 지원 여부',
