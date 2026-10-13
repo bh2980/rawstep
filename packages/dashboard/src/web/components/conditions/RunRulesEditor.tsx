@@ -4,7 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { runRulesSchema, type RunRules } from '@rawstep/project/config';
 import { t } from '../../i18n';
 import { cn } from '../../lib/utils';
-import { InfoTip } from '../layout/InfoTip';
+import { INFO_REVEAL, InfoTip } from '../layout/InfoTip';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
@@ -48,9 +48,7 @@ export function RunRulesEditor({ value, onChange, inherited, compact }: Props) {
   const shown = (key: Key) => ruleValueLabel(key, inherited[key]);
   return <div className={cn('grid min-w-0 max-w-2xl', compact ? 'gap-5' : 'gap-8')}>
     {GROUPS.map(group => <section key={group.id} aria-labelledby={`rules-${group.id}`} className="grid gap-0.5">
-      <h3 id={`rules-${group.id}`} className="flex items-center gap-1.5 pb-1 text-[13px] font-semibold text-muted-foreground">{t(`conditions.runRules.groups.${group.id}.title`)}
-        <InfoTip term={t(`conditions.runRules.groups.${group.id}.title`)}>{t(`conditions.runRules.groups.${group.id}.intro`)}</InfoTip>
-      </h3>
+      <h3 id={`rules-${group.id}`} className="pb-1 text-[13px] font-semibold text-muted-foreground">{t(`conditions.runRules.groups.${group.id}.title`)}</h3>
       {group.keys.map(key => <Row key={key} field={key} value={value} inherited={inherited} set={set} compact={compact} inheritedValue={shown(key)} />)}
     </section>)}
   </div>;
@@ -85,10 +83,10 @@ function Row({ field, value, inherited, set, compact, inheritedValue }: RowProps
       : <Input id={id} type="number" inputMode={field === 'confidenceFloor' ? 'decimal' : 'numeric'} step={field === 'confidenceFloor' ? 0.05 : 1} className="w-24" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
         onChange={e => set(field, e.target.value.trim() === '' ? undefined : Number(e.target.value) as never)} />;
   const label = t(`conditions.runRules.fields.${field}.label`);
-  return <div className={cn('grid items-center gap-x-4 gap-y-1 rounded-md px-2 sm:grid-cols-[minmax(0,1fr)_16rem]', compact ? 'py-1.5' : 'py-2', overridden && 'bg-trace-soft')}>
+  return <div className={cn('group grid items-center gap-x-4 gap-y-1 rounded-md px-2 sm:grid-cols-[minmax(0,1fr)_16rem]', compact ? 'py-1.5' : 'py-2', overridden && 'bg-trace-soft')}>
     <div className="flex min-w-0 items-center gap-1">
       <label htmlFor={id} className={cn('text-sm', overridden && 'font-medium')}>{label}</label>
-      <InfoTip term={label}>{t(`conditions.runRules.fields.${field}.hint`)}</InfoTip>
+      <InfoTip term={label} className={INFO_REVEAL}>{t(`conditions.runRules.fields.${field}.hint`)}</InfoTip>
     </div>
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {control}
