@@ -62,20 +62,40 @@ export function ActionSetEditor({ actionSet, onChange, capabilities, inputNames,
   </Tabs>;
 }
 
-/** A support mark: a check, or the words "지원 안 함" (never colour alone). */
-function Support({ ok }: { ok: boolean }) {
+/**
+ * The keys a person presses for each screen reader command, as the screen reader's own documentation names them. The simulation
+ * follows VoiceOver's commands. VO is Control+Option; NVDA's commands are browse-mode quick navigation.
+ */
+const COMMANDS: Record<AtBackend, Readonly<Record<string, string>>> = (() => {
+  const voiceover = {
+    next: 'VO+→', previous: 'VO+←', activate: 'VO+Space', readCurrent: 'VO+F3', readFocused: 'VO+F4',
+    'heading.next': 'VO+⌘H', 'heading.previous': 'VO+⌘⇧H', 'form.next': 'VO+⌘J', 'form.previous': 'VO+⌘⇧J',
+    'link.next': 'VO+⌘L', 'link.previous': 'VO+⌘⇧L', 'headings.list': 'VO+U (로터)', 'links.list': 'VO+U (로터)',
+    interact: 'VO+⇧↓', stopInteracting: 'VO+⇧↑',
+  };
+  return { simulation: voiceover, voiceover, nvda: {
+    next: '↓', previous: '↑', activate: 'Enter', readCurrent: 'NVDA+↑', readFocused: 'NVDA+Tab',
+    'heading.next': 'H', 'heading.previous': '⇧H', 'form.next': 'F', 'form.previous': '⇧F', 'link.next': 'K', 'link.previous': '⇧K',
+    'headings.list': 'NVDA+F7', 'links.list': 'NVDA+F7',
+  } };
+})();
+
+/** A support mark: the command to press, a check, or the words "지원 안 함" (never colour alone). */
+function Support({ ok, command }: { ok: boolean; command?: string | undefined }) {
   const { t } = useTranslation();
+  if (ok && command) return <span className="font-mono text-xs whitespace-nowrap"><span className="sr-only">{t('conditions.actionSet.supported')}: </span>{command}</span>;
   return ok
     ? <span className="inline-flex items-center gap-1"><Check aria-hidden="true" className="size-3.5 text-reach" /><span className="sr-only">{t('conditions.actionSet.supported')}</span></span>
     : <span className="inline-flex items-center gap-1 text-inspect"><Minus aria-hidden="true" className="size-3.5" />{t('conditions.actionSet.unsupported')}</span>;
 }
 
-/** A checkbox row label; a key also says, in small words, what it does. */
+/** A checkbox row label; a key also says, in small words, what it does. One line: a long note is cut short and shown whole on hover. */
 function AllowCell({ label, note, checked, onChange }: { label: string; note?: string | undefined; checked: boolean; onChange: (on: boolean) => void }) {
   const id = useId();
-  return <TableCell className="px-3 py-2 whitespace-normal">
-    <span className="flex items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} />
-      <label htmlFor={id} className="cursor-pointer text-sm">{label}{note && <span className="ml-2 text-xs text-muted-foreground">{note}</span>}</label></span>
+  return <TableCell className="px-3 py-2">
+    <span className="flex min-w-0 items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} />
+      <label htmlFor={id} className="flex min-w-0 cursor-pointer items-baseline gap-2 text-sm"><span className="shrink-0">{label}</span>
+        {note && <span title={note} className="truncate text-xs text-muted-foreground">{note}</span>}</label></span>
   </TableCell>;
 }
 
@@ -98,12 +118,12 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
     <Table className={cn('table-fixed', backends.length > 1 && 'min-w-[32rem]')}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader><TableRow className="bg-raised hover:bg-raised">
-        <TableHead scope="col" className={cn(head, 'w-72')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
+        <TableHead scope="col" className={cn(head, 'w-60')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
         <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
-        {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} /></TableCell>)}
+        {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} command={kind === 'intents' ? COMMANDS[b][name] : undefined} /></TableCell>)}
       </TableRow>)}</TableBody>
     </Table>
   </div>;
