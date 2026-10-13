@@ -9,6 +9,8 @@
     "generate": "tsx src/generate/index.ts",
     "probe": "tsx src/probe.ts",
     "collect": "tsx src/collect.ts",
+    "replay": "tsx src/replay.ts",
+    "compare": "tsx src/compare.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

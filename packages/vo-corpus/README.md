@@ -64,3 +64,16 @@ corepack pnpm --filter vo-corpus generate --out some/dir
 - `activate`: VO+Right, VO+Space. Only buttons, checkboxes, radios, switches, summary, tabs, and links to `#id` on the same page
 
 To add a variant, add a row to the table; `{N}` in the snippet becomes the variant's unique name words.
+
+## Simulator replay and comparison
+
+`replay.ts` runs the same case set on Rawstep's VoiceOver simulator (`rawstep/mock-voiceover`, headless Chromium, no Mac or VoiceOver needed; do not run it while another process owns a live VoiceOver) and writes records in the live runner's shape, with `source: "simulator"`:
+
+```sh
+corepack pnpm --filter vo-corpus replay --cases data/cases/elements-v1 [--filter re] [--limit n]   # -> data/runs/<set>-sim-<time>/{records.jsonl,meta.json}
+corepack pnpm --filter vo-corpus compare data/runs/<voiceover run> data/runs/<sim run> [--out report.md]
+```
+
+Chord mapping: `VO+Right` next, `VO+Left` previous, `VO+Space` activate, `VO+Cmd+H` next heading, `VO+Cmd+J` next form control, `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` as browser keys. Any other chord, or an action the simulator refuses (e.g. activating a disabled control), is a step with reason `unsupported` and no utterances. `VO+Home` has no equivalent: a freshly loaded page puts the simulated cursor on its first object, so the start chord is a read of the current object, which must name "Before marker". The page-load title announcement is dropped, like auto-read in the live runner. Utterance `t` is ms since the case started (browser launch included) and only orders steps; the simulator has no speech timing. One Chromium is launched per case, about 1 to 2 seconds each.
+
+`compare.ts` joins by case id and step index, only for cases aligned in both runs. Hints (an utterance starting `현재 ` or `You are currently`, and anything after it) are split from the main announcement, shown apart, and not scored. Per step: `exact`, `normalized` (lowercase, no commas or periods, collapsed spaces), `language` (VoiceOver text has Hangul, simulator text does not; real runs are Korean UI, the simulator is English), `unsupported`, `missing`, or `mismatch` with a token diff. Match rate = (exact + normalized) / (exact + normalized + mismatch). `report.md` has overall counts, tables by `axes.role` and `axes.command`, and the 30 worst mismatches; `compare.json` has one row per step. Both default to the simulator run directory.
