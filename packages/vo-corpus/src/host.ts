@@ -24,7 +24,8 @@ export interface HostFacts {
   build: string;
   browser: { name: BrowserName; version: string };
   /** `defaults read` of VoiceOver's settings domains, verbatim. Verbosity, hints, voice and language live here.
-   * A domain VoiceOver has not written yet is recorded as unknown, which means its defaults are in effect. */
+   * Unknown is common: recent macOS keeps VoiceOver's settings in a protected group container that `defaults` cannot read,
+   * so an unknown here says nothing about whether settings were changed. */
   voiceOverSettings: { "com.apple.VoiceOver4/default": string; "com.apple.VoiceOverUtility": string };
   locale: string;
 }
