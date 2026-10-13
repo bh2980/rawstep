@@ -38,14 +38,14 @@ export function supportsMode(model: Pick<Model, 'inputs' | 'maxImages'>, mode: M
   return mode === 'keyboard' ? model.inputs.includes('image') && model.maxImages >= 2 : model.inputs.includes('text');
 }
 /** The modes a combo can run: those it has an executor for that takes what the mode sends. */
-export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>): Mode[] {
+export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>): Mode[] {
   return (['screenreader', 'keyboard'] as const).filter(mode => { const model = comboExecutor(config, combo, mode); return !!model && supportsMode(model, mode); });
 }
 /**
  * The executor's instructions as a run records them: identified by combo and mode, versioned by their content, so two runs with
  * different wording never share an ID and version.
  */
-export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors' | 'structure' | 'followPlan'>, mode: Mode): Prompt | undefined {
+export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>, mode: Mode): Prompt | undefined {
   if (followsPlan(combo, mode)) return { id: `${combo.id}.${mode}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
   const executor = combo.executors[mode];
   if (!executor) return undefined;

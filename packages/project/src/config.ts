@@ -384,9 +384,9 @@ export const PLAN_FOLLOWER: Model = { id: 'rawstep-plan-follower', kind: 'decisi
   modelId: 'follow-plan', inputs: ['text'], maxChoices: 255, maxImages: 0 };
 export const isPlanFollower = (model: Pick<Model, 'id'> | undefined): boolean => model?.id === PLAN_FOLLOWER.id;
 /** Whether a combo carries out its plan without an executor model in this mode. */
-export const followsPlan = (combo: Pick<Combo, 'structure' | 'followPlan'>, mode: Mode): boolean => mode === 'screenreader' && combo.structure === 'planned' && !!combo.followPlan;
+export const followsPlan = (combo: Partial<Pick<Combo, 'structure' | 'followPlan'>>, mode: Mode): boolean => mode === 'screenreader' && combo.structure === 'planned' && !!combo.followPlan;
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
-export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>, mode: Mode): Model | undefined =>
+export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>, mode: Mode): Model | undefined =>
   followsPlan(combo, mode) ? structuredClone(PLAN_FOLLOWER) : joined(config, combo.executors[mode]);
 /** The LLM a planned combo plans with; undefined for a solo combo. */
 export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;

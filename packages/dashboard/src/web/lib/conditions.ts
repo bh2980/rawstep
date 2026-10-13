@@ -53,7 +53,7 @@ export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'execu
  * The modes a combo can run, as the server decides them (`comboModes` in @rawstep/project/plan, which the web bundle cannot import):
  * an executor on an existing connection that takes what the mode sends (text, or two images for keyboard mode).
  */
-export function comboModesOf(combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>, connections: readonly Connection[]): Mode[] {
+export function comboModesOf(combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>, connections: readonly Connection[]): Mode[] {
   return MODES.filter(mode => {
     if (followsPlan(combo, mode)) return true;
     const executor = combo.executors[mode];
