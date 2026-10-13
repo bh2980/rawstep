@@ -36,8 +36,8 @@ const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[
 const stageText = (stage: Stage) => ({ what: t(`errors.stage.${stage}.what`), next: t(`errors.stage.${stage}.next`) });
 
 const goMachine: ErrorView['link'] = { to: { view: 'settings' }, label: t('errors.go.machine') };
-const goModels: ErrorView['link'] = { to: { view: 'connections' }, label: t('errors.go.models') };
-const goConditions: ErrorView['link'] = { to: { view: 'conditions' }, label: t('errors.go.conditions') };
+const goModels: ErrorView['link'] = { to: { view: 'settings', section: 'connections' }, label: t('errors.go.models') };
+const goConditions: ErrorView['link'] = { to: { view: 'settings', section: 'profiles' }, label: t('errors.go.conditions') };
 
 /** The recorded codes of a run's end, for the "원본 오류 보기" block: the state, reason, stage, action number and the server's own message. */
 export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail'>): string {

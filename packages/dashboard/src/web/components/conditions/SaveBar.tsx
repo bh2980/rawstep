@@ -1,22 +1,35 @@
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save } from 'lucide-react';
+import { RotateCcw, Save } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 
-/** The top line of an editor: what is being edited on the left, the save state and 저장 (plus any other actions) on the right. */
-export function SaveBar({ dirty, busy, blocked, onSave, lead, children, changes }: { dirty: boolean; busy: boolean; blocked?: string | undefined; onSave: () => void; lead?: ReactNode; children?: ReactNode; changes?: number }) {
+type Props = {
+  dirty: boolean; busy: boolean;
+  /** Why saving is not possible yet; shown in place of the change count. */
+  blocked?: string | undefined;
+  onSave: () => void;
+  /** Throws the edits away. */
+  onDiscard?: () => void;
+  changes?: number;
+  /** Saves on top of a newer project instead (labels change); used when the draft is behind. */
+  behind?: boolean;
+  className?: string;
+};
+
+/**
+ * The one way an editor saves (every settings section, the task's settings): nothing while there is nothing to save, then a bar
+ * stuck to the bottom of the page with the number of changes, 되돌리기 and 저장. There is no permanent "all saved" line.
+ */
+export function SaveBar({ dirty, busy, blocked, onSave, onDiscard, changes, behind, className }: Props) {
   const { t } = useTranslation();
-  return <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-edge-strong pb-3">
-    <div className="min-w-0 flex-1">{lead}</div>
-    <div className="grid justify-items-end gap-1.5">
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button disabled={busy || !dirty || !!blocked} onClick={onSave}><Save aria-hidden="true" />{t('conditions.bar.save')}</Button>
-        {children}
-      </div>
-      <p role="status" className={cn('text-right text-xs leading-5', blocked ? 'text-inspect' : dirty ? 'text-trace' : 'text-muted-foreground')}>
-        {blocked ?? (dirty ? (changes ? t('conditions.bar.unsavedCount', { count: changes }) : t('conditions.bar.unsaved')) : t('conditions.bar.saved'))}
-      </p>
+  if (!dirty && !blocked) return null;
+  return <div role="region" aria-label={t('saveBar.label')} className={cn('sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t border-edge-strong bg-background/95 px-1 py-3 backdrop-blur', className)}>
+    <p role="status" className={cn('text-sm', blocked ? 'text-inspect' : 'font-medium')}>
+      {blocked ?? (behind ? t('saveBar.behind') : changes ? t('saveBar.unsavedCount', { count: changes }) : t('saveBar.unsaved'))}
+    </p>
+    <div className="flex flex-wrap gap-2">
+      {onDiscard && dirty && <Button variant="ghost" disabled={busy} onClick={onDiscard}><RotateCcw aria-hidden="true" />{behind ? t('saveBar.takeLatest') : t('saveBar.discard')}</Button>}
+      <Button disabled={busy || !dirty || !!blocked} onClick={onSave}><Save aria-hidden="true" />{behind ? t('saveBar.saveOnLatest') : t('saveBar.save')}</Button>
     </div>
   </div>;
 }

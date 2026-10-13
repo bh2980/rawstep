@@ -1,55 +1,55 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import { agentOf, executorModel, isFilePlanner, type Combo, type Connection, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
-import type { ModelCheck } from '../../shared/api';
-import type { RouteChange } from '../hooks/useRoute';
-import { ApiError, api } from '../api';
-import { ConnectionEditDialog } from '../components/ConnectionEditDialog';
-import { ConnectionSetupDialog } from '../components/ConnectionSetupDialog';
-import { CheckStatus, type CheckState } from '../components/CheckStatus';
-import { ConceptNote } from '../components/layout/ConceptNote';
-import { EmptyState } from '../components/layout/EmptyState';
-import { PageHeader } from '../components/layout/PageHeader';
-import { Link } from '../components/Link';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
-import { Button } from '../components/ui/button';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { keyStatus, kindLabelKey, providerTextKey } from '../lib/connections';
-import { cn } from '../lib/utils';
-import type { PageProps } from './types';
+import { MoreHorizontal, Pencil, Plus, Trash2, Zap } from 'lucide-react';
+import { agentOf, executorModel, isFilePlanner, type Connection, type Profile, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
+import type { ModelCheck } from '../../../shared/api';
+import type { RouteChange } from '../../hooks/useRoute';
+import { ApiError, api } from '../../api';
+import { ConnectionEditDialog } from '../../components/ConnectionEditDialog';
+import { ConnectionSetupDialog } from '../../components/ConnectionSetupDialog';
+import { CheckStatus, type CheckState } from '../../components/CheckStatus';
+import { InfoTip } from '../../components/layout/InfoTip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { EmptyState } from '../../components/layout/EmptyState';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Link } from '../../components/Link';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
+import { Button } from '../../components/ui/button';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { keyStatus, kindLabelKey, providerTextKey } from '../../lib/connections';
+import { cn } from '../../lib/utils';
+import type { PageProps } from '../types';
 
-const head = 'h-8 px-3 text-xs font-medium tracking-wide text-muted-foreground';
+const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
 
 type Role = 'planner' | 'screenreader' | 'keyboard' | 'analysis' | 'suggestions';
 const ROLES: readonly Role[] = ['planner', 'screenreader', 'keyboard', 'analysis', 'suggestions'];
 type Use = { role: Role; names: { label: string; to: RouteChange }[] };
 
-/** What uses a connection, by role: combos that plan, execute in a mode or explain with it, and the project's analysis and suggestion models. */
-function usesOf(config: ProjectConfig, id: string, projectLabel: string, ownedLabel: (name: string) => string): Use[] {
-  const combo = (c: Combo) => ({ label: c.owner ? ownedLabel(c.name) : c.name, to: { view: 'conditions' } as RouteChange });
-  const project = { label: projectLabel, to: { view: 'settings' } as RouteChange };
+/** What uses a connection, by role: run profiles that plan or execute in a mode with it, and the project's analysis and suggestion models. */
+function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] {
+  const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
+  const project = { label: projectLabel, to: { view: 'settings', section: 'assist' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
-    planner: config.combos.filter(c => c.structure === 'planned' && !isFilePlanner(c.planner) && c.planner?.connectionId === id).map(combo),
-    screenreader: config.combos.filter(c => executorModel(c, 'screenreader')?.connectionId === id).map(combo),
-    keyboard: config.combos.filter(c => executorModel(c, 'keyboard')?.connectionId === id).map(combo),
-    analysis: [...config.combos.filter(c => c.analysis?.connectionId === id).map(combo), ...(config.project.analysis.model?.connectionId === id ? [project] : [])],
+    planner: config.profiles.filter(p => p.structure === 'planned' && !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
+    screenreader: config.profiles.filter(p => executorModel(p, 'screenreader')?.connectionId === id).map(profile),
+    keyboard: config.profiles.filter(p => executorModel(p, 'keyboard')?.connectionId === id).map(profile),
+    analysis: config.project.analysis.model?.connectionId === id ? [project] : [],
     suggestions: config.project.suggestions.model?.connectionId === id ? [project] : [],
   };
   return ROLES.filter(role => by[role].length).map(role => ({ role, names: by[role] }));
 }
-/** A combo without the roles a removed connection played; a planned combo that loses its planner decides alone. */
-function withoutConnection(combo: Combo, id: string): Combo {
-  const { planner, executors, analysis, ...rest } = combo;
-  const { screenreader, keyboard } = executors;
+/** A profile without the roles a removed connection played; a planned profile that loses its planner decides alone. */
+function withoutConnection(profile: Profile, id: string): Profile {
+  const { planner, executors } = profile, { screenreader, keyboard } = executors;
   const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
-  const structure = combo.structure === 'planned' && !keepPlanner ? 'solo' : combo.structure;
-  // Following the plan needs a plan: a combo that loses its planner loses that too.
+  const structure = profile.structure === 'planned' && !keepPlanner ? 'solo' : profile.structure;
+  // Following the plan needs a plan: a profile that loses its planner loses that too.
   const keepScreenReader = screenreader && ('followPlan' in screenreader ? structure === 'planned' : screenreader.connectionId !== id);
+  const { planner: _planner, ...rest } = profile;
   return {
     ...rest, structure, ...(keepPlanner ? { planner } : {}),
     executors: { ...(keepScreenReader ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
-    ...(analysis && analysis.connectionId !== id ? { analysis } : {}),
   };
 }
 /** The project settings without models on a removed connection: analysis falls back to rules, suggestions to the analysis model. */
@@ -62,21 +62,21 @@ function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
 }
 
 /**
- * Connections: where models are reached (a provider with its key, or a custom server). A connection holds no model; a model combo (or the
+ * 설정 · 연결: where models are reached (a provider with its key, or a custom server). A connection holds no model; a run profile (or the
  * project's analysis and suggestion settings) picks the model ID on one. 쓰는 곳 lists those uses by role. The status is what is known without asking until a person presses 확인, which asks the provider once.
  */
-export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
+export function ConnectionSettings({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Connection>();
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Combos that used the connection lose that role (a mode without an executor cannot run until another is picked, a combo without
+  // Profiles that used the connection lose that role (a mode without an executor cannot run until another is picked, a profile without
   // its planner decides alone); the project's analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
     const latest = props.view.config;
-    await props.save({ ...latest, combos: latest.combos.map(combo => withoutConnection(combo, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });
+    await props.save({ ...latest, profiles: latest.profiles.map(profile => withoutConnection(profile, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });
   }); };
   async function check(connection: Connection) {
     setChecks(current => ({ ...current, [connection.id]: { state: 'running' } }));
@@ -92,16 +92,15 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
       setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
     } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
   }
-  const uses = (id: string) => usesOf(config, id, t('connections.projectUser'), name => t('connections.ownedUser', { name }));
+  const uses = (id: string) => usesOf(config, id, t('connections.projectUser'));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
   return <div className="grid gap-5">
-    <PageHeader title={t('connections.heading')} description={t('connections.intro')}
-      actions={config.connections.length > 0 && <Button size="xl" onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
-    {config.connections.some(c => c.kind === 'decision') && <ConceptNote concept="decisionModel" />}
+    <PageHeader title={t('settingsNav.sections.connections')} info={t('settingsNav.info.connections')}
+      actions={config.connections.length > 0 && <Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
     {config.connections.length === 0
-      ? <EmptyState title={t('empty.connections.title')} why={t('empty.connections.why')} action={<Button size="xl" onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('empty.connections.action')}</Button>} />
-      : <div className="overflow-x-auto border-y border-edge-strong">
+      ? <EmptyState title={t('empty.connections.title')} why={t('empty.connections.why')} action={<Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('empty.connections.action')}</Button>} />
+      : <div className="overflow-x-auto rounded-md border border-edge-strong bg-surface">
         <Table className="min-w-[48rem]">
           <TableCaption className="sr-only">{t('connections.listLabel')}</TableCaption>
           <TableHeader><TableRow className="bg-raised hover:bg-raised">
@@ -118,7 +117,7 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
                 <span className="block font-medium break-all">{connection.name}</span>
                 <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}</TableCell>
+              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap"><span className="inline-flex items-center gap-1">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}{connection.kind === 'decision' && <InfoTip term={t(`connections.kinds.${kindLabelKey(connection)}.name`)}>{t('help.decisionModel')}</InfoTip>}</span></TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {users.length
                   ? <dl className="grid gap-0.5">{users.map(use => <div key={use.role} className="flex flex-wrap gap-x-1.5">
@@ -132,10 +131,16 @@ export function ConnectionsPage({ navigate, ...props }: PageProps & { navigate: 
                   ? <CheckStatus check={result} signIn={agentOf(connection) ? { available: !!agentOf(connection)!.signIn, onClick: () => void signIn(connection) } : undefined} />
                   : <span className="grid gap-0.5"><span className={cn('font-medium', status === 'missing' && 'text-inspect')}>{t(`connections.status.${status}`)}</span><span className="text-xs text-muted-foreground">{t('connections.status.notChecked')}</span></span>}
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-right whitespace-nowrap"><span className="inline-flex gap-1.5">
+              <TableCell className="px-3 py-2.5 text-right whitespace-nowrap"><span className="inline-flex items-center gap-1">
                 <Button variant="outline" size="sm" className="h-7" disabled={result?.state === 'running'} aria-label={t('connections.checkAria', { name: connection.name })} onClick={() => void check(connection)}><Zap aria-hidden="true" />{t('connections.check')}</Button>
-                <Button variant="outline" size="sm" className="h-7" aria-label={t('connections.editAria', { name: connection.name })} onClick={() => setEditing(connection)}><Pencil aria-hidden="true" />{t('connections.edit')}</Button>
-                <Button variant="outline" size="sm" className="h-7" disabled={props.busy} aria-label={t('connections.deleteAria', { name: connection.name })} onClick={() => setDeleting(connection)}><Trash2 aria-hidden="true" />{t('connections.delete')}</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={t('connections.moreAria', { name: connection.name })}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setEditing(connection)}><Pencil aria-hidden="true" />{t('connections.edit')}</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" disabled={props.busy} onSelect={() => setDeleting(connection)}><Trash2 aria-hidden="true" />{t('connections.delete')}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </span></TableCell>
             </TableRow>;
           })}</TableBody>

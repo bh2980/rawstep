@@ -15,7 +15,7 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'preset', 'combo', 'actions', 'environment', 'at', 'mode', 'repeat', 'rule', 'diagnose-stop', 'out', 'json'],
+  run: ['project', 'profile', 'mode', 'repeat', 'rule', 'diagnose-stop', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
   analyze: ['project', 'llm', 'out'],
@@ -110,8 +110,7 @@ export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web
 Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
-  rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
-                     [--at <id|name>] [--mode keyboard|screenreader] [--rule <name>=<value>]... [--diagnose-stop]
+  rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader] [--rule <name>=<value>]... [--diagnose-stop]
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
@@ -121,10 +120,10 @@ Usage:
 Commands:
   init      Write a default rawstep.config.json. An existing file is never overwritten.
   ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
-  run       Run a task from rawstep.config.json (by id) or a task JSON file under experiment conditions (model combo,
-            action set, page environment, assistive technology), then print the conditions, each run's outcome and the
-            findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned combo also write
-            plan.json and plan.md. With an analysis model (the combo's or the project's) each run is also analysed.
+  run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile (models, allowed
+            actions, page environment, screen reader, run rules), then print the conditions, each run's outcome and the
+            findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned profile also write
+            plan.json and plan.md. With an analysis model (the project's) each run is also analysed.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
@@ -134,16 +133,14 @@ Commands:
 
 Configuration:
   Everything lives in rawstep.config.json in the project directory: connections (where models are
-  reached), model combos (who plans and who acts), action sets, page and assistive-technology environments,
-  run rules, presets, tasks, project models (analysis, check suggestions) and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
+  reached; the model and effort are picked where used), run profiles (who plans and who acts, allowed actions,
+  page environment, screen reader, run rules), tasks, project models (analysis, check suggestions) and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.
 
 Run defaults:
-  --preset, --combo, --actions, --environment (page), --at (assistive technology)
-                 each the task's own, then its preset's, then the first shared one
-  --rule     <name>=<value>, repeatable; overrides one run rule for these runs (project defaults, then the preset's,
-             then the task's, then these), e.g. --rule maxReplans=2 --rule survey=headings;
+  --profile  <id|name>; the run profile to use: the task's own, else the project's first
+  --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxReplans=2 --rule survey=headings;
              see the runRules section of docs/config.md for the rules
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal

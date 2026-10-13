@@ -28,7 +28,7 @@ export function StepEvidence({ step, previous, experimentId, runId, speechFirst,
 }
 
 const frame = 'grid min-h-40 place-content-center gap-1 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground';
-const label = 'text-[11px] leading-4 font-medium tracking-[0.08em] uppercase';
+const label = 'text-xs leading-4 font-medium';
 
 function Screen({ step, previous, experimentId, runId, live, primary }: { step: StepView; previous: StepView | undefined; experimentId: string; runId: string; live: boolean; primary: boolean }) {
   const { t } = useTranslation();
@@ -48,23 +48,24 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
   const caption = showBefore ? t('stepDetail.screenBefore', { n: step.step, prev: previous!.step }) : live ? t('runPage.screenLive') : step.step === 0 ? t('stepDetail.screenStart') : t('stepDetail.screenAfter', { n: step.step });
   return <figure className="grid gap-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className={cn(label, primary ? 'text-foreground' : 'text-muted-foreground')}>{t('stepDetail.screen')}{shown.reference && <span className="ml-2 normal-case tracking-normal">{t('stepDetail.screenReference')}</span>}</span>
+      <span className={cn(label, primary ? 'text-foreground' : 'text-muted-foreground')}>{t('stepDetail.screen')}{shown.reference && <span className="ml-2 font-normal text-muted-foreground">{t('stepDetail.screenReference')}</span>}</span>
       {primary && previous?.screenshot && <div role="group" aria-label={t('stepDetail.timeLabel')} className="inline-flex rounded-md border border-edge-strong p-0.5 text-xs">
         {(['before', 'after'] as const).map(option => <button key={option} type="button" aria-pressed={time === option} onClick={() => setTime(option)}
           className={cn('h-6 rounded-[3px] px-2.5', time === option ? 'bg-trace-soft font-medium text-trace' : 'text-muted-foreground hover:bg-raised')}>{t(option === 'before' ? 'stepDetail.timeBefore' : 'stepDetail.timeAfter')}</button>)}
       </div>}
     </div>
-    <div className={cn('relative overflow-hidden rounded-md bg-raised', primary ? 'border-2 border-trace' : 'border')}>
+    {/* The frame hugs the picture: no empty area beside a small screenshot. */}
+    <div className={cn('relative w-fit max-w-full justify-self-start overflow-hidden rounded-md bg-raised', primary ? 'border-2 border-trace' : 'border')}>
       {failed === src
         ? <div className={cn(frame, 'border-0')}><ImageOff className="mx-auto size-5" aria-hidden="true" />{t('steps.screenshotMissing')}</div>
-        : <a href={src} target="_blank" rel="noreferrer" aria-label={t('runPage.screenOpen', { n: step.step })} className="relative mx-auto block w-fit max-w-full">
+        : <a href={src} target="_blank" rel="noreferrer" aria-label={t('runPage.screenOpen', { n: step.step })} className="relative block w-fit max-w-full">
           <img src={src} alt={t('steps.screenshot', { n: step.step })} onError={() => setFailed(src)}
             onLoad={event => setNatural({ src, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
             className={cn('block h-auto w-auto max-w-full', primary ? 'max-h-[36rem]' : 'max-h-64')} />
           {box && size && <span aria-hidden="true" data-focus-outline className="pointer-events-none absolute rounded-[2px] border-2 border-trace shadow-[0_0_0_2px_rgb(255_255_255/0.85)]" style={boxPercent(box, size)} />}
         </a>}
       {primary && focus && <p className="absolute top-2 left-2 flex max-w-[calc(100%-1rem)] items-baseline gap-2 rounded-[3px] border border-trace bg-card/95 px-2 py-1 text-xs">
-        <span className="text-[11px] font-medium tracking-[0.08em] text-trace">{t('stepDetail.focus')}</span>
+        <span className="text-xs font-medium text-trace">{t('stepDetail.focus')}</span>
         <span className="truncate font-medium">{targetLabel({ role: focus.role || t('observed.element'), ...(focus.name ? { name: focus.name } : {}) })}</span>
         {rect && <span className="sr-only">{t('stepDetail.focusBox', { x: rect.x, y: rect.y, width: rect.width, height: rect.height })}</span>}
       </p>}

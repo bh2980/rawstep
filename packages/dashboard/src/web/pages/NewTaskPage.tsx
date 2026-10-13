@@ -1,117 +1,87 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
-import { taskConditions, type Mode } from '@rawstep/project/config';
-import type { ConfigView } from '../../shared/config';
-import type { RunOptions } from '../lib/quickRun';
 import { CheckEditor } from '../components/CheckEditor';
 import { CheckSuggestions } from '../components/CheckSuggestions';
 import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
-import { PageHeader } from '../components/layout/PageHeader';
-import { TaskConditionFields } from '../components/TaskConditionFields';
+import { PageHeader, SectionHead } from '../components/layout/PageHeader';
+import { TaskProfileField } from '../components/TaskProfileField';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
-import { comboModesOf } from '../lib/conditions';
-import type { TaskConditionIds } from '../lib/taskConditions';
 import { inputProblems } from '../lib/taskInputs';
 import { createManagedTask, hostnameOf, slugify } from '../lib/taskFiles';
 import type { PageProps } from './types';
 
-type Props = PageProps & {
-  navigate: (change: RouteChange) => void;
-  /** Starts the default run of a task in the given project state and opens it. */
-  startRun: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
-};
-
-/** One numbered part of the specification: a heading that is also the label of its input, and what it holds. */
-function Part({ n, title, htmlFor, children }: { n: string; title: string; htmlFor?: string; children: ReactNode }) {
-  const heading = <span className="text-base font-semibold">{title}</span>;
-  return <section className="grid gap-2.5 border-t border-edge-strong pt-3">
-    <div className="flex items-baseline gap-3"><span aria-hidden="true" className="font-mono text-sm text-muted-foreground tabular-nums">{n}</span>{htmlFor ? <Label htmlFor={htmlFor}>{heading}</Label> : <h2>{heading}</h2>}</div>
-    {children}
-  </section>;
-}
+type Props = PageProps & { navigate: (change: RouteChange) => void };
 
 /**
- * New task (spec §21), read density: on the left the task specification as a document (address, goal, completion check), on the right
- * from 1100px a reference panel of completion ideas. The right side supports the left; it is not a conversation.
+ * New task: one form column — start address, goal, completion check (with AI suggestions under it) and, folded, inputs, name and
+ * run profile. The footer holds one primary button and the reason when nothing can be created yet. The page only creates the task:
+ * the person picks the mode and runs it on the task page.
  */
-export function NewTaskPage({ navigate, startRun, ...props }: Props) {
+export function NewTaskPage({ navigate, ...props }: Props) {
   const { t } = useTranslation();
   const id = useId();
   const { config } = props.view;
   const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
-  const [conditions, setConditions] = useState<TaskConditionIds>({});
-  const resolved = taskConditions(config, conditions), modes = comboModesOf(resolved.combo, config.connections);
+  const [profileId, setProfileId] = useState<string>();
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', title = name.trim() || host || t('newTask.fallbackName');
   const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
-  // Start at a mode the chosen model combo can run, screen reader first.
-  const [picked, setMode] = useState<Mode>();
-  const mode: Mode = picked && (modes.includes(picked) || !modes.length) ? picked : modes[0] ?? 'screenreader';
-  async function create(run: boolean) {
+  async function create() {
     const task = {
       url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
       verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
-    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, conditions });
-    if (!run) { navigate({ task: created.id }); return; }
-    // The task exists now; a failed start leaves the person on the task with the reason in the banner.
-    try { await startRun(created.view, created.id, { mode }); } catch (error) { navigate({ task: created.id }); throw error; }
+    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, ...(profileId ? { profileId } : {}) });
+    navigate({ task: created.id });
   }
-  const submit = (run: boolean) => { if (ready && !props.busy) void props.act(() => create(run), { as: 'start' }); };
-  return <div className="grid gap-6">
-    <PageHeader title={t('newTask.title')} description={t('newTask.description')} />
-    <div className="grid items-start gap-10 min-[1100px]:grid-cols-[minmax(0,1fr)_26rem]">
-      <div className="grid min-w-0 max-w-3xl gap-7">
-        <p lang="en" className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{t('labels.spec')}</p>
-        <Part n="01" title={t('newTask.url')} htmlFor={id + '-url'}>
-          <Input id={id + '-url'} aria-describedby={id + '-url-hint'} className="h-10 font-mono text-sm md:text-sm" placeholder="https://" value={url} onChange={event => setUrl(event.target.value)} />
-          <p id={id + '-url-hint'} className="text-xs leading-5 text-muted-foreground">{t('taskSettings.urlHint')}</p>
-        </Part>
-        <Part n="02" title={t('newTask.goal')} htmlFor={id + '-goal'}>
-          <Textarea id={id + '-goal'} aria-describedby={id + '-goal-hint'} rows={5} className="min-h-28 text-sm leading-6 md:text-sm" value={goal} onChange={event => setGoal(event.target.value)} />
-          <p id={id + '-goal-hint'} className="text-xs leading-5 text-muted-foreground">{t('newTask.goalHint')}</p>
-        </Part>
-        <Part n="03" title={t('newTask.verifyTitle')}>
-          <p className="text-[13px] leading-5 text-muted-foreground">{t('newTask.verifyDescription')}</p>
-          <CheckEditor rules={rules} onChange={setRules} url={url} />
-        </Part>
-        <Panel title={t('taskInputs.title')} description={Object.keys(input).length ? t('newTask.inputsCount', { count: Object.keys(input).length }) : t('taskInputs.optional')}>
-          <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
-        </Panel>
-        <Panel title={t('newTask.optionsTitle')} description={t('newTask.optionsSummary', { name: title, preset: resolved.preset?.name ?? t('taskConditions.noPreset'), combo: resolved.combo.name })}>
-          <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
-          <div className="grid gap-2">
-            <p className="text-xs leading-5 text-muted-foreground">{t('taskConditions.hint')}</p>
-            <TaskConditionFields config={config} value={conditions} onChange={setConditions} />
-          </div>
-        </Panel>
-        <div className="grid gap-3 border-t border-edge-strong pt-4">
-          <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <legend className="float-left mr-2 text-sm font-medium">{t('newTask.runMode')}</legend>
-            {(['screenreader', 'keyboard'] as const).map(value => <label key={value} className="flex items-center gap-2 text-sm">
-              <input type="radio" name={id + '-mode'} value={value} checked={mode === value} disabled={modes.length > 0 && !modes.includes(value)} onChange={() => setMode(value)} className="size-4 accent-[var(--trace)]" />{t(`sidebar.modes.${value}`)}
-            </label>)}
-          </fieldset>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button size="xl" disabled={props.busy || !ready} onClick={() => submit(true)}>{t('newTask.createAndRunMode', { mode: t(`sidebar.modes.${mode}`) })}</Button>
-            <Button size="xl" variant="outline" disabled={props.busy || !ready} onClick={() => submit(false)}>{t('newTask.createOnly')}</Button>
-            <Button size="xl" variant="ghost" onClick={() => navigate({ view: 'tasks' })}>{t('newTask.cancel')}</Button>
-          </div>
-          {!ready && <p role="status" className="text-xs leading-5 text-muted-foreground">{filled ? t('newTask.inputInvalid') : t('newTask.notReady')}</p>}
-        </div>
+  const submit = () => { if (ready && !props.busy) void props.act(create, { as: 'start' }); };
+  const missing = [url.trim() === '' && 'url', goal.trim() === '' && 'goal', rules.length === 0 && 'check'].filter((key): key is 'url' | 'goal' | 'check' => !!key);
+  const inputCount = Object.keys(input).length;
+  const reason = missing.length ? t('newTask.missingLine', { items: missing.map(key => t(`newTask.missing.${key}`)).join(', ') }) : !inputsOk ? t('newTask.inputInvalid') : '';
+  return <div className="grid max-w-3xl gap-6">
+    <PageHeader title={t('newTask.title')} />
+    <section className="grid gap-2">
+      <SectionHead id={id + '-url-title'} title={t('newTask.url')} />
+      <Input aria-labelledby={id + '-url-title'} aria-describedby={id + '-url-hint'} className="h-10 font-mono text-sm md:text-sm" placeholder="https://" value={url} onChange={event => setUrl(event.target.value)} />
+      <p id={id + '-url-hint'} className="text-xs leading-5 text-muted-foreground">{t('newTask.urlHint')}</p>
+    </section>
+    <section className="grid gap-2">
+      <SectionHead id={id + '-goal-title'} title={t('newTask.goal')} />
+      <Textarea aria-labelledby={id + '-goal-title'} aria-describedby={id + '-goal-note'} rows={3} className="min-h-20 text-sm leading-6 md:text-sm" value={goal} onChange={event => setGoal(event.target.value)} />
+      <p id={id + '-goal-note'} className="text-xs leading-5 text-muted-foreground">{t('newTask.goalNote')}</p>
+    </section>
+    <section aria-labelledby={id + '-check-title'} className="grid gap-3">
+      <SectionHead id={id + '-check-title'} title={t('newTask.verifyTitle')} info={t('help.check')} />
+      <CheckEditor rules={rules} onChange={setRules} url={url} />
+      <CheckSuggestions view={props.view} url={url} goal={goal} onAdd={rule => setRules(current => [...current, rule])} />
+    </section>
+    <Panel title={t('newTask.detailsTitle')} description={t('newTask.detailsSummary', { name: title, count: inputCount })}>
+      <div className="grid gap-3">
+        <h3 className="text-sm font-semibold">{t('newTask.inputsTitle')}</h3>
+        <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
       </div>
-      <aside aria-label={t('labels.ideas')} className="grid min-w-0 gap-3">
-        <p lang="en" className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{t('labels.ideas')}</p>
-        <CheckSuggestions view={props.view} url={url} goal={goal} reference onAdd={rule => setRules(current => [...current, rule])} />
-      </aside>
-    </div>
+      <div className="grid gap-3">
+        <h3 className="text-sm font-semibold">{t('newTask.name')}</h3>
+        <Field label={t('newTask.name')} value={name} placeholder={host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
+      </div>
+      <div className="grid gap-3">
+        <h3 className="text-sm font-semibold">{t('newTask.profileTitle')}</h3>
+        <TaskProfileField profiles={config.profiles} value={profileId} onChange={setProfileId} />
+      </div>
+    </Panel>
+    <footer className="grid gap-2 border-t border-edge-strong pt-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Button disabled={props.busy || !ready} onClick={submit}>{t('newTask.create')}</Button>
+        <Button variant="ghost" onClick={() => navigate({ view: 'tasks' })}>{t('newTask.cancel')}</Button>
+      </div>
+      {reason && <p role="status" className="text-xs leading-5 text-muted-foreground">{reason}</p>}
+    </footer>
   </div>;
 }

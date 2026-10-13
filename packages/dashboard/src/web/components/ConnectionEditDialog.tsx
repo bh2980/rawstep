@@ -41,23 +41,23 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
   }
 
   const providerName = t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`);
-  const keyHint = [keySet ? t('connections.keySavedHint') : t('connections.keyEmptyHint'), !custom ? t('connections.keySharedHint', { provider: providerName }) : undefined].filter(Boolean).join(' ');
+  const keyInfo = custom ? undefined : t('connections.keySharedHint', { provider: providerName });
   const reveal = async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: custom ? { connectionId: connection.id } : { provider: connection.provider } })).value ?? undefined;
   return <>
     <DialogHeader>
       <DialogTitle>{t('connections.editTitle')}</DialogTitle>
-      <DialogDescription>{t('connections.editDescription')}</DialogDescription>
+      <DialogDescription className="sr-only">{t('connections.editDescription')}</DialogDescription>
     </DialogHeader>
     {error && <ErrorState alert view={error} />}
-    <div className="grid gap-5">
-      <p className="text-sm text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: providerName })}</p>
+    <div className="grid gap-4">
+      <p className="text-[13px] text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: providerName })}</p>
       <Field label={t('connections.name')} value={connection.name} onChange={name => patch({ name })} />
       {custom
         ? <Field label={t('connections.baseUrl')} value={connection.baseURL ?? ''} onChange={baseURL => patch({ baseURL })} />
-        : agent ? <ReadonlyField label={t('connections.command')} value={[agent.command, ...agent.args].join(' ')} /> : <ReadonlyField label={t('connections.baseUrl')} value={preset.baseURL ?? t('connections.endpointManaged')} hint={t('connections.endpointPresetHint', { provider: providerName })} />}
-      {agent ? <AgentNote preset={preset} /> : <SecretField label={t('connections.apiKey')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={reveal} hint={keyHint} />}
+        : agent ? <ReadonlyField label={t('connections.command')} value={[agent.command, ...agent.args].join(' ')} /> : <ReadonlyField label={t('connections.baseUrl')} value={preset.baseURL ?? t('connections.endpointManaged')} info={t('connections.endpointPresetHint', { provider: providerName })} />}
+      {agent ? <AgentNote preset={preset} /> : <SecretField label={t('connections.apiKey')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={reveal} hint={keySet ? undefined : t('connections.keyEmptyHint')} info={keyInfo} />}
     </div>
-    <Panel title={t('connections.advanced')} description={t('connections.advancedDescription')}>
+    <Panel title={t('connections.advanced')}>
       <Field label={t('connections.timeout')} type="number" value={String(connection.timeoutMs)} onChange={s => patch({ timeoutMs: Number(s) })} />
       {custom && <Field label={t('connections.envName')} value={connection.apiKeyEnv ?? ''} onChange={v => { const { apiKeyEnv: _removed, ...rest } = connection; setConnection(v ? { ...rest, apiKeyEnv: v } : rest); }} hint={envInvalid ? t('connections.envNameInvalid') : t('connections.envNameHint')} />}
     </Panel>

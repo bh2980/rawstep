@@ -18,7 +18,7 @@ type Props = {
   live: boolean;
 };
 
-const label = 'text-[11px] leading-4 font-medium tracking-[0.08em] text-muted-foreground uppercase';
+const label = 'text-xs leading-4 font-medium text-muted-foreground';
 
 /** A task's state as a mark that is never colour alone: a check, a dot, an empty circle, a cross or a warning sign. */
 export function TaskMark({ status, className }: { status: PlanTask['status']; className?: string }) {

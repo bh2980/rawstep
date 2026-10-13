@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultCombo, defaultConfig, type ProjectConfig } from '@rawstep/project/config';
-import { connection, comboWith, plannedWith } from './helpers/project-config.js';
+import { defaultProfile, defaultConfig, type ProjectConfig } from '@rawstep/project/config';
+import { connection, profileWith, plannedWith } from './helpers/project-config.js';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, ConfigView, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { createServer } from 'node:http';
@@ -19,13 +19,13 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', input: { em
 function setup(): ProjectConfig {
   const config = defaultConfig();
   config.connections.push(connection('a'), connection('b'));
-  // Two model combos that differ by model and instructions: the experiment matrix compares models and prompts by comparing combos.
-  const other = comboWith('other', 'b', 'm-b', 'Other'); other.executors.keyboard!.instructions = 'Careful fixture instructions';
-  config.combos = [comboWith('default', 'a', 'm-a', 'Default'), other];
-  config.pageEnvironments.push({ id: 'narrow', name: 'Narrow', profile: 'narrow' });
+  // Two run profiles that differ by model and instructions (each also in a narrow page): the experiment matrix compares them.
+  const other = profileWith('other', 'b', 'm-b', 'Other'); other.executors.keyboard!.instructions = 'Careful fixture instructions';
+  const first = profileWith('default', 'a', 'm-a', 'Default');
+  config.profiles = [first, other, { ...first, id: 'default-narrow', name: 'Default narrow', page: 'narrow' }, { ...other, id: 'other-narrow', name: 'Other narrow', page: 'narrow' }];
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
-const request: PlanRequest = { taskIds: ['task'], modes: ['keyboard'], comboIds: ['default', 'other'], pageEnvironmentIds: ['default'], repeats: 1 };
+const request: PlanRequest = { taskIds: ['task'], modes: ['keyboard'], profileIds: ['default', 'other'], repeats: 1 };
 async function waitFor(work: () => Promise<boolean>) { for (let i = 0; i < 100; i++) { if (await work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); }
 describe('dashboard persistence', () => {
   it('detects changes to external task files before saving or executing', async () => {
@@ -41,7 +41,7 @@ describe('dashboard API and sequential queue', () => {
   it('creates rawstep.config.json for a new project and answers project errors with their status and Korean text', async () => {
     const dir = await root(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const config = JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')) as ProjectConfig;
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     const post = (path: string, method: string, body: unknown) => fetch(app.url + path, { method, headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const stale = await post('/api/config', 'PUT', { config, revision: 'stale' });
     expect(stale.status).toBe(409); expect(((await stale.json()) as { error: string }).error).toContain('변경');
@@ -61,11 +61,11 @@ describe('dashboard API and sequential queue', () => {
       const trace = new TraceRecorder({ ...actualTask, id: actualTask.id ?? 'fixture' }, outDir); await trace.initialize(); trace.append('fixture.policy', { instructions: run.snapshot.spec.prompt.instructions }, { source: 'policy' });
       active--; return trace.finalize({ status: 'success', reason: 'test-double-only', steps: 1 });
     } }); apps.push(app);
-    const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, pageEnvironmentIds: ['default', 'narrow'] }) });
+    const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default', 'default-narrow', 'other', 'other-narrow'] }) });
     expect(response.status).toBe(201); const experiment = await response.json() as Experiment; expect(experiment.runs).toHaveLength(4);
-    expect(experiment.runs.map(r => [r.comboId, r.pageEnvironmentId, r.modelName, r.snapshot.spec.model.id, r.snapshot.spec.model.modelId])).toEqual([['default', 'default', 'a · m-a', 'a', 'm-a'], ['default', 'narrow', 'a · m-a', 'a', 'm-a'], ['other', 'default', 'b · m-b', 'b', 'm-b'], ['other', 'narrow', 'b · m-b', 'b', 'm-b']]);
+    expect(experiment.runs.map(r => [r.profileId, r.modelName, r.snapshot.spec.model.id, r.snapshot.spec.model.modelId])).toEqual([['default', 'a · m-a', 'a', 'm-a'], ['default-narrow', 'a · m-a', 'a', 'm-a'], ['other', 'b · m-b', 'b', 'm-b'], ['other-narrow', 'b · m-b', 'b', 'm-b']]);
     expect(experiment.runs.map(r => r.snapshot.spec.prompt.instructions)).toEqual(['Keyboard fixture instructions.', 'Keyboard fixture instructions.', 'Careful fixture instructions', 'Careful fixture instructions']);
-    const current = await store.read(); const emptied = structuredClone(current.config); emptied.actionSets[0]!.keyboard.keys = []; await store.save(emptied, current.revision);
+    const current = await store.read(); const emptied = structuredClone(current.config); emptied.profiles[0]!.actions.keyboard.keys = []; await store.save(emptied, current.revision);
     await waitFor(async () => { const durable = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment; return durable.runs.every(r => r.state === 'success' && !!r.endedAt); });
     expect(maxActive).toBe(1); expect(seen).toHaveLength(4); expect(JSON.stringify(seen)).toContain('private-value');
     const saved = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment;
@@ -74,7 +74,7 @@ describe('dashboard API and sequential queue', () => {
     await app.close(); apps.splice(apps.indexOf(app), 1);
     const restarted = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(restarted);
     expect(restarted.queue.experiments[0]!.runs.every(r => r.state === 'success')).toBe(true);
-    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.actionSets[0]!.keyboard.keys).toEqual([]);
+    const state = await (await fetch(restarted.url + '/api/state')).json() as ConfigView; expect(state.config.profiles[0]!.actions.keyboard.keys).toEqual([]);
     expect(await (await fetch(restarted.url)).text()).toContain('Rawstep');
   });
   it('serves blob-backed screenshots from the run directory and embeds them in the run report', async () => {
@@ -85,7 +85,7 @@ describe('dashboard API and sequential queue', () => {
       trace.append('keyboard.observation', { screenshot: { pngBase64: png.toString('base64'), viewport: { w: 2, h: 2 } } }, { source: 'runner' });
       return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
-    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, comboIds: ['default'] }) });
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default'] }) });
     const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
     await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
     const base = app.url + '/api/experiments/' + experiment.id + '/runs/' + run.id;
@@ -100,7 +100,7 @@ describe('dashboard API and sequential queue', () => {
     expect(report).toContain('data:image/png;base64,' + png.toString('base64')); expect(report).not.toContain('src="blobs/');
   });
   it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
-    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.combos[0]!.executors.keyboard!.inputs = ['text']; config.combos.push(defaultCombo('bare', 'Bare'));
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.profiles[0]!.executors.keyboard!.inputs = ['text']; config.profiles.push(defaultProfile('bare', 'Bare'));
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(app);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://foreign.example' } })).status).toBe(403);
@@ -110,11 +110,11 @@ describe('dashboard API and sequential queue', () => {
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'http://localhost:' + (port === 65535 ? 1 : port + 1) } })).status).toBe(403);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://localhost:' + port } })).status).toBe(403);
     const plan = await app.queue.plan(request);
-    expect(plan.rows.filter(r => r.comboId === 'default').every(r => !r.supported && r.reason!.includes('이미지') && r.modelName === 'a · m-a')).toBe(true);
-    expect(plan.rows.filter(r => r.comboId === 'other').every(r => r.supported && r.modelName === 'b · m-b')).toBe(true);
-    // A model combo without an executor for the mode is a row that says so and has no model name.
-    const bare = (await app.queue.plan({ ...request, comboIds: ['bare'] })).rows[0]!;
-    expect(bare).toMatchObject({ supported: false, comboId: 'bare', reason: expect.stringContaining('실행 모델이 없습니다') }); expect(bare).not.toHaveProperty('modelName');
+    expect(plan.rows.filter(r => r.profileId === 'default').every(r => !r.supported && r.reason!.includes('이미지') && r.modelName === 'a · m-a')).toBe(true);
+    expect(plan.rows.filter(r => r.profileId === 'other').every(r => r.supported && r.modelName === 'b · m-b')).toBe(true);
+    // A run profile without an executor for the mode is a row that says so and has no model name.
+    const bare = (await app.queue.plan({ ...request, profileIds: ['bare'] })).rows[0]!;
+    expect(bare).toMatchObject({ supported: false, profileId: 'bare', reason: expect.stringContaining('실행 모델이 없습니다') }); expect(bare).not.toHaveProperty('modelName');
     await expect(app.queue.create(request)).rejects.toMatchObject({ status: 400 });
     expect(app.queue.experiments).toHaveLength(0);
   });
@@ -136,8 +136,8 @@ describe('dashboard API and sequential queue', () => {
       seen.push({ goal: actual.goal, input: actual.input, model: run.snapshot.spec.model.modelId, prompt: run.snapshot.spec.prompt.instructions });
       const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
-    const e = await app.queue.create({ ...request, comboIds: ['other'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
-    const before = await store.read(); before.config.combos[1]!.executors.keyboard!.modelId = 'changed-model'; before.config.combos[1]!.executors.keyboard!.instructions = 'Changed instructions';
+    const e = await app.queue.create({ ...request, profileIds: ['other'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
+    const before = await store.read(); before.config.profiles[1]!.executors.keyboard!.modelId = 'changed-model'; before.config.profiles[1]!.executors.keyboard!.instructions = 'Changed instructions';
     await store.save(before.config, before.revision, { file: 'task.json', task: { ...task, goal: 'changed goal', input: { email: 'NEW_PRIVATE_INPUT' } } });
     const preview = await app.queue.previewRetry(e.id, e.runs[0]!.id); expect(preview.changedFields).toContain('goal'); expect(JSON.stringify(preview)).not.toContain('NEW_PRIVATE_INPUT');
     await expect(app.queue.retry(e.id, e.runs[0]!.id, 'stale')).rejects.toMatchObject({ status: 409 });
@@ -146,20 +146,20 @@ describe('dashboard API and sequential queue', () => {
     expect(JSON.stringify(retried)).not.toContain('NEW_PRIVATE_INPUT'); expect(retried.runs[0]!.retryOf?.run).toBe(e.runs[0]!.id);
     // The retry keeps the whole recorded spec (model, prompt, conditions, rules); only the task is renewed.
     const { task: _original, ...originalSpec } = e.runs[0]!.snapshot.spec, { task: _retried, ...retriedSpec } = retried.runs[0]!.snapshot.spec;
-    expect(retriedSpec).toEqual(originalSpec); expect(retried.runs[0]!.snapshot.spec.conditions).toMatchObject({ combo: { id: 'other' }, actionSet: { id: 'basic' }, pageEnvironment: { id: 'default' } });
-    expect(retried.request).toMatchObject({ taskIds: ['task'], modes: ['keyboard'], comboIds: ['other'], actionSetIds: ['basic'], pageEnvironmentIds: ['default'], atEnvironmentIds: ['simulation'], repeats: 1 });
+    expect(retriedSpec).toEqual(originalSpec); expect(retried.runs[0]!.snapshot.spec.conditions).toMatchObject({ profile: { id: 'other', name: 'Other' }, combo: { id: 'other' } });
+    expect(retried.request).toMatchObject({ taskIds: ['task'], modes: ['keyboard'], profileIds: ['other'], repeats: 1 });
   });
   it('stores keys by provider or custom connection, reports their status without values and marks runs whose key is missing', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     config.connections[0]!.apiKeyEnv = 'RAWSTEP_TEST_DASH_KEY';
     config.connections.push(connection('jev', { provider: 'typesafe' }));
-    config.combos.push(comboWith('jev', 'jev', 'jev-latest'));
+    config.profiles.push(profileWith('jev', 'jev', 'jev-latest'));
     config.connections.push(connection('writer', { kind: 'llm', provider: 'openai' }));
     config.project.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: '' };
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
-    const rowFor = async (comboId: string) => (await app.queue.plan({ ...request, comboIds: [comboId] })).rows[0]!;
+    const rowFor = async (profileId: string) => (await app.queue.plan({ ...request, profileIds: [profileId] })).rows[0]!;
     expect(await rowFor('jev')).toMatchObject({ supported: false, reason: expect.stringContaining('인증키') });
     vi.stubEnv('RAWSTEP_OPENAI_API_KEY', '');
     try {
@@ -193,7 +193,7 @@ describe('dashboard API and sequential queue', () => {
         const changed = await store.read(); changed.config.connections.find(c => c.id === 'analysis')!.baseURL = 'http://127.0.0.1:1'; await store.save(changed.config, changed.revision);
         const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
       } }); apps.push(app);
-      const e = await app.queue.create({ ...request, comboIds: ['default'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
+      const e = await app.queue.create({ ...request, profileIds: ['default'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
       expect(e.runs[0]!.analysisModel).toMatchObject({ id: 'analysis', modelId: 'analyzer', kind: 'llm' });
       expect(sent?.messages[0]!.content).toContain('Global comparison focus');
       expect(e.runs[0]!.state).toBe('success'); expect(e.runs[0]!.analysisStatus).toBe('failed'); expect(e.runs[0]!.reportStatus).toBe('complete'); expect(JSON.stringify(e)).not.toContain('PRIVATE_PROVIDER_ERROR');
@@ -219,8 +219,8 @@ describe('dashboard run views and live events', () => {
       const trace = new TraceRecorder({ ...actual, id: 'fixture', mode: 'keyboard' }, out); await trace.initialize();
       return trace.finalize(await next(trace));
     } }); apps.push(app);
-    const experiment = async (comboIds: string[], repeats = 1, modes: PlanRequest['modes'] = ['keyboard']) => {
-      const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, comboIds, repeats, modes }) });
+    const experiment = async (profileIds: string[], repeats = 1, modes: PlanRequest['modes'] = ['keyboard']) => {
+      const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds, repeats, modes }) });
       const exp = await created.json() as Experiment;
       await waitFor(async () => exp.runs.every(r => app.queue.find(exp.id, r.id).reportStatus !== 'pending' && !!app.queue.find(exp.id, r.id).endedAt));
       return exp;
@@ -262,7 +262,7 @@ describe('dashboard run views and live events', () => {
   it('takes the reference run only from runs of the same mode and structure', async () => {
     const { experiment, get } = await launch([script(['Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')], config => {
       config.connections.push(connection('planner-llm', { kind: 'llm' }));
-      config.combos.push(plannedWith(comboWith('planned', 'a', 'm-a', 'Planned'), 'planner-llm'));
+      config.profiles.push(plannedWith(profileWith('planned', 'a', 'm-a', 'Planned'), 'planner-llm'));
     });
     const keyboard = await experiment(['default']), spoken = await experiment(['default'], 1, ['screenreader']), planned = await experiment(['planned']), slow = await experiment(['other']);
     expect(planned.runs[0]).toMatchObject({ mode: 'keyboard', structure: 'planned' });
@@ -289,7 +289,7 @@ describe('dashboard run views and live events', () => {
         if (block.startsWith('event: run-event\n')) received.push({ at: Date.now(), message: JSON.parse(block.split('data: ')[1]!) as RunEventMessage });
       }
     } } catch { /* aborted */ } })();
-    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, comboIds: ['default'] }) });
+    const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default'] }) });
     const experiment = await created.json() as Experiment, run = experiment.runs[0]!;
     await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
     await new Promise(r => setTimeout(r, 600)); controller.abort();
@@ -314,98 +314,97 @@ describe('dashboard conditions in plans and runs', () => {
     } }) }); apps.push(app);
     return { app, store, dir, revision: saved.revision };
   };
-  it('plans one row per mode, repeat and combination of conditions, in a key that names every condition', async () => {
+  it('plans one row per mode, repeat and run profile, in a key that names each of them', async () => {
     const { app } = await create()();
-    const asked: PlanRequest = { ...request, modes: ['keyboard', 'screenreader'], comboIds: ['default'], repeats: 2 };
+    const asked: PlanRequest = { ...request, modes: ['keyboard', 'screenreader'], profileIds: ['default'], repeats: 2 };
     const rows = (await app.queue.plan(asked)).rows;
     expect(rows.map(r => [r.key, r.mode, r.repeat])).toEqual([
-      ['task:keyboard:default:basic:default:simulation:1', 'keyboard', 1], ['task:keyboard:default:basic:default:simulation:2', 'keyboard', 2],
-      ['task:screenreader:default:basic:default:simulation:1', 'screenreader', 1], ['task:screenreader:default:basic:default:simulation:2', 'screenreader', 2],
+      ['task:keyboard:default:1', 'keyboard', 1], ['task:keyboard:default:2', 'keyboard', 2],
+      ['task:screenreader:default:1', 'screenreader', 1], ['task:screenreader:default:2', 'screenreader', 2],
     ]);
-    // Each mode brings its own actions from the action set.
+    // Each mode brings its own actions from the profile.
     expect(rows[0]!.permissions.keys).toContain('Tab'); expect(rows[2]!.permissions.intents).toContain('next');
     const e = await app.queue.create({ ...asked, selected: [rows[1]!.key, rows[2]!.key] });
     expect(e.runs.map(r => [r.mode, r.repeat, r.snapshot.spec.mode])).toEqual([['keyboard', 2, 'keyboard'], ['screenreader', 1, 'screenreader']]);
-    expect(e.runs.map(r => r.snapshot.spec.conditions)).toEqual([expect.objectContaining({ combo: expect.objectContaining({ id: 'default' }) }), expect.objectContaining({ atEnvironment: { id: 'simulation', name: expect.any(String), backend: 'simulation' } })]);
+    expect(e.runs.map(r => r.snapshot.spec.conditions)).toEqual([expect.objectContaining({ profile: expect.objectContaining({ id: 'default' }) }), expect.objectContaining({ atEnvironment: expect.objectContaining({ backend: 'simulation' }) })]);
     expect(e.runs[1]!.snapshot.spec.prompt.instructions).toBe('Screen reader fixture instructions.');
     await waitFor(async () => e.runs.every(r => !!r.endedAt));
   });
-  it('multiplies model combos by page environments and records the resolved environment in the run snapshot', async () => {
+  it('multiplies run profiles by page environments and records the resolved environment in the run snapshot', async () => {
     const { app } = await create()();
-    const asked = { ...request, pageEnvironmentIds: ['default', 'narrow'] };
+    const asked = { ...request, profileIds: ['default', 'default-narrow', 'other', 'other-narrow'] };
     const rows = (await app.queue.plan(asked)).rows;
-    expect(rows.map(r => [r.key, r.comboId, r.pageEnvironmentId, r.supported])).toEqual([
-      ['task:keyboard:default:basic:default:simulation:1', 'default', 'default', true], ['task:keyboard:default:basic:narrow:simulation:1', 'default', 'narrow', true],
-      ['task:keyboard:other:basic:default:simulation:1', 'other', 'default', true], ['task:keyboard:other:basic:narrow:simulation:1', 'other', 'narrow', true],
+    expect(rows.map(r => [r.key, r.profileId, r.supported])).toEqual([
+      ['task:keyboard:default:1', 'default', true], ['task:keyboard:default-narrow:1', 'default-narrow', true],
+      ['task:keyboard:other:1', 'other', true], ['task:keyboard:other-narrow:1', 'other-narrow', true],
     ]);
     const e = await app.queue.create(asked);
-    expect(e.runs.map(r => r.snapshot.spec.conditions)).toEqual(expect.arrayContaining([expect.objectContaining({ pageEnvironment: expect.objectContaining({ id: 'narrow', profile: 'narrow' }) })]));
+    expect(e.runs.map(r => r.snapshot.spec.conditions)).toEqual(expect.arrayContaining([expect.objectContaining({ pageEnvironment: expect.objectContaining({ profile: 'narrow' }) })]));
     expect(e.runs[1]!.snapshot.spec.environment).toMatchObject({ viewport: { width: 320, height: 800 } });
     expect(e.runs[0]!.snapshot.spec.environment).not.toEqual(e.runs[1]!.snapshot.spec.environment);
-    expect((await app.queue.plan({ ...asked, pageEnvironmentIds: ['missing'] })).rows).toEqual([]);
+    expect((await app.queue.plan({ ...asked, profileIds: ['missing'] })).rows).toEqual([]);
     await waitFor(async () => e.runs.every(r => !!r.endedAt));
   });
-  it('expands presets into the conditions they name and falls back to the task\'s own for what they leave out', async () => {
-    const config = setup(); config.actionSets.push({ ...config.actionSets[0]!, id: 'tab-only', name: 'Tab only', keyboard: { keys: ['Tab'], intents: [], typeText: false, replaceText: false } });
-    config.presets = [{ id: 'careful', name: 'Careful', comboId: 'other', pageEnvironmentId: 'narrow', actionSetId: 'tab-only' }, { id: 'plain', name: 'Plain' }];
-    config.tasks[0]!.comboId = 'other';
+  it('plans the profiles a request lists and falls back to the task\'s own profile when it lists none', async () => {
+    const config = setup(); config.profiles[1]!.actions.keyboard = { keys: ['Tab'], intents: [], typeText: false, replaceText: false };
+    config.tasks[0]!.profileId = 'other';
     const { app } = await create(config)();
-    const { comboIds: _combos, pageEnvironmentIds: _environments, ...withoutConditions } = request;
-    const rows = (await app.queue.plan({ ...withoutConditions, presetIds: ['careful', 'plain'] })).rows;
-    expect(rows.map(r => [r.presetId, r.comboId, r.actionSetId, r.pageEnvironmentId, r.atEnvironmentId])).toEqual([['careful', 'other', 'tab-only', 'narrow', 'simulation'], ['plain', 'other', 'basic', 'default', 'simulation']]);
+    const { profileIds: _profiles, ...withoutProfiles } = request;
+    const rows = (await app.queue.plan({ ...withoutProfiles, profileIds: ['other', 'default-narrow'] })).rows;
+    expect(rows.map(r => r.profileId)).toEqual(['other', 'default-narrow']);
     expect(rows[0]!.permissions.keys).toEqual(['Tab']);
-    // Without presets or lists a task runs under its own conditions.
-    const own = (await app.queue.plan(withoutConditions)).rows;
-    expect(own).toHaveLength(1); expect(own[0]).toMatchObject({ comboId: 'other', pageEnvironmentId: 'default', supported: true }); expect(own[0]).not.toHaveProperty('presetId');
-    // A condition list narrows what a preset brings.
-    expect((await app.queue.plan({ ...withoutConditions, presetIds: ['careful'], comboIds: ['default'] })).rows.map(r => [r.presetId, r.comboId, r.pageEnvironmentId])).toEqual([['careful', 'default', 'narrow']]);
+    // Without a list a task runs with its own profile.
+    const own = (await app.queue.plan(withoutProfiles)).rows;
+    expect(own).toHaveLength(1); expect(own[0]).toMatchObject({ profileId: 'other', supported: true });
+    // A task without a profile runs with the project's first.
+    delete config.tasks[0]!.profileId;
+    expect((await (await create(config)()).app.queue.plan(withoutProfiles)).rows.map(r => r.profileId)).toEqual(['default']);
   });
-  it('gives screen reader runs of a planned combo the planner, with a warning on keyboard rows that do not use it', async () => {
+  it('gives screen reader runs of a planned profile the planner, with a warning on keyboard rows that do not use it', async () => {
     const config = setup();
     config.connections.push(connection('planner-llm', { kind: 'llm' }));
-    config.combos[0] = plannedWith(config.combos[0]!, 'planner-llm', 'planner-fixture', 'Plan in small steps');
+    config.profiles[0] = plannedWith(config.profiles[0]!, 'planner-llm', 'planner-fixture', 'Plan in small steps');
     const { app } = await create(config)();
-    const spoken: PlanRequest = { ...request, modes: ['screenreader'], comboIds: ['default'] };
+    const spoken: PlanRequest = { ...request, modes: ['screenreader'], profileIds: ['default'] };
     expect((await app.queue.plan(spoken)).rows[0]).toMatchObject({ supported: true, structure: 'planned', plannerName: 'planner-llm · planner-fixture', warnings: [] });
     const screenReader = await app.queue.create(spoken), spec = screenReader.runs[0]!.snapshot.spec;
     expect(screenReader.runs[0]).toMatchObject({ plannerName: 'planner-llm · planner-fixture', structure: 'planned' });
     expect(spec).toMatchObject({ plannerInstructions: 'Plan in small steps', plannerModel: { id: 'planner-llm', modelId: 'planner-fixture', kind: 'llm' } });
     expect(spec.conditions).toMatchObject({ combo: { structure: 'planned', planner: 'planner-llm · planner-fixture' } });
     await waitFor(async () => !!screenReader.runs[0]!.endedAt);
-    // Keyboard mode runs the planned combo without its planner and says so.
-    const keyboard = { ...request, comboIds: ['default'] }, row = (await app.queue.plan(keyboard)).rows[0]!;
+    // Keyboard mode runs the planned profile without its planner and says so.
+    const keyboard = { ...request, profileIds: ['default'] }, row = (await app.queue.plan(keyboard)).rows[0]!;
     expect(row).toMatchObject({ supported: true, structure: 'planned', warnings: [expect.stringContaining('계획 모델')] }); expect(row).not.toHaveProperty('plannerName');
     const made = await app.queue.create(keyboard), made0 = made.runs[0]!;
     expect(made0.snapshot.spec).not.toHaveProperty('plannerModel'); expect(made0.snapshot.spec).not.toHaveProperty('plannerInstructions'); expect(made0).not.toHaveProperty('plannerName');
     await waitFor(async () => !!made0.endedAt);
-    // A solo combo in screen reader mode has no planner and no warning.
-    expect((await app.queue.plan({ ...spoken, comboIds: ['other'] })).rows[0]).toMatchObject({ supported: true, structure: 'solo', warnings: [] });
+    // A solo profile in screen reader mode has no planner and no warning.
+    expect((await app.queue.plan({ ...spoken, profileIds: ['other'] })).rows[0]).toMatchObject({ supported: true, structure: 'solo', warnings: [] });
   });
-  it('applies the project run rules and a preset over them to the snapshot, and the analysis instructions of the project or the task', async () => {
+  it('applies the profile\'s run rules, with the experiment\'s over them, to the snapshot, and the analysis instructions of the project or the task', async () => {
     const config = setup();
-    config.combos[0]!.executors.keyboard!.historyLimit = 5; config.project.analysis.instructions = 'project focus';
-    config.runRules.maxStateVisits = 7; config.presets = [{ id: 'strict', name: 'Strict', runRules: { maxStateVisits: 3, maxReplans: 4 } }];
+    config.profiles[0]!.executors.keyboard!.historyLimit = 5; config.project.analysis.instructions = 'project focus';
+    config.profiles[0]!.runRules = { ...config.profiles[0]!.runRules, maxStateVisits: 3, maxReplans: 4 }; config.profiles[1]!.runRules = { ...config.profiles[1]!.runRules, maxStateVisits: 7 };
     config.tasks.push({ id: 'focused', name: 'Focused', file: 'focused.json', analysisInstructions: 'task focus' });
     const { app } = await create(config, { 'focused.json': task })();
-    const e = await app.queue.create({ ...request, taskIds: ['task', 'focused'], comboIds: ['default'], presetIds: ['strict'] }), unset = await app.queue.create({ ...request, comboIds: ['default'] });
+    const e = await app.queue.create({ ...request, taskIds: ['task', 'focused'], profileIds: ['default'] }), other = await app.queue.create({ ...request, profileIds: ['other'] });
+    const over = await app.queue.create({ ...request, profileIds: ['default'], runRules: { maxStateVisits: 9 } });
     const [plain, focused] = e.runs;
     expect(plain!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxReplans: 4 });
     expect(focused!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxReplans: 4 });
-    expect(unset.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 7 });
+    expect(other.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 7 });
+    expect(over.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 9, maxReplans: 4 });
     expect(plain!.snapshot.spec.executor).toMatchObject({ historyLimit: 5 });
-    expect(plain!.snapshot.spec.conditions).toMatchObject({ combo: { id: 'default' }, preset: { id: 'strict' }, runRules: { maxStateVisits: 3 } });
-    expect(plain!.presetId).toBe('strict'); expect(plain!.snapshot.taskName).toBe('Fixture');
+    expect(plain!.snapshot.spec.conditions).toMatchObject({ profile: { id: 'default' }, combo: { id: 'default' } });
+    expect(plain!.profileId).toBe('default'); expect(plain!.snapshot.taskName).toBe('Fixture');
     expect(plain!.analysisInstructions).toBe('project focus'); expect(focused!.analysisInstructions).toBe('task focus');
-    await waitFor(async () => [...e.runs, ...unset.runs].every(r => !!r.endedAt));
+    await waitFor(async () => [...e.runs, ...other.runs, ...over.runs].every(r => !!r.endedAt));
   });
-  it('rejects tasks and presets pointing at unknown conditions and configs without unique ids', async () => {
+  it('rejects tasks pointing at unknown profiles and configs without unique ids', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
     const fails = (code: string) => expect(store.save(config, initial.revision, { file: 'task.json', task })).rejects.toMatchObject({ status: 400, code });
-    config.tasks[0]!.comboId = 'ghost'; await fails('task-combo-missing');
-    config.tasks[0]!.comboId = 'default'; config.tasks[0]!.pageEnvironmentId = 'ghost'; await fails('task-page-environment-missing');
-    config.tasks[0]!.pageEnvironmentId = 'default'; config.tasks[0]!.atEnvironmentId = 'ghost'; await fails('task-at-environment-missing');
-    delete config.tasks[0]!.atEnvironmentId; config.presets = [{ id: 'p', name: 'P', actionSetId: 'ghost' }]; await fails('preset-action-set-missing');
-    config.presets = []; config.combos.push(defaultCombo()); await fails('duplicate-id');
-    expect(() => store.validateReferences({ ...setup(), pageEnvironments: [{ id: 'default', name: 'Default', profile: 'no-such-environment' }] })).toThrow();
+    config.tasks[0]!.profileId = 'ghost'; await fails('task-profile-missing');
+    config.tasks[0]!.profileId = 'default'; config.profiles.push(defaultProfile()); await fails('duplicate-id');
+    expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), page: 'no-such-environment' }] })).toThrow();
   });
 });

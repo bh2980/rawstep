@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// One-off: converts a version 1 (run profiles) or version 2 (agents) project to version 3 (model combos, action sets, page and
-// assistive-technology environments, run rules, presets, project models), with its dashboard run records.
+// One-off: converts an older project to version 4 (connections, run profiles, tasks, project models), with its dashboard run
+// records. Version 1 (run profiles) and 2 (agents) go through version 3 (model combos, action sets, environments, presets) first.
 // Usage: node scripts/migrate-config.mjs <project-dir>
 // Writes rawstep.config.json and each .rawstep/experiments/*/experiment.json in place, keeping a .bak copy of each original.
 import { copyFile, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -9,9 +9,15 @@ import { join, resolve } from 'node:path';
 
 const dir = resolve(process.argv[2] ?? '.');
 const configPath = join(dir, 'rawstep.config.json');
-const original = JSON.parse(await readFile(configPath, 'utf8'));
-if (original.version === 3) { console.log(`${configPath} is already version 3; nothing to do.`); process.exit(0); }
-if (original.version !== 1 && original.version !== 2) { console.error(`${configPath} has unknown version ${original.version}.`); process.exit(1); }
+const source = await readFile(configPath, 'utf8').catch(() => undefined);
+if (source === undefined) { console.error(`No rawstep.config.json in ${dir}. Pass the project folder that holds it.`); process.exit(1); }
+const original = JSON.parse(source);
+if (original.version === 4) { console.log(`${configPath} is already version 4; nothing to do.`); process.exit(0); }
+if (![1, 2, 3].includes(original.version)) { console.error(`${configPath} has unknown version ${original.version}.`); process.exit(1); }
+if (original.version !== 3) await toV3();
+await toV4();
+
+async function toV3() {
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 8);
 const RULE_KEYS = ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions', 'modelGiveUp', 'maxReplans', 'stepActionLimit'];
@@ -141,3 +147,71 @@ for (const id of await readdir(experimentsDir).catch(() => [])) {
   converted++;
 }
 console.log(`Converted ${converted} experiment records.`);
+}
+
+/**
+ * v3 → v4: every distinct set of conditions a task or preset ran with becomes one run profile — model combo (without its own analysis
+ * model), action set, page and AT environment, and the project's run rules with the preset's and the task's overrides on top.
+ * Presets keep their name; a task with its own picks gets "<task> 프로필". Run records name their profile.
+ */
+async function toV4() {
+  const v3 = JSON.parse(await readFile(configPath, 'utf8'));
+  const first = list => list.find(item => !item.owner) ?? list[0];
+  const find = (list, id) => list.find(item => item.id === id);
+  const profiles = [], profileOf = new Map();
+  const strip = ({ id: _id, name: _name, owner: _owner, copiedFrom: _from, analysis: _analysis, ...rest }) => rest;
+  function profileFor(picks, name, id) {
+    const combo = find(v3.combos, picks.comboId) ?? first(v3.combos), actionSet = find(v3.actionSets, picks.actionSetId) ?? first(v3.actionSets);
+    const page = find(v3.pageEnvironments, picks.pageEnvironmentId) ?? first(v3.pageEnvironments), at = find(v3.atEnvironments, picks.atEnvironmentId) ?? first(v3.atEnvironments);
+    const runRules = { ...v3.runRules, ...picks.presetRules, ...picks.taskRules };
+    const body = { ...strip(combo), actions: { keyboard: actionSet.keyboard, screenreader: actionSet.screenreader }, page: page.profile, screenReader: at.backend, runRules };
+    const key = JSON.stringify(body);
+    if (!profileOf.has(key)) {
+      const taken = new Set(profiles.map(p => p.id));
+      let unique = id, n = 2; while (taken.has(unique)) unique = `${id}-${n++}`;
+      profiles.push({ id: unique, name, ...body });
+      profileOf.set(key, unique);
+    }
+    return profileOf.get(key);
+  }
+  const presetPicks = preset => ({ comboId: preset.comboId, actionSetId: preset.actionSetId, pageEnvironmentId: preset.pageEnvironmentId, atEnvironmentId: preset.atEnvironmentId, presetRules: preset.runRules });
+  const fallback = profileFor({}, 'Default', 'default');
+  for (const preset of v3.presets ?? []) profileFor(presetPicks(preset), preset.name, preset.id);
+  const tasks = v3.tasks.map(({ presetId, comboId, actionSetId, pageEnvironmentId, atEnvironmentId, runRules, ...task }) => {
+    const preset = find(v3.presets ?? [], presetId);
+    const picks = { ...(preset ? presetPicks(preset) : {}), ...(comboId ? { comboId } : {}), ...(actionSetId ? { actionSetId } : {}), ...(pageEnvironmentId ? { pageEnvironmentId } : {}), ...(atEnvironmentId ? { atEnvironmentId } : {}), taskRules: runRules };
+    const own = comboId || actionSetId || pageEnvironmentId || atEnvironmentId || runRules;
+    const profileId = profileFor(picks, own ? `${task.name} 프로필` : preset?.name ?? 'Default', own ? `${task.id}-profile` : preset?.id ?? 'default');
+    return { ...task, ...(profileId !== fallback ? { profileId } : {}) };
+  });
+  const next = { version: 4, connections: v3.connections, profiles, tasks, project: v3.project, machine: v3.machine };
+  await copyFile(configPath, `${configPath}.v3.bak`);
+  await writeFile(configPath, JSON.stringify(next, null, 2) + '\n');
+  console.log(`Converted ${configPath} to version 4: ${profiles.length} run profiles.`);
+
+  // Run records: the profile each run is named after (its preset's, else its combo's name), kept apart from the recorded conditions.
+  const experimentsDir = join(dir, '.rawstep', 'experiments');
+  let converted = 0;
+  for (const id of await readdir(experimentsDir).catch(() => [])) {
+    const path = join(experimentsDir, id, 'experiment.json');
+    let experiment;
+    try { experiment = JSON.parse(await readFile(path, 'utf8')); } catch { continue; }
+    if (experiment.runs?.every(run => run.profileId)) continue;
+    for (const run of experiment.runs ?? []) {
+      const conditions = run.snapshot?.spec?.conditions ?? {};
+      const named = conditions.preset ?? conditions.combo ?? { id: run.comboId ?? 'default', name: run.comboId ?? 'Default' };
+      run.profileId = named.id;
+      if (run.snapshot?.spec) run.snapshot.spec.conditions = { profile: { id: named.id, name: named.name }, ...conditions };
+      for (const key of ['comboId', 'actionSetId', 'pageEnvironmentId', 'atEnvironmentId', 'presetId']) delete run[key];
+      run.key = [run.taskId, run.mode, run.profileId, run.repeat].join(':');
+    }
+    // A request's preset (or, failing that, combo) choice names the profiles made from them; ids no profile has are dropped.
+    const { comboIds, actionSetIds: _a, pageEnvironmentIds: _p, atEnvironmentIds: _e, presetIds, ...request } = experiment.request ?? {};
+    const profileIds = (presetIds ?? comboIds ?? []).filter(id => profiles.some(p => p.id === id));
+    experiment.request = { ...request, ...(profileIds.length ? { profileIds } : {}) };
+    await copyFile(path, `${path}.v3.bak`);
+    await writeFile(path, JSON.stringify(experiment, null, 2) + '\n');
+    converted++;
+  }
+  console.log(`Converted ${converted} experiment records to version 4.`);
+}

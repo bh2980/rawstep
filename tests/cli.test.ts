@@ -39,13 +39,13 @@ describe("CLI argument contract", () => {
   it("parses the seven commands and their options", () => {
     expect(parseCliArguments(["init"]).command).toBe("init");
     expect(parseCliArguments(["ui", "--port=5432", "--project", "project"]).options).toEqual({ port: "5432", project: "project" });
-    expect(parseCliArguments(["run", "login", "--combo", "zoom", "--environment", "narrow", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
-      command: "run", positionals: ["login"], options: { combo: "zoom", environment: "narrow", mode: "screenreader", repeat: "3", out: "out", json: true },
+    expect(parseCliArguments(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
+      command: "run", positionals: ["login"], options: { profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
     });
-    expect(parseCliArguments(["run", "login", "--preset", "strict", "--actions=wide", "--at", "nvda", "--rule", "maxReplans=0", "--rule=stepActionLimit=30", "--diagnose-stop"]).options)
-      .toEqual({ preset: "strict", actions: "wide", at: "nvda", rule: ["maxReplans=0", "stepActionLimit=30"], "diagnose-stop": true });
+    expect(parseCliArguments(["run", "login", "--profile=strict", "--rule", "maxReplans=0", "--rule=stepActionLimit=30", "--diagnose-stop"]).options)
+      .toEqual({ profile: "strict", rule: ["maxReplans=0", "stepActionLimit=30"], "diagnose-stop": true });
     expect(parseCliArguments(["analyze", "run-1", "--llm"]).options).toEqual({ llm: true });
-    expect(() => parseCliArguments(["run", "login", "--profile", "zoom"])).toThrow();
+    expect(() => parseCliArguments(["run", "login", "--combo", "zoom"])).toThrow(/Unknown option for run: --combo/);
     expect(() => parseCliArguments(["run", "login", "--agent", "zoom"])).toThrow(/Unknown option for run: --agent/);
     expect(parseCliArguments(["hints", "run", "--reference", "other"])).toMatchObject({ command: "hints", positionals: ["run"], options: { reference: "other" } });
     expect(parseCliArguments(["report", "run", "--analysis", "analysis.json", "--out", "x"]).command).toBe("report");
@@ -58,7 +58,7 @@ describe("CLI argument contract", () => {
     ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
     ["run", "a", "--rule", "maxReplans=101"], ["run", "a", "--rule", "maxReplans=-1"], ["run", "a", "--rule", "stepActionLimit=0"], ["run", "a", "--rule", "stepActionLimit=many"],
     ["run", "a", "--rule", "survey=wide"], ["run", "a", "--rule", "modelGiveUp=maybe"], ["run", "a", "--rule", "maxReplans"], ["run", "a", "--rule", "maxReplans="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxReplans=1"],
-    ["run", "a", "--diagnose-stop=yes"], ["run", "a", "--preset"], ["run", "a", "--combo", "x", "--combo", "y"], ["analyze", "run", "--combo", "x"], ["doctor", "--preset", "x"],
+    ["run", "a", "--diagnose-stop=yes"], ["run", "a", "--profile"], ["run", "a", "--profile", "x", "--profile", "y"], ["run", "a", "--preset", "x"], ["run", "a", "--at", "nvda"], ["analyze", "run", "--combo", "x"], ["doctor", "--profile", "x"],
     // Options of the removed commands and of the environment-variable configuration are gone.
     ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
     ["analyze", "run", "--profile", "judge"], ["analyze", "run", "--analyzer", "a.mjs"], ["analyze"],
@@ -103,14 +103,14 @@ describe("init", () => {
   it("initializes the directory given by --project", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
     expect(await runCli(["init", "--project", "sub/app"], io)).toBe(0);
-    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.combos).toHaveLength(1);
+    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.profiles).toHaveLength(1);
   });
 });
 
 const result: RunTaskResult = {
   conditions: {
-    combo: { id: "default", name: "Careful reader", structure: "solo", executor: "Jev · jev-latest" }, actionSet: { id: "basic", name: "Basic" },
-    pageEnvironment: { id: "default", name: "Default" }, atEnvironment: { id: "simulation", name: "Simulated VoiceOver", backend: "simulation" },
+    profile: { id: "default", name: "Careful reader" }, combo: { id: "default", name: "Default", structure: "solo", executor: "Jev · jev-latest" }, actionSet: { id: "basic", name: "Basic" },
+    pageEnvironment: { id: "default", name: "Careful reader", profile: "default" }, atEnvironment: { id: "default", name: "Careful reader", backend: "simulation" },
   },
   warnings: [],
   runs: [
@@ -127,10 +127,10 @@ const result: RunTaskResult = {
 describe("run", () => {
   it("passes the options to runTask, prints the conditions, outcomes and findings grouped as Page, Run and Model, and exits 0 whatever the outcome", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
-    expect(await runCli(["run", "login", "--combo", "zoom", "--environment", "narrow", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
-    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, combo: "zoom", pageEnvironment: "narrow", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
+    expect(await runCli(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
+    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
-    expect(out.startsWith("Conditions: Careful reader (solo · executor Jev · jev-latest)\n  actions Basic · page Default · Simulated VoiceOver\n")).toBe(true);
+    expect(out.startsWith("Conditions: Careful reader (solo · executor Jev · jev-latest)\n  page default · screen reader simulation\n")).toBe(true);
     expect(out.indexOf("Conditions:")).toBeLessThan(out.indexOf("Run 1 of 2"));
     expect(out.indexOf("Page")).toBeLessThan(out.indexOf("\nRun\n")); expect(out.indexOf("\nRun\n")).toBeLessThan(out.indexOf("Model"));
     expect(out).toContain("(no element) · repeated-state · 1 of 2 runs");
@@ -141,20 +141,20 @@ describe("run", () => {
     expect(out).toContain("(no element) · missing-announcement · 1 of 2 runs");
     expect(out).toContain("(no element) · backtracking · 1 of 2 runs");
   });
-  it("maps every condition flag and the run-rule flags to runTask options, and passes none that were not given", async () => {
+  it("maps the profile flag and the run-rule flags to runTask options, and passes none that were not given", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
-    expect(await runCli(["run", "t", "--preset", "strict", "--combo", "c", "--actions", "wide", "--environment", "narrow", "--at", "nvda", "--rule", "maxReplans=0", "--rule", "stepActionLimit=30", "--rule", "survey=headings", "--diagnose-stop"], { ...io, runTask })).toBe(0);
-    expect(runTask.mock.calls[0]![1]).toMatchObject({ preset: "strict", combo: "c", actionSet: "wide", pageEnvironment: "narrow", atEnvironment: "nvda", diagnoseStop: true, runRules: { maxReplans: 0, stepActionLimit: 30, survey: "headings" } });
+    expect(await runCli(["run", "t", "--profile", "strict", "--rule", "maxReplans=0", "--rule", "stepActionLimit=30", "--rule", "survey=headings", "--diagnose-stop"], { ...io, runTask })).toBe(0);
+    expect(runTask.mock.calls[0]![1]).toMatchObject({ profile: "strict", diagnoseStop: true, runRules: { maxReplans: 0, stepActionLimit: 30, survey: "headings" } });
     await runCli(["run", "t", "--rule", "stepActionLimit=5"], { ...io, runTask });
     expect(runTask.mock.calls[1]![1]).toMatchObject({ runRules: { stepActionLimit: 5 } }); expect((runTask.mock.calls[1]![1] as { runRules: object }).runRules).not.toHaveProperty("maxReplans");
     // Each value is read as its rule's type, and the last of a repeated rule wins.
     await runCli(["run", "t", "--rule", "maxReplans=2", "--rule", "modelGiveUp=true", "--rule", "confidenceFloor=0.5", "--rule", "survey=headings", "--rule", "maxReplans=3"], { ...io, runTask });
     expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxReplans: 3, modelGiveUp: true, confidenceFloor: 0.5, survey: "headings" });
     await runCli(["run", "t"], { ...io, runTask });
-    for (const key of ["preset", "combo", "actionSet", "pageEnvironment", "atEnvironment", "diagnoseStop", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
+    for (const key of ["profile", "diagnoseStop", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });
-  it("lists the warnings under the conditions, and shows a planned combo with its planner", () => {
-    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, combo: { name: "Planner pair", structure: "planned", planner: "Claude · plan", executor: "Jev · jev-latest" } }, warnings: ["Keyboard runs do not use the planner yet; the keyboard executor decides alone."] });
+  it("lists the warnings under the conditions, and shows a planned profile with its planner", () => {
+    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", structure: "planned", planner: "Claude · plan", executor: "Jev · jev-latest" } }, warnings: ["Keyboard runs do not use the planner yet; the keyboard executor decides alone."] });
     expect(planned).toContain("Conditions: Planner pair (planned · planner Claude · plan → executor Jev · jev-latest)");
     expect(planned).toContain("  note: Keyboard runs do not use the planner yet");
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
@@ -163,7 +163,7 @@ describe("run", () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
     expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, mode: "keyboard", repeat: 1 })]);
-    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("combo");
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
   });
   it("prints the result object with --json", async () => {
     const io = output(await temporaryDirectory());
@@ -301,7 +301,7 @@ describe("doctor", () => {
     expect(await runCli(["doctor"], { ...io, launchBrowser })).toBe(0);
     const out = text(io.stdout);
     expect(out).toContain("ok    Browser"); expect(out).toContain("ok    Config"); expect(out).toContain("skip  Screen reader");
-    expect(out).toContain("1 model combos, 1 action sets, 1 page environments");
+    expect(out).toContain("1 run profiles");
     expect(launchBrowser).toHaveBeenCalledOnce();
   });
   it("fails when the browser cannot launch, with the way out", async () => {
@@ -325,7 +325,7 @@ describe("doctor", () => {
   });
   it("reports an invalid config, and an old one with the way to convert it", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
-    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 3 }));
+    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 4 }));
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
     expect(text(io.stdout)).toContain("FAIL  Config");
     const old = output(directory);
@@ -358,7 +358,8 @@ describe("doctor", () => {
   });
   it("probes the endpoint of each native screen reader environment once, with the machine's address or the usual one", async () => {
     const directory = await project(config => {
-      config.atEnvironments.push({ id: "vo", name: "VoiceOver", backend: "voiceover" }, { id: "vo2", name: "VoiceOver again", backend: "voiceover" }, { id: "nvda", name: "NVDA", backend: "nvda" });
+      const base = config.profiles[0]!;
+      config.profiles.push({ ...base, id: "vo", name: "VoiceOver", screenReader: "voiceover" }, { ...base, id: "vo2", name: "VoiceOver again", screenReader: "voiceover" }, { ...base, id: "nvda", name: "NVDA", screenReader: "nvda" });
       config.machine.atEndpoints.voiceover = "ws://127.0.0.1:9333";
     });
     const io = output(directory), checkNativeBackend = vi.fn(async () => ({}));

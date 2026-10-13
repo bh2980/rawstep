@@ -3,6 +3,7 @@ import type { RunState } from '../../../shared/config';
 import type { RouteChange } from '../../hooks/useRoute';
 import { runGlyphKind, runStripLabel, type RunGlyphKind } from '../../lib/runStrip';
 import { cn } from '../../lib/utils';
+import { runStateLabel } from '../../i18n/labels';
 import { Link } from '../Link';
 
 /** One run as a small square: filled when the goal was reached, striped when not, hollow when undecided; a hollow one with a dot is still running. */
@@ -43,4 +44,17 @@ export function RunStrip({ runs, navigate, className }: Props) {
       </li>;
     })}
   </ul>;
+}
+
+/** What each glyph means, for an ⓘ beside a column of run strips. Every glyph is drawn by the same component the strips use. */
+export function RunStripLegend() {
+  const { t } = useTranslation();
+  const items: { kind: RunGlyphKind; label: string }[] = [
+    { kind: 'reached', label: runStateLabel('success') }, { kind: 'missed', label: runStateLabel('failure') },
+    { kind: 'inconclusive', label: t('runList.legend.inconclusive') }, { kind: 'live', label: t('runList.legend.live') },
+  ];
+  return <>
+    <ul className="grid gap-1">{items.map(item => <li key={item.kind} className="flex items-center gap-2 text-foreground"><RunGlyph kind={item.kind} />{item.label}</li>)}</ul>
+    <p>{t('runList.legend.order')}</p>
+  </>;
 }

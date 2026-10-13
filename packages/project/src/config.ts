@@ -121,8 +121,8 @@ export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text, 
 export type AnalysisChoice = z.infer<typeof analysisChoiceSchema>;
 const count = (min: number, max: number, fallback: number) => z.number().int().min(min).max(max).default(fallback);
 /**
- * When a run stops early and when orchestration asks for a new plan. The project holds the defaults; a preset or a task may
- * override any field. Every run records the rules it ran with, because they change how runs end.
+ * When a run stops early and when orchestration asks for a new plan. Each run profile holds a full set; a run may override fields
+ * for itself only (the CLI's --rule). Every run records the rules it ran with, because they change how runs end.
  */
 export const runRulesSchema = z.object({
   /** `auto`: on in screen reader mode and for LLM executors in keyboard mode, off for decision executors in keyboard mode. */
@@ -167,7 +167,7 @@ export const runRulesSchema = z.object({
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**
- * Overrides of some run rules (a preset's, a task's, an experiment's). Unlike `runRulesSchema.partial()`, it fills in nothing:
+ * Overrides of some run rules for particular runs. Unlike `runRulesSchema.partial()`, it fills in nothing:
  * a field left out stays out, so it cannot override the layers below with a default.
  */
 export const runRulesOverrideSchema = z.object({
@@ -185,8 +185,6 @@ export const runRulesOverrideSchema = z.object({
   survey: z.enum(['none', 'headings']).optional(),
 }).strict();
 export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
-/** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */
-const ownership = { owner: id.optional(), copiedFrom: id.optional() };
 /** The model that picks every action in one mode, the instructions it gets and how it reads the run. */
 export const executorSchema = modelChoiceSchema.extend({
   instructions: text,
@@ -230,46 +228,52 @@ export const isFilePlanner = (planner: PlannerChoice | undefined): planner is z.
 export const planFileOf = (planner: z.infer<typeof filePlannerSchema>, task: Pick<ManagedTask, 'file'>): string =>
   planner.planFile.replaceAll('{task}', task.file.replace(/^.*\//, '').replace(/\.json$/, ''));
 /**
- * Which model does what. `solo`: the executor of the mode decides every action. `planned`: the planner LLM writes a plan document
- * and the executor carries out one task at a time (screen reader mode for now). `analysis` explains finished runs; it never
- * changes an outcome, so comparisons ignore it, and without one the project's analysis model is used.
+ * Which model does what, as a part of a run profile. `solo`: the executor of the mode decides every action. `planned`: the planner
+ * LLM writes a plan document and the executor carries out one task at a time (screen reader mode for now).
  */
-export const comboSchema = z.object({
-  id, name: text, ...ownership,
+const deciding = {
   structure: z.enum(['solo', 'planned']).default('solo'),
   planner: plannerSchema.optional(),
-  /** A mode without an executor cannot run with this combo. A planned combo's screen reader executor may follow the plan instead of a model. */
+  /** A mode without an executor cannot run with this profile. A planned profile's screen reader executor may follow the plan instead of a model. */
   executors: z.object({ screenreader: z.union([executorSchema, planFollowerSchema]).optional(), keyboard: executorSchema.optional() }).strict(),
-  analysis: analysisChoiceSchema.optional(),
-}).strict().superRefine((combo, ctx) => {
-  if (combo.structure === 'planned' && !combo.planner) ctx.addIssue({ code: 'custom', path: ['planner'], message: `Model combo ${combo.name} plans, so it needs a planner.` });
-  if (isPlanFollowerChoice(combo.executors.screenreader) && combo.structure !== 'planned') ctx.addIssue({ code: 'custom', path: ['executors', 'screenreader'], message: `Model combo ${combo.name} has no plan to follow.` });
-});
+};
+function refineDeciding(combo: { name: string; structure: 'solo' | 'planned'; planner?: PlannerChoice | undefined; executors: { screenreader?: Executor | PlanFollowerChoice | undefined } }, ctx: z.RefinementCtx) {
+  if (combo.structure === 'planned' && !combo.planner) ctx.addIssue({ code: 'custom', path: ['planner'], message: `${combo.name} plans, so it needs a planner.` });
+  if (isPlanFollowerChoice(combo.executors.screenreader) && combo.structure !== 'planned') ctx.addIssue({ code: 'custom', path: ['executors', 'screenreader'], message: `${combo.name} has no plan to follow.` });
+}
+/** The deciding part of a profile as a run records it: who plans and who acts in each mode. */
+export const comboSchema = z.object({ id, name: text, ...deciding }).strict().superRefine(refineDeciding);
 export type Combo = z.infer<typeof comboSchema>;
 /** What the simulated user may do in each mode: keyboard keys, screen reader intents and named-input typing. */
-export const actionSetSchema = z.object({ id, name: text, ...ownership, keyboard: permissionsSchema, screenreader: permissionsSchema }).strict();
+export const actionSetSchema = z.object({ id, name: text, keyboard: permissionsSchema, screenreader: permissionsSchema }).strict();
 export type ActionSet = z.infer<typeof actionSetSchema>;
 /** Page conditions: a built-in profile name ('default', 'narrow', …) or an object, resolved by @rawstep/browser/profiles. */
-export const pageEnvironmentSchema = z.object({ id, name: text, ...ownership, profile: z.unknown() }).strict();
+export const pageEnvironmentSchema = z.object({ id, name: text, profile: z.unknown() }).strict();
 export type PageEnvironment = z.infer<typeof pageEnvironmentSchema>;
 export const atBackendSchema = z.enum(['simulation', 'voiceover', 'nvda']);
 export type AtBackend = z.infer<typeof atBackendSchema>;
 /** The assistive technology screen reader runs go through: Rawstep's simulation or a native screen reader over AT Driver. */
 export const atEnvironmentSchema = z.object({ id, name: text, backend: atBackendSchema }).strict();
 export type AtEnvironment = z.infer<typeof atEnvironmentSchema>;
-/** A saved set of conditions; a field it leaves out falls back to the first shared item. */
-export const presetSchema = z.object({
-  id, name: text,
-  comboId: id.optional(), actionSetId: id.optional(), pageEnvironmentId: id.optional(), atEnvironmentId: id.optional(),
-  runRules: runRulesOverrideSchema.optional(),
-}).strict();
-export type Preset = z.infer<typeof presetSchema>;
+/**
+ * A run profile: everything that changes a run's outcome, under one name — who decides (structure, planner, executor per mode), what
+ * the simulated user may do in each mode, the page environment, the screen reader, and the run rules. A task runs with one profile;
+ * an experiment compares profiles. There is no layer between Rawstep's defaults and a profile.
+ */
+export const profileSchema = z.object({
+  id, name: text, ...deciding,
+  actions: z.object({ keyboard: permissionsSchema, screenreader: permissionsSchema }).strict(),
+  /** A built-in page environment name ('default', 'narrow', …) or an object, resolved by @rawstep/browser/profiles. */
+  page: z.unknown().default('default'),
+  /** The assistive technology screen reader runs go through. */
+  screenReader: atBackendSchema.default('simulation'),
+  runRules: runRulesSchema.default(() => runRulesSchema.parse({})),
+}).strict().superRefine(refineDeciding);
+export type Profile = z.infer<typeof profileSchema>;
 export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
-  /** Conditions a run uses unless an experiment picks others: each field, then the preset's, then the first shared item. */
-  presetId: id.optional(), comboId: id.optional(), actionSetId: id.optional(), pageEnvironmentId: id.optional(), atEnvironmentId: id.optional(),
-  /** Run rules for this task only, over the project's and the preset's. */
-  runRules: runRulesOverrideSchema.optional(),
+  /** The run profile a run uses unless one is picked for it; the project's first profile when unset. */
+  profileId: id.optional(),
   /** Overrides the project's analysis instructions for this task. */
   analysisInstructions: z.string().max(16384).optional(),
 }).strict();
@@ -309,28 +313,22 @@ export const atEndpointOf = (machine: Pick<MachineSettings, 'atEndpoints'>, back
 /** The .env.local variable holding the command that starts the AT Driver server on this computer (never in the shared config: it runs a program). */
 export const AT_DRIVER_COMMAND_ENV = 'RAWSTEP_AT_DRIVER_COMMAND';
 export const configSchema = z.object({
-  version: z.literal(3),
+  version: z.literal(4),
   connections: z.array(connectionSchema).max(100),
+  profiles: z.array(profileSchema).min(1).max(500),
   tasks: z.array(taskSchema).max(500),
-  combos: z.array(comboSchema).min(1).max(500),
-  actionSets: z.array(actionSetSchema).min(1).max(500),
-  pageEnvironments: z.array(pageEnvironmentSchema).min(1).max(500),
-  atEnvironments: z.array(atEnvironmentSchema).min(1).max(20),
-  presets: z.array(presetSchema).max(200).default([]),
-  runRules: runRulesSchema.default(() => runRulesSchema.parse({})),
   project: projectSettingsSchema.default(() => projectSettingsSchema.parse({})),
   machine: machineSchema,
 }).strict().superRefine((config, ctx) => {
   const ids = new Set<string>();
   config.connections.forEach((c, i) => { if (ids.has(c.id)) ctx.addIssue({ code: 'custom', path: ['connections', i, 'id'], message: `Connection id ${c.id} is used twice.` }); ids.add(c.id); });
   const llm = (choice: { connectionId: string } | undefined) => !choice || config.connections.find(c => c.id === choice.connectionId)?.kind === 'llm';
-  config.combos.forEach((combo, i) => {
+  config.profiles.forEach((profile, i) => {
     for (const mode of ['screenreader', 'keyboard'] as const) {
-      const executor = executorModel(combo, mode);
-      if (executor && !ids.has(executor.connectionId)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'executors', mode, 'connectionId'], message: `Model combo ${combo.name} uses a connection that does not exist.` });
+      const executor = executorModel(profile, mode);
+      if (executor && !ids.has(executor.connectionId)) ctx.addIssue({ code: 'custom', path: ['profiles', i, 'executors', mode, 'connectionId'], message: `Profile ${profile.name} uses a connection that does not exist.` });
     }
-    if (!isFilePlanner(combo.planner) && !llm(combo.planner)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'planner', 'connectionId'], message: `Model combo ${combo.name} must plan with an LLM connection.` });
-    if (!llm(combo.analysis)) ctx.addIssue({ code: 'custom', path: ['combos', i, 'analysis', 'connectionId'], message: `Model combo ${combo.name} must explain runs with an LLM connection.` });
+    if (!isFilePlanner(profile.planner) && !llm(profile.planner)) ctx.addIssue({ code: 'custom', path: ['profiles', i, 'planner', 'connectionId'], message: `Profile ${profile.name} must plan with an LLM connection.` });
   });
   if (!llm(config.project.analysis.model)) ctx.addIssue({ code: 'custom', path: ['project', 'analysis', 'model', 'connectionId'], message: 'Post-run analysis needs an LLM connection.' });
   if (!llm(config.project.suggestions.model)) ctx.addIssue({ code: 'custom', path: ['project', 'suggestions', 'model', 'connectionId'], message: 'Check suggestions need an LLM connection.' });
@@ -414,8 +412,6 @@ export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo:
 export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
 export const projectAnalysisModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.analysis.model);
-/** The LLM that explains a combo's runs: its own, otherwise the project's. */
-export const comboAnalysis = (config: Pick<ProjectConfig, 'connections' | 'project'>, combo: Pick<Combo, 'analysis'>): Model | undefined => combo.analysis ? llmOf(config, combo.analysis) : projectAnalysisModel(config);
 /** The LLM that suggests completion checks: its own setting, otherwise the analysis model. */
 export const suggestionModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.suggestions.model) ?? projectAnalysisModel(config);
 /** What a person picks to look up models: a kind, a provider and, for custom, the address. */
@@ -426,49 +422,40 @@ export const DEFAULT_PERMISSIONS: Pick<ActionSet, 'keyboard' | 'screenreader'> =
   keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [], typeText: false, replaceText: false },
   screenreader: { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false },
 };
-export function defaultCombo(id = 'default', name = 'Default'): Combo {
-  return comboSchema.parse({ id, name, structure: 'solo', executors: {} });
-}
-export function defaultActionSet(id = 'basic', name = 'Basic'): ActionSet {
-  return { id, name, ...structuredClone(DEFAULT_PERMISSIONS) };
-}
-export function defaultPageEnvironment(id = 'default', name = 'Default'): PageEnvironment {
-  return { id, name, profile: 'default' };
-}
-export function defaultAtEnvironment(id = 'simulation', name = 'Simulated VoiceOver'): AtEnvironment {
-  return { id, name, backend: 'simulation' };
+export function defaultProfile(id = 'default', name = 'Default'): Profile {
+  return profileSchema.parse({ id, name, structure: 'solo', executors: {}, actions: structuredClone(DEFAULT_PERMISSIONS) });
 }
 export function defaultConfig(): ProjectConfig {
-  return configSchema.parse({ version: 3, connections: [], tasks: [], combos: [defaultCombo()], actionSets: [defaultActionSet()],
-    pageEnvironments: [defaultPageEnvironment()], atEnvironments: [defaultAtEnvironment()], machine: {} });
+  return configSchema.parse({ version: 4, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
 }
 export function parseConfig(raw: unknown): ProjectConfig { return configSchema.parse(raw); }
-/** Items every task can use: everything that is not a task-only copy. */
-export const sharedItems = <T extends { owner?: string | undefined }>(list: readonly T[]): T[] => list.filter(item => !item.owner);
-/** The conditions a task runs with unless an experiment picks others. */
-export type Conditions = { combo: Combo; actionSet: ActionSet; pageEnvironment: PageEnvironment; atEnvironment: AtEnvironment; preset?: Preset };
-/** Each condition: the task's own choice, then its preset's, then the first shared item (or the first item when all are copies). */
-export function taskConditions(config: ProjectConfig, task: Partial<Pick<ManagedTask, 'presetId' | 'comboId' | 'actionSetId' | 'pageEnvironmentId' | 'atEnvironmentId'>>): Conditions {
-  const preset = config.presets.find(p => p.id === task.presetId);
-  const pick = <T extends { id: string; owner?: string | undefined }>(list: readonly T[], ...ids: (string | undefined)[]): T =>
-    ids.map(i => list.find(item => item.id === i)).find(Boolean) ?? sharedItems(list)[0] ?? list[0]!;
+/** The profile a task runs with: its own, otherwise the project's first. */
+export function taskProfile(config: Pick<ProjectConfig, 'profiles'>, task: Partial<Pick<ManagedTask, 'profileId'>>): Profile {
+  return config.profiles.find(p => p.id === task.profileId) ?? config.profiles[0]!;
+}
+/** The conditions a run is made of, read off a profile: the deciding part, the actions and both environments, each named after it. */
+export type Conditions = { profile: Profile; combo: Combo; actionSet: ActionSet; pageEnvironment: PageEnvironment; atEnvironment: AtEnvironment };
+export function profileConditions(profile: Profile): Conditions {
+  const { id, name } = profile;
   return {
-    combo: pick(config.combos, task.comboId, preset?.comboId), actionSet: pick(config.actionSets, task.actionSetId, preset?.actionSetId),
-    pageEnvironment: pick(config.pageEnvironments, task.pageEnvironmentId, preset?.pageEnvironmentId),
-    atEnvironment: pick(config.atEnvironments, task.atEnvironmentId, preset?.atEnvironmentId), ...(preset ? { preset } : {}),
+    profile,
+    combo: { id, name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors },
+    actionSet: { id, name, keyboard: profile.actions.keyboard, screenreader: profile.actions.screenreader },
+    pageEnvironment: { id, name, profile: profile.page },
+    atEnvironment: { id, name, backend: profile.screenReader },
   };
 }
-/** The rules a run uses: the project's, then the preset's, then the task's. */
-export function resolveRunRules(config: Pick<ProjectConfig, 'runRules'>, ...overrides: (RunRulesOverride | undefined)[]): RunRules {
-  return runRulesSchema.parse(Object.assign({}, config.runRules, ...overrides.filter(Boolean)));
+/** The rules a run uses: the profile's, then any overrides for these runs only. */
+export function resolveRunRules(profile: Pick<Profile, 'runRules'>, ...overrides: (RunRulesOverride | undefined)[]): RunRules {
+  return runRulesSchema.parse(Object.assign({}, profile.runRules, ...overrides.filter(Boolean)));
 }
 /** What a run snapshot keeps besides the conditions: this computer's settings, the rules and the analysis instructions. */
 export type RunSettings = { machine: MachineSettings; runRules: RunRules; analysisInstructions: string };
-export function resolveRunSettings(config: ProjectConfig, task: Pick<ManagedTask, 'runRules' | 'analysisInstructions'>, preset?: Preset): RunSettings {
-  return { machine: structuredClone(config.machine), runRules: resolveRunRules(config, preset?.runRules, task.runRules),
+export function resolveRunSettings(config: ProjectConfig, task: Pick<ManagedTask, 'analysisInstructions'>, profile: Pick<Profile, 'runRules'>, runRules?: RunRulesOverride): RunSettings {
+  return { machine: structuredClone(config.machine), runRules: resolveRunRules(profile, runRules),
     analysisInstructions: task.analysisInstructions?.trim() || config.project.analysis.instructions };
 }
-/** A connection, model combo or other configured entry by its id, otherwise by its (case-sensitive) name. */
+/** A connection, profile or other configured entry by its id, otherwise by its (case-sensitive) name. */
 export function findByIdOrName<T extends { id: string; name: string }>(list: readonly T[], reference: string): T | undefined {
   return list.find(item => item.id === reference) ?? list.find(item => item.name === reference);
 }

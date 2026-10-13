@@ -6,8 +6,8 @@ export function AgentNote({ preset }: { preset: ProviderPreset }) {
   const { t } = useTranslation();
   const agent = preset.agent;
   if (!agent) return null;
-  return <div className="grid gap-1.5 border-l-4 border-edge-strong bg-surface py-3 pl-4 text-xs leading-5 text-muted-foreground">
-    <p>{t('connections.agentLogin', { command: [agent.command, ...agent.args].join(' ') })}</p>
+  return <div className="grid gap-1 text-[13px] leading-5 text-muted-foreground">
+    <p>{t('connections.agentLogin')}</p>
     {agent.command === 'npx' && <p>{t('connections.agentNpx')}</p>}
     {!preset.images && <p className="text-inspect">{t('connections.agentNoImages')}</p>}
   </div>;

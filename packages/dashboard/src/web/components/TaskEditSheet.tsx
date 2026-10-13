@@ -1,40 +1,33 @@
 import { useState } from 'react';
-import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
-import type { ConfigView } from '../../shared/config';
-import { describeRule } from '../lib/describeRule';
+import type { TaskInputOptions } from '@rawstep/core/contracts';
 import { describeApiError, type ErrorView } from '../lib/errors';
-import type { TaskConditionIds } from '../lib/taskConditions';
 import { inputProblems } from '../lib/taskInputs';
 import { ErrorState } from './layout/ErrorState';
-import { TaskConditionFields } from './TaskConditionFields';
 import { Field } from './forms';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from './ui/sheet';
 
-/** What a person names when editing a task: what it is called, where it starts, what it asks, its default conditions and what it types. */
-export type TaskBasics = { name: string; url: string; goal: string; conditions: TaskConditionIds; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
+/** What a person names when editing a task: what it is called, where it starts, what it asks, and what it types. */
+export type TaskBasics = { name: string; url: string; goal: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
 
 /** How a save ended. A conflict means the project changed elsewhere since the sheet opened; the person's edits are still here. */
 export type BasicsSave = { ok: true } | { ok: false; conflict: boolean; error: unknown };
 
 type Props = {
   open: boolean; onOpenChange: (open: boolean) => void;
-  taskId: string; initial: TaskBasics; view: ConfigView; rules: VerifyRule[];
+  initial: TaskBasics;
   /** The 세부 설정 tab has changes that are not saved; saving here saves them too. */
   otherChanges: boolean; busy: boolean;
   /** Saves; `rebase` puts these edits on top of the project as it is now instead of the version the sheet opened on. */
   onSave: (basics: TaskBasics, rebase: boolean) => Promise<BasicsSave>;
-  /** Closes the sheet and opens the completion check tab. */
-  onOpenCheck: () => void;
 };
 
 /**
- * The one place the name, address, goal and default conditions (preset, model combo, action set, environments) of a task are edited, with its typed inputs (the 세부 설정 tab no longer repeats them).
- * It saves against the revision it opened on; if the project changed since, it says so, keeps the edits and offers to apply them
- * on top of the newer version. The completion check is shown as the boundary it draws, with a way to its own tab.
+ * The one place the name, address, goal and typed inputs of a task are edited (its run profile is chosen in the header,
+ * its completion check in its own tab). It saves against the revision it opened on; if the project changed since, it says so, keeps
+ * the edits and offers to apply them on top of the newer version.
  */
 export function TaskEditSheet({ open, onOpenChange, ...rest }: Props) {
   const { t } = useTranslation();
@@ -49,7 +42,7 @@ export function TaskEditSheet({ open, onOpenChange, ...rest }: Props) {
   </Sheet>;
 }
 
-function EditForm({ taskId, initial, view, rules, otherChanges, busy, onSave, onOpenCheck, close }: Omit<Props, 'open' | 'onOpenChange'> & { close: () => void }) {
+function EditForm({ initial, otherChanges, busy, onSave, close }: Omit<Props, 'open' | 'onOpenChange'> & { close: () => void }) {
   const { t } = useTranslation();
   const [basics, setBasics] = useState(initial);
   const [problem, setProblem] = useState<{ view: ErrorView; conflict: boolean }>();
@@ -68,21 +61,9 @@ function EditForm({ taskId, initial, view, rules, otherChanges, busy, onSave, on
       <Field label={t('taskSettings.name')} value={basics.name} onChange={name => patch({ name })} />
       <Field label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} hint={t('taskSettings.urlHint')} />
       <Field label={t('taskSettings.goal')} multiline plain value={basics.goal} onChange={goal => patch({ goal })} hint={t('taskSettings.goalHint')} />
-      <section aria-labelledby="task-edit-conditions" className="grid gap-2 border-t border-edge-strong pt-4">
-        <h3 id="task-edit-conditions" className="text-sm font-semibold">{t('taskConditions.title')}</h3>
-        <p className="text-xs leading-5 text-muted-foreground">{t('taskConditions.hint')}</p>
-        <TaskConditionFields config={view.config} taskId={taskId} value={basics.conditions} onChange={conditions => patch({ conditions })} />
-      </section>
       <section aria-labelledby="task-edit-inputs" className="grid gap-2 border-t border-edge-strong pt-4">
         <h3 id="task-edit-inputs" className="text-sm font-semibold">{t('taskInputs.title')}</h3>
         <TaskInputsField input={basics.input} options={basics.inputOptions} goal={basics.goal} onChange={fields => patch({ input: fields.input ?? {}, inputOptions: fields.inputOptions })} />
-      </section>
-      <section aria-labelledby="task-edit-check" className="grid gap-2 border-t border-edge-strong pt-4">
-        <h3 id="task-edit-check" className="text-sm font-semibold">{t('taskEdit.checkTitle')}</h3>
-        {rules.length === 0
-          ? <p className="text-sm text-muted-foreground">{t('taskEdit.checkNone')}</p>
-          : <ul className="grid gap-1.5 text-sm leading-6">{rules.map((rule, index) => <li key={index} className="flex items-start gap-2"><Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-reach" />{describeRule(rule)}</li>)}</ul>}
-        <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={onOpenCheck}>{t('taskEdit.checkEdit')}</Button>
       </section>
       {problem && <ErrorState alert view={problem.view} actions={problem.conflict ? <>
         <Button type="button" size="sm" disabled={busy || !filled || !inputsOk} onClick={() => void save(true)}>{t('taskEdit.rebase')}</Button>

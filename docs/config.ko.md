@@ -16,41 +16,36 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 | 필드 | 내용 |
 |---|---|
-| `version` | 항상 `3` |
-| `connections` | 모델에 닿는 곳. 제공자 프리셋 또는 직접 지정한 서버 |
-| `tasks` | 등록한 작업 파일과, 각 작업이 기본으로 쓰는 실험 조건 |
-| `combos` | 모델 조합: 누가 계획하고 누가 행동하는지. 최소 하나 |
-| `actionSets` | 행동 조합: 시뮬레이션하는 사용자가 할 수 있는 행동. 최소 하나 |
-| `pageEnvironments` | 페이지 환경(화면 크기, 글자, 색상 조건). 최소 하나 |
-| `atEnvironments` | 보조기술 환경: 시뮬레이션, VoiceOver, NVDA. 최소 하나 |
-| `presets` | 위 조건을 묶어 저장한 실행 프리셋(선택) |
-| `runRules` | 프로젝트의 기본 실행 규칙 |
+| `version` | 항상 `4` |
+| `connections` | 모델에 닿는 곳. 제공자 프리셋 또는 직접 지정한 서버. 모델과 추론 강도는 쓰는 곳에서 고릅니다 |
+| `profiles` | 실행 프로필: 실행이 끝나는 방식을 바꾸는 모든 것을 한 이름으로 묶은 것. 최소 하나 |
+| `tasks` | 등록한 작업 파일과, 각 작업이 기본으로 쓰는 프로필 |
 | `project` | 실행 결과를 바꾸지 않는 프로젝트 공통 설정: 해설 모델·지침, 완료 확인 제안 모델 |
 | `machine` | 이 컴퓨터의 설정 |
 
-알 수 없는 필드는 거부합니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `rawstep init`은 모델 조합 `Default`(실행 모델 없음), 행동 조합 `Basic`, 페이지 환경 `Default`(`profile: "default"`), 보조기술 환경 `Simulated VoiceOver`(시뮬레이션)를 하나씩 만들고 연결·작업은 비워 둡니다.
+알 수 없는 필드는 거부합니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `rawstep init`은 프로필 `Default`(실행 모델 없음, 행동 `Basic`, 페이지 환경 `default`, 시뮬레이션 스크린리더) 하나를 만들고 연결·작업은 비워 둡니다.
 
-예전 설정(`version` 1 또는 2)은 읽지 않고 오류 코드 `old-config`로 멈춥니다. Rawstep 저장소에서 `node scripts/migrate-config.mjs <프로젝트 폴더>`로 한 번 변환하세요. 대시보드의 실행 기록(`.rawstep/experiments/*/experiment.json`)도 함께 변환하며, 원본은 각각 `.bak` 사본으로 남깁니다.
+예전 설정(`version` 1, 2, 3)은 읽지 않고 오류 코드 `old-config`로 멈춥니다. Rawstep 저장소에서 `node scripts/migrate-config.mjs <프로젝트 폴더>`로 한 번 변환하세요. 작업이나 프리셋이 쓰던 조건 조합마다 프로필 하나가 만들어집니다. 대시보드의 실행 기록(`.rawstep/experiments/*/experiment.json`)도 함께 변환하며, 원본은 각각 백업(`.v2.bak`, `.v3.bak`)으로 남깁니다.
 
-## 실험 조건
+## 실행 프로필
 
-실험은 **작업 × 모델 조합 × 행동 조합 × 페이지 환경 × 보조기술 환경 × 모드**입니다. 각 조건은 설정 파일의 공용 목록이므로 한 번에 한 조건만 바꿔 실행을 비교할 수 있습니다.
+실험은 **작업 × 실행 프로필 × 모드**입니다. 실행 프로필은 실행이 끝나는 방식을 바꾸는 모든 것을 담습니다. 누가 판단하는지, 시뮬레이션하는 사용자가 무엇을 할 수 있는지, 페이지, 스크린리더, 실행 규칙입니다. 두 조건을 비교하려면 그 부분만 다른 프로필 둘을 만들어 같은 작업을 각각 실행합니다.
 
-| 조건 | 담는 것 |
+| 프로필의 부분 | 담는 것 |
 |---|---|
-| 모델 조합 (`combos`) | 구조(모델 단독 / 계획 + 실행), 계획 모델과 지침, 모드별 실행 모델과 지침, 선택 사항인 해설 모델 |
-| 행동 조합 (`actionSets`) | 모드별로 허용하는 키, 스크린리더 동작, 이름 있는 입력값 입력 |
-| 페이지 환경 (`pageEnvironments`) | 화면 크기, 글자 크기·간격, 색상·대비, 움직임 |
-| 보조기술 환경 (`atEnvironments`) | 스크린리더 백엔드: `simulation`, `voiceover`, `nvda` |
-| 실행 규칙 (`runRules`) | 언제 막힌 것으로 보고 멈추는지, 계획 모델이 있으면 언제 다시 계획하는지 |
+| 모델 (`structure`, `planner`, `executors`) | 단독(모델 하나) 또는 계획 + 실행, 계획 모델과 지침, 모드별 실행 모델과 지침 |
+| `actions` | 모드별로 허용하는 키, 스크린리더 동작, 이름 있는 입력값 입력 |
+| `page` | 페이지 환경: 화면 크기, 글자 크기·간격, 색상·대비, 움직임 |
+| `screenReader` | 스크린리더 백엔드: `simulation`, `voiceover`, `nvda` |
+| `runRules` | 언제 막힌 것으로 보고 멈추는지, 계획 모델이 있으면 언제 다시 계획하는지 |
 
-실행 프리셋은 이 가운데 일부를 묶습니다. 실행이 쓰는 조건은 작업이 직접 지정한 값, 작업의 프리셋, 목록의 첫 번째 공용 항목 순으로 정합니다. 실행 규칙도 프로젝트 기본값, 프리셋, 작업 순으로 덮어씁니다. `rawstep run`의 옵션(`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--rule`)은 그 실행에 한해 이 값을 대체합니다. 실행마다 쓴 조건의 내용 전체(작업 전용 사본이면 원본 공용 항목)를 기록하므로, 실행은 이름이 아니라 내용으로 비교합니다.
+실행은 그 실행에 지정한 프로필(`rawstep run --profile`), 없으면 작업의 `profileId`, 없으면 프로젝트의 첫 번째 프로필을 씁니다. Rawstep의 기본값과 프로필 사이에 다른 계층은 없습니다. 프로필은 실행 규칙 전체를 담고, `--rule`은 그 실행에 한해 일부를 바꿉니다. 실행마다 프로필의 내용 전체를 기록하므로, 실행은 이름이 아니라 내용으로 비교합니다.
 
-실행이 끝나는 방식을 바꾸는 설정은 모두 실험 조건입니다. 해설 모델은 끝난 실행을 설명할 뿐 결과를 바꾸지 않으므로 조건이 아닙니다.
+실행이 끝나는 방식을 바꾸는 설정은 모두 프로필에 들어갑니다. 해설 모델은 끝난 실행을 설명할 뿐 결과를 바꾸지 않으므로 프로필이 아니라 `project`에 있습니다.
 
 ## connections
 
-연결은 모델에 닿는 곳입니다. 제공자 프리셋(정해진 주소와 키 환경변수)이거나 직접 지정한 서버입니다. 연결에는 모델이 들어 있지 않고, 모델 조합이 연결 위에서 모델을 고릅니다([combos](#combos-모델-조합) 참고).
+연결은 모델에 닿는 곳입니다. 제공자 프리셋(정해진 주소와 키 환경변수)이거나 직접 지정한 서버입니다. 연결에는 모델이 들어 있지 않고, 프로필이 연결 위에서 모델을 고릅니다([profiles](#profiles-실행-프로필) 참고).
 
 | 필드 | 설명 |
 |---|---|
@@ -98,40 +93,38 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `id`, `name` | `rawstep run <task>`에 넘기는 id와 표시 이름 |
 | `file` | 프로젝트 기준 작업 JSON 경로. 형식은 [작업 안내](./task.ko.md) |
-| `presetId` | 선택. 작업이 기본으로 쓰는 실행 프리셋 |
-| `comboId`, `actionSetId`, `pageEnvironmentId`, `atEnvironmentId` | 선택. 작업이 기본으로 쓰는 조건(프리셋보다 우선) |
-| `runRules` | 선택. 이 작업에서만 프로젝트·프리셋의 실행 규칙을 덮어씁니다([runRules](#runrules-실행-규칙) 참고) |
+| `profileId` | 선택. 작업이 기본으로 쓰는 실행 프로필. 없으면 프로젝트의 첫 번째 프로필 |
 | `analysisInstructions` | 이 작업의 분석 지침(`project.analysis.instructions`를 대체) |
 
-작업과 프리셋이 지정하지 않은 조건은 그 목록의 첫 번째 공용 항목을 씁니다. 대시보드에서 작업 안에서 공용 항목을 고치면 작업 전용 사본(`owner`에 작업 id, `copiedFrom`에 원본 id)이 만들어지고 공용 항목은 그대로 남습니다. 작업 전용 사본은 그 작업만 쓰고 작업을 지우면 함께 지워집니다. 작업 전용 사본은 모델 조합, 행동 조합, 페이지 환경에 있습니다.
-
-## combos (모델 조합)
-
-어떤 모델이 어떻게 행동하는지 정합니다. 실험 조건이므로 모델이나 지침을 비교하려면 그 부분만 다른 모델 조합끼리 비교합니다.
+## profiles (실행 프로필)
 
 | 필드 | 설명 |
 |---|---|
-| `id`, `name` | 식별자와 표시 이름. `--combo`는 둘 중 아무거나 받습니다 |
+| `id`, `name` | 식별자와 표시 이름. `--profile`은 둘 중 아무거나 받습니다 |
 | `structure` | `solo`(기본): 그 모드의 실행 모델이 모든 행동을 정합니다. `planned`: 계획 LLM이 계획 문서를 쓰고 실행 모델이 작업을 하나씩 수행합니다 |
 | `planner` | `structure`가 `planned`이면 필수이며 아직 스크린리더 모드에서만 씁니다. LLM `{ connectionId, modelId, reasoningEffort?, instructions }`(`llm` 연결이어야 함) 또는 계획 파일 `{ planFile }`([계획 파일](#계획-파일) 참고) 중 하나입니다 |
-| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 모델 조합으로 실행할 수 없습니다 계획 조합의 스크린리더 실행 모델 자리에는 `{ "followPlan": true }`를 둘 수도 있습니다. 실행 모델 없이 Rawstep이 계획을 그대로 수행해(누르기 작업은 누르고, 이동 작업은 첫 이동 방법) 판단은 계획 모델과 cue가 맡고, 실행 비용이 계획 호출뿐이며 반복 간 편차가 작습니다. 이동과 누르기만 하므로 행동 조합이 입력란 타이핑을 허용하는 작업은 실행 전에 거부합니다. 대시보드는 새 계획 조합에 이것을 고릅니다 |
-| `analysis` | 선택. 이 조합의 실행을 해설하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 `project.analysis.model`을 씁니다 |
-| `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
+| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 프로필로 실행할 수 없습니다. 계획 프로필의 스크린리더 실행 모델 자리에는 `{ "followPlan": true }`를 둘 수도 있습니다. 실행 모델 없이 Rawstep이 계획을 그대로 수행해(누르기 작업은 누르고, 이동 작업은 첫 이동 방법) 판단은 계획 모델과 cue가 맡고, 실행 비용이 계획 호출뿐이며 반복 간 편차가 작습니다. 이동과 누르기만 하므로 입력란 타이핑을 허용하는 프로필은 실행 전에 거부합니다. 대시보드는 새 계획 프로필에 이것을 고릅니다 |
+| `actions` | `{ keyboard, screenreader }`: 모드별로 시뮬레이션하는 사용자가 할 수 있는 행동(아래 설명) |
+| `page` | `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 페이지 환경 이름 또는 객체. 기본 `"default"`. [환경 프로필 안내](./environment-profiles.md) |
+| `screenReader` | 스크린리더 실행이 거치는 보조기술이며 키보드 실행은 쓰지 않습니다. `simulation`(기본): Chromium 기반 시뮬레이션이며 trace에 항상 시뮬레이션으로 표시합니다. `voiceover`(macOS) 또는 `nvda`(Windows): AT Driver 서버로 연결하는 네이티브 스크린리더(주소는 [machine](#machine) 참고). 이 필드만 다른 프로필 둘로 같은 작업을 시뮬레이션 VoiceOver와 실제 VoiceOver에서 비교할 수 있습니다 |
+| `runRules` | 실행 규칙 전체([runRules](#runrules-실행-규칙) 참고) |
 
 실행 모델은 `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate, latitude }`입니다.
 
 | 필드 | 설명 |
 |---|---|
 | `connectionId`, `modelId` | 연결 id, 제공자에서 쓰는 모델 이름 |
-| `reasoningEffort` | 선택. 에이전트가 주는 추론 강도 중 하나(코딩 에이전트 CLI 연결만 의미가 있음). 비우면 에이전트 기본값(Codex는 xhigh로 느림) |
+| `reasoningEffort` | 선택. 에이전트가 주는 추론 강도 중 하나(코딩 에이전트 CLI 연결만 의미가 있음). 비우면 에이전트 기본값(Codex는 xhigh로 느림). 프로필의 `planner`, `project.analysis.model`, `project.suggestions.model`에도 쓸 수 있습니다 |
 | `inputs` | `["text"]` 또는 `["text", "image"]` |
 | `maxChoices`, `maxImages` | 한 번에 줄 수 있는 후보와 이미지 수의 상한(기본 255, 2) |
 | `instructions` | 실행 모델에 주는 지침(필수). [프롬프트 안내](./prompts.ko.md) |
 | `historyLimit` | 모델이 보는 지난 단계 수(기본 12) |
 | `focusGate` | 키보드 모드의 `decision` 모델에서만(기본 `false`). 행동마다 별도의 포커스 판단으로 후보를 좁힙니다. `llm` 실행 모델에 켜면 실행 전에 거부합니다 |
-| `latitude` | 계획 조합의 스크린리더 실행에서(기본 `none`) 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다. 계획 모델도 이에 맞춰 작업을 짭니다 |
+| `latitude` | 계획 프로필의 스크린리더 실행에서(기본 `none`) 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다. 계획 모델도 이에 맞춰 작업을 짭니다 |
 
-키보드 실행 모델은 이미지 입력과 2 이상의 `maxImages`가, 스크린리더 실행 모델은 텍스트 입력이 필요합니다. 계획 모델과 해설 모델은 `llm` 연결이어야 하고, 실행 모델의 연결은 실제로 있어야 합니다.
+키보드 실행 모델은 이미지 입력과 2 이상의 `maxImages`가, 스크린리더 실행 모델은 텍스트 입력이 필요합니다. 계획 모델은 `llm` 연결이어야 하고, 실행 모델의 연결은 실제로 있어야 합니다.
+
+`actions.keyboard`와 `actions.screenreader`는 모드별 허용 행동 `{ keys, intents, typeText, replaceText, inputKeys? }`입니다. 모델이 고를 수 있는 키와 스크린리더 동작, 이름 있는 입력값에 입력하거나 바꿔 쓸 수 있는지(`inputKeys`는 대상 제한, 기본은 작업의 모든 입력)를 정합니다. 허용 행동은 모델에 주는 후보 생성과 실행 직전 검사에 모두 적용합니다. 보조기술이 지원하지 않는 행동(시뮬레이션이나 네이티브 스크린리더에 없는 스크린리더 동작 등)이 들어 있으면 브라우저를 띄우기 전에 실행 점검에서 막습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다.
 
 ```json
 {
@@ -142,72 +135,20 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
   "executors": {
     "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "허용된 행동만으로 목표에 도달한다.", "historyLimit": 12, "focusGate": false },
     "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "허용된 키만으로 목표에 도달한다.", "historyLimit": 12, "focusGate": false }
-  }
+  },
+  "actions": {
+    "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+    "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+  },
+  "page": "narrow",
+  "screenReader": "voiceover",
+  "runRules": { "maxReplans": 6 }
 }
-```
-
-## actionSets (행동 조합)
-
-시뮬레이션하는 사용자가 모드별로 할 수 있는 행동입니다. 실험 조건입니다(예: 다음/이전만 쓰는 초보, 제목·폼 컨트롤로 건너뛰는 숙련자).
-
-| 필드 | 설명 |
-|---|---|
-| `id`, `name` | 식별자와 표시 이름. `--actions`는 둘 중 아무거나 받습니다 |
-| `keyboard`, `screenreader` | 모드별 허용 행동 `{ keys, intents, typeText, replaceText, inputKeys? }`. 모델이 고를 수 있는 키와 스크린리더 동작, 이름 있는 입력값에 입력하거나 바꿔 쓸 수 있는지(`inputKeys`는 대상 제한, 기본은 작업의 모든 입력) |
-| `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
-
-허용 행동은 모델에 주는 후보 생성과 실행 직전 검사에 모두 적용합니다. 보조기술이 지원하지 않는 행동(시뮬레이션이나 네이티브 스크린리더에 없는 스크린리더 동작 등)이 들어 있으면 브라우저를 띄우기 전에 실행 점검에서 막습니다. 중단 선택지, 독립 검증, 입력 필드 확인은 엔진이 유지합니다.
-
-```json
-{ "id": "basic", "name": "Basic", "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false }, "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } }
-```
-
-## pageEnvironments (페이지 환경)
-
-작업을 실행하는 페이지 조건입니다.
-
-| 필드 | 설명 |
-|---|---|
-| `id`, `name` | 식별자와 표시 이름. `--environment`는 둘 중 아무거나 받습니다 |
-| `profile` | `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 환경 프로필 이름 또는 객체. [환경 프로필 안내](./environment-profiles.md) |
-| `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
-
-```json
-{ "id": "narrow", "name": "Narrow", "profile": "narrow" }
-```
-
-## atEnvironments (보조기술 환경)
-
-스크린리더 실행이 거치는 보조기술입니다. 키보드 실행은 쓰지 않습니다.
-
-| 필드 | 설명 |
-|---|---|
-| `id`, `name` | 식별자와 표시 이름. `--at`은 둘 중 아무거나 받습니다 |
-| `backend` | `simulation`: Chromium 기반 시뮬레이션이며 trace에 항상 시뮬레이션으로 표시합니다. `voiceover`(macOS) 또는 `nvda`(Windows): AT Driver 서버로 연결하는 네이티브 스크린리더(주소는 [machine](#machine) 참고) |
-
-시뮬레이션 VoiceOver와 실제 VoiceOver를 각각 보조기술 환경으로 두면 같은 작업을 둘로 비교할 수 있습니다.
-
-```json
-{ "id": "voiceover", "name": "VoiceOver", "backend": "voiceover" }
-```
-
-## presets (실행 프리셋)
-
-조건을 묶어 저장해 한 번에 고르는 것입니다. 모든 필드가 선택이며, 빠진 조건은 첫 번째 공용 항목으로 대체됩니다.
-
-| 필드 | 설명 |
-|---|---|
-| `id`, `name` | 식별자와 표시 이름. `--preset`은 둘 중 아무거나 받습니다 |
-| `comboId`, `actionSetId`, `pageEnvironmentId`, `atEnvironmentId` | 묶는 조건 |
-| `runRules` | 선택. 이 프리셋으로 실행할 때의 실행 규칙 |
-
-```json
-{ "id": "narrow-beginner", "name": "Beginner on a narrow page", "actionSetId": "basic", "pageEnvironmentId": "narrow", "runRules": { "maxStateVisits": 3 } }
 ```
 
 ## runRules (실행 규칙)
 
-실행이 언제 일찍 멈추는지, 계획 모델이 있으면 언제 다시 계획하는지 정합니다. 최상위 `runRules`가 프로젝트 기본값이고, 프리셋의 `runRules`, 작업의 `runRules`, `--rule <이름>=<값>` 옵션이 각 필드를 덮어씁니다(그 실행에 한해). 실행마다 쓴 규칙을 기록합니다.
+실행이 언제 일찍 멈추는지, 계획 모델이 있으면 언제 다시 계획하는지 정합니다. 프로필마다 자기 `runRules`를 가지며, `rawstep run`의 `--rule <이름>=<값>` 옵션(`runTask`의 `runRules` 옵션)이 각 필드를 그 실행에 한해 바꿉니다. 실행마다 쓴 규칙을 기록합니다.
 
 | 필드 | 기본값 | 설명 |
 |---|---|---|
@@ -220,11 +161,11 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `failureLimit` | 2 | 계획 모델이 있을 때 한 작업에서 행동이 연달아 이만큼 실패하면 새 계획을 요청합니다 |
 | `noChangeLimit` | 3 | 계획 모델이 있을 때 한 작업에서 아무것도 바뀌지 않은 행동이 연달아 이만큼이면 새 계획을 요청합니다 |
 | `taskControl` | `rawstep` | 계획 모델이 있을 때 작업 종료와 재계획을 누가 정하는지. `rawstep`: 실행 모델은 행동만 고르고, 작업은 cue가 들리면 끝나며, Rawstep의 신호(위 한도, 반복, 실행 모델의 낮은 확신 — `confidenceFloor` 참고)가 새 계획을 요청합니다. `executor`: 실행 모델이 작업 완료를 선언하거나 도움을 요청할 수도 있습니다. 비교용으로 남겨 둔 값입니다 |
-| `survey` | `headings` | 계획 모델이 있고 행동 조합이 `headings.list`를 허용하면(대시보드의 숙련 사용자 프리셋), 첫 계획 전에 제목 목록(VoiceOver 로터)을 먼저 듣고 행동 한 번으로 셉니다. 초보 사용자 조합은 제목 목록을 쓰지 않고 처음부터 한 칸씩 걸어서 제목이 없어도 느려지지 않고, 숙련 사용자는 느려집니다. `none`이면 훑지 않습니다. 실제 VoiceOver 연결은 로터(VO+U)로 제목 목록을 읽습니다(실제 VoiceOver로는 아직 확인 전). NVDA 연결은 아직 지원하지 않습니다 |
+| `survey` | `headings` | 계획 모델이 있고 프로필의 허용 행동에 `headings.list`가 있으면(대시보드의 숙련 사용자 행동), 첫 계획 전에 제목 목록(VoiceOver 로터)을 먼저 듣고 행동 한 번으로 셉니다. 초보 사용자는 제목 목록을 쓰지 않고 처음부터 한 칸씩 걸어서 제목이 없어도 느려지지 않고, 숙련 사용자는 느려집니다. `none`이면 훑지 않습니다. 실제 VoiceOver 연결은 로터(VO+U)로 제목 목록을 읽습니다(실제 VoiceOver로는 아직 확인 전). NVDA 연결은 아직 지원하지 않습니다 |
 | `confirmationGrace` | 5 | 스크린리더 실행에서 목표에 도달했지만 사용자가 들은 말에 성공 문구가 없으면(화면에만 뜬 경우) 이만큼 더 진행한 뒤 끝납니다. 그 행동이 "됐는지 모름" 마찰이고, trace의 `goal.reached`에 도달 단계와 들었는지가 남습니다. 0이면 바로 끝납니다 |
 | `confidenceFloor` | 0.25 | `taskControl: "rawstep"`일 때 실행 모델이 얼마나 불확실해도 되는지. 정규화한 값으로, 가장 높은 확률이 무작위 추측(1/n)에서 확신(1) 쪽으로 얼마나 떨어져 있는지입니다. 낮은 선택이 연속 두 번 나오면 새 계획을 요청합니다 |
 
-덮어쓰기는 기본값을 채우지 않습니다. 프리셋이나 작업이 빼 둔 필드는 아래 계층의 값을 그대로 씁니다.
+프로필이 빼 둔 필드는 위 기본값을 씁니다. 한 실행의 덮어쓰기는 이름을 적은 필드만 바꿉니다.
 
 ```json
 { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
@@ -232,51 +173,48 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 ## 전체 예시
 
-연결 두 개, 단독·계획 모델 조합 하나씩, 프리셋, 프로젝트 해설 모델을 담은 `rawstep.config.json`입니다.
+연결 두 개, 단독·계획 프로필 하나씩, 프로젝트 해설 모델을 담은 `rawstep.config.json`입니다.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "connections": [
     { "id": "openai", "name": "OpenAI", "kind": "llm", "provider": "openai", "timeoutMs": 60000 },
     { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
   ],
-  "tasks": [
-    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json", "presetId": "narrow-planned" }
-  ],
-  "combos": [
+  "profiles": [
     {
       "id": "jev-alone", "name": "Jev alone", "structure": "solo",
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false }
-      }
+      },
+      "actions": {
+        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+      },
+      "page": "default",
+      "screenReader": "simulation",
+      "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 }
     },
     {
-      "id": "plan-and-jev", "name": "Plan with GPT, act with Jev", "structure": "planned",
+      "id": "narrow-planned", "name": "Narrow page, planned", "structure": "planned",
       "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
         "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-      }
+      },
+      "actions": {
+        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+      },
+      "page": "narrow",
+      "screenReader": "voiceover",
+      "runRules": { "maxReplans": 6 }
     }
   ],
-  "actionSets": [
-    { "id": "basic", "name": "Basic",
-      "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-      "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } }
+  "tasks": [
+    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json", "profileId": "narrow-planned" }
   ],
-  "pageEnvironments": [
-    { "id": "default", "name": "Default", "profile": "default" },
-    { "id": "narrow", "name": "Narrow", "profile": "narrow" }
-  ],
-  "atEnvironments": [
-    { "id": "simulation", "name": "Simulated VoiceOver", "backend": "simulation" },
-    { "id": "voiceover", "name": "VoiceOver", "backend": "voiceover" }
-  ],
-  "presets": [
-    { "id": "narrow-planned", "name": "Narrow page, planned", "comboId": "plan-and-jev", "pageEnvironmentId": "narrow", "runRules": { "maxReplans": 6 } }
-  ],
-  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 },
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "Focus on where the page made the run detour." },
     "suggestions": {}
@@ -308,7 +246,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 ### 계획 파일
 
-계획 모델 대신 미리 써 둔 계획을 읽을 수 있습니다: `"planner": { "planFile": "plans/{task}/plan.json" }`. 경로는 프로젝트 기준 상대 경로이고 `.json`으로 끝나야 합니다. `{task}`는 작업 파일 이름(`.json` 제외)으로 바뀌어, 조합 하나로 작업마다 자기 계획을 읽게 할 수 있습니다(작업 파일이 `tasks/checkout.json`이고 경로가 `plans/{task}/L2.json`이면 `plans/checkout/L2.json`을 읽습니다).
+계획 모델 대신 미리 써 둔 계획을 읽을 수 있습니다: `"planner": { "planFile": "plans/{task}/plan.json" }`. 경로는 프로젝트 기준 상대 경로이고 `.json`으로 끝나야 합니다. `{task}`는 작업 파일 이름(`.json` 제외)으로 바뀌어, 프로필 하나로 작업마다 자기 계획을 읽게 할 수 있습니다(작업 파일이 `tasks/checkout.json`이고 경로가 `plans/{task}/L2.json`이면 `plans/checkout/L2.json`을 읽습니다).
 
 파일 형식은 계획 모델의 초안과 같습니다. `strategy`, `criteria`(`C1`...), `assumptions`(`A1`...), 그리고 `tasks`를 담은 `phases`로 이루어지며, 작업마다 `goal`, `done`, `cue`(끝났을 때 들려야 하는 말)가 필요하고 `serves`, `relies`는 선택입니다. `complete`와 `rationale`도 선택입니다.
 
@@ -334,7 +272,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 | 필드 | 설명 |
 |---|---|
-| `analysis.model` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 모델 조합에 자체 `analysis`가 없으면 이 모델로 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다. 키가 없어도 실행은 막지 않고 분석만 건너뜁니다 |
+| `analysis.model` | 선택. `llm` 연결의 `{ connectionId, modelId }`. 이 모델로 모든 실행(`rawstep run`, `runTask`, 대시보드)에 LLM 분석이 더해집니다. 없으면 규칙 기반 분석만 하며, 규칙 기반 분석은 항상 실행됩니다. 키가 없어도 실행은 막지 않고 분석만 건너뜁니다 |
 | `analysis.instructions` | 선택. 분석 초점. 작업의 `analysisInstructions`가 이 값을 대체합니다 |
 | `suggestions.model` | 선택. 작업을 쓸 때 완료 확인을 제안하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 분석 모델을 씁니다 |
 
@@ -350,7 +288,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `headless` | 브라우저를 화면 없이 실행할지(기본 `true`) |
 | `personCheck` | Cloudflare 같은 봇 확인이 있는 실제 사이트용. 설치된 Chrome 창을 띄우고 프로필을 `.rawstep/browser-profile`에 유지하며, 봇 확인이 나오면 사람이 그 창에서 통과할 때까지(최대 5분, 실행 시간 제한에서 제외) 기다립니다. Rawstep이 확인을 대신 풀지는 않습니다. 기본 `false` |
 
-`voiceover`와 `nvda` 보조기술 환경은 해당 OS에서 AT Driver 서버가 필요하며, `rawstep doctor`가 엔드포인트 응답을 확인합니다. 해당 주소에 응답하는 서버가 없으면 Rawstep이 명령으로 서버를 시작할 수 있습니다. 이 명령은 프로그램을 실행하므로 공유 설정 파일에는 두지 않고, 이 컴퓨터의 `.env.local`에만 `RAWSTEP_AT_DRIVER_COMMAND`로 저장합니다.
+`voiceover`와 `nvda` 스크린리더를 쓰는 프로필은 해당 OS에서 AT Driver 서버가 필요하며, `rawstep doctor`가 엔드포인트 응답을 확인합니다. 해당 주소에 응답하는 서버가 없으면 Rawstep이 명령으로 서버를 시작할 수 있습니다. 이 명령은 프로그램을 실행하므로 공유 설정 파일에는 두지 않고, 이 컴퓨터의 `.env.local`에만 `RAWSTEP_AT_DRIVER_COMMAND`로 저장합니다.
 
 ```dotenv
 # .env.local (커밋하지 마세요)

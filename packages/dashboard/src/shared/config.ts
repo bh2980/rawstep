@@ -4,15 +4,12 @@ import { idSchema as id, runRulesOverrideSchema, type Mode, type Model, type Per
 import type { RunSpec } from '@rawstep/project/execution';
 
 const ids = z.array(id).min(1).max(100).optional();
-/**
- * An experiment: tasks × modes × conditions × repeats. A condition list left out means each task's own (its field, then its
- * preset's, then the first shared item); `presetIds` expands into the conditions each preset names.
- */
+/** An experiment: tasks × modes × run profiles × repeats. Without `profileIds` each task runs with its own profile. */
 export const planSchema = z.object({
   taskIds: z.array(id).min(1).max(100),
   modes: z.array(z.enum(['keyboard', 'screenreader'])).min(1).max(2),
-  presetIds: ids, comboIds: ids, actionSetIds: ids, pageEnvironmentIds: ids, atEnvironmentIds: ids,
-  /** Run rules for this experiment only, over the project's, the preset's and the task's. */
+  profileIds: ids,
+  /** Run rules for this experiment only, over each profile's. */
   runRules: runRulesOverrideSchema.optional(),
   repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
@@ -23,12 +20,12 @@ export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */
 export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: { keyboard: { keys: string[]; intents: string[] }; screenreader: Record<'simulation' | 'voiceover' | 'nvda', { keys: string[]; intents: string[] }> } };
 /**
- * One run to make: a task in a mode under one set of conditions. `modelName` is the combo's executor for the mode and `plannerName`
+ * One run to make: a task in a mode with one run profile. `modelName` is the profile's executor for the mode and `plannerName`
  * its planner when the run plans; `reason` says why it cannot run, `warnings` what is worth knowing.
  */
 export type Combination = {
   key: string; taskId: string; mode: Mode; repeat: number;
-  comboId: string; actionSetId: string; pageEnvironmentId: string; atEnvironmentId: string; presetId?: string;
+  profileId: string;
   structure: 'solo' | 'planned'; modelName?: string; plannerName?: string;
   supported: boolean; reason?: string; warnings: string[]; permissions: Permissions;
 };
