@@ -26,16 +26,15 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
  */
 export async function createManagedTask(props: PageProps, input: {
   name: string; slug: string; task: unknown;
-  /** The run profile the task uses; left out, it uses the project's first. */
-  profileId?: string;
-  /** A task being copied: its run profile and analysis instructions come along. */
+  /** A task being copied: its base task, fewest moves and analysis instructions come along. */
   copyOf?: ManagedTask;
 }): Promise<{ id: string; view: ConfigView }> {
   const id = crypto.randomUUID(), { copyOf } = input;
-  const { config } = props.view, profileId = copyOf ? copyOf.profileId : input.profileId;
+  const { config } = props.view;
   const write = (file: string) => props.save(
     { ...config, tasks: [...config.tasks, {
-      id, name: input.name, file, ...(profileId ? { profileId } : {}),
+      id, name: input.name, file,
+      ...(copyOf?.variantOf ? { variantOf: copyOf.variantOf } : {}), ...(copyOf?.minimalSteps !== undefined ? { minimalSteps: copyOf.minimalSteps } : {}),
       ...(copyOf?.analysisInstructions ? { analysisInstructions: copyOf.analysisInstructions } : {}),
     }] },
     { file, task: input.task },

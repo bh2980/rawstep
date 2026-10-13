@@ -49,7 +49,7 @@ export class ProjectStore {
     let json: unknown;
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
-    if (version === 1 || version === 2 || version === 3) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}. Convert it once with \`node scripts/migrate-config.mjs <project-dir>\` from the Rawstep checkout (backups are kept as .bak files).`);
+    if (version === 1 || version === 2 || version === 3 || version === 4) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
     try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
@@ -69,8 +69,6 @@ export class ProjectStore {
     }
     if (config.project.analysis.model && kindOf(config.project.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
-    const profileIds = new Set(config.profiles.map(p => p.id));
-    for (const task of config.tasks) if (task.profileId !== undefined && !profileIds.has(task.profileId)) throw new ProjectError('task-profile-missing', 'A task refers to a profile that does not exist.');
     const byId = new Map(config.tasks.map(t => [t.id, t]));
     for (const task of config.tasks) if (task.variantOf !== undefined) {
       const base = byId.get(task.variantOf);

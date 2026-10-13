@@ -16,9 +16,11 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
   'headings.list reads every heading with its level in one announcement, like opening the VoiceOver rotor on headings (VO+U) and listening through it; the cursor does not move.',
+  'links.list reads every link name in one announcement, like the rotor\'s links list; the cursor does not move.',
+  'Arrow, Home and End keys go to the page as keystrokes, as in VoiceOver with Quick Nav off: menus, tabs and radio groups that move focus with them are announced at the new focus.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list']);
 const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
 /** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
 const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
@@ -27,8 +29,11 @@ const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => b
   'heading.next': { step: 1, match: role => role === 'heading', none: 'No more headings' },
   'heading.previous': { step: -1, match: role => role === 'heading', none: 'No previous heading' },
   'form.next': { step: 1, match: role => formRoles.has(role), none: 'No more form controls' },
+  'form.previous': { step: -1, match: role => formRoles.has(role), none: 'No previous form control' },
+  'link.next': { step: 1, match: role => role === 'link', none: 'No more links' },
+  'link.previous': { step: -1, match: role => role === 'link', none: 'No previous link' },
 });
-const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape']);
+const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 // Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
@@ -146,7 +151,7 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'links-list' | 'live-region'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
@@ -263,7 +268,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
-    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','headings.list':'rotor_headings'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
+    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','form.previous':'previous_form_control','link.next':'next_link','link.previous':'previous_link','headings.list':'rotor_headings','links.list':'rotor_links'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
       await this.refresh(signal);
@@ -279,6 +284,7 @@ export class MockVoiceOverBackend implements Backend {
           this.announce(this.current());
         } else this.announce(undefined, move.none);
       } else if (action.kind === 'intent' && action.intent === 'headings.list') this.announceText(headingsList(this.nodes), 'headings-list');
+      else if (action.kind === 'intent' && action.intent === 'links.list') this.announceText(linksList(this.nodes), 'links-list');
       else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
       else if (action.kind === 'intent' && action.intent === 'readFocused') {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
@@ -449,4 +455,10 @@ function headingsList(nodes: readonly CursorNode[]): string {
   const headings = nodes.filter(node => node.semantic.role === 'heading');
   if (!headings.length) return 'Headings, no items';
   return `Headings, ${headings.length} items: ` + headings.map(node => `${node.semantic.name}, level ${node.semantic.level ?? '?'}`).join('; ');
+}
+/** The rotor's links list as one announcement: each link's name, in page order. */
+function linksList(nodes: readonly CursorNode[]): string {
+  const links = nodes.filter(node => node.semantic.role === 'link');
+  if (!links.length) return 'Links, no items';
+  return `Links, ${links.length} items: ` + links.map(node => node.semantic.name || 'unnamed link').join('; ');
 }

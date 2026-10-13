@@ -22,7 +22,7 @@ function setup(): ProjectConfig {
   config.profiles.push({ ...config.profiles[0]!, id: 'narrow', name: 'Narrow', page: 'narrow' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
-const request: PlanRequest = { taskIds: ['task'], modes: ['keyboard'], profileIds: ['default', 'narrow'], repeats: 1 };
+const request: PlanRequest = { taskIds: ['task'], profileIds: ['default', 'narrow'], repeats: 1 };
 const call = (url: string, method: string, path: string, body?: unknown) => fetch(url + path, { method, headers: { 'content-type': 'application/json', origin: url }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 /** A dashboard whose runs finish at once, or wait for `release()` when `hold` is set. */
 async function start(hold = false) {

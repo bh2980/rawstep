@@ -7,7 +7,7 @@ import { elementsFromAriaSnapshot } from '../packages/dashboard/src/server/struc
 import { ProjectStore } from '@rawstep/project/store';
 import { defaultConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
-import { profileWith, connection } from './helpers/project-config.js';
+import { profileWith, plannedWith, connection } from './helpers/project-config.js';
 import { HINT_SOURCES, type Hint, type HintKind, type HintReport } from '@rawstep/reports/hints';
 import type { TaskFindings, TaskSummary } from '../packages/dashboard/src/shared/api.js';
 
@@ -26,7 +26,7 @@ const checkout = { role: 'button', name: 'Checkout' };
 async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean }[], mode: 'keyboard' | 'screenreader' = 'keyboard') {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
-  config.connections.push(connection('a')); config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
+  config.connections.push(connection('a'), connection('llm', { kind: 'llm' })); config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default', mode), 'llm');
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' });
   await store.save(config, initial.revision, { file: 'task.json', task });
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
@@ -35,7 +35,7 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
     if (outcome.heard !== undefined) trace.append('goal.reached', { step: outcome.steps, heard: outcome.heard, grace: 0 });
     return trace.finalize({ status: outcome.status, steps: outcome.steps });
   } }); apps.push(app);
-  const experiment = await app.queue.create({ taskIds: ['task'], modes: [mode], repeats: outcomes.length });
+  const experiment = await app.queue.create({ taskIds: ['task'], profileIds: ['default'], repeats: outcomes.length });
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
   const runs = [...experiment.runs].sort((a, b) => a.repeat - b.repeat);
   for (const [i, run] of runs.entries()) {

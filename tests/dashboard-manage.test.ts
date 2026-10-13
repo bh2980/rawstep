@@ -64,7 +64,7 @@ describe('deleting a task', () => {
     expect(((await unknown.json()) as { error: string }).error).toContain('작업');
     expect((await call(app.url, 'DELETE', '/api/tasks/owned', {})).status).toBe(400);
     // A queued run of the task blocks deleting it.
-    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], modes: ['keyboard'], repeats: 1 }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
+    app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], profileIds: ['default'], repeats: 1 }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
     const busy = await call(app.url, 'DELETE', '/api/tasks/owned', { revision });
     expect(busy.status).toBe(409);
     expect(((await busy.json()) as { error: string }).error).toContain('진행 중');

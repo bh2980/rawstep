@@ -6,7 +6,7 @@ import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } f
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, taskProfile, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, firstProfile, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
 import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
@@ -104,13 +104,15 @@ function pick<T extends { id: string; name: string }>(kind: string, list: readon
  */
 export async function runTask(task: string, options: RunTaskOptions = {}, internals: { execute?: RunExecutor } = {}): Promise<RunTaskResult> {
   const projectDir = resolve(options.projectDir ?? process.cwd());
-  const mode = options.mode ?? 'keyboard', repeat = options.repeat ?? 1;
-  if (mode !== 'keyboard' && mode !== 'screenreader') throw new ProjectError('invalid-mode', `The mode must be keyboard or screenreader, not "${String(mode)}".`);
+  const repeat = options.repeat ?? 1;
+  if (options.mode !== undefined && options.mode !== 'keyboard' && options.mode !== 'screenreader') throw new ProjectError('invalid-mode', `The mode must be keyboard or screenreader, not "${String(options.mode)}".`);
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > MAX_REPEAT) throw new ProjectError('invalid-repeat', `The repeat count must be an integer from 1 to ${MAX_REPEAT}.`);
   const store = new ProjectStore(projectDir), { config } = await store.read();
   const { entry, task: source } = await loadTask(store, config, task, projectDir);
-  const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : taskProfile(config, entry ?? {});
-  const conditions = profileConditions(profile);
+  const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : firstProfile(config);
+  // The profile says how the user reaches the page; --mode overrides it for this run.
+  const mode = options.mode ?? profile.mode;
+  const conditions = profileConditions(profile, mode);
   const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, mode, ...conditions, ...(options.diagnoseStop ? { diagnoseStop: true } : {}) }));
   const { settings, model, analysisModel, plannerModel } = check, warnings = [...check.warnings];
   const apiKey = await requireKey(store, model!);

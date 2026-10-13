@@ -117,12 +117,13 @@ async function ui(args: CliArguments, projectDir: string, dependencies: CliDepen
 
 async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, task = args.positionals[0]!, repeat = options.repeat === undefined ? 1 : Number(options.repeat);
-  const mode = options.mode === 'screenreader' ? 'screenreader' : 'keyboard';
-  if (!options.json) stderr(`Running ${task} in ${mode} mode${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
+  // The profile says the mode; --mode overrides it for these runs.
+  const mode = options.mode === 'screenreader' || options.mode === 'keyboard' ? options.mode : undefined;
+  if (!options.json) stderr(`Running ${task}${mode ? ` in ${mode} mode` : ''}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
   let cancelledBy: 'SIGINT' | 'SIGTERM' | undefined, result: RunTaskResult;
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
-      projectDir, mode, repeat, signal,
+      projectDir, repeat, signal, ...(mode ? { mode } : {}),
       ...(options.profile ? { profile: String(options.profile) } : {}),
       ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
       ...(options.rule ? { runRules: parseRunRules(options.rule as string[]) } : {}),

@@ -11,7 +11,8 @@ import { modelHistory } from './history.js';
 const INTENT_LABELS: Record<string, string> = {
   next: 'Move to the next item', previous: 'Move to the previous item',
   'heading.next': 'Jump to the next heading', 'heading.previous': 'Jump to the previous heading', 'form.next': 'Jump to the next form control',
-  readCurrent: 'Read the current item again', readFocused: 'Read the focused element', 'headings.list': "List the page's headings",
+  'form.previous': 'Jump to the previous form control', 'link.next': 'Jump to the next link', 'link.previous': 'Jump to the previous link',
+  readCurrent: 'Read the current item again', readFocused: 'Read the focused element', 'headings.list': "List the page's headings", 'links.list': "List the page's links",
 };
 const intentLabel = (intent: string) => intent === 'activate' ? 'Activate the current item' : INTENT_LABELS[intent] ?? `Screen reader intent: ${intent}`;
 /**

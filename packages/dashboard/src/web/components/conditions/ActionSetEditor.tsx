@@ -1,11 +1,12 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { i18n } from '../../i18n';
 import { Check, Minus } from 'lucide-react';
 import type { ActionSet, AtBackend, Mode, Permissions } from '@rawstep/project/config';
 import type { ConfigView } from '../../../shared/config';
 import { actionLabel, AT_BACKENDS, MODES, unsupportedActions } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
-import { Advanced, MultiChoice, Toggle } from '../forms';
+import { MultiChoice, Toggle } from '../forms';
 import { InfoTip } from '../layout/InfoTip';
 import { Checkbox } from '../ui/checkbox';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
@@ -21,7 +22,7 @@ type Props = {
 };
 
 /** Screen reader actions in the order a person learns them; anything a backend adds comes after. */
-const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
+const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
 const ordered = (names: Iterable<string>, order: readonly string[] = []) => [...new Set(names)].sort((a, b) => {
   const ia = order.indexOf(a), ib = order.indexOf(b);
   return (ia < 0 ? order.length : ia) - (ib < 0 ? order.length : ib);
@@ -69,11 +70,20 @@ function Support({ ok }: { ok: boolean }) {
     : <span className="inline-flex items-center gap-1 text-inspect"><Minus aria-hidden="true" className="size-3.5" />{t('conditions.actionSet.unsupported')}</span>;
 }
 
-function AllowCell({ label, checked, onChange }: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
+/** A checkbox row label; a key also says, in small words, what it does. One line: a long note is cut short and shown whole on hover. */
+function AllowCell({ label, note, checked, onChange }: { label: string; note?: string | undefined; checked: boolean; onChange: (on: boolean) => void }) {
   const id = useId();
-  return <TableCell className="px-3 py-2 whitespace-normal">
-    <span className="flex items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} /><label htmlFor={id} className="cursor-pointer text-sm">{label}</label></span>
+  return <TableCell className="px-3 py-2">
+    <span className="flex min-w-0 items-center gap-2.5"><Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} />
+      <label htmlFor={id} className="flex min-w-0 cursor-pointer items-baseline gap-2 text-sm"><span className="shrink-0">{label}</span>
+        {note && <span title={note} className="truncate text-xs text-muted-foreground">{note}</span>}</label></span>
   </TableCell>;
+}
+
+/** What a key does, for the keys table; a key without words shows none. */
+function keyRole(key: string): string | undefined {
+  const path = `conditions.actionSet.keyRoles.${key}`;
+  return i18n.exists(path) ? i18n.t(path as 'conditions.actionSet.allowedKey') : undefined;
 }
 
 /**
@@ -85,22 +95,22 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
   const intents = ordered([...backends.flatMap(b => capabilities[b].intents), ...value.intents], INTENT_ORDER);
   const keys = ordered([...backends.flatMap(b => capabilities[b].keys), ...value.keys]);
   const table = (rows: string[], kind: 'intents' | 'keys', caption: string, info?: string) => <div className="overflow-x-auto border-y border-edge-strong">
-    <Table className={backends.length > 1 ? 'min-w-[32rem]' : undefined}>
+    {/* Fixed layout and a fixed first column, so the actions table and the keys table line up. */}
+    <Table className={cn('table-fixed', backends.length > 1 && 'min-w-[32rem]')}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader><TableRow className="bg-raised hover:bg-raised">
-        <TableHead scope="col" className={head}><span className="inline-flex items-center gap-1">{t('conditions.actionSet.allowed')}{info && !compact && <InfoTip term={t('conditions.actionSet.allowed')}>{info}</InfoTip>}</span></TableHead>
+        <TableHead scope="col" className={cn(head, 'w-60')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
-        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
+        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
         {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} /></TableCell>)}
       </TableRow>)}</TableBody>
     </Table>
   </div>;
   return <div className="grid gap-3">
     {table(intents, 'intents', t('conditions.actionSet.intentsCaption'), t('conditions.actionSet.screenreaderIntro'))}
-    {value.keys.length > 0 ? table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))
-      : backends.length > 1 && keys.length > 0 && <Advanced>{table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))}</Advanced>}
+    {keys.length > 0 && table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))}
   </div>;
 }
 
@@ -116,7 +126,7 @@ function KeyboardActions({ value, onChange, capabilities }: { value: Permissions
           <TableHead scope="col" className={head}>{t('conditions.actionSet.keyboardBackend')}</TableHead>
         </TableRow></TableHeader>
         <TableBody>{keys.map(key => <TableRow key={key}>
-          <AllowCell label={key} checked={value.keys.includes(key)} onChange={on => onChange({ ...value, keys: toggle(value.keys, key, on) })} />
+          <AllowCell label={key} note={keyRole(key)} checked={value.keys.includes(key)} onChange={on => onChange({ ...value, keys: toggle(value.keys, key, on) })} />
           <TableCell className="px-3 py-2 text-[13px]"><Support ok={capabilities.keys.includes(key)} /></TableCell>
         </TableRow>)}</TableBody>
       </Table>
