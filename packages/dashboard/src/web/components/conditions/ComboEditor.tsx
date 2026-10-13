@@ -153,7 +153,6 @@ function ExecutorFields({ mode, executor, onChange, connections, planned, compac
   const tip = (info: ReactNode) => compact ? undefined : info;
   return <div className="grid content-start gap-4">
     <ModelPicker hideLabel label={t('conditions.combo.executor.model', { mode: t(`conditions.modes.${mode}`) })} connections={connections} connectionId={executor?.connectionId} modelId={executor?.modelId ?? ''} reasoningEffort={executor?.reasoningEffort}
-      none={t('conditions.combo.executor.none')} onNone={() => onChange(undefined)}
       onChange={next => {
         const picked = connections.find(c => c.id === next.connectionId)!;
         const base = !executor || executor.connectionId !== next.connectionId ? { ...blankExecutor(picked, mode), ...(executor ? { instructions: executor.instructions, historyLimit: executor.historyLimit } : {}) } : executor;
@@ -161,7 +160,7 @@ function ExecutorFields({ mode, executor, onChange, connections, planned, compac
         const { reasoningEffort: _old, ...kept } = base;
         onChange({ ...kept, connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), inputs, ...(next.picked?.maxChoices ? { maxChoices: next.picked.maxChoices } : {}), ...(picked.kind === 'llm' ? { focusGate: false } : {}) });
       }} />
-    {!executor && <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.unusedHint', { mode: t(`conditions.modes.${mode}`) })}</p>}
+    {!executor && <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.pickModel')}</p>}
     {executor && <>
       {keyboard && <Toggle label={t('conditions.combo.executor.images')} info={tip(t('conditions.combo.executor.imagesHint'))} checked={images}
         onChange={on => set({ inputs: on ? ['text', 'image'] : ['text'], maxImages: on ? Math.max(2, executor.maxImages) : executor.maxImages })} />}
