@@ -6,7 +6,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
-import type { CueRequest, CueResult, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
+import type { CueRequest, CueResult, ExecutorLatitude, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
 import { planDraftSchema } from '../policy/fixed-plan.js';
 import { AcpAgent, parseAgentJson } from '../acp/index.js';
 
@@ -158,6 +158,27 @@ export class LlmChoiceModel implements ChoiceModel {
 }
 
 /** The planner's standing rules; an agent's own instructions are added after them, never in their place. */
+/**
+ * How tasks are shaped for the executor, by how much it may decide itself (the `executorLatitude` run rule). `none`: the plan fixes
+ * the method, the direction and the moment to press, so the executor has nothing left to choose. `direction`: a task moves to its
+ * target and presses it, and the executor may also go back with the same method. `method`: the executor may use any movement.
+ */
+const TASK_SHAPE: Record<ExecutorLatitude, string> = {
+  none: ['Set "activates" to false for a task that only moves the cursor and true for a task that ends by activating the current item (pressing a',
+    'button, opening a disclosure, checking a box): a moving task offers the executor no activation. Keep moving and pressing in separate tasks.',
+    'Set "moves" to the movement actions the executor may use for the task, taken from the listed actions (for example ["heading.next"] to jump',
+    'by headings, ["next"] to go item by item, ["heading.previous"] to go back by headings): one method and one direction per task. Only those',
+    'are offered to the executor, so to change method or direction, start a new task.'].join(' '),
+  direction: ['Set "activates" to true for a task whose target must be pressed (a button, a disclosure, a checkbox) and false for a task that only',
+    'reaches or reads something. A pressing task moves to its target and presses it in one task: the executor judges, from what it hears, when',
+    'the cursor is on the target. Set "moves" to the navigation method for the task, taken from the listed actions (for example ["heading.next"]',
+    'to jump by headings, ["next"] to go item by item); the executor may also go the opposite way with the same method, so name one method per',
+    'task and start a new task to change method.'].join(' '),
+  method: ['Set "activates" to true for a task whose target must be pressed (a button, a disclosure, a checkbox) and false for a task that only',
+    'reaches or reads something. A pressing task moves to its target and presses it in one task: the executor judges, from what it hears, when',
+    'the cursor is on the target. Set "moves" to the navigation method you suggest, taken from the listed actions (for example ["heading.next"]',
+    'to jump by headings, ["next"] to go item by item); the executor may use any movement and choose for itself.'].join(' '),
+};
 export const SPEECH_PLANNER_INSTRUCTIONS = [
   'You plan for a screen reader user who is trying to reach a goal on a web page. Another, much simpler model carries out your plan one task at a time:',
   'it sees only the current task and can use only the listed "actions". Write a plan document like a spec-driven plan:',
@@ -172,11 +193,8 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'exact wording of what was not heard yet, so when an item with the expected role shares only some name words, you will be asked whether it is',
   'the one the task looks for. For a pressing task, the cue is what pressing makes the reader say (the box now "checked", a message that appears). Give a cue for every task whose words you can predict from what was heard, the page title or the goal; use "" only when you cannot.',
   'Write "done" as what is heard, never as what the executor did ("I found it" cannot be checked).',
-  'Set "activates" to false for a task that only moves the cursor and true for a task that ends by activating the current item (pressing a',
-  'button, opening a disclosure, checking a box): a moving task offers the executor no activation. Keep moving and pressing in separate tasks.',
-  'Set "moves" to the movement actions the executor may use for the task, taken from the listed actions (for example ["heading.next"] to jump',
-  'by headings, ["next"] to go item by item, ["heading.previous"] to go back by headings): one method and one direction per task. Only those',
-  'are offered to the executor, so to change method or direction, start a new task. Every task needs a cue: for a task that reads',
+  TASK_SHAPE.none,
+  'Every task needs a cue: for a task that reads',
   'information, use a word that must be in it (for example {"name": "days", "role": "text"}); split a task until its cue can be predicted. Never write a',
   'conditional task ("if it is a link, activate it"): the executor cannot judge conditions; plan from what was heard, and revise later.',
   '"currentItem" is what the cursor is on now: plan the next task from there.',
@@ -214,8 +232,10 @@ const cueAnswerSchema = z.object({ matches: z.boolean(), reason: z.string().max(
 export class LlmPlanner implements Planner {
   readonly instructions: string;
   private readonly prompt: { id: string; version: string; sha256: string };
-  constructor(readonly llm: LlmModel, extra = '') {
-    this.instructions = extra.trim() ? `${SPEECH_PLANNER_INSTRUCTIONS}\nAdditional instructions:\n${extra.trim()}` : SPEECH_PLANNER_INSTRUCTIONS;
+  /** `latitude` shapes the tasks for an executor that decides that much itself (see the `executorLatitude` run rule). */
+  constructor(readonly llm: LlmModel, extra = '', latitude: ExecutorLatitude = 'none') {
+    const rules = SPEECH_PLANNER_INSTRUCTIONS.replace(TASK_SHAPE.none, TASK_SHAPE[latitude]);
+    this.instructions = extra.trim() ? `${rules}\nAdditional instructions:\n${extra.trim()}` : rules;
     const sha256 = createHash('sha256').update(this.instructions).digest('hex');
     this.prompt = { id: 'rawstep-planner', version: sha256.slice(0, 12), sha256 };
   }

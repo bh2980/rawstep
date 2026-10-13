@@ -315,6 +315,18 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(evidence(policy).filter(k => k.kind === 'orchestration-follow')).toEqual([expect.objectContaining({ choiceId: 'intent:activate' })]);
     expect(() => new OrchestratedSpeechPolicy(planner(plan).planner, 'follow-plan', { taskControl: 'executor' })).toThrow(/task control/);
   });
+  it('widens the executor\'s choices with its latitude: the same moves both ways, or every move, pressing as the task says', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Find the button and press it', done: 'Hear added', cue: 'Added to cart', activates: true, moves: ['heading.next'] }] }] };
+    const allowed = { intents: ['next', 'previous', 'activate', 'heading.next', 'heading.previous'], keys: [], inputKeys: [], replaceText: false };
+    const offered = async (executorLatitude?: 'none' | 'direction' | 'method') => {
+      const e = executor('intent:activate');
+      await new OrchestratedSpeechPolicy(planner(plan).planner, e.executor, executorLatitude ? { executorLatitude } : {}).decide(input({ allowedActions: allowed, observation: said('Shop') }));
+      return e.requests[0]!.choices.map(c => c.id);
+    };
+    expect(await offered()).toEqual(['intent:activate', 'intent:heading.next']);
+    expect(await offered('direction')).toEqual(['intent:activate', 'intent:heading.next', 'intent:heading.previous']);
+    expect(await offered('method')).toEqual(['intent:next', 'intent:previous', 'intent:activate', 'intent:heading.next', 'intent:heading.previous']);
+  });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));
     const policy = new OrchestratedSpeechPolicy(p.planner, executor('intent:next', 'intent:next', 'intent:next').executor);

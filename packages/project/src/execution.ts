@@ -62,7 +62,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
   try {
     if (plannerLlm) await prepareLlmModel(plannerLlm, plannerModel!.name, signal);
     if (chooser) await prepareLlmModel(chooser.llm, model.name, signal);
-    return await runWith(plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions) : fixedPlan ? new FixedPlanner(fixedPlan.draft, { file: fixedPlan.file, sha256: fixedPlan.sha256 }) : undefined);
+    return await runWith(plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions, isPlanFollower(model) ? 'none' : settings.runRules.executorLatitude) : fixedPlan ? new FixedPlanner(fixedPlan.draft, { file: fixedPlan.file, sha256: fixedPlan.sha256 }) : undefined);
   } finally {
     await Promise.all([plannerLlm && closeLlmModel(plannerLlm), chooser && closeLlmModel(chooser.llm)]);
   }
@@ -76,7 +76,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
     const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechPolicy = (choice: ChoiceModel | 'follow-plan'): DecisionPolicy => planner
       ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
-        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey })
+        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey, executorLatitude: rules.executorLatitude })
       : choice === 'follow-plan' ? (() => { throw new Error('Following the plan needs a plan.'); })() : new SpeechDecisionPolicy(choice, speechOptions);
     let policy: DecisionPolicy;
     let screenshotModel: ScreenshotModelAdapter | undefined;

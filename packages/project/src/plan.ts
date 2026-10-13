@@ -93,6 +93,7 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   const filePlanner = mode === 'screenreader' && combo.structure === 'planned' && isFilePlanner(combo.planner) ? combo.planner : undefined;
   const plannerPlanFile = filePlanner && taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
   const warnings: string[] = [];
+  if (followsPlan(combo, mode) && settings.runRules.executorLatitude !== 'none') warnings.push('The combo follows its plan without an executor model, so the executor latitude rule is ignored.');
   if (combo.structure === 'planned' && mode === 'keyboard') warnings.push('Keyboard runs do not use the planner yet; the keyboard executor decides alone.');
   let permissions = structuredClone(actionSet[mode]);
   const models = { ...(model ? { model } : {}), ...(prompt ? { prompt } : {}), ...(analysisModel ? { analysisModel } : {}),

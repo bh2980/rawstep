@@ -79,7 +79,16 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
    * the `headings.list` intent; it is an action like any other and counts as a step. The planner then plans from what that list said.
    */
   survey?: 'none' | 'headings';
+  /**
+   * With Rawstep's task control and an executor model: how much the executor decides inside a task. `none` (default): only the
+   * task's moves, and a pressing task without moves only presses. `direction`: the task's moves and the same moves the other way
+   * (next ↔ previous). `method`: every movement. Activation follows `activates` in all three. The planner shapes tasks to match.
+   */
+  executorLatitude?: ExecutorLatitude;
 };
+export type ExecutorLatitude = 'none' | 'direction' | 'method';
+/** The same move the other way: next ↔ previous, heading.next ↔ heading.previous. */
+const opposite = (move: string) => move.replace(/next|previous/, m => m === 'next' ? 'previous' : 'next');
 const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2, oscillationLimit: 4 };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
@@ -232,9 +241,11 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // The task's moves narrow the movement actions the same way: the plan's method is offered, the others are not. Activation is
       // governed by `activates` alone; keys and text entry are untouched. Moves that match nothing allowed leave the actions as they are.
       // A pressing task without moves presses the item the moving task ended on: moving off it first presses the wrong one.
-      const pressOnly = this.control === 'rawstep' && task.activates === true && !task.moves?.length;
-      const narrowed = this.control === 'rawstep' && (task.moves?.length || pressOnly)
-        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || !!task.moves?.includes(c.decision.action.intent))
+      const latitude = this.options.executorLatitude ?? 'none';
+      const pressOnly = this.control === 'rawstep' && latitude === 'none' && task.activates === true && !task.moves?.length;
+      const moves = latitude === 'method' || !task.moves?.length ? undefined : latitude === 'direction' ? [...new Set(task.moves.flatMap(m => [m, opposite(m)]))] : task.moves;
+      const narrowed = this.control === 'rawstep' && (moves || pressOnly)
+        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || !!moves?.includes(c.decision.action.intent))
         : actions;
       if (narrowed.length && narrowed.length !== actions.length) actions.splice(0, actions.length, ...narrowed);
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);

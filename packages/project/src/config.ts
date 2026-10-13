@@ -157,6 +157,12 @@ export const runRulesSchema = z.object({
    * rotor) as the first action, counted as a step; the action set must allow the `headings.list` intent.
    */
   survey: z.enum(['none', 'headings']).default('none'),
+  /**
+   * With a planner and an executor model: how much the executor decides inside a task. `none`: the plan fixes method, direction and
+   * when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`:
+   * the executor may use any movement. A combo that follows its plan has no executor, so it ignores this.
+   */
+  executorLatitude: z.enum(['none', 'direction', 'method']).default('none'),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**
@@ -175,6 +181,7 @@ export const runRulesOverrideSchema = z.object({
   taskControl: z.enum(['rawstep', 'executor']).optional(),
   confidenceFloor: z.number().min(0).max(1).optional(),
   survey: z.enum(['none', 'headings']).optional(),
+  executorLatitude: z.enum(['none', 'direction', 'method']).optional(),
 }).strict();
 export type RunRulesOverride = z.infer<typeof runRulesOverrideSchema>;
 /** A task id for a task-only copy (absent for a shared item), and the item it was copied from. */
