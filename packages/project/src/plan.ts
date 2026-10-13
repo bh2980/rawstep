@@ -111,7 +111,9 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   if (combo.structure === 'planned' && mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'The model combo plans, so its planner must be a model on an LLM connection or a plan file.');
   // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks.
   const planChoices = (plannerModel || plannerPlanFile) && settings.runRules.taskControl === 'executor' ? 4 : 0, stops = settings.runRules.modelGiveUp ? 3 : 1;
-  const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + stops + planChoices;
+  // The headings survey is Rawstep's first action in a planned run, never a choice the executor sees.
+  const offeredIntents = (plannerModel || plannerPlanFile) ? permissions.intents.filter(intent => intent !== 'headings.list') : permissions.intents;
+  const choiceCount = permissions.keys.length + offeredIntents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + stops + planChoices;
   if (choiceCount > model.maxChoices) return fail('too-many-choices', 'The action set gives more candidates than the executor supports.');
   if (mode === 'keyboard' && executorModel(combo, 'keyboard')?.focusGate && model.kind === 'llm') return fail('focus-gate-llm', 'The probability-based focus judgement works only with decision models. Turn it off in the keyboard executor.');
   if (backend === 'voiceover' && process.platform !== 'darwin') return fail('voiceover-macos', 'Run VoiceOver on macOS.');

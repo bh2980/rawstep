@@ -1,5 +1,5 @@
 import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
-import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName } from "./profiles.js";
+import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName, type AtDriverListRoutine } from "./profiles.js";
 import { isRecord, positiveMilliseconds } from "../internal/guards.js";
 import type { BackendRunContext } from "@rawstep/core/contracts";
 import { isLoopbackUrl } from "@rawstep/core/defaults";
@@ -187,23 +187,26 @@ export class AtDriverBackend {
     options.signal?.throwIfAborted();
     this.assertReady();
     if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
-    const presses = this.profile.mapAction(action); // Reject unsupported input before mutating the remote end.
+    const routine = action.kind === "intent" && Object.hasOwn(this.profile.routines, action.intent) ? this.profile.routines[action.intent] : undefined;
+    const presses = routine ? [] : this.profile.mapAction(action); // Reject unsupported input before mutating the remote end.
     this.busy = true;
     const window = this.beginWindow();
     const commands: CommandReceipt[] = [];
+    const press = async (keys: readonly string[]) => {
+      options.signal?.throwIfAborted();
+      const receipt = await this.client.request("interaction.userIntent", { name: "pressKeys", keys: [...keys] }, options);
+      options.signal?.throwIfAborted();
+      // PAC currently serializes its EmptyResult as null; Bocoup uses {}.
+      if (receipt.result !== null && (!isRecord(receipt.result) || Object.keys(receipt.result).length > 0)) {
+        throw new AtDriverError("Invalid interaction.userIntent acknowledgement", "protocol error", receipt.commandId, receipt.result);
+      }
+      commands.push(receipt);
+      window.acknowledgedAt = receipt.acknowledgedAt;
+    };
     try {
       options.signal?.throwIfAborted();
-      for (const keys of presses) {
-        options.signal?.throwIfAborted();
-        const receipt = await this.client.request("interaction.userIntent", { name: "pressKeys", keys }, options);
-        options.signal?.throwIfAborted();
-        // PAC currently serializes its EmptyResult as null; Bocoup uses {}.
-        if (receipt.result !== null && (!isRecord(receipt.result) || Object.keys(receipt.result).length > 0)) {
-          throw new AtDriverError("Invalid interaction.userIntent acknowledgement", "protocol error", receipt.commandId, receipt.result);
-        }
-        commands.push(receipt);
-        window.acknowledgedAt = receipt.acknowledgedAt;
-      }
+      if (routine) await this.readList(routine, press, options.signal);
+      for (const keys of presses) await press(keys);
       return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands };
     } catch (error) {
       // An unacknowledged/invalid command may still take effect later. Do not let
@@ -218,6 +221,47 @@ export class AtDriverBackend {
       }
       throw error;
     } finally { this.busy = false; }
+  }
+
+  /**
+   * Reads a screen reader list by listening between presses (see `AtDriverListRoutine`). The last thing spoken after each press
+   * decides the next one; everything spoken stays in the output buffer for the next observation. The list is always closed.
+   */
+  private async readList(routine: AtDriverListRoutine, press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<void> {
+    const step = async (keys: readonly string[]) => {
+      const from = this.outputs.length;
+      await press(keys);
+      await this.quiet(signal);
+      return this.outputs.slice(from).map(output => output.text.trim()).filter(Boolean).at(-1);
+    };
+    let heard = await step(routine.open);
+    try {
+      for (let i = 0; i < routine.maxLists && !routine.listName.test(heard ?? ""); i++) heard = await step(routine.nextList);
+      if (!routine.listName.test(heard ?? "")) return;
+      // At the end the rotor either stays on the last item or wraps to the first. Two headings can share a name, so a repeat
+      // ends the list only when the press after it repeats as well: the last item again, or the second item after the first.
+      const items: string[] = [];
+      while (items.length < routine.maxItems) {
+        const item = await step(routine.nextItem);
+        if (!item) break;
+        const ending = item === items.at(-1) ? item : item === items[0] ? items[1] ?? item : undefined;
+        if (ending === undefined) { items.push(item); continue; }
+        const next = await step(routine.nextItem);
+        if (!next || next === ending) break;
+        items.push(item, next);
+      }
+    } finally { await press(routine.close); await this.quiet(signal); }
+  }
+  /** Waits until nothing has been spoken for the quiet interval, or the maximum wait passes. */
+  private async quiet(signal?: AbortSignal): Promise<void> {
+    const startedAt = Date.now(), deadline = startedAt + this.maxWaitMs;
+    for (;;) {
+      signal?.throwIfAborted();
+      if (this.fatalError) throw this.fatalError;
+      const now = Date.now(), quietAt = Math.max(startedAt, this.lastOutputAt) + this.quietMs;
+      if (now >= quietAt || now >= deadline) return;
+      await new Promise(resolve => setTimeout(resolve, Math.min(quietAt, deadline) - now));
+    }
   }
 
   async observe({ signal }: AtDriverOperationOptions = {}): Promise<AtDriverObservation> {

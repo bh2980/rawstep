@@ -40,7 +40,7 @@ describe('action set presets', () => {
     expect(novice.screenreader.intents).toEqual(['next', 'previous', 'activate']);
     expect(novice.screenreader.typeText).toBe(false);
     const expert = presetPermissions('expert');
-    expect(expert.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next']);
+    expect(expert.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
     expect(expert.screenreader.typeText).toBe(true);
     expect(presetPermissions('widgets').keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End']);
     expect(matchingPreset(DEFAULT_PERMISSIONS)).toBe('novice');
