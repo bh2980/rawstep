@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { mkdir, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import type { Machine } from "./host.js";
 
 const run = promisify(execFile);
 const source = fileURLToPath(new URL("../axdump/axdump.swift", import.meta.url));
@@ -42,12 +43,12 @@ export interface AxDump {
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(app: string, options: { maxDepth?: number; maxNodes?: number } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number } = {}): Promise<AxDump> {
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
   try {
-    const { stdout } = await run(await ensureBinary(), args, { maxBuffer: 64 * 1024 * 1024 });
+    const stdout = await machine.exec(await machine.place(await ensureBinary()), args);
     return JSON.parse(stdout) as AxDump;
   } catch (error) {
     const failure = error as { stderr?: string; message: string };
