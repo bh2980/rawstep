@@ -13,7 +13,7 @@ export const planDraftSchema = z.object({
   phases: z.array(z.object({
     title: z.string().min(1).max(200),
     criteria: z.array(ref).max(10).optional(),
-    tasks: z.array(z.object({ keep: z.string().max(20).optional(), goal: z.string().min(1).max(300), done: z.string().min(1).max(300), cue: z.string().max(120), activates: z.boolean().optional(),
+    tasks: z.array(z.object({ keep: z.string().max(20).optional(), goal: z.string().min(1).max(300), done: z.string().min(1).max(300), cue: z.string().max(120), activates: z.boolean().optional(), moves: z.array(z.string().min(1).max(40)).max(6).optional(),
       serves: z.array(ref).max(10).optional(), relies: z.array(ref).max(10).optional() }).strict()).max(8),
   }).strict()).max(6),
 }).strict();
@@ -36,7 +36,7 @@ export class FixedPlanner implements Planner {
       ...structuredClone(this.draft), complete: false,
       rationale: drop ? `Fixed plan: task ${drop} was abandoned after "${request.trigger}"; the plan does not change, so the next task starts.` : 'Fixed plan: unchanged.',
       phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
-        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: task.cue, ...(task.activates !== undefined ? { activates: task.activates } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
+        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: task.cue, ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
     });
     if (request.trigger === 'checkpoint') return result(kept());
     const open = openTasks(doc);

@@ -10,6 +10,8 @@ import { currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOpti
 export type TaskAttempt = ModelHistoryEntry & { taskId: string; planVersion: number };
 export type PlanRequest = {
   goal: string;
+  /** What the screen reader cursor is on now, as last spoken (see `currentItem`). */
+  currentItem?: string;
   /** What the user knows about the site and page before starting (the task's context), when given. */
   context?: string;
   trigger: PlanTrigger;
@@ -183,6 +185,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // The headings survey is the user's move before the first plan, not an executor choice.
       const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision && !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'))
         .filter(c => !(this.control === 'rawstep' && task.activates === false && 'action' in c.decision && c.decision.action.kind === 'intent' && c.decision.action.intent === 'activate'));
+      // The task's moves narrow the movement actions the same way: the plan's method is offered, the others are not. Activation is
+      // governed by `activates` alone; keys and text entry are untouched. Moves that match nothing allowed leave the actions as they are.
+      const narrowed = this.control === 'rawstep' && task.moves?.length
+        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || task.moves!.includes(c.decision.action.intent))
+        : actions;
+      if (narrowed.length && narrowed.length !== actions.length) actions.splice(0, actions.length, ...narrowed);
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
       const tried = taskAttempts.filter(h => 'action' in h.decision).length;
       // Help needs a few actions on the task since its plan: asking before acting throws away a plan nobody tested.
@@ -266,7 +274,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
-    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
+    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');

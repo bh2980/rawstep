@@ -219,6 +219,17 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(p.requests[0]).toMatchObject({ trigger: 'start', speech: [listed], context: 'PhoneShop, an online store; a product page' });
     expect(e.requests[0]!.choices.map(c => c.id)).not.toContain('intent:headings.list');
   });
+  it('offers only the task\'s moves, keeps activation to activates, and tells the planner where the cursor is', async () => {
+    const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
+    const p = planner(byHeadings), e = scored(['intent:heading.next', 0.9], ['intent:activate', 0.9]);
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
+    const allowed = { intents: ['next', 'previous', 'activate', 'heading.next', 'heading.previous'], keys: [], inputKeys: [], replaceText: false };
+    await policy.decide(input({ allowedActions: allowed, observation: said('Help center, heading, level 1') }));
+    expect(p.requests[0]).toMatchObject({ currentItem: 'Help center, heading, level 1' });
+    expect(e.requests[0]!.choices.map(c => c.id)).toEqual(['intent:heading.next']);
+    await policy.decide(input({ allowedActions: allowed, observation: said('Returns, heading, level 2'), history: [acted(1, 'heading.next', 'Help center, heading, level 1')] }));
+    expect(e.requests[1]!.choices.map(c => c.id)).toEqual(['intent:next', 'intent:activate']);
+  });
   it('offers the executor actions only: no "done" claim and no help request', async () => {
     const p = planner(draft({ Find: ['Find the button'] })), e = scored(['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9], ['intent:next', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
