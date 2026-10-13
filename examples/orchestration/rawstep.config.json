@@ -215,7 +215,7 @@
       "structure": "planned",
       "planner": {
         "connectionId": "grok",
-        "modelId": "grok-4.6",
+        "modelId": "grok-4.7",
         "reasoningEffort": "low",
         "instructions": ""
       },
@@ -240,7 +240,7 @@
       "structure": "planned",
       "planner": {
         "connectionId": "grok",
-        "modelId": "grok-4.6",
+        "modelId": "grok-4.7",
         "reasoningEffort": "low",
         "instructions": "Write tasks the executor can follow without judgement: each moving task names the target item and how to move there (for example \"Move by headings to the Returns heading\", \"Move item by item until you hear Add to cart, button\"), with activates false. Activating is always a task of its own with activates true. When the target is far, prefer jumping by headings or form controls over moving item by item."
       },
