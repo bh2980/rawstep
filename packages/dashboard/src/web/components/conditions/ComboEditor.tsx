@@ -43,8 +43,11 @@ export function ComboEditor({ combo, onChange, connections, compact, only, tasks
   const modes = only ? [only] : MODES;
   const executorBody = (mode: Mode) => <div className="grid gap-4">
     {mode === 'keyboard' && <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.keyboardAlone')}</p>}
-    {mode === 'screenreader' && planned && <Toggle label={t('conditions.combo.executor.followPlan')} info={t('conditions.combo.executor.followPlanHint')} checked={followsPlan(combo, mode)}
-      onChange={on => setExecutor(mode)(on ? { followPlan: true } : undefined)} />}
+    {mode === 'screenreader' && planned && <div className="grid gap-1">
+      <InlineRadio legend={t('conditions.combo.executor.runner')} value={followsPlan(combo, mode) ? 'plan' : 'model'} onChange={runner => setExecutor(mode)(runner === 'plan' ? { followPlan: true } : undefined)}
+        rows={(['plan', 'model'] as const).map(id => ({ id, label: t(`conditions.combo.executor.runners.${id}`) }))} />
+      <p className="text-xs leading-5 text-muted-foreground">{t(`conditions.combo.executor.runnerHints.${followsPlan(combo, mode) ? 'plan' : 'model'}`)}</p>
+    </div>}
     {!followsPlan(combo, mode) && <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor(mode)} connections={connections} planned={planned} compact={compact} />}
   </div>;
   return <div className={cn('grid min-w-0 [&>section:not(:first-child)]:border-t', compact ? 'gap-4 [&>section:not(:first-child)]:pt-4' : 'gap-8 [&>section:not(:first-child)]:pt-6')}>
@@ -56,7 +59,9 @@ export function ComboEditor({ combo, onChange, connections, compact, only, tasks
         <Button type="button" size="sm" variant="outline" disabled={!llms.length} onClick={plan}>{t('conditions.combo.addPlanner')}</Button>
       </section>)}
     {modes.length === 1
-      ? <Group title={t(`conditions.combo.executor.${modes[0] === 'keyboard' ? 'keyboardTitle' : 'title'}`)} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>{executorBody(modes[0]!)}</Group>
+      ? modes[0] === 'screenreader' && planned
+        ? <Group title={t('conditions.combo.executor.runnerTitle')} compact={compact}>{executorBody('screenreader')}</Group>
+        : <Group title={t(`conditions.combo.executor.${modes[0] === 'keyboard' ? 'keyboardTitle' : 'title'}`)} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>{executorBody(modes[0]!)}</Group>
       : <Group title={t('conditions.combo.executor.title')} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>
         <Tabs defaultValue="screenreader" className="gap-4">
           <TabsList variant="line" aria-label={t('conditions.combo.executor.modesLabel')}>

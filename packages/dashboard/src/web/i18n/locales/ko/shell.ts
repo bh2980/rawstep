@@ -54,6 +54,7 @@ export const shell = {
     liveCount: '{{count}}개',
     setup: {
       title: '시작하기',
+      hide: '닫기',
       done: '완료',
       now: '지금 할 일',
       steps: { model: '실행 프로필 준비', task: '첫 작업 만들기', run: '첫 실행 보기' },
