@@ -18,12 +18,11 @@ type Group = { id: 'guard' | 'model' | 'planning'; keys: Key[] };
 const GROUPS: Group[] = [
   { id: 'guard', keys: ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions', 'confirmationGrace'] },
   { id: 'model', keys: ['modelGiveUp'] },
-  { id: 'planning', keys: ['survey', 'taskControl', 'executorLatitude', 'maxReplans', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'confidenceFloor'] },
+  { id: 'planning', keys: ['survey', 'taskControl', 'maxReplans', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'confidenceFloor'] },
 ];
 const GUARD = ['auto', 'on', 'off'] as const;
 const TASK_CONTROL = ['rawstep', 'executor'] as const;
 const SURVEY = ['none', 'headings'] as const;
-const LATITUDE = ['none', 'direction', 'method'] as const;
 
 /** Whether one field's value is allowed, by the schema's own bounds. */
 const fieldValid = (key: Key, value: unknown) => runRulesSchema.partial().safeParse({ [key]: value }).success;
@@ -42,7 +41,6 @@ export function RunRulesEditor({ value, onChange, inherited, compact, inheritedL
   const display = (key: Key, v: RunRules[Key]) => key === 'repetitionGuard' ? t(`conditions.runRules.guard.${v as RunRules['repetitionGuard']}`)
     : key === 'taskControl' ? t(`conditions.runRules.taskControl.${v as RunRules['taskControl']}`)
     : key === 'survey' ? t(`conditions.runRules.survey.${v as RunRules['survey']}`)
-    : key === 'executorLatitude' ? t(`conditions.runRules.executorLatitude.${v as RunRules['executorLatitude']}`)
     : key === 'modelGiveUp' ? t(v ? 'conditions.runRules.on' : 'conditions.runRules.off') : String(v);
   const shown = (key: Key) => display(key, inherited[key]);
   return <div className={cn('grid min-w-0', compact ? 'gap-4' : 'gap-6')}>
@@ -80,11 +78,6 @@ function Row({ field, value, inherited, set, compact, from, inheritedValue }: Ro
     ? <Select value={current as string} onValueChange={next => set('survey', next as RunRules['survey'])}>
       <SelectTrigger id={id} className="w-full sm:w-64"><SelectValue /></SelectTrigger>
       <SelectContent>{SURVEY.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.survey.${c}`)}</SelectItem>)}</SelectContent>
-    </Select>
-    : field === 'executorLatitude'
-    ? <Select value={current as string} onValueChange={next => set('executorLatitude', next as RunRules['executorLatitude'])}>
-      <SelectTrigger id={id} className="w-full sm:w-64"><SelectValue /></SelectTrigger>
-      <SelectContent>{LATITUDE.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.executorLatitude.${c}`)}</SelectItem>)}</SelectContent>
     </Select>
     : field === 'modelGiveUp'
       ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('modelGiveUp', on)} />

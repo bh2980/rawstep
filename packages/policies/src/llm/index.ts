@@ -159,7 +159,7 @@ export class LlmChoiceModel implements ChoiceModel {
 
 /** The planner's standing rules; an agent's own instructions are added after them, never in their place. */
 /**
- * How tasks are shaped for the executor, by how much it may decide itself (the `executorLatitude` run rule). `none`: the plan fixes
+ * How tasks are shaped for the executor, by how much it may decide itself (the executor's `latitude`). `none`: the plan fixes
  * the method, the direction and the moment to press, so the executor has nothing left to choose. `direction`: a task moves to its
  * target and presses it, and the executor may also go back with the same method. `method`: the executor may use any movement.
  */
@@ -232,7 +232,7 @@ const cueAnswerSchema = z.object({ matches: z.boolean(), reason: z.string().max(
 export class LlmPlanner implements Planner {
   readonly instructions: string;
   private readonly prompt: { id: string; version: string; sha256: string };
-  /** `latitude` shapes the tasks for an executor that decides that much itself (see the `executorLatitude` run rule). */
+  /** `latitude` shapes the tasks for an executor that decides that much itself (see the executor's `latitude` in the project config). */
   constructor(readonly llm: LlmModel, extra = '', latitude: ExecutorLatitude = 'none') {
     const rules = SPEECH_PLANNER_INSTRUCTIONS.replace(TASK_SHAPE.none, TASK_SHAPE[latitude]);
     this.instructions = extra.trim() ? `${rules}\nAdditional instructions:\n${extra.trim()}` : rules;

@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { planFileSchema } from '@rawstep/policies/policy';
 import {
-  atEndpointOf, comboAnalysis, comboExecutor, comboPlanner, followsPlan, isFilePlanner, planFileOf, resolveRunSettings, type LlmPlannerChoice,
+  atEndpointOf, comboAnalysis, comboExecutor, comboPlanner, executorModel, followsPlan, isFilePlanner, planFileOf, resolveRunSettings, type LlmPlannerChoice,
   type ActionSet, type AtBackend, type AtEnvironment, type Combo, type ManagedTask, type Mode, type Model, type PageEnvironment, type Permissions,
   type Preset, type ProjectConfig, type Prompt, type RunSettings,
 } from './config.js';
@@ -38,16 +38,16 @@ export function supportsMode(model: Pick<Model, 'inputs' | 'maxImages'>, mode: M
   return mode === 'keyboard' ? model.inputs.includes('image') && model.maxImages >= 2 : model.inputs.includes('text');
 }
 /** The modes a combo can run: those it has an executor for that takes what the mode sends. */
-export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>): Mode[] {
+export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>): Mode[] {
   return (['screenreader', 'keyboard'] as const).filter(mode => { const model = comboExecutor(config, combo, mode); return !!model && supportsMode(model, mode); });
 }
 /**
  * The executor's instructions as a run records them: identified by combo and mode, versioned by their content, so two runs with
  * different wording never share an ID and version.
  */
-export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>, mode: Mode): Prompt | undefined {
+export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): Prompt | undefined {
   if (followsPlan(combo, mode)) return { id: `${combo.id}.${mode}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
-  const executor = combo.executors[mode];
+  const executor = executorModel(combo, mode);
   if (!executor) return undefined;
   return { id: `${combo.id}.${mode}`, name: combo.name, version: createHash('sha256').update(executor.instructions).digest('hex').slice(0, 12), instructions: executor.instructions };
 }
@@ -93,7 +93,6 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   const filePlanner = mode === 'screenreader' && combo.structure === 'planned' && isFilePlanner(combo.planner) ? combo.planner : undefined;
   const plannerPlanFile = filePlanner && taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
   const warnings: string[] = [];
-  if (followsPlan(combo, mode) && settings.runRules.executorLatitude !== 'none') warnings.push('The combo follows its plan without an executor model, so the executor latitude rule is ignored.');
   if (combo.structure === 'planned' && mode === 'keyboard') warnings.push('Keyboard runs do not use the planner yet; the keyboard executor decides alone.');
   let permissions = structuredClone(actionSet[mode]);
   const models = { ...(model ? { model } : {}), ...(prompt ? { prompt } : {}), ...(analysisModel ? { analysisModel } : {}),
@@ -111,7 +110,7 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   const planChoices = (plannerModel || plannerPlanFile) && settings.runRules.taskControl === 'executor' ? 4 : 0, stops = settings.runRules.modelGiveUp ? 3 : 1;
   const choiceCount = permissions.keys.length + permissions.intents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + stops + planChoices;
   if (choiceCount > model.maxChoices) return fail('too-many-choices', 'The action set gives more candidates than the executor supports.');
-  if (mode === 'keyboard' && combo.executors.keyboard?.focusGate && model.kind === 'llm') return fail('focus-gate-llm', 'The probability-based focus judgement works only with decision models. Turn it off in the keyboard executor.');
+  if (mode === 'keyboard' && executorModel(combo, 'keyboard')?.focusGate && model.kind === 'llm') return fail('focus-gate-llm', 'The probability-based focus judgement works only with decision models. Turn it off in the keyboard executor.');
   if (backend === 'voiceover' && process.platform !== 'darwin') return fail('voiceover-macos', 'Run VoiceOver on macOS.');
   if (backend === 'nvda' && process.platform !== 'win32') return fail('nvda-windows', 'Run NVDA on Windows.');
   if (backend !== 'simulation') {
@@ -147,9 +146,10 @@ export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'proble
 }
 /** The run spec of a check that passed. */
 export function runSpecOf(task: Task, mode: Mode, c: RunConditions, check: Omit<RunCheck, 'problem'>, diagnoseStop?: boolean): RunSpec {
-  // A combo that follows its plan has no executor settings of its own for the mode: the defaults stand in.
-  const executor = c.combo.executors[mode];
-  return { task, mode, model: check.model!, prompt: check.prompt!, executor: { historyLimit: executor?.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: executor?.focusGate ?? false },
+  // A combo that follows its plan has no executor settings of its own for the mode: the defaults stand in, and nothing is left to decide.
+  const executor = executorModel(c.combo, mode);
+  return { task, mode, model: check.model!, prompt: check.prompt!,
+    executor: { historyLimit: executor?.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: executor?.focusGate ?? false, latitude: executor?.latitude ?? 'none' },
     settings: check.settings, environment: resolveEnvironmentProfile(c.pageEnvironment.profile), backend: c.atEnvironment.backend, permissions: check.permissions,
     conditions: conditionsRecord(c, check), ...(diagnoseStop ? { diagnoseStop } : {}),
     ...(check.plannerModel ? { plannerModel: check.plannerModel, plannerInstructions: check.plannerInstructions ?? '' } : {}) };

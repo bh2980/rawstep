@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import {
-  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, followsPlan, isFilePlanner,
+  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, executorModel, followsPlan, isFilePlanner,
   type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type ProjectConfig, type RunRules,
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
@@ -31,14 +31,14 @@ export function structureLabel(structure: Combo['structure']): string {
  * A model combo in one line, as lists show it: "계획 + 실행: gemini-flash → jev" or "단독: jev". With a mode, the models a run in that
  * mode uses (keyboard runs never plan yet).
  */
-export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors' | 'followPlan'>, connections: readonly Connection[], mode?: Mode): string {
+export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors'>, connections: readonly Connection[], mode?: Mode): string {
   const planner = combo.structure !== 'planned' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : shortName(combo.planner, connections) ?? t('conditions.summary.noModel');
   if (mode) {
-    const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(combo.executors[mode], connections);
+    const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, mode), connections);
     if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
     return planner && mode === 'screenreader' ? t('conditions.summary.planned', { planner, executor }) : t('conditions.summary.solo', { executor });
   }
-  const sr = followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : shortName(combo.executors.screenreader, connections), kb = shortName(combo.executors.keyboard, connections);
+  const sr = followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, 'screenreader'), connections), kb = shortName(executorModel(combo, 'keyboard'), connections);
   if (planner) {
     const line = t('conditions.summary.planned', { planner, executor: sr ?? t('conditions.summary.noModel') });
     return kb ? `${line} · ${t('conditions.summary.keyboardAlone', { executor: kb })}` : line;
@@ -53,10 +53,10 @@ export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'execu
  * The modes a combo can run, as the server decides them (`comboModes` in @rawstep/project/plan, which the web bundle cannot import):
  * an executor on an existing connection that takes what the mode sends (text, or two images for keyboard mode).
  */
-export function comboModesOf(combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure' | 'followPlan'>>, connections: readonly Connection[]): Mode[] {
+export function comboModesOf(combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, connections: readonly Connection[]): Mode[] {
   return MODES.filter(mode => {
     if (followsPlan(combo, mode)) return true;
-    const executor = combo.executors[mode];
+    const executor = executorModel(combo, mode);
     if (!executor || !executor.modelId.trim() || !connections.some(c => c.id === executor.connectionId)) return false;
     return mode === 'keyboard' ? executor.inputs.includes('image') && executor.maxImages >= 2 : executor.inputs.includes('text');
   });
@@ -64,7 +64,7 @@ export function comboModesOf(combo: Pick<Combo, 'executors'> & Partial<Pick<Comb
 
 /** A fresh executor on a connection: no model ID yet, what the provider passes, and the built-in instructions of the mode. */
 export function blankExecutor(connection: Connection, mode: Mode): Executor {
-  return { connectionId: connection.id, modelId: '', inputs: defaultInputs(connection), maxChoices: 255, maxImages: 2, instructions: DEFAULT_EXECUTOR_INSTRUCTIONS[mode], historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: false };
+  return { connectionId: connection.id, modelId: '', inputs: defaultInputs(connection), maxChoices: 255, maxImages: 2, instructions: DEFAULT_EXECUTOR_INSTRUCTIONS[mode], historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: false, latitude: 'none' };
 }
 
 /** Actions a backend lacks, per mode and backend: keyboard mode has one backend; screen reader mode has three. */
@@ -141,8 +141,7 @@ export function comboFromPreset(preset: ComboPreset, id: string, name: string, c
 
 /** Why a combo cannot be saved yet, if it cannot: no name, a planned combo without a planner, a model without its ID, empty instructions. */
 export function comboBlocker(combo: Combo): 'name' | 'planner' | 'modelId' | 'instructions' | undefined {
-  // A mode that follows the plan hides its executor, so an unfinished one there does not block saving.
-  const executors = MODES.flatMap(mode => combo.executors[mode] && !followsPlan(combo, mode) ? [combo.executors[mode]] : []);
+  const executors = MODES.flatMap(mode => executorModel(combo, mode) ? [executorModel(combo, mode)!] : []);
   if (!combo.name.trim()) return 'name';
   if (combo.structure === 'planned' && !combo.planner) return 'planner';
   if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim()) || (combo.analysis && !combo.analysis.modelId.trim())) return 'modelId';

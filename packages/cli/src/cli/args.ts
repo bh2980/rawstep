@@ -143,7 +143,7 @@ Run defaults:
   --preset, --combo, --actions, --environment (page), --at (assistive technology)
                  each the task's own, then its preset's, then the first shared one
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (project defaults, then the preset's,
-             then the task's, then these), e.g. --rule maxReplans=2 --rule executorLatitude=direction;
+             then the task's, then these), e.g. --rule maxReplans=2 --rule survey=headings;
              see the runRules section of docs/config.md for the rules
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal

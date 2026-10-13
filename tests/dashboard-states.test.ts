@@ -10,7 +10,7 @@ import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary,
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
-import { defaultActionSet, defaultCombo, defaultConfig, runRulesSchema } from '@rawstep/project/config';
+import { defaultActionSet, defaultCombo, defaultConfig, runRulesSchema, type Executor } from '@rawstep/project/config';
 import { comboWith, connection, plannedWith } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
@@ -176,13 +176,11 @@ describe('settings helpers', () => {
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
     expect(comboBlocker({ ...bare, structure: 'planned' })).toBe('planner');
-    // A planned combo that follows its plan hides the screen reader executor: an empty one there does not block.
-    const unfinished = { ...bare, executors: { screenreader: { ...(bare.executors.screenreader ?? bare.executors.keyboard)!, modelId: '' } } };
-    expect(comboBlocker({ ...unfinished, structure: 'planned', followPlan: true, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
-    expect(comboBlocker({ ...unfinished, structure: 'planned', planner: { planFile: 'plans/p.json' } })).toBe('modelId');
+    // A planned combo whose screen reader executor follows the plan has no model there to finish.
+    expect(comboBlocker({ ...bare, structure: 'planned', executors: { screenreader: { followPlan: true } }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
     expect(comboBlocker(plannedWith(solo, 'writer', ''))).toBe('modelId');
     expect(comboBlocker(planned)).toBeUndefined();
-    const executor = solo.executors.screenreader;
+    const executor = solo.executors.screenreader as Executor;
     expect(choiceName(executor, connections)).toBe('Jev server · jev-latest');
     // A model on a connection that no longer exists reads as none.
     expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();

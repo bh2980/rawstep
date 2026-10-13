@@ -34,7 +34,7 @@ rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>
 | `--environment` | The page environment, resolved the same way. |
 | `--at` | The assistive technology, resolved the same way. Only screen reader runs use it. |
 | `--mode` | `keyboard` |
-| `--rule` | None. `--rule <name>=<value>` overrides one [run rule](./config.md#runrules) for these runs, such as `--rule maxReplans=2 --rule executorLatitude=direction`. Repeat it for more rules; if a rule is given twice, the last wins. Numbers, `true` or `false`, and the rule's choices are checked as in the config. |
+| `--rule` | None. `--rule <name>=<value>` overrides one [run rule](./config.md#runrules) for these runs, such as `--rule maxReplans=2 --rule survey=headings`. Repeat it for more rules; if a rule is given twice, the last wins. Numbers, `true` or `false`, and the rule's choices are checked as in the config. |
 | `--diagnose-stop` | Off. Keyboard mode only: after a run that stopped early, a separate bounded call asks the executor why. Its scores are uncertain hypotheses and never change the outcome. |
 | `--repeat` | `1` (at most 100). Each repeat is compared with the fastest repeat that reached the goal. |
 | `--out` | `<project>/.rawstep/runs/<timestamp>-<id>/`, with one `run-<n>/` directory per repeat. |

@@ -33,7 +33,7 @@ rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>
 - `--environment`: 페이지 환경. 같은 순서로 정합니다
 - `--at`: 보조기술 환경. 같은 순서로 정하며 스크린리더 실행만 씁니다
 - `--mode`: `keyboard`
-- `--rule`: 없음. `--rule <이름>=<값>`으로 [실행 규칙](./config.ko.md#runrules-실행-규칙) 하나를 그 실행에서만 덮어씁니다. 예: `--rule maxReplans=2 --rule executorLatitude=direction`. 여러 규칙은 옵션을 반복해 지정하고, 같은 규칙을 두 번 쓰면 마지막 값이 적용됩니다. 숫자, `true`·`false`, 규칙이 허용하는 선택지는 설정 파일과 같은 기준으로 검사합니다
+- `--rule`: 없음. `--rule <이름>=<값>`으로 [실행 규칙](./config.ko.md#runrules-실행-규칙) 하나를 그 실행에서만 덮어씁니다. 예: `--rule maxReplans=2 --rule survey=headings`. 여러 규칙은 옵션을 반복해 지정하고, 같은 규칙을 두 번 쓰면 마지막 값이 적용됩니다. 숫자, `true`·`false`, 규칙이 허용하는 선택지는 설정 파일과 같은 기준으로 검사합니다
 - `--diagnose-stop`: 꺼짐. 키보드 모드 전용이며, 일찍 멈춘 실행 뒤에 실행 모델에게 이유를 따로 한 번 묻습니다. 점수는 불확실한 가설이며 결과를 바꾸지 않습니다
 - `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
 - `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다

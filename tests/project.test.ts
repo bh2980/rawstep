@@ -10,7 +10,7 @@ import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
   CONFIG_FILE, comboAnalysis, comboExecutor, comboPlanner, configSchema, credentialId, credentialRequirements, defaultActionSet, defaultAtEnvironment, defaultCombo, defaultConfig, defaultInputs,
   defaultPageEnvironment, findByIdOrName, modelKeyEnv, parseConfig, projectAnalysisModel, resolveBaseURL, resolveRepetitionGuard, resolveRunRules, sharedItems, suggestionModel, taskConditions, taskSchema,
-  type Combo, type ProjectConfig,
+  type Combo, type Executor, type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
 import { ProjectStore, initProject } from '@rawstep/project/store';
@@ -246,10 +246,10 @@ describe('connection schema', () => {
     expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'llm'); }))).not.toThrow();
     expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'a'); }))).toThrow(/plan with an LLM/);
     expect(() => parseConfig(withCombo(a => { a.structure = 'planned'; }))).toThrow(/needs a planner/);
-    expect(() => parseConfig(withCombo(a => { a.followPlan = true; }))).toThrow(/no plan to follow/);
+    expect(() => parseConfig(withCombo(a => { a.executors.screenreader = { followPlan: true }; }))).toThrow(/no plan to follow/);
     expect(() => parseConfig(withCombo(a => { a.executors.keyboard!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
     expect(() => parseConfig(withCombo(a => { a.executors = {}; }))).not.toThrow();
-    expect(() => parseConfig(withCombo(a => { a.executors.screenreader!.instructions = ' '; }))).toThrow();
+    expect(() => parseConfig(withCombo(a => { (a.executors.screenreader as Executor).instructions = ' '; }))).toThrow();
   });
   it('joins a combo with its connections into the models a run calls', () => {
     const config = setup(); config.connections.push(connection('llm', { kind: 'llm', name: 'My LLM' }), connection('llm2', { kind: 'llm', name: 'Other LLM' }));
@@ -455,7 +455,7 @@ describe('conditions of a task', () => {
 });
 
 describe('run checks', () => {
-  const choiceOf = (config: ProjectConfig, mode: 'keyboard' | 'screenreader' = 'keyboard') => config.combos[0]!.executors[mode]!;
+  const choiceOf = (config: ProjectConfig, mode: 'keyboard' | 'screenreader' = 'keyboard') => config.combos[0]!.executors[mode]! as Executor;
   const check = (config: ProjectConfig, change: (c: ProjectConfig) => void = () => {}, extra: Partial<Parameters<typeof checkRun>[0]> = {}) => {
     change(config);
     return checkRun({ config, task: task as never, taskEntry: config.tasks[0], combo: config.combos[0]!, actionSet: config.actionSets[0]!, pageEnvironment: config.pageEnvironments[0]!,
@@ -556,13 +556,21 @@ describe('run checks', () => {
       expect(check(setup(), c => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: {} }).problem?.code).toBe('plan-file-task');
     });
     it('run a combo that follows its plan without a screen reader executor model or its key', () => {
-      const follow = (c: ProjectConfig) => { Object.assign(c.combos[0]!, { structure: 'planned', followPlan: true, planner: { planFile: 'plans/{task}/L2.json' } }); delete c.combos[0]!.executors.screenreader; };
+      const follow = (c: ProjectConfig) => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); c.combos[0]!.executors.screenreader = { followPlan: true }; };
       const result = check(setup(), follow, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
       expect(result.problem).toBeUndefined();
       expect(result.model).toMatchObject({ id: 'rawstep-plan-follower', modelId: 'follow-plan' }); expect(result.prompt).toMatchObject({ instructions: '' });
       expect(check(setup(), c => { follow(c); c.runRules.taskControl = 'executor'; }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-task-control');
       // Keyboard runs still need their own executor.
       expect(check(setup(), follow, { mode: 'keyboard', taskEntry: { file: 'tasks/cart.json' } }).model).toMatchObject({ id: 'a' });
+    });
+    it('hand the screen reader executor\'s latitude to the run, and none when the plan is followed', () => {
+      const config = setup(); Object.assign(config.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); choiceOf(config, 'screenreader').latitude = 'direction';
+      const conditions = { combo: config.combos[0]!, actionSet: config.actionSets[0]!, pageEnvironment: config.pageEnvironments[0]!, atEnvironment: config.atEnvironments[0]! };
+      const spec = (c: ProjectConfig) => runSpecOf(task as never, 'screenreader', conditions, assertRunnable(check(c, () => {}, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } })));
+      expect(spec(config).executor).toMatchObject({ latitude: 'direction' });
+      config.combos[0]!.executors.screenreader = { followPlan: true };
+      expect(spec(config).executor).toMatchObject({ latitude: 'none' });
     });
   });
   describe('assistive technology', () => {

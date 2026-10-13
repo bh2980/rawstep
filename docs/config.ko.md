@@ -113,13 +113,12 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 |---|---|
 | `id`, `name` | 식별자와 표시 이름. `--combo`는 둘 중 아무거나 받습니다 |
 | `structure` | `solo`(기본): 그 모드의 실행 모델이 모든 행동을 정합니다. `planned`: 계획 LLM이 계획 문서를 쓰고 실행 모델이 작업을 하나씩 수행합니다 |
-| `followPlan` | `planned` 조합에서만. `true`면 스크린리더 실행에 실행 모델을 쓰지 않고 Rawstep이 계획을 그대로 수행합니다(누르기 작업은 누르고, 이동 작업은 첫 이동 방법). 판단은 계획 모델과 cue가 맡아 실행 비용이 계획 호출뿐이고 반복 간 편차가 작습니다. 대시보드는 새 계획 조합에서 켜 둡니다 |
 | `planner` | `structure`가 `planned`이면 필수이며 아직 스크린리더 모드에서만 씁니다. LLM `{ connectionId, modelId, reasoningEffort?, instructions }`(`llm` 연결이어야 함) 또는 계획 파일 `{ planFile }`([계획 파일](#계획-파일) 참고) 중 하나입니다 |
-| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 모델 조합으로 실행할 수 없습니다 |
+| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 모델 조합으로 실행할 수 없습니다 계획 조합의 스크린리더 실행 모델 자리에는 `{ "followPlan": true }`를 둘 수도 있습니다. 실행 모델 없이 Rawstep이 계획을 그대로 수행해(누르기 작업은 누르고, 이동 작업은 첫 이동 방법) 판단은 계획 모델과 cue가 맡고, 실행 비용이 계획 호출뿐이며 반복 간 편차가 작습니다. 대시보드는 새 계획 조합에 이것을 고릅니다 |
 | `analysis` | 선택. 이 조합의 실행을 해설하는 `llm` 연결의 `{ connectionId, modelId, reasoningEffort? }`. 없으면 `project.analysis.model`을 씁니다 |
 | `owner`, `copiedFrom` | 작업 전용 사본에만 붙습니다 |
 
-실행 모델은 `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate }`입니다.
+실행 모델은 `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate, latitude }`입니다.
 
 | 필드 | 설명 |
 |---|---|
@@ -130,6 +129,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `instructions` | 실행 모델에 주는 지침(필수). [프롬프트 안내](./prompts.ko.md) |
 | `historyLimit` | 모델이 보는 지난 단계 수(기본 12) |
 | `focusGate` | 키보드 모드의 `decision` 모델에서만(기본 `false`). 행동마다 별도의 포커스 판단으로 후보를 좁힙니다. `llm` 실행 모델에 켜면 실행 전에 거부합니다 |
+| `latitude` | 계획 조합의 스크린리더 실행에서(기본 `none`) 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다. 계획 모델도 이에 맞춰 작업을 짭니다 |
 
 키보드 실행 모델은 이미지 입력과 2 이상의 `maxImages`가, 스크린리더 실행 모델은 텍스트 입력이 필요합니다. 계획 모델과 해설 모델은 `llm` 연결이어야 하고, 실행 모델의 연결은 실제로 있어야 합니다.
 
@@ -220,7 +220,6 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `failureLimit` | 2 | 계획 모델이 있을 때 한 작업에서 행동이 연달아 이만큼 실패하면 새 계획을 요청합니다 |
 | `noChangeLimit` | 3 | 계획 모델이 있을 때 한 작업에서 아무것도 바뀌지 않은 행동이 연달아 이만큼이면 새 계획을 요청합니다 |
 | `taskControl` | `rawstep` | 계획 모델이 있을 때 작업 종료와 재계획을 누가 정하는지. `rawstep`: 실행 모델은 행동만 고르고, 작업은 cue가 들리면 끝나며, Rawstep의 신호(위 한도, 반복, 실행 모델의 낮은 확신 — `confidenceFloor` 참고)가 새 계획을 요청합니다. `executor`: 실행 모델이 작업 완료를 선언하거나 도움을 요청할 수도 있습니다. 비교용으로 남겨 둔 값입니다 |
-| `executorLatitude` | `none` | 계획 모델과 실행 모델이 있을 때 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다 |
 | `survey` | `none` | 계획 모델이 있을 때 `headings`면 첫 계획 전에 제목 목록(VoiceOver 로터)을 먼저 듣습니다. 행동 조합이 `headings.list`를 허용해야 합니다 |
 | `confirmationGrace` | 5 | 스크린리더 실행에서 목표에 도달했지만 사용자가 들은 말에 성공 문구가 없으면(화면에만 뜬 경우) 이만큼 더 진행한 뒤 끝납니다. 그 행동이 "됐는지 모름" 마찰이고, trace의 `goal.reached`에 도달 단계와 들었는지가 남습니다. 0이면 바로 끝납니다 |
 | `confidenceFloor` | 0.25 | `taskControl: "rawstep"`일 때 실행 모델이 얼마나 불확실해도 되는지. 정규화한 값으로, 가장 높은 확률이 무작위 추측(1/n)에서 확신(1) 쪽으로 얼마나 떨어져 있는지입니다. 낮은 선택이 연속 두 번 나오면 새 계획을 요청합니다 |
@@ -228,7 +227,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 덮어쓰기는 기본값을 채우지 않습니다. 프리셋이나 작업이 빼 둔 필드는 아래 계층의 값을 그대로 씁니다.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "executorLatitude": "none", "confirmationGrace": 5 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "confirmationGrace": 5 }
 ```
 
 ## 전체 예시
@@ -277,7 +276,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
   "presets": [
     { "id": "narrow-planned", "name": "Narrow page, planned", "comboId": "plan-and-jev", "pageEnvironmentId": "narrow", "runRules": { "maxReplans": 6 } }
   ],
-  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "executorLatitude": "none", "confirmationGrace": 5 },
+  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "confirmationGrace": 5 },
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "Focus on where the page made the run detour." },
     "suggestions": {}

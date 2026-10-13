@@ -57,7 +57,7 @@ describe("CLI argument contract", () => {
     ["run"], ["run", "a", "b"], ["run", "a", "--mode", "mock"], ["run", "a", "--repeat", "0"], ["run", "a", "--repeat", "101"], ["run", "a", "--repeat", "two"],
     ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
     ["run", "a", "--rule", "maxReplans=101"], ["run", "a", "--rule", "maxReplans=-1"], ["run", "a", "--rule", "stepActionLimit=0"], ["run", "a", "--rule", "stepActionLimit=many"],
-    ["run", "a", "--rule", "executorLatitude=wide"], ["run", "a", "--rule", "modelGiveUp=maybe"], ["run", "a", "--rule", "maxReplans"], ["run", "a", "--rule", "maxReplans="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxReplans=1"],
+    ["run", "a", "--rule", "survey=wide"], ["run", "a", "--rule", "modelGiveUp=maybe"], ["run", "a", "--rule", "maxReplans"], ["run", "a", "--rule", "maxReplans="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxReplans=1"],
     ["run", "a", "--diagnose-stop=yes"], ["run", "a", "--preset"], ["run", "a", "--combo", "x", "--combo", "y"], ["analyze", "run", "--combo", "x"], ["doctor", "--preset", "x"],
     // Options of the removed commands and of the environment-variable configuration are gone.
     ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
@@ -143,8 +143,8 @@ describe("run", () => {
   });
   it("maps every condition flag and the run-rule flags to runTask options, and passes none that were not given", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
-    expect(await runCli(["run", "t", "--preset", "strict", "--combo", "c", "--actions", "wide", "--environment", "narrow", "--at", "nvda", "--rule", "maxReplans=0", "--rule", "stepActionLimit=30", "--rule", "executorLatitude=direction", "--diagnose-stop"], { ...io, runTask })).toBe(0);
-    expect(runTask.mock.calls[0]![1]).toMatchObject({ preset: "strict", combo: "c", actionSet: "wide", pageEnvironment: "narrow", atEnvironment: "nvda", diagnoseStop: true, runRules: { maxReplans: 0, stepActionLimit: 30, executorLatitude: "direction" } });
+    expect(await runCli(["run", "t", "--preset", "strict", "--combo", "c", "--actions", "wide", "--environment", "narrow", "--at", "nvda", "--rule", "maxReplans=0", "--rule", "stepActionLimit=30", "--rule", "survey=headings", "--diagnose-stop"], { ...io, runTask })).toBe(0);
+    expect(runTask.mock.calls[0]![1]).toMatchObject({ preset: "strict", combo: "c", actionSet: "wide", pageEnvironment: "narrow", atEnvironment: "nvda", diagnoseStop: true, runRules: { maxReplans: 0, stepActionLimit: 30, survey: "headings" } });
     await runCli(["run", "t", "--rule", "stepActionLimit=5"], { ...io, runTask });
     expect(runTask.mock.calls[1]![1]).toMatchObject({ runRules: { stepActionLimit: 5 } }); expect((runTask.mock.calls[1]![1] as { runRules: object }).runRules).not.toHaveProperty("maxReplans");
     // Each value is read as its rule's type, and the last of a repeated rule wins.
