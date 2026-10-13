@@ -12,7 +12,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,3 +25,6 @@ jobs:
       - run: pnpm run build
       - run: pnpm run typecheck
       - run: pnpm test
+      # The browser suites (tests/**/*.integration.test.ts) need Playwright's Chromium.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run test:integration
