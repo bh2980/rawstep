@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Workspaces resolve each other through dist, so the build comes before the type checks.
+      - run: pnpm run build
+      - run: pnpm run typecheck
+      - run: pnpm test
+      # The browser suites (tests/**/*.integration.test.ts) need Playwright's Chromium.
+      - run: pnpm exec playwright install --with-deps chromium
+      # Ubuntu 24.04 blocks unprivileged user namespaces, which Chromium's sandbox needs; allow them rather than turn the sandbox off.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # Some suites open a headed browser window, so they run on a virtual display.
+      - run: xvfb-run -a pnpm run test:integration
