@@ -424,23 +424,46 @@ describe("AT Driver backend", () => {
     await settle(driver);
     const key = (keys: string[]) => keys.join("+");
     const said: Record<string, string[]> = { [key([AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, "u"])]: ["Links"], [key([AT_DRIVER_KEYS.ArrowRight])]: ["Headings"], [key([AT_DRIVER_KEYS.Escape])]: [] };
-    const items = ["Shop, heading level 1", "Products, heading level 2", "Shop, heading level 1"];
+    // The rotor wraps to the first heading at the end; "Learn more" is two different headings, not the end of the list.
+    const headings = ["Shop, heading level 1", "Learn more, heading level 2", "Products, heading level 2", "Learn more, heading level 2"];
+    let at = 0;
     socket.onSend = command => {
       socket.reply(command.id);
       const keys = command.params.keys as string[];
-      const speech = key(keys) === key([AT_DRIVER_KEYS.ArrowDown]) ? [items.shift() ?? ""] : said[key(keys)] ?? [];
+      const speech = key(keys) === key([AT_DRIVER_KEYS.ArrowDown]) ? [headings[at++ % headings.length]!] : said[key(keys)] ?? [];
       for (const text of speech) if (text) socket.output(text);
+    };
+    const action = driver.execute({ kind: "intent", intent: "headings.list" });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await action;
+    const down = [AT_DRIVER_KEYS.ArrowDown];
+    expect(socket.sent.slice(-9).map(command => command.params.keys)).toEqual([
+      [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, "u"], [AT_DRIVER_KEYS.ArrowRight], down, down, down, down, down, down, [AT_DRIVER_KEYS.Escape],
+    ]);
+    const observation = await settle(driver);
+    expect(observation.speech).toEqual(["Links", "Headings", ...headings, "Shop, heading level 1", "Learn more, heading level 2"]);
+    expect(getAtDriverProfile("voiceover").capabilities.intents).toContain("headings.list");
+    expect(getAtDriverProfile("nvda").capabilities.intents).not.toContain("headings.list");
+    await driver.close();
+  });
+
+  it("ends the headings list when the rotor stays on its last heading", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    const headings = ["Shop, heading level 1", "Products, heading level 2"];
+    let at = 0;
+    socket.onSend = command => {
+      socket.reply(command.id);
+      const keys = command.params.keys as string[];
+      if (keys.includes("u")) socket.output("Headings");
+      else if (keys[0] === AT_DRIVER_KEYS.ArrowDown) socket.output(headings[Math.min(at++, headings.length - 1)]!);
     };
     const action = driver.execute({ kind: "intent", intent: "headings.list" });
     await vi.advanceTimersByTimeAsync(5_000);
     await action;
-    expect(socket.sent.slice(-6).map(command => command.params.keys)).toEqual([
-      [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, "u"], [AT_DRIVER_KEYS.ArrowRight], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.Escape],
-    ]);
-    const observation = await settle(driver);
-    expect(observation.speech).toEqual(["Links", "Headings", "Shop, heading level 1", "Products, heading level 2", "Shop, heading level 1"]);
-    expect(getAtDriverProfile("voiceover").capabilities.intents).toContain("headings.list");
-    expect(getAtDriverProfile("nvda").capabilities.intents).not.toContain("headings.list");
+    const keys = socket.sent.slice(1).map(command => command.params.keys as string[]);
+    expect(keys.filter(k => k[0] === AT_DRIVER_KEYS.ArrowDown)).toHaveLength(4);
+    expect(keys.at(-1)).toEqual([AT_DRIVER_KEYS.Escape]);
     await driver.close();
   });
 

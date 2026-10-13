@@ -238,11 +238,17 @@ export class AtDriverBackend {
     try {
       for (let i = 0; i < routine.maxLists && !routine.listName.test(heard ?? ""); i++) heard = await step(routine.nextList);
       if (!routine.listName.test(heard ?? "")) return;
+      // At the end the rotor either stays on the last item or wraps to the first. Two headings can share a name, so a repeat
+      // ends the list only when the press after it repeats as well: the last item again, or the second item after the first.
       const items: string[] = [];
-      for (let i = 0; i < routine.maxItems; i++) {
+      while (items.length < routine.maxItems) {
         const item = await step(routine.nextItem);
-        if (!item || items.includes(item)) break;
-        items.push(item);
+        if (!item) break;
+        const ending = item === items.at(-1) ? item : item === items[0] ? items[1] ?? item : undefined;
+        if (ending === undefined) { items.push(item); continue; }
+        const next = await step(routine.nextItem);
+        if (!next || next === ending) break;
+        items.push(item, next);
       }
     } finally { await press(routine.close); await this.quiet(signal); }
   }

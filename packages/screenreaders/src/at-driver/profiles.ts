@@ -119,7 +119,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
       ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
-        "headings.list opens the rotor (VO+U), presses Right until English speech names the Headings list, reads with Down until an item repeats or nothing new is spoken, then presses Escape; not yet checked against a live VoiceOver"] : [
+        "headings.list opens the rotor (VO+U), presses Right until English speech names the Headings list, reads with Down until the list wraps to its start, stays on its last item or goes silent, then presses Escape; not yet checked against a live VoiceOver"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
