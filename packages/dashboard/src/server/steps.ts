@@ -68,13 +68,13 @@ const TASK_STATUSES = new Set<PlanTask['status']>(['pending', 'active', 'done', 
 const taskStatus = (value: unknown): PlanTask['status'] | undefined => TASK_STATUSES.has(value as PlanTask['status']) ? value as PlanTask['status'] : undefined;
 function ending(value: unknown): PlanTask['ending'] | undefined {
   if (!record(value) || !['done', 'replaced', 'limit'].includes(String(value.reason)) || int(value.step) === undefined) return undefined;
-  const verified = ['heard', 'not-heard', 'unchecked'].includes(String(value.verified)) ? value.verified as NonNullable<PlanTask['ending']>['verified'] : undefined;
+  const verified = ['heard', 'recognized', 'not-heard', 'unchecked'].includes(String(value.verified)) ? value.verified as NonNullable<PlanTask['ending']>['verified'] : undefined;
   return { reason: value.reason as NonNullable<PlanTask['ending']>['reason'], step: int(value.step)!, ...(verified ? { verified } : {}) };
 }
 function planTask(value: unknown): PlanTask | undefined {
   if (!record(value) || !text(value.id)) return undefined;
   const end = ending(value.ending);
-  return { id: text(value.id)!, number: text(value.number) ?? '', goal: text(value.goal) ?? '', done: text(value.done) ?? '', cue: text(value.cue) ?? '', serves: strings(value.serves), relies: strings(value.relies),
+  return { id: text(value.id)!, number: text(value.number) ?? '', goal: text(value.goal) ?? '', done: text(value.done) ?? '', cue: text(value.cue) ?? '', ...(text(value.cueRole) ? { cueRole: text(value.cueRole) as PlanTask['cueRole'] } : {}), ...(text(value.cueState) ? { cueState: text(value.cueState) as PlanTask['cueState'] } : {}), serves: strings(value.serves), relies: strings(value.relies),
     status: taskStatus(value.status) ?? 'pending', actions: int(value.actions) ?? 0, rejected: int(value.rejected) ?? 0, addedIn: int(value.addedIn) ?? 1, ...(end ? { ending: end } : {}) };
 }
 /** A plan document as the trace holds it, keeping only well-formed parts; redacted wording reads as empty. */

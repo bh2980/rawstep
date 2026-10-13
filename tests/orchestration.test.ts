@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, cueCandidate, currentTask, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, verifyCue,
+  applyDraft, currentTask, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, verifyCue,
   type ChoiceModel, type ChoiceRequest, type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -52,11 +52,28 @@ describe('plan document', () => {
     expect(v3.revisions[2]).toMatchObject({ met: ['C1'] });
     expect(renderPlanMarkdown(v3)).toMatch(/## Success criteria\n\n- ✓ C1 The cart confirms the item[\s\S]*- ✕ A1[\s\S]*- \[~\] 1\.1 Use headings[\s\S]*← current[\s\S]*- v2 before step 5 · help\/no-cue · broken A1 — A1 was wrong\./);
   });
-  it('treats an item sharing a name word with the cue as worth asking about, never role words alone', () => {
-    expect(cueCandidate({ cue: 'Email notifications for order updates' }, 'Order updates, unchecked, checkbox')).toBe(true);
-    expect(cueCandidate({ cue: 'Save changes' }, 'Newsletter, unchecked, checkbox')).toBe(false);
-    expect(cueCandidate({ cue: 'Returns, heading' }, 'Help center, heading, level 1')).toBe(false);
-    expect(cueCandidate({ cue: '' }, 'Order updates')).toBe(false);
+  it('tells a cue the way a listener would: role and state first, then all name words, else worth asking', () => {
+    const button = { cue: 'Add to cart', cueRole: 'button' as const };
+    expect(matchCue(button, 'Add to cart, button')).toBe('heard');
+    expect(matchCue({ cue: 'cart', cueRole: 'button' }, 'Cart (0), link')).toBe('no');
+    expect(matchCue({ cue: 'cart', cueRole: 'link' }, 'link, Cart (0)')).toBe('heard');
+    const box = { cue: 'Email notifications for order updates', cueRole: 'checkbox' as const };
+    expect(matchCue(box, 'Order updates, unchecked, checkbox')).toBe('candidate');
+    expect(matchCue(box, 'Email notifications, group')).toBe('no');
+    const checked = { cue: 'Order updates', cueRole: 'checkbox' as const, cueState: 'checked' as const };
+    expect(matchCue(checked, 'Order updates, unchecked, checkbox')).toBe('no');
+    expect(matchCue(checked, 'Special offers, checked, checkbox')).toBe('no');
+    expect(matchCue(checked, 'Order updates, checked, checkbox')).toBe('heard');
+    // Without a role the item must say nothing beyond the cue to count at once; a longer line is put to the planner.
+    expect(matchCue({ cue: 'days' }, 'Return items within 30 days of delivery.')).toBe('candidate');
+    expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Return items within 30 days of delivery.')).toBe('heard');
+    expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Days, heading, level 2')).toBe('no');
+    expect(matchCue({ cue: 'Returns', cueRole: 'heading' }, 'Help center, heading, level 1')).toBe('no');
+  });
+  it('reads a structured cue from the plan, dropping a role or state it does not know', () => {
+    const v1 = applyDraft(undefined, { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Move to it', done: 'Hear it', cue: { name: 'Add to cart', role: 'Button' } },
+      { goal: 'Check it', done: 'Hear checked', cue: { name: 'Order updates', role: 'status', state: 'checked' } }] }] }, { goal: 'g', step: 1, trigger: 'start' });
+    expect(planTasks(v1).map(t => [t.cue, t.cueRole, t.cueState])).toEqual([['Add to cart', 'button', undefined], ['Order updates', undefined, 'checked']]);
   });
   it('checks a claimed completion against the quoted cue', () => {
     expect(verifyCue({ done: 'Hear "Add to cart, button"', cue: '' }, ['add to cart,  button'])).toBe('heard');
@@ -271,7 +288,19 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(await policy.decide(input({ allowedActions: allowed, observation: said('Order updates, unchecked, checkbox'), history }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(asked).toEqual(['Email notifications, group', 'Order updates, unchecked, checkbox']);
     expect(e.requests[2]!.state).toMatchObject({ currentTask: { goal: 'Check it' } });
+    // A pressing task without moves presses where the moving task ended.
+    expect(e.requests[2]!.choices.map(c => c.id)).toEqual(['intent:activate']);
     expect(evidence(policy)).toContainEqual(expect.objectContaining({ kind: 'orchestration-cue', verified: 'recognized', heard: 'Order updates, unchecked, checkbox', source: 'planner' }));
+  });
+  it('counts only what an action on the task made the reader say, never speech heard before it', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Enter', tasks: [{ goal: 'Activate Skip to content', done: 'Hear the product', cue: 'Samsung galaxy s6', activates: true, moves: ['next'] }, { goal: 'Then', done: 'x', cue: 'x' }] }] };
+    const e = executor('intent:activate', 'intent:next');
+    const policy = new OrchestratedSpeechPolicy(planner(plan).planner, e.executor);
+    const allowed = { intents: ['next', 'activate'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Samsung galaxy s6', 'link, Skip to content') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(e.requests[0]!.state).toMatchObject({ currentTask: { goal: 'Activate Skip to content' } });
+    await policy.decide(input({ allowedActions: allowed, observation: said('Samsung galaxy s6, heading, level 1'), history: [acted(1, 'activate', 'link, Skip to content')] }));
+    expect(e.requests[1]!.state).toMatchObject({ currentTask: { goal: 'Then' } });
   });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));
@@ -285,11 +314,12 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(p.requests.map(r => r.trigger)).toEqual(['start', 'oscillation']);
   });
   it('finishes a task by itself when its cue is heard, without asking the executor, and goes on to the next', async () => {
-    const p = planner(draft({ Find: ['Find the button', 'Activate it'] })), e = scored(['intent:activate', 0.9]);
+    const p = planner(draft({ Find: ['Find the button', 'Activate it'] })), e = scored(['intent:next', 0.9], ['intent:activate', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
-    expect(await policy.decide(input({ observation: said('Find the button, button') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
-    expect(e.requests).toHaveLength(1);
-    expect(e.requests[0]!.state).toMatchObject({ currentTask: { goal: 'Activate it' } });
+    await policy.decide(input({ observation: said('Quantity, 1') }));
+    expect(await policy.decide(input({ observation: said('Find the button, button'), history: [acted(1, 'next', 'Quantity, 1')] }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(e.requests).toHaveLength(2);
+    expect(e.requests[1]!.state).toMatchObject({ currentTask: { goal: 'Activate it' } });
     const kinds = evidence(policy);
     expect(kinds.find(k => k.kind === 'orchestration-cue')).toMatchObject({ taskId: 't1', verified: 'heard', source: 'rawstep' });
     expect(kinds.find(k => k.kind === 'orchestration-task' && k.toStatus === 'done')).toMatchObject({ taskId: 't1', ending: { verified: 'heard' } });

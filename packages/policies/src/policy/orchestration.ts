@@ -2,7 +2,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ChoiceModel } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueCandidate, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, verifyCue,
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
   type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
@@ -196,14 +196,17 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         continue;
       }
       // Under Rawstep's task control a task ends when its cue is heard after an action: the executor never has to say so.
-      if (this.control === 'rawstep' && verifyCue(task, input.observation.speech) === 'heard') {
+      // Only what an action on this task made the reader say counts: a page title heard before it, or the cue of the task just
+      // finished, is not this task's doing.
+      const acted = input.history.length > this.taskFrom;
+      if (this.control === 'rawstep' && acted && verifyCue(task, input.observation.speech) === 'heard') {
         this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: 'heard', source: 'rawstep' });
         await this.finishTask(input, step, doc, task, 'heard');
         continue;
       }
       // The cue was a guess written before the item was heard. An item that shares a name word with it is put to the planner, as a
       // person who hears "Order updates, checkbox" knows it is the order-updates setting they were looking for.
-      if (this.control === 'rawstep' && input.history.length > this.taskFrom && await this.recognized(input, doc, task)) {
+      if (this.control === 'rawstep' && acted && await this.recognized(input, doc, task)) {
         await this.finishTask(input, step, doc, task, 'recognized');
         continue;
       }
@@ -215,8 +218,10 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         .filter(c => !(this.control === 'rawstep' && task.activates === false && 'action' in c.decision && c.decision.action.kind === 'intent' && c.decision.action.intent === 'activate'));
       // The task's moves narrow the movement actions the same way: the plan's method is offered, the others are not. Activation is
       // governed by `activates` alone; keys and text entry are untouched. Moves that match nothing allowed leave the actions as they are.
-      const narrowed = this.control === 'rawstep' && task.moves?.length
-        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || task.moves!.includes(c.decision.action.intent))
+      // A pressing task without moves presses the item the moving task ended on: moving off it first presses the wrong one.
+      const pressOnly = this.control === 'rawstep' && task.activates === true && !task.moves?.length;
+      const narrowed = this.control === 'rawstep' && (task.moves?.length || pressOnly)
+        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || !!task.moves?.includes(c.decision.action.intent))
         : actions;
       if (narrowed.length && narrowed.length !== actions.length) actions.splice(0, actions.length, ...narrowed);
       const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
@@ -232,7 +237,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       const started = performance.now();
       const response = await this.executor.choose({ state: {
         goal: input.goal, plan: planOutline(doc),
-        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: task.cue } : {}), actions: tried, actionLimit: this.limits.stepActionLimit,
+        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: cueText(task) } : {}), actions: tried, actionLimit: this.limits.stepActionLimit,
           ...(task.rejected ? { claimsTurnedDown: task.rejected } : {}) }, ...(next ? { nextTask: next.goal } : {}),
         taskAttempts,
         speech: [...input.observation.speech], ...currentItemState(input), history: modelHistory(input.history, input.observation, this.limits.historyLimit),
@@ -283,14 +288,16 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   }
   /** Asks the planner whether the item the cursor is on is what the task's cue describes (once per item and task). */
   private async recognized(input: Input, doc: PlanDocument, task: PlanTask): Promise<boolean> {
-    const heard = input.observation.kind === 'screenreader' ? [...input.observation.speech].reverse().find(t => t.trim())?.trim() : undefined;
-    if (!this.planner.recognize || !heard || this.asked.has(heard) || !cueCandidate(task, heard)) return false;
+    // The latest line that shares cue words without matching it (role and state agreeing) and has not been asked about yet.
+    const heard = input.observation.kind === 'screenreader'
+      ? [...input.observation.speech].reverse().map(t => t.trim()).find(t => t && !this.asked.has(t) && matchCue(task, t) === 'candidate') : undefined;
+    if (!this.planner.recognize || !heard) return false;
     this.asked.add(heard);
     const started = performance.now();
-    const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: task.cue }, heard: heard.slice(0, 300) }, { signal: input.signal });
+    const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: cueText(task) }, heard: heard.slice(0, 300) }, { signal: input.signal });
     input.signal.throwIfAborted();
     this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: result.matches ? 'recognized' : 'not-recognized', source: 'planner',
-      cue: task.cue, heard, ...(result.reason ? { reason: result.reason } : {}), model: result.model, elapsedMs: performance.now() - started });
+      cue: cueText(task), heard, ...(result.reason ? { reason: result.reason } : {}), model: result.model, elapsedMs: performance.now() - started });
     return result.matches;
   }
   /** What went wrong on the current task, if anything warrants a new plan. */
