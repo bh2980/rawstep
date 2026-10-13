@@ -99,7 +99,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
       }
     }
     const endpoint = machine.browserEndpoint.trim();
-    const common = { policy, outDir, signal, allowedActions: permissions, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
+    const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
       headless: mode === 'screenreader' && backend !== 'simulation' ? false : machine.headless,
       browserExecutablePath: machine.browserExecutablePath || undefined,
       ...(endpoint ? { browserEndpoint: endpoint } : {}),

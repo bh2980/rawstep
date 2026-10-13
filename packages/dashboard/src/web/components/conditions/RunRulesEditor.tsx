@@ -16,7 +16,7 @@ type Props = {
 type Key = keyof RunRules;
 type Group = { id: 'guard' | 'model' | 'planning'; keys: Key[] };
 const GROUPS: Group[] = [
-  { id: 'guard', keys: ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions'] },
+  { id: 'guard', keys: ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions', 'confirmationGrace'] },
   { id: 'model', keys: ['modelGiveUp'] },
   { id: 'planning', keys: ['survey', 'taskControl', 'executorLatitude', 'maxReplans', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'confidenceFloor'] },
 ];

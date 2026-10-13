@@ -131,6 +131,11 @@ export const runRulesSchema = z.object({
   maxStateVisits: count(1, 10000, RAWSTEP_DEFAULTS.policy.maxStateVisits),
   /** The same action producing the same speech or screen this many times in a row stops the run as stuck. */
   maxUnchangedTransitions: count(1, 10000, RAWSTEP_DEFAULTS.policy.maxUnchangedTransitions),
+  /**
+   * Screen reader runs: actions the run goes on after the goal is reached when the user heard nothing saying so (a confirmation shown
+   * but not announced). 0 stops at once, as before. The extra actions are the user's not knowing whether it worked.
+   */
+  confirmationGrace: count(0, 100, 5),
   /** Whether the executor may end a run by choosing "stuck" or "uncertain". Off: a run ends at the goal, a limit or a guard. */
   modelGiveUp: z.boolean().default(false),
   /** With a planner: corrections of the plan before the run stops (checkpoints do not count). */
@@ -173,6 +178,7 @@ export const runRulesOverrideSchema = z.object({
   repetitionGuard: z.enum(['auto', 'on', 'off']).optional(),
   maxStateVisits: z.number().int().min(1).max(10000).optional(),
   maxUnchangedTransitions: z.number().int().min(1).max(10000).optional(),
+  confirmationGrace: z.number().int().min(0).max(100).optional(),
   modelGiveUp: z.boolean().optional(),
   maxReplans: z.number().int().min(0).max(100).optional(),
   stepActionLimit: z.number().int().min(1).max(1000).optional(),
