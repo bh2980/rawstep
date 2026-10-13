@@ -34,6 +34,9 @@ const voiceoverIntents: Readonly<Record<string, readonly string[]>> = Object.fre
   "heading.next": [...vo, AT_DRIVER_KEYS.Meta, "h"],
   "heading.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "h"],
   "form.next": [...vo, AT_DRIVER_KEYS.Meta, "j"],
+  "form.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "j"],
+  "link.next": [...vo, AT_DRIVER_KEYS.Meta, "l"],
+  "link.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "l"],
 });
 const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
   next: [AT_DRIVER_KEYS.ArrowDown], // Browse-mode next line, not VoiceOver's next object.
@@ -42,6 +45,9 @@ const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
   "heading.next": ["h"],
   "heading.previous": [AT_DRIVER_KEYS.Shift, "h"],
   "form.next": ["f"],
+  "form.previous": [AT_DRIVER_KEYS.Shift, "f"],
+  "link.next": ["k"],
+  "link.previous": [AT_DRIVER_KEYS.Shift, "k"],
 });
 
 /**

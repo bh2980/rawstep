@@ -21,7 +21,7 @@ type Props = {
 };
 
 /** Screen reader actions in the order a person learns them; anything a backend adds comes after. */
-const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
+const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
 const ordered = (names: Iterable<string>, order: readonly string[] = []) => [...new Set(names)].sort((a, b) => {
   const ia = order.indexOf(a), ib = order.indexOf(b);
   return (ia < 0 ? order.length : ia) - (ib < 0 ? order.length : ib);
@@ -85,10 +85,11 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
   const intents = ordered([...backends.flatMap(b => capabilities[b].intents), ...value.intents], INTENT_ORDER);
   const keys = ordered([...backends.flatMap(b => capabilities[b].keys), ...value.keys]);
   const table = (rows: string[], kind: 'intents' | 'keys', caption: string, info?: string) => <div className="overflow-x-auto border-y border-edge-strong">
-    <Table className={backends.length > 1 ? 'min-w-[32rem]' : undefined}>
+    {/* Fixed layout and a fixed first column, so the actions table and the keys table line up. */}
+    <Table className={cn('table-fixed', backends.length > 1 && 'min-w-[32rem]')}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader><TableRow className="bg-raised hover:bg-raised">
-        <TableHead scope="col" className={head}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
+        <TableHead scope="col" className={cn(head, 'w-56')}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>

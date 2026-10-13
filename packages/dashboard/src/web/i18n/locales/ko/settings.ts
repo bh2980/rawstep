@@ -217,8 +217,10 @@ export const settings = {
     presetLabel: '시작점',
     novice: { name: '처음 쓰는 스크린리더 사용자', preset: '처음 쓰는 사용자', hint: '다음·이전 항목으로 한 칸씩 듣고 누릅니다.' },
     expert: { name: '익숙한 스크린리더 사용자', preset: '익숙한 사용자', hint: '제목 목록을 먼저 훑고, 제목·폼 컨트롤로 건너뛰며, 작업의 입력값을 씁니다.' },
+    skilled: { name: '숙련된 스크린리더 사용자', preset: '숙련된 사용자', hint: '익숙한 사용자의 동작에 더해 링크로 건너뛰고 링크 목록을 들으며, 폼과 메뉴에서는 Tab·Enter·방향키를 씁니다.' },
     basic: { name: '키보드 사용자', preset: '기본 키', hint: '화면을 보며 Tab·Shift+Tab·Enter·Space로 움직입니다.' },
     widgets: { name: '키보드 사용자 (위젯 키까지)', preset: '위젯 키까지', hint: '방향키·Esc·Home·End로 메뉴·탭·대화상자도 다루고, 작업의 입력값을 씁니다.' },
+    full: { name: '키보드 사용자 (모든 키)', preset: '모든 키', hint: '위젯 키에 더해 PageUp·PageDown·Shift+Space로 스크롤하고, Alt+←로 이전 페이지로 돌아갑니다.' },
     custom: { screenreader: '동작을 직접 고른 스크린리더 사용자', keyboard: '키를 직접 고른 키보드 사용자', preset: '직접 고름', hint: '아래에서 고른 동작만 씁니다.' },
   },
 
@@ -266,8 +268,10 @@ export const settings = {
       next: '다음 항목', previous: '이전 항목', activate: '누르기', readCurrent: '현재 항목 읽기', readFocused: '포커스 항목 읽기',
       interact: '안으로 들어가기', stopInteracting: '밖으로 나오기',
       heading: { next: '다음 제목', previous: '이전 제목' },
-      form: { next: '다음 폼 컨트롤' },
+      form: { next: '다음 폼 컨트롤', previous: '이전 폼 컨트롤' },
+      link: { next: '다음 링크', previous: '이전 링크' },
       headings: { list: '제목 목록 듣기(로터)' },
+      links: { list: '링크 목록 듣기(로터)' },
     },
     combo: {
       noPlan: '이 프로필은 계획 없이 실행 모델 혼자 매 행동을 고릅니다. 스크린리더 실행은 계획 AI가 계획을 세우고 따르는 방식으로 씁니다.',

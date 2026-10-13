@@ -1,23 +1,27 @@
 import type { Mode, Permissions, Profile } from '@rawstep/project/config';
 import { t } from '../i18n';
-import { KEYBOARD_BASIC, KEYBOARD_WIDGETS, SCREENREADER_BASIC, SCREENREADER_QUICK } from './presets';
+import { KEYBOARD_ALL, KEYBOARD_BASIC, KEYBOARD_WIDGETS, SCREENREADER_BASIC, SCREENREADER_KEYS, SCREENREADER_MORE, SCREENREADER_QUICK } from './presets';
 
 /**
  * Who the simulated user is: first how they use the page (the profile's mode), then a starting point within it, in the words a person
  * picks it by. A screen reader user new to their screen reader reads item by item; one who knows it jumps by heading, lists the
- * headings and types the task's inputs. A keyboard user moves with the basic keys, or also works menus and dialogs with the arrow keys.
+ * headings and types the task's inputs; a skilled one also jumps by link, lists the links and uses Tab and the arrow keys in forms and
+ * menus. A keyboard user moves with the basic keys, also works menus and dialogs with the arrow keys, or uses every key including
+ * scrolling and the browser's back.
  * `custom` is a user whose actions were picked one by one.
  */
-export type Persona = 'novice' | 'expert' | 'basic' | 'widgets' | 'custom';
+export type Persona = 'novice' | 'expert' | 'skilled' | 'basic' | 'widgets' | 'full' | 'custom';
 type Preset = Exclude<Persona, 'custom'>;
-export const PRESETS: Record<Mode, readonly Preset[]> = { screenreader: ['novice', 'expert'], keyboard: ['basic', 'widgets'] };
+export const PRESETS: Record<Mode, readonly Preset[]> = { screenreader: ['novice', 'expert', 'skilled'], keyboard: ['basic', 'widgets', 'full'] };
 
 const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: false });
 const PERMISSIONS: Record<Preset, Permissions> = {
   novice: permissions([], SCREENREADER_BASIC, false),
   expert: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_QUICK], true),
+  skilled: permissions(SCREENREADER_KEYS, [...SCREENREADER_BASIC, ...SCREENREADER_QUICK, ...SCREENREADER_MORE], true),
   basic: permissions(KEYBOARD_BASIC, [], false),
   widgets: permissions(KEYBOARD_WIDGETS, [], true),
+  full: permissions(KEYBOARD_ALL, [], true),
 };
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && b.every(item => a.includes(item));
 

@@ -6,7 +6,7 @@ import { targetLabel } from '../i18n/labels.js';
 import { planMark } from './plan.js';
 
 const NAVIGATION_KEYS = new Set(['Tab', 'Shift+Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
-const NAVIGATION_INTENTS = new Set(['next', 'previous', 'heading.next', 'heading.previous', 'form.next']);
+const NAVIGATION_INTENTS = new Set(['next', 'previous', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous']);
 
 /** `move`: a navigation key or intent, nothing else happened. `press`: the start, a stop, an activation, typing or a page change. */
 export type DotKind = 'move' | 'press';

@@ -90,6 +90,22 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     const none = await fixture('<p>Plain page</p>');
     expect(await none.intent('headings.list')).toEqual(['Headings, no items']);
   });
+  it('sends arrow keys to the page and speaks where focus went, as in a radio group', async () => {
+    const f = await fixture('<label><input type="radio" name="size" checked> Small</label><label><input type="radio" name="size"> Large</label>');
+    expect((await f.key('Tab')).join(' ')).toContain('Small');
+    expect((await f.key('ArrowDown')).join(' ')).toContain('Large');
+  });
+  it('jumps by link and form control both ways, and lists the links without moving the cursor', async () => {
+    const f = await fixture('<h1>Shop</h1><a href="#a">Home</a><p>Intro</p><label>Qty <input></label><a href="#b">Cart</a>');
+    expect(await f.intent('links.list')).toEqual(['Links, 2 items: Home; Cart']);
+    expect(await f.intent('readCurrent')).toEqual(['Shop, heading, level 1']);
+    expect((await f.intent('link.next')).join(' ')).toContain('Home');
+    expect((await f.intent('link.next')).join(' ')).toContain('Cart');
+    expect(await f.intent('link.next')).toEqual(['No more links']);
+    expect((await f.intent('link.previous')).join(' ')).toContain('Home');
+    expect((await f.intent('form.next')).join(' ')).toContain('Qty');
+    expect(await f.intent('form.previous')).toEqual(['No previous form control']);
+  });
 
   it('uses actual AX names/roles, traverses exposed descendants and static/offscreen content without duplicate control text', async () => {
     const f = await fixture(`<div role="none"><h2>Welcome</h2><p>Read this introduction</p></div>
@@ -258,7 +274,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(typed).toHaveBeenCalledTimes(1);
     await expect(f.backend.execute({ kind: 'intent', intent: 'interact' })).rejects.toThrow('Unsupported');
     await expect(f.backend.execute({ kind: 'intent', intent: 'rotor' })).rejects.toThrow('Unsupported');
-    await expect(f.backend.execute({ kind: 'key', key: 'ArrowDown' })).rejects.toThrow('Unsupported');
+    await expect(f.backend.execute({ kind: 'key', key: 'PageDown' })).rejects.toThrow('Unsupported');
     expect(await f.page.locator('input').inputValue()).toBe('a');
   });
 

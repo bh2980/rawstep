@@ -64,7 +64,9 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   const { t } = useTranslation();
   const id = useId();
   const [open, setOpen] = useState<Question>(initiallyOpen);
-  const runMode = profile.mode, persona = personaOf(runMode, profile);
+  // "직접 고름" stays picked after a person chooses it, even while the actions still equal a starting point; a new profile starts over.
+  const [customFor, setCustomFor] = useState<string>();
+  const runMode = profile.mode, persona = customFor === `${profile.id}:${runMode}` ? 'custom' : personaOf(runMode, profile);
   const combo: Combo = { id: profile.id, name: profile.name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
   const setCombo = ({ structure, planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, structure, executors, ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
@@ -79,8 +81,9 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
     who: <div className="grid gap-4">
       <Segments label={t('persona.modeLabel')} value={runMode} onChange={mode => onChange({ ...profile, mode })} items={MODES.map(mode => ({ id: mode, name: t(`persona.modes.${mode}`) }))} tabs />
       <div className="grid gap-1.5">
-        <Segments label={t('persona.presetLabel')} value={persona} onChange={preset => preset !== 'custom' && onChange(withPreset(profile, runMode, preset))}
-          items={[...PRESETS[runMode].map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), ...(persona === 'custom' ? [{ id: 'custom' as const, name: t('persona.custom.preset') }] : [])]} />
+        <Segments label={t('persona.presetLabel')} value={persona}
+          onChange={preset => { if (preset === 'custom') { setCustomFor(`${profile.id}:${runMode}`); return; } setCustomFor(undefined); onChange(withPreset(profile, runMode, preset)); }}
+          items={[...PRESETS[runMode].map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), { id: 'custom' as const, name: t('persona.custom.preset') }]} />
         <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
       </div>
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
