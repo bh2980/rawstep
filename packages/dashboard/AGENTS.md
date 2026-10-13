@@ -1,6 +1,6 @@
 # Dashboard development
 
-This workspace owns the local Rawstep dashboard. Use pnpm 10.12.1 from the root packageManager field. The application uses a local Node API, project files and the existing Runner. See docs/dashboard-plan.ko.md for the full requirements and remaining verification.
+This workspace owns the local Rawstep dashboard. Use pnpm 10.12.1 from the root packageManager field. The application uses a local Node API, project files and the existing Runner.
 
 - Use shadcn/ui for controls and product components. Local components live in src/web/components/ui. Compose these primitives for domain components and keep the existing theme tokens, spacing, Geist font and Lucide icons consistent.
 - Pages live in src/web/pages, domain components in src/web/components, and pure logic (completion-check editor mapping, finding text, step dots) in src/web/lib with unit tests. All strings go through react-i18next (src/web/i18n/locales/ko). Use plain Korean terms: 행동 수, 가장 빨랐던 실행, 살펴볼 지점. Show facts, never AI-written conclusions; Runner validation and task permissions remain authoritative.

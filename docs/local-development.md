@@ -43,7 +43,7 @@ npm run dashboard
 npm run dashboard:build
 ```
 
-`packages/dashboard`의 Vite 개발 서버는 `127.0.0.1`에서 실행됩니다. `npm run rawstep -- ui`(설치된 패키지에서는 `npx rawstep ui`)는 같은 대시보드를 프로젝트 디렉터리에 연결해 실행합니다. 설정은 프로젝트의 `rawstep.config.json`, API 키는 `.env.local`에 저장됩니다(커밋하지 마세요). 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요. [Dashboard 안내](../packages/dashboard/README.md)와 [개발 계획](./dashboard-plan.ko.md)을 참고하세요.
+`packages/dashboard`의 Vite 개발 서버는 `127.0.0.1`에서 실행됩니다. `npm run rawstep -- ui`(설치된 패키지에서는 `npx rawstep ui`)는 같은 대시보드를 프로젝트 디렉터리에 연결해 실행합니다. 설정은 프로젝트의 `rawstep.config.json`, API 키는 `.env.local`에 저장됩니다(커밋하지 마세요). 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요. [Dashboard 안내](../packages/dashboard/README.md)를 참고하세요.
 
 ## 2. 어떤 기능에 무엇이 필요한가
 
