@@ -63,7 +63,7 @@ export function ActionSetEditor({ actionSet, onChange, capabilities, inputNames,
 }
 
 /**
- * The keys a person presses for each screen reader command, as the screen reader's own documentation names them. The simulation
+ * The keys a person presses for each screen reader command, shown beside the command when one screen reader is picked. The simulation
  * follows VoiceOver's commands. VO is Control+Option; NVDA's commands are browse-mode quick navigation.
  */
 const COMMANDS: Record<AtBackend, Readonly<Record<string, string>>> = (() => {
@@ -79,10 +79,9 @@ const COMMANDS: Record<AtBackend, Readonly<Record<string, string>>> = (() => {
   } };
 })();
 
-/** A support mark: the command to press, a check, or the words "지원 안 함" (never colour alone). */
-function Support({ ok, command }: { ok: boolean; command?: string | undefined }) {
+/** A support mark: a check, or the words "지원 안 함" (never colour alone). */
+function Support({ ok }: { ok: boolean }) {
   const { t } = useTranslation();
-  if (ok && command) return <span className="font-mono text-xs whitespace-nowrap"><span className="sr-only">{t('conditions.actionSet.supported')}: </span>{command}</span>;
   return ok
     ? <span className="inline-flex items-center gap-1"><Check aria-hidden="true" className="size-3.5 text-reach" /><span className="sr-only">{t('conditions.actionSet.supported')}</span></span>
     : <span className="inline-flex items-center gap-1 text-inspect"><Minus aria-hidden="true" className="size-3.5" />{t('conditions.actionSet.unsupported')}</span>;
@@ -121,8 +120,8 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
-        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
-        {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} command={kind === 'intents' ? COMMANDS[b][name] : undefined} /></TableCell>)}
+        <AllowCell label={kind === 'intents' ? actionLabel(name) : name} note={kind === 'keys' ? keyRole(name) : backends.length === 1 ? COMMANDS[backends[0]!][name] : undefined} checked={value[kind].includes(name)} onChange={on => onChange({ ...value, [kind]: toggle(value[kind], name, on) })} />
+        {backends.map(b => <TableCell key={b} className="px-3 py-2 text-[13px]"><Support ok={capabilities[b][kind].includes(name)} /></TableCell>)}
       </TableRow>)}</TableBody>
     </Table>
   </div>;
