@@ -10,7 +10,7 @@ export type AssumptionStatus = 'open' | 'held' | 'broken';
 /** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
 export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'goal-heard' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
  * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
@@ -214,12 +214,26 @@ const nameWords = (text: string) => new Set(tokens(text).filter((w, i, all) => (
  *   ("Email notifications for order updates" for "Order updates, unchecked, checkbox") and the planner is asked;
  * - `no`: otherwise. A cue with no name words (only "checked") is heard when all its words were said as words.
  */
+/**
+ * Whether a spoken item is named as something in the goal, the way a listener who knows what they want notices it whatever they are
+ * doing: at least two name words, every one of them in the goal ("Kimchi Fried Rice" while adding one Kimchi Fried Rice). A single
+ * word ("Add") or a name with words the goal lacks ("Fried rice and kimbap") is not.
+ */
+export function goalNamed(goal: string, item: string): boolean {
+  const wanted = nameWords(goal), named = nameWords(item);
+  return named.size >= 2 && [...named].every(w => wanted.has(w));
+}
 export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, item: string): 'heard' | 'candidate' | 'no' {
   const said = tokens(item);
   if (task.cueRole) {
     const groups: readonly (readonly string[])[] = ROLE_WORDS[task.cueRole];
     const ok = groups.length ? groups.some(group => group.every(w => said.includes(w))) : !said.some(w => ROLE_TOKENS.has(w));
-    if (!ok) return 'no';
+    if (!ok) {
+      // Exactly the name in another role: the planner guessed the role ("a heading") but a listener who hears the name stops and
+      // wonders, so the planner is asked. A different role with other words ("Cart (0), link" for the cart button) is not the item.
+      const cue = nameWords(task.cue), named = nameWords(item);
+      return cue.size && cue.size === named.size && [...cue].every(w => named.has(w)) ? 'candidate' : 'no';
+    }
   }
   if (task.cueState && !said.includes(task.cueState)) return 'no';
   const cue = nameWords(task.cue), named = nameWords(item);
@@ -230,9 +244,11 @@ export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, i
   }
   // An item of the expected role with no name at all ("button") might be the one: a listener wonders, so the planner is asked.
   if (task.cueRole && !named.size) return 'candidate';
-  const all = [...cue].every(w => named.has(w)), some = [...cue].some(w => named.has(w));
-  if (all && (task.cueRole || [...named].every(w => cue.has(w)))) return 'heard';
-  return some ? 'candidate' : 'no';
+  const all = [...cue].every(w => named.has(w)), some = [...cue].some(w => named.has(w)), within = [...named].every(w => cue.has(w));
+  if (all && (task.cueRole || within)) return 'heard';
+  // Worth asking: the whole name among other words, or part of it with nothing that contradicts it ("Add" for "Add Kimchi Fried
+  // Rice"). A name with words the cue lacks ("Add Sikhye to cart") is another item, however many words it shares.
+  return all || (some && within) ? 'candidate' : 'no';
 }
 /**
  * Whether a task's completion cue was heard in any spoken line: its `cue`, else words quoted in its "done" (straight or curly

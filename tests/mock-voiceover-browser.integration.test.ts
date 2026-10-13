@@ -64,6 +64,15 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(actual).not.toContain('status');
     expect(actual).toContain('After');
   });
+  it('reads bold and emphasised text without naming the styling', async () => {
+    const f = await fixture(`<p><strong>Kimchi Fried Rice</strong> (Spicy), 9,000 won.</p><p><em>Today only</em></p><p>After</p>`);
+    const actual = [...f.initial.speech];
+    for (let index = 0; index < 5; index++) actual.push(...await f.intent('next'));
+    expect(actual.map(line => line.trim())).not.toEqual(expect.arrayContaining(['strong', 'emphasis']));
+    expect(actual.join(' ')).toContain('Kimchi Fried Rice');
+    expect(actual.join(' ')).toContain('Today only');
+  });
+
   it('speaks new live-region text once after the action that changed it, and nothing for what the page loaded with or a region that is not live', async () => {
     const f = await fixture(`<button id="b">Add to cart</button><p role="status" id="s">Loaded text</p><p id="quiet"></p>
       <script>document.getElementById('b').addEventListener('click', () => { document.getElementById('s').textContent = 'Product added to cart'; document.getElementById('quiet').textContent = 'Shown only'; });</script>`);

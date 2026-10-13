@@ -33,7 +33,8 @@ const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 // Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
 // List markers (bullets, "1.") are not stops either: VoiceOver reads a list item's content directly.
-const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator', 'ListMarker']);
+// strong and emphasis (<strong>, <em>) are styling: VoiceOver reads their text, never the role.
+const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator', 'ListMarker', 'strong', 'emphasis']);
 /** Live regions: their new text is announced when it changes; with nothing in them they are not a stop. */
 const liveRoles = new Set(['status', 'alert', 'log', 'marquee', 'timer']);
 // LabelText is Chromium's role for <label>: its text is read from the StaticText inside, so an unnamed label adds nothing.
