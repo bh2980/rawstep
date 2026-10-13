@@ -202,6 +202,7 @@ export const settings = {
     },
     blockers: { name: '이름이 비어 있는 프로필이 있어 저장할 수 없습니다.', invalid: '"{{name}}"에 아직 올바르지 않은 값이 있어 저장할 수 없습니다.' },
     questions: {
+      label: '프로필의 네 가지 질문',
       who: '누가 하나요', ai: '어떤 AI가 생각하나요', where: '어디서 듣나요', stop: '언제 멈추나요',
       whoActions: '이 사용자가 쓰는 동작',
       aiPlanned: '{{planner}}가 계획을 세우고, {{executor}}',
@@ -216,7 +217,6 @@ export const settings = {
       stopChanged: '{{label}} {{value}} (기본 {{base}})',
       stopDefaults: '모두 Rawstep 기본값',
       changedCount: '바꾼 설정 {{count}}개',
-      open: '펼치기', close: '접기',
     },
   },
   persona: {
@@ -278,6 +278,8 @@ export const settings = {
       headings: { list: '제목 목록 듣기(로터)' },
     },
     combo: {
+      noPlan: '이 프로필은 계획 없이 실행 모델 혼자 매 행동을 고릅니다. 스크린리더 실행은 계획 AI가 계획을 세우고 따르는 방식으로 씁니다.',
+      addPlanner: '계획 AI 쓰기',
       noConnections: '등록한 연결이 없어 모델을 고를 수 없습니다. 먼저 연결에서 제공자나 서버를 추가하세요.',
       connectionsFirst: '모델을 고르려면 연결이 있어야 합니다.',
       toConnections: '연결 추가하러 가기',
@@ -330,6 +332,7 @@ export const settings = {
       },
       executor: {
         title: '실행 모델',
+        keyboardTitle: '키보드 실행 모델',
         intro: '모드마다 행동을 하나씩 고르는 모델입니다. 스크린리더 모드는 발화를 듣고, 키보드 모드는 화면 이미지를 보고 고릅니다. 쓸 수 있는 키·동작은 행동 조합에서 정합니다.',
         modesLabel: '실행 모델의 모드',
         unused: '없음',

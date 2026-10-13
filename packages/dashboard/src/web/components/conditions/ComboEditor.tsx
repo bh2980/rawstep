@@ -1,6 +1,6 @@
-import { Fragment, useId, type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowRight, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type Combo, type Connection, type Executor, type Mode, type PlanFollowerChoice } from '@rawstep/project/config';
 import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
@@ -36,49 +36,56 @@ const PLANNER_RULES = [
   '"goal": string, "done": string, "serves"?: ["C1"], "relies"?: ["A1"]}]}]}.',
 ].join(' ');
 
-type Props = { combo: Combo; onChange: (combo: Combo) => void; connections: readonly Connection[]; compact?: boolean };
+type Props = {
+  combo: Combo; onChange: (combo: Combo) => void; connections: readonly Connection[]; compact?: boolean;
+  /** Only this mode's executor, without the mode tabs: a task page edits the mode it runs. */
+  only?: Mode;
+};
 
 /**
- * Who decides in a run profile, as groups separated by rules: the structure (one executor deciding alone, or a planner LLM writing a
- * plan document the executor carries out) with a diagram of how the roles hand work on, the planner, and the executor of each mode.
+ * Who thinks in a run profile. Screen reader runs always plan: a planner (an LLM, or a plan file) writes the plan, and Rawstep carries
+ * it out itself or an executor model picks within each task. Keyboard runs do not plan yet, so their executor model picks every move.
+ * A profile from before planning was required has no planner; it says so and offers one.
  */
-export function ComboEditor({ combo, onChange, connections, compact }: Props) {
+export function ComboEditor({ combo, onChange, connections, compact, only }: Props) {
   const { t } = useTranslation();
   const llms = connections.filter(c => c.kind === 'llm');
   const planned = combo.structure === 'planned';
-  const setStructure = (structure: Combo['structure']) => {
-    if (structure === combo.structure) return;
-    // A solo combo has no plan to follow: its screen reader slot keeps a model or is emptied.
-    if (structure === 'solo') { const { planner: _dropped, ...rest } = combo; onChange({ ...rest, structure, executors: { ...(executorModel(combo, 'screenreader') ? { screenreader: executorModel(combo, 'screenreader')! } : {}), ...(combo.executors.keyboard ? { keyboard: combo.executors.keyboard } : {}) } }); return; }
+  /** Makes the profile plan: the first LLM writes the plan (its model still to pick) and Rawstep follows it. */
+  const plan = () => {
     const llm = llms[0];
-    // A new planned combo follows its plan without an executor model: steadier and cheaper (the default after the comparison runs).
-    onChange({ ...combo, structure, executors: { ...combo.executors, screenreader: { followPlan: true } }, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
+    onChange({ ...combo, structure: 'planned', executors: { ...combo.executors, screenreader: { followPlan: true } }, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
   };
   const setExecutor = (mode: Mode) => (executor: Executor | PlanFollowerChoice | undefined) => {
     const { [mode]: _old, ...rest } = combo.executors;
     onChange({ ...combo, executors: executor ? { ...rest, [mode]: executor } : rest });
   };
   const tip = (info: ReactNode) => compact ? undefined : info;
+  const modes = only ? [only] : MODES;
+  const executorBody = (mode: Mode) => <div className="grid gap-4">
+    {mode === 'keyboard' && <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.keyboardAlone')}</p>}
+    {mode === 'screenreader' && planned && <Toggle label={t('conditions.combo.executor.followPlan')} info={t('conditions.combo.executor.followPlanHint')} checked={followsPlan(combo, mode)}
+      onChange={on => setExecutor(mode)(on ? { followPlan: true } : undefined)} />}
+    {!followsPlan(combo, mode) && <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor(mode)} connections={connections} planned={planned} compact={compact} />}
+  </div>;
   return <div className={cn('grid min-w-0 [&>section:not(:first-child)]:border-t', compact ? 'gap-4 [&>section:not(:first-child)]:pt-4' : 'gap-8 [&>section:not(:first-child)]:pt-6')}>
-    <Group title={t('conditions.combo.structureLegend')} compact={compact} info={tip(<><p>{t('conditions.structure.solo.hint')}</p><p>{t('conditions.structure.planned.hint')}</p>{planned && <p>{t('conditions.combo.pipeline.loop')}</p>}</>)}>
-      {!connections.length && <p className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-sm leading-6">{t('conditions.combo.noConnections')}</p>}
-      <InlineRadio legend={t('conditions.combo.structureLegend')} value={combo.structure} onChange={setStructure} rows={(['solo', 'planned'] as const).map(id => ({ id, label: t(`conditions.structure.${id}.name`) }))} />
-      {!compact && <Pipeline combo={combo} connections={connections} />}
-    </Group>
-    {planned && <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} />}
-    <Group title={t('conditions.combo.executor.title')} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>
-      <Tabs defaultValue={combo.executors.screenreader || !combo.executors.keyboard ? 'screenreader' : 'keyboard'} className="gap-4">
-        <TabsList variant="line" aria-label={t('conditions.combo.executor.modesLabel')}>
-          {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && !followsPlan(combo, mode) && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
-        </TabsList>
-        {MODES.map(mode => <TabsContent key={mode} value={mode} className="grid gap-4">
-          {mode === 'keyboard' && planned && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.executor.keyboardAlone')}</p>}
-          {mode === 'screenreader' && planned && <Toggle label={t('conditions.combo.executor.followPlan')} info={tip(t('conditions.combo.executor.followPlanHint'))} checked={followsPlan(combo, mode)}
-            onChange={on => setExecutor(mode)(on ? { followPlan: true } : undefined)} />}
-          {!followsPlan(combo, mode) && <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor(mode)} connections={connections} planned={planned} compact={compact} />}
-        </TabsContent>)}
-      </Tabs>
-    </Group>
+    {!connections.length && <p className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-sm leading-6">{t('conditions.combo.noConnections')}</p>}
+    {modes.includes('screenreader') && (planned
+      ? <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} />
+      : <section className="grid justify-items-start gap-2 border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3">
+        <p className="text-sm leading-6">{t('conditions.combo.noPlan')}</p>
+        <Button type="button" size="sm" variant="outline" disabled={!llms.length} onClick={plan}>{t('conditions.combo.addPlanner')}</Button>
+      </section>)}
+    {modes.length === 1
+      ? <Group title={t(`conditions.combo.executor.${modes[0] === 'keyboard' ? 'keyboardTitle' : 'title'}`)} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>{executorBody(modes[0]!)}</Group>
+      : <Group title={t('conditions.combo.executor.title')} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>
+        <Tabs defaultValue="screenreader" className="gap-4">
+          <TabsList variant="line" aria-label={t('conditions.combo.executor.modesLabel')}>
+            {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modeTab.${mode}`)}{!combo.executors[mode] && !followsPlan(combo, mode) && <span className="ml-1 font-normal text-muted-foreground">· {t('conditions.combo.executor.unused')}</span>}</TabsTrigger>)}
+          </TabsList>
+          {MODES.map(mode => <TabsContent key={mode} value={mode}>{executorBody(mode)}</TabsContent>)}
+        </Tabs>
+      </Group>}
   </div>;
 }
 
@@ -100,36 +107,6 @@ function InlineRadio<T extends string>({ legend, value, onChange, rows }: { lege
       <input type="radio" name={group} value={row.id} checked={row.id === value} onChange={() => onChange(row.id)} className="size-4 shrink-0 accent-trace" />{row.label}
     </label>)}
   </fieldset>;
-}
-
-/** How the roles hand work on, drawn as boxes and arrows; it is also a list in reading order. */
-function Pipeline({ combo, connections }: { combo: Combo; connections: readonly Connection[] }) {
-  const { t } = useTranslation();
-  const model = (choice: { connectionId: string; modelId: string } | { planFile: string } | undefined) => {
-    if (choice && 'planFile' in choice) return choice.planFile;
-    const connection = choice && connections.find(c => c.id === choice.connectionId);
-    return connection ? choice.modelId.trim() || connection.name : t('conditions.combo.pipeline.unset');
-  };
-  const planned = combo.structure === 'planned';
-  const executor = planned || combo.executors.screenreader || !combo.executors.keyboard ? executorModel(combo, 'screenreader') : executorModel(combo, 'keyboard');
-  const nodes: { label: string; detail?: string; role?: boolean }[] = [
-    ...(planned ? [{ label: t('conditions.combo.pipeline.planner'), detail: model(combo.planner), role: true }, { label: t('conditions.combo.pipeline.document'), detail: t('conditions.combo.pipeline.documentDetail') }] : []),
-    { label: t('conditions.combo.pipeline.executor'), detail: followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : model(executor), role: true },
-    { label: t('conditions.combo.pipeline.action') },
-    { label: t('conditions.combo.pipeline.page'), detail: t('conditions.combo.pipeline.pageDetail') },
-  ];
-  return <figure aria-label={t('conditions.combo.pipeline.label')}>
-    {/* One row from sm up: boxes keep their natural width and only shrink (shortening long model IDs) when the row is full, instead of wrapping the last box onto its own line. */}
-    <ol className="flex flex-col items-stretch gap-1 sm:flex-row sm:items-center">
-      {nodes.map((node, index) => <Fragment key={node.label}>
-        {index > 0 && <li aria-hidden="true" className="flex shrink-0 justify-center text-muted-foreground sm:block"><ArrowRight className="hidden size-4 sm:block" /><ArrowDown className="size-4 sm:hidden" /></li>}
-        <li title={node.detail} className={cn('grid min-w-0 gap-0.5 border px-2.5 py-1.5 sm:flex-[1_1_auto]', node.role ? 'border-trace bg-trace-soft' : 'border-edge-strong bg-surface')}>
-          <span className="text-[13px] font-medium whitespace-nowrap">{node.label}</span>
-          {node.detail && <span className="truncate font-mono text-xs text-muted-foreground">{node.detail}</span>}
-        </li>
-      </Fragment>)}
-    </ol>
-  </figure>;
 }
 
 const PLAN_FILE_DEFAULT = 'plans/{task}/plan.json';

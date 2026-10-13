@@ -48,7 +48,7 @@ export function RunSetup({ pageProps, taskId, active, onRun, navigate }: Props) 
   const [draft, setDraft] = useState<Profile | undefined>(() => saved && structuredClone(saved));
   const [mode, setMode] = useState<Mode>(mode0);
   const [repeats, setRepeats] = useState(String(QUICK_RUN_REPEATS));
-  const [expanded, setExpanded] = useState(false), [open, setOpen] = useState<Question[]>([]);
+  const [expanded, setExpanded] = useState(false), [open, setOpen] = useState<Question>('who');
   // A profile or mode saved elsewhere (another window, the settings page) replaces an untouched draft.
   useEffect(() => { setDraft(saved && structuredClone(saved)); }, [savedJson]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setMode(mode0); }, [mode0]);
@@ -61,7 +61,7 @@ export function RunSetup({ pageProps, taskId, active, onRun, navigate }: Props) 
   const keyProblem = problem === t('runBox.problem.noKey') || problem === t('runBox.problem.noPlannerKey');
   const count = Number(repeats), valid = Number.isInteger(count) && count >= 1 && count <= MAX_REPEATS;
   const persona = personaOf(mode, draft);
-  const showAll = (question?: Question) => { setExpanded(true); if (question) setOpen(current => current.includes(question) ? current : [...current, question]); };
+  const showAll = (question: Question) => { setExpanded(true); setOpen(question); };
 
   /** Saves the draft: the profile in place (every task using it), or as a copy only this task uses; and the task's mode. */
   const apply = (asCopy: boolean) => void pageProps.act(async () => {
@@ -134,7 +134,7 @@ export function RunSetup({ pageProps, taskId, active, onRun, navigate }: Props) 
     </div>
 
     {expanded && <div id={id + '-all'} className="border-t border-edge pt-1">
-      <ProfileEditor key={open.join()} profile={draft} onChange={setDraft} view={view} mode={mode} onMode={setMode} open={open}
+      <ProfileEditor key={open} profile={draft} onChange={setDraft} view={view} mode={mode} onMode={setMode} open={open}
         inputNames={Object.keys(record(record(view.tasks[taskId]).input))} />
     </div>}
 

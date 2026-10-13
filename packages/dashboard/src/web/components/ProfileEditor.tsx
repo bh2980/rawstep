@@ -1,5 +1,4 @@
 import { useId, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { executorModel, followsPlan, isFilePlanner, runRulesSchema, type Combo, type Mode, type Profile, type RunRules } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
@@ -12,7 +11,6 @@ import { AtEnvironmentEditor } from './conditions/AtEnvironmentEditor';
 import { ComboEditor } from './conditions/ComboEditor';
 import { PageEnvironmentEditor } from './conditions/PageEnvironmentEditor';
 import { RunRulesEditor, ruleValueLabel } from './conditions/RunRulesEditor';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
 /** The fields of a full set of rules that differ from Rawstep's defaults, so a field never changed reads as inherited. */
 export function changedRules(rules: RunRules): Partial<RunRules> {
@@ -55,18 +53,19 @@ type Props = {
   mode?: Mode; onMode?: (mode: Mode) => void;
   /** Input names of the task the profile is edited for, so typing into them can be allowed. */
   inputNames?: readonly string[];
-  /** The questions open at first; all closed when unset. */
-  open?: readonly Question[];
+  /** The question open at first: the first one when unset. */
+  open?: Question;
 };
 
 /**
- * A run profile as four questions — who is using the page, which AI thinks, where it is heard, when a run stops — each a line that says
- * the current answer and opens to every field behind it. Nothing is hidden: every setting of the profile is under one of the four.
+ * A run profile as four questions — who is using the page, which AI thinks, where it is heard, when a run stops. The four sit side by
+ * side as tabs that each say the current answer; the chosen one opens below in a box of its own. Nothing is hidden: every setting of
+ * the profile is under one of the four.
  */
-export function ProfileEditor({ profile, onChange, view, mode, onMode, inputNames, open: initiallyOpen = [] }: Props) {
+export function ProfileEditor({ profile, onChange, view, mode, onMode, inputNames, open: initiallyOpen = 'who' }: Props) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<Question[]>([...initiallyOpen]);
-  const toggle = (question: Question, on: boolean) => setOpen(current => on ? [...current, question] : current.filter(item => item !== question));
+  const id = useId();
+  const [open, setOpen] = useState<Question>(initiallyOpen);
   const runMode = mode ?? 'screenreader', persona = personaOf(runMode, profile);
   const pick = (next: Exclude<Persona, 'custom'>) => {
     const result = withPersona(profile, next);
@@ -96,7 +95,7 @@ export function ProfileEditor({ profile, onChange, view, mode, onMode, inputName
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
         capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} {...(mode ? { only: mode } : {})} backend={profile.screenReader} compact />
     </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact />,
+    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact {...(mode ? { only: mode } : {})} />,
     where: <div className="grid gap-6">
       {runMode === 'screenreader' && <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />}
       <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />
@@ -104,24 +103,23 @@ export function ProfileEditor({ profile, onChange, view, mode, onMode, inputName
     stop: <RunRulesEditor compact value={changedRules(profile.runRules)} inherited={runRulesSchema.parse({})}
       onChange={rules => onChange({ ...profile, runRules: { ...runRulesSchema.parse({}), ...rules } })} />,
   };
-  return <div className="grid min-w-0">
-    {QUESTIONS.map(question => <Group key={question} title={t(`profile.questions.${question}`)} summary={summaries[question]} open={open.includes(question)} onOpen={on => toggle(question, on)}>
-      {bodies[question]}
-    </Group>)}
+  return <div className="grid min-w-0 gap-3">
+    <div role="tablist" aria-label={t('profile.questions.label')} className="grid gap-2 sm:grid-cols-2"
+      onKeyDown={event => {
+        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        const next = QUESTIONS[(QUESTIONS.indexOf(open) + step + QUESTIONS.length) % QUESTIONS.length]!;
+        setOpen(next); document.getElementById(`${id}-tab-${next}`)?.focus();
+      }}>
+      {QUESTIONS.map(question => <button key={question} id={`${id}-tab-${question}`} type="button" role="tab" aria-selected={open === question} aria-controls={`${id}-panel`}
+        tabIndex={open === question ? 0 : -1} onClick={() => setOpen(question)}
+        className={cn('grid content-start gap-1 rounded-md border px-3 py-2.5 text-left', open === question ? 'border-trace bg-trace-soft' : 'border-edge hover:border-edge-strong hover:bg-raised')}>
+        <span className={cn('text-[13px] font-semibold', open === question && 'text-trace')}>{t(`profile.questions.${question}`)}</span>
+        <span className="text-xs leading-5 text-muted-foreground">{summaries[question]}</span>
+      </button>)}
+    </div>
+    <section id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${open}`} className="min-w-0 rounded-md border border-edge-strong px-4 py-4">
+      {bodies[open]}
+    </section>
   </div>;
-}
-
-/** One question: its title and current answer on a line that opens to the fields behind it. */
-function Group({ title, summary, open, onOpen, children }: { title: string; summary: ReactNode; open: boolean; onOpen: (open: boolean) => void; children: ReactNode }) {
-  const id = useId();
-  return <Collapsible open={open} onOpenChange={onOpen} className="border-t border-edge first:border-t-0">
-    <CollapsibleTrigger aria-label={title} aria-describedby={id} className="flex w-full items-start justify-between gap-4 rounded-sm py-3 text-left hover:bg-raised/60 focus-visible:outline-2">
-      <span className="grid min-w-0 gap-0.5">
-        <span className="text-[15px] font-semibold">{title}</span>
-        <span id={id} className="text-[13px] leading-5 text-muted-foreground">{summary}</span>
-      </span>
-      <ChevronDown aria-hidden="true" className={cn('mt-1 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
-    </CollapsibleTrigger>
-    <CollapsibleContent className="pb-5">{children}</CollapsibleContent>
-  </Collapsible>;
 }
