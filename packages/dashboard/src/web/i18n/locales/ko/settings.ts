@@ -10,6 +10,7 @@ export const settings = {
     roles: { planner: '계획', screenreader: '실행(스크린리더)', keyboard: '실행(키보드)', analysis: '해설', suggestions: '제안' },
     status: { missing: '인증키 없음', set: '인증키 설정됨', unchecked: '확인할 것 없음', notChecked: '연결은 확인 전' },
     columns: { name: '이름', kind: '종류', usedBy: '쓰는 곳', status: '상태', actions: '작업' },
+    useCount: '{{role}} {{count}}곳',
     check: '확인',
     checkAria: '{{name}} 연결 확인',
     checkAgain: '다시 확인',

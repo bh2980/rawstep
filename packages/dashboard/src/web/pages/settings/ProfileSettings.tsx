@@ -64,7 +64,8 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
     <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} />
     <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
       <div className="grid gap-3 lg:sticky lg:top-0">
-        <ul aria-label={t('profile.listLabel')} className="grid border-y border-edge-strong">
+        {/* A long list scrolls on its own, so the editor beside it stays put. */}
+        <ul aria-label={t('profile.listLabel')} className="grid max-h-72 overflow-y-auto overscroll-contain border-y border-edge-strong lg:max-h-[calc(100vh-15rem)]">
           {items.map(item => <li key={item.id} className="border-b border-edge last:border-b-0">
             <button type="button" aria-current={item.id === selected?.id ? 'true' : undefined} onClick={() => setSelectedId(item.id)}
               data-selected={item.id === selected?.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2 pr-3 pl-4 text-left text-sm', item.id === selected?.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>

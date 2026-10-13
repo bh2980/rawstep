@@ -15,6 +15,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Link } from '../../components/Link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Button } from '../../components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { keyStatus, kindLabelKey, providerTextKey } from '../../lib/connections';
 import { cn } from '../../lib/utils';
@@ -95,7 +96,7 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const uses = (id: string) => usesOf(config, id, t('connections.projectUser'));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
-  return <div className="grid max-w-4xl gap-5">
+  return <div className="grid max-w-6xl gap-5">
     <PageHeader title={t('settingsNav.sections.connections')} info={t('settingsNav.info.connections')}
       actions={config.connections.length > 0 && <Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
     {config.connections.length === 0
@@ -114,19 +115,16 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
             const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = uses(connection.id);
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
-                <span className="block font-medium break-all">{connection.name}</span>
+                <span className="block min-w-32 font-medium break-words">{connection.name}</span>
                 <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
               </TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap"><span className="inline-flex items-center gap-1">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}{connection.kind === 'decision' && <InfoTip term={t(`connections.kinds.${kindLabelKey(connection)}.name`)}>{t('help.decisionModel')}</InfoTip>}</span></TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {users.length
-                  ? <dl className="grid gap-0.5">{users.map(use => <div key={use.role} className="flex flex-wrap gap-x-1.5">
-                    <dt className="text-muted-foreground">{t(`connections.roles.${use.role}`)}</dt>
-                    <dd>{use.names.map((name, index) => <span key={index}>{index > 0 && ', '}<Link to={name.to} navigate={navigate} className="underline underline-offset-2">{name.label}</Link></span>)}</dd>
-                  </div>)}</dl>
+                  ? <ul className="flex flex-wrap gap-1.5">{users.map(use => <li key={use.role}><UsePopover use={use} navigate={navigate} /></li>)}</ul>
                   : <span className="text-muted-foreground">{t('connections.unused')}</span>}
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
+              <TableCell className="min-w-36 px-3 py-2.5 text-[13px] whitespace-normal">
                 {result
                   ? <CheckStatus check={result} signIn={agentOf(connection) ? { available: !!agentOf(connection)!.signIn, onClick: () => void signIn(connection) } : undefined} />
                   : <span className="grid gap-0.5"><span className={cn('font-medium', status === 'missing' && 'text-inspect')}>{t(`connections.status.${status}`)}</span><span className="text-xs text-muted-foreground">{t('connections.status.notChecked')}</span></span>}
@@ -158,4 +156,19 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
       </AlertDialogContent>
     </AlertDialog>
   </div>;
+}
+
+/** One role a connection plays, as a count ("계획 5개"); opening it lists the profiles (or project settings) that use it. */
+function UsePopover({ use, navigate }: { use: Use; navigate: (change: RouteChange) => void }) {
+  const { t } = useTranslation();
+  const label = t('connections.useCount', { role: t(`connections.roles.${use.role}`), count: use.names.length });
+  return <Popover>
+    <PopoverTrigger asChild><button type="button" className="rounded-md border border-edge px-2 py-0.5 text-[13px] whitespace-nowrap hover:bg-raised">{label}</button></PopoverTrigger>
+    <PopoverContent align="start" className="w-72 p-2">
+      <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">{label}</p>
+      <ul className="grid max-h-64 overflow-y-auto text-[13px]">{use.names.map((name, index) => <li key={index}>
+        <Link to={name.to} navigate={navigate} className="block rounded-sm px-1 py-1 hover:bg-raised hover:underline">{name.label}</Link>
+      </li>)}</ul>
+    </PopoverContent>
+  </Popover>;
 }
