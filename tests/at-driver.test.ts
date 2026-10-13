@@ -467,6 +467,27 @@ describe("AT Driver backend", () => {
     await driver.close();
   });
 
+  it("finds the headings list when Korean VoiceOver names it 머리말", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    const headings = ["쇼핑, 머리말 수준 1", "상품, 머리말 수준 2"];
+    let at = 0;
+    socket.onSend = command => {
+      socket.reply(command.id);
+      const keys = command.params.keys as string[];
+      if (keys.includes("u")) socket.output("링크");
+      else if (keys[0] === AT_DRIVER_KEYS.ArrowRight) socket.output("머리말");
+      else if (keys[0] === AT_DRIVER_KEYS.ArrowDown) socket.output(headings[Math.min(at++, headings.length - 1)]!);
+    };
+    const action = driver.execute({ kind: "intent", intent: "headings.list" });
+    await vi.advanceTimersByTimeAsync(5_000);
+    await action;
+    const keys = socket.sent.slice(1).map(command => command.params.keys as string[]);
+    expect(keys.filter(k => k.length === 1 && k[0] === AT_DRIVER_KEYS.ArrowRight)).toHaveLength(1);
+    expect(keys.some(k => k[0] === AT_DRIVER_KEYS.ArrowDown)).toBe(true);
+    await driver.close();
+  });
+
   it("closes the rotor without reading when no Headings list is found", async () => {
     const { socket, backend: driver } = await backend();
     await settle(driver);
