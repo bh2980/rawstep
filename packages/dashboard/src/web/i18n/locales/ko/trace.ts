@@ -105,7 +105,6 @@ export const traceUi = {
     liveCurrent: '현재',
     liveCurrentAction: '{{action}} → {{target}}',
     liveWaiting: '첫 행동을 기다리는 중입니다.',
-    preset: '프리셋 {{name}}',
     factSteps: '행동 {{steps}}번',
     factSeconds: '{{seconds}}초',
     factFastest: '가장 빠른 실행',

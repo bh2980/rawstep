@@ -1,7 +1,7 @@
 import { Fragment, useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, RotateCcw } from 'lucide-react';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type AnalysisChoice, type Combo, type Connection, type Executor, type Mode, type PlanFollowerChoice } from '@rawstep/project/config';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type Combo, type Connection, type Executor, type Mode, type PlanFollowerChoice } from '@rawstep/project/config';
 import { blankExecutor, MODES } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { Advanced, Choice, Field, Panel, Toggle } from '../forms';
@@ -39,9 +39,8 @@ const PLANNER_RULES = [
 type Props = { combo: Combo; onChange: (combo: Combo) => void; connections: readonly Connection[]; compact?: boolean };
 
 /**
- * A model combo, as groups separated by rules: the structure (one executor deciding alone, or a planner LLM writing a plan document the
- * executor carries out) with a diagram of how the roles hand work on, the planner, the executor of each mode, and the analysis model.
- * The analysis model only explains finished runs, so it is the one group marked as not affecting results.
+ * Who decides in a run profile, as groups separated by rules: the structure (one executor deciding alone, or a planner LLM writing a
+ * plan document the executor carries out) with a diagram of how the roles hand work on, the planner, and the executor of each mode.
  */
 export function ComboEditor({ combo, onChange, connections, compact }: Props) {
   const { t } = useTranslation();
@@ -59,7 +58,6 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
     const { [mode]: _old, ...rest } = combo.executors;
     onChange({ ...combo, executors: executor ? { ...rest, [mode]: executor } : rest });
   };
-  const setAnalysis = (analysis: AnalysisChoice | undefined) => { const { analysis: _old, ...rest } = combo; onChange(analysis ? { ...rest, analysis } : rest); };
   const tip = (info: ReactNode) => compact ? undefined : info;
   return <div className={cn('grid min-w-0 [&>section:not(:first-child)]:border-t', compact ? 'gap-4 [&>section:not(:first-child)]:pt-4' : 'gap-8 [&>section:not(:first-child)]:pt-6')}>
     <Group title={t('conditions.combo.structureLegend')} compact={compact} info={tip(<><p>{t('conditions.structure.solo.hint')}</p><p>{t('conditions.structure.planned.hint')}</p>{planned && <p>{t('conditions.combo.pipeline.loop')}</p>}</>)}>
@@ -80,11 +78,6 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
           {!followsPlan(combo, mode) && <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor(mode)} connections={connections} planned={planned} compact={compact} />}
         </TabsContent>)}
       </Tabs>
-    </Group>
-    <Group title={t('conditions.combo.analysis.title')} marker={t('conditions.combo.analysis.marker')} compact={compact} info={tip(t('conditions.combo.analysis.intro'))}>
-      <ModelPicker hideLabel label={t('conditions.combo.analysis.model')} connections={llms} connectionId={combo.analysis?.connectionId} modelId={combo.analysis?.modelId ?? ''} reasoningEffort={combo.analysis?.reasoningEffort}
-        none={t('conditions.combo.analysis.projectDefault')} onNone={() => setAnalysis(undefined)}
-        onChange={next => setAnalysis({ connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) })} />
     </Group>
   </div>;
 }

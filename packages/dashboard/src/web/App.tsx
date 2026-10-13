@@ -80,7 +80,7 @@ function Dashboard() {
           {!compare.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} startAndOpen={startAndOpen} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} />}
         </div>
       </main>
     </div>
@@ -100,11 +100,10 @@ type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
   onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options: RunOptions) => void;
-  startAndOpen: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
 /** Chooses the page for the URL: a run, a task or the new-task page, otherwise the run list, 설정, or the task list. */
-function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask, startAndOpen }: PageSwitchProps) {
+function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
@@ -115,7 +114,7 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
         <Button variant="outline" onClick={() => navigate({ view: 'runs' })}>{t('run.backToRuns')}</Button>
       </div>;
   }
-  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
+  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
   if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;

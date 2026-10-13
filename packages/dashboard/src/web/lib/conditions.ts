@@ -1,7 +1,7 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import {
   DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, executorModel, followsPlan, isFilePlanner,
-  type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type ProjectConfig, type RunRules,
+  type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type RunRules,
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
 import { i18n, t } from '../i18n/index.js';
@@ -104,16 +104,6 @@ export function runRulesSummary(rules: RunRules): string {
   });
 }
 
-export type ConditionIds = { comboId?: string | undefined; actionSetId?: string | undefined; pageEnvironmentId?: string | undefined; atEnvironmentId?: string | undefined };
-/** The names of the conditions a run or a task refers to; an id that no longer exists reads as deleted. */
-export function conditionNames(config: Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments'>, ids: ConditionIds): { combo: string; actionSet: string; pageEnvironment: string; atEnvironment: string } {
-  const name = (list: readonly { id: string; name: string }[], id: string | undefined) => list.find(item => item.id === id)?.name ?? t('conditions.missing');
-  return {
-    combo: name(config.combos, ids.comboId), actionSet: name(config.actionSets, ids.actionSetId),
-    pageEnvironment: name(config.pageEnvironments, ids.pageEnvironmentId), atEnvironment: name(config.atEnvironments, ids.atEnvironmentId),
-  };
-}
-
 /** The label of a screen reader intent such as `heading.next`; an unknown one is shown as recorded. */
 export function actionLabel(intent: string): string {
   const key = `conditions.intents.${intent}`;
@@ -144,7 +134,7 @@ export function comboBlocker(combo: Combo): 'name' | 'planner' | 'modelId' | 'in
   const executors = MODES.flatMap(mode => executorModel(combo, mode) ? [executorModel(combo, mode)!] : []);
   if (!combo.name.trim()) return 'name';
   if (combo.structure === 'planned' && !combo.planner) return 'planner';
-  if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim()) || (combo.analysis && !combo.analysis.modelId.trim())) return 'modelId';
+  if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim())) return 'modelId';
   if (executors.some(e => !e.instructions.trim())) return 'instructions';
   return undefined;
 }

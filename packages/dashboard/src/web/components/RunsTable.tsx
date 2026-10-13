@@ -13,15 +13,15 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 
 type Props = {
   runs: RunRef[]; navigate: (change: RouteChange) => void;
-  /** The project's conditions, for names a run did not record. */
-  config?: Partial<Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>>;
+  /** The project's run profiles, for names a run did not record. */
+  config?: Partial<Pick<ProjectConfig, 'profiles'>>;
   /** Leaves out the task column, for a table of one task's runs. */
   hideTask?: boolean;
   /** "Run #n" of each run by id; adds a column with the number. */
   numbers?: ReadonlyMap<string, number>;
   /** Adds the friction hints of each finished run (one request per run, so only where the list is short). */
   showHints?: boolean;
-  /** Names the model combo, action set and environments next to the models. */
+  /** Names the run profile under the models. */
   showConditions?: boolean;
   /** Current task names, so a renamed task shows its new name. */
   tasks?: readonly { id: string; name: string }[];
@@ -91,8 +91,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
   </div>;
 }
 
-/** The combo, action set and environments of a run, after its models. */
+/** The run profile of a run, after its models. */
 function ConditionsNote({ run, config }: { run: RunRef['run']; config: Props['config'] }) {
-  const c = runConditions(run, config);
-  return <span className="truncate text-xs text-muted-foreground">{[c.combo, c.actionSet, c.pageEnvironment, ...(c.mode === 'screenreader' ? [c.atEnvironment] : [])].join(' · ')}</span>;
+  return <span className="truncate text-xs text-muted-foreground">{runConditions(run, config).profile}</span>;
 }

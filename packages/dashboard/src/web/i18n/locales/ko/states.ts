@@ -34,7 +34,7 @@ export const states = {
     next: '다음에 할 일',
     raw: '원본 오류 보기',
     rawNote: '기록된 코드와 오류 메시지입니다. 인증키와 작업 입력값은 가려서 저장합니다.',
-    go: { machine: '설정 › 이 컴퓨터 열기', models: '연결 열기', conditions: '실험 조건 열기', check: '완료 확인 열기' },
+    go: { machine: '설정 › 이 컴퓨터 열기', models: '연결 열기', conditions: '실행 프로필 열기', check: '완료 확인 열기' },
     run: {
       progressSteps: '행동 {{n}}번까지 기록되었습니다.',
       progressNone: '첫 행동 전에 멈췄습니다. 기록된 행동이 없습니다.',

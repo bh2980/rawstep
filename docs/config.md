@@ -12,41 +12,36 @@ The config never contains keys. A preset provider keeps its key under a fixed en
 
 | Field | Content |
 |---|---|
-| `version` | Always `3`. |
-| `connections` | Where models are reached: a provider preset or a custom server. |
-| `tasks` | Registered task files, with the experiment conditions each uses by default. |
-| `combos` | Model combos: who plans and who acts. At least one is required. |
-| `actionSets` | Action sets: what the simulated user may do. At least one is required. |
-| `pageEnvironments` | Page conditions (viewport, text, colors). At least one is required. |
-| `atEnvironments` | Assistive technology: the simulation, VoiceOver or NVDA. At least one is required. |
-| `presets` | Saved bundles of the conditions above. Optional. |
-| `runRules` | The project's default run rules. |
+| `version` | Always `4`. |
+| `connections` | Where models are reached: a provider preset or a custom server. The model and its effort are picked where they are used. |
+| `profiles` | Run profiles: everything that changes how a run ends, under one name. At least one is required. |
+| `tasks` | Registered task files, each with the profile it uses by default. |
 | `project` | Settings shared by the project that never change an outcome: the analysis model and instructions, and the check-suggestion model. |
 | `machine` | Settings of the computer running Rawstep. |
 
-Unknown fields are rejected. An `id` is letters, digits, `.`, `_` or `-`, up to 100 characters. `rawstep init` writes one model combo `Default` (no executors yet), one action set `Basic`, one page environment `Default` (`profile: "default"`) and one assistive technology `Simulated VoiceOver` (the simulation), with no connections or tasks.
+Unknown fields are rejected. An `id` is letters, digits, `.`, `_` or `-`, up to 100 characters. `rawstep init` writes one profile `Default` (no executors yet, the `Basic` actions, the `default` page environment, the simulated screen reader), with no connections or tasks.
 
-An older config (`version` 1 or 2) does not load: Rawstep stops with the code `old-config`. Convert it once from the Rawstep checkout with `node scripts/migrate-config.mjs <project-dir>`. It also converts the dashboard's run records in `.rawstep/experiments/*/experiment.json` and keeps a `.bak` copy of each original file.
+An older config (`version` 1, 2 or 3) does not load: Rawstep stops with the code `old-config`. Convert it once from the Rawstep checkout with `node scripts/migrate-config.mjs <project-dir>`. Every distinct set of conditions a task or preset used becomes one profile. The script also converts the dashboard's run records in `.rawstep/experiments/*/experiment.json` and keeps a backup of each original file (`.v2.bak`, `.v3.bak`).
 
-## Experiment conditions
+## Run profiles
 
-An experiment is **task × model combo × action set × page environment × assistive technology × mode**. Each condition is a shared list in the config, so you compare runs by changing one condition at a time:
+An experiment is **task × run profile × mode**. A run profile holds everything that changes how a run ends: who decides, what the simulated user may do, the page, the screen reader and the run rules. To compare two conditions, make two profiles that differ only in that part and run the same task with both.
 
-| Condition | What it holds |
+| Part of a profile | What it holds |
 |---|---|
-| model combo (`combos`) | The structure (a model alone, or a planner plus an executor), the planner and its instructions, the executor of each mode and its instructions, and an optional analysis model. |
-| action set (`actionSets`) | The keys, screen reader intents and named-input typing allowed in each mode. |
-| page environment (`pageEnvironments`) | Viewport, text size and spacing, colors, contrast, motion. |
-| assistive technology (`atEnvironments`) | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
-| run rules (`runRules`) | When a run counts as stuck, and when a planned run plans again. |
+| models (`structure`, `planner`, `executors`) | Solo (a model alone) or planned (a planner plus an executor), the planner and its instructions, the executor of each mode and its instructions. |
+| `actions` | The keys, screen reader intents and named-input typing allowed in each mode. |
+| `page` | The page environment: viewport, text size and spacing, colors, contrast, motion. |
+| `screenReader` | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
+| `runRules` | When a run counts as stuck, and when a planned run plans again. |
 
-A preset bundles some of them. The conditions a run uses are picked in this order: the task's own field, then the task's preset, then the first shared item of the list. Run rules layer the same way: project defaults, then the preset's, then the task's. `rawstep run` options (`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--rule`) override these for that run. Every run records the full content of the conditions it used (and which shared item a task-only copy came from), so runs are compared by content, not by name.
+A run uses the profile picked for it (`rawstep run --profile`), otherwise its task's `profileId`, otherwise the project's first profile. There is no layer between Rawstep's defaults and a profile: a profile holds the full set of run rules, and `--rule` changes some of them for one run. Every run records the full content of its profile, so runs are compared by content, not by name.
 
-Anything that changes how a run ends is a condition. The analysis model is not: it explains a finished run and never changes its outcome.
+Anything that changes how a run ends belongs in a profile. The analysis model does not: it explains a finished run and never changes its outcome, so it lives in `project`.
 
 ## connections[]
 
-A connection is where models are reached: a provider preset (fixed address and key variable) or a custom server. It holds no model; a model combo picks the model on a connection (see [combos[]](#combos)).
+A connection is where models are reached: a provider preset (fixed address and key variable) or a custom server. It holds no model; a profile picks the model on a connection (see [profiles[]](#profiles)).
 
 | Field | Meaning |
 |---|---|
@@ -98,40 +93,38 @@ These are spoken to over ACP, as described above. `antigravity` runs Google's AC
 |---|---|
 | `id`, `name` | Identifier used by `rawstep run <task>`, and display name. |
 | `file` | Task JSON path relative to the project. |
-| `presetId` | Optional preset the task starts from. |
-| `comboId`, `actionSetId`, `pageEnvironmentId`, `atEnvironmentId` | Optional conditions the task uses by default, each over the preset's. |
-| `runRules` | Optional run rules for this task only, over the project's and the preset's (see [runRules](#runrules)). |
+| `profileId` | Optional run profile the task uses by default. The project's first profile when unset. |
 | `analysisInstructions` | Optional analysis focus that overrides `project.analysis.instructions`. |
 
-A condition a task and its preset leave out is the first shared item of that list. Editing a shared item from a task in the dashboard makes a task-only copy (the item gets `owner` set to the task id and `copiedFrom` set to the shared item it came from) and leaves the shared item as it was. Task-only copies are used only by their task and are deleted with it. Task-only copies exist for model combos, action sets and page environments.
-
-## combos[]
-
-A model combo says which models act. It is an experiment condition: to compare models or instructions, compare combos that differ only in that part.
+## profiles[]
 
 | Field | Meaning |
 |---|---|
-| `id`, `name` | Identifier and display name. `--combo` accepts either. |
+| `id`, `name` | Identifier and display name. `--profile` accepts either. |
 | `structure` | `solo` (default): the executor of the mode decides every action. `planned`: a planner LLM writes a plan document and the executor carries out one task at a time. |
 | `planner` | Required when `structure` is `planned`; screen reader mode only for now. Either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). |
-| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this combo. In a planned combo the screen reader executor may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a task whose action set types into inputs is rejected before the run. The dashboard picks this for a new planned combo. |
-| `analysis` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that explains this combo's runs. Without it, `project.analysis.model` is used. |
-| `owner`, `copiedFrom` | Set on task-only copies; leave them out otherwise. |
+| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this profile. In a planned profile the screen reader executor may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a profile whose actions type into inputs is rejected before the run. The dashboard picks this for a new planned profile. |
+| `actions` | `{ keyboard, screenreader }`: what the simulated user may do in each mode (see below). |
+| `page` | A built-in page environment name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. Default `"default"`. See [environment profiles](./environment-profiles.md). |
+| `screenReader` | The assistive technology screen reader runs go through; keyboard runs never use it. `simulation` (default): a Chromium-backed simulated screen reader, always labelled simulation in traces. `voiceover` (macOS) or `nvda` (Windows): a native screen reader reached through an AT Driver server (addresses under [machine](#machine)). Two profiles that differ only here compare the same task on a simulated and a native VoiceOver. |
+| `runRules` | The run rules, in full (see [runRules](#runrules)). |
 
 An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate, latitude }`:
 
 | Field | Meaning |
 |---|---|
 | `connectionId`, `modelId` | The connection, and the identifier sent to the provider. |
-| `reasoningEffort` | Optional. A level the agent offers (only meaningful on coding-agent CLI connections); unset = the agent's default (Codex: `xhigh`, which is slow). Also allowed on a combo's `planner` and `analysis`, and on `project.analysis.model` and `project.suggestions.model`. |
+| `reasoningEffort` | Optional. A level the agent offers (only meaningful on coding-agent CLI connections); unset = the agent's default (Codex: `xhigh`, which is slow). Also allowed on a profile's `planner`, and on `project.analysis.model` and `project.suggestions.model`. |
 | `inputs` | `["text"]` or `["text", "image"]`. |
 | `maxChoices`, `maxImages` | The candidate and image limits (defaults 255 and 2). |
 | `instructions` | The executor prompt (required), see [prompts](./prompts.md). |
 | `historyLimit` | How many past steps the model sees (default 12). |
 | `focusGate` | Keyboard mode with a `decision` model only (default `false`): a separate focus judgement narrows the candidates before each action. An `llm` executor with `focusGate` is rejected before the run. |
-| `latitude` | Screen reader runs of a planned combo (default `none`): how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. The planner shapes its tasks to match. |
+| `latitude` | Screen reader runs of a planned profile (default `none`): how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. The planner shapes its tasks to match. |
 
-A keyboard executor needs image input and a `maxImages` of at least 2; a screen reader executor needs text input. A combo's `analysis` and `planner` must be on `llm` connections, and every executor must name an existing connection.
+A keyboard executor needs image input and a `maxImages` of at least 2; a screen reader executor needs text input. A profile's `planner` must be on an `llm` connection, and every executor must name an existing connection.
+
+`actions.keyboard` and `actions.screenreader` are permissions objects: `{ keys, intents, typeText, replaceText, inputKeys? }`. They list the keys and screen reader intents the model may choose, and whether it may type or replace text in named inputs (`inputKeys` limits which; default all of the task's). Permissions apply to the candidates the model is offered and are checked again before an action runs. An action the backend does not support (a screen reader intent the simulation or the native screen reader lacks, say) fails the run check before the browser starts. Stop choices, independent verification and the named-input checks stay with the engine.
 
 ```json
 {
@@ -142,72 +135,20 @@ A keyboard executor needs image input and a `maxImages` of at least 2; a screen 
   "executors": {
     "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
     "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-  }
+  },
+  "actions": {
+    "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+    "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+  },
+  "page": "narrow",
+  "screenReader": "voiceover",
+  "runRules": { "maxReplans": 6 }
 }
-```
-
-## actionSets[]
-
-An action set is what the simulated user may do, per mode. It is an experiment condition (a beginner who only moves next and previous, an expert who jumps by headings and form controls).
-
-| Field | Meaning |
-|---|---|
-| `id`, `name` | Identifier and display name. `--actions` accepts either. |
-| `keyboard`, `screenreader` | A permissions object for each mode: `{ keys, intents, typeText, replaceText, inputKeys? }`. The keys and screen reader intents the model may choose, and whether it may type or replace text in named inputs (`inputKeys` limits which; default all of the task's). |
-| `owner`, `copiedFrom` | Set on task-only copies. |
-
-Permissions apply to the candidates the model is offered and are checked again before an action runs. An action the backend does not support (a screen reader intent the simulation or the native screen reader lacks, say) fails the run check before the browser starts. Stop choices, independent verification and the named-input checks stay with the engine.
-
-```json
-{ "id": "basic", "name": "Basic", "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false }, "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } }
-```
-
-## pageEnvironments[]
-
-A page environment is the page condition a task runs in.
-
-| Field | Meaning |
-|---|---|
-| `id`, `name` | Identifier and display name. `--environment` accepts either. |
-| `profile` | A built-in environment profile name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. See [environment profiles](./environment-profiles.md). |
-| `owner`, `copiedFrom` | Set on task-only copies. |
-
-```json
-{ "id": "narrow", "name": "Narrow", "profile": "narrow" }
-```
-
-## atEnvironments[]
-
-The assistive technology a screen reader run goes through. Keyboard runs never use it.
-
-| Field | Meaning |
-|---|---|
-| `id`, `name` | Identifier and display name. `--at` accepts either. |
-| `backend` | `simulation`: a Chromium-backed simulated screen reader, always labelled simulation in traces. `voiceover` (macOS) or `nvda` (Windows): a native screen reader reached through an AT Driver server (addresses under [machine](#machine)). |
-
-Having a simulated and a native VoiceOver as two assistive technologies lets you compare the same task on both.
-
-```json
-{ "id": "voiceover", "name": "VoiceOver", "backend": "voiceover" }
-```
-
-## presets[]
-
-A preset is a saved set of conditions, picked as one. Every field is optional: what it leaves out falls back to the first shared item.
-
-| Field | Meaning |
-|---|---|
-| `id`, `name` | Identifier and display name. `--preset` accepts either. |
-| `comboId`, `actionSetId`, `pageEnvironmentId`, `atEnvironmentId` | The conditions it bundles. |
-| `runRules` | Optional run rules for runs that use the preset. |
-
-```json
-{ "id": "narrow-beginner", "name": "Beginner on a narrow page", "actionSetId": "basic", "pageEnvironmentId": "narrow", "runRules": { "maxStateVisits": 3 } }
 ```
 
 ## runRules
 
-When a run stops early and, with a planner, when it plans again. The top-level `runRules` holds the project's defaults; a preset's `runRules`, a task's `runRules` and the `--rule <name>=<value>` option overrides any of the fields for one run. Each run records the rules it ran with.
+When a run stops early and, with a planner, when it plans again. Each profile holds its own `runRules`; the `--rule <name>=<value>` option of `rawstep run` (and the `runRules` option of `runTask`) changes any of the fields for one run. Each run records the rules it ran with.
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -220,11 +161,11 @@ When a run stops early and, with a planner, when it plans again. The top-level `
 | `failureLimit` | 2 | With a planner: failed actions in a row on one task before a new plan is requested. |
 | `noChangeLimit` | 3 | With a planner: actions in a row on one task that changed nothing before a new plan is requested. |
 | `taskControl` | `rawstep` | With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is heard, and Rawstep's own signals (the limits above, repetition, and low executor confidence, see `confidenceFloor`) ask for a new plan. `executor`: the executor may also claim a task is done or ask for help; kept for comparison. |
-| `survey` | `none` | With a planner: `headings` lists the page's headings (the VoiceOver rotor) as the first action, before the first plan. The action set must allow `headings.list`. |
+| `survey` | `none` | With a planner: `headings` lists the page's headings (the VoiceOver rotor) as the first action, before the first plan. The profile's actions must allow `headings.list`. |
 | `confirmationGrace` | 5 | Screen reader runs: when the goal is reached but nothing the user heard said so (shown, not announced), the run goes on this many actions before it ends. Those actions are the user's not knowing whether it worked; `goal.reached` in the trace records the step and whether it was heard. 0 ends at once. |
 | `confidenceFloor` | 0.25 | With `taskControl: "rawstep"`: how unsure the executor may be before Rawstep asks for a new plan. Normalised: how far the top probability is from a uniform guess (1/n for n choices) towards certainty (1). Two low choices in a row ask for a new plan. |
 
-Overrides never fill in defaults: a field a preset or a task leaves out keeps the layer below.
+A field a profile leaves out takes the default above. An override for one run changes only the fields it names.
 
 ```json
 { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "none", "confirmationGrace": 5 }
@@ -232,51 +173,48 @@ Overrides never fill in defaults: a field a preset or a task leaves out keeps th
 
 ## Example
 
-A complete `rawstep.config.json` with two connections, a solo and a planned combo, a preset, and the project analysis model:
+A complete `rawstep.config.json` with two connections, a solo and a planned profile, and the project analysis model:
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "connections": [
     { "id": "openai", "name": "OpenAI", "kind": "llm", "provider": "openai", "timeoutMs": 60000 },
     { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
   ],
-  "tasks": [
-    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json", "presetId": "narrow-planned" }
-  ],
-  "combos": [
+  "profiles": [
     {
       "id": "jev-alone", "name": "Jev alone", "structure": "solo",
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false }
-      }
+      },
+      "actions": {
+        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+      },
+      "page": "default",
+      "screenReader": "simulation",
+      "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 }
     },
     {
-      "id": "plan-and-jev", "name": "Plan with GPT, act with Jev", "structure": "planned",
+      "id": "narrow-planned", "name": "Narrow page, planned", "structure": "planned",
       "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
         "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-      }
+      },
+      "actions": {
+        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
+        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+      },
+      "page": "narrow",
+      "screenReader": "voiceover",
+      "runRules": { "maxReplans": 6 }
     }
   ],
-  "actionSets": [
-    { "id": "basic", "name": "Basic",
-      "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-      "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false } }
+  "tasks": [
+    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json", "profileId": "narrow-planned" }
   ],
-  "pageEnvironments": [
-    { "id": "default", "name": "Default", "profile": "default" },
-    { "id": "narrow", "name": "Narrow", "profile": "narrow" }
-  ],
-  "atEnvironments": [
-    { "id": "simulation", "name": "Simulated VoiceOver", "backend": "simulation" },
-    { "id": "voiceover", "name": "VoiceOver", "backend": "voiceover" }
-  ],
-  "presets": [
-    { "id": "narrow-planned", "name": "Narrow page, planned", "comboId": "plan-and-jev", "pageEnvironmentId": "narrow", "runRules": { "maxReplans": 6 } }
-  ],
-  "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 },
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "Focus on where the page made the run detour." },
     "suggestions": {}
@@ -300,7 +238,7 @@ The executor sees the plan summary, its current task with the completion cue and
 
 The planner plans again when the executor asks for help, at a checkpoint or final check, and when the run rules say so: `failureLimit` failed actions in a row, `noChangeLimit` actions in a row that changed nothing, or `stepActionLimit` actions on one task. It is given only what a person could hear, the actions the executor may use (input names, never secret values) and the attempts per task, never the accessibility tree.
 
-A run stops with one of these sources, kept distinct in the trace: `model` (the executor), `planner` (the planner declared the goal reached; independent verification still decides), `exploration-guard` (the repetition guard) or `orchestration-limit` (more than `maxReplans` plans). Each run directory of a planned combo also holds `plan.json` and `plan.md` (checkbox form, for people), and the dashboard shows the plan live. Plans, task changes and the reason for each new plan are saved as policy evidence in the trace.
+A run stops with one of these sources, kept distinct in the trace: `model` (the executor), `planner` (the planner declared the goal reached; independent verification still decides), `exploration-guard` (the repetition guard) or `orchestration-limit` (more than `maxReplans` plans). Each run directory of a planned profile also holds `plan.json` and `plan.md` (checkbox form, for people), and the dashboard shows the plan live. Plans, task changes and the reason for each new plan are saved as policy evidence in the trace.
 
 Replans, help requests, abandoned tasks, tasks whose cue was not heard, broken assumptions and unmet criteria are friction hints (`replan`, `help-request`, `task-limit`, `unverified-done`). They point at where a run needed to think again and do not say why: the page may have been hard, or the plan wrong.
 
@@ -308,7 +246,7 @@ Replans, help requests, abandoned tasks, tasks whose cue was not heard, broken a
 
 ### File planner
 
-Instead of a planner model, a combo can read a plan written beforehand: `"planner": { "planFile": "plans/{task}/plan.json" }`. The path is relative to the project and must end in `.json`. `{task}` becomes the task file's name without `.json`, so one combo gives every task its own plan (`plans/{task}/L2.json` for a task file `tasks/checkout.json` reads `plans/checkout/L2.json`).
+Instead of a planner model, a profile can read a plan written beforehand: `"planner": { "planFile": "plans/{task}/plan.json" }`. The path is relative to the project and must end in `.json`. `{task}` becomes the task file's name without `.json`, so one profile gives every task its own plan (`plans/{task}/L2.json` for a task file `tasks/checkout.json` reads `plans/checkout/L2.json`).
 
 The file has the planner's draft format: `strategy`, `criteria` (`C1`...), `assumptions` (`A1`...) and `phases` of `tasks`, each with `goal`, `done` and `cue` (the words the user should hear when it is finished), and optionally `serves` and `relies`. `complete` and `rationale` are optional.
 
@@ -334,7 +272,7 @@ Settings shared by the project that never change a run's outcome.
 
 | Field | Meaning |
 |---|---|
-| `analysis.model` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection. When set (and the combo has no `analysis` of its own), an LLM analysis is added to every run (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. A missing key skips the analysis and never blocks a run. |
+| `analysis.model` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection. When set , an LLM analysis is added to every run (`rawstep run`, `runTask` and the dashboard). Without it only the rule-based analysis runs, which always does. A missing key skips the analysis and never blocks a run. |
 | `analysis.instructions` | Optional analysis focus. A task's `analysisInstructions` override it. |
 | `suggestions.model` | Optional `{ connectionId, modelId, reasoningEffort? }` of an `llm` connection that suggests completion checks while a task is written. The analysis model is used when unset. |
 

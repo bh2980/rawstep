@@ -120,7 +120,6 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
         : <Link key="f" to={{ task: run.taskId, run: fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, number: own(fastest.runId) ?? '' })}</Link>),
       reason,
       runConditionsLine(conditions),
-      conditions.preset && t('runHeader.preset', { name: conditions.preset }),
       <span key="m" title={[conditions.planner, conditions.executor].filter(Boolean).join(' → ')}>{runModelsName(run)}</span>,
       conditions.analysis && <span key="a" title={t('runConditions.noEffect')}>{t('runHeader.analysis', { model: conditions.analysis })}</span>,
       simulated && t('run.simulationNotice'),

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TaskInputOptions } from '@rawstep/core/contracts';
 import { describeApiError, type ErrorView } from '../lib/errors';
-import type { TaskConditionIds } from '../lib/taskConditions';
 import { inputProblems } from '../lib/taskInputs';
 import { ErrorState } from './layout/ErrorState';
 import { Field } from './forms';
@@ -10,8 +9,8 @@ import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from './ui/sheet';
 
-/** What a person names when editing a task: what it is called, where it starts, what it asks, its default conditions and what it types. */
-export type TaskBasics = { name: string; url: string; goal: string; conditions: TaskConditionIds; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
+/** What a person names when editing a task: what it is called, where it starts, what it asks, and what it types. */
+export type TaskBasics = { name: string; url: string; goal: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
 
 /** How a save ended. A conflict means the project changed elsewhere since the sheet opened; the person's edits are still here. */
 export type BasicsSave = { ok: true } | { ok: false; conflict: boolean; error: unknown };
@@ -26,7 +25,7 @@ type Props = {
 };
 
 /**
- * The one place the name, address, goal and typed inputs of a task are edited (its conditions are in the header's conditions sheet,
+ * The one place the name, address, goal and typed inputs of a task are edited (its run profile is chosen in the header,
  * its completion check in its own tab). It saves against the revision it opened on; if the project changed since, it says so, keeps
  * the edits and offers to apply them on top of the newer version.
  */

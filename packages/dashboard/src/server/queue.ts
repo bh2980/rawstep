@@ -4,7 +4,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, taskConditions, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, taskProfile, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
@@ -81,13 +81,12 @@ export class ExperimentQueue {
       const task = config.tasks.find(t => t.id === taskId), source = tasks[taskId];
       for (const conditions of conditionSets(config, task ?? {}, request)) for (const mode of new Set(request.modes)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
         if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
-        const ids = { comboId: conditions.combo.id, actionSetId: conditions.actionSet.id, pageEnvironmentId: conditions.pageEnvironment.id, atEnvironmentId: conditions.atEnvironment.id, ...(conditions.preset ? { presetId: conditions.preset.id } : {}) };
-        const key = [taskId, mode, ids.comboId, ids.actionSetId, ids.pageEnvironmentId, ids.atEnvironmentId, repeat].join(':');
+        const profileId = conditions.profile.id, key = [taskId, mode, profileId, repeat].join(':');
         let reason: string | undefined, warnings: string[] = [], modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone(conditions.actionSet[mode]);
         if (!task || !source) reason = '작업을 찾을 수 없습니다.';
         else {
           try {
-            const check = checkRun({ config, task: source, taskEntry: { ...task, runRules: { ...task.runRules, ...request.runRules } }, mode, ...conditions, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) });
+            const check = checkRun({ config, task: source, taskEntry: task, runRules: request.runRules, mode, ...conditions, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) });
             permissions = check.permissions; modelName = check.model?.name; plannerName = check.plannerModel?.name; warnings = check.warnings.map(koreanWarning);
             if (check.problem) reason = koreanMessage(check.problem);
             else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
@@ -95,7 +94,7 @@ export class ExperimentQueue {
             else if (check.analysisModel && !await hasKey(check.analysisModel)) warnings.push('해설 모델의 인증키가 없어 규칙 기반 분석만 합니다.');
           } catch (e) { reason = (e as Error).message; }
         }
-        rows.push({ key, taskId, mode, repeat, ...ids, structure: conditions.combo.structure, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}),
+        rows.push({ key, taskId, mode, repeat, profileId, structure: conditions.combo.structure, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}),
           supported: !reason, ...(reason ? { reason } : {}), warnings, permissions, conditions });
       }
     }
@@ -110,7 +109,7 @@ export class ExperimentQueue {
     const runs: RunRecord[] = [];
     for (const { conditions, ...row } of selected) {
       const task = config.tasks.find(t => t.id === row.taskId)!;
-      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: { ...task, runRules: { ...task.runRules, ...request.runRules } }, mode: row.mode, ...conditions!, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) }));
+      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: task, runRules: request.runRules, mode: row.mode, ...conditions!, ...(request.diagnoseStop ? { diagnoseStop: true } : {}) }));
       const analysisModel = check.analysisModel;
       if (analysisModel && !keyed.has(analysisModel.id)) keyed.set(analysisModel.id, !modelKeyRequired(analysisModel) || await this.store.credential(analysisModel) ? analysisModel.id : undefined);
       const spec = { ...runSpecOf(safeTask(tasks[row.taskId]!), row.mode, conditions!, check, request.diagnoseStop), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(this.store, check.plannerPlanFile) } : {}) };
@@ -150,7 +149,7 @@ export class ExperimentQueue {
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.spec.task = safeTask(task); this.liveTasks.set(run.id, task);
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, runs: [run],
-      request: { taskIds: [run.taskId], modes: [run.mode], comboIds: [run.comboId], actionSetIds: [run.actionSetId], pageEnvironmentIds: [run.pageEnvironmentId], atEnvironmentIds: [run.atEnvironmentId], repeats: 1 } };
+      request: { taskIds: [run.taskId], modes: [run.mode], profileIds: [run.profileId], repeats: 1 } };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -269,18 +268,10 @@ function safeTask(task: Task): Task {
   return { ...redacted, ...(task.id ? { id: task.id } : {}), mode: task.mode, input: Object.fromEntries(Object.keys(task.input ?? {}).map(k => [k, '[REDACTED]'])) };
 }
 
-/** The condition sets of a task in an experiment: the cross product of what the request lists, each list defaulting to the task's own. */
-function conditionSets(config: ProjectConfig, task: Partial<Parameters<typeof taskConditions>[1]>, request: { presetIds?: string[] | undefined; comboIds?: string[] | undefined; actionSetIds?: string[] | undefined; pageEnvironmentIds?: string[] | undefined; atEnvironmentIds?: string[] | undefined }): RunConditions[] {
-  const presets = request.presetIds?.map(id => config.presets.find(p => p.id === id)).filter(p => !!p) ?? [undefined];
-  const sets: RunConditions[] = [];
-  for (const preset of presets) {
-    const base = taskConditions(config, preset ? { ...task, presetId: preset.id, comboId: preset.comboId ?? task.comboId, actionSetId: preset.actionSetId ?? task.actionSetId, pageEnvironmentId: preset.pageEnvironmentId ?? task.pageEnvironmentId, atEnvironmentId: preset.atEnvironmentId ?? task.atEnvironmentId } : task);
-    const list = <T extends { id: string }>(all: readonly T[], ids: string[] | undefined, fallback: T): T[] => ids ? ids.map(id => all.find(i => i.id === id)).filter((i): i is T => !!i) : [fallback];
-    for (const combo of list(config.combos, request.comboIds, base.combo)) for (const actionSet of list(config.actionSets, request.actionSetIds, base.actionSet))
-      for (const pageEnvironment of list(config.pageEnvironments, request.pageEnvironmentIds, base.pageEnvironment)) for (const atEnvironment of list(config.atEnvironments, request.atEnvironmentIds, base.atEnvironment))
-        sets.push({ combo, actionSet, pageEnvironment, atEnvironment, ...(base.preset ? { preset: base.preset } : {}) });
-  }
-  return sets;
+/** The run profiles of a task in an experiment: the ones the request lists, otherwise the task's own. */
+function conditionSets(config: ProjectConfig, task: { profileId?: string | undefined }, request: { profileIds?: string[] | undefined }): RunConditions[] {
+  const profiles = request.profileIds ? request.profileIds.map(id => config.profiles.find(p => p.id === id)).filter(p => !!p) : [taskProfile(config, task)];
+  return profiles.map(profileConditions);
 }
 /** Korean wording of the run check's English warnings. */
 function koreanWarning(warning: string): string {

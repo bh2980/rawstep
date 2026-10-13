@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { defaultConfig, type Combo } from '@rawstep/project/config';
-import { comboWith } from './project-config.js';
+import { defaultConfig, type Profile } from '@rawstep/project/config';
+import { profileWith } from './project-config.js';
 export async function dashboardFixture() {
   const requests: { model: string; instructions: string; state: unknown; choices: string[]; path: string }[] = [];
   const server = createServer((req, res) => { void (async () => {
@@ -23,18 +23,18 @@ export async function dashboardFixture() {
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('Fixture bind failed');
   const url = 'http://127.0.0.1:' + address.port;
   const config = defaultConfig();
-  // One decision server and one LLM at the fixture address. Each model combo picks a model on them: comparing models means comparing combos.
+  // One decision server and one LLM at the fixture address. Each run profile picks a model on them: comparing models means comparing profiles.
   config.connections = [
     { id: 'fixture', name: 'Fixture decision server', kind: 'decision', provider: 'custom', baseURL: url, timeoutMs: 5000 },
     { id: 'fixture-llm', name: 'Fixture LLM', kind: 'llm', provider: 'custom', baseURL: url, timeoutMs: 5000 },
   ];
   const careful = 'Fixture careful variant. Select a permitted candidate.', baseline = 'Fixture baseline. Select a permitted candidate.';
-  const comboOn = (id: string, connectionId: string, modelId: string, instructions = baseline): Combo => {
-    const combo = comboWith(id, connectionId, modelId, id);
-    return { ...combo, executors: { keyboard: { ...combo.executors.keyboard!, instructions }, screenreader: { ...combo.executors.screenreader!, instructions } } };
+  const profileOn = (id: string, connectionId: string, modelId: string, instructions = baseline): Profile => {
+    const profile = profileWith(id, connectionId, modelId, id);
+    return { ...profile, executors: { keyboard: { ...profile.executors.keyboard!, instructions }, screenreader: { ...profile.executors.screenreader!, instructions } } };
   };
-  config.combos = [comboOn('fixture-a', 'fixture', 'fixture-a'), comboOn('fixture-b', 'fixture', 'fixture-b', careful), comboOn('fixture-llm', 'fixture-llm', 'fixture-llm')];
-  config.pageEnvironments = [{ id: 'default', name: 'Default', profile: 'default' }, { id: 'narrow', name: 'Narrow', profile: 'narrow' }];
+  const a = profileOn('fixture-a', 'fixture', 'fixture-a'), b = profileOn('fixture-b', 'fixture', 'fixture-b', careful);
+  config.profiles = [a, b, profileOn('fixture-llm', 'fixture-llm', 'fixture-llm'), { ...a, id: 'fixture-a-narrow', name: 'fixture-a-narrow', page: 'narrow' }, { ...b, id: 'fixture-b-narrow', name: 'fixture-b-narrow', page: 'narrow' }];
   config.tasks = [{ id: 'fixture-task', name: '버튼 활성화 fixture', file: 'task.json' }];
   config.machine.browserExecutablePath = process.env.RAWSTEP_TEST_BROWSER_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   const task = { id: 'fixture-task', url: url + '/task', goal: 'Complete fixture button', mode: 'keyboard', maxSteps: 8, timeoutMs: 10000, verify: { all: [{ textVisibleExact: 'Done' }] } };

@@ -1,6 +1,6 @@
 # Reproducible environments and matched-task comparisons
 
-A page environment's `profile` field (`pageEnvironments[]` in `rawstep.config.json`, edited under 실험 조건 > 환경 in the dashboard) is either a built-in profile name or a profile object; `npx rawstep run <task> --environment <id|name>` selects a page environment, overriding the task's own and its preset's. Task JSON may also contain a `profile` object. Profiles record requested settings, observed settings, application mechanism, browser version and unsupported capabilities. Unknown fields and invalid ranges fail before execution.
+A run profile's `page` field (`profiles[]` in `rawstep.config.json`) is either a built-in environment profile name or an environment profile object; `npx rawstep run <task> --profile <id|name>` selects the run profile and so the page environment, overriding the task's own. Task JSON may also contain a `profile` object. Profiles record requested settings, observed settings, application mechanism, browser version and unsupported capabilities. Unknown fields and invalid ranges fail before execution.
 
 Built-ins: `default`, `narrow` (320×800), `zoom-200`, `zoom-400`, `text-200`, `spacing`, `reflow-text` (320×800 plus 200% text), `forced-colors`, `contrast`, `dark`, `reduced-motion`.
 
@@ -32,15 +32,15 @@ After named text entry, stored diagnostics, profile-check payloads and profile-e
 
 ## Comparing environments
 
-Run the same task under each page environment and compare the hints. Define one page environment per profile in `rawstep.config.json` (for example `default`, `reflow-text` and `forced-colors`), then:
+Run the same task under each page environment and compare the hints. Define one run profile per environment in `rawstep.config.json`, differing only in `page` (for example `default`, `reflow-text` and `forced-colors`), then:
 
 ```sh
-npx rawstep run checkout --environment default --repeat 3
-npx rawstep run checkout --environment reflow-text --repeat 3
-npx rawstep run checkout --environment forced-colors --repeat 3
+npx rawstep run checkout --profile default --repeat 3
+npx rawstep run checkout --profile reflow-text --repeat 3
+npx rawstep run checkout --profile forced-colors --repeat 3
 ```
 
-The dashboard's experiment queue runs tasks × modes × conditions (model combos, action sets, page environments, assistive technologies) × repeats in one batch (models belong to the model combo, so comparing models means comparing combos that differ only in model) and keeps the history under `.rawstep/experiments/`. Every run uses the same resolved task, independent verifier specification and named inputs, with a separate fresh browser/runner. Native machine backends connect to the AT Driver server at `machine.atEndpoints.<voiceover|nvda>`, or at that screen reader's usual address when it is empty; Rawstep does not guess native window associations. Different model trajectories imply different coverage: a worse action count or failed task is not automatically an environment-caused defect.
+The dashboard's experiment queue runs tasks × modes × run profiles × repeats in one batch (models belong to the profile, so comparing models means comparing profiles that differ only in model) and keeps the history under `.rawstep/experiments/`. Every run uses the same resolved task, independent verifier specification and named inputs, with a separate fresh browser/runner. Native machine backends connect to the AT Driver server at `machine.atEndpoints.<voiceover|nvda>`, or at that screen reader's usual address when it is empty; Rawstep does not guess native window associations. Different model trajectories imply different coverage: a worse action count or failed task is not automatically an environment-caused defect.
 
 Outcomes distinguish task completion, model failure (only with recorded model provenance), runtime errors, unsupported environments and inconclusive outcomes. A model's `success`, `stuck` and `uncertain` stops remain separate from an exploration guard. Independent verification is required for success; uncertainty with unmet verification yields `inconclusive`.
 

@@ -49,7 +49,7 @@ export class ProjectStore {
     let json: unknown;
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
-    if (version === 1 || version === 2) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}. Convert it once with \`node scripts/migrate-config.mjs <project-dir>\` from the Rawstep checkout (backups are kept as .bak files).`);
+    if (version === 1 || version === 2 || version === 3) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}. Convert it once with \`node scripts/migrate-config.mjs <project-dir>\` from the Rawstep checkout (backups are kept as .bak files).`);
     try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
@@ -58,35 +58,19 @@ export class ProjectStore {
   }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.tasks, config.combos, config.actionSets, config.pageEnvironments, config.atEnvironments, config.presets]) {
+    for (const group of [config.connections, config.tasks, config.profiles]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
     }
     const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
-    for (const combo of config.combos) {
-      for (const executor of Object.values(combo.executors)) if (executor && !('followPlan' in executor) && !kindOf(executor.connectionId)) throw new ProjectError('combo-connection-missing', 'A model combo uses a connection that does not exist.');
-      if (combo.planner && !('planFile' in combo.planner) && kindOf(combo.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
-      if (combo.analysis && kindOf(combo.analysis.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
+    for (const profile of config.profiles) {
+      for (const executor of Object.values(profile.executors)) if (executor && !('followPlan' in executor) && !kindOf(executor.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile uses a connection that does not exist.');
+      if (profile.planner && !('planFile' in profile.planner) && kindOf(profile.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+      resolveEnvironmentProfile(profile.page);
     }
     if (config.project.analysis.model && kindOf(config.project.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
-    for (const environment of config.pageEnvironments) resolveEnvironmentProfile(environment.profile);
-    const taskIds = new Set(config.tasks.map(t => t.id));
-    for (const item of [...config.combos, ...config.actionSets, ...config.pageEnvironments]) {
-      if (item.owner && !taskIds.has(item.owner)) throw new ProjectError('owner-missing', 'A task-only copy belongs to a task that does not exist.');
-    }
-    const refs: [string, keyof ProjectConfig & ('combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'), 'comboId' | 'actionSetId' | 'pageEnvironmentId' | 'atEnvironmentId' | 'presetId'][] = [
-      ['combo', 'combos', 'comboId'], ['action-set', 'actionSets', 'actionSetId'], ['page-environment', 'pageEnvironments', 'pageEnvironmentId'], ['at-environment', 'atEnvironments', 'atEnvironmentId'], ['preset', 'presets', 'presetId']];
-    for (const task of config.tasks) for (const [code, list, field] of refs) {
-      const ref = task[field], item = ref === undefined ? undefined : (config[list] as { id: string; owner?: string }[]).find(i => i.id === ref);
-      if (ref !== undefined && !item) throw new ProjectError(`task-${code}-missing`, `A task refers to a ${code.replace('-', ' ')} that does not exist.`);
-      if (item?.owner && item.owner !== task.id) throw new ProjectError('task-copy-foreign', 'A task uses another task\'s task-only copy.');
-    }
-    for (const preset of config.presets) for (const [code, list, field] of refs.slice(0, 4)) {
-      const ref = preset[field as 'comboId'], item = ref === undefined ? undefined : (config[list] as { id: string; owner?: string }[]).find(i => i.id === ref);
-      if (ref !== undefined && !item) throw new ProjectError(`preset-${code}-missing`, `A preset refers to a ${code.replace('-', ' ')} that does not exist.`);
-      // Presets are shared: one naming a task-only copy would hand that task's condition to every task and break when the task goes.
-      if (item?.owner) throw new ProjectError('preset-task-copy', 'A preset refers to a task-only copy; save it as a shared item first.');
-    }
+    const profileIds = new Set(config.profiles.map(p => p.id));
+    for (const task of config.tasks) if (task.profileId !== undefined && !profileIds.has(task.profileId)) throw new ProjectError('task-profile-missing', 'A task refers to a profile that does not exist.');
   }
   /** Resolves a project-relative path and refuses anything that leaves the project, including through symlinks. */
   async file(path: string, mustExist = false): Promise<string> {
@@ -187,10 +171,7 @@ export class ProjectStore {
       if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
       const task = current.config.tasks.find(t => t.id === taskId);
       if (!task) throw new ProjectError('task-not-found', `There is no task "${taskId}" in ${CONFIG_FILE}.`, 404);
-      // The task's own copies go with it; presets cannot point at them (presets only use shared items).
-      const shared = <T extends { owner?: string | undefined }>(list: T[]) => list.filter(item => item.owner !== taskId);
-      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId),
-        combos: shared(current.config.combos), actionSets: shared(current.config.actionSets), pageEnvironments: shared(current.config.pageEnvironments) };
+      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId) };
       this.validateReferences(config);
       await atomicJson(this.path, config, 0o644);
       let fileRemoved = false;

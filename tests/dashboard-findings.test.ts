@@ -7,7 +7,7 @@ import { elementsFromAriaSnapshot } from '../packages/dashboard/src/server/struc
 import { ProjectStore } from '@rawstep/project/store';
 import { defaultConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
-import { comboWith, connection } from './helpers/project-config.js';
+import { profileWith, connection } from './helpers/project-config.js';
 import { HINT_SOURCES, type Hint, type HintKind, type HintReport } from '@rawstep/reports/hints';
 import type { TaskFindings, TaskSummary } from '../packages/dashboard/src/shared/api.js';
 
@@ -23,7 +23,7 @@ const checkout = { role: 'button', name: 'Checkout' };
 async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[] }[]) {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
-  config.connections.push(connection('a')); config.combos[0] = comboWith('default', 'a', 'm-a', 'Default');
+  config.connections.push(connection('a')); config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' });
   await store.save(config, initial.revision, { file: 'task.json', task });
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {

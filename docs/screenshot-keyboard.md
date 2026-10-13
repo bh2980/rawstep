@@ -1,6 +1,6 @@
 # Screenshot-only keyboard exploration
 
-Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for connections and model combos.
+Screenshot-only keyboard exploration (task mode `keyboard`) is separate from native or simulated screen-reader runs. No scripted fallback replaces inference failures or poor actions. See [SystemOne](./systemone.md) for decision models and [config](./config.md) for connections and run profiles.
 
 ## Boundaries
 
@@ -15,7 +15,7 @@ This is an interface boundary, not a sandbox for a trusted user-provided JavaScr
 
 ## Run with a model
 
-Keyboard mode sends images, so the model combo needs a keyboard executor with a model that takes them. Add a connection in `rawstep.config.json` (via `npx rawstep ui`) and pick the model in the combo's keyboard executor (실험 조건 > 모델 조합):
+Keyboard mode sends images, so the run profile needs a keyboard executor with a model that takes them. Add a connection in `rawstep.config.json` (via `npx rawstep ui`) and pick the model in the profile's keyboard executor:
 
 - an `llm` connection with a model that has image input (OpenAI, Anthropic, Google, OpenRouter or a custom OpenAI-compatible server such as LM Studio), or
 - a `decision` connection on a provider that carries images: `typesafe`, `openrouter` or `custom` (a `/systemone` server you run). The Vercel AI Gateway is text only and cannot run keyboard mode.
@@ -23,7 +23,7 @@ Keyboard mode sends images, so the model combo needs a keyboard executor with a 
 Give the executor `inputs: ["text", "image"]` and a `maxImages` of at least 2. Then:
 
 ```sh
-npx rawstep run examples/screenshot/task.json --combo COMBO --mode keyboard
+npx rawstep run examples/screenshot/task.json --profile PROFILE --mode keyboard
 npx rawstep report .rawstep/runs/RUN_DIR
 ```
 

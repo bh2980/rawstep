@@ -19,7 +19,6 @@ import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
 import { isLive, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { RunOptions } from '../lib/quickRun';
 import { createManagedTask } from '../lib/taskFiles';
-import { CONDITION_KINDS, FIELD, type TaskConditionIds } from '../lib/taskConditions';
 import { inputFields, taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../lib/taskJson';
 import type { PageProps } from './types';
@@ -30,11 +29,6 @@ type Props = {
   onCompare: (taskId: string) => void; onRun: (taskId: string, options: RunOptions) => void;
 };
 
-const CONDITION_KEYS = ['presetId', ...CONDITION_KINDS.map(kind => FIELD[kind])] as const;
-/** The condition ids a task names itself. */
-const conditionIds = (task: ManagedTask): TaskConditionIds => Object.fromEntries(CONDITION_KEYS.flatMap(key => task[key] ? [[key, task[key]]] : []));
-const withoutConditions = (task: ManagedTask): ManagedTask => { const copy = { ...task }; for (const key of CONDITION_KEYS) delete copy[key]; return copy; };
-
 /** Sends a person to the run bar of the task header, for an empty state that says "run it". */
 function focusRunControl() {
   const form = document.getElementById('task-run-control');
@@ -43,9 +37,9 @@ function focusRunControl() {
 }
 
 /**
- * A task as one investigation sheet: its header (what it is, how to run it, the conditions of the next run), then 개요 (what the runs
- * found), 실행 기록, 완료 확인 and 설정. Name, address, goal and inputs are edited in the 작업 수정 sheet, conditions in the conditions
- * sheet of the header; the 완료 확인 and 설정 tabs share one draft saved from one bar. Mount with `key={taskId}` so drafts do not leak.
+ * A task as one investigation sheet: its header (what it is, how to run it, the profile of the next run), then 개요 (what the runs
+ * found), 실행 기록, 완료 확인 and 설정. Name, address, goal and inputs are edited in the 작업 수정 sheet, the profile in the run
+ * control of the header; the 완료 확인 and 설정 tabs share one draft saved from one bar. Mount with `key={taskId}` so drafts do not leak.
  */
 export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, onRun }: Props) {
   const { t } = useTranslation();
@@ -68,10 +62,10 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
   const savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
-  /** The draft with the sheet's name and conditions: an id is kept even when it names the first entry, so the choice survives reordering. */
-  const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name' | 'conditions'>): ManagedTask => ({ ...withoutConditions(entry), ...basics.conditions, name: basics.name });
+  /** The draft with the sheet's name; the task's profile is changed in the run control, not here. */
+  const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name'>): ManagedTask => ({ ...entry, name: basics.name });
   // What the 세부 설정 tab changed, apart from what the sheet owns (the inputs are edited in both, so the sheet saves them with the rest).
-  const otherChanges = JSON.stringify({ ...withoutConditions(task), ...conditionIds(saved), name: saved.name }) !== JSON.stringify({ ...withoutConditions(saved), ...conditionIds(saved) })
+  const otherChanges = JSON.stringify({ ...task, name: saved.name }) !== JSON.stringify(saved)
     || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal, input: savedParsed.input, inputOptions: savedParsed.inputOptions }), savedJson);
 
   /** Writes a task entry and its file against `base`, then starts the draft again from what the server stored. */
@@ -145,7 +139,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
     {tab !== 'overview' && tab !== 'runs' && <SaveBar dirty={dirty} busy={pageProps.busy} behind={behind} onSave={() => void pageProps.act(behind ? saveOnLatest : save)} onDiscard={discard} />}
 
     <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} otherChanges={otherChanges} onSave={saveBasics}
-      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), conditions: conditionIds(task), input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
+      initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
     />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;

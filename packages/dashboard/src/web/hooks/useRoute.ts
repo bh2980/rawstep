@@ -2,16 +2,16 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 export const views = ['tasks', 'runs', 'settings'] as const;
 export type View = (typeof views)[number];
-/** The parts of 설정, in the order of its side navigation, grouped: 실험 조건 · 모델 · 이 컴퓨터. */
+/** The parts of 설정, in the order of its side navigation, grouped: 실행 · 모델 · 이 컴퓨터. */
 export const settingsGroups = [
-  { id: 'conditions', sections: ['presets', 'combos', 'actionSets', 'pageEnvironments', 'atEnvironments', 'runRules'] },
+  { id: 'run', sections: ['profiles'] },
   { id: 'models', sections: ['connections', 'assist'] },
   { id: 'computer', sections: ['machine'] },
 ] as const;
 export type SettingsSection = (typeof settingsGroups)[number]['sections'][number];
 export const settingsSections: readonly SettingsSection[] = settingsGroups.flatMap(group => group.sections);
 /** Addresses from before 설정 held everything; they still open the part they meant. */
-const legacyViews: Record<string, { view: View; section?: SettingsSection }> = { home: { view: 'tasks' }, conditions: { view: 'settings', section: 'combos' }, connections: { view: 'settings', section: 'connections' } };
+const legacyViews: Record<string, { view: View; section?: SettingsSection }> = { home: { view: 'tasks' }, conditions: { view: 'settings', section: 'profiles' }, connections: { view: 'settings', section: 'connections' } };
 export const taskTabs = ['overview', 'runs', 'check', 'settings'] as const;
 export type TaskTab = (typeof taskTabs)[number];
 

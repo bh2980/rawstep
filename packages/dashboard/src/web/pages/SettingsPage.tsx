@@ -4,23 +4,21 @@ import { settingsGroups, type RouteChange, type SettingsSection } from '../hooks
 import { Link } from '../components/Link';
 import { cn } from '../lib/utils';
 import { AssistSettings } from './settings/AssistSettings';
-import { CONDITION_SECTIONS, ConditionSettings, type ConditionSection } from './settings/ConditionSettings';
+import { ProfileSettings } from './settings/ProfileSettings';
 import { ConnectionSettings } from './settings/ConnectionSettings';
 import { MachineSettings } from './settings/MachineSettings';
 import type { PageProps } from './types';
 
-const isCondition = (section: SettingsSection): section is ConditionSection => (CONDITION_SECTIONS as readonly string[]).includes(section);
-
 /**
- * 설정: everything that is configured, in one place with a side navigation of three groups — 실험 조건 (what changes a result), 모델
- * (where models are reached and the models that only comment), 이 컴퓨터. Every section stays mounted so a draft survives a visit to
- * another section; the navigation marks sections with unsaved edits.
+ * 설정: everything that is configured, in one place with a side navigation of three groups — 실행 (the run profiles, everything that
+ * changes a result), 모델 (where models are reached, and the models that only comment), 이 컴퓨터. Every section stays mounted so a
+ * draft survives a visit to another section; the navigation marks sections with unsaved edits.
  */
 export function SettingsPage({ section, navigate, ...props }: PageProps & { section?: SettingsSection | undefined; navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
   const config = props.view.config;
   // Without a connection nothing can run, so that is where 설정 opens first.
-  const current: SettingsSection = section ?? (config.connections.length ? 'presets' : 'connections');
+  const current: SettingsSection = section ?? (config.connections.length ? 'profiles' : 'connections');
   const [dirty, setDirty] = useState<Partial<Record<SettingsSection, boolean>>>({});
   const mark = (part: Partial<Record<SettingsSection, boolean>>) => setDirty(previous => ({ ...previous, ...part }));
   const show = (id: SettingsSection | SettingsSection[]) => ({ hidden: !(Array.isArray(id) ? id.includes(current) : id === current) });
@@ -37,9 +35,7 @@ export function SettingsPage({ section, navigate, ...props }: PageProps & { sect
       </div>)}
     </nav>
     <div className="min-w-0">
-      <div {...show([...CONDITION_SECTIONS])}>
-        <ConditionSettings {...props} section={isCondition(current) ? current : 'presets'} navigate={navigate} onDirty={mark} />
-      </div>
+      <div {...show('profiles')}><ProfileSettings {...props} navigate={navigate} onDirty={value => mark({ profiles: value })} /></div>
       <div {...show('connections')}><ConnectionSettings {...props} navigate={navigate} /></div>
       <div {...show('assist')}><AssistSettings {...props} onDirty={value => mark({ assist: value })} /></div>
       <div {...show('machine')}><MachineSettings {...props} onDirty={value => mark({ machine: value })} /></div>

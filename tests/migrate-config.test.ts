@@ -4,7 +4,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { parseConfig, projectAnalysisModel, type Executor } from '@rawstep/project/config';
+import { parseConfig, projectAnalysisModel, type Executor, type Profile } from '@rawstep/project/config';
 import { ProjectStore } from '@rawstep/project/store';
 
 const run = promisify(execFile);
@@ -63,48 +63,45 @@ async function project() {
 }
 
 describe('migrate-config.mjs', () => {
-  it('converts a version 2 project into one that parses and reads as version 3', async () => {
+  it('converts a version 2 project into one that parses and reads as version 4', async () => {
     const dir = await project(), before = await readFile(join(dir, 'rawstep.config.json'), 'utf8');
     const { stdout } = await migrate(dir);
     expect(stdout).toMatch(/Converted .*rawstep\.config\.json: 2 model combos, 3 action sets, 2 page environments, 2 presets/);
+    expect(stdout).toMatch(/Converted .*rawstep\.config\.json to version 4: 4 run profiles/);
     expect(await readFile(join(dir, 'rawstep.config.json.v2.bak'), 'utf8')).toBe(before);
+    expect(await exists(join(dir, 'rawstep.config.json.v3.bak'))).toBe(true);
     const raw = await json(join(dir, 'rawstep.config.json')), config = parseConfig(raw);
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     const { config: read } = await new ProjectStore(dir).read();
     expect(read).toEqual(config);
 
-    // Agents become model combos, keeping their models, planner, history and focus gate.
-    expect(config.combos.map(c => [c.id, c.structure])).toEqual([['scout', 'solo'], ['planner', 'planned']]);
-    expect(config.combos[0]!.executors.keyboard).toMatchObject({ modelId: 'jev-fast', historyLimit: 12, focusGate: false, instructions: 'Instructions for jev-fast.' });
-    expect(config.combos[1]).toMatchObject({ planner: { connectionId: 'writer', modelId: 'plan-model', instructions: 'Plan briefly.' }, executors: { screenreader: { modelId: 'jev-slow', historyLimit: 20 } } });
-    expect(config.combos[1]!.executors.keyboard).toBeUndefined();
+    // The first conditions become the default profile; each agent's choices and the task's own picks become profiles of their own.
+    expect(config.profiles.map(p => [p.id, p.structure])).toEqual([['default', 'solo'], ['scout', 'solo'], ['planner', 'planned'], ['checkout-profile', 'planned']]);
+    const [fallback, scout, planner, own] = config.profiles as [Profile, Profile, Profile, Profile];
+    expect(scout.executors.keyboard).toMatchObject({ modelId: 'jev-fast', historyLimit: 12, focusGate: false, instructions: 'Instructions for jev-fast.' });
+    expect(planner).toMatchObject({ planner: { connectionId: 'writer', modelId: 'plan-model', instructions: 'Plan briefly.' }, executors: { screenreader: { modelId: 'jev-slow', historyLimit: 20 } } });
+    expect(planner.executors.keyboard).toBeUndefined();
+    expect(fallback.executors).toEqual(scout.executors);
 
-    // Each distinct set of permissions becomes a shared action set; the task's own override becomes a copy owned by it.
-    expect(config.actionSets).toHaveLength(3);
-    expect(config.actionSets[0]).toMatchObject({ id: 'basic', name: 'Basic', ...basic });
-    const shared = config.actionSets[1]!;
-    expect(shared).toMatchObject({ id: expect.stringMatching(/^actions-[0-9a-f]{8}$/), keyboard: keyboardOnly, screenreader: readerOnly }); expect(shared.owner).toBeUndefined();
-    expect(config.actionSets[2]).toMatchObject({ id: 'checkout-actions', owner: 'checkout', copiedFrom: shared.id, keyboard: { keys: ['Tab'] }, screenreader: readerOnly });
+    // Actions, page and screen reader come along; the project's rules are in every profile with each agent's own on top.
+    expect(scout.actions).toEqual(basic); expect(planner.actions).toEqual({ keyboard: keyboardOnly, screenreader: readerOnly });
+    expect(own.actions).toEqual({ keyboard: { ...keyboardOnly, keys: ['Tab'] }, screenreader: readerOnly });
+    expect([scout.page, planner.page, own.page]).toEqual(['narrow', 'default', 'default']);
+    expect([fallback.screenReader, scout.screenReader, planner.screenReader, own.screenReader]).toEqual(['simulation', 'voiceover', 'voiceover', 'voiceover']);
+    expect(scout.runRules).toMatchObject({ modelGiveUp: true, maxReplans: 3, maxStateVisits: 5 });
+    expect(planner.runRules).toMatchObject({ modelGiveUp: false, maxReplans: 2, maxStateVisits: 5 });
+    expect(own.runRules).toMatchObject({ modelGiveUp: false, maxReplans: 6 });
 
-    // Presets keep each agent's choices; rules that differ from the project's rules (the first agent's) stay with the preset.
-    expect(config.runRules).toMatchObject({ modelGiveUp: true, maxReplans: 3, maxStateVisits: 5 });
-    expect(config.presets).toEqual([
-      expect.objectContaining({ id: 'scout', comboId: 'scout', actionSetId: 'basic', pageEnvironmentId: 'narrow', atEnvironmentId: 'voiceover' }),
-      expect.objectContaining({ id: 'planner', comboId: 'planner', actionSetId: shared.id, atEnvironmentId: 'voiceover', runRules: { modelGiveUp: false, maxReplans: 2 } }),
-    ]);
-    expect(config.presets[1]!.pageEnvironmentId).toBeUndefined();
-
-    // Tasks point at their preset and copy; their policy overrides become run rules.
-    expect(config.tasks[0]).toMatchObject({ id: 'checkout', presetId: 'planner', actionSetId: 'checkout-actions', pageEnvironmentId: 'default', runRules: { maxReplans: 6 } });
+    // Tasks point at their profile; one that used nothing of its own runs with the first.
+    expect(config.tasks[0]).toEqual({ id: 'checkout', name: 'Checkout', file: 'tasks/checkout.json', profileId: 'checkout-profile' });
     expect(config.tasks[1]).toEqual({ id: 'login', name: 'Login', file: 'tasks/login.json' });
-    expect(config.pageEnvironments.map(e => [e.id, e.profile])).toEqual([['default', 'default'], ['narrow', 'narrow']]);
+    for (const gone of ['combos', 'actionSets', 'pageEnvironments', 'atEnvironments', 'presets', 'runRules']) expect(raw).not.toHaveProperty(gone);
 
-    // The native backend becomes an environment next to the simulation, and its address moves to the machine settings.
-    expect(config.atEnvironments).toEqual([{ id: 'simulation', name: 'Simulated VoiceOver', backend: 'simulation' }, { id: 'voiceover', name: 'VoiceOver', backend: 'voiceover' }]);
+    // The native backend's address moves to the machine settings.
     expect(config.machine).toMatchObject({ atEndpoints: { voiceover: 'ws://127.0.0.1:9333', nvda: '' }, headless: false });
     expect(raw.machine).not.toHaveProperty('backend'); expect(raw.machine).not.toHaveProperty('atEndpoint');
 
-    // The analysis model and instructions move to the project settings.
+    // The analysis model and instructions are the project's.
     expect(config.project.analysis).toEqual({ model: { connectionId: 'writer', modelId: 'analysis-model' }, instructions: 'Look at forms.' });
     expect(projectAnalysisModel(config)).toMatchObject({ name: 'Writer · analysis-model' });
     for (const gone of ['agents', 'environments', 'analysis']) expect(raw).not.toHaveProperty(gone);
@@ -113,15 +110,14 @@ describe('migrate-config.mjs', () => {
   it('converts the dashboard run records with their conditions and keeps a backup', async () => {
     const dir = await project(), path = join(dir, '.rawstep/experiments/exp-1/experiment.json'), before = await readFile(path, 'utf8');
     const { stdout } = await migrate(dir);
-    expect(stdout).toContain('Converted 1 experiment records.');
+    expect(stdout).toContain('Converted 1 experiment records.'); expect(stdout).toContain('Converted 1 experiment records to version 4.');
     expect(await readFile(`${path}.v2.bak`, 'utf8')).toBe(before);
-    const experiment = await json(path), [record] = experiment.runs, config = await json(join(dir, 'rawstep.config.json'));
-    const sharedId = config.actionSets[1].id;
-    expect(experiment.request).toMatchObject({ modes: ['screenreader'], comboIds: ['planner'], pageEnvironmentIds: ['default'], taskIds: ['checkout'] });
-    for (const gone of ['agentIds', 'environmentIds', 'mode']) expect(experiment.request).not.toHaveProperty(gone);
-    expect(record).toMatchObject({ mode: 'screenreader', comboId: 'planner', actionSetId: sharedId, pageEnvironmentId: 'default', atEnvironmentId: 'voiceover', structure: 'planned', warnings: [],
-      key: `checkout:screenreader:planner:${sharedId}:default:voiceover:1` });
-    for (const gone of ['agentId', 'environmentId', 'plannerModel', 'plannerInstructions']) expect(record).not.toHaveProperty(gone);
+    const experiment = await json(path), [record] = experiment.runs;
+    expect(await exists(`${path}.v3.bak`)).toBe(true);
+    expect(experiment.request).toMatchObject({ modes: ['screenreader'], taskIds: ['checkout'] });
+    for (const gone of ['agentIds', 'environmentIds', 'mode', 'comboIds', 'pageEnvironmentIds', 'presetIds']) expect(experiment.request).not.toHaveProperty(gone);
+    expect(record).toMatchObject({ mode: 'screenreader', profileId: 'planner', structure: 'planned', warnings: [], key: 'checkout:screenreader:planner:1' });
+    for (const gone of ['agentId', 'environmentId', 'plannerModel', 'plannerInstructions', 'comboId', 'actionSetId', 'pageEnvironmentId', 'atEnvironmentId', 'presetId']) expect(record).not.toHaveProperty(gone);
     expect(record.snapshot.taskName).toBe('Checkout');
     expect(record.snapshot.spec).toMatchObject({
       mode: 'screenreader', backend: 'voiceover', task: { goal: 'Pay' }, model: { modelId: 'jev-slow' }, prompt: { id: 'planner.screenreader' }, environment: 'default',
@@ -129,23 +125,24 @@ describe('migrate-config.mjs', () => {
       settings: { machine: { atEndpoints: { voiceover: 'ws://127.0.0.1:9333' } }, runRules: { maxReplans: 2, maxStateVisits: 5 }, analysisInstructions: 'Look at forms.' },
     });
     expect(record.snapshot.spec.conditions).toMatchObject({
+      profile: { id: 'planner', name: 'Planner pair' },
       combo: { id: 'planner', name: 'Planner pair', structure: 'planned', executor: 'Jev · jev-slow', planner: 'Writer · plan-model', prompt: { id: 'planner.screenreader', version: 'abc123' } },
-      actionSet: { id: sharedId, permissions: readerOnly }, pageEnvironment: { id: 'default', profile: 'default' }, atEnvironment: { id: 'voiceover', backend: 'voiceover' },
+      actionSet: { permissions: readerOnly }, pageEnvironment: { id: 'default', profile: 'default' }, atEnvironment: { id: 'voiceover', backend: 'voiceover' },
       runRules: { maxReplans: 2 },
     });
   });
 
-  it('does nothing to a project that is already version 3, and rewrites no record twice', async () => {
+  it('does nothing to a project that is already version 4, and rewrites no record twice', async () => {
     const dir = await project(); await migrate(dir);
     const config = await readFile(join(dir, 'rawstep.config.json'), 'utf8'), record = await readFile(join(dir, '.rawstep/experiments/exp-1/experiment.json'), 'utf8');
     const { stdout } = await migrate(dir);
-    expect(stdout).toContain('already version 3');
+    expect(stdout).toContain('already version 4');
     expect(await readFile(join(dir, 'rawstep.config.json'), 'utf8')).toBe(config);
     expect(await readFile(join(dir, '.rawstep/experiments/exp-1/experiment.json'), 'utf8')).toBe(record);
-    expect(await exists(join(dir, 'rawstep.config.json.v3.bak'))).toBe(false);
+    expect(await exists(join(dir, 'rawstep.config.json.v4.bak'))).toBe(false);
   });
 
-  it('keeps each version 1 task\'s own prompt in a task-only combo and the remote browser address', async () => {
+  it('keeps each version 1 task\'s own prompt in a profile of its own and the remote browser address', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);
     await mkdir(join(dir, 'tasks'));
     for (const name of ['a', 'b']) await writeFile(join(dir, `tasks/${name}.json`), JSON.stringify(taskFile(name)));
@@ -161,12 +158,78 @@ describe('migrate-config.mjs', () => {
     await migrate(dir);
     const config = parseConfig(await json(join(dir, 'rawstep.config.json')));
     expect(config.machine.browserEndpoint).toBe('http://localhost:9222');
-    expect((config.combos.find(c => c.id === 'main')!.executors.screenreader as Executor).instructions).toBe('Shared speech');
     const taskA = config.tasks.find(t => t.id === 'a')!, taskB = config.tasks.find(t => t.id === 'b')!;
-    expect(taskA.comboId).toBeUndefined();
-    const own = config.combos.find(c => c.id === taskB.comboId)!;
-    expect(own).toMatchObject({ owner: 'b', copiedFrom: 'main' });
+    const first = config.profiles[0]!, own = config.profiles.find(p => p.id === taskB.profileId)!;
+    expect(taskA.profileId).toBeUndefined();
+    expect((first.executors.screenreader as Executor).instructions).toBe('Shared speech');
+    expect(own).toMatchObject({ id: 'b-profile', name: 'B 프로필' });
     expect([(own.executors.screenreader as Executor).instructions, own.executors.keyboard!.instructions]).toEqual(['Own speech', 'Own keys']);
+  });
+
+  /** A version 3 project: a preset, tasks that take it and one with picks of its own, and rules at all three levels. */
+  const v3Config = () => {
+    const model = { connectionId: 'jev', modelId: 'jev-fast', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2, historyLimit: 12, focusGate: false, latitude: 'none', instructions: 'Keys.' };
+    return {
+      version: 3,
+      connections: v2Config().connections,
+      combos: [
+        { id: 'default', name: 'Default', structure: 'solo', executors: { keyboard: model, screenreader: model } },
+        { id: 'zoom', name: 'Zoom check', structure: 'solo', executors: { keyboard: { ...model, modelId: 'jev-slow' } }, analysis: { connectionId: 'writer', modelId: 'own' } },
+      ],
+      actionSets: [{ id: 'basic', name: 'Basic', ...basic }, { id: 'wide', name: 'Wide', keyboard: keyboardOnly, screenreader: readerOnly }, { id: 'mine', name: 'Mine', owner: 'login', copiedFrom: 'basic', ...basic }],
+      pageEnvironments: [{ id: 'default', name: 'Default', profile: 'default' }, { id: 'narrow', name: 'Narrow', profile: 'narrow' }],
+      atEnvironments: [{ id: 'simulation', name: 'Simulated VoiceOver', backend: 'simulation' }, { id: 'nvda', name: 'NVDA', backend: 'nvda' }],
+      runRules: { maxReplans: 4, failureLimit: 3 },
+      presets: [{ id: 'strict', name: 'Strict', comboId: 'zoom', pageEnvironmentId: 'narrow', runRules: { maxReplans: 1 } }],
+      tasks: [
+        { id: 'checkout', name: 'Checkout', file: 'tasks/checkout.json', presetId: 'strict' },
+        { id: 'cart', name: 'Cart', file: 'tasks/cart.json', presetId: 'strict' },
+        { id: 'login', name: 'Login', file: 'tasks/login.json', presetId: 'strict', actionSetId: 'wide', atEnvironmentId: 'nvda', runRules: { failureLimit: 9 } },
+        { id: 'plain', name: 'Plain', file: 'tasks/plain.json' },
+      ],
+      project: { analysis: { model: { connectionId: 'writer', modelId: 'analysis-model' }, instructions: 'Look at forms.' }, suggestions: {} },
+      machine: { atEndpoints: { voiceover: '', nvda: '' }, browserExecutablePath: '', headless: true, browserEndpoint: '', personCheck: false },
+    };
+  };
+  it('converts a version 3 project: one run profile per distinct set of conditions, rules merged project, preset, task', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);
+    await mkdir(join(dir, 'tasks')); await mkdir(join(dir, '.rawstep/experiments/exp-1'), { recursive: true });
+    for (const name of ['checkout', 'cart', 'login', 'plain']) await writeFile(join(dir, `tasks/${name}.json`), JSON.stringify(taskFile(name)));
+    await writeFile(join(dir, 'rawstep.config.json'), JSON.stringify(v3Config()));
+    const before = await readFile(join(dir, 'rawstep.config.json'), 'utf8');
+    const record = { id: 'exp-1', request: { taskIds: ['checkout'], presetIds: ['strict'], comboIds: ['zoom'], modes: ['keyboard'], repeat: 1 },
+      runs: [{ taskId: 'checkout', presetId: 'strict', comboId: 'zoom', actionSetId: 'basic', pageEnvironmentId: 'narrow', atEnvironmentId: 'simulation', mode: 'keyboard', repeat: 1, key: 'old',
+        snapshot: { spec: { conditions: { preset: { id: 'strict', name: 'Strict' }, combo: { id: 'zoom', name: 'Zoom check' } } } } }] };
+    await writeFile(join(dir, '.rawstep/experiments/exp-1/experiment.json'), JSON.stringify(record));
+
+    const { stdout } = await migrate(dir);
+    expect(stdout).toMatch(/Converted .*rawstep\.config\.json to version 4: 3 run profiles/);
+    expect(await readFile(join(dir, 'rawstep.config.json.v3.bak'), 'utf8')).toBe(before);
+    const raw = await json(join(dir, 'rawstep.config.json')), config = parseConfig(raw);
+    expect((await new ProjectStore(dir).read()).config).toEqual(config);
+    expect(config.version).toBe(4);
+    for (const gone of ['combos', 'actionSets', 'pageEnvironments', 'atEnvironments', 'presets', 'runRules']) expect(raw).not.toHaveProperty(gone);
+
+    // The first items make the default profile; the preset keeps its id and name; the task with its own picks gets a profile named after it.
+    expect(config.profiles.map(p => [p.id, p.name])).toEqual([['default', 'Default'], ['strict', 'Strict'], ['login-profile', 'Login 프로필']]);
+    const [fallback, strict, own] = config.profiles as [Profile, Profile, Profile];
+    expect(fallback).toMatchObject({ page: 'default', screenReader: 'simulation', actions: basic, runRules: { maxReplans: 4, failureLimit: 3 } });
+    expect(strict).toMatchObject({ page: 'narrow', screenReader: 'simulation', actions: basic, executors: { keyboard: { modelId: 'jev-slow' } }, runRules: { maxReplans: 1, failureLimit: 3 } });
+    expect(strict).not.toHaveProperty('analysis'); expect(strict).not.toHaveProperty('owner');
+    expect(own).toMatchObject({ page: 'narrow', screenReader: 'nvda', actions: { keyboard: keyboardOnly, screenreader: readerOnly }, executors: { keyboard: { modelId: 'jev-slow' } }, runRules: { maxReplans: 1, failureLimit: 9 } });
+
+    // Tasks that use the same conditions share one profile; the one that used nothing of its own runs with the first.
+    expect(config.tasks.map(t => [t.id, t.profileId])).toEqual([['checkout', 'strict'], ['cart', 'strict'], ['login', 'login-profile'], ['plain', undefined]]);
+    for (const gone of ['presetId', 'comboId', 'actionSetId', 'pageEnvironmentId', 'atEnvironmentId', 'runRules']) for (const task of raw.tasks) expect(task).not.toHaveProperty(gone);
+    expect(config.project.analysis.model).toEqual({ connectionId: 'writer', modelId: 'analysis-model' });
+
+    // Run records name their profile after the preset they ran with.
+    const path = join(dir, '.rawstep/experiments/exp-1/experiment.json'), experiment = await json(path);
+    expect(await exists(`${path}.v3.bak`)).toBe(true);
+    expect(experiment.request).toEqual({ taskIds: ['checkout'], profileIds: ['strict'], modes: ['keyboard'], repeat: 1 });
+    expect(experiment.runs[0]).toMatchObject({ profileId: 'strict', key: 'checkout:keyboard:strict:1' });
+    for (const gone of ['presetId', 'comboId', 'actionSetId', 'pageEnvironmentId', 'atEnvironmentId']) expect(experiment.runs[0]).not.toHaveProperty(gone);
+    expect(experiment.runs[0].snapshot.spec.conditions).toMatchObject({ profile: { id: 'strict', name: 'Strict' }, preset: { id: 'strict' }, combo: { id: 'zoom' } });
   });
   it('refuses a config of an unknown version without touching it', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-migrate-')); dirs.push(dir);

@@ -50,39 +50,31 @@ export function screenshotUrl(experimentId: string, runId: string, eventId: stri
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
 }
 
-type Named = readonly { id: string; name: string }[];
-type Recorded = { id?: string; name?: string };
-const recorded = (value: unknown): Recorded & Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Recorded & Record<string, unknown> : {};
+const recorded = (value: unknown): { id?: unknown; name?: unknown; structure?: unknown } => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
-/** What a run ran under, read from what it recorded at the start (names as they were then), falling back to the project by id. */
+/** What a run ran with, read from what it recorded at the start (names as they were then), falling back to the project by id. */
 export type RunConditionsView = {
-  mode: Mode; structure: 'solo' | 'planned';
-  combo: string; actionSet: string; pageEnvironment: string; atEnvironment: string; backend: string; preset?: string;
+  mode: Mode; structure: 'solo' | 'planned'; backend: string;
+  /** The run profile's name; older runs recorded a preset or model combo instead. */
+  profile: string;
   /** Model names by role; `analysis` never changes an outcome. */
   executor: string; planner?: string; analysis?: string;
 };
-export function runConditions(run: Pick<RunRecord, 'snapshot' | 'comboId' | 'actionSetId' | 'pageEnvironmentId' | 'atEnvironmentId' | 'presetId' | 'structure' | 'analysisModel'>,
-  config?: Partial<Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>>): RunConditionsView {
-  const { spec } = run.snapshot, c = recorded(spec.conditions);
-  const name = (key: string, list: Named | undefined, id: string | undefined) => {
-    const own = recorded(c[key]).name;
-    return typeof own === 'string' ? own : list?.find(item => item.id === id)?.name ?? id ?? '—';
-  };
-  const combo = recorded(c.combo), preset = recorded(c.preset);
+export function runConditions(run: Pick<RunRecord, 'snapshot' | 'structure' | 'analysisModel'> & Partial<Pick<RunRecord, 'profileId'>>, config?: Partial<Pick<ProjectConfig, 'profiles'>>): RunConditionsView {
+  const { spec } = run.snapshot, c = recorded(spec.conditions) as Record<string, unknown>;
+  const combo = recorded(c.combo);
   const structure = combo.structure === 'planned' || combo.structure === 'solo' ? combo.structure : run.structure ?? 'solo';
-  const presetName = typeof preset.name === 'string' ? preset.name : config?.presets?.find(p => p.id === run.presetId)?.name;
+  const named = [c.profile, c.preset, c.combo].map(item => recorded(item).name).find((name): name is string => typeof name === 'string');
+  const profile = named ?? config?.profiles?.find(p => p.id === run.profileId)?.name ?? run.profileId ?? '—';
   return {
-    mode: spec.mode, structure,
-    combo: name('combo', config?.combos, run.comboId), actionSet: name('actionSet', config?.actionSets, run.actionSetId),
-    pageEnvironment: name('pageEnvironment', config?.pageEnvironments, run.pageEnvironmentId), atEnvironment: name('atEnvironment', config?.atEnvironments, run.atEnvironmentId),
-    backend: spec.backend, ...(presetName ? { preset: presetName } : {}),
+    mode: spec.mode, structure, backend: spec.backend, profile,
     executor: spec.model.name, ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
-    ...(run.analysisModel ? { analysis: run.analysisModel.name } : typeof combo.analysis === 'string' ? { analysis: combo.analysis } : {}),
+    ...(run.analysisModel ? { analysis: run.analysisModel.name } : {}),
   };
 }
-/** "스크린리더 · 계획 + 실행 · 숙련 사용자 · Default · 모의 VoiceOver": the conditions in one line, screen reader runs naming their assistive technology. */
+/** "스크린리더 · 기본 프로필": the mode and the run profile in one line. */
 export function runConditionsLine(view: RunConditionsView): string {
-  return [t(`sidebar.modes.${view.mode}`), view.combo, view.actionSet, view.pageEnvironment, ...(view.mode === 'screenreader' ? [view.atEnvironment] : [])].join(' · ');
+  return [t(`sidebar.modes.${view.mode}`), view.profile].join(' · ');
 }
 
 /** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */

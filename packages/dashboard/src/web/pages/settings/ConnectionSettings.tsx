@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal, Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import { agentOf, executorModel, isFilePlanner, type Combo, type Connection, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
+import { agentOf, executorModel, isFilePlanner, type Connection, type Profile, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
 import type { ModelCheck } from '../../../shared/api';
 import type { RouteChange } from '../../hooks/useRoute';
 import { ApiError, api } from '../../api';
@@ -26,31 +26,30 @@ type Role = 'planner' | 'screenreader' | 'keyboard' | 'analysis' | 'suggestions'
 const ROLES: readonly Role[] = ['planner', 'screenreader', 'keyboard', 'analysis', 'suggestions'];
 type Use = { role: Role; names: { label: string; to: RouteChange }[] };
 
-/** What uses a connection, by role: combos that plan, execute in a mode or explain with it, and the project's analysis and suggestion models. */
-function usesOf(config: ProjectConfig, id: string, projectLabel: string, ownedLabel: (name: string) => string): Use[] {
-  const combo = (c: Combo) => ({ label: c.owner ? ownedLabel(c.name) : c.name, to: { view: 'settings', section: 'combos' } as RouteChange });
+/** What uses a connection, by role: run profiles that plan or execute in a mode with it, and the project's analysis and suggestion models. */
+function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] {
+  const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings', section: 'assist' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
-    planner: config.combos.filter(c => c.structure === 'planned' && !isFilePlanner(c.planner) && c.planner?.connectionId === id).map(combo),
-    screenreader: config.combos.filter(c => executorModel(c, 'screenreader')?.connectionId === id).map(combo),
-    keyboard: config.combos.filter(c => executorModel(c, 'keyboard')?.connectionId === id).map(combo),
-    analysis: [...config.combos.filter(c => c.analysis?.connectionId === id).map(combo), ...(config.project.analysis.model?.connectionId === id ? [project] : [])],
+    planner: config.profiles.filter(p => p.structure === 'planned' && !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
+    screenreader: config.profiles.filter(p => executorModel(p, 'screenreader')?.connectionId === id).map(profile),
+    keyboard: config.profiles.filter(p => executorModel(p, 'keyboard')?.connectionId === id).map(profile),
+    analysis: config.project.analysis.model?.connectionId === id ? [project] : [],
     suggestions: config.project.suggestions.model?.connectionId === id ? [project] : [],
   };
   return ROLES.filter(role => by[role].length).map(role => ({ role, names: by[role] }));
 }
-/** A combo without the roles a removed connection played; a planned combo that loses its planner decides alone. */
-function withoutConnection(combo: Combo, id: string): Combo {
-  const { planner, executors, analysis, ...rest } = combo;
-  const { screenreader, keyboard } = executors;
+/** A profile without the roles a removed connection played; a planned profile that loses its planner decides alone. */
+function withoutConnection(profile: Profile, id: string): Profile {
+  const { planner, executors } = profile, { screenreader, keyboard } = executors;
   const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
-  const structure = combo.structure === 'planned' && !keepPlanner ? 'solo' : combo.structure;
-  // Following the plan needs a plan: a combo that loses its planner loses that too.
+  const structure = profile.structure === 'planned' && !keepPlanner ? 'solo' : profile.structure;
+  // Following the plan needs a plan: a profile that loses its planner loses that too.
   const keepScreenReader = screenreader && ('followPlan' in screenreader ? structure === 'planned' : screenreader.connectionId !== id);
+  const { planner: _planner, ...rest } = profile;
   return {
     ...rest, structure, ...(keepPlanner ? { planner } : {}),
     executors: { ...(keepScreenReader ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
-    ...(analysis && analysis.connectionId !== id ? { analysis } : {}),
   };
 }
 /** The project settings without models on a removed connection: analysis falls back to rules, suggestions to the analysis model. */
@@ -63,7 +62,7 @@ function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
 }
 
 /**
- * 설정 · 연결: where models are reached (a provider with its key, or a custom server). A connection holds no model; a model combo (or the
+ * 설정 · 연결: where models are reached (a provider with its key, or a custom server). A connection holds no model; a run profile (or the
  * project's analysis and suggestion settings) picks the model ID on one. 쓰는 곳 lists those uses by role. The status is what is known without asking until a person presses 확인, which asks the provider once.
  */
 export function ConnectionSettings({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
@@ -73,11 +72,11 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Combos that used the connection lose that role (a mode without an executor cannot run until another is picked, a combo without
+  // Profiles that used the connection lose that role (a mode without an executor cannot run until another is picked, a profile without
   // its planner decides alone); the project's analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
     const latest = props.view.config;
-    await props.save({ ...latest, combos: latest.combos.map(combo => withoutConnection(combo, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });
+    await props.save({ ...latest, profiles: latest.profiles.map(profile => withoutConnection(profile, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });
   }); };
   async function check(connection: Connection) {
     setChecks(current => ({ ...current, [connection.id]: { state: 'running' } }));
@@ -93,7 +92,7 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
       setChecks(current => ({ ...current, [connection.id]: { state: 'done', result } }));
     } catch (error) { setChecks(current => ({ ...current, [connection.id]: { state: 'failed', connection: error instanceof ApiError && error.status === 0 } })); }
   }
-  const uses = (id: string) => usesOf(config, id, t('connections.projectUser'), name => t('connections.ownedUser', { name }));
+  const uses = (id: string) => usesOf(config, id, t('connections.projectUser'));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
   return <div className="grid gap-5">

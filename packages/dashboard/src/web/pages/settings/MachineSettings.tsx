@@ -83,7 +83,7 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
   // Only this slice is written, on top of the latest config, so edits made on other pages are kept.
   const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
   const discard = () => { setMachine(structuredClone(config.machine)); setCommand(savedCommand); };
-  const viewport = environmentViewport(config.pageEnvironments[0]!.profile, props.view.environmentPresets);
+  const viewport = environmentViewport(config.profiles[0]!.page, props.view.environmentPresets);
   const connected = !!machine.browserEndpoint.trim(), visible = machine.personCheck || connected || !machine.headless;
   return <div className="grid max-w-3xl gap-8">
     <PageHeader title={t('settingsNav.sections.machine')} info={t('machine.intro')} />
