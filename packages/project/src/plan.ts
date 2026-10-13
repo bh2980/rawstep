@@ -91,7 +91,8 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   const model = comboExecutor(config, combo, mode), prompt = executorPrompt(combo, mode), analysisModel = comboAnalysis(config, combo);
   const plannerModel = mode === 'screenreader' ? comboPlanner(config, combo) : undefined;
   const filePlanner = mode === 'screenreader' && combo.structure === 'planned' && isFilePlanner(combo.planner) ? combo.planner : undefined;
-  const plannerPlanFile = filePlanner && taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
+  // Only `{task}` needs the task's file name; a constant plan path works for any task, registered or not.
+  const plannerPlanFile = !filePlanner ? undefined : !filePlanner.planFile.includes('{task}') ? filePlanner.planFile : taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
   const warnings: string[] = [];
   if (combo.structure === 'planned' && mode === 'keyboard') warnings.push('Keyboard runs do not use the planner yet; the keyboard executor decides alone.');
   let permissions = structuredClone(actionSet[mode]);
@@ -104,6 +105,8 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   if (mode === 'keyboard' && !supportsMode(model, 'keyboard')) return fail('model-needs-images', 'Keyboard runs need an executor that accepts the current and the previous image.');
   if (mode === 'screenreader' && !supportsMode(model, 'screenreader')) return fail('model-needs-text', 'Screen reader runs need an executor that accepts text.');
   if (filePlanner && !plannerPlanFile) return fail('plan-file-task', 'A plan file needs a task file to fill in {task}.');
+  // Following the plan only moves and presses: a task that has to type into a named input cannot be carried out that way.
+  if (followsPlan(combo, mode) && permissions.inputKeys?.length) return fail('follow-plan-text-entry', 'Following the plan cannot type into inputs yet. Pick an executor model for this task, or an action set without text entry.');
   if (followsPlan(combo, mode) && settings.runRules.taskControl === 'executor') return fail('follow-plan-task-control', 'Following the plan needs Rawstep to decide when tasks are done. Set task control to Rawstep.');
   if (combo.structure === 'planned' && mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'The model combo plans, so its planner must be a model on an LLM connection or a plan file.');
   // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks.

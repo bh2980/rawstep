@@ -397,6 +397,10 @@ describe('a goal reached without the user hearing so', () => {
     expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 3 });
     expect(trace.events.find(e => e.type === 'goal.reached')?.data).toMatchObject({ step: 1, heard: false, grace: 2 });
   });
+  it('keeps a reached goal as reached when the step limit cuts the grace short', async () => {
+    const trace = await run(fixture(), 50);
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 10 });
+  });
   it('stops at once when the user heard it, or without a grace', async () => {
     expect((await run(fixture('Added to cart'), 2)).outcome).toMatchObject({ status: 'success', steps: 1 });
     expect((await run(fixture())).outcome).toMatchObject({ status: 'success', steps: 1 });

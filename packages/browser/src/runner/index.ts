@@ -416,6 +416,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         reached = undefined;
       }
     }
+    // The step limit cut the grace short: the goal still held at the last check, so the run reached it.
+    if (reached !== undefined && outcome.reason === 'maxSteps') outcome = { status: 'success', reason: 'verified' };
   } catch (error) {
     bestEffortEvidence(() => {
     if (error instanceof BrowserSetupError) {

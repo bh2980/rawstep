@@ -563,6 +563,14 @@ describe('run checks', () => {
       expect(check(setup(), c => { follow(c); c.runRules.taskControl = 'executor'; }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-task-control');
       // Keyboard runs still need their own executor.
       expect(check(setup(), follow, { mode: 'keyboard', taskEntry: { file: 'tasks/cart.json' } }).model).toMatchObject({ id: 'a' });
+      // Following the plan cannot type: a task whose action set enters text into its inputs needs an executor model.
+      const typing = (c: ProjectConfig) => { follow(c); c.actionSets[0]!.screenreader = { ...c.actionSets[0]!.screenreader, inputKeys: ['email'], typeText: true }; };
+      expect(check(setup(), typing, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-text-entry');
+    });
+    it('give a constant plan file to any task, registered or not; only {task} needs the task file', () => {
+      const constant = (c: ProjectConfig) => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/common.json' } }); };
+      const result = check(setup(), constant, { mode: 'screenreader', taskEntry: {} });
+      expect(result.problem).toBeUndefined(); expect(result.plannerPlanFile).toBe('plans/common.json');
     });
     it('hand the screen reader executor\'s latitude to the run, and none when the plan is followed', () => {
       const config = setup(); Object.assign(config.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); choiceOf(config, 'screenreader').latitude = 'direction';
