@@ -158,10 +158,12 @@ export const runRulesSchema = z.object({
    */
   confidenceFloor: z.number().min(0).max(1).default(0.25),
   /**
-   * With a planner: what the simulated user does before the first plan. `headings` lists the page's headings (a VoiceOver user's
-   * rotor) as the first action, counted as a step; the action set must allow the `headings.list` intent.
+   * With a planner: what the simulated user does before the first plan. `headings` (default) lists the page's headings, as a practised
+   * VoiceOver user opens the rotor first, as the first action, counted as a step. It happens only for an action set that allows the
+   * `headings.list` intent (the practised-user set does): a novice who never lists headings walks from the top, so missing headings
+   * do not slow them down, while they do slow a practised user. `none` never surveys.
    */
-  survey: z.enum(['none', 'headings']).default('none'),
+  survey: z.enum(['none', 'headings']).default('headings'),
 }).strict();
 export type RunRules = z.infer<typeof runRulesSchema>;
 /**

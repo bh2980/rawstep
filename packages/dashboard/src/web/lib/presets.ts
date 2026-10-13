@@ -7,8 +7,8 @@ export const KEYBOARD_BASIC = ['Tab', 'Shift+Tab', 'Enter', 'Space'] as const;
 /** Arrow keys, Escape, Home and End on top of the basic keys: menus, tabs, comboboxes and dialogs move with them. */
 export const KEYBOARD_WIDGETS = [...KEYBOARD_BASIC, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End'] as const;
 export const SCREENREADER_BASIC = ['next', 'previous', 'activate'] as const;
-/** Jump by heading or form control: how people who know their screen reader move around. */
-export const SCREENREADER_QUICK = ['heading.next', 'heading.previous', 'form.next'] as const;
+/** Jump by heading or form control, and list the headings (the rotor): how people who know their screen reader move around. */
+export const SCREENREADER_QUICK = ['heading.next', 'heading.previous', 'form.next', 'headings.list'] as const;
 
 /** The action sets a person can start from: a novice, a practised screen reader user, and one who works widgets with the keyboard. */
 export const ACTION_SET_PRESETS = ['novice', 'expert', 'widgets'] as const;
