@@ -125,7 +125,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: [...task.moves] } : {}), serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, cue: task.cue?.trim() ?? '', ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {

@@ -219,8 +219,8 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(p.requests[0]).toMatchObject({ trigger: 'start', speech: [listed], context: 'PhoneShop, an online store; a product page' });
     expect(e.requests[0]!.choices.map(c => c.id)).not.toContain('intent:headings.list');
   });
-  it('offers only the task\'s moves, keeps activation to activates, and tells the planner where the cursor is', async () => {
-    const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
+  it('offers only the task\'s moves (written with or without the action id prefix), keeps activation to activates, and tells the planner where the cursor is', async () => {
+    const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['intent:heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
     const p = planner(byHeadings), e = scored(['intent:heading.next', 0.9], ['intent:activate', 0.9]);
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor);
     const allowed = { intents: ['next', 'previous', 'activate', 'heading.next', 'heading.previous'], keys: [], inputKeys: [], replaceText: false };
