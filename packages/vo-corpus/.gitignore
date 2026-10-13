@@ -1,0 +1,2 @@
+# Collected speech stays out of git; small regression snapshots are copied into rawstep's tests/fixtures.
+/data/

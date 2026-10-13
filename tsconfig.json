@@ -9,5 +9,8 @@
   "include": [
     "packages/*/src/**/*.ts"
   ],
-  "exclude": ["packages/dashboard"]
+  "exclude": [
+    "packages/dashboard",
+    "packages/vo-corpus"
+  ]
 }

@@ -280,6 +280,22 @@ importers:
         specifier: ^1.59.1
         version: 1.59.1
 
+  packages/vo-corpus:
+    dependencies:
+      rawstep:
+        specifier: workspace:*
+        version: link:../rawstep
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.17
+        version: 22.19.17
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
 packages:
 
   '@ai-sdk/gateway@4.0.104':

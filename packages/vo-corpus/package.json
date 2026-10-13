@@ -1,0 +1,20 @@
+{
+  "name": "vo-corpus",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Collects real VoiceOver speech through AT Driver to calibrate Rawstep's VoiceOver simulator (macOS only)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "rawstep": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}
