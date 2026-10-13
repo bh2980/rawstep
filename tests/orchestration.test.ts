@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, currentTask, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, verifyCue,
+  applyDraft, cueCandidate, currentTask, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, verifyCue,
   type ChoiceModel, type ChoiceRequest, type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -52,12 +52,21 @@ describe('plan document', () => {
     expect(v3.revisions[2]).toMatchObject({ met: ['C1'] });
     expect(renderPlanMarkdown(v3)).toMatch(/## Success criteria\n\n- ✓ C1 The cart confirms the item[\s\S]*- ✕ A1[\s\S]*- \[~\] 1\.1 Use headings[\s\S]*← current[\s\S]*- v2 before step 5 · help\/no-cue · broken A1 — A1 was wrong\./);
   });
+  it('treats an item sharing a name word with the cue as worth asking about, never role words alone', () => {
+    expect(cueCandidate({ cue: 'Email notifications for order updates' }, 'Order updates, unchecked, checkbox')).toBe(true);
+    expect(cueCandidate({ cue: 'Save changes' }, 'Newsletter, unchecked, checkbox')).toBe(false);
+    expect(cueCandidate({ cue: 'Returns, heading' }, 'Help center, heading, level 1')).toBe(false);
+    expect(cueCandidate({ cue: '' }, 'Order updates')).toBe(false);
+  });
   it('checks a claimed completion against the quoted cue', () => {
     expect(verifyCue({ done: 'Hear "Add to cart, button"', cue: '' }, ['add to cart,  button'])).toBe('heard');
     expect(verifyCue({ done: 'Hear “Added to cart”', cue: '' }, ['Quantity, 1'])).toBe('not-heard');
     expect(verifyCue({ done: 'The cart opens', cue: '' }, ['Cart'])).toBe('unchecked');
     // The planner's cue wins over quotes in the description.
     expect(verifyCue({ done: 'The cart opens', cue: 'Cart, 1 item' }, ['cart, 1 item, link'])).toBe('heard');
+    // Whole words: "checked" is not heard in "unchecked".
+    expect(verifyCue({ done: 'Hear it checked', cue: 'checked' }, ['Order updates, unchecked, checkbox'])).toBe('not-heard');
+    expect(verifyCue({ done: 'Hear it checked', cue: 'checked' }, ['Order updates, checked, checkbox'])).toBe('heard');
     expect(verifyCue({ done: 'Hear "Cart"', cue: 'Cart, 1 item' }, ['Cart'])).toBe('not-heard');
   });
 });
@@ -236,6 +245,33 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     let history: HistoryEntry[] = [];
     for (let step = 1; step <= 4; step++) { await policy.decide(input({ history })); history = [...history, acted(step, 'next', `item ${step}`)]; }
     expect(e.requests.every(r => r.choices.every(c => c.id.startsWith('intent:')))).toBe(true);
+  });
+  it('asks the planner whether an item heard in other words is the cue, once per item, and ends the task when it is', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Settings', tasks: [{ goal: 'Move to the order updates checkbox', done: 'Hear it', cue: 'Email notifications for order updates', activates: false }, { goal: 'Check it', done: 'Hear checked', cue: 'checked', activates: true }] }] };
+    const p = planner(plan), asked: string[] = [];
+    const recognizing: Planner = { plan: p.planner.plan, recognize: async request => { asked.push(request.heard); return { matches: request.heard.startsWith('Order updates'), model: { id: 'planner', runtime: 'test' } }; } };
+    const e = executor('intent:next', 'intent:next', 'intent:activate');
+    const policy = new OrchestratedSpeechPolicy(recognizing, e.executor);
+    const allowed = { intents: ['next', 'previous', 'activate'], keys: [], inputKeys: [], replaceText: false };
+    await policy.decide(input({ allowedActions: allowed, observation: said('Notifications, heading, level 2') }));
+    await policy.decide(input({ allowedActions: allowed, observation: said('Email notifications, group'), history: [acted(1, 'next', 'Notifications, heading, level 2')] }));
+    expect(e.requests[1]!.state).toMatchObject({ currentTask: { goal: 'Move to the order updates checkbox' } });
+    const history = [acted(1, 'next', 'Notifications, heading, level 2'), acted(2, 'next', 'Email notifications, group')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Order updates, unchecked, checkbox'), history }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(asked).toEqual(['Email notifications, group', 'Order updates, unchecked, checkbox']);
+    expect(e.requests[2]!.state).toMatchObject({ currentTask: { goal: 'Check it' } });
+    expect(evidence(policy)).toContainEqual(expect.objectContaining({ kind: 'orchestration-cue', verified: 'recognized', heard: 'Order updates, unchecked, checkbox', source: 'planner' }));
+  });
+  it('asks for a new plan when the cursor swings between the same two items', async () => {
+    const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));
+    const policy = new OrchestratedSpeechPolicy(p.planner, executor('intent:next', 'intent:next', 'intent:next').executor);
+    const allowed = { intents: ['next', 'previous', 'activate'], keys: [], inputKeys: [], replaceText: false };
+    await policy.decide(input({ allowedActions: allowed, observation: said('Newsletter, unchecked, checkbox') }));
+    const history = [acted(1, 'next', 'Newsletter, unchecked, checkbox'), acted(2, 'next', 'Order updates, unchecked, checkbox'), acted(3, 'previous', 'Special offers, unchecked, checkbox'), acted(4, 'next', 'Order updates, unchecked, checkbox')];
+    await policy.decide(input({ allowedActions: allowed, observation: said('Special offers, unchecked, checkbox'), history: history.slice(0, 3) }));
+    expect(p.requests).toHaveLength(1);
+    await policy.decide(input({ allowedActions: allowed, observation: said('Special offers, unchecked, checkbox'), history }));
+    expect(p.requests.map(r => r.trigger)).toEqual(['start', 'oscillation']);
   });
   it('finishes a task by itself when its cue is heard, without asking the executor, and goes on to the next', async () => {
     const p = planner(draft({ Find: ['Find the button', 'Activate it'] })), e = scored(['intent:activate', 0.9]);

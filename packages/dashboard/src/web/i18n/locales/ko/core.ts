@@ -130,6 +130,7 @@ export const core = {
       replanFailures: '행동이 연달아 실패해 계획 모델이 계획 v{{version}}을 세웠습니다.',
       replanNoChange: '행동해도 발화가 바뀌지 않아 계획 모델이 계획 v{{version}}을 세웠습니다.',
       replanLowConfidence: '실행 모델이 연달아 확신 없이 골라 계획 모델이 계획 v{{version}}을 세웠습니다.',
+      replanOscillation: '같은 두 항목 사이를 오가서 계획 모델이 계획 v{{version}}을 세웠습니다.',
       taskLimit: '한 작업에서 행동 한도를 다 써서 계획 모델이 계획 v{{version}}을 세웠습니다.',
       unverifiedDone: '실행 모델이 작업 {{task}}을 끝냈다고 했지만 완료 문구가 들리지 않아 작업을 계속 진행하게 했습니다.',
       earlyStopStuck: '모델이 막혔다고 답해 실행이 멈췄습니다.',

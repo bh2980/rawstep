@@ -2,9 +2,9 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ChoiceModel } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, verifyCue,
+import { applyDraft, cueCandidate, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, verifyCue,
   type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
-import { currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
+import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
 /** One past action as the planner reads it: the task it belonged to and what happened. */
 export type TaskAttempt = ModelHistoryEntry & { taskId: string; planVersion: number };
@@ -30,9 +30,17 @@ export type PlanRequest = {
 };
 /** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
 export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string } };
+/** Asks whether a spoken item is what the current task looks for, its cue having been written before the item was heard. */
+export type CueRequest = { goal: string; context?: string; task: { goal: string; done: string; cue: string }; heard: string };
+export type CueResult = { matches: boolean; reason?: string; model: { id: string; runtime: string } };
 /** Drafts and revises the plan document. Called a few times per run, so it can be a slower model than the executor. */
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
+  /**
+   * Whether `heard` is the item the task's cue describes. A planner that cannot judge this (a plan file) leaves it out, and only a
+   * cue heard as written ends a task.
+   */
+  recognize?(request: CueRequest, options: { signal: AbortSignal }): Promise<CueResult>;
 }
 
 export type OrchestrationOptions = SpeechPolicyOptions & {
@@ -62,12 +70,17 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
   /** How many low-confidence choices in a row on one task ask for a new plan (default 2). */
   lowConfidenceSteps?: number;
   /**
+   * Actions in a row on one task that only swing between the same two items (A, B, A, B, …) before a new plan is requested
+   * (default 4). The executor is stuck between them; waiting for the task limit only adds detours.
+   */
+  oscillationLimit?: number;
+  /**
    * What the simulated user does before the first plan. `headings`: list the page's headings (a VoiceOver user's rotor, VO+U) with
    * the `headings.list` intent; it is an action like any other and counts as a step. The planner then plans from what that list said.
    */
   survey?: 'none' | 'headings';
 };
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2 };
+const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2, oscillationLimit: 4 };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
 /**
@@ -129,6 +142,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   /** Executor choices in a row on the current task whose top probability was below the floor. */
   private lowConfidence = 0;
   private surveyed = false;
+  /** Spoken items already put to the planner for the current task: one question per item. */
+  private asked = new Set<string>();
   constructor(readonly planner: Planner, readonly executor: ChoiceModel, private readonly options: OrchestrationOptions = {}) {
     if (!executor.inputs.includes('text')) throw new Error('The executor needs a model that takes text.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
@@ -177,6 +192,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       if (this.control === 'rawstep' && verifyCue(task, input.observation.speech) === 'heard') {
         this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: 'heard', source: 'rawstep' });
         await this.finishTask(input, step, doc, task, 'heard');
+        continue;
+      }
+      // The cue was a guess written before the item was heard. An item that shares a name word with it is put to the planner, as a
+      // person who hears "Order updates, checkbox" knows it is the order-updates setting they were looking for.
+      if (this.control === 'rawstep' && input.history.length > this.taskFrom && await this.recognized(input, doc, task)) {
+        await this.finishTask(input, step, doc, task, 'recognized');
         continue;
       }
       // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
@@ -253,6 +274,18 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
     this.startTask(input);
   }
+  /** Asks the planner whether the item the cursor is on is what the task's cue describes (once per item and task). */
+  private async recognized(input: Input, doc: PlanDocument, task: PlanTask): Promise<boolean> {
+    const heard = input.observation.kind === 'screenreader' ? [...input.observation.speech].reverse().find(t => t.trim())?.trim() : undefined;
+    if (!this.planner.recognize || !heard || this.asked.has(heard) || !cueCandidate(task, heard)) return false;
+    this.asked.add(heard);
+    const started = performance.now();
+    const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: task.cue }, heard: heard.slice(0, 300) }, { signal: input.signal });
+    input.signal.throwIfAborted();
+    this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: result.matches ? 'recognized' : 'not-recognized', source: 'planner',
+      cue: task.cue, heard, ...(result.reason ? { reason: result.reason } : {}), model: result.model, elapsedMs: performance.now() - started });
+    return result.matches;
+  }
   /** What went wrong on the current task, if anything warrants a new plan. */
   private trigger(input: Input): PlanTrigger | undefined {
     const task = this.doc && currentTask(this.doc);
@@ -262,6 +295,10 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const last = (n: number) => since.length >= n ? since.slice(-n) : undefined;
     if (last(this.limits.failureLimit)?.every(h => h.execution?.ok === false)) return 'failures';
     if (last(this.limits.noChangeLimit)?.every(h => h.changed === false)) return 'no-change';
+    // Where each action left the cursor: two items taking turns means the executor is swinging between them.
+    const spoken = input.history.slice(this.taskFrom).filter(h => 'action' in h.decision).map((h, i, all) => currentItem(i + 1 < all.length ? all[i + 1]!.observation : input.observation, []));
+    const recent = spoken.slice(-this.limits.oscillationLimit);
+    if (recent.length === this.limits.oscillationLimit && recent[0] && recent[1] && recent[0] !== recent[1] && recent.every((item, i) => item === recent[i % 2])) return 'oscillation';
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
     if (since.length >= this.limits.stepActionLimit) return 'task-limit';
     return undefined;
@@ -293,6 +330,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private startTask(input: Input): void {
     this.taskFrom = input.history.length;
     this.lowConfidence = 0;
+    this.asked.clear();
     const task = this.doc && currentTask(this.doc);
     if (task && task.actions === 0) this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: 'pending', toStatus: 'active', actions: 0 });
   }

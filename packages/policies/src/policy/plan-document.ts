@@ -10,13 +10,13 @@ export type AssumptionStatus = 'open' | 'held' | 'broken';
 /** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
 export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
  * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
  * `unchecked` means the task had no cue to compare.
  */
-export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'not-heard' | 'unchecked' };
+export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'recognized' | 'not-heard' | 'unchecked' };
 /** Something the user must be able to hear for the goal to count as reached, in the planner's words. */
 export type Criterion = { id: string; text: string; status: CriterionStatus; addedIn: number };
 /** An expectation from common UI conventions the plan rests on; running the plan shows whether it held. */
@@ -177,7 +177,24 @@ export function verifyCue(task: Pick<PlanTask, 'cue' | 'done'>, heard: readonly 
   if (!quoted.length) return 'unchecked';
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const said = heard.map(norm).join('\n');
-  return quoted.some(q => said.includes(norm(q))) ? 'heard' : 'not-heard';
+  // Whole words only: a "checked" cue is not heard in "unchecked".
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return quoted.some(q => new RegExp(`(?<![\\p{L}\\p{N}])${escape(norm(q))}(?![\\p{L}\\p{N}])`, 'u').test(said)) ? 'heard' : 'not-heard';
+}
+/** Role and state words a screen reader adds to names: sharing one says nothing about being the item a cue names. */
+const SPOKEN_ROLES = new Set(['button', 'link', 'checkbox', 'checked', 'unchecked', 'heading', 'level', 'group', 'list', 'item', 'items', 'region',
+  'navigation', 'main', 'banner', 'expanded', 'collapsed', 'selected', 'dimmed', 'visited', 'radio', 'tab', 'menu', 'text', 'field', 'edit',
+  'the', 'and', 'for', 'with', 'your', 'you', 'this', 'that', 'of', 'to', 'on', 'in', 'a', 'an']);
+const words = (text: string) => new Set(text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1 && !SPOKEN_ROLES.has(w)).map(w => w.replace(/(?<=..)s$/, '')));
+/**
+ * Whether a spoken item might be the one a task's cue describes though the cue's words were not heard as written. The planner writes
+ * the cue before hearing the item, so its wording is a guess ("Email notifications for order updates" for "Order updates,
+ * unchecked, checkbox"); a person who hears the item still recognises it. Sharing a name word makes it worth asking; it is not a match.
+ */
+export function cueCandidate(task: Pick<PlanTask, 'cue'>, item: string | undefined): boolean {
+  if (!task.cue || !item) return false;
+  const named = words(item);
+  return [...words(task.cue)].some(w => named.has(w));
 }
 /** One line per task for the executor: where the run is, without the planner's free-form reasoning. */
 export function planOutline(doc: PlanDocument): { number: string; phase: string; task: string; status: TaskStatus }[] {

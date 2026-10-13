@@ -6,7 +6,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
-import type { Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
+import type { CueRequest, CueResult, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
 import { planDraftSchema } from '../policy/fixed-plan.js';
 import { AcpAgent, parseAgentJson } from '../acp/index.js';
 
@@ -164,9 +164,9 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   '"criteria" (C1, C2…): what the user must be able to hear for the goal to count as reached;',
   '"strategy": one sentence on the approach; "assumptions" (A1, A2…): expectations from common UI conventions the strategy relies on;',
   '"phases" of short "tasks". Each task must be achievable in a few of the listed actions, names the criteria it "serves" and the assumptions it "relies" on,',
-  'and its "done" says what the user will hear when it is finished. Its "cue" is the exact words (a few, as the screen reader would say them,',
-  'e.g. a link or heading name) that must be heard for the task to count as finished; Rawstep turns down the executor\'s "done" when the cue was',
-  'not heard. Give a cue for every task whose words you can predict from what was heard, the page title or the goal; use "" only when you cannot.',
+  'and its "done" says what the user will hear when it is finished. Its "cue" is the few name words you expect to hear when the task is finished',
+  '(e.g. a link or heading name, without its role). Words heard as written end the task; you cannot know the exact wording of what was not heard yet,',
+  'so when an item sharing a cue word is heard, you will be asked whether it is the one the task looks for. Give a cue for every task whose words you can predict from what was heard, the page title or the goal; use "" only when you cannot.',
   'Write "done" as what is heard, never as what the executor did ("I found it" cannot be checked).',
   'Set "activates" to false for a task that only moves the cursor and true for a task that ends by activating the current item (pressing a',
   'button, opening a disclosure, checking a box): a moving task offers the executor no activation. Keep moving and pressing in separate tasks.',
@@ -182,7 +182,8 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'instead of navigating to it. "title" is the page title the screen reader announced when the page loaded; many sites use one title for every page.',
   'Base everything on what has been heard so far; treat conventions as assumptions, never as facts about this page.',
   'When "document" is present you are revising your plan because of "trigger" (and "help", the executor\'s reason). "low-confidence" means the executor',
-  'could not tell which action moves the current task forward: make the task smaller and more concrete (name the element and its cue) or change the approach. "checkpoint" means a phase just',
+  'could not tell which action moves the current task forward: make the task smaller and more concrete (name the element and its cue) or change the approach. "oscillation" means the executor kept',
+  'swinging between the same two items: the target is probably one of them, or the method cannot reach it; plan from those items. "checkpoint" means a phase just',
   'finished: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
   'Read "attempts": each action is linked to its task and says whether it ran (execution.ok) and whether the speech changed (changed); finished tasks',
   'show whether their cue was heard (ending.verified), and "rejected" counts "done" claims turned down because the cue was not heard. Set criterion status ("met", "unmet") and assumption status ("held", "broken") from that evidence.',
@@ -195,6 +196,17 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   '"goal": string, "done": string, "cue": string, "activates": boolean, "moves": ["next"], "serves"?: ["C1"], "relies"?: ["A1"]}]}]}.',
 ].join(' ');
 /** An LLM as the orchestrated policy's planner. Its replies are validated; a malformed draft fails the call. */
+/** For the planner's other call: is what the screen reader just said the item a task's cue describes? */
+export const CUE_RECOGNITION_INSTRUCTIONS = [
+  'You help a blind screen reader user carry out a plan on a web page. A task in the plan ends when the user hears a cue, but the cue',
+  'was written before the page was heard, so its words are a guess at what the screen reader will say. You get the goal, the task,',
+  'its cue and the one item the screen reader just spoke. Decide whether that item is what the task was looking for, as the user',
+  'hearing it would: the same control or text under a different wording counts; a different control that shares a word (a group',
+  'heading, a neighbouring checkbox, a link elsewhere) does not. Use only the words given. Answer with JSON only:',
+  '{"matches": boolean, "reason": string (one short sentence)}.',
+].join(' ');
+const cueAnswerSchema = z.object({ matches: z.boolean(), reason: z.string().max(300).optional() });
+
 export class LlmPlanner implements Planner {
   readonly instructions: string;
   private readonly prompt: { id: string; version: string; sha256: string };
@@ -206,5 +218,9 @@ export class LlmPlanner implements Planner {
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
     const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: planDraftSchema });
     return { draft: object, model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
+  }
+  async recognize(request: CueRequest, { signal }: { signal: AbortSignal }): Promise<CueResult> {
+    const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: CUE_RECOGNITION_INSTRUCTIONS, user: JSON.stringify(request), schema: cueAnswerSchema });
+    return { matches: object.matches, ...(object.reason ? { reason: object.reason } : {}), model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-cue-recognition' : 'openai-compatible-cue-recognition' } };
   }
 }

@@ -58,7 +58,10 @@ function measure(dir) {
     executorCalls: executor.length,
     medianConfidence: confidence.length ? confidence[Math.floor(confidence.length / 2)] : undefined,
     replans: plans.filter(p => !['start', 'checkpoint'].includes(p.trigger)).map(p => p.trigger),
-    cueCompletions: evidence.filter(e => e.kind === 'orchestration-cue').length,
+    cueCompletions: evidence.filter(e => e.kind === 'orchestration-cue' && e.verified === 'heard').length,
+    // Items heard in other words than the cue, put to the planner, and how many it recognised as the task's target.
+    cueQuestions: evidence.filter(e => e.kind === 'orchestration-cue' && e.source === 'planner').length,
+    cueRecognized: evidence.filter(e => e.kind === 'orchestration-cue' && e.verified === 'recognized').length,
     tasksDone: [...ends.values()].filter(status => status === 'done').length, tasksAbandoned: [...ends.values()].filter(status => status === 'abandoned' || status === 'failed').length, tasksTotal: taskIds.size,
   };
 }
