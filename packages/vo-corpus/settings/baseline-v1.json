@@ -1,0 +1,96 @@
+{
+  "id": "baseline-v1",
+  "recordedAt": "2026-10-14",
+  "source": "VoiceOver Utility screenshots by the user; VoiceOver settings cannot be read programmatically on this macOS (protected group container)",
+  "assumedFactoryDefaults": true,
+  "locale": "ko_KR",
+  "voice": {
+    "primary": "MacOSATDriverServerExtensionVoice (AT Driver capture voice; silent)",
+    "note": "capture voice replaces the user's Korean voice Yuna; speech language follows the Korean UI"
+  },
+  "panels": {
+    "navigation": {
+      "VoiceOver 커서의 처음 위치": { "value": "키보드에 초점을 맞춘 항목", "en": "Initial VoiceOver cursor position: item with keyboard focus" },
+      "그룹 짓기 동작": { "value": "표준", "en": "Grouping action: standard" },
+      "키보드 초점 및 VoiceOver 커서 동기화": { "value": true, "en": "Sync keyboard focus and VoiceOver cursor" },
+      "마우스 포인터": { "value": "VoiceOver 커서 무시", "en": "Mouse pointer: ignore VoiceOver cursor" },
+      "커서 둘러싸기 허용": { "value": false, "en": "Allow cursor wrap-around" },
+      "중복 레이블 건너뛰기": { "value": false, "en": "Skip duplicate labels" },
+      "tab 키를 사용할 때 자동으로 대화식 기능 사용": { "value": true, "en": "Automatically use interactive features when using the Tab key" },
+      "빠른 검색 활성화": { "value": false, "en": "Enable Quick Nav", "modifierKey": { "value": "오른쪽 Command 키", "en": "Right Command key", "note": "greyed out because the checkbox is off" } }
+    },
+    "web": {
+      "navigation": {
+        "다음으로 웹 페이지 탐색": { "value": "DOM 순서", "en": "Navigate web page by: DOM order (selected)", "alternatives": { "그룹화된 항목": { "selected": false, "en": "grouped items" } } },
+        "웹 표 탐색 시": {
+          "내부 항목 그룹화": { "value": false, "en": "Group inner items (web tables)" },
+          "열 및 행 번호 말하기": { "value": true, "en": "Speak column and row numbers (web tables)" }
+        },
+        "이미지 탐색": { "value": "항상", "en": "Image navigation: always" },
+        "라이브 영역 활성화": { "value": true, "en": "Enable live regions" },
+        "키보드 명령이 웹사이트를 탐색하도록 항상 허용": { "value": false, "en": "Always allow keyboard commands to navigate websites" }
+      },
+      "general": {
+        "새로운 웹 페이지를 로드할 경우": {
+          "웹 페이지 요약 말하기": { "value": false, "en": "Speak web page summary" },
+          "자동으로 웹 페이지 말하기": { "value": true, "en": "Automatically speak web page" }
+        },
+        "웹 페이지를 로드하는 동안": { "value": "진행 과정 말하기", "en": "While loading a web page: speak progress" }
+      },
+      "rotor": {
+        "항목 순서": {
+          "enabledInOrder": [
+            { "label": "링크", "en": "Links", "checked": true },
+            { "label": "프레임", "en": "Frames", "checked": true },
+            { "label": "랜드마크", "en": "Landmarks", "checked": true },
+            { "label": "표", "en": "Tables", "checked": true },
+            { "label": "양식 제어", "en": "Form controls", "checked": true },
+            { "label": "머리말", "en": "Headings", "checked": true }
+          ],
+          "disabled": [
+            { "label": "기사", "en": "Articles", "checked": false },
+            { "label": "버튼", "en": "Buttons", "checked": false },
+            { "label": "텍스트 필드", "en": "Text fields", "checked": false },
+            { "label": "이미지", "en": "Images", "checked": false },
+            { "label": "줄", "en": "Lines", "checked": false },
+            { "label": "목록", "en": "Lists", "checked": false },
+            { "label": "라이브 영역", "en": "Live regions", "checked": false },
+            { "label": "방문하지 않은 링크", "en": "Unvisited links", "checked": false }
+          ],
+          "note": "list is scrollable; the bottom row (partially cut off, likely 방문한 링크 / visited links, unchecked) is not fully legible, and items below it are not visible"
+        }
+      }
+    },
+    "verbosity": {
+      "text": {
+        "구두점": { "value": "일부", "en": "Punctuation: some" },
+        "반복되는 구두점": { "value": "처음 세 번", "en": "Repeated punctuation: first three times" },
+        "반복되는 공백": { "value": "동작 없음", "en": "Repeated spaces: no action" },
+        "줄 들여쓰기": { "value": "동작 없음", "en": "Line indentation: no action" },
+        "입력하는 동안 말하기": { "value": "문자 및 단어", "en": "Speak while typing: characters and words" },
+        "커서를 이동할 경우": { "value": "커서가 지나가는 텍스트 말하기", "en": "When moving the cursor: speak text the cursor passes over" },
+        "텍스트 속성을 변경할 경우": { "value": "동작 없음", "en": "When text attributes change: no action" },
+        "맞춤법 오류를 발견할 경우": { "value": "속성 말하기", "en": "When a spelling error is found: speak attributes" },
+        "링크/첨부 파일을 발견할 경우": { "value": "말하기", "en": "When a link/attachment is found: speak" },
+        "숫자를 다음으로 읽기": { "value": "단어", "en": "Read numbers as: words" },
+        "대문자를 읽을 경우": { "value": "음높이 변경", "en": "When reading capital letters: change pitch" },
+        "텍스트를 삭제할 경우": { "value": "음높이 변경", "en": "When deleting text: change pitch" }
+      },
+      "hints": {
+        "VoiceOver 커서에 있는 항목의 사용에 대한 지침 말하기": { "value": true, "en": "Speak hints about using items under the VoiceOver cursor" },
+        "항목에 도움말 태그가 있을 경우": { "value": "도움말 말하기", "en": "If item has a help tag: speak help" },
+        "항목에 사용자 설정 동작이 있을 경우": { "value": "동작 말하기", "en": "If item has user-set actions: speak actions" },
+        "항목에 더 많은 콘텐츠가 있을 경우": { "value": "사용자 설정 콘텐츠 말하기", "en": "If item has more content: speak user-set content" },
+        "힌트 말하기 전에 지연": { "value": "leftmost (short)", "en": "Delay before speaking hints: slider at leftmost position (labels: 짧게 = short, 길게 = long)" },
+        "개별 문자에 대해 음성 기호 발음을 덧붙이기": { "value": false, "en": "Append speech symbol pronunciation for individual characters" }
+      }
+    }
+  },
+  "notCaptured": [
+    "verbosity > 말하기 tab (speech) not shown",
+    "verbosity > 점자 tab (braille) not shown",
+    "verbosity > 알림 tab (notifications) not shown",
+    "web > rotor list: items below 방문하지 않은 링크 are scrolled out of view; the partially visible bottom row is not fully legible",
+    "other top-level VoiceOver Utility panels (for example voice, keyboard, braille display) not shown"
+  ]
+}

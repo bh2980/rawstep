@@ -31,3 +31,19 @@ Each run writes `data/runs/<time>/meta.json` (AT Driver session, macOS/browser v
 The console prints the speech per step and flags a step when the browser was not frontmost.
 
 Speech is attributed to a step by time only, as in Rawstep's AT Driver backend: late speech can land in the next step.
+
+## AX tree dump
+
+VoiceOver speaks from the macOS accessibility (AX) tree of the browser's web area, so each speech record needs that tree next to it. `axdump/axdump.swift` prints the frontmost window's `AXWebArea` as JSON (role, subrole, title, description, value, DOM id/classes, state and ARIA attributes, children; only present attributes), plus app, pid, window title, timestamp and `focusedPath` (child indices to the `AXFocusedUIElement`, null when focus is outside the web area).
+
+```sh
+swift axdump/axdump.swift --app Safari --max-depth 60 --max-nodes 5000
+```
+
+```ts
+import { dumpAxTree } from "./src/axdump.js"; // compiles to data/bin/axdump on first use or when the source changes
+const tree = await dumpAxTree("Safari");
+```
+
+It only reads AX attributes: no activation, keys or clicks, so VoiceOver and focus are undisturbed. Depth or node caps set `truncated` and `childrenTruncated` on the cut nodes.
+The terminal app that runs it needs Accessibility permission (System Settings > Privacy & Security); without it the dumper exits 2. Chrome exposes its web tree only while an assistive technology such as VoiceOver is on.
