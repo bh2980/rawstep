@@ -149,6 +149,7 @@ export const traceUi = {
       'task-limit': '작업의 행동 한도 도달',
       'low-confidence': '실행 모델이 연달아 확신 없이 고름',
       oscillation: '같은 두 항목 사이를 오감',
+      'goal-heard': '목표에 있는 이름을 들음',
       checkpoint: '단계 체크포인트',
       'plan-finished': '작업을 모두 마쳐 마지막 점검',
     },

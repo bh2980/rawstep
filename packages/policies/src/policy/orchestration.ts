@@ -2,7 +2,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ChoiceModel } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
   type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
@@ -161,6 +161,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private surveyed = false;
   /** Spoken items already put to the planner for the current task: one question per item. */
   private asked = new Set<string>();
+  /** Items named as in the goal that the planner was already told about. */
+  private readonly noticed = new Set<string>();
   /**
    * `executor` is the model that picks each action inside a task, or `'follow-plan'`: no model, Rawstep carries out the plan as
    * written (a pressing task presses, a moving task uses its first move). Then every judgement is the planner's and the cue's, and
@@ -202,7 +204,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (!this.doc) await this.replan(input, step, 'start');
     else {
       const trigger = repeated ? 'no-change' : this.trigger(input);
-      if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
+      // Noticing the goal's item is not a correction: like the replan counter, the quota does not stop it.
+      if (trigger) { if (trigger !== 'goal-heard' && this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
     }
     // A "done" claim turned down in this step is not offered again until an action has been taken.
     let refused: string | undefined;
@@ -354,6 +357,10 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const spoken = input.history.slice(this.taskFrom).filter(h => 'action' in h.decision).map((h, i, all) => currentItem(i + 1 < all.length ? all[i + 1]!.observation : input.observation, []));
     const recent = spoken.slice(-this.limits.oscillationLimit);
     if (recent.length === this.limits.oscillationLimit && recent[0] && recent[1] && recent[0] !== recent[1] && recent.every((item, i) => item === recent[i % 2])) return 'oscillation';
+    // The user heard something named as in the goal while the task was after something else: they notice it, so the plan is
+    // revisited from there, once per item. A task that is after it ends on its cue (or is recognized) instead.
+    const item = currentItem(input.observation, []);
+    if (since.length && item && !this.noticed.has(item.trim()) && goalNamed(input.goal, item) && matchCue(task, item) === 'no') { this.noticed.add(item.trim()); return 'goal-heard'; }
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
     // A task that keeps hearing new items is making its way (walking a long page item by item), not stuck: only actions since the
     // last newly heard item count, with a hard cap at three times the limit.
@@ -376,10 +383,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     input.signal.throwIfAborted();
     if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
     const before = this.doc && new Map(planTasks(this.doc).map(t => [t.id, t.status]));
-    // A checkpoint is the plan working as intended; only corrections and running out of tasks count toward maxReplans.
-    if (trigger !== 'start' && trigger !== 'checkpoint') this.replans++;
+    // A checkpoint, or noticing the goal's item, is the plan working as intended; only corrections and running out of tasks count toward maxReplans.
+    if (trigger !== 'start' && trigger !== 'checkpoint' && trigger !== 'goal-heard') this.replans++;
     this.doc = applyDraft(this.doc, draft, { goal: input.goal, step, trigger, ...(help ? { help } : {}) });
     this.planFrom = input.history.length;
+    // What the planner just read is known to it: hearing it again is not news.
+    for (const line of [...input.observation.speech, currentItem(input.observation, [])]) if (line?.trim()) this.noticed.add(line.trim());
     this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, ...(help ? { help } : {}), version: this.doc.version, replans: this.replans,
       revision: structuredClone(this.doc.revisions.at(-1)), document: structuredClone(this.doc), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
       uncertainty: 'The plan comes from common UI conventions and what was heard; it is an expectation, not a fact about this page.' });

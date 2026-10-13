@@ -57,6 +57,13 @@ describe('plan document', () => {
     expect(matchCue(button, 'Add to cart, button')).toBe('heard');
     expect(matchCue({ cue: 'cart', cueRole: 'button' }, 'Cart (0), link')).toBe('no');
     expect(matchCue({ cue: 'cart', cueRole: 'link' }, 'link, Cart (0)')).toBe('heard');
+    // Exactly the name in another role than the planner guessed: a listener stops there, so the planner is asked.
+    expect(matchCue({ cue: 'Kimchi Fried Rice', cueRole: 'heading' }, 'Kimchi Fried Rice')).toBe('candidate');
+    expect(matchCue({ cue: 'Kimchi Fried Rice', cueRole: 'heading' }, 'Add Kimchi Fried Rice to cart, button')).toBe('no');
+    // Part of the name with nothing against it is worth asking; a name with words the cue lacks is another item.
+    expect(matchCue({ cue: 'Add Kimchi Fried Rice', cueRole: 'button' }, 'Add, button')).toBe('candidate');
+    expect(matchCue({ cue: 'Add Kimchi Fried Rice', cueRole: 'button' }, 'Add Sikhye to cart, button')).toBe('no');
+    expect(matchCue({ cue: 'Kimchi Fried Rice' }, 'Kimchi Fried Rice (Spicy), 9,000 won.')).toBe('candidate');
     const box = { cue: 'Email notifications for order updates', cueRole: 'checkbox' as const };
     expect(matchCue(box, 'Order updates, unchecked, checkbox')).toBe('candidate');
     expect(matchCue(box, 'Email notifications, group')).toBe('no');
@@ -67,7 +74,9 @@ describe('plan document', () => {
     // Without a role the item must say nothing beyond the cue to count at once; a longer line is put to the planner.
     expect(matchCue({ cue: 'days' }, 'Return items within 30 days of delivery.')).toBe('candidate');
     expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Return items within 30 days of delivery.')).toBe('heard');
-    expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Days, heading, level 2')).toBe('no');
+    // Exactly the name, in another role: worth asking. With other words as well, another role is not it.
+    expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Days, heading, level 2')).toBe('candidate');
+    expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Delivery days, heading, level 2')).toBe('no');
     expect(matchCue({ cue: 'Returns', cueRole: 'heading' }, 'Help center, heading, level 1')).toBe('no');
     // A role-only cue is heard on an item with that role; an unnamed item of the expected role is worth asking about.
     expect(matchCue({ cue: '', cueRole: 'button' }, 'button')).toBe('heard');
@@ -348,6 +357,25 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     await policy.decide(input({ observation: said('start') }));
     for (let n = 1; n <= 6; n++) await policy.decide(input({ observation: said(`item ${n}`), history: walk.slice(0, n) }));
     expect(p.requests.map(r => r.trigger)).toEqual(['start']);
+  });
+  it('tells the planner, once, when an item named as in the goal is heard while the task is after something else', async () => {
+    const p = planner(draft({ Order: ['Move to the Add Kimchi Fried Rice button'] }), draft({ Order: ['Move to the Add button'] }));
+    const policy = new OrchestratedSpeechPolicy(p.planner, executor(...Array(6).fill('intent:next')).executor);
+    const goal = 'Add one Kimchi Fried Rice to the cart.';
+    const walk = [acted(1, 'next', 'Fried rice and kimbap'), acted(2, 'next', 'Kimchi Fried Rice'), acted(3, 'next', 'Fried rice with aged kimchi.')];
+    await policy.decide(input({ goal, observation: said('Hanok Kitchen') }));
+    await policy.decide(input({ goal, observation: said('Fried rice and kimbap'), history: walk.slice(0, 1) }));
+    expect(p.requests.map(r => r.trigger)).toEqual(['start']);
+    await policy.decide(input({ goal, observation: said('Kimchi Fried Rice'), history: walk.slice(0, 2) }));
+    expect(p.requests.map(r => r.trigger)).toEqual(['start', 'goal-heard']);
+    expect(p.requests[1]!.currentItem).toBe('Kimchi Fried Rice');
+    // Not a correction, so a run with no replans left still tells the planner instead of giving up.
+    const q = planner(draft({ Order: ['Move to the Add Kimchi Fried Rice button'] }), draft({ Order: ['Move to the Add button'] }));
+    const strict = new OrchestratedSpeechPolicy(q.planner, executor(...Array(6).fill('intent:next')).executor, { maxReplans: 0 });
+    await strict.decide(input({ goal, observation: said('Hanok Kitchen') }));
+    const decision = await strict.decide(input({ goal, observation: said('Kimchi Fried Rice'), history: walk.slice(0, 2) }));
+    expect(q.requests.map(r => r.trigger)).toEqual(['start', 'goal-heard']);
+    expect(decision).not.toHaveProperty('stop');
   });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));

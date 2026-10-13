@@ -205,7 +205,9 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'Base everything on what has been heard so far; treat conventions as assumptions, never as facts about this page.',
   'When "document" is present you are revising your plan because of "trigger" (and "help", the executor\'s reason). "low-confidence" means the executor',
   'could not tell which action moves the current task forward: make the task smaller and more concrete (name the element and its cue) or change the approach. "oscillation" means the executor kept',
-  'swinging between the same two items: the target is probably one of them, or the method cannot reach it; plan from those items. "checkpoint" means a phase just',
+  'swinging between the same two items: the target is probably one of them, or the method cannot reach it; plan from those items. "goal-heard" means the user',
+  'just heard "currentItem", which is named as something in the goal, while the task was after something else: plan from it (the control the goal needs is',
+  'probably next to it) and keep tasks that still fit. "checkpoint" means a phase just',
   'finished: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
   'Read "attempts": each action is linked to its task and says whether it ran (execution.ok) and whether the speech changed (changed); finished tasks',
   'show whether their cue was heard (ending.verified), and "rejected" counts "done" claims turned down because the cue was not heard. Set criterion status ("met", "unmet") and assumption status ("held", "broken") from that evidence.',
@@ -224,7 +226,9 @@ export const CUE_RECOGNITION_INSTRUCTIONS = [
   'was written before the page was heard, so its words are a guess at what the screen reader will say. You get the goal, the task,',
   'its cue and the one item the screen reader just spoke. Decide whether that item is what the task was looking for, as the user',
   'hearing it would: the same control or text under a different wording counts; a different control that shares a word (a group',
-  'heading, a neighbouring checkbox, a link elsewhere) does not. Use only the words given. Answer with JSON only:',
+  'heading, a neighbouring checkbox, a link elsewhere) does not. The role in the cue is a guess too: the right name spoken as',
+  'plain text where a heading was expected, or as a link where a button was expected, is the item. Use only the words given.',
+  'Answer with JSON only:',
   '{"matches": boolean, "reason": string (one short sentence)}.',
 ].join(' ');
 const cueAnswerSchema = z.object({ matches: z.boolean(), reason: z.string().max(300).optional() });
