@@ -1,8 +1,11 @@
+import { runRulesOverrideSchema, type RunRulesOverride } from '@rawstep/project/config';
+
 export type Command = 'init' | 'ui' | 'run' | 'hints' | 'report' | 'analyze' | 'doctor';
 export type CliArguments = {
   command: Command;
   positionals: string[];
-  options: Record<string, string | boolean>;
+  /** Repeatable options (`--rule`) hold every value given, in order; the others hold the one value or `true`. */
+  options: Record<string, string | boolean | string[]>;
 };
 
 export class CliUsageError extends Error {
@@ -12,12 +15,13 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'preset', 'combo', 'actions', 'environment', 'at', 'mode', 'repeat', 'max-replans', 'max-task-actions', 'diagnose-stop', 'out', 'json'],
+  run: ['project', 'preset', 'combo', 'actions', 'environment', 'at', 'mode', 'repeat', 'rule', 'diagnose-stop', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
   analyze: ['project', 'llm', 'out'],
   doctor: ['project'],
 };
+const repeatableOptions = new Set(['rule']);
 const booleanOptions = new Set(['json', 'llm', 'diagnose-stop']);
 const positionalsByCommand: Record<Command, { count: number; noun: string }> = {
   init: { count: 0, noun: '' }, ui: { count: 0, noun: '' }, doctor: { count: 0, noun: '' },
@@ -44,7 +48,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     if (!optionsByCommand[command].includes(option)) {
       throw new CliUsageError(`Unknown option for ${command}: --${option}`);
     }
-    if (Object.hasOwn(result.options, option)) {
+    if (!repeatableOptions.has(option) && Object.hasOwn(result.options, option)) {
       throw new CliUsageError(`Option --${option} may only be provided once.`);
     }
     if (booleanOptions.has(option)) {
@@ -54,7 +58,8 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     }
     const value = equalIndex < 0 ? args[++i] : token.slice(equalIndex + 1);
     if (!value || value.startsWith('--')) throw new CliUsageError(`Option --${option} requires a value.`);
-    result.options[option] = value;
+    if (repeatableOptions.has(option)) result.options[option] = [...(result.options[option] as string[] | undefined ?? []), value];
+    else result.options[option] = value;
   }
   const { count, noun } = positionalsByCommand[command];
   if (result.positionals.length !== count) {
@@ -64,12 +69,40 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   if (command === 'run') {
     if (result.options.mode !== undefined && !['keyboard', 'screenreader'].includes(String(result.options.mode))) throw new CliUsageError('--mode must be keyboard or screenreader.');
     if (result.options.repeat !== undefined && (!/^[0-9]+$/.test(String(result.options.repeat)) || Number(result.options.repeat) < 1 || Number(result.options.repeat) > 100)) throw new CliUsageError('--repeat must be an integer from 1 to 100.');
-    for (const [option, min, max] of [['max-replans', 0, 100], ['max-task-actions', 1, 1000]] as const) {
-      const value = result.options[option];
-      if (value !== undefined && (!/^[0-9]+$/.test(String(value)) || Number(value) < min || Number(value) > max)) throw new CliUsageError(`--${option} must be an integer from ${min} to ${max}.`);
-    }
+    parseRunRules(result.options.rule as string[] | undefined);
   }
   return result;
+}
+
+/** What the CLI reads of a run rule's schema (zod's): its type, and the choices or bounds that describe it. */
+type RuleSchema = { def: { type: string }; unwrap?: () => RuleSchema; options?: string[]; isInt?: boolean; minValue?: number | null; maxValue?: number | null; safeParse(value: unknown): { success: boolean } };
+const ruleSchemas = runRulesOverrideSchema.shape as unknown as Record<string, RuleSchema>;
+/** Describes what a run rule accepts, from its schema: the choices of an enum, true or false, or a number range. */
+function allowedValues(schema: RuleSchema): string {
+  const inner = schema.def.type === 'optional' && schema.unwrap ? schema.unwrap() : schema;
+  if (inner.def.type === 'enum') return `one of ${(inner.options ?? []).join(', ')}`;
+  if (inner.def.type === 'boolean') return 'true or false';
+  if (inner.def.type === 'number') return `${inner.isInt ? 'an integer' : 'a number'} from ${inner.minValue} to ${inner.maxValue}`;
+  return 'a valid value';
+}
+/**
+ * The run rules named by `--rule <name>=<value>` entries, each value read as the rule's type (a number, `true` or `false`, or text)
+ * and the whole override checked with the run rules schema. The last entry for a rule wins.
+ */
+export function parseRunRules(entries: readonly string[] | undefined): RunRulesOverride {
+  const raw: Record<string, unknown> = {};
+  for (const entry of entries ?? []) {
+    const at = entry.indexOf('=');
+    const name = at < 0 ? entry : entry.slice(0, at), text = at < 0 ? '' : entry.slice(at + 1);
+    const schema = Object.hasOwn(ruleSchemas, name) ? ruleSchemas[name] : undefined;
+    if (!schema) throw new CliUsageError(`--rule ${name || entry} is not a run rule. Use one of ${Object.keys(ruleSchemas).join(', ')}.`);
+    if (at < 0 || !text) throw new CliUsageError(`--rule ${name} needs a value: --rule ${name}=<value>.`);
+    const value = [text, text === 'true' ? true : text === 'false' ? false : undefined, text.trim() !== '' && Number.isFinite(Number(text)) ? Number(text) : undefined]
+      .find(candidate => candidate !== undefined && schema.safeParse(candidate).success);
+    if (value === undefined) throw new CliUsageError(`--rule ${name}=${text} is not valid: ${name} must be ${allowedValues(schema)}.`);
+    raw[name] = value;
+  }
+  return runRulesOverrideSchema.parse(raw);
 }
 
 export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web page and see where the run got slow or took detours
@@ -78,7 +111,7 @@ Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
   rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
-                     [--at <id|name>] [--mode keyboard|screenreader] [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
+                     [--at <id|name>] [--mode keyboard|screenreader] [--rule <name>=<value>]... [--diagnose-stop]
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
@@ -109,8 +142,9 @@ Configuration:
 Run defaults:
   --preset, --combo, --actions, --environment (page), --at (assistive technology)
                  each the task's own, then its preset's, then the first shared one
-  --max-replans, --max-task-actions
-                 override the run rules for these runs
+  --rule     <name>=<value>, repeatable; overrides one run rule for these runs (project defaults, then the preset's,
+             then the task's, then these), e.g. --rule maxReplans=2 --rule executorLatitude=direction;
+             see the runRules section of docs/config.md for the rules
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat

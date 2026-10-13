@@ -14,7 +14,7 @@ import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
-import { CLI_USAGE, CliUsageError, parseCliArguments, type CliArguments } from './args.js';
+import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
 
@@ -129,9 +129,7 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
       ...(options.environment ? { pageEnvironment: String(options.environment) } : {}),
       ...(options.at ? { atEnvironment: String(options.at) } : {}),
       ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
-      ...(options['max-replans'] !== undefined || options['max-task-actions'] !== undefined ? { runRules: {
-        ...(options['max-replans'] !== undefined ? { maxReplans: Number(options['max-replans']) } : {}),
-        ...(options['max-task-actions'] !== undefined ? { stepActionLimit: Number(options['max-task-actions']) } : {}) } } : {}),
+      ...(options.rule ? { runRules: parseRunRules(options.rule as string[]) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
   } catch (error) {

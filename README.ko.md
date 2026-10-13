@@ -77,7 +77,7 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 npx rawstep run checkout --environment narrow
 npx rawstep run checkout --environment zoom-200
 npx rawstep run checkout --combo plan-and-jev --mode screenreader --at voiceover
-npx rawstep run checkout --preset narrow-beginner --max-replans 6
+npx rawstep run checkout --preset narrow-beginner --rule maxReplans=6
 ```
 
 페이지 환경의 `profile`은 `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 이름이나 객체로 지정합니다. 요청한 값과 관측한 값을 함께 기록하며, 브라우저 미디어 에뮬레이션과 네이티브 OS 설정은 구분합니다. 사용할 수 없는 환경은 적용했다고 주장하지 않고 unsupported로 남깁니다. [환경 프로필 안내](./docs/environment-profiles.md)를 참고하세요.

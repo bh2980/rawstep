@@ -40,7 +40,7 @@ An experiment is **task × model combo × action set × page environment × assi
 | assistive technology (`atEnvironments`) | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
 | run rules (`runRules`) | When a run counts as stuck, and when a planned run plans again. |
 
-A preset bundles some of them. The conditions a run uses are picked in this order: the task's own field, then the task's preset, then the first shared item of the list. Run rules layer the same way: project defaults, then the preset's, then the task's. `rawstep run` options (`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--max-replans`, `--max-task-actions`) override these for that run. Every run records the full content of the conditions it used (and which shared item a task-only copy came from), so runs are compared by content, not by name.
+A preset bundles some of them. The conditions a run uses are picked in this order: the task's own field, then the task's preset, then the first shared item of the list. Run rules layer the same way: project defaults, then the preset's, then the task's. `rawstep run` options (`--combo`, `--actions`, `--environment`, `--at`, `--preset`, `--rule`) override these for that run. Every run records the full content of the conditions it used (and which shared item a task-only copy came from), so runs are compared by content, not by name.
 
 Anything that changes how a run ends is a condition. The analysis model is not: it explains a finished run and never changes its outcome.
 
@@ -207,7 +207,7 @@ A preset is a saved set of conditions, picked as one. Every field is optional: w
 
 ## runRules
 
-When a run stops early and, with a planner, when it plans again. The top-level `runRules` holds the project's defaults; a preset's `runRules`, a task's `runRules` and the `--max-replans` and `--max-task-actions` options override any of the fields. Each run records the rules it ran with.
+When a run stops early and, with a planner, when it plans again. The top-level `runRules` holds the project's defaults; a preset's `runRules`, a task's `runRules` and the `--rule <name>=<value>` option overrides any of the fields for one run. Each run records the rules it ran with.
 
 | Field | Default | Meaning |
 |---|---|---|

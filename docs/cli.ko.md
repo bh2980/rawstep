@@ -19,7 +19,7 @@
 ```sh
 rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>] [--environment <id|name>]
                    [--at <id|name>] [--mode keyboard|screenreader]
-                   [--max-replans <n>] [--max-task-actions <n>] [--diagnose-stop]
+                   [--rule <name>=<value>]... [--diagnose-stop]
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
@@ -33,13 +33,12 @@ rawstep run <task> [--preset <id|name>] [--combo <id|name>] [--actions <id|name>
 - `--environment`: 페이지 환경. 같은 순서로 정합니다
 - `--at`: 보조기술 환경. 같은 순서로 정하며 스크린리더 실행만 씁니다
 - `--mode`: `keyboard`
-- `--max-replans`: 실행 규칙의 `maxReplans`(0~100). 계획 모델이 있을 때 계획을 고칠 수 있는 최대 횟수
-- `--max-task-actions`: 실행 규칙의 `stepActionLimit`(1~1000). 계획 모델이 있을 때 작업 하나에서 새 계획을 요청하기 전까지의 최대 행동 수
+- `--rule`: 없음. `--rule <이름>=<값>`으로 [실행 규칙](./config.ko.md#runrules-실행-규칙) 하나를 그 실행에서만 덮어씁니다. 예: `--rule maxReplans=2 --rule executorLatitude=direction`. 여러 규칙은 옵션을 반복해 지정하고, 같은 규칙을 두 번 쓰면 마지막 값이 적용됩니다. 숫자, `true`·`false`, 규칙이 허용하는 선택지는 설정 파일과 같은 기준으로 검사합니다
 - `--diagnose-stop`: 꺼짐. 키보드 모드 전용이며, 일찍 멈춘 실행 뒤에 실행 모델에게 이유를 따로 한 번 묻습니다. 점수는 불확실한 가설이며 결과를 바꾸지 않습니다
 - `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
 - `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다
 
-`--max-replans`와 `--max-task-actions`는 그 실행에서만 실행 규칙을 덮어씁니다(프로젝트 기본값, 프리셋, 작업, 이 옵션 순). 나머지 실행 규칙은 설정 파일이나 대시보드에서 정합니다.
+`--rule`은 그 실행에서만 실행 규칙을 덮어씁니다(프로젝트 기본값, 프리셋, 작업, 이 옵션 순). 덮어쓰지 않은 실행 규칙은 설정 파일이나 대시보드에서 정합니다.
 
 출력은 실행 조건, 실행별 블록, 전체 실행에서 모은 발견 사항으로 이루어집니다.
 
