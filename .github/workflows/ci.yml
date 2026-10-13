@@ -29,4 +29,5 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       # Ubuntu 24.04 blocks unprivileged user namespaces, which Chromium's sandbox needs; allow them rather than turn the sandbox off.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - run: pnpm run test:integration
+      # Some suites open a headed browser window, so they run on a virtual display.
+      - run: xvfb-run -a pnpm run test:integration
