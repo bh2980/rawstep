@@ -5,7 +5,7 @@ import type { ActionSet, AtBackend, Mode, Permissions } from '@rawstep/project/c
 import type { ConfigView } from '../../../shared/config';
 import { actionLabel, AT_BACKENDS, MODES, unsupportedActions } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
-import { Advanced, MultiChoice, Toggle } from '../forms';
+import { MultiChoice, Toggle } from '../forms';
 import { InfoTip } from '../layout/InfoTip';
 import { Checkbox } from '../ui/checkbox';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
@@ -88,7 +88,7 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
     <Table className={backends.length > 1 ? 'min-w-[32rem]' : undefined}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader><TableRow className="bg-raised hover:bg-raised">
-        <TableHead scope="col" className={head}><span className="inline-flex items-center gap-1">{t('conditions.actionSet.allowed')}{info && !compact && <InfoTip term={t('conditions.actionSet.allowed')}>{info}</InfoTip>}</span></TableHead>
+        <TableHead scope="col" className={head}><span className="inline-flex items-center gap-1">{t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}{info && !compact && <InfoTip term={t(`conditions.actionSet.${kind === 'keys' ? 'allowedKey' : 'allowed'}`)}>{info}</InfoTip>}</span></TableHead>
         {backends.map(b => <TableHead key={b} scope="col" className={head}>{t(`conditions.backends.${b}`)}</TableHead>)}
       </TableRow></TableHeader>
       <TableBody>{rows.map(name => <TableRow key={name}>
@@ -99,8 +99,7 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
   </div>;
   return <div className="grid gap-3">
     {table(intents, 'intents', t('conditions.actionSet.intentsCaption'), t('conditions.actionSet.screenreaderIntro'))}
-    {value.keys.length > 0 ? table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))
-      : backends.length > 1 && keys.length > 0 && <Advanced>{table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))}</Advanced>}
+    {keys.length > 0 && table(keys, 'keys', t('conditions.actionSet.keysCaption'), t('conditions.actionSet.keysDescription'))}
   </div>;
 }
 

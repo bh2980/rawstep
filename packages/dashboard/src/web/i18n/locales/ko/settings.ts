@@ -220,8 +220,8 @@ export const settings = {
   settingsPage: {
     missingModelId: '고른 모델의 모델 ID를 입력해야 저장할 수 있습니다.',
     analysis: {
-      title: '기본 해설 모델',
-      intro: '실행이 끝나면 이 LLM이 실행 기록(스크린샷 이미지는 제외)을 읽고 요약과 가설을 남깁니다. 모델 조합에 해설 모델이 따로 없으면 이 모델을 씁니다. 해설 모델이 없거나 인증키가 없어도 실행은 막지 않고 해설만 건너뜁니다.',
+      title: '해설 모델',
+      intro: '실행이 끝나면 이 LLM이 실행 기록(스크린샷 이미지는 제외)을 읽고 요약과 가설을 남깁니다. 해설 모델이 없거나 인증키가 없어도 실행은 막지 않고 해설만 건너뜁니다.',
       model: '해설 모델',
       rulesOnly: '쓰지 않음 (규칙 기반 분석만)',
       instructions: '해설 지침',
@@ -231,7 +231,7 @@ export const settings = {
       title: '완료 확인 제안 모델',
       intro: '작업을 쓸 때 완료 확인을 제안하는 LLM입니다. 실행에는 쓰이지 않습니다.',
       model: '제안 모델',
-      sameAsAnalysis: '기본 해설 모델과 같은 모델',
+      sameAsAnalysis: '해설 모델과 같은 모델',
     },
   },
   conditions: {
@@ -360,7 +360,7 @@ export const settings = {
       allowedKey: '허용 키',
       screenreaderIntro: '보조기술마다 지원 여부를 함께 보여 줍니다. 지원하지 않는 보조기술로는 실행 전에 막습니다.',
       intentsCaption: '스크린리더 동작과 보조기술별 지원 여부',
-      keysDescription: '스크린리더에 키를 그대로 보내는 동작입니다. 보통은 위의 동작만으로 충분합니다.',
+      keysDescription: 'Tab, Enter처럼 키를 그대로 누르는 동작입니다. 스크린리더 사용자도 폼이나 메뉴에서 씁니다.',
       keysCaption: '스크린리더에 보내는 키와 보조기술별 지원 여부',
       keyboardCaption: '키보드 모드의 허용 키',
       keyboardBackend: '키보드 실행',
