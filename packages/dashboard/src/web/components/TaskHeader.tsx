@@ -1,19 +1,19 @@
-import { useState } from 'react';
 import { ArrowLeft, Columns3, Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Mode } from '@rawstep/project/config';
 import type { PageProps } from '../pages/types';
 import type { RouteChange } from '../hooks/useRoute';
 import type { RunOptions } from '../lib/quickRun';
 import { isLive, type RunRef } from '../lib/runs';
 import { Link } from './Link';
-import { RunBar, RunConditions } from './RunControl';
+import { RunSetup } from './RunSetup';
 import { LivePlanCard } from './trace/LivePlanCard';
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 type Props = {
   taskId: string; name: string; url: string; goal: string;
+  /** What the simulated user knows before starting, if the task says. */
+  context?: string;
   pageProps: PageProps;
   /** Every run of the task, newest first; the run bar follows the ones still going. */
   runs: RunRef[];
@@ -23,13 +23,11 @@ type Props = {
 };
 
 /**
- * The head of a task: what it is (name, start address, goal) on the left and how to run it on the right — mode, repeats and the one
- * primary 실행. Editing, duplicating, comparing and deleting the task wait in a ⋯ menu, deletion last and apart. Under it, one line of
- * the experiment conditions the next run uses.
+ * The head of a task: what it is (name, start address, goal, what the user knows) and, under it, how the next run goes as one sentence
+ * with 실행. Editing, duplicating, comparing and deleting the task wait in a ⋯ menu, deletion last and apart.
  */
-export function TaskHeader({ taskId, name, url, goal, pageProps, runs, navigate, onRun, onCompare, onEdit, onDuplicate, onDelete }: Props) {
+export function TaskHeader({ taskId, name, url, goal, context, pageProps, runs, navigate, onRun, onCompare, onEdit, onDuplicate, onDelete }: Props) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<Mode>();
   return <header className="grid gap-4">
     <nav aria-label={t('taskPage.breadcrumb')}>
       <Link to={{ view: 'tasks' }} navigate={navigate} className="inline-flex items-center gap-1 rounded-sm text-[13px] text-muted-foreground hover:text-foreground hover:underline">
@@ -53,10 +51,10 @@ export function TaskHeader({ taskId, name, url, goal, pageProps, runs, navigate,
         </div>
         <p className="font-mono text-[13px] break-all text-muted-foreground">{url}</p>
         <p className="mt-1 text-[15px] leading-6">{goal}</p>
+        {context && <p className="text-[13px] leading-5 text-muted-foreground"><span className="font-medium">{t('taskPage.context')}</span> {context}</p>}
       </div>
-      <RunBar pageProps={pageProps} taskId={taskId} active={runs.filter(ref => isLive(ref.run))} picked={mode} onMode={setMode} onRun={onRun} navigate={navigate} />
     </div>
-    <RunConditions pageProps={pageProps} taskId={taskId} picked={mode} navigate={navigate} />
+    <RunSetup pageProps={pageProps} taskId={taskId} active={runs.filter(ref => isLive(ref.run))} onRun={onRun} navigate={navigate} />
     <LivePlanCard runs={runs} navigate={navigate} />
   </header>;
 }

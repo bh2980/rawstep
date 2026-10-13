@@ -145,9 +145,22 @@ export type TaskFindings = {
     medianSteps: number | null;
     /** The goal-reaching run with the fewest actions. */
     fastest: { experimentId: string; runId: string; steps: number } | null;
+    /** The same figures for each run profile and mode the task ran with, so results of different users are never mixed. */
+    byProfile: ProfileFacts[];
   };
   /** Hints grouped by kind and page element across the runs whose hints.json could be read; run-level hints are left out. */
   findings: HintFinding[];
+};
+
+/** How one run profile in one mode did on a task. */
+export type ProfileFacts = {
+  profileId: string; mode: 'screenreader' | 'keyboard';
+  runs: number; reached: number;
+  medianSteps: number | null; minSteps: number | null; maxSteps: number | null;
+  /** Runs that reached the goal while nothing the user heard said so (`goal.reached` with `heard: false`). */
+  unheard: number;
+  /** The page element the most runs of this profile got stuck on, if any. */
+  topTarget: { role: string; name?: string } | null;
 };
 
 /** One row of the task table: how a task's runs went and what recurs, without the detail of `TaskFindings`. */

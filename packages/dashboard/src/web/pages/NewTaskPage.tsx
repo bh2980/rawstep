@@ -27,7 +27,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   const { t } = useTranslation();
   const id = useId();
   const { config } = props.view;
-  const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [name, setName] = useState('');
+  const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [context, setContext] = useState(''), [name, setName] = useState('');
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
   const [profileId, setProfileId] = useState<string>();
   // A project HTML path has no host; its file name is the next best name.
@@ -35,7 +35,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   const filled = url.trim() !== '' && goal.trim() !== '' && rules.length > 0, inputsOk = inputProblems(input, inputOptions, goal).size === 0, ready = filled && inputsOk;
   async function create() {
     const task = {
-      url: url.trim(), goal: goal.trim(), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
+      url: url.trim(), goal: goal.trim(), ...(context.trim() ? { context: context.trim() } : {}), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
       verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
     const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(host), task, ...(profileId ? { profileId } : {}) });
@@ -56,6 +56,11 @@ export function NewTaskPage({ navigate, ...props }: Props) {
       <SectionHead id={id + '-goal-title'} title={t('newTask.goal')} />
       <Textarea aria-labelledby={id + '-goal-title'} aria-describedby={id + '-goal-note'} rows={3} className="min-h-20 text-sm leading-6 md:text-sm" value={goal} onChange={event => setGoal(event.target.value)} />
       <p id={id + '-goal-note'} className="text-xs leading-5 text-muted-foreground">{t('newTask.goalNote')}</p>
+    </section>
+    <section className="grid gap-2">
+      <SectionHead id={id + '-context-title'} title={t('taskEdit.context')} />
+      <Textarea aria-labelledby={id + '-context-title'} aria-describedby={id + '-context-note'} rows={2} className="min-h-14 text-sm leading-6 md:text-sm" placeholder={t('taskEdit.contextPlaceholder')} value={context} onChange={event => setContext(event.target.value)} />
+      <p id={id + '-context-note'} className="text-xs leading-5 text-muted-foreground">{t('taskEdit.contextHint')}</p>
     </section>
     <section aria-labelledby={id + '-check-title'} className="grid gap-3">
       <SectionHead id={id + '-check-title'} title={t('newTask.verifyTitle')} info={t('help.check')} />

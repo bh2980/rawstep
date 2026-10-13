@@ -274,6 +274,13 @@ export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
   /** The run profile a run uses unless one is picked for it; the project's first profile when unset. */
   profileId: id.optional(),
+  /**
+   * The task this one is a broken version of: the same goal on a copy of its page with one accessibility defect (no button name, no
+   * status message). Results show the extra moves against that task. One level only: a variant has no variants of its own.
+   */
+  variantOf: id.optional(),
+  /** The fewest moves the goal takes, as a person counted or measured it; results show moves against it. */
+  minimalSteps: z.number().int().min(1).max(10000).optional(),
   /** Overrides the project's analysis instructions for this task. */
   analysisInstructions: z.string().max(16384).optional(),
 }).strict();

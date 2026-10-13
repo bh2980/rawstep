@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import type { ProjectSettings } from '@rawstep/project/config';
 import { SaveBar } from '../../components/conditions/SaveBar';
 import { Field } from '../../components/forms';
-import { PageHeader, SectionHead } from '../../components/layout/PageHeader';
+import { SectionHead } from '../../components/layout/PageHeader';
 import { effortOf, ModelPicker } from '../../components/ModelPicker';
 import { sameValue } from '../../lib/conditions';
 import type { PageProps } from '../types';
 
 /**
- * 설정 · 해설·제안 모델: the project's models that never change a run's outcome — the default commentary model that reads a finished
+ * 설정 · AI 연결, below the connections: the project's models that never change a run's outcome — the default commentary model that reads a finished
  * run, and the model that suggests completion checks while a task is written.
  */
 export function AssistSettings({ onDirty, ...props }: PageProps & { onDirty: (dirty: boolean) => void }) {
@@ -22,7 +22,7 @@ export function AssistSettings({ onDirty, ...props }: PageProps & { onDirty: (di
   const blocked = (project.analysis.model && !project.analysis.model.modelId.trim()) || (project.suggestions.model && !project.suggestions.model.modelId.trim()) ? t('settingsPage.missingModelId') : undefined;
   const save = () => void props.act(async () => { await props.save({ ...props.view.config, project }, undefined, props.view.revision); });
   return <div className="grid max-w-3xl gap-6">
-    <PageHeader title={t('settingsNav.sections.assist')} info={t('settingsNav.info.assist')} />
+    <SectionHead id="settings-assist" title={t('settingsNav.assistTitle')} info={t('settingsNav.info.assist')} />
     <section aria-labelledby="settings-analysis" className="grid gap-4">
       <SectionHead id="settings-analysis" title={t('settingsPage.analysis.title')} info={t('settingsPage.analysis.intro')} />
       <ModelPicker label={t('settingsPage.analysis.model')} connections={llms} connectionId={project.analysis.model?.connectionId} modelId={project.analysis.model?.modelId ?? ''} reasoningEffort={project.analysis.model?.reasoningEffort}

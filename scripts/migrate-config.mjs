@@ -152,7 +152,8 @@ console.log(`Converted ${converted} experiment records.`);
 /**
  * v3 → v4: every distinct set of conditions a task or preset ran with becomes one run profile — model combo (without its own analysis
  * model), action set, page and AT environment, and the project's run rules with the preset's and the task's overrides on top.
- * Presets keep their name; a task with its own picks gets "<task> 프로필". Run records name their profile.
+ * Presets keep their name, and every shared combo no preset used becomes a profile of its own; a task with its own picks gets
+ * "<task> 프로필". Run records name their profile.
  */
 async function toV4() {
   const v3 = JSON.parse(await readFile(configPath, 'utf8'));
@@ -177,6 +178,9 @@ async function toV4() {
   const presetPicks = preset => ({ comboId: preset.comboId, actionSetId: preset.actionSetId, pageEnvironmentId: preset.pageEnvironmentId, atEnvironmentId: preset.atEnvironmentId, presetRules: preset.runRules });
   const fallback = profileFor({}, 'Default', 'default');
   for (const preset of v3.presets ?? []) profileFor(presetPicks(preset), preset.name, preset.id);
+  // A shared combo no preset or task used still becomes a profile (with the first action set and environments), so none is lost.
+  const used = new Set([...(v3.presets ?? []).map(preset => preset.comboId), ...v3.tasks.map(task => task.comboId)]);
+  for (const combo of v3.combos.filter(c => !c.owner && !used.has(c.id))) profileFor({ comboId: combo.id }, combo.name, combo.id);
   const tasks = v3.tasks.map(({ presetId, comboId, actionSetId, pageEnvironmentId, atEnvironmentId, runRules, ...task }) => {
     const preset = find(v3.presets ?? [], presetId);
     const picks = { ...(preset ? presetPicks(preset) : {}), ...(comboId ? { comboId } : {}), ...(actionSetId ? { actionSetId } : {}), ...(pageEnvironmentId ? { pageEnvironmentId } : {}), ...(atEnvironmentId ? { atEnvironmentId } : {}), taskRules: runRules };

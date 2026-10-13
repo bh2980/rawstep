@@ -80,7 +80,7 @@ export function CheckSuggestions({ view, url, goal, onAdd }: Props) {
   const add = (suggestion: CheckSuggestion, key: string) => { onAdd(suggestion.rule); setAdded(new Set([...added, key])); };
   if (!model) return <p className="flex flex-wrap items-center gap-x-1 text-[13px] text-muted-foreground">
     <Sparkles aria-hidden="true" className="size-3.5" />{t('suggestModel.none')}
-    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => navigate({ view: 'settings', section: 'assist' })}>{t('suggestModel.connect')}</Button>
+    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => navigate({ view: 'settings', section: 'connections' })}>{t('suggestModel.connect')}</Button>
   </p>;
   return <section aria-label={t('checkSuggest.title')} className="grid min-w-0 gap-2">
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

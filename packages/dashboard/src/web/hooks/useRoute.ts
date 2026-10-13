@@ -5,7 +5,7 @@ export type View = (typeof views)[number];
 /** The parts of 설정, in the order of its side navigation, grouped: 실행 · 모델 · 이 컴퓨터. */
 export const settingsGroups = [
   { id: 'run', sections: ['profiles'] },
-  { id: 'models', sections: ['connections', 'assist'] },
+  { id: 'models', sections: ['connections'] },
   { id: 'computer', sections: ['machine'] },
 ] as const;
 export type SettingsSection = (typeof settingsGroups)[number]['sections'][number];
@@ -33,7 +33,9 @@ export function parseRoute(search: string): Route {
   const params = new URLSearchParams(search);
   const raw = params.get('view') ?? '', legacy = legacyViews[raw];
   const view = legacy?.view ?? views.find(v => v === raw) ?? 'tasks', task = params.get('task'), step = Number(params.get('step'));
-  const section = view === 'settings' && !task ? settingsSections.find(s => s === params.get('section')) ?? legacy?.section : undefined;
+  // The commentary models moved into AI 연결.
+  const asked = params.get('section') === 'assist' ? 'connections' : params.get('section');
+  const section = view === 'settings' && !task ? settingsSections.find(s => s === asked) ?? legacy?.section : undefined;
   return {
     view: task ? 'tasks' : view,
     ...(section ? { section } : {}),

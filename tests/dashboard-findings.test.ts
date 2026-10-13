@@ -19,8 +19,11 @@ const hint = (kind: HintKind, target: Hint['target'] | undefined, detail: Record
   ({ kind, source: HINT_SOURCES[kind], ...(target ? { target } : {}), certainty: 'observed', steps: [2], summary: kind, detail, evidence: [] });
 const checkout = { role: 'button', name: 'Checkout' };
 
-/** Four sequential runs of one task with the given outcomes; each run's hints.json is then replaced by a fake report. */
-async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[] }[]) {
+/**
+ * Sequential runs of one task with the given outcomes (keyboard mode unless told); each run's hints.json is then replaced by a fake
+ * report. `heard` records a `goal.reached` event saying whether the user heard the goal.
+ */
+async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean }[], mode: 'keyboard' | 'screenreader' = 'keyboard') {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
   config.connections.push(connection('a')); config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
@@ -28,9 +31,11 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
   await store.save(config, initial.revision, { file: 'task.json', task });
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
     const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
-    const outcome = outcomes[run.repeat - 1]!; return trace.finalize({ status: outcome.status, steps: outcome.steps });
+    const outcome = outcomes[run.repeat - 1]!;
+    if (outcome.heard !== undefined) trace.append('goal.reached', { step: outcome.steps, heard: outcome.heard, grace: 0 });
+    return trace.finalize({ status: outcome.status, steps: outcome.steps });
   } }); apps.push(app);
-  const experiment = await app.queue.create({ taskIds: ['task'], modes: ['keyboard'], repeats: outcomes.length });
+  const experiment = await app.queue.create({ taskIds: ['task'], modes: [mode], repeats: outcomes.length });
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
   const runs = [...experiment.runs].sort((a, b) => a.repeat - b.repeat);
   for (const [i, run] of runs.entries()) {
@@ -52,7 +57,8 @@ describe('task findings and summary', () => {
   it('groups hints across a task\'s finished runs and reports its facts', async () => {
     const { app, experiment, runs } = await launch(outcomes);
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
-    expect(findings.facts).toEqual({ runs: 4, reached: 3, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 } });
+    expect(findings.facts).toEqual({ runs: 4, reached: 3, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 },
+      byProfile: [{ profileId: 'default', mode: 'keyboard', runs: 4, reached: 3, medianSteps: 9, minSteps: 2, maxSteps: 20, unheard: 0, topTarget: checkout }] });
     // Run-level hints (slow-run) are not findings; findings are ordered by how many runs show them.
     expect(findings.findings.map(f => [f.kind, f.source, f.runs, f.totalRuns])).toEqual([['model-hesitation', 'model', 4, 4], ['excess-keystrokes', 'page', 3, 4], ['focus-lost', 'page', 1, 4]]);
     const keystrokes = findings.findings[1]!;
@@ -63,7 +69,17 @@ describe('task findings and summary', () => {
   it('answers with empty facts for a task that has no runs', async () => {
     const { app } = await launch(outcomes.slice(0, 1));
     const none = await (await fetch(app.url + '/api/tasks/ghost/findings')).json() as TaskFindings;
-    expect(none).toEqual({ taskId: 'ghost', facts: { runs: 0, reached: 0, medianSteps: null, fastest: null }, findings: [] });
+    expect(none).toEqual({ taskId: 'ghost', facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [] });
+  });
+
+  it('counts screen reader runs that reached the goal without the user hearing it', async () => {
+    const { app } = await launch([
+      { status: 'success', steps: 9, hints: [], heard: false },
+      { status: 'success', steps: 5, hints: [], heard: true },
+      { status: 'failure', steps: 12, hints: [] },
+    ], 'screenreader');
+    const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
+    expect(findings.facts.byProfile).toEqual([{ profileId: 'default', mode: 'screenreader', runs: 3, reached: 2, medianSteps: 9, minSteps: 5, maxSteps: 12, unheard: 1, topTarget: null }]);
   });
 
   it('keeps findings until the set of finished runs changes', async () => {

@@ -71,6 +71,11 @@ export class ProjectStore {
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
     const profileIds = new Set(config.profiles.map(p => p.id));
     for (const task of config.tasks) if (task.profileId !== undefined && !profileIds.has(task.profileId)) throw new ProjectError('task-profile-missing', 'A task refers to a profile that does not exist.');
+    const byId = new Map(config.tasks.map(t => [t.id, t]));
+    for (const task of config.tasks) if (task.variantOf !== undefined) {
+      const base = byId.get(task.variantOf);
+      if (!base || base.id === task.id || base.variantOf !== undefined) throw new ProjectError('task-variant-invalid', 'A variant must point at another task that is not a variant itself.');
+    }
   }
   /** Resolves a project-relative path and refuses anything that leaves the project, including through symlinks. */
   async file(path: string, mustExist = false): Promise<string> {
@@ -171,7 +176,9 @@ export class ProjectStore {
       if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
       const task = current.config.tasks.find(t => t.id === taskId);
       if (!task) throw new ProjectError('task-not-found', `There is no task "${taskId}" in ${CONFIG_FILE}.`, 404);
-      const config = { ...current.config, tasks: current.config.tasks.filter(t => t.id !== taskId) };
+      // Its variants stay as tasks of their own.
+      const tasks = current.config.tasks.filter(t => t.id !== taskId).map(({ variantOf, ...rest }) => variantOf === taskId ? rest : { ...rest, ...(variantOf ? { variantOf } : {}) });
+      const config = { ...current.config, tasks };
       this.validateReferences(config);
       await atomicJson(this.path, config, 0o644);
       let fileRemoved = false;

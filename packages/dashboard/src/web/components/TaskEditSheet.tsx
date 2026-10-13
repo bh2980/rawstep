@@ -4,13 +4,19 @@ import type { TaskInputOptions } from '@rawstep/core/contracts';
 import { describeApiError, type ErrorView } from '../lib/errors';
 import { inputProblems } from '../lib/taskInputs';
 import { ErrorState } from './layout/ErrorState';
-import { Field } from './forms';
+import { Choice, Field } from './forms';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from './ui/sheet';
 
-/** What a person names when editing a task: what it is called, where it starts, what it asks, and what it types. */
-export type TaskBasics = { name: string; url: string; goal: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined };
+/**
+ * What a person names when editing a task: what it is called, where it starts, what it asks, what the user knows before starting, what
+ * it types, which task it is a broken version of, and the fewest moves it takes.
+ */
+export type TaskBasics = {
+  name: string; url: string; goal: string; context: string; input: Record<string, string>; inputOptions: Record<string, TaskInputOptions> | undefined;
+  variantOf: string; minimalSteps: string;
+};
 
 /** How a save ended. A conflict means the project changed elsewhere since the sheet opened; the person's edits are still here. */
 export type BasicsSave = { ok: true } | { ok: false; conflict: boolean; error: unknown };
@@ -22,6 +28,8 @@ type Props = {
   otherChanges: boolean; busy: boolean;
   /** Saves; `rebase` puts these edits on top of the project as it is now instead of the version the sheet opened on. */
   onSave: (basics: TaskBasics, rebase: boolean) => Promise<BasicsSave>;
+  /** Tasks this one can be a broken version of: not itself and not a variant. Empty when this task has variants of its own. */
+  bases: { id: string; name: string }[];
 };
 
 /**
@@ -42,16 +50,19 @@ export function TaskEditSheet({ open, onOpenChange, ...rest }: Props) {
   </Sheet>;
 }
 
-function EditForm({ initial, otherChanges, busy, onSave, close }: Omit<Props, 'open' | 'onOpenChange'> & { close: () => void }) {
+const NONE = '__none__';
+
+function EditForm({ initial, otherChanges, busy, onSave, bases, close }: Omit<Props, 'open' | 'onOpenChange'> & { close: () => void }) {
   const { t } = useTranslation();
   const [basics, setBasics] = useState(initial);
   const [problem, setProblem] = useState<{ view: ErrorView; conflict: boolean }>();
   const patch = (part: Partial<TaskBasics>) => { setBasics({ ...basics, ...part }); setProblem(undefined); };
   const filled = basics.name.trim() !== '' && basics.url.trim() !== '' && basics.goal.trim() !== '';
-  const inputsOk = inputProblems(basics.input, basics.inputOptions, basics.goal).size === 0;
+  const minimal = basics.minimalSteps.trim(), minimalOk = minimal === '' || (/^\d+$/.test(minimal) && Number(minimal) >= 1 && Number(minimal) <= 10000);
+  const inputsOk = inputProblems(basics.input, basics.inputOptions, basics.goal).size === 0 && minimalOk;
   const changed = JSON.stringify(basics) !== JSON.stringify(initial);
   async function save(rebase: boolean) {
-    const next = { ...basics, name: basics.name.trim(), url: basics.url.trim(), goal: basics.goal.trim() };
+    const next = { ...basics, name: basics.name.trim(), url: basics.url.trim(), goal: basics.goal.trim(), context: basics.context.trim(), minimalSteps: minimal };
     const result = await onSave(next, rebase);
     if (result.ok) { close(); return; }
     setProblem({ conflict: result.conflict, view: result.conflict ? { ...describeApiError(result.error, 'setup'), what: t('taskEdit.conflictWhat'), progress: t('taskEdit.conflictProgress'), next: t('taskEdit.conflictNext') } : describeApiError(result.error, 'data') });
@@ -61,6 +72,15 @@ function EditForm({ initial, otherChanges, busy, onSave, close }: Omit<Props, 'o
       <Field label={t('taskSettings.name')} value={basics.name} onChange={name => patch({ name })} />
       <Field label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} hint={t('taskSettings.urlHint')} />
       <Field label={t('taskSettings.goal')} multiline plain value={basics.goal} onChange={goal => patch({ goal })} hint={t('taskSettings.goalHint')} />
+      <Field label={t('taskEdit.context')} multiline plain value={basics.context} onChange={context => patch({ context })} hint={t('taskEdit.contextHint')} placeholder={t('taskEdit.contextPlaceholder')} />
+      <section aria-labelledby="task-edit-compare" className="grid gap-4 border-t border-edge-strong pt-4">
+        <h3 id="task-edit-compare" className="text-sm font-semibold">{t('taskEdit.compareTitle')}</h3>
+        {bases.length > 0 || basics.variantOf
+          ? <Choice label={t('taskEdit.variantOf')} info={t('taskEdit.variantOfHint')} value={basics.variantOf || NONE} onChange={value => patch({ variantOf: value === NONE ? '' : value })}
+            options={[{ id: NONE, name: t('taskEdit.notVariant') }, ...bases]} />
+          : <p className="text-[13px] leading-5 text-muted-foreground">{t('taskEdit.hasVariants')}</p>}
+        <Field label={t('taskEdit.minimalSteps')} type="number" value={basics.minimalSteps} onChange={minimalSteps => patch({ minimalSteps })} hint={minimalOk ? t('taskEdit.minimalHint') : t('taskEdit.minimalInvalid')} />
+      </section>
       <section aria-labelledby="task-edit-inputs" className="grid gap-2 border-t border-edge-strong pt-4">
         <h3 id="task-edit-inputs" className="text-sm font-semibold">{t('taskInputs.title')}</h3>
         <TaskInputsField input={basics.input} options={basics.inputOptions} goal={basics.goal} onChange={fields => patch({ input: fields.input ?? {}, inputOptions: fields.inputOptions })} />

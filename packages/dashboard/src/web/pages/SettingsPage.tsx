@@ -10,9 +10,9 @@ import { MachineSettings } from './settings/MachineSettings';
 import type { PageProps } from './types';
 
 /**
- * 설정: everything that is configured, in one place with a side navigation of three groups — 실행 (the run profiles, everything that
- * changes a result), 모델 (where models are reached, and the models that only comment), 이 컴퓨터. Every section stays mounted so a
- * draft survives a visit to another section; the navigation marks sections with unsaved edits.
+ * 설정: everything that is configured, in three places — 실행 프로필 (everything that changes a result), AI 연결 (where models are
+ * reached, and the models that only comment on finished runs), 이 컴퓨터. Every section stays mounted so a draft survives a visit to
+ * another section; the navigation marks sections with unsaved edits.
  */
 export function SettingsPage({ section, navigate, ...props }: PageProps & { section?: SettingsSection | undefined; navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
@@ -26,7 +26,6 @@ export function SettingsPage({ section, navigate, ...props }: PageProps & { sect
     <nav aria-label={t('settingsNav.label')} className="grid gap-4 lg:sticky lg:top-0">
       <h1 className="sr-only">{t('settingsNav.title')}</h1>
       {settingsGroups.map(group => <div key={group.id} className="grid gap-0.5">
-        <p className="px-3 pb-1 text-xs font-medium text-muted-foreground">{t(`settingsNav.groups.${group.id}`)}</p>
         {group.sections.map(id => <Link key={id} to={{ view: 'settings', section: id }} navigate={navigate} aria-current={id === current ? 'page' : undefined}
           className={cn('flex h-8 items-center justify-between gap-2 rounded-md px-3 text-sm', id === current ? 'bg-trace-soft font-medium text-foreground' : 'text-muted-foreground hover:bg-raised hover:text-foreground')}>
           {t(`settingsNav.sections.${id}`)}
@@ -36,8 +35,10 @@ export function SettingsPage({ section, navigate, ...props }: PageProps & { sect
     </nav>
     <div className="min-w-0">
       <div {...show('profiles')}><ProfileSettings {...props} navigate={navigate} onDirty={value => mark({ profiles: value })} /></div>
-      <div {...show('connections')}><ConnectionSettings {...props} navigate={navigate} /></div>
-      <div {...show('assist')}><AssistSettings {...props} onDirty={value => mark({ assist: value })} /></div>
+      <div {...show('connections')} className="grid gap-12">
+        <ConnectionSettings {...props} navigate={navigate} />
+        <AssistSettings {...props} onDirty={value => mark({ connections: value })} />
+      </div>
       <div {...show('machine')}><MachineSettings {...props} onDirty={value => mark({ machine: value })} /></div>
     </div>
   </div>;
