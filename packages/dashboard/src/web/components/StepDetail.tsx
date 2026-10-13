@@ -6,8 +6,9 @@ import type { Hint, RunPlanView, StepView } from '../../shared/api';
 import type { RunRecord } from '../../shared/config';
 import { describeChange, hintKindLabel } from '../i18n/labels';
 import { describeHint, describeStep } from '../lib/describe';
+import { describeRule } from '../lib/describeRule';
 import { cn } from '../lib/utils';
-import { ConceptNote } from './layout/ConceptNote';
+import { InfoTip } from './layout/InfoTip';
 import { Disclosure } from './layout/Disclosure';
 import { RawRecord } from './RawRecord';
 import { StepEvidence } from './StepEvidence';
@@ -15,7 +16,6 @@ import { GlyphMark } from './trace/TraceRail';
 import { ModelCalls } from './trace/PlanDocumentView';
 import { servedTask, taskName, triggerLabel } from '../lib/plan';
 import { SourceLabel } from './trace/SourceMarker';
-import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
 
@@ -35,7 +35,7 @@ type Props = {
 };
 
 const MAX_CANDIDATES = 5;
-const label = 'text-[11px] leading-4 font-medium tracking-[0.08em] uppercase';
+const label = 'text-xs leading-4 font-medium';
 
 /**
  * One step, in the order a person investigates it: the evidence (screen or speech, by mode), the action, what the page did in
@@ -57,7 +57,7 @@ export function StepDetail({ step, experimentId, run, modelKind, previous, befor
     </div>
     <PageResponse step={step} />
     {hints.length > 0 && <Inspect hints={hints} />}
-    <Verification step={step} />
+    <Verification step={step} run={run} />
     <PlanNotes step={step} plan={plan} />
     {step.calls && (plan || step.calls.length > 1) && <div className="border-t pt-2.5 lg:col-start-2"><ModelCalls step={step.step} calls={step.calls} plan={plan} /></div>}
     <Candidates step={step} modelKind={modelKind} />
@@ -68,13 +68,13 @@ export function StepDetail({ step, experimentId, run, modelKind, previous, befor
   </section>;
 }
 
-/** ACTION nn with the action in large mono. The rule on its left continues into PAGE RESPONSE: action → response is the basic unit of the trace. */
+/** The action in large mono under its number. The rule on its left continues into the page response: action → response is the basic unit of the trace. */
 function Action({ step, baselineMet }: { step: StepView; baselineMet: number | undefined }) {
   const { t } = useTranslation();
   const first = step.step === 0;
   return <div className="grid min-w-0 gap-1 border-l-2 border-trace pl-4 lg:col-start-2">
-    <h3 className={cn(label, 'text-muted-foreground')}>{first ? t('stepDetail.actionStart') : t('stepDetail.action', { n: String(step.step).padStart(2, '0') })}</h3>
-    <p className="font-mono text-2xl leading-8 font-semibold break-words">{describeStep(step)}</p>
+    <h3 className={cn(label, 'text-muted-foreground')}>{first ? t('stepDetail.actionStart') : t('stepDetail.action', { n: step.step })}</h3>
+    <p className="font-mono text-xl leading-7 font-semibold break-words">{describeStep(step)}</p>
     {step.ok === false && <p className="w-fit rounded-sm border border-edge-strong px-1.5 text-xs">{t('steps.actionFailed')}</p>}
     {step.stop?.source && <p className="text-xs text-muted-foreground">{t('steps.stopSource', { source: t(`steps.stopSources.${step.stop.source}`, { defaultValue: step.stop.source }) })}</p>}
     {first && baselineMet !== undefined && <p className="text-sm text-muted-foreground">{baselineMet > 0 ? t('steps.baselineTrue', { n: baselineMet }) : t('steps.baselineNone')}</p>}
@@ -98,8 +98,7 @@ function PageResponse({ step }: { step: StepView }) {
 function Inspect({ hints }: { hints: Hint[] }) {
   const { t } = useTranslation();
   return <section aria-label={t('stepDetail.inspect')} className="grid gap-2.5 rounded-md border border-inspect bg-inspect-soft p-3 lg:col-start-2">
-    <ConceptNote concept="inspect" className="-mx-1" />
-    <h3 className="flex items-center gap-2 text-sm font-semibold text-inspect"><GlyphMark kind="inspect" className="scale-90" />{t('stepDetail.inspect')}</h3>
+    <h3 className="flex items-center gap-2 text-sm font-semibold text-inspect"><GlyphMark kind="inspect" className="scale-90" />{t('stepDetail.inspect')}<InfoTip term={t('stepDetail.inspect')}>{t('help.inspect')}</InfoTip></h3>
     <ul className="grid gap-2.5">{hints.map((hint, index) => <li key={index} className="grid gap-1">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
         <span className="text-sm font-semibold">{hintKindLabel(hint.kind)}</span>
@@ -112,16 +111,24 @@ function Inspect({ hints }: { hints: Hint[] }) {
   </section>;
 }
 
-function Verification({ step }: { step: StepView }) {
+/**
+ * The completion check as it stood right after this action. It is re-run after every action and may still be unmet while the run
+ * goes on; the run's own result comes from the check after its last action, which is a different thing from this line.
+ */
+function Verification({ step, run }: { step: StepView; run: RunRecord }) {
   const { t } = useTranslation();
   const check = step.verification;
   if (!check || !check.rules.length) return null;
-  const met = check.rules.filter(rule => rule.passed).length;
-  return <div className="grid gap-1 lg:col-start-2">
-    <h3 className={cn(label, 'text-muted-foreground')}>{t('stepDetail.verification')} · {t('steps.verificationCount', { met, total: check.rules.length })}</h3>
-    <ul className="flex flex-wrap gap-1.5">
-      {check.rules.map(rule => <li key={rule.ruleIndex}>
-        <Badge variant={rule.passed ? 'secondary' : 'outline'}>{rule.passed ? <Check aria-hidden="true" /> : <Minus aria-hidden="true" />}{rule.ruleType} {rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}</Badge>
+  const met = check.rules.filter(rule => rule.passed).length, written = run.snapshot.spec.task.verify.all;
+  return <div className="grid gap-1.5 lg:col-start-2">
+    <h3 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold">{t('stepDetail.verification')}
+      <span className="text-[13px] font-normal text-muted-foreground">{t('steps.verificationCount', { met, total: check.rules.length })}</span>
+      <InfoTip term={t('stepDetail.verification')}>{t('stepDetail.verificationInfo')}</InfoTip>
+    </h3>
+    <ul className="grid gap-1 text-[13px]">
+      {check.rules.map(rule => <li key={rule.ruleIndex} className="flex items-start gap-1.5">
+        {rule.passed ? <Check aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" /> : <Minus aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />}
+        <span className={rule.passed ? undefined : 'text-muted-foreground'}>{written[rule.ruleIndex] ? describeRule(written[rule.ruleIndex]) : rule.ruleType} · {rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}</span>
       </li>)}
     </ul>
   </div>;
@@ -167,7 +174,6 @@ function Candidates({ step, modelKind }: { step: StepView; modelKind: ModelKind 
   return <Collapsible className="border-t pt-2.5 lg:col-start-2">
     <Disclosure label={t('stepDetail.candidates')} />
     <CollapsibleContent className="motion-reveal grid gap-2 pt-2">
-      <h3 className={cn(label, 'text-model')}>{t('stepDetail.candidatesTitle')}</h3>
       {modelKind === 'llm'
         ? <>
           <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.chosen')}:</span> <span className="font-mono">{chosen?.label ?? chosen?.id ?? model.choiceId}</span></p>

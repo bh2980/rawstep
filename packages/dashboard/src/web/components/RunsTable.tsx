@@ -36,7 +36,7 @@ const rowLink = 'rounded-sm after:absolute after:inset-0 focus-visible:outline-n
 
 /**
  * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, mode, result, actions and duration,
- * one 36px line each. The result is a glyph and its words; the colour only reinforces them.
+ * one 40px line each. The result is a glyph and its words; the colour only reinforces them.
  */
 export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints, showConditions, tasks = [], selection }: Props) {
   const { t } = useTranslation();
@@ -65,7 +65,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
         const { run } = ref, steps = runStepCount(run), seconds = durationSeconds(run), hints = hintsFor(run.id) ?? [];
         const open = { task: run.taskId, run: run.id };
         const when = formatDate(runStartedAt(ref)), label = taskNameOf(run, tasks);
-        return <TableRow key={run.id} className="relative h-9">
+        return <TableRow key={run.id} className="relative h-10">
           {selection && <TableCell className={cell}>
             <Checkbox className="relative z-10" aria-label={t('runList.select.one', { name: label })} disabled={isLive(run)} title={isLive(run) ? t('runList.select.live') : undefined}
               checked={selection.selected.has(run.id)} onCheckedChange={on => selection.onToggle(run.id, on === true)} />
@@ -77,7 +77,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
           {!hideTask && <TableCell className={cell + ' font-medium'}>
             {numbers ? label : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>}
           </TableCell>}
-          <TableCell className={cell + ' whitespace-nowrap'}>{runModelsName(run)}{showConditions && <ConditionsNote run={run} config={config} />}</TableCell>
+          <TableCell className={cell + ' max-w-72 whitespace-nowrap'}>{showConditions ? <span className="grid"><span className="truncate">{runModelsName(run)}</span><ConditionsNote run={run} config={config} /></span> : runModelsName(run)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.spec.mode}`)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums'}>{steps ?? '—'}</TableCell>
@@ -94,5 +94,5 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
 /** The combo, action set and environments of a run, after its models. */
 function ConditionsNote({ run, config }: { run: RunRef['run']; config: Props['config'] }) {
   const c = runConditions(run, config);
-  return <span className="text-muted-foreground"> · {[c.combo, c.actionSet, c.pageEnvironment, ...(c.mode === 'screenreader' ? [c.atEnvironment] : [])].join(' · ')}</span>;
+  return <span className="truncate text-xs text-muted-foreground">{[c.combo, c.actionSet, c.pageEnvironment, ...(c.mode === 'screenreader' ? [c.atEnvironment] : [])].join(' · ')}</span>;
 }

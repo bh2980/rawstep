@@ -91,16 +91,6 @@ export function taskRunNumbers(runs: readonly RunRef[], taskId: string): Map<str
   return new Map(mine.map((ref, index) => [ref.run.id, index + 1]));
 }
 
-/** The finished run that reached the goal in the fewest actions; the first one wins a tie. */
-export function fastestRun(runs: readonly RunRef[]): { ref: RunRef; steps: number } | undefined {
-  let best: { ref: RunRef; steps: number } | undefined;
-  for (const ref of runs) {
-    const steps = runStepCount(ref.run);
-    if (ref.run.state === 'success' && steps !== undefined && (!best || steps < best.steps)) best = { ref, steps };
-  }
-  return best;
-}
-
 /** The task's current name (it may have been renamed after the run); the name recorded with the run when the task is gone. */
 export function taskNameOf(run: Pick<RunRecord, 'taskId' | 'snapshot'>, tasks: readonly { id: string; name: string }[]): string {
   return tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;

@@ -1,6 +1,6 @@
 /**
  * Strings for the trace components (element identity, evidence links, run strip, rails) and the run detail.
- * Voice (spec §42): state what was observed, never judge. Uppercase labels (ACTION, PAGE RESPONSE …) are the product's fixed technical labels.
+ * Voice (spec §42): state what was observed, never judge.
  */
 export const traceUi = {
   explanation: {
@@ -60,33 +60,33 @@ export const traceUi = {
     errored: '실행 오류로 끝남',
   },
   stepDetail: {
-    screen: 'SCREEN',
+    screen: '화면',
     screenReference: '· 참고용 화면, 모델에게 보내지 않음',
     screenStart: '첫 행동 전 시작 페이지',
     stopEvidence: '중단을 고를 때 모델이 받은 상태입니다 ({{n}}번째 행동 뒤).',
     stopEvidenceStart: '중단을 고를 때 모델이 받은 상태입니다 (첫 행동 전 시작 페이지).',
-    screenReaderOutput: 'SCREEN READER OUTPUT',
+    screenReaderOutput: '스크린리더 발화',
     noSpeech: '이 행동 뒤에 기록된 발화가 없습니다.',
-    focus: 'FOCUS',
+    focus: '포커스',
     focusBox: '화면 안의 위치: 왼쪽 {{x}}, 위 {{y}}, 너비 {{width}}, 높이 {{height}} (화면 픽셀 기준)',
     timeBefore: '행동 전',
     timeAfter: '행동 후',
     timeLabel: '화면 시점',
     screenBefore: '행동 {{n}} 전의 화면 (행동 {{prev}} 뒤)',
     screenAfter: '행동 {{n}} 뒤의 화면',
-    action: 'ACTION {{n}}',
-    actionStart: 'START',
-    pageResponse: 'PAGE RESPONSE',
+    action: '행동 {{n}}',
+    actionStart: '시작',
+    pageResponse: '페이지 반응',
     pageResponseNone: '이 행동 뒤에 기록된 변화가 없습니다.',
     inspect: '살펴볼 지점',
     candidates: '모델이 본 선택지',
-    candidatesTitle: 'MODEL CANDIDATES',
     scoreNote: '모델 점수 · 확률로 보정된 값이 아님',
     llmNote: 'LLM은 후보별 점수를 기록하지 않습니다. 고른 후보만 남아 있습니다.',
     chosen: '고른 후보',
     chosenMark: '선택',
     score: '점수 {{score}}',
-    verification: '완료 확인',
+    verification: '이 행동 뒤 완료 확인',
+    verificationInfo: '완료 확인은 행동마다 다시 확인합니다. 아직 맞지 않아도 실행은 이어지며, 실행 결과는 마지막 행동 뒤의 확인으로 정해집니다.',
     raw: '원본 기록',
     plan: {
       title: '계획 문서',
@@ -106,12 +106,11 @@ export const traceUi = {
     liveCurrentAction: '{{action}} → {{target}}',
     liveWaiting: '첫 행동을 기다리는 중입니다.',
     preset: '프리셋 {{name}}',
-    modelsTitle: '이 실행에 쓴 모델',
     factSteps: '행동 {{steps}}번',
     factSeconds: '{{seconds}}초',
     factFastest: '가장 빠른 실행',
     factFastestOther: '가장 빠름 {{steps}}번 (#{{number}})',
-    outcomeLabel: '결과',
+    analysis: '해설 {{model}}',
   },
   planDoc: {
     title: '계획 문서',

@@ -1,8 +1,10 @@
-import { Search } from 'lucide-react';
+import { ListFilter, Search } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 /** One line of filters above a table (spec §14, §31): no filter cards, no second row until the screen is too narrow for one. */
@@ -36,4 +38,14 @@ export function FilterSegments({ label, value, onChange, options }: { label: str
     {options.map(option => <button key={option.id} type="button" aria-pressed={value === option.id} onClick={() => onChange(option.id)}
       className={cn('h-8 border-r border-edge-strong px-3 last:border-r-0', value === option.id ? 'bg-trace-soft font-medium text-trace' : 'bg-surface text-muted-foreground hover:bg-raised')}>{option.name}</button>)}
   </div>;
+}
+
+/** The less-used filters behind one button, so the bar stays on one line. `active` is how many of them are set. */
+export function FilterMore({ label, active, children }: { label: string; active: number; children: ReactNode }) {
+  return <Popover>
+    <PopoverTrigger asChild>
+      <Button type="button" variant="outline" className="h-8 text-[13px]"><ListFilter aria-hidden="true" />{label}{active > 0 && <span className="tabular-nums text-trace">{active}</span>}</Button>
+    </PopoverTrigger>
+    <PopoverContent align="start" className="w-72 gap-2">{children}</PopoverContent>
+  </Popover>;
 }

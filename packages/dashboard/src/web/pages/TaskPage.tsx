@@ -1,8 +1,7 @@
 import { RunsTable } from '../components/RunsTable';
 import { useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { taskConditions, type ManagedTask } from '@rawstep/project/config';
+import type { ManagedTask } from '@rawstep/project/config';
 import type { DeleteTaskResult } from '../../shared/config';
 import { api, ApiError } from '../api';
 import { DeleteTaskDialog } from '../components/DeleteTaskDialog';
@@ -13,6 +12,7 @@ import { TaskHeader } from '../components/TaskHeader';
 import { TaskOverview } from '../components/TaskOverview';
 import { TaskSettings } from '../components/TaskSettings';
 import { Button } from '../components/ui/button';
+import { SaveBar } from '../components/conditions/SaveBar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useTaskFindings } from '../hooks/useTaskFindings';
 import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
@@ -35,17 +35,17 @@ const CONDITION_KEYS = ['presetId', ...CONDITION_KINDS.map(kind => FIELD[kind])]
 const conditionIds = (task: ManagedTask): TaskConditionIds => Object.fromEntries(CONDITION_KEYS.flatMap(key => task[key] ? [[key, task[key]]] : []));
 const withoutConditions = (task: ManagedTask): ManagedTask => { const copy = { ...task }; for (const key of CONDITION_KEYS) delete copy[key]; return copy; };
 
-/** Sends a person to the run control of the task header, for an empty state that says "run it". */
+/** Sends a person to the run bar of the task header, for an empty state that says "run it". */
 function focusRunControl() {
   const form = document.getElementById('task-run-control');
   form?.scrollIntoView({ block: 'center' });
-  form?.querySelector<HTMLElement>('[role="combobox"], button')?.focus();
+  form?.querySelector<HTMLElement>('button[type="submit"]')?.focus();
 }
 
 /**
- * A task as one investigation sheet: its header with the run control, then overview, completion check and detailed settings.
- * Name, address, goal and default conditions are edited in the 작업 수정 sheet (the conditions also in the run box); the tabs hold the rest. Both write the same draft and
- * the same file. Mount with `key={taskId}` so drafts do not leak between tasks.
+ * A task as one investigation sheet: its header (what it is, how to run it, the conditions of the next run), then 개요 (what the runs
+ * found), 실행 기록, 완료 확인 and 설정. Name, address, goal and inputs are edited in the 작업 수정 sheet, conditions in the conditions
+ * sheet of the header; the 완료 확인 and 설정 tabs share one draft saved from one bar. Mount with `key={taskId}` so drafts do not leak.
  */
 export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, onRun }: Props) {
   const { t } = useTranslation();
@@ -67,7 +67,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
   if (!saved || !task) return <EmptyState title={t('task.unknownTitle')} why={t('task.unknown')} action={<Button variant="outline" onClick={() => navigate({ view: 'tasks' })}>{t('task.backToTasks')}</Button>} />;
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
-  const conditions = taskConditions(config, saved), savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
+  const savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
   /** The draft with the sheet's name and conditions: an id is kept even when it names the first entry, so the choice survives reordering. */
   const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name' | 'conditions'>): ManagedTask => ({ ...withoutConditions(entry), ...basics.conditions, name: basics.name });
   // What the 세부 설정 tab changed, apart from what the sheet owns (the inputs are edited in both, so the sheet saves them with the rest).
@@ -121,36 +121,32 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
 
   const active = taskRuns.filter(ref => isLive(ref.run));
   return <div className="grid gap-5">
-    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} checkCount={savedRules.length} profileName={conditions.preset ? t('taskPage.presetFact', { name: conditions.preset.name }) : t('taskPage.comboFact', { name: conditions.combo.name })}
+    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')}
       pageProps={pageProps} runs={taskRuns} navigate={navigate} onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)}
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
     <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-4">
       <TabsList variant="line" aria-label={t('taskPage.tabsLabel')}>
-        {taskTabs.map(id => <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}</TabsTrigger>)}
+        {taskTabs.map(id => { const count = id === 'runs' ? taskRuns.length : id === 'check' ? savedRules.length : undefined;
+          return <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}{count !== undefined && <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">{count}</span>}</TabsTrigger>; })}
       </TabsList>
-      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} config={config} navigate={navigate} onRun={focusRunControl} /></TabsContent>
+      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} navigate={navigate} onRun={focusRunControl} /></TabsContent>
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
-          <p className="text-[13px] leading-5 text-muted-foreground">{taskRuns.length ? t('taskPage.runsTabNote') : t('taskPage.runsTabEmpty')}</p>
-          {taskRuns.length > 0 && <RunsTable runs={taskRuns} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />}
+          {taskRuns.length > 0
+            ? <RunsTable runs={taskRuns} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
+            : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={focusRunControl}>{t('empty.taskRuns.action')}</Button>} />}
         </section>
       </TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>
       <TabsContent value="settings"><TaskSettings task={task} onTask={setTask} json={json} onJson={setJson} view={view} onEdit={() => setEditing(true)} /></TabsContent>
     </Tabs>
 
-    {dirty && tab !== 'overview' && <div role="region" aria-label={t('taskPage.saveBar')} className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-edge-strong bg-background/95 py-3 backdrop-blur">
-      {behind
-        ? <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(saveOnLatest)}><Save aria-hidden="true" />{t('taskPage.saveOnLatest')}</Button>
-        : <Button size="xl" disabled={pageProps.busy} onClick={() => void pageProps.act(save)}><Save aria-hidden="true" />{t('taskPage.save')}</Button>}
-      <Button variant="outline" size="xl" disabled={pageProps.busy} onClick={discard}><RotateCcw aria-hidden="true" />{behind ? t('taskPage.takeLatest') : t('taskPage.discard')}</Button>
-      <p role="status" className="text-xs text-muted-foreground">{behind ? t('taskPage.behind') : t('taskPage.unsaved')}</p>
-    </div>}
+    {tab !== 'overview' && tab !== 'runs' && <SaveBar dirty={dirty} busy={pageProps.busy} behind={behind} onSave={() => void pageProps.act(behind ? saveOnLatest : save)} onDiscard={discard} />}
 
-    <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} view={view} rules={rules} otherChanges={otherChanges} onSave={saveBasics} taskId={taskId}
+    <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} otherChanges={otherChanges} onSave={saveBasics}
       initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), conditions: conditionIds(task), input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}) }}
-      onOpenCheck={() => { setEditing(false); navigate({ task: taskId, tab: 'check' }); }} />
+    />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;
 }

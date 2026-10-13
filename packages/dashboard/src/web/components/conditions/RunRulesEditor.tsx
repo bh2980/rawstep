@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { RotateCcw } from 'lucide-react';
 import { runRulesSchema, type RunRules } from '@rawstep/project/config';
 import { cn } from '../../lib/utils';
+import { InfoTip } from '../layout/InfoTip';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
@@ -43,12 +44,11 @@ export function RunRulesEditor({ value, onChange, inherited, compact, inheritedL
     : key === 'survey' ? t(`conditions.runRules.survey.${v as RunRules['survey']}`)
     : key === 'modelGiveUp' ? t(v ? 'conditions.runRules.on' : 'conditions.runRules.off') : String(v);
   const shown = (key: Key) => display(key, inherited[key]);
-  return <div className={cn('grid min-w-0', compact ? 'gap-4' : 'gap-6')}>
-    {GROUPS.map(group => <section key={group.id} aria-labelledby={`rules-${group.id}`} className="grid gap-1">
-      <div className="grid gap-0.5 border-b border-edge-strong pb-1.5">
-        <h4 id={`rules-${group.id}`} className="text-sm font-semibold">{t(`conditions.runRules.groups.${group.id}.title`)}</h4>
-        {!compact && <p className="text-[13px] leading-5 text-muted-foreground">{t(`conditions.runRules.groups.${group.id}.intro`)}</p>}
-      </div>
+  return <div className={cn('grid min-w-0', compact ? 'gap-4' : 'gap-8')}>
+    {GROUPS.map(group => <section key={group.id} aria-labelledby={`rules-${group.id}`} className="grid">
+      <h3 id={`rules-${group.id}`} className="flex items-center gap-1.5 border-b border-edge-strong pb-1.5 text-sm font-semibold">{t(`conditions.runRules.groups.${group.id}.title`)}
+        {!compact && <InfoTip term={t(`conditions.runRules.groups.${group.id}.title`)}>{t(`conditions.runRules.groups.${group.id}.intro`)}</InfoTip>}
+      </h3>
       {group.keys.map(key => <Row key={key} field={key} value={value} inherited={inherited} set={set} compact={compact}
         from={from} inheritedValue={shown(key)} />)}
     </section>)}
@@ -81,13 +81,13 @@ function Row({ field, value, inherited, set, compact, from, inheritedValue }: Ro
     </Select>
     : field === 'modelGiveUp'
       ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('modelGiveUp', on)} />
-      : <Input id={id} type="number" inputMode={field === 'confidenceFloor' ? 'decimal' : 'numeric'} step={field === 'confidenceFloor' ? 0.05 : 1} className="w-28" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={`${id}-hint`}
+      : <Input id={id} type="number" inputMode={field === 'confidenceFloor' ? 'decimal' : 'numeric'} step={field === 'confidenceFloor' ? 0.05 : 1} className="w-28" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
         onChange={e => set(field, e.target.value.trim() === '' ? undefined : Number(e.target.value) as never)} />;
-  return <div className={cn('grid gap-x-6 gap-y-1.5 border-b border-edge sm:grid-cols-[minmax(0,1fr)_auto]', compact ? 'py-2' : 'py-3')}>
+  return <div className={cn('grid gap-x-6 gap-y-1.5 border-b border-edge sm:grid-cols-[minmax(0,1fr)_auto]', compact ? 'py-2' : 'py-2.5')}>
     <div className="grid content-start gap-0.5">
-      <label htmlFor={id} className="text-sm font-medium">{t(`conditions.runRules.fields.${field}.label`)}</label>
-      <p id={`${id}-hint`} className="text-xs leading-5 text-muted-foreground">{t(`conditions.runRules.fields.${field}.hint`)}</p>
-      {invalid && <p className="text-xs leading-5 text-missed">{t(`conditions.runRules.fields.${field}.range`)}</p>}
+      <div className="flex items-center gap-1"><label htmlFor={id} className="text-sm font-medium">{t(`conditions.runRules.fields.${field}.label`)}</label>
+        {!compact && <InfoTip term={t(`conditions.runRules.fields.${field}.label`)}>{t(`conditions.runRules.fields.${field}.hint`)}</InfoTip>}</div>
+      {invalid && <p id={`${id}-range`} className="text-xs leading-5 text-missed">{t(`conditions.runRules.fields.${field}.range`)}</p>}
     </div>
     <div className="grid content-start justify-items-start gap-1 sm:justify-items-end">
       {control}

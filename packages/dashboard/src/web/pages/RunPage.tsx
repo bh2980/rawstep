@@ -37,7 +37,6 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const { data: view, error, loading } = useRunSteps(experiment.id, run.id);
   const { connected } = useLiveBus();
   const live = isLive(run);
-  const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === run.taskId), [runs, run.taskId]);
   const numbers = useMemo(() => taskRunNumbers(runs, run.taskId), [runs, run.taskId]);
   useEffect(() => { if (view && isFinished(run)) rememberHintSummary(run.id, view.hints); }, [view, run.id, run.state]);
   const latest = view?.steps.at(-1);
@@ -52,7 +51,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const baselineMet = view?.baseline?.rules.filter(rule => rule.passed).length;
   return <div className="grid gap-5">
-    <RunHeader runRef={runRef} taskRuns={taskRuns} numbers={numbers} view={view} pageProps={pageProps} navigate={navigate} />
+    <RunHeader runRef={runRef} numbers={numbers} view={view} pageProps={pageProps} navigate={navigate} />
     {view?.waitingForPerson && <section role="status" className="grid gap-1 border-l-4 border-l-inspect bg-inspect-soft py-3 pr-4 pl-4">
       <p className="text-[15px] leading-6 font-semibold">{t('runPage.waitingForPerson')}</p>
       <p className="text-[13px] leading-5">{t('runPage.waitingForPersonNote')}</p>
@@ -61,7 +60,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
     {view && !live && <RunDiagnosis run={run} steps={view.steps} notices={view.notices} plan={view.plan} onSelect={select} />}
     {view?.plan && <PlanDocumentView plan={view.plan} steps={view.steps} actionLimit={run.snapshot.spec.settings.runRules.stepActionLimit} selectedStep={selected} onSelectStep={select} live={live} />}
     <section aria-label={t('runPage.timelineSection')} className="grid gap-2">
-      {loading && !view && <div aria-busy="true" className="grid gap-3"><Skeleton className="h-10" /><Skeleton className="h-64" /></div>}
+      {loading && !view && <div aria-busy="true" className="flex gap-3 p-1.5">{Array.from({ length: 9 }, (_, i) => <Skeleton key={i} className="h-9 w-9 shrink-0" />)}</div>}
       {live && !connected && <ErrorState view={connectionLostView()} />}
       {!view && !loading && <ErrorState alert view={dataFailureView(t('steps.loadFailed'), error)} />}
       {view && (view.steps.length === 0

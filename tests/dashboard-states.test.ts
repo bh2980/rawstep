@@ -3,7 +3,6 @@ import type { RunRecord } from '../packages/dashboard/src/shared/config.js';
 import { RUN_ERROR } from '../packages/dashboard/src/shared/config.js';
 import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
-import { CONCEPTS_KEY, dismissConcept, readDismissed } from '../packages/dashboard/src/web/lib/concepts.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
 import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, conditionNames, environmentViewport, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
@@ -25,7 +24,7 @@ describe('error states', () => {
     expect(describeRunFailure(run('inconclusive', { status: 'inconclusive', reason: 'access-blocked' }))?.kind).toBe('start');
     // Runtime failure: it got going and stopped, and says how far.
     const runtime = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'policy', step: 4, steps: 4 }));
-    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'connections' } } });
+    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'settings', section: 'connections' } } });
     expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'verification', steps: 2 }))).toMatchObject({ kind: 'runtime', link: { to: { task: 't', tab: 'check' } } });
     expect(describeRunFailure(run('interrupted', undefined, RUN_ERROR.restarted))?.kind).toBe('runtime');
     // Setup error: a condition cannot be applied here.
@@ -87,31 +86,6 @@ describe('error states', () => {
     expect(lost).toMatchObject({ kind: 'connection' });
     expect(lost.next).toMatch(hangul);
     expect(describeApiError(new ApiError('설정이 외부에서 변경되었습니다.', 409))).toMatchObject({ kind: 'setup', what: '설정이 외부에서 변경되었습니다.', raw: expect.stringContaining('status: 409') });
-  });
-});
-
-describe('concept notes', () => {
-  const memory = () => { const data = new Map<string, string>(); return { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } }; };
-
-  it('remembers a dismissed concept once and in the order it was dismissed', () => {
-    const store = memory();
-    expect(readDismissed(store)).toEqual([]);
-    expect(dismissConcept('conditions', store)).toEqual(['conditions']);
-    expect(dismissConcept('inspect', store)).toEqual(['conditions', 'inspect']);
-    expect(dismissConcept('conditions', store)).toEqual(['conditions', 'inspect']);
-    expect(readDismissed(store)).toEqual(['conditions', 'inspect']);
-  });
-
-  it('ignores a value it cannot read and survives a store that throws', () => {
-    const broken = memory();
-    broken.setItem(CONCEPTS_KEY, '{not json');
-    expect(readDismissed(broken)).toEqual([]);
-    broken.setItem(CONCEPTS_KEY, JSON.stringify(['conditions', 'not-a-concept', 3]));
-    expect(readDismissed(broken)).toEqual(['conditions']);
-    const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-    expect(readDismissed(blocked)).toEqual([]);
-    expect(dismissConcept('check', blocked)).toEqual(['check']);
-    expect(readDismissed(undefined)).toEqual([]);
   });
 });
 

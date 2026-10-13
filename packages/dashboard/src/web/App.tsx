@@ -11,13 +11,10 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
-import { HomePage } from './pages/HomePage';
 import { NewTaskPage } from './pages/NewTaskPage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
-import { ConnectionsPage } from './pages/ConnectionsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { ConditionsPage } from './pages/ConditionsPage';
 import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
@@ -106,7 +103,7 @@ type PageSwitchProps = {
   startAndOpen: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
-/** Chooses the page for the URL: a run, a task or the new-task page, otherwise the list or settings page of the current view. */
+/** Chooses the page for the URL: a run, a task or the new-task page, otherwise the run list, 설정, or the task list. */
 function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask, startAndOpen }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
@@ -121,10 +118,7 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
   if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
   if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
-  if (route.view === 'tasks') return <TasksPage {...lists} onRun={onRunTask} />;
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
-  if (route.view === 'conditions') return <ConditionsPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.view === 'connections') return <ConnectionsPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} />;
-  return <HomePage {...lists} />;
+  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} section={route.section} navigate={navigate} />;
+  return <TasksPage {...lists} onRun={onRunTask} />;
 }

@@ -1,21 +1,19 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Plus, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { VerifyRule } from '@rawstep/core/contracts';
 import { suggestionModel } from '@rawstep/project/config';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
+import { useRoute } from '../hooks/useRoute';
 import { describeRule } from '../lib/describeRule';
+import { describeApiError, type ErrorView } from '../lib/errors';
 import type { PageProps } from '../pages/types';
-import { Disclosure } from './layout/Disclosure';
 import { ErrorState } from './layout/ErrorState';
 import { ScriptSource, scriptOf } from './RuleCard';
-import { describeApiError } from '../lib/errors';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { Collapsible, CollapsibleContent } from './ui/collapsible';
 import { Label } from './ui/label';
-import type { ErrorView } from '../lib/errors';
 
 type Props = {
   view: PageProps['view'];
@@ -23,35 +21,29 @@ type Props = {
   goal: string;
   /** Append this one to the task's completion checks. */
   onAdd: (rule: VerifyRule) => void;
-  /** Titles the panel as a reference list beside the task specification (the new task page). */
-  reference?: boolean;
-  /** Ask for suggestions as soon as the panel appears (it was opened by an explicit "AI 제안받기" button). */
-  autoStart?: boolean;
 };
 
 /**
- * One suggestion as a candidate condition (spec §20): `제안 01`, a plain sentence, and [추가]. A suggestion that is code the model wrote
- * is set apart in a heavier ADVANCED CHECK block with the code itself, and cannot be added until the person has ticked that they read it.
+ * One suggestion as a ruled line: the condition as a sentence and [추가]. A suggestion that is code the model wrote shows the code
+ * and cannot be added until the person has ticked that they read it.
  */
 function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSuggestion; index: number; onAdd: Props['onAdd']; added: boolean }) {
   const { t } = useTranslation();
   const ackId = useId();
-  const [reviewed, setReviewed] = useState(false), [rawOpen, setRawOpen] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const script = scriptOf(suggestion.rule), blocked = script !== undefined && !reviewed;
-  const number = String(index + 1).padStart(2, '0');
-  return <li className="grid gap-2 border-b border-edge py-3">
+  const note = suggestion.trueAtStart === true ? t('checkSuggest.trueAtStart') : !script && suggestion.checkedAtStart === false ? t('checkSuggest.changeDuringRun') : undefined;
+  return <li className="grid gap-2 border-b border-edge py-2.5">
     <div className="flex items-start justify-between gap-3">
-      <div className="grid min-w-0 gap-1">
-        <p className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{t('checkSuggest.candidate', { n: number })}</p>
-        <p className="text-[15px] leading-6 font-medium">{describeRule(suggestion.rule)}</p>
-        <p className="text-[13px] leading-5 text-muted-foreground">{suggestion.title}{suggestion.why ? ` — ${suggestion.why}` : ''}</p>
-        {suggestion.trueAtStart === true && <p className="text-xs leading-5 text-inspect">{t('checkSuggest.trueAtStart')}</p>}
-        {!script && suggestion.checkedAtStart === false && <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.changeDuringRun')}</p>}
+      <div className="grid min-w-0 gap-0.5">
+        <p className="text-sm leading-6 font-medium">{describeRule(suggestion.rule)}</p>
+        {(suggestion.why || note) && <p className="text-[13px] leading-5 text-muted-foreground">{[suggestion.why, note].filter(Boolean).join(' · ')}</p>}
       </div>
-      <Button type="button" variant="outline" disabled={blocked || added} aria-label={t('checkSuggest.addAria', { n: number })} onClick={() => onAdd(suggestion.rule)}><Plus aria-hidden="true" />{added ? t('checkSuggest.added') : t('checkSuggest.add')}</Button>
+      <Button type="button" variant="outline" size="sm" disabled={blocked || added} aria-label={t('checkSuggest.addAria', { n: index + 1 })} onClick={() => onAdd(suggestion.rule)}>
+        {added ? t('checkSuggest.added') : <><Plus aria-hidden="true" />{t('checkSuggest.add')}</>}
+      </Button>
     </div>
-    {script && <div className="grid gap-3 border-2 border-inspect bg-inspect-soft p-3">
-      <p lang="en" className="text-xs font-semibold tracking-[0.08em] text-inspect uppercase">{t('labels.advancedCheck')} · {t('labels.generatedCode')}</p>
+    {script && <div className="grid gap-2 border-l-4 border-inspect bg-inspect-soft p-3">
       <p className="text-[13px] leading-5">{t('checkSuggest.scriptNotice')}</p>
       {script.description && <p className="text-sm leading-6"><span className="font-semibold">{t('checkSuggest.scriptDescription')}</span> {script.description}</p>}
       <ScriptSource source={script.source} />
@@ -60,29 +52,24 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
         <Label htmlFor={ackId} className="font-medium leading-5">{t('checkSuggest.scriptAck')}</Label>
       </div>
     </div>}
-    <Collapsible open={rawOpen} onOpenChange={setRawOpen} className="grid">
-      <Disclosure label={t('checkSuggest.rawJson')} />
-      <CollapsibleContent>
-        <pre className="max-h-72 overflow-auto rounded-md border bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-all">{JSON.stringify(suggestion.rule, null, 2)}</pre>
-      </CollapsibleContent>
-    </Collapsible>
   </li>;
 }
 
 /**
- * "AI 제안": a reference list of conditions an analysis model proposes from the start page's structure. It is not a chat; nothing changes
- * until a person adds a candidate.
+ * AI suggestions for completion checks, as a compact block under the check editor: one button asks the project's suggestion model
+ * for conditions from the start page's structure. Without a model it is one line linking to 설정. Nothing changes until a person
+ * adds a candidate.
  */
-export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart }: Props) {
+export function CheckSuggestions({ view, url, goal, onAdd }: Props) {
   const { t } = useTranslation();
-  const modelId = useId();
+  const { navigate } = useRoute();
+  const id = useId();
   // The project's suggestion model writes the suggestions (its analysis model when none is set), as the server picks it.
   const model = suggestionModel(view.config);
   const [loading, setLoading] = useState(false), [error, setError] = useState<ErrorView>();
   const [result, setResult] = useState<SuggestionResult>(), [added, setAdded] = useState<ReadonlySet<string>>(new Set());
-  const ready = url.trim() !== '' && goal.trim() !== '' && model !== undefined;
+  const ready = url.trim() !== '' && goal.trim() !== '';
   async function suggest() {
-    if (!model) return;
     setLoading(true); setError(undefined); setResult(undefined); setAdded(new Set());
     try {
       setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim() } }));
@@ -91,29 +78,23 @@ export function CheckSuggestions({ view, url, goal, onAdd, reference, autoStart 
     } finally { setLoading(false); }
   }
   const add = (suggestion: CheckSuggestion, key: string) => { onAdd(suggestion.rule); setAdded(new Set([...added, key])); };
-  // Opened by its own button: that click is the request, so ask once right away instead of a second click.
-  const started = useRef(false);
-  useEffect(() => { if (autoStart && ready && !started.current) { started.current = true; void suggest(); } });
-  return <section aria-labelledby={modelId + '-title'} className="grid min-w-0 gap-3">
-    <div className="grid gap-1">
-      <h3 id={modelId + '-title'} className="text-base font-semibold">{t('checkSuggest.title')}</h3>
-      <p className="text-[13px] leading-5 text-muted-foreground">{reference ? t('checkSuggest.referenceNote') : t('checkSuggest.description')}</p>
+  if (!model) return <p className="flex flex-wrap items-center gap-x-1 text-[13px] text-muted-foreground">
+    <Sparkles aria-hidden="true" className="size-3.5" />{t('suggestModel.none')}
+    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => navigate({ view: 'settings', section: 'assist' })}>{t('suggestModel.connect')}</Button>
+  </p>;
+  return <section aria-label={t('checkSuggest.title')} className="grid min-w-0 gap-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Button type="button" variant="outline" size="sm" disabled={!ready || loading} aria-describedby={id + '-note'} onClick={() => void suggest()}><Sparkles aria-hidden="true" />{loading ? t('checkSuggest.loading') : t('checkSuggest.submit')}</Button>
+      <p id={id + '-note'} role={loading ? 'status' : undefined} className="text-xs leading-5 text-muted-foreground">
+        {loading ? t('checkSuggest.loadingNote') : !ready ? t('checkSuggest.needInput') : `${t('suggestModel.line', { model: model.name })} · ${t('checkSuggest.privacy')}`}
+      </p>
     </div>
-    {!model
-      ? <p role="status" className="text-sm leading-6 text-muted-foreground">{t('suggestModel.none')}</p>
-      : <div className="grid gap-3">
-        <p className="text-xs leading-5 text-muted-foreground">{t('suggestModel.line', { model: model.name })}</p>
-        <div className="grid justify-items-start gap-2">
-          <Button type="button" variant="outline" disabled={!ready || loading} aria-describedby={modelId + '-note'} onClick={() => void suggest()}>{loading ? t('checkSuggest.loading') : t('checkSuggest.submit')}</Button>
-          <p id={modelId + '-note'} role={loading ? 'status' : undefined} className="text-xs leading-5 text-muted-foreground">{loading ? t('checkSuggest.loadingNote') : !ready ? t('checkSuggest.needInput') : ''}</p>
-        </div>
-      </div>}
     {error && <ErrorState alert view={error} />}
     {result && <div className="grid gap-1">
-      <p className="text-sm font-medium">{t('checkSuggest.pageTitle', { title: result.page.title || t('checkSuggest.pageUntitled') })}</p>
+      <p className="text-[13px] text-muted-foreground">{t('checkSuggest.pageTitle', { title: result.page.title || t('checkSuggest.pageUntitled') })}</p>
       {result.suggestions.length === 0
         ? <p className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.empty')}</p>
-        : <ol aria-label={t('checkSuggest.listLabel')} className="grid">{result.suggestions.map((suggestion, i) => {
+        : <ol aria-label={t('checkSuggest.listLabel')} className="grid border-t border-edge">{result.suggestions.map((suggestion, i) => {
           const key = i + JSON.stringify(suggestion.rule);
           return <Candidate key={key} suggestion={suggestion} index={i} added={added.has(key)} onAdd={() => add(suggestion, key)} />;
         })}</ol>}

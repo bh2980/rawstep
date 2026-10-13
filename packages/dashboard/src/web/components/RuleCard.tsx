@@ -34,7 +34,7 @@ type Props = {
 
 /**
  * One condition of the goal boundary, as a ruled line: a ✓ and the sentence, with change and remove on the right. A script rule is
- * marked ADVANCED CHECK and its code can be read, read-only, from the line.
+ * marked 검증 코드 and its code can be read, read-only, from the line.
  */
 export function RuleCard({ rule, n, onRemove, removeDisabled, onEdit, editing }: Props) {
   const { t } = useTranslation();
@@ -44,7 +44,7 @@ export function RuleCard({ rule, n, onRemove, removeDisabled, onEdit, editing }:
     <div className="flex items-start justify-between gap-3">
       <p className="flex min-w-0 items-start gap-2.5 text-[15px] leading-6">
         <Check aria-hidden="true" className="mt-1 size-4 shrink-0" />
-        <span className="min-w-0">{script && <span lang="en" className="mr-2 text-[11px] font-semibold tracking-[0.08em] text-inspect uppercase">{t('labels.advancedCheck')}</span>}{describeRule(rule)}</span>
+        <span className="min-w-0">{script && <span className="mr-2 text-xs font-semibold text-inspect">{t('ruleEditor.codeBadge')}</span>}{describeRule(rule)}</span>
       </p>
       <div className="flex shrink-0 gap-1">
         {onEdit && <Button type="button" variant="ghost" size="sm" aria-label={t('ruleEditor.editAria', { n })} onClick={onEdit}><Pencil aria-hidden="true" />{t('ruleEditor.edit')}</Button>}

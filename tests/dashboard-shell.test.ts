@@ -5,12 +5,14 @@ import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/for
 import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
 
 describe('routes', () => {
-  it('keeps the page in the URL and puts tasks, new tasks and runs under the 작업 menu', () => {
+  it('keeps the page in the URL: the task list first, tasks and runs under 작업, every setting under 설정', () => {
     expect(routeSearch({})).toBe('/');
-    expect(routeSearch({ view: 'tasks' })).toBe('?view=tasks');
+    expect(routeSearch({ view: 'tasks' })).toBe('/');
     expect(routeSearch({ view: 'runs' })).toBe('?view=runs');
-    // Experiment conditions and connections are pages of their own; settings hold the project's and this computer's settings.
-    for (const view of ['conditions', 'connections', 'settings'] as const) expect(routeSearch({ view })).toBe(`?view=${view}`);
+    // 설정 holds everything that is configured; its part is in `section`, and only there.
+    expect(routeSearch({ view: 'settings' })).toBe('?view=settings');
+    expect(routeSearch({ view: 'settings', section: 'combos' })).toBe('?view=settings&section=combos');
+    expect(routeSearch({ view: 'runs', section: 'combos' })).toBe('?view=runs');
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
     expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
     expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
@@ -18,18 +20,21 @@ describe('routes', () => {
     // A tab belongs to the task page and a step to a run; neither is kept on the other.
     expect(routeSearch({ task: 'abc', run: 'r1', tab: 'settings' })).toBe('?task=abc&run=r1');
     expect(routeSearch({ task: 'abc', tab: 'settings', step: 2 })).toBe('?task=abc&tab=settings');
-    expect(parseRoute('')).toEqual({ view: 'home', tab: 'overview' });
-    expect(parseRoute('?view=connections')).toMatchObject({ view: 'connections' });
-    expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', tab: 'overview' });
-    expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'home' });
-    // The pages the conditions page replaced fall back to home.
-    expect(parseRoute('?view=agents')).toMatchObject({ view: 'home' });
+    expect(parseRoute('')).toEqual({ view: 'tasks', tab: 'overview' });
+    expect(parseRoute('?view=connections')).toEqual({ view: 'settings', section: 'connections', tab: 'overview' });
+    expect(parseRoute('?view=conditions')).toEqual({ view: 'settings', section: 'combos', tab: 'overview' });
+    expect(parseRoute('?view=home')).toEqual({ view: 'tasks', tab: 'overview' });
+    expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', section: 'machine', tab: 'overview' });
+    expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'tasks' });
+    expect(parseRoute('?view=settings&section=nonsense')).toEqual({ view: 'settings', tab: 'overview' });
+    // Old and unknown pages fall back to the task list; old 실험 조건 and 연결 addresses open their part of 설정.
+    expect(parseRoute('?view=agents')).toMatchObject({ view: 'tasks' });
     expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
     expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=tasks', '?view=conditions', '?view=connections', '?view=settings', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=runs', '?view=settings', '?view=settings&section=presets', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
   });
 });
 

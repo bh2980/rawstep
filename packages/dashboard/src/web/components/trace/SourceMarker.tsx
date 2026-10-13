@@ -11,7 +11,7 @@ export function SourceMarker({ source, className }: { source: Source; className?
 /** The marker with its source written out, so the source never depends on the shape or colour alone. */
 export function SourceLabel({ source, className }: { source: Source; className?: string }) {
   const { t } = useTranslation();
-  return <span className={cn('inline-flex items-center gap-1.5 text-[11px] leading-4 font-medium tracking-[0.08em] uppercase', source === 'page' ? 'text-foreground' : 'text-model', className)}>
+  return <span className={cn('inline-flex items-center gap-1.5 text-xs leading-4 font-medium', source === 'page' ? 'text-foreground' : 'text-model', className)}>
     <SourceMarker source={source} />{source === 'page' ? t('trace.sourcePage') : t('trace.sourceModel')}
   </span>;
 }

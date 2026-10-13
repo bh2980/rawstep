@@ -9,16 +9,22 @@ import { Switch } from './ui/switch';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { InfoTip } from './layout/InfoTip';
+
+/** A field label with an optional ⓘ explanation beside it. */
+function FieldLabel({ htmlFor, label, info }: { htmlFor: string; label: string; info?: ReactNode }) {
+  return info ? <div className="flex items-center gap-1"><Label htmlFor={htmlFor}>{label}</Label><InfoTip term={label}>{info}</InfoTip></div> : <Label htmlFor={htmlFor}>{label}</Label>;
+}
 
 /** A labelled text input; `multiline` is a code-style textarea unless `plain` asks for ordinary text. */
-export function Field({ label, value, onChange, multiline, plain, type, hint, placeholder, disabled }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; placeholder?: string; disabled?: boolean }) {
+export function Field({ label, value, onChange, multiline, plain, type, hint, info, placeholder, disabled }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; info?: ReactNode; placeholder?: string; disabled?: boolean }) {
   const id = useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} disabled={disabled} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} disabled={disabled} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
 }
-export function Choice({ label, value, onChange, options }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[] }) {
+export function Choice({ label, value, onChange, options, info }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[]; info?: ReactNode }) {
   const id = useId();
   const { t } = useTranslation();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Select value={value} onValueChange={onChange}><SelectTrigger id={id} className="w-full min-w-0"><SelectValue placeholder={t('forms.placeholder')} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>;
+  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} /><Select value={value} onValueChange={onChange}><SelectTrigger id={id} className="w-full min-w-0"><SelectValue placeholder={t('forms.placeholder')} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>;
 }
 export function MultiChoice({ label, items, selected, onChange }: { label: string; items: { id: string; name: string }[]; selected: string[]; onChange: (s: string[]) => void }) {
   const id = useId();
@@ -30,9 +36,9 @@ export function Section({ title, description, children }: { title: string; descr
   return <section className="grid gap-4 border-t pt-6"><div className="grid gap-1"><h3 className="font-medium">{title}</h3>{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}</div>{children}</section>;
 }
 /** Switch with a label and a one-line plain explanation. */
-export function Toggle({ label, hint, checked, onChange, disabled }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+export function Toggle({ label, hint, info, checked, onChange, disabled }: { label: string; hint?: string; info?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   const id = useId();
-  return <div className="grid gap-1"><div className="flex items-center gap-3"><Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={hint ? id + '-hint' : undefined} /><Label htmlFor={id}>{label}</Label></div>{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-1"><div className="flex items-center gap-3"><Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={hint ? id + '-hint' : undefined} /><Label htmlFor={id}>{label}</Label>{info && <InfoTip term={label}>{info}</InfoTip>}</div>{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
 }
 /** A collapsed "advanced" block inside one tab or card for the rarely changed settings of that area. */
 export function Advanced({ children, description }: { children: ReactNode; description?: string }) {
@@ -63,7 +69,7 @@ export function Panel({ title, description, children, defaultOpen }: { title: st
  * A password field with a show/hide eye button, the usual way to enter an API key. When a key is already saved and
  * nothing is typed, the field shows dots; the eye then asks `onReveal` for the saved key so it can be read or edited.
  */
-export function SecretField({ label, value, onChange, hint, saved, onReveal }: { label: string; value: string; onChange: (s: string) => void; hint?: string; saved?: boolean; onReveal?: () => Promise<string | undefined> }) {
+export function SecretField({ label, value, onChange, hint, info, saved, onReveal }: { label: string; value: string; onChange: (s: string) => void; hint?: string; info?: ReactNode; saved?: boolean; onReveal?: () => Promise<string | undefined> }) {
   const { t } = useTranslation();
   const id = useId(), [shown, setShown] = useState(false), [loading, setLoading] = useState(false);
   async function toggle() {
@@ -74,7 +80,7 @@ export function SecretField({ label, value, onChange, hint, saved, onReveal }: {
     }
     setShown(true);
   }
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>
+  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />
     <div className="relative">
       <Input id={id} type={shown ? 'text' : 'password'} autoComplete="off" spellCheck={false} value={value} onChange={e => onChange(e.target.value)}
         placeholder={saved && !value ? '••••••••••••••••' : undefined} aria-describedby={hint ? id + '-hint' : undefined} className="pr-11 font-mono" />
@@ -88,9 +94,9 @@ export function SecretField({ label, value, onChange, hint, saved, onReveal }: {
 }
 
 /** A value shown in field layout that cannot be edited here (for example a provider's fixed endpoint). */
-export function ReadonlyField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+export function ReadonlyField({ label, value, hint, info }: { label: string; value: string; hint?: string; info?: ReactNode }) {
   const id = useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label>
+  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />
     <Input id={id} value={value} readOnly aria-describedby={hint ? id + '-hint' : undefined} className="bg-raised font-mono text-muted-foreground" />
     {hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}
   </div>;

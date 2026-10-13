@@ -12,8 +12,8 @@ import type { PageProps } from '../pages/types';
 import { AgentNote } from './AgentNote';
 import { Field, SecretField } from './forms';
 import { CheckStatus, type CheckState } from './CheckStatus';
-import { ConceptNote } from './layout/ConceptNote';
 import { ErrorState } from './layout/ErrorState';
+import { InfoTip } from './layout/InfoTip';
 import { RadioRows } from './layout/RadioRows';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
@@ -121,15 +121,15 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   return <>
     <DialogHeader ref={heading} tabIndex={-1} className="outline-none">
       <DialogTitle>{t(`connections.steps.${step}.title`)}</DialogTitle>
-      <DialogDescription>{t('connections.addTitle')} · {t('connections.step', { current: STEPS.indexOf(step) + 1, total: STEPS.length })} · {t(`connections.steps.${step}.description`)}</DialogDescription>
+      <DialogDescription className="sr-only">{t('connections.step', { current: STEPS.indexOf(step) + 1, total: STEPS.length })} · {t(`connections.steps.${step}.description`)}</DialogDescription>
     </DialogHeader>
     <Stepper step={step} />
     {error && <ErrorState alert view={error} />}
 
     {step === 'kind' && <>
-      <ConceptNote concept="decisionModel" />
       <RadioRows legend={t('connections.steps.kind.title')} value={route} onChange={chooseRoute}
-        rows={ROUTES.map(r => ({ id: r, label: t(`connections.routes.${r}.name`), hint: t(`connections.routes.${r}.description`), detail: t(`connections.routes.${r}.use`) }))} />
+        rows={ROUTES.map(r => ({ id: r, label: t(`connections.routes.${r}.name`), hint: t(`connections.routes.${r}.description`) }))} />
+      <p className="flex items-center gap-1 text-[13px] text-muted-foreground">{t('connections.kinds.decision.name')}<InfoTip term={t('connections.kinds.decision.name')}>{t('help.decisionModel')}</InfoTip></p>
       <DialogFooter><Button type="button" onClick={() => { setError(undefined); setStep('provider'); }}>{t('connections.next')}</Button></DialogFooter>
     </>}
 
@@ -140,7 +140,8 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
         {custom && <Field label={t('connections.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder={kind === 'llm' ? 'http://127.0.0.1:1234/v1' : 'http://127.0.0.1:8000/v1'} hint={kind === 'llm' ? t('connections.baseUrlHintLlm') : t('connections.baseUrlHintDecision')} />}
         {preset && agent && <AgentNote preset={preset} />}
         {provider && !agent && <SecretField label={preset?.keyRequired ? t('connections.apiKey') : t('connections.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
-          hint={[keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : t('connections.keyOptionalHint'), key ? t('connections.keyStoredHint') : undefined, !custom ? t('connections.keyShared') : undefined].filter(Boolean).join(' ')} />}
+          hint={keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : undefined}
+          info={[t('connections.keyStoredHint'), !custom ? t('connections.keyShared') : undefined].filter(Boolean).join(' ')} />}
       </div>
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('kind'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
@@ -155,11 +156,11 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
         {agent && <><dt className="text-muted-foreground">{t('connections.command')}</dt><dd className="font-mono text-[13px] break-all">{[agent.command, ...agent.args].join(' ')}</dd></>}
         {custom && <><dt className="text-muted-foreground">{t('connections.baseUrl')}</dt><dd className="font-mono text-[13px] break-all">{baseURL.trim()}</dd></>}
       </dl>
-      <div className="grid gap-2 border-l-4 border-edge-strong bg-surface py-3 pl-4">
-        {check && <CheckStatus check={check} signIn={agent ? { available: !!agent.signIn, busy: false, onClick: () => void signIn() } : undefined} />}
-        <p className="text-xs leading-5 text-muted-foreground">{t(agent ? 'connections.checkNoteAgent' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</p>
+      <div className="flex items-start gap-1.5 border-t pt-4">
+        <div className="min-w-0 flex-1">{check && <CheckStatus check={check} signIn={agent ? { available: !!agent.signIn, busy: false, onClick: () => void signIn() } : undefined} />}</div>
+        <InfoTip term={t('connections.checkTerm')} side="left">{t(agent ? 'connections.checkNoteAgent' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</InfoTip>
       </div>
-      <Field label={t('connections.name')} value={name} onChange={setName} hint={t('connections.nameHint')} />
+      <Field label={t('connections.name')} value={name} onChange={setName} info={t('connections.nameHint')} />
       {agent && <div className="flex items-start gap-2"><Checkbox id="agent-consent" className="mt-0.5" checked={consent} onCheckedChange={v => setConsent(v === true)} /><Label htmlFor="agent-consent" className="font-normal leading-5">{t('connections.agentConsent', { provider: providerName })}</Label></div>}
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('provider'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
