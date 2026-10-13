@@ -246,6 +246,7 @@ describe('connection schema', () => {
     expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'llm'); }))).not.toThrow();
     expect(() => parseConfig(withCombo((_, c) => { c.combos[0] = plannedWith(c.combos[0]!, 'a'); }))).toThrow(/plan with an LLM/);
     expect(() => parseConfig(withCombo(a => { a.structure = 'planned'; }))).toThrow(/needs a planner/);
+    expect(() => parseConfig(withCombo(a => { a.followPlan = true; }))).toThrow(/no plan to follow/);
     expect(() => parseConfig(withCombo(a => { a.executors.keyboard!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
     expect(() => parseConfig(withCombo(a => { a.executors = {}; }))).not.toThrow();
     expect(() => parseConfig(withCombo(a => { a.executors.screenreader!.instructions = ' '; }))).toThrow();
@@ -553,6 +554,15 @@ describe('run checks', () => {
       const filed = check(setup(), c => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
       expect(filed.problem).toBeUndefined(); expect(filed.plannerPlanFile).toBe('plans/cart/L2.json'); expect(filed.plannerModel).toBeUndefined();
       expect(check(setup(), c => { Object.assign(c.combos[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: {} }).problem?.code).toBe('plan-file-task');
+    });
+    it('run a combo that follows its plan without a screen reader executor model or its key', () => {
+      const follow = (c: ProjectConfig) => { Object.assign(c.combos[0]!, { structure: 'planned', followPlan: true, planner: { planFile: 'plans/{task}/L2.json' } }); delete c.combos[0]!.executors.screenreader; };
+      const result = check(setup(), follow, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
+      expect(result.problem).toBeUndefined();
+      expect(result.model).toMatchObject({ id: 'rawstep-plan-follower', modelId: 'follow-plan' }); expect(result.prompt).toMatchObject({ instructions: '' });
+      expect(check(setup(), c => { follow(c); c.runRules.taskControl = 'executor'; }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-task-control');
+      // Keyboard runs still need their own executor.
+      expect(check(setup(), follow, { mode: 'keyboard', taskEntry: { file: 'tasks/cart.json' } }).model).toMatchObject({ id: 'a' });
     });
   });
   describe('assistive technology', () => {

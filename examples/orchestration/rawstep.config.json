@@ -258,6 +258,19 @@
           "focusGate": false
         }
       }
+    },
+    {
+      "id": "grok-follow",
+      "name": "Grok 계획 + 계획대로 실행 (Jev 없음)",
+      "structure": "planned",
+      "planner": {
+        "connectionId": "grok",
+        "modelId": "grok-4.7",
+        "reasoningEffort": "low",
+        "instructions": ""
+      },
+      "executors": {},
+      "followPlan": true
     }
   ],
   "actionSets": [

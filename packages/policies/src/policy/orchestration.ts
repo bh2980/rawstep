@@ -95,6 +95,14 @@ const HELP: Record<HelpReason, string> = {
   'already-done': 'Ask for a new plan: the current task already looks done, or the page is not what the plan expected',
 };
 
+/**
+ * The action a plan prescribes for its task, among the offered ones: a pressing task presses; a moving task takes its first move;
+ * a task that names neither moves to the next item. Undefined when none of those is offered.
+ */
+export function followPlan(task: Pick<PlanTask, 'activates' | 'moves'>, offered: readonly string[]): string | undefined {
+  const wanted = task.activates === true ? ['activate'] : [...(task.moves ?? []), 'next'];
+  return wanted.map(intent => `intent:${intent}`).find(id => offered.includes(id));
+}
 /** How far the top probability is from a uniform guess (0) towards certainty (1); undefined without probabilities. */
 export function confidenceOf(probabilities: readonly number[] | undefined): number | undefined {
   if (!probabilities || probabilities.length < 2) return undefined;
@@ -144,8 +152,13 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private surveyed = false;
   /** Spoken items already put to the planner for the current task: one question per item. */
   private asked = new Set<string>();
-  constructor(readonly planner: Planner, readonly executor: ChoiceModel, private readonly options: OrchestrationOptions = {}) {
-    if (!executor.inputs.includes('text')) throw new Error('The executor needs a model that takes text.');
+  /**
+   * `executor` is the model that picks each action inside a task, or `'follow-plan'`: no model, Rawstep carries out the plan as
+   * written (a pressing task presses, a moving task uses its first move). Then every judgement is the planner's and the cue's, and
+   * a run costs only planner calls; it needs Rawstep's task control.
+   */
+  constructor(readonly planner: Planner, readonly executor: ChoiceModel | 'follow-plan', private readonly options: OrchestrationOptions = {}) {
+    if (executor === 'follow-plan' ? options.taskControl === 'executor' : !executor.inputs.includes('text')) throw new Error(executor === 'follow-plan' ? 'Following the plan needs Rawstep\'s task control.' : 'The executor needs a model that takes text.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
     this.control = options.taskControl ?? 'rawstep';
     this.confidenceFloor = options.confidenceFloor ?? 0.25;
@@ -233,6 +246,15 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         ...(!meta || refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
         // Right after a turned-down "done", "already done" is the same claim in other words.
         ...(meta && tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
+      if (this.executor === 'follow-plan') {
+        const choiceId = followPlan(task, actions.map(c => c.id));
+        if (!choiceId) return this.giveUp(step, 'plan-finished');
+        this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: candidates, choiceId,
+          uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
+        task.actions++;
+        this.served.set(step, { taskId: task.id, planVersion: doc.version });
+        return structuredClone(actions.find(c => c.id === choiceId)!.decision);
+      }
       const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
       const started = performance.now();
       const response = await this.executor.choose({ state: {

@@ -302,6 +302,19 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     await policy.decide(input({ allowedActions: allowed, observation: said('Samsung galaxy s6, heading, level 1'), history: [acted(1, 'activate', 'link, Skip to content')] }));
     expect(e.requests[1]!.state).toMatchObject({ currentTask: { goal: 'Then' } });
   });
+  it('follows the plan without an executor model: a pressing task presses, a moving task takes its first move', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Move by headings to the product', done: 'Hear it', cue: { name: 'Galaxy', role: 'heading' }, activates: false, moves: ['heading.next', 'next'] },
+      { goal: 'Move to the button', done: 'Hear it', cue: { name: 'Add to cart', role: 'button' }, activates: false, moves: ['next'] }, { goal: 'Press it', done: 'Hear added', cue: 'Added to cart', activates: true }] }] };
+    const policy = new OrchestratedSpeechPolicy(planner(plan).planner, 'follow-plan');
+    const allowed = { intents: ['next', 'previous', 'activate', 'heading.next'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Shop') }))).toEqual({ action: { kind: 'intent', intent: 'heading.next' } });
+    const h1 = [acted(1, 'heading.next', 'Shop')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Galaxy S6, heading, level 1'), history: h1 }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    const h2 = [...h1, acted(2, 'next', 'Galaxy S6, heading, level 1')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Add to cart, button'), history: h2 }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(evidence(policy).filter(k => k.kind === 'orchestration-follow')).toEqual([expect.objectContaining({ choiceId: 'intent:activate' })]);
+    expect(() => new OrchestratedSpeechPolicy(planner(plan).planner, 'follow-plan', { taskControl: 'executor' })).toThrow(/task control/);
+  });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));
     const policy = new OrchestratedSpeechPolicy(p.planner, executor('intent:next', 'intent:next', 'intent:next').executor);

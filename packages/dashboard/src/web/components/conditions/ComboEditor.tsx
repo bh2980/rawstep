@@ -47,7 +47,7 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
   const llms = connections.filter(c => c.kind === 'llm');
   const setStructure = (structure: Combo['structure']) => {
     if (structure === combo.structure) return;
-    if (structure === 'solo') { const { planner: _dropped, ...rest } = combo; onChange({ ...rest, structure }); return; }
+    if (structure === 'solo') { const { planner: _dropped, followPlan: _follow, ...rest } = combo; onChange({ ...rest, structure }); return; }
     const llm = llms[0];
     onChange({ ...combo, structure, ...(combo.planner ? {} : llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}) });
   };
@@ -68,7 +68,11 @@ export function ComboEditor({ combo, onChange, connections, compact }: Props) {
         </TabsList>
         {MODES.map(mode => <TabsContent key={mode} value={mode} className="grid gap-4">
           {mode === 'keyboard' && combo.structure === 'planned' && <p className="text-xs leading-5 text-inspect">{t('conditions.combo.executor.keyboardAlone')}</p>}
-          <ExecutorFields mode={mode} executor={combo.executors[mode]} onChange={setExecutor(mode)} connections={connections} />
+          {mode === 'screenreader' && combo.structure === 'planned' && <Toggle label={t('conditions.combo.executor.followPlan')} hint={t('conditions.combo.executor.followPlanHint')} checked={!!combo.followPlan}
+            onChange={on => { const { followPlan: _old, ...rest } = combo; onChange(on ? { ...rest, followPlan: true } : rest); }} />}
+          {mode === 'screenreader' && combo.structure === 'planned' && combo.followPlan
+            ? <p className="text-xs leading-5 text-muted-foreground">{t('conditions.combo.executor.followPlanOn')}</p>
+            : <ExecutorFields mode={mode} executor={combo.executors[mode]} onChange={setExecutor(mode)} connections={connections} />}
         </TabsContent>)}
       </Tabs>
     </RoleCard>
@@ -104,7 +108,7 @@ function Pipeline({ combo, connections, compact }: { combo: Combo; connections: 
   const executor = planned || combo.executors.screenreader || !combo.executors.keyboard ? combo.executors.screenreader : combo.executors.keyboard;
   const nodes: { label: string; detail?: string; role?: boolean }[] = [
     ...(planned ? [{ label: t('conditions.combo.pipeline.planner'), detail: model(combo.planner), role: true }, { label: t('conditions.combo.pipeline.document'), detail: t('conditions.combo.pipeline.documentDetail') }] : []),
-    { label: t('conditions.combo.pipeline.executor'), detail: model(executor), role: true },
+    { label: t('conditions.combo.pipeline.executor'), detail: planned && combo.followPlan ? t('conditions.combo.pipeline.followPlan') : model(executor), role: true },
     { label: t('conditions.combo.pipeline.action') },
     { label: t('conditions.combo.pipeline.page'), detail: t('conditions.combo.pipeline.pageDetail') },
   ];

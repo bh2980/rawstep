@@ -6,9 +6,10 @@ import { MockVoiceOverBackend } from '@rawstep/screenreaders/mock-voiceover';
 import { getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { planFileSchema } from '@rawstep/policies/policy';
 import {
-  atEndpointOf, comboAnalysis, comboExecutor, comboPlanner, isFilePlanner, planFileOf, resolveRunSettings, type LlmPlannerChoice,
+  atEndpointOf, comboAnalysis, comboExecutor, comboPlanner, followsPlan, isFilePlanner, planFileOf, resolveRunSettings, type LlmPlannerChoice,
   type ActionSet, type AtBackend, type AtEnvironment, type Combo, type ManagedTask, type Mode, type Model, type PageEnvironment, type Permissions,
   type Preset, type ProjectConfig, type Prompt, type RunSettings,
 } from './config.js';
@@ -37,14 +38,15 @@ export function supportsMode(model: Pick<Model, 'inputs' | 'maxImages'>, mode: M
   return mode === 'keyboard' ? model.inputs.includes('image') && model.maxImages >= 2 : model.inputs.includes('text');
 }
 /** The modes a combo can run: those it has an executor for that takes what the mode sends. */
-export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>): Mode[] {
+export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>): Mode[] {
   return (['screenreader', 'keyboard'] as const).filter(mode => { const model = comboExecutor(config, combo, mode); return !!model && supportsMode(model, mode); });
 }
 /**
  * The executor's instructions as a run records them: identified by combo and mode, versioned by their content, so two runs with
  * different wording never share an ID and version.
  */
-export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'>, mode: Mode): Prompt | undefined {
+export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors' | 'structure' | 'followPlan'>, mode: Mode): Prompt | undefined {
+  if (followsPlan(combo, mode)) return { id: `${combo.id}.${mode}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
   const executor = combo.executors[mode];
   if (!executor) return undefined;
   return { id: `${combo.id}.${mode}`, name: combo.name, version: createHash('sha256').update(executor.instructions).digest('hex').slice(0, 12), instructions: executor.instructions };
@@ -102,6 +104,7 @@ export function checkRun({ config, task, taskEntry, combo, actionSet, pageEnviro
   if (mode === 'keyboard' && !supportsMode(model, 'keyboard')) return fail('model-needs-images', 'Keyboard runs need an executor that accepts the current and the previous image.');
   if (mode === 'screenreader' && !supportsMode(model, 'screenreader')) return fail('model-needs-text', 'Screen reader runs need an executor that accepts text.');
   if (filePlanner && !plannerPlanFile) return fail('plan-file-task', 'A plan file needs a task file to fill in {task}.');
+  if (followsPlan(combo, mode) && settings.runRules.taskControl === 'executor') return fail('follow-plan-task-control', 'Following the plan needs Rawstep to decide when tasks are done. Set task control to Rawstep.');
   if (combo.structure === 'planned' && mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'The model combo plans, so its planner must be a model on an LLM connection or a plan file.');
   // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks.
   const planChoices = (plannerModel || plannerPlanFile) && settings.runRules.taskControl === 'executor' ? 4 : 0, stops = settings.runRules.modelGiveUp ? 3 : 1;
@@ -132,7 +135,7 @@ export function assertRunnable(check: RunCheck): Omit<RunCheck, 'problem'> {
 export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'problem'>): Record<string, unknown> {
   const origin = (item: { owner?: string | undefined; copiedFrom?: string | undefined }) => ({ ...(item.owner ? { owner: item.owner } : {}), ...(item.copiedFrom ? { copiedFrom: item.copiedFrom } : {}) });
   return {
-    combo: { id: c.combo.id, name: c.combo.name, structure: c.combo.structure, ...origin(c.combo), ...(check.model ? { executor: check.model.name } : {}),
+    combo: { id: c.combo.id, name: c.combo.name, structure: c.combo.structure, ...(followsPlan(c.combo, 'screenreader') ? { followPlan: true } : {}), ...origin(c.combo), ...(check.model ? { executor: check.model.name } : {}),
       ...(check.prompt ? { prompt: { id: check.prompt.id, version: check.prompt.version } } : {}), ...(check.plannerModel ? { planner: check.plannerModel.name } : check.plannerPlanFile ? { planFile: check.plannerPlanFile } : {}),
       ...(check.analysisModel ? { analysis: check.analysisModel.name } : {}) },
     actionSet: { id: c.actionSet.id, name: c.actionSet.name, ...origin(c.actionSet), permissions: structuredClone(check.permissions) },
@@ -143,8 +146,9 @@ export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'proble
 }
 /** The run spec of a check that passed. */
 export function runSpecOf(task: Task, mode: Mode, c: RunConditions, check: Omit<RunCheck, 'problem'>, diagnoseStop?: boolean): RunSpec {
-  const executor = c.combo.executors[mode]!;
-  return { task, mode, model: check.model!, prompt: check.prompt!, executor: { historyLimit: executor.historyLimit, focusGate: executor.focusGate },
+  // A combo that follows its plan has no executor settings of its own for the mode: the defaults stand in.
+  const executor = c.combo.executors[mode];
+  return { task, mode, model: check.model!, prompt: check.prompt!, executor: { historyLimit: executor?.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: executor?.focusGate ?? false },
     settings: check.settings, environment: resolveEnvironmentProfile(c.pageEnvironment.profile), backend: c.atEnvironment.backend, permissions: check.permissions,
     conditions: conditionsRecord(c, check), ...(diagnoseStop ? { diagnoseStop } : {}),
     ...(check.plannerModel ? { plannerModel: check.plannerModel, plannerInstructions: check.plannerInstructions ?? '' } : {}) };

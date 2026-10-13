@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import {
-  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, isFilePlanner,
+  DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, followsPlan, isFilePlanner,
   type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type ProjectConfig, type RunRules,
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
@@ -31,14 +31,14 @@ export function structureLabel(structure: Combo['structure']): string {
  * A model combo in one line, as lists show it: "계획 + 실행: gemini-flash → jev" or "단독: jev". With a mode, the models a run in that
  * mode uses (keyboard runs never plan yet).
  */
-export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors'>, connections: readonly Connection[], mode?: Mode): string {
+export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors' | 'followPlan'>, connections: readonly Connection[], mode?: Mode): string {
   const planner = combo.structure !== 'planned' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : shortName(combo.planner, connections) ?? t('conditions.summary.noModel');
   if (mode) {
-    const executor = shortName(combo.executors[mode], connections);
+    const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(combo.executors[mode], connections);
     if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
     return planner && mode === 'screenreader' ? t('conditions.summary.planned', { planner, executor }) : t('conditions.summary.solo', { executor });
   }
-  const sr = shortName(combo.executors.screenreader, connections), kb = shortName(combo.executors.keyboard, connections);
+  const sr = followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : shortName(combo.executors.screenreader, connections), kb = shortName(combo.executors.keyboard, connections);
   if (planner) {
     const line = t('conditions.summary.planned', { planner, executor: sr ?? t('conditions.summary.noModel') });
     return kb ? `${line} · ${t('conditions.summary.keyboardAlone', { executor: kb })}` : line;
@@ -53,8 +53,9 @@ export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'execu
  * The modes a combo can run, as the server decides them (`comboModes` in @rawstep/project/plan, which the web bundle cannot import):
  * an executor on an existing connection that takes what the mode sends (text, or two images for keyboard mode).
  */
-export function comboModesOf(combo: Pick<Combo, 'executors'>, connections: readonly Connection[]): Mode[] {
+export function comboModesOf(combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>, connections: readonly Connection[]): Mode[] {
   return MODES.filter(mode => {
+    if (followsPlan(combo, mode)) return true;
     const executor = combo.executors[mode];
     if (!executor || !executor.modelId.trim() || !connections.some(c => c.id === executor.connectionId)) return false;
     return mode === 'keyboard' ? executor.inputs.includes('image') && executor.maxImages >= 2 : executor.inputs.includes('text');

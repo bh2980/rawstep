@@ -15,7 +15,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { closeLlmModel, llmChoiceModel, llmModelOf, LlmScreenshotAdapter, prepareLlmModel } from './llm.js';
-import { type AtBackend, type Executor, type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, resolveBaseURL, resolveRepetitionGuard } from './config.js';
+import { type AtBackend, type Executor, type Mode, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, isPlanFollower, resolveBaseURL, resolveRepetitionGuard } from './config.js';
 import { ensureAtDriver } from './atdriver.js';
 
 /** Everything one run needs, resolved from the project: nothing here is looked up again while the run executes. */
@@ -74,13 +74,17 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
     const early = { repetitionGuard: resolveRepetitionGuard(rules.repetitionGuard, model, mode), modelGiveUp: rules.modelGiveUp };
     const limits = { maxStateVisits: rules.maxStateVisits, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
-    const speechPolicy = (choice: ChoiceModel): DecisionPolicy => planner
+    const speechPolicy = (choice: ChoiceModel | 'follow-plan'): DecisionPolicy => planner
       ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
         taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey })
-      : new SpeechDecisionPolicy(choice, speechOptions);
+      : choice === 'follow-plan' ? (() => { throw new Error('Following the plan needs a plan.'); })() : new SpeechDecisionPolicy(choice, speechOptions);
     let policy: DecisionPolicy;
     let screenshotModel: ScreenshotModelAdapter | undefined;
-    if (chooser) {
+    // A combo that follows its plan has no executor model: Rawstep carries out the plan's tasks itself.
+    if (isPlanFollower(model)) {
+      if (mode !== 'screenreader' || !planner) throw new Error('Following the plan works in planned screen reader runs only.');
+      policy = speechPolicy('follow-plan');
+    } else if (chooser) {
       screenshotModel = new LlmScreenshotAdapter(chooser);
       policy = mode === 'keyboard' ? new ScreenshotDecisionPolicy({ ...limits, ...early, focusGate: undefined, model: screenshotModel }) : speechPolicy(chooser);
     } else {

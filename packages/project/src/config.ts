@@ -218,9 +218,16 @@ export const comboSchema = z.object({
   planner: plannerSchema.optional(),
   /** A mode without an executor cannot run with this combo. */
   executors: z.object({ screenreader: executorSchema.optional(), keyboard: executorSchema.optional() }).strict(),
+  /**
+   * Planned combos, screen reader mode: no executor model; Rawstep carries out the plan as written (a pressing task presses, a moving
+   * task uses its first move) and the screen reader executor is ignored. Every judgement is then the planner's and the cue's, and a
+   * run costs only planner calls.
+   */
+  followPlan: z.boolean().optional(),
   analysis: analysisChoiceSchema.optional(),
 }).strict().superRefine((combo, ctx) => {
   if (combo.structure === 'planned' && !combo.planner) ctx.addIssue({ code: 'custom', path: ['planner'], message: `Model combo ${combo.name} plans, so it needs a planner.` });
+  if (combo.followPlan && combo.structure !== 'planned') ctx.addIssue({ code: 'custom', path: ['followPlan'], message: `Model combo ${combo.name} has no plan to follow.` });
 });
 export type Combo = z.infer<typeof comboSchema>;
 /** What the simulated user may do in each mode: keyboard keys, screen reader intents and named-input typing. */
@@ -372,8 +379,15 @@ function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoic
   if (!choice || !connection || connection.kind !== 'llm') return undefined;
   return { ...structuredClone(connection), name: modelName(connection, choice), modelId: choice.modelId, ...(choice.reasoningEffort ? { reasoningEffort: choice.reasoningEffort } : {}), inputs: ['text'], maxChoices: 255, maxImages: 0 };
 }
+/** The stand-in "model" of a combo that follows its plan without an executor model (`followPlan`): it takes no key and is never called. */
+export const PLAN_FOLLOWER: Model = { id: 'rawstep-plan-follower', kind: 'decision', provider: 'custom', timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs, name: 'Rawstep · follows the plan',
+  modelId: 'follow-plan', inputs: ['text'], maxChoices: 255, maxImages: 0 };
+export const isPlanFollower = (model: Pick<Model, 'id'> | undefined): boolean => model?.id === PLAN_FOLLOWER.id;
+/** Whether a combo carries out its plan without an executor model in this mode. */
+export const followsPlan = (combo: Pick<Combo, 'structure' | 'followPlan'>, mode: Mode): boolean => mode === 'screenreader' && combo.structure === 'planned' && !!combo.followPlan;
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
-export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>, mode: Mode): Model | undefined => joined(config, combo.executors[mode]);
+export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors' | 'structure' | 'followPlan'>, mode: Mode): Model | undefined =>
+  followsPlan(combo, mode) ? structuredClone(PLAN_FOLLOWER) : joined(config, combo.executors[mode]);
 /** The LLM a planned combo plans with; undefined for a solo combo. */
 export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
