@@ -159,11 +159,11 @@ describe("run", () => {
     expect(planned).toContain("  note: Keyboard runs do not use the planner yet");
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
   });
-  it("defaults to keyboard mode with one run and the current directory", async () => {
+  it("leaves the mode to the profile, with one run and the current directory", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
-    expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, mode: "keyboard", repeat: 1 })]);
-    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
+    expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, repeat: 1 })]);
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("mode"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
   });
   it("prints the result object with --json", async () => {
     const io = output(await temporaryDirectory());
@@ -325,7 +325,7 @@ describe("doctor", () => {
   });
   it("reports an invalid config, and an old one with the way to convert it", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
-    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 4 }));
+    await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 5 }));
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
     expect(text(io.stdout)).toContain("FAIL  Config");
     const old = output(directory);

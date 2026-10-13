@@ -1,9 +1,9 @@
-import { comboExecutor, comboPlanner, isFilePlanner, credentialId, modelKeyRequired, taskProfile, type Combo, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
+import { comboExecutor, comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { api } from '../api';
 import { t } from '../i18n';
 import type { Combination, ConfigView, Experiment, PlanRequest } from '../../shared/config.js';
 
-/** How many times a run button repeats the run unless a person picks another number. */
+/** How many times each profile runs a task unless a person picks another number. */
 export const QUICK_RUN_REPEATS = 3;
 
 /**
@@ -25,20 +25,21 @@ export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credent
   return undefined;
 }
 
-/** A mode is always chosen by a person; the run profile defaults to the task's own and the repeats to three. */
-export type RunOptions = { mode: Mode; repeats?: number; profileId?: string };
+/** A run request from the run dialog: the tasks, the profiles each runs with (each in its own mode), and how many times. */
+export type RunOptions = { taskIds: string[]; profileIds: string[]; repeats: number };
 
 /**
- * Starts runs of one task in one mode with one run profile (the task's own unless given), three repeats unless told
- * otherwise. The server checks the combination first; a reason it cannot run is thrown in words a person can act on.
+ * Starts runs of tasks × profiles × repeats. The server checks every combination first; a reason one cannot run is thrown in words
+ * a person can act on.
  */
-export async function startRun(view: ConfigView, taskId: string, options: RunOptions): Promise<Experiment> {
-  const { mode } = options, task = view.config.tasks.find(item => item.id === taskId);
-  if (!task) throw new Error(t('quickRun.noTask'));
-  const profile = view.config.profiles.find(item => item.id === options.profileId) ?? taskProfile(view.config, task);
-  const problem = comboProblem(view.config, view.credentialStatus, profile, mode);
-  if (problem) throw new Error(problem);
-  const request: PlanRequest = { taskIds: [taskId], modes: [mode], profileIds: [profile.id], repeats: options.repeats ?? QUICK_RUN_REPEATS, revision: view.revision };
+export async function startRun(view: ConfigView, options: RunOptions): Promise<Experiment> {
+  for (const id of options.profileIds) {
+    const profile = view.config.profiles.find(item => item.id === id);
+    if (!profile) throw new Error(t('quickRun.noProfile'));
+    const problem = comboProblem(view.config, view.credentialStatus, profile, profile.mode);
+    if (problem) throw new Error(`${profile.name}: ${problem}`);
+  }
+  const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, repeats: options.repeats, revision: view.revision };
   const blocked = (await api<Combination[]>('/plan', { method: 'POST', body: request })).find(row => !row.supported);
   if (blocked) throw new Error(blocked.reason ?? t('quickRun.unsupported'));
   return api<Experiment>('/experiments', { method: 'POST', body: request });

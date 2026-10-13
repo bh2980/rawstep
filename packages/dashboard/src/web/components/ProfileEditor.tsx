@@ -49,8 +49,6 @@ export function stopSummary(profile: Pick<Profile, 'runRules' | 'structure' | 'a
 
 type Props = {
   profile: Profile; onChange: (profile: Profile) => void; view: ConfigView;
-  /** The mode a task runs in, and how to change it: the 누가 question then offers the keyboard user too and edits that mode's actions only. */
-  mode?: Mode; onMode?: (mode: Mode) => void;
   /** Input names of the task the profile is edited for, so typing into them can be allowed. */
   inputNames?: readonly string[];
   /** The question open at first: the first one when unset. */
@@ -62,16 +60,13 @@ type Props = {
  * side as tabs that each say the current answer; the chosen one opens below in a box of its own. Nothing is hidden: every setting of
  * the profile is under one of the four.
  */
-export function ProfileEditor({ profile, onChange, view, mode, onMode, inputNames, open: initiallyOpen = 'who' }: Props) {
+export function ProfileEditor({ profile, onChange, view, inputNames, open: initiallyOpen = 'who' }: Props) {
   const { t } = useTranslation();
   const id = useId();
   const [open, setOpen] = useState<Question>(initiallyOpen);
-  const runMode = mode ?? 'screenreader', persona = personaOf(runMode, profile);
-  const pick = (next: Exclude<Persona, 'custom'>) => {
-    const result = withPersona(profile, next);
-    if (result.profile !== profile) onChange(result.profile);
-    if (onMode && result.mode !== runMode) onMode(result.mode);
-  };
+  const runMode = profile.mode, persona = personaOf(runMode, profile);
+  // The persona sets the mode and, for a screen reader user, the actions: both are the profile's own.
+  const pick = (next: Exclude<Persona, 'custom'>) => { const result = withPersona(profile, next); onChange({ ...result.profile, mode: result.mode }); };
   const combo: Combo = { id: profile.id, name: profile.name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
   const setCombo = ({ structure, planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, structure, executors, ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
@@ -82,7 +77,7 @@ export function ProfileEditor({ profile, onChange, view, mode, onMode, inputName
     where: runMode === 'keyboard' ? t('profile.questions.whereKeyboard', { width, height }) : t('profile.questions.whereScreenReader', { backend: t(`conditions.backends.${profile.screenReader}`), width, height }),
     stop: stops.map((part, index) => <span key={part.text}>{index > 0 && ' · '}<span className={part.changed ? 'text-trace' : undefined}>{part.text}</span></span>),
   };
-  const personas = onMode ? PERSONAS : PERSONAS.filter(item => item !== 'keyboard');
+  const personas = PERSONAS;
   const bodies: Record<Question, ReactNode> = {
     who: <div className="grid gap-4">
       <div role="radiogroup" aria-label={t('persona.label')} className="flex flex-wrap gap-2">
@@ -93,10 +88,9 @@ export function ProfileEditor({ profile, onChange, view, mode, onMode, inputName
       </div>
       <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
-        capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} {...(mode ? { only: mode } : {})} backend={profile.screenReader} compact />
+        capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} only={runMode} backend={profile.screenReader} compact />
     </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact {...(mode ? { only: mode } : {})}
-      tasks={view.config.tasks.filter(task => (task.profileId ?? view.config.profiles[0]?.id) === profile.id)} />,
+    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact only={runMode} tasks={view.config.tasks} />,
     where: <div className="grid gap-6">
       {runMode === 'screenreader' && <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />}
       <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />

@@ -51,15 +51,11 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
   const update = (next: Profile) => setItems(items.map(item => item.id === next.id ? next : item));
   const add = (item: Profile) => { setItems([...items, item]); setSelectedId(item.id); };
   const remove = (item: Profile) => { const next = items.filter(other => other.id !== item.id); setItems(next); setSelectedId(next[0]?.id); };
-  const usedBy = (id: string) => config.tasks.filter(task => (task.profileId ?? config.profiles[0]?.id) === id);
   const removed = saved.filter(s => !items.some(item => item.id === s.id));
-  /** Writes the profiles on top of the latest config; tasks that named a removed profile fall back to the first one. */
+  /** Writes the profiles on top of the latest config. */
   const save = () => void props.act(async () => {
-    const latest = props.view.config, ids = new Set(items.map(item => item.id));
-    const tasks = latest.tasks.map(task => task.profileId && !ids.has(task.profileId) ? (({ profileId: _gone, ...rest }) => rest)(task) : task);
-    await props.save({ ...latest, profiles: items, tasks }, undefined, props.view.revision);
+    await props.save({ ...props.view.config, profiles: items }, undefined, props.view.revision);
   });
-  const users = selected ? usedBy(selected.id) : [];
   return <div className="grid gap-5">
     <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} />
     <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -90,7 +86,6 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
           <div className="grid min-w-0 flex-1 gap-1">
             <Label htmlFor="profile-name" className="sr-only">{t('profile.name')}</Label>
             <Input id="profile-name" value={selected.name} onChange={event => update({ ...selected, name: event.target.value })} className="h-9 max-w-md text-base font-semibold" />
-            <p className="text-xs leading-5 text-muted-foreground">{users.length ? t('profile.usedBy', { count: users.length, tasks: users.slice(0, 3).map(task => task.name).join(', ') }) : t('profile.unused')}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={t('profile.more', { name: selected.name })}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>

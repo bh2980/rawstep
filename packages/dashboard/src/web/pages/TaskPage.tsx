@@ -1,7 +1,7 @@
 import { RunsTable } from '../components/RunsTable';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { taskProfile, type ManagedTask } from '@rawstep/project/config';
+import type { ManagedTask } from '@rawstep/project/config';
 import type { DeleteTaskResult } from '../../shared/config';
 import { api, ApiError } from '../api';
 import { DeleteTaskDialog } from '../components/DeleteTaskDialog';
@@ -10,7 +10,6 @@ import { TaskChecks } from '../components/TaskChecks';
 import { TaskEditSheet, type BasicsSave, type TaskBasics } from '../components/TaskEditSheet';
 import { TaskHeader } from '../components/TaskHeader';
 import { TaskOverview } from '../components/TaskOverview';
-import { savedMode } from '../components/RunSetup';
 import { TaskSettings } from '../components/TaskSettings';
 import { Button } from '../components/ui/button';
 import { SaveBar } from '../components/conditions/SaveBar';
@@ -18,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useTaskFindings } from '../hooks/useTaskFindings';
 import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
 import { isLive, taskRunNumbers, type RunRef } from '../lib/runs';
-import type { RunOptions } from '../lib/quickRun';
 import { createManagedTask } from '../lib/taskFiles';
 import { inputFields, taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../lib/taskJson';
@@ -27,22 +25,16 @@ import type { PageProps } from './types';
 type Props = {
   taskId: string; tab: TaskTab; pageProps: PageProps; runs: RunRef[];
   navigate: (change: RouteChange, options?: { replace?: boolean }) => void;
-  onCompare: (taskId: string) => void; onRun: (taskId: string, options: RunOptions) => void;
+  /** Opens the run dialog for this task. */
+  onRun: () => void;
 };
-
-/** Sends a person to the run bar of the task header, for an empty state that says "run it". */
-function focusRunControl() {
-  const form = document.getElementById('task-run-control');
-  form?.scrollIntoView({ block: 'center' });
-  form?.querySelector<HTMLElement>('[data-run]')?.focus();
-}
 
 /**
  * A task as one investigation sheet: its header (what it is, how to run it, the profile of the next run), then 개요 (what the runs
  * found), 실행 기록, 완료 확인 and 설정. Name, address, goal and inputs are edited in the 작업 수정 sheet, the profile in the run
  * control of the header; the 완료 확인 and 설정 tabs share one draft saved from one bar. Mount with `key={taskId}` so drafts do not leak.
  */
-export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, onRun }: Props) {
+export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Props) {
   const { t } = useTranslation();
   const findings = useTaskFindings(taskId);
   const { view } = pageProps, config = view.config;
@@ -122,8 +114,8 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
 
   const active = taskRuns.filter(ref => isLive(ref.run));
   return <div className="grid gap-5">
-    <TaskHeader taskId={taskId} name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} {...(typeof savedParsed.context === 'string' && savedParsed.context.trim() ? { context: savedParsed.context } : {})}
-      pageProps={pageProps} runs={taskRuns} navigate={navigate} onRun={options => onRun(taskId, options)} onCompare={() => onCompare(taskId)}
+    <TaskHeader name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} {...(typeof savedParsed.context === 'string' && savedParsed.context.trim() ? { context: savedParsed.context } : {})}
+      pageProps={pageProps} runs={taskRuns} navigate={navigate} onRun={onRun}
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
     <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-4">
@@ -131,13 +123,13 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onCompare, on
         {taskTabs.map(id => { const count = id === 'runs' ? taskRuns.length : id === 'check' ? savedRules.length : undefined;
           return <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}{count !== undefined && <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">{count}</span>}</TabsTrigger>; })}
       </TabsList>
-      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} navigate={navigate} onRun={focusRunControl}
-        profileId={taskProfile(config, saved).id} mode={savedMode(pageProps, taskId)} profiles={config.profiles} minimalSteps={saved.minimalSteps} /></TabsContent>
+      <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} navigate={navigate} onRun={onRun}
+        profiles={config.profiles} minimalSteps={saved.minimalSteps} /></TabsContent>
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
           {taskRuns.length > 0
             ? <RunsTable runs={taskRuns} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
-            : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={focusRunControl}>{t('empty.taskRuns.action')}</Button>} />}
+            : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.taskRuns.action')}</Button>} />}
         </section>
       </TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>

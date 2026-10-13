@@ -4,7 +4,6 @@ import type { ConfigView, Experiment } from '../shared/config';
 import { api } from './api';
 import { useTranslation } from 'react-i18next';
 import { findRun, flattenRuns } from './lib/runs';
-import { startRun, type RunOptions } from './lib/quickRun';
 import { LiveEventsProvider } from './hooks/useLiveEvents';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -18,7 +17,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
-import { NewExperimentDialog } from './components/NewExperimentDialog';
+import { RunDialog } from './components/RunDialog';
 import { StatusBanner } from './components/StatusBanner';
 import { TopBar } from './components/TopBar';
 import { Button } from './components/ui/button';
@@ -39,8 +38,8 @@ function Dashboard() {
   const [everConnected, setEverConnected] = useState(false);
   useEffect(() => { if (data.connected) setEverConnected(true); }, [data.connected]);
   const [navOpen, setNavOpen] = useState(false);
-  /** The experiment builder; `taskId` preselects a task when it was opened from that task. */
-  const [compare, setCompare] = useState<{ open: boolean; taskId?: string }>({ open: false });
+  /** The run dialog, with the tasks it opens with (the task page's own, or the tasks picked in the list). */
+  const [running, setRunning] = useState<{ open: boolean; taskIds: string[] }>({ open: false, taskIds: [] });
   const { view, setView, refresh } = data;
   const runs = useMemo(() => flattenRuns(data.experiments), [data.experiments]);
 
@@ -59,28 +58,26 @@ function Dashboard() {
   const lost = everConnected && !data.connected;
   const banner = <StatusBanner error={error ?? data.loadError ?? (lost ? connectionLostView() : undefined)} notice={notice} busy={busy} onReload={reload} navigate={go} />;
 
-  const running = runs.filter(ref => ref.run.state === 'running').length;
+  const active = runs.filter(ref => ref.run.state === 'running').length;
   const queued = runs.filter(ref => ref.run.state === 'queued').length;
+  /** Opens the first run of what was just started: its task page when several tasks run, else the run itself. */
   const openRun = (experiment: Experiment) => {
     const first = experiment.runs[0];
-    setCompare({ open: false });
-    if (first) go({ task: first.taskId, run: first.id });
+    if (first) go(new Set(experiment.runs.map(run => run.taskId)).size > 1 ? { view: 'runs' } : { task: first.taskId, run: first.id });
   };
-  /** Starts a run of a task (in the given project state, which may be newer than `view`) and opens the first one. */
-  const startAndOpen = async (state: ConfigView, taskId: string, options: RunOptions) => openRun(await startRun(state, taskId, options));
-  const runTask = (taskId: string, options: RunOptions) => void act(() => startAndOpen(view!, taskId, options), { as: 'start' });
+  const openRunDialog = (taskIds: string[]) => setRunning({ open: true, taskIds });
 
   return <div className="flex h-screen flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
-    <TopBar connected={data.connected} running={running} queued={queued} showNavigation={!wide && !!pageProps} onNavigation={() => setNavOpen(true)} />
+    <TopBar connected={data.connected} running={active} queued={queued} showNavigation={!wide && !!pageProps} onNavigation={() => setNavOpen(true)} />
     <div className="flex min-h-0 flex-1">
       {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} /></aside>}
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
         <div className="grid gap-4">
-          {!compare.open && banner}
+          {!running.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onRun={openRunDialog} />}
         </div>
       </main>
     </div>
@@ -91,7 +88,7 @@ function Dashboard() {
           <div className="pt-10"><AppNav route={route} navigate={go} /></div>
         </SheetContent>
       </Sheet>}
-      <NewExperimentDialog open={compare.open} onOpenChange={open => setCompare({ open, ...(compare.taskId ? { taskId: compare.taskId } : {}) })} taskId={compare.taskId} pageProps={pageProps} banner={banner} editorKey={editorKey} onCreated={openRun} />
+      <RunDialog open={running.open} onOpenChange={open => setRunning(current => ({ ...current, open }))} taskIds={running.taskIds} pageProps={pageProps} navigate={go} onStarted={openRun} />
     </>}
   </div>;
 }
@@ -99,11 +96,12 @@ function Dashboard() {
 type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
-  onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options: RunOptions) => void;
+  /** Opens the run dialog with these tasks picked. */
+  onRun: (taskIds: string[]) => void;
 };
 
 /** Chooses the page for the URL: a run, a task or the new-task page, otherwise the run list, 설정, or the task list. */
-function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask }: PageSwitchProps) {
+function Page({ pageProps, data, runs, route, navigate, editorKey, onRun }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
@@ -115,9 +113,9 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
       </div>;
   }
   if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
+  if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onRun={() => onRun([route.task!])} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
-  if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
+  if (route.view === 'runs') return <RunsPage {...lists} onRun={() => onRun([])} />;
   if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} section={route.section} navigate={navigate} />;
-  return <TasksPage {...lists} onRun={onRunTask} />;
+  return <TasksPage {...lists} onRun={onRun} />;
 }

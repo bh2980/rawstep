@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ListFilter, Trash2 } from 'lucide-react';
+import { Play, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { DeleteRunsDialog } from '../components/DeleteRunsDialog';
@@ -23,7 +23,7 @@ type Outcome = (typeof outcomes)[number];
  * The run log (spec §31): chronology and density, nothing else. One line of filters (search, task, result, and the rest of the filters behind
  * one button), then run number, time, task, model, mode, result, actions and duration for every run, newest first.
  */
-export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & { onCompare: () => void }) {
+export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onRun: () => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
   const [structure, setStructure] = useState(ALL), [profile, setProfile] = useState(ALL);
@@ -56,7 +56,7 @@ export function RunsPage({ pageProps, runs, navigate, onCompare }: ListProps & {
   }); };
   return <div className="grid gap-4">
     <PageHeader title={t('runList.title')} meta={t('runList.count', { count: runs.length })}
-      actions={<Button size="lg" disabled={config.tasks.length === 0} onClick={onCompare}><ListFilter aria-hidden="true" />{t('runList.compare')}</Button>} />
+      actions={<Button size="lg" disabled={config.tasks.length === 0} onClick={onRun}><Play aria-hidden="true" />{t('runList.run')}</Button>} />
     {runs.length > 0 && <FilterBar label={t('runList.filterLabel')}>
       <FilterSearch label={t('runList.search')} value={query} onChange={value => narrow(() => setQuery(value))} placeholder={t('runList.searchPlaceholder')} />
       <FilterSelect label={t('runList.filters.task')} value={task} onChange={value => narrow(() => setTask(value))} options={options(tasks)} className="max-w-44" />

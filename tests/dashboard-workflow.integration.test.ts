@@ -11,11 +11,11 @@ afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await wo
 it('executes the real Runner over HTTP with two run profiles/two page environments, LLM choices and text-only simulated speech', async () => {
   const fixture = await dashboardFixture(); cleanup.push(fixture.close);
   const speechProfile = fixture.config.profiles[0]!, speechModel = { ...speechProfile.executors.screenreader!, modelId: 'fixture-speech', inputs: ['text' as const], maxImages: 0 };
-  fixture.config.profiles.push({ ...speechProfile, id: 'fixture-speech', name: 'fixture-speech', executors: { ...speechProfile.executors, screenreader: speechModel } });
+  fixture.config.profiles.push({ ...speechProfile, id: 'fixture-speech', name: 'fixture-speech', mode: 'screenreader', executors: { ...speechProfile.executors, screenreader: speechModel } });
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-browser-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
-  const request: PlanRequest = { taskIds: ['fixture-task'], modes: ['keyboard'], profileIds: ['fixture-a', 'fixture-b', 'fixture-a-narrow', 'fixture-b-narrow'], repeats: 1 };
+  const request: PlanRequest = { taskIds: ['fixture-task'], profileIds: ['fixture-a', 'fixture-b', 'fixture-a-narrow', 'fixture-b-narrow'], repeats: 1 };
   const experiment = await app.queue.create(request);
   await expect.poll(() => experiment.runs.every(r => !!r.endedAt), { timeout: 20000 }).toBe(true);
   expect(experiment.runs.map(r => r.state)).toEqual(['success', 'success', 'success', 'success']);
@@ -30,7 +30,7 @@ it('executes the real Runner over HTTP with two run profiles/two page environmen
   const llm = await app.queue.create({ ...request, profileIds: ['fixture-llm'] });
   await expect.poll(() => !!llm.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(llm.runs[0]!.state).toBe('success');
-  const speech = await app.queue.create({ ...request, profileIds: ['fixture-speech'], modes: ['screenreader'] });
+  const speech = await app.queue.create({ ...request, profileIds: ['fixture-speech'] });
   await expect.poll(() => !!speech.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(speech.runs[0]!.state).toBe('success');
   const speechTrace = await app.queue.trace(speech.id, speech.runs[0]!.id);

@@ -256,12 +256,15 @@ export type AtBackend = z.infer<typeof atBackendSchema>;
 export const atEnvironmentSchema = z.object({ id, name: text, backend: atBackendSchema }).strict();
 export type AtEnvironment = z.infer<typeof atEnvironmentSchema>;
 /**
- * A run profile: everything that changes a run's outcome, under one name — who decides (structure, planner, executor per mode), what
- * the simulated user may do in each mode, the page environment, the screen reader, and the run rules. A task runs with one profile;
- * an experiment compares profiles. There is no layer between Rawstep's defaults and a profile.
+ * A run profile: who the simulated user is and how a run goes, under one name — the mode, who decides (structure, planner, executor per
+ * mode), what the user may do, the page environment, the screen reader, and the run rules. A task says only what to do; a run is a task
+ * with a profile, picked when the run starts. There is no layer between Rawstep's defaults and a profile.
  */
 export const profileSchema = z.object({
-  id, name: text, ...deciding,
+  id, name: text,
+  /** How the simulated user reaches the page: listening with a screen reader, or looking at the screen and using the keyboard. */
+  mode: z.enum(['screenreader', 'keyboard']).default('screenreader'),
+  ...deciding,
   actions: z.object({ keyboard: permissionsSchema, screenreader: permissionsSchema }).strict(),
   /** A built-in page environment name ('default', 'narrow', …) or an object, resolved by @rawstep/browser/profiles. */
   page: z.unknown().default('default'),
@@ -272,8 +275,6 @@ export const profileSchema = z.object({
 export type Profile = z.infer<typeof profileSchema>;
 export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
-  /** The run profile a run uses unless one is picked for it; the project's first profile when unset. */
-  profileId: id.optional(),
   /**
    * The task this one is a broken version of: the same goal on a copy of its page with one accessibility defect (no button name, no
    * status message). Results show the extra moves against that task. One level only: a variant has no variants of its own.
@@ -320,7 +321,7 @@ export const atEndpointOf = (machine: Pick<MachineSettings, 'atEndpoints'>, back
 /** The .env.local variable holding the command that starts the AT Driver server on this computer (never in the shared config: it runs a program). */
 export const AT_DRIVER_COMMAND_ENV = 'RAWSTEP_AT_DRIVER_COMMAND';
 export const configSchema = z.object({
-  version: z.literal(4),
+  version: z.literal(5),
   connections: z.array(connectionSchema).max(100),
   profiles: z.array(profileSchema).min(1).max(500),
   tasks: z.array(taskSchema).max(500),
@@ -433,12 +434,12 @@ export function defaultProfile(id = 'default', name = 'Default'): Profile {
   return profileSchema.parse({ id, name, structure: 'solo', executors: {}, actions: structuredClone(DEFAULT_PERMISSIONS) });
 }
 export function defaultConfig(): ProjectConfig {
-  return configSchema.parse({ version: 4, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
+  return configSchema.parse({ version: 5, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
 }
 export function parseConfig(raw: unknown): ProjectConfig { return configSchema.parse(raw); }
-/** The profile a task runs with: its own, otherwise the project's first. */
-export function taskProfile(config: Pick<ProjectConfig, 'profiles'>, task: Partial<Pick<ManagedTask, 'profileId'>>): Profile {
-  return config.profiles.find(p => p.id === task.profileId) ?? config.profiles[0]!;
+/** The profile a run uses when none is named: the project's first. */
+export function firstProfile(config: Pick<ProjectConfig, 'profiles'>): Profile {
+  return config.profiles[0]!;
 }
 /** The conditions a run is made of, read off a profile: the deciding part, the actions and both environments, each named after it. */
 export type Conditions = { profile: Profile; combo: Combo; actionSet: ActionSet; pageEnvironment: PageEnvironment; atEnvironment: AtEnvironment };

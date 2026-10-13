@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// One-off: converts an older project to version 4 (connections, run profiles, tasks, project models), with its dashboard run
-// records. Version 1 (run profiles) and 2 (agents) go through version 3 (model combos, action sets, environments, presets) first.
+// One-off: converts an older project to version 5 (connections, run profiles with their mode, tasks without a profile, project
+// models), with its dashboard run records. Version 1 (run profiles) and 2 (agents) go through version 3 (model combos, action sets,
+// environments, presets) and version 4 (a task names its profile) first.
 // Usage: node scripts/migrate-config.mjs <project-dir>
 // Writes rawstep.config.json and each .rawstep/experiments/*/experiment.json in place, keeping a .bak copy of each original.
 import { copyFile, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -12,10 +13,40 @@ const configPath = join(dir, 'rawstep.config.json');
 const source = await readFile(configPath, 'utf8').catch(() => undefined);
 if (source === undefined) { console.error(`No rawstep.config.json in ${dir}. Pass the project folder that holds it.`); process.exit(1); }
 const original = JSON.parse(source);
-if (original.version === 4) { console.log(`${configPath} is already version 4; nothing to do.`); process.exit(0); }
-if (![1, 2, 3].includes(original.version)) { console.error(`${configPath} has unknown version ${original.version}.`); process.exit(1); }
-if (original.version !== 3) await toV3();
-await toV4();
+if (original.version === 5) { console.log(`${configPath} is already version 5; nothing to do.`); process.exit(0); }
+if (![1, 2, 3, 4].includes(original.version)) { console.error(`${configPath} has unknown version ${original.version}.`); process.exit(1); }
+if (original.version < 3) await toV3();
+if (original.version < 4) await toV4();
+await toV5();
+
+/**
+ * v4 → v5: a task says only what to do; the profile is picked when a run starts. Each profile gets the mode it runs in: keyboard when it
+ * has a keyboard executor and nothing for the screen reader, else screen reader. Run records already name their profile and mode;
+ * their requests lose the mode list and keep the profiles their runs used.
+ */
+async function toV5() {
+  const v4 = JSON.parse(await readFile(configPath, 'utf8'));
+  const profiles = v4.profiles.map(profile => ({ ...profile,
+    mode: profile.mode ?? (!profile.executors?.screenreader && profile.executors?.keyboard ? 'keyboard' : 'screenreader') }));
+  const tasks = v4.tasks.map(({ profileId: _profile, ...task }) => task);
+  await copyFile(configPath, `${configPath}.v4.bak`);
+  await writeFile(configPath, JSON.stringify({ ...v4, version: 5, profiles, tasks }, null, 2) + '\n');
+  console.log(`Converted ${configPath} to version 5: tasks no longer name a profile; ${profiles.length} profiles carry their mode.`);
+  const experimentsDir = join(dir, '.rawstep', 'experiments');
+  let converted = 0;
+  for (const id of await readdir(experimentsDir).catch(() => [])) {
+    const path = join(experimentsDir, id, 'experiment.json');
+    let experiment;
+    try { experiment = JSON.parse(await readFile(path, 'utf8')); } catch { continue; }
+    if (!experiment.request || (experiment.request.profileIds && !experiment.request.modes)) continue;
+    const { modes: _modes, ...request } = experiment.request;
+    experiment.request = { ...request, profileIds: request.profileIds ?? [...new Set((experiment.runs ?? []).map(run => run.profileId).filter(Boolean))] };
+    await copyFile(path, `${path}.v4.bak`);
+    await writeFile(path, JSON.stringify(experiment, null, 2) + '\n');
+    converted++;
+  }
+  console.log(`Converted ${converted} experiment records to version 5.`);
+}
 
 async function toV3() {
 

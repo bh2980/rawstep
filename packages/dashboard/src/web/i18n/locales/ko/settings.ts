@@ -189,10 +189,8 @@ export const settings = {
     duplicate: '복제',
     delete: '삭제',
     deleteLast: '마지막 하나라 삭제할 수 없음',
-    deleteNote: '삭제한 프로필을 쓰던 작업은 저장 후 첫 번째 프로필로 실행됩니다.',
+    deleteNote: '삭제해도 지난 실행 기록은 그대로 남습니다.',
     more: '{{name}} 더 보기',
-    usedBy: '작업 {{count}}개에서 사용 · {{tasks}}',
-    unused: '아직 쓰는 작업이 없습니다',
     blockers: { name: '이름이 비어 있는 프로필이 있어 저장할 수 없습니다.', invalid: '"{{name}}"에 아직 올바르지 않은 값이 있어 저장할 수 없습니다.' },
     questions: {
       label: '프로필의 네 가지 질문',

@@ -25,7 +25,7 @@ An older config (`version` 1, 2 or 3) does not load: Rawstep stops with the code
 
 ## Run profiles
 
-An experiment is **task × run profile × mode**. A run profile holds everything that changes how a run ends: who decides, what the simulated user may do, the page, the screen reader and the run rules. To compare two conditions, make two profiles that differ only in that part and run the same task with both.
+An experiment is **task × run profile**. A task says only what to do; a run profile says who does it and how, and holds everything that changes how a run ends: the mode, who decides, what the simulated user may do, the page, the screen reader and the run rules. The profile is picked when a run starts. To compare two conditions, make two profiles that differ only in that part and run the same task with both.
 
 | Part of a profile | What it holds |
 |---|---|
@@ -35,7 +35,7 @@ An experiment is **task × run profile × mode**. A run profile holds everything
 | `screenReader` | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
 | `runRules` | When a run counts as stuck, and when a planned run plans again. |
 
-A run uses the profile picked for it (`rawstep run --profile`), otherwise its task's `profileId`, otherwise the project's first profile. There is no layer between Rawstep's defaults and a profile: a profile holds the full set of run rules, and `--rule` changes some of them for one run. Every run records the full content of its profile, so runs are compared by content, not by name.
+A run uses the profile picked for it (`rawstep run --profile`, or the profiles picked in the dashboard's run dialog), otherwise the project's first profile. There is no layer between Rawstep's defaults and a profile: a profile holds the full set of run rules, and `--rule` changes some of them for one run. Every run records the full content of its profile, so runs are compared by content, not by name.
 
 Anything that changes how a run ends belongs in a profile. The analysis model does not: it explains a finished run and never changes its outcome, so it lives in `project`.
 
@@ -93,7 +93,8 @@ These are spoken to over ACP, as described above. `antigravity` runs Google's AC
 |---|---|
 | `id`, `name` | Identifier used by `rawstep run <task>`, and display name. |
 | `file` | Task JSON path relative to the project. |
-| `profileId` | Optional run profile the task uses by default. The project's first profile when unset. |
+| `variantOf` | Optional id of the task this one is a broken version of: the same goal on a copy of its page with one accessibility defect. The dashboard lists it under that task and shows the extra moves. One level only. |
+| `minimalSteps` | Optional fewest moves the goal takes, as counted or measured; results show moves against it. |
 | `analysisInstructions` | Optional analysis focus that overrides `project.analysis.instructions`. |
 
 ## profiles[]
@@ -101,6 +102,7 @@ These are spoken to over ACP, as described above. `antigravity` runs Google's AC
 | Field | Meaning |
 |---|---|
 | `id`, `name` | Identifier and display name. `--profile` accepts either. |
+| `mode` | `screenreader` (default): the user listens to a screen reader. `keyboard`: the user looks at the screen and uses keys. `rawstep run --mode` overrides it for one run. |
 | `structure` | `solo` (default): the executor of the mode decides every action. `planned`: a planner LLM writes a plan document and the executor carries out one task at a time. |
 | `planner` | Required when `structure` is `planned`; screen reader mode only for now. Either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). |
 | `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this profile. In a planned profile the screen reader executor may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a profile whose actions type into inputs is rejected before the run. The dashboard picks this for a new planned profile. |
@@ -177,7 +179,7 @@ A complete `rawstep.config.json` with two connections, a solo and a planned prof
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "connections": [
     { "id": "openai", "name": "OpenAI", "kind": "llm", "provider": "openai", "timeoutMs": 60000 },
     { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
@@ -213,7 +215,7 @@ A complete `rawstep.config.json` with two connections, a solo and a planned prof
     }
   ],
   "tasks": [
-    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json", "profileId": "narrow-planned" }
+    { "id": "checkout", "name": "Checkout", "file": "tasks/checkout.json" }
   ],
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "Focus on where the page made the run detour." },
