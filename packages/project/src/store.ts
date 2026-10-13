@@ -49,7 +49,7 @@ export class ProjectStore {
     let json: unknown;
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
-    if (version === 1 || version === 2 || version === 3 || version === 4) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}. Convert it once with \`node scripts/migrate-config.mjs <project-dir>\` from the Rawstep checkout (backups are kept as .bak files).`);
+    if (version === 1 || version === 2 || version === 3 || version === 4) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
     try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);

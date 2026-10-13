@@ -70,13 +70,12 @@ const COMMANDS: Record<AtBackend, Readonly<Record<string, string>>> = (() => {
   const voiceover = {
     next: 'VO+→', previous: 'VO+←', activate: 'VO+Space', readCurrent: 'VO+F3', readFocused: 'VO+F4',
     'heading.next': 'VO+⌘H', 'heading.previous': 'VO+⌘⇧H', 'form.next': 'VO+⌘J', 'form.previous': 'VO+⌘⇧J',
-    'link.next': 'VO+⌘L', 'link.previous': 'VO+⌘⇧L', 'headings.list': 'VO+U (로터)', 'links.list': 'VO+U (로터)',
+    'link.next': 'VO+⌘L', 'link.previous': 'VO+⌘⇧L', 'headings.list': 'VO+U', 'links.list': 'VO+U',
     interact: 'VO+⇧↓', stopInteracting: 'VO+⇧↑',
   };
   return { simulation: voiceover, voiceover, nvda: {
     next: '↓', previous: '↑', activate: 'Enter', readCurrent: 'NVDA+↑', readFocused: 'NVDA+Tab',
     'heading.next': 'H', 'heading.previous': '⇧H', 'form.next': 'F', 'form.previous': '⇧F', 'link.next': 'K', 'link.previous': '⇧K',
-    'headings.list': 'NVDA+F7', 'links.list': 'NVDA+F7',
   } };
 })();
 

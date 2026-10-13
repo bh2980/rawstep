@@ -228,21 +228,20 @@ export const isFilePlanner = (planner: PlannerChoice | undefined): planner is z.
 export const planFileOf = (planner: z.infer<typeof filePlannerSchema>, task: Pick<ManagedTask, 'file'>): string =>
   planner.planFile.replaceAll('{task}', task.file.replace(/^.*\//, '').replace(/\.json$/, ''));
 /**
- * Which model does what, as a part of a run profile. `solo`: the executor of the mode decides every action. `planned`: the planner
- * LLM writes a plan document and the executor carries out one task at a time (screen reader mode for now).
+ * Which model does what, as a part of a run profile. A screen reader run always plans: the planner (an LLM, or a plan file) writes a
+ * plan document and the executor, or Rawstep itself following the plan, carries out one task at a time. A keyboard run does not
+ * plan yet: its executor decides every action. A profile without a planner or executor for its mode cannot run until one is picked.
  */
 const deciding = {
-  structure: z.enum(['solo', 'planned']).default('solo'),
   planner: plannerSchema.optional(),
-  /** A mode without an executor cannot run with this profile. A planned profile's screen reader executor may follow the plan instead of a model. */
+  /** The screen reader executor may follow the plan instead of a model. */
   executors: z.object({ screenreader: z.union([executorSchema, planFollowerSchema]).optional(), keyboard: executorSchema.optional() }).strict(),
 };
-function refineDeciding(combo: { name: string; structure: 'solo' | 'planned'; planner?: PlannerChoice | undefined; executors: { screenreader?: Executor | PlanFollowerChoice | undefined } }, ctx: z.RefinementCtx) {
-  if (combo.structure === 'planned' && !combo.planner) ctx.addIssue({ code: 'custom', path: ['planner'], message: `${combo.name} plans, so it needs a planner.` });
-  if (isPlanFollowerChoice(combo.executors.screenreader) && combo.structure !== 'planned') ctx.addIssue({ code: 'custom', path: ['executors', 'screenreader'], message: `${combo.name} has no plan to follow.` });
-}
-/** The deciding part of a profile as a run records it: who plans and who acts in each mode. */
-export const comboSchema = z.object({ id, name: text, ...deciding }).strict().superRefine(refineDeciding);
+/**
+ * The deciding part of a profile as a run records it, for the mode it ran in: `planned` (screen reader) or `solo` (keyboard).
+ * Not something a person picks: it follows from the mode.
+ */
+export const comboSchema = z.object({ id, name: text, structure: z.enum(['solo', 'planned']), ...deciding }).strict();
 export type Combo = z.infer<typeof comboSchema>;
 /** What the simulated user may do in each mode: keyboard keys, screen reader intents and named-input typing. */
 export const actionSetSchema = z.object({ id, name: text, keyboard: permissionsSchema, screenreader: permissionsSchema }).strict();
@@ -256,8 +255,7 @@ export type AtBackend = z.infer<typeof atBackendSchema>;
 export const atEnvironmentSchema = z.object({ id, name: text, backend: atBackendSchema }).strict();
 export type AtEnvironment = z.infer<typeof atEnvironmentSchema>;
 /**
- * A run profile: who the simulated user is and how a run goes, under one name — the mode, who decides (structure, planner, executor per
- * mode), what the user may do, the page environment, the screen reader, and the run rules. A task says only what to do; a run is a task
+ * A run profile: who the simulated user is and how a run goes, under one name — the mode, who decides (planner, executor per mode), what the user may do, the page environment, the screen reader, and the run rules. A task says only what to do; a run is a task
  * with a profile, picked when the run starts. There is no layer between Rawstep's defaults and a profile.
  */
 export const profileSchema = z.object({
@@ -271,7 +269,7 @@ export const profileSchema = z.object({
   /** The assistive technology screen reader runs go through. */
   screenReader: atBackendSchema.default('simulation'),
   runRules: runRulesSchema.default(() => runRulesSchema.parse({})),
-}).strict().superRefine(refineDeciding);
+}).strict();
 export type Profile = z.infer<typeof profileSchema>;
 export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
@@ -405,19 +403,18 @@ function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoic
 export const PLAN_FOLLOWER: Model = { id: 'rawstep-plan-follower', kind: 'decision', provider: 'custom', timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs, name: 'Rawstep · follows the plan',
   modelId: 'follow-plan', inputs: ['text'], maxChoices: 255, maxImages: 0 };
 export const isPlanFollower = (model: Pick<Model, 'id'> | undefined): boolean => model?.id === PLAN_FOLLOWER.id;
-/** Whether a combo carries out its plan without an executor model in this mode. */
-export const followsPlan = (combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): boolean =>
-  mode === 'screenreader' && combo.structure === 'planned' && isPlanFollowerChoice(combo.executors.screenreader);
+/** Whether a profile carries out its plan without an executor model in this mode (screen reader runs only: they always plan). */
+export const followsPlan = (combo: Pick<Combo, 'executors'>, mode: Mode): boolean => mode === 'screenreader' && isPlanFollowerChoice(combo.executors.screenreader);
 /** The executor model a combo has for a mode (its settings and instructions); undefined when it has none or follows the plan. */
 export const executorModel = (combo: Pick<Combo, 'executors'>, mode: Mode): Executor | undefined => {
   const executor = combo.executors[mode];
   return isPlanFollowerChoice(executor) ? undefined : executor;
 };
 /** The model a combo decides with in a mode, joined with its connection; undefined when the combo has none for that mode. */
-export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): Model | undefined =>
+export const comboExecutor = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>, mode: Mode): Model | undefined =>
   followsPlan(combo, mode) ? structuredClone(PLAN_FOLLOWER) : joined(config, executorModel(combo, mode));
-/** The LLM a planned combo plans with; undefined for a solo combo. */
-export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'structure' | 'planner'>): Model | undefined => combo.structure === 'planned' && !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
+/** The LLM a profile plans with (screen reader runs); undefined for a plan file or no planner yet. */
+export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'planner'>): Model | undefined => !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
 export const projectAnalysisModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.analysis.model);
 /** The LLM that suggests completion checks: its own setting, otherwise the analysis model. */
@@ -431,7 +428,7 @@ export const DEFAULT_PERMISSIONS: Pick<ActionSet, 'keyboard' | 'screenreader'> =
   screenreader: { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false },
 };
 export function defaultProfile(id = 'default', name = 'Default'): Profile {
-  return profileSchema.parse({ id, name, structure: 'solo', executors: {}, actions: structuredClone(DEFAULT_PERMISSIONS) });
+  return profileSchema.parse({ id, name, executors: { screenreader: { followPlan: true } }, actions: structuredClone(DEFAULT_PERMISSIONS) });
 }
 export function defaultConfig(): ProjectConfig {
   return configSchema.parse({ version: 5, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
@@ -443,11 +440,11 @@ export function firstProfile(config: Pick<ProjectConfig, 'profiles'>): Profile {
 }
 /** The conditions a run is made of, read off a profile: the deciding part, the actions and both environments, each named after it. */
 export type Conditions = { profile: Profile; combo: Combo; actionSet: ActionSet; pageEnvironment: PageEnvironment; atEnvironment: AtEnvironment };
-export function profileConditions(profile: Profile): Conditions {
+export function profileConditions(profile: Profile, mode: Mode = profile.mode): Conditions {
   const { id, name } = profile;
   return {
     profile,
-    combo: { id, name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors },
+    combo: { id, name, structure: mode === 'screenreader' ? 'planned' : 'solo', ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors },
     actionSet: { id, name, keyboard: profile.actions.keyboard, screenreader: profile.actions.screenreader },
     pageEnvironment: { id, name, profile: profile.page },
     atEnvironment: { id, name, backend: profile.screenReader },

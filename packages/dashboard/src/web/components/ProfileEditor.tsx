@@ -23,9 +23,9 @@ export type Question = 'who' | 'ai' | 'where' | 'stop';
 const QUESTIONS: Question[] = ['who', 'ai', 'where', 'stop'];
 
 /** Who thinks in a run of this mode, in one sentence: the planner and how the plan is carried out, or the model that picks alone. */
-export function aiSummary(profile: Pick<Combo, 'structure' | 'planner' | 'executors'>, mode: Mode): string {
+export function aiSummary(profile: Pick<Combo, 'planner' | 'executors'>, mode: Mode): string {
   const executor = executorModel(profile, mode)?.modelId.trim();
-  if (profile.structure === 'planned' && mode === 'screenreader') {
+  if (mode === 'screenreader') {
     const planner = isFilePlanner(profile.planner) ? translate('conditions.summary.planFile', { path: profile.planner.planFile }) : profile.planner?.modelId.trim();
     if (!planner) return translate('profile.questions.aiNone');
     return translate('profile.questions.aiPlanned', { planner, executor: followsPlan(profile, mode) ? translate('profile.questions.aiFollow') : translate('profile.questions.aiExecutor', { executor: executor || translate('conditions.summary.noModel') }) });
@@ -34,9 +34,9 @@ export function aiSummary(profile: Pick<Combo, 'structure' | 'planner' | 'execut
 }
 
 /** The stop rules worth a glance: whether headings are surveyed first, the grace after an unheard success, and every rule changed from Rawstep's defaults. */
-export function stopSummary(profile: Pick<Profile, 'runRules' | 'structure' | 'actions'>, mode: Mode): { text: string; changed: boolean }[] {
+export function stopSummary(profile: Pick<Profile, 'runRules' | 'actions'>, mode: Mode): { text: string; changed: boolean }[] {
   const rules = profile.runRules, defaults = runRulesSchema.parse({});
-  const surveys = mode === 'screenreader' && profile.structure === 'planned' && rules.survey === 'headings' && profile.actions.screenreader.intents.includes('headings.list');
+  const surveys = mode === 'screenreader' && rules.survey === 'headings' && profile.actions.screenreader.intents.includes('headings.list');
   const parts: { text: string; changed: boolean }[] = [];
   if (surveys) parts.push({ text: translate('profile.questions.stopSurvey'), changed: false });
   if (mode === 'screenreader' && rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
@@ -67,8 +67,8 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   // "직접 고름" stays picked after a person chooses it, even while the actions still equal a starting point; a new profile starts over.
   const [customFor, setCustomFor] = useState<string>();
   const runMode = profile.mode, persona = customFor === `${profile.id}:${runMode}` ? 'custom' : personaOf(runMode, profile);
-  const combo: Combo = { id: profile.id, name: profile.name, structure: profile.structure, ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
-  const setCombo = ({ structure, planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, structure, executors, ...(planner ? { planner } : {}) }); };
+  const combo: Combo = { id: profile.id, name: profile.name, structure: runMode === 'screenreader' ? 'planned' : 'solo', ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
+  const setCombo = ({ planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, executors, ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
   const stops = stopSummary(profile, runMode);
   const summaries: Record<Question, ReactNode> = {
@@ -89,7 +89,7 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
       <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
         capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} only={runMode} backend={profile.screenReader} compact />
     </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact only={runMode} tasks={view.config.tasks} />,
+    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact mode={runMode} tasks={view.config.tasks} />,
     where: <div className="grid gap-6">
       {runMode === 'screenreader' && <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />}
       <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />

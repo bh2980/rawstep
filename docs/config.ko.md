@@ -16,16 +16,16 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 | 필드 | 내용 |
 |---|---|
-| `version` | 항상 `4` |
+| `version` | 항상 `5` |
 | `connections` | 모델에 닿는 곳. 제공자 프리셋 또는 직접 지정한 서버. 모델과 추론 강도는 쓰는 곳에서 고릅니다 |
 | `profiles` | 실행 프로필: 실행이 끝나는 방식을 바꾸는 모든 것을 한 이름으로 묶은 것. 최소 하나 |
 | `tasks` | 등록한 작업 파일. 작업은 무엇을 할지만 담고, 누가 어떻게 할지는 실행할 때 고르는 프로필이 정합니다 |
 | `project` | 실행 결과를 바꾸지 않는 프로젝트 공통 설정: 해설 모델·지침, 완료 확인 제안 모델 |
 | `machine` | 이 컴퓨터의 설정 |
 
-알 수 없는 필드는 거부합니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `rawstep init`은 프로필 `Default`(실행 모델 없음, 행동 `Basic`, 페이지 환경 `default`, 시뮬레이션 스크린리더) 하나를 만들고 연결·작업은 비워 둡니다.
+알 수 없는 필드는 거부합니다. `id`는 영문자·숫자·`.`·`_`·`-` 100자 이하입니다. `rawstep init`은 프로필 `Default`(스크린리더 모드, `followPlan` 실행 모델, 계획 모델 없음, 행동 `Basic`, 페이지 환경 `default`, 시뮬레이션 스크린리더) 하나를 만들고 연결·작업은 비워 둡니다.
 
-예전 설정(`version` 1, 2, 3)은 읽지 않고 오류 코드 `old-config`로 멈춥니다. Rawstep 저장소에서 `node scripts/migrate-config.mjs <프로젝트 폴더>`로 한 번 변환하세요. 작업이나 프리셋이 쓰던 조건 조합마다 프로필 하나가 만들어집니다. 대시보드의 실행 기록(`.rawstep/experiments/*/experiment.json`)도 함께 변환하며, 원본은 각각 백업(`.v2.bak`, `.v3.bak`)으로 남깁니다.
+예전 설정(`version` 1~4)은 읽지 않고 오류 코드 `old-config`로 멈춥니다. `rawstep init`으로 새 프로젝트를 시작하고 작업을 복사해 오세요.
 
 ## 실행 프로필
 
@@ -33,11 +33,11 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 | 프로필의 부분 | 담는 것 |
 |---|---|
-| 모델 (`structure`, `planner`, `executors`) | 단독(모델 하나) 또는 계획 + 실행, 계획 모델과 지침, 모드별 실행 모델과 지침 |
+| 모델 (`planner`, `executors`) | 계획 모델과 지침(스크린리더 모드), 모드별 실행 모델과 지침 |
 | `actions` | 모드별로 허용하는 키, 스크린리더 동작, 이름 있는 입력값 입력 |
 | `page` | 페이지 환경: 화면 크기, 글자 크기·간격, 색상·대비, 움직임 |
 | `screenReader` | 스크린리더 백엔드: `simulation`, `voiceover`, `nvda` |
-| `runRules` | 언제 막힌 것으로 보고 멈추는지, 계획 모델이 있으면 언제 다시 계획하는지 |
+| `runRules` | 언제 막힌 것으로 보고 멈추는지, 계획하는 실행이면 언제 다시 계획하는지 |
 
 실행은 그 실행에 지정한 프로필(`rawstep run --profile`, 대시보드의 실행 창에서 고른 프로필), 없으면 프로젝트의 첫 번째 프로필을 씁니다. Rawstep의 기본값과 프로필 사이에 다른 계층은 없습니다. 프로필은 실행 규칙 전체를 담고, `--rule`은 그 실행에 한해 일부를 바꿉니다. 실행마다 프로필의 내용 전체를 기록하므로, 실행은 이름이 아니라 내용으로 비교합니다.
 
@@ -102,10 +102,9 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | 필드 | 설명 |
 |---|---|
 | `id`, `name` | 식별자와 표시 이름. `--profile`은 둘 중 아무거나 받습니다 |
-| `mode` | `screenreader`(기본): 스크린리더를 듣는 사용자. `keyboard`: 화면을 보며 키로 움직이는 사용자. `rawstep run --mode`가 한 실행에서 덮어씁니다 |
-| `structure` | `solo`(기본): 그 모드의 실행 모델이 모든 행동을 정합니다. `planned`: 계획 LLM이 계획 문서를 쓰고 실행 모델이 작업을 하나씩 수행합니다 |
-| `planner` | `structure`가 `planned`이면 필수이며 아직 스크린리더 모드에서만 씁니다. LLM `{ connectionId, modelId, reasoningEffort?, instructions }`(`llm` 연결이어야 함) 또는 계획 파일 `{ planFile }`([계획 파일](#계획-파일) 참고) 중 하나입니다 |
-| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 프로필로 실행할 수 없습니다. 계획 프로필의 스크린리더 실행 모델 자리에는 `{ "followPlan": true }`를 둘 수도 있습니다. 실행 모델 없이 Rawstep이 계획을 그대로 수행해(누르기 작업은 누르고, 이동 작업은 첫 이동 방법) 판단은 계획 모델과 cue가 맡고, 실행 비용이 계획 호출뿐이며 반복 간 편차가 작습니다. 이동과 누르기만 하므로 입력란 타이핑을 허용하는 프로필은 실행 전에 거부합니다. 대시보드는 새 계획 프로필에 이것을 고릅니다 |
+| `mode` | `screenreader`(기본): 스크린리더를 듣는 사용자이며 항상 계획합니다. `keyboard`: 화면을 보며 키로 움직이는 사용자이며 계획하지 않고 키보드 실행 모델이 모든 행동을 정합니다. `rawstep run --mode`가 한 실행에서 덮어씁니다 |
+| `planner` | 아직 스크린리더 모드에서만 쓰며 키보드 실행은 계획하지 않습니다. 계획 문서를 쓰는 쪽으로, LLM `{ connectionId, modelId, reasoningEffort?, instructions }`(`llm` 연결이어야 함) 또는 계획 파일 `{ planFile }`([계획 파일](#계획-파일) 참고) 중 하나입니다. 계획 모델이 없는 스크린리더 프로필은 하나 고를 때까지 실행할 수 없습니다(`planner-model-invalid`). 새 프로필에는 아직 없습니다 |
+| `executors` | `screenreader`와 `keyboard` 각각의 실행 모델. 그 모드에서 행동을 고르는 모델과 지침입니다(아래 설명). 실행 모델이 없는 모드는 이 프로필로 실행할 수 없습니다(`profile-without-executor`). 스크린리더 실행 모델 자리에는 `{ "followPlan": true }`를 둘 수도 있습니다. 실행 모델 없이 Rawstep이 계획을 그대로 수행해(누르기 작업은 누르고, 이동 작업은 첫 이동 방법) 판단은 계획 모델과 cue가 맡고, 실행 비용이 계획 호출뿐이며 반복 간 편차가 작습니다. 이동과 누르기만 하므로 입력란 타이핑을 허용하는 프로필은 실행 전에 거부합니다. 새 프로필은 이것으로 시작합니다 |
 | `actions` | `{ keyboard, screenreader }`: 모드별로 시뮬레이션하는 사용자가 할 수 있는 행동(아래 설명) |
 | `page` | `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 페이지 환경 이름 또는 객체. 기본 `"default"`. [환경 프로필 안내](./environment-profiles.md) |
 | `screenReader` | 스크린리더 실행이 거치는 보조기술이며 키보드 실행은 쓰지 않습니다. `simulation`(기본): Chromium 기반 시뮬레이션이며 trace에 항상 시뮬레이션으로 표시합니다. `voiceover`(macOS) 또는 `nvda`(Windows): AT Driver 서버로 연결하는 네이티브 스크린리더(주소는 [machine](#machine) 참고). 이 필드만 다른 프로필 둘로 같은 작업을 시뮬레이션 VoiceOver와 실제 VoiceOver에서 비교할 수 있습니다 |
@@ -122,7 +121,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `instructions` | 실행 모델에 주는 지침(필수). [프롬프트 안내](./prompts.ko.md) |
 | `historyLimit` | 모델이 보는 지난 단계 수(기본 12) |
 | `focusGate` | 키보드 모드의 `decision` 모델에서만(기본 `false`). 행동마다 별도의 포커스 판단으로 후보를 좁힙니다. `llm` 실행 모델에 켜면 실행 전에 거부합니다 |
-| `latitude` | 계획 프로필의 스크린리더 실행에서(기본 `none`) 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다. 계획 모델도 이에 맞춰 작업을 짭니다 |
+| `latitude` | 스크린리더 실행에서(기본 `none`) 작업 안에서 실행 모델이 정하는 범위. `none`: 이동 방법·방향·누를 때를 계획이 정합니다. `direction`: 한 작업이 대상까지 가서 누르고, 실행 모델이 같은 방법으로 되돌아가거나 누를 때를 판단합니다. `method`: 모든 이동을 실행 모델이 고릅니다. 계획 모델도 이에 맞춰 작업을 짭니다 |
 
 키보드 실행 모델은 이미지 입력과 2 이상의 `maxImages`가, 스크린리더 실행 모델은 텍스트 입력이 필요합니다. 계획 모델은 `llm` 연결이어야 하고, 실행 모델의 연결은 실제로 있어야 합니다.
 
@@ -132,7 +131,6 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 {
   "id": "plan-and-jev",
   "name": "Plan with GPT, act with Jev",
-  "structure": "planned",
   "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "경험 많은 스크린리더 사용자처럼 계획한다." },
   "executors": {
     "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "허용된 행동만으로 목표에 도달한다.", "historyLimit": 12, "focusGate": false },
@@ -175,7 +173,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 ## 전체 예시
 
-연결 두 개, 단독·계획 프로필 하나씩, 프로젝트 해설 모델을 담은 `rawstep.config.json`입니다.
+연결 두 개, 키보드·스크린리더 프로필 하나씩, 프로젝트 해설 모델을 담은 `rawstep.config.json`입니다.
 
 ```json
 {
@@ -186,20 +184,20 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
   ],
   "profiles": [
     {
-      "id": "jev-alone", "name": "Jev alone", "structure": "solo",
+      "id": "jev-keyboard", "name": "Jev, keyboard", "mode": "keyboard",
       "executors": {
-        "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false }
+        "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
       },
       "actions": {
         "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+        "screenreader": { "keys": [], "intents": [], "typeText": false, "replaceText": false }
       },
       "page": "default",
       "screenReader": "simulation",
-      "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3 }
+      "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false }
     },
     {
-      "id": "narrow-planned", "name": "Narrow page, planned", "structure": "planned",
+      "id": "narrow-screenreader", "name": "Narrow page, screen reader",
       "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
@@ -227,7 +225,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 ## 계획과 실행 (orchestration)
 
-`structure: "planned"`이면 스크린리더 실행이 둘로 나뉩니다. 계획 LLM이 **계획 문서**를 쓰고, 실행 모델이 작업을 하나씩 수행합니다. 키보드 모드에서는 아직 계획 모델을 쓰지 않습니다(점검이 경고하고 키보드 실행 모델이 혼자 정합니다).
+스크린리더 실행은 항상 계획하므로 둘로 나뉩니다. 계획 모델(LLM 또는 [계획 파일](#계획-파일))이 **계획 문서**를 쓰고, 실행 모델이 작업을 하나씩 수행하거나 Rawstep이 계획을 직접 따릅니다(`followPlan`). 키보드 실행은 아직 계획하지 않고 키보드 실행 모델이 모든 행동을 정합니다. 실행 기록의 조건 줄에는 모드에 따라 `planned`(스크린리더) 또는 `solo`(키보드)로 적힙니다.
 
 계획 문서에는 다음이 들어 있습니다.
 
@@ -240,7 +238,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 계획 모델은 실행 모델이 도움을 요청할 때, 체크포인트와 마지막 점검에서, 그리고 실행 규칙이 정한 때에 다시 계획합니다. 한 작업에서 행동 실패가 `failureLimit`회 연속일 때, 변화 없는 행동이 `noChangeLimit`회 연속일 때, 행동 수가 `stepActionLimit`에 이를 때입니다. 계획 모델은 사람이 들을 수 있는 정보, 실행 모델이 쓸 수 있는 행동(입력은 이름만, 비밀값은 주지 않음), 작업별 시도 내역만 받고 접근성 트리는 받지 않습니다.
 
-멈춘 이유는 trace에 다음 중 하나로 구분해 남습니다. `model`(실행 모델), `planner`(계획 모델이 목표 도달을 선언함, 최종 판정은 독립 검증), `exploration-guard`(반복 감시), `orchestration-limit`(`maxReplans`를 넘음). 계획 모델을 쓴 실행의 폴더에는 `plan.json`과 `plan.md`(사람이 읽는 체크박스 형식)도 저장되고, 대시보드는 실행 중에 계획 문서를 실시간으로 보여 줍니다. 계획, 작업 변경, 다시 계획한 이유는 정책 근거로 trace에 남습니다.
+멈춘 이유는 trace에 다음 중 하나로 구분해 남습니다. `model`(실행 모델), `planner`(계획 모델이 목표 도달을 선언함, 최종 판정은 독립 검증), `exploration-guard`(반복 감시), `orchestration-limit`(`maxReplans`를 넘음). 스크린리더 실행의 폴더에는 `plan.json`과 `plan.md`(사람이 읽는 체크박스 형식)도 저장되고, 대시보드는 실행 중에 계획 문서를 실시간으로 보여 줍니다. 계획, 작업 변경, 다시 계획한 이유는 정책 근거로 trace에 남습니다.
 
 다시 계획한 지점, 도움 요청, 포기한 작업, 완료 문구를 듣지 못한 작업, 틀린 가정, 미충족 성공 기준은 마찰 힌트(`replan`, `help-request`, `task-limit`, `unverified-done`)입니다. 실행이 다시 생각해야 했던 곳을 가리킬 뿐 이유는 단정하지 않습니다. 페이지가 어려웠을 수도, 계획이 틀렸을 수도 있습니다.
 

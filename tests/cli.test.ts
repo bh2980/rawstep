@@ -154,9 +154,9 @@ describe("run", () => {
     for (const key of ["profile", "diagnoseStop", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });
   it("lists the warnings under the conditions, and shows a planned profile with its planner", () => {
-    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", structure: "planned", planner: "Claude · plan", executor: "Jev · jev-latest" } }, warnings: ["Keyboard runs do not use the planner yet; the keyboard executor decides alone."] });
+    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", structure: "planned", planner: "Claude · plan", executor: "Jev · jev-latest" } }, warnings: ["The analysis model is not an LLM; no analysis is written."] });
     expect(planned).toContain("Conditions: Planner pair (planned · planner Claude · plan → executor Jev · jev-latest)");
-    expect(planned).toContain("  note: Keyboard runs do not use the planner yet");
+    expect(planned).toContain("  note: The analysis model is not an LLM");
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
   });
   it("leaves the mode to the profile, with one run and the current directory", async () => {
@@ -323,7 +323,7 @@ describe("doctor", () => {
     expect(text(io.stdout)).toContain("FAIL  Config: rawstep.config.json was not found");
     expect(launchBrowser).toHaveBeenCalledOnce();
   });
-  it("reports an invalid config, and an old one with the way to convert it", async () => {
+  it("reports an invalid config, and an old one with what to do instead", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
     await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 5 }));
     expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
@@ -331,10 +331,10 @@ describe("doctor", () => {
     const old = output(directory);
     await writeFile(join(directory, "rawstep.config.json"), JSON.stringify({ version: 2 }));
     expect(await runCli(["doctor"], { ...old, launchBrowser: async () => {} })).toBe(1);
-    expect(text(old.stdout)).toMatch(/FAIL  Config: .*version 2.*migrate-config\.mjs/);
+    expect(text(old.stdout)).toMatch(/FAIL  Config: .*version 2.*rawstep init/);
     const run = output(directory);
     expect(await runCli(["run", "task.json"], run)).toBe(1);
-    expect(text(run.stderr)).toMatch(/version 2.*migrate-config\.mjs/);
+    expect(text(run.stderr)).toMatch(/version 2.*rawstep init/);
   });
   it("checks that the key of each provider and keyed custom connection is set, without printing it", async () => {
     const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY", optional = "RAWSTEP_DOCTOR_OPTIONAL_KEY";

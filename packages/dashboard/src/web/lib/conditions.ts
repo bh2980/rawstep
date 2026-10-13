@@ -28,29 +28,18 @@ function shortName(choice: Choice | undefined, connections: readonly Connection[
  * A model combo in one line, as lists show it: "계획 + 실행: gemini-flash → jev" or "단독: jev". With a mode, the models a run in that
  * mode uses (keyboard runs never plan yet).
  */
-export function comboSummary(combo: Pick<Combo, 'structure' | 'planner' | 'executors'>, connections: readonly Connection[], mode?: Mode): string {
-  const planner = combo.structure !== 'planned' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : shortName(combo.planner, connections) ?? t('conditions.summary.noModel');
-  if (mode) {
-    const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, mode), connections);
-    if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
-    return planner && mode === 'screenreader' ? t('conditions.summary.planned', { planner, executor }) : t('conditions.summary.solo', { executor });
-  }
-  const sr = followsPlan(combo, 'screenreader') ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, 'screenreader'), connections), kb = shortName(executorModel(combo, 'keyboard'), connections);
-  if (planner) {
-    const line = t('conditions.summary.planned', { planner, executor: sr ?? t('conditions.summary.noModel') });
-    return kb ? `${line} · ${t('conditions.summary.keyboardAlone', { executor: kb })}` : line;
-  }
-  if (!sr && !kb) return t('conditions.summary.noExecutor');
-  const executor = sr && kb ? (sr === kb ? t('conditions.summary.bothModes', { model: sr }) : t('conditions.summary.perMode', { screenreader: sr, keyboard: kb }))
-    : t('conditions.summary.oneMode', { model: (sr ?? kb)!, mode: t(`conditions.modes.${sr ? 'screenreader' : 'keyboard'}`) });
-  return t('conditions.summary.solo', { executor });
+export function comboSummary(combo: Pick<Combo, 'planner' | 'executors'>, connections: readonly Connection[], mode: Mode): string {
+  const planner = mode !== 'screenreader' ? undefined : isFilePlanner(combo.planner) ? t('conditions.summary.planFile', { path: combo.planner.planFile }) : shortName(combo.planner, connections) ?? t('conditions.summary.noModel');
+  const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, mode), connections);
+  if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
+  return planner ? t('conditions.summary.planned', { planner, executor }) : t('conditions.summary.solo', { executor });
 }
 
 /**
  * The modes a combo can run, as the server decides them (`comboModes` in @rawstep/project/plan, which the web bundle cannot import):
  * an executor on an existing connection that takes what the mode sends (text, or two images for keyboard mode).
  */
-export function comboModesOf(combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>, connections: readonly Connection[]): Mode[] {
+export function comboModesOf(combo: Pick<Combo, 'executors'>, connections: readonly Connection[]): Mode[] {
   return MODES.filter(mode => {
     if (followsPlan(combo, mode)) return true;
     const executor = executorModel(combo, mode);
@@ -117,18 +106,16 @@ export type ComboPreset = (typeof COMBO_PRESETS)[number];
 /** A new combo from a starting point, on the first connection of each kind the project has. */
 export function comboFromPreset(preset: ComboPreset, id: string, name: string, connections: readonly Connection[]): Combo {
   const decision = connections.find(c => c.kind === 'decision'), llm = connections.find(c => c.kind === 'llm');
-  if (!llm) return { id, name, structure: 'solo', executors: {} };
   const executor = preset === 'plannedDecision' ? decision : preset === 'plannedLlm' ? llm : undefined;
-  return { id, name, structure: 'planned', planner: { connectionId: llm.id, modelId: '', instructions: '' },
+  return { id, name, structure: 'planned', ...(llm ? { planner: { connectionId: llm.id, modelId: '', instructions: '' } } : {}),
     executors: { screenreader: executor ? blankExecutor(executor, 'screenreader') : { followPlan: true } } };
 }
 
-/** Why a combo cannot be saved yet, if it cannot: no name, a planned combo without a planner, a model without its ID, empty instructions. */
-export function comboBlocker(combo: Combo): 'name' | 'planner' | 'modelId' | 'instructions' | undefined {
+/** Why a combo cannot be saved yet, if it cannot: no name, a picked model without its ID, empty instructions. A missing planner only stops runs. */
+export function comboBlocker(combo: Pick<Combo, 'name' | 'planner' | 'executors'>): 'name' | 'modelId' | 'instructions' | undefined {
   const executors = MODES.flatMap(mode => executorModel(combo, mode) ? [executorModel(combo, mode)!] : []);
   if (!combo.name.trim()) return 'name';
-  if (combo.structure === 'planned' && !combo.planner) return 'planner';
-  if ((combo.structure === 'planned' && !isFilePlanner(combo.planner) && !combo.planner!.modelId.trim()) || executors.some(e => !e.modelId.trim())) return 'modelId';
+  if ((combo.planner && !isFilePlanner(combo.planner) && !combo.planner.modelId.trim()) || executors.some(e => !e.modelId.trim())) return 'modelId';
   if (executors.some(e => !e.instructions.trim())) return 'instructions';
   return undefined;
 }

@@ -32,7 +32,7 @@ function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] 
   const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings', section: 'connections' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
-    planner: config.profiles.filter(p => p.structure === 'planned' && !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
+    planner: config.profiles.filter(p => !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
     screenreader: config.profiles.filter(p => executorModel(p, 'screenreader')?.connectionId === id).map(profile),
     keyboard: config.profiles.filter(p => executorModel(p, 'keyboard')?.connectionId === id).map(profile),
     analysis: config.project.analysis.model?.connectionId === id ? [project] : [],
@@ -40,16 +40,14 @@ function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] 
   };
   return ROLES.filter(role => by[role].length).map(role => ({ role, names: by[role] }));
 }
-/** A profile without the roles a removed connection played; a planned profile that loses its planner decides alone. */
+/** A profile without the roles a removed connection played: it may lose its planner or executor, and cannot run until new ones are picked. */
 function withoutConnection(profile: Profile, id: string): Profile {
   const { planner, executors } = profile, { screenreader, keyboard } = executors;
   const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
-  const structure = profile.structure === 'planned' && !keepPlanner ? 'solo' : profile.structure;
-  // Following the plan needs a plan: a profile that loses its planner loses that too.
-  const keepScreenReader = screenreader && ('followPlan' in screenreader ? structure === 'planned' : screenreader.connectionId !== id);
+  const keepScreenReader = screenreader && ('followPlan' in screenreader || screenreader.connectionId !== id);
   const { planner: _planner, ...rest } = profile;
   return {
-    ...rest, structure, ...(keepPlanner ? { planner } : {}),
+    ...rest, ...(keepPlanner ? { planner } : {}),
     executors: { ...(keepScreenReader ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
   };
 }

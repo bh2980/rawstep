@@ -26,7 +26,7 @@ type Outcome = (typeof outcomes)[number];
 export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onRun: () => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
-  const [structure, setStructure] = useState(ALL), [profile, setProfile] = useState(ALL);
+  const [profile, setProfile] = useState(ALL);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false);
   const { config } = pageProps.view;
   // Profiles are named as each run recorded them, so a filter groups runs by what they ran with, not by today's names.
@@ -40,7 +40,7 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
   const numbers = useMemo(() => new Map([...new Set(runs.map(ref => ref.run.taskId))].flatMap(id => [...taskRunNumbers(runs, id)])), [runs]);
   const needle = query.trim().toLowerCase();
   const matching = runs.filter(ref => { const { run } = ref, c = of(ref);
-    return (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model) && (structure === ALL || c.structure === structure)
+    return (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model)
       && (profile === ALL || c.profile === profile)
       && (!needle || [taskNameOf(run, config.tasks), runModelsName(run), c.profile].some(text => text.toLowerCase().includes(needle)))
       && (outcome === 'all' || (outcome === 'live' ? isLive(run) : isFinished(run) && displayState(run) === outcome)); });
@@ -62,9 +62,8 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
       <FilterSelect label={t('runList.filters.task')} value={task} onChange={value => narrow(() => setTask(value))} options={options(tasks)} className="max-w-44" />
       <FilterSelect label={t('runList.filters.outcome')} value={outcome} onChange={value => narrow(() => setOutcome(value as Outcome))} options={outcomes.map(id => ({ id, name: t(`runList.outcomes.${id}`) }))} />
       <FilterSelect label={t('runConditions.profile')} value={profile} onChange={value => narrow(() => setProfile(value))} options={options(profiles)} className="max-w-44" />
-      <FilterMore label={t('runList.filters.more')} active={[structure, model, profile].filter(value => value !== ALL).length}>
+      <FilterMore label={t('runList.filters.more')} active={[model, profile].filter(value => value !== ALL).length}>
         <FilterSelect label={t('runList.filters.model')} value={model} onChange={value => narrow(() => setModel(value))} options={options(models)} className="max-w-44" />
-        <FilterSelect label={t('runConditions.structure')} value={structure} onChange={value => narrow(() => setStructure(value))} options={options([['solo', t('runConditions.structures.solo')], ['planned', t('runConditions.structures.planned')]])} />
       </FilterMore>
     </FilterBar>}
     {runs.length === 0

@@ -26,8 +26,9 @@ async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-project-
 const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
 function setup(): ProjectConfig {
   const config = defaultConfig();
-  config.connections.push(connection('a'), connection('b'));
-  config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
+  // Screen reader runs always plan, so the profile carries a planner on an LLM connection (keyboard runs ignore it).
+  config.connections.push(connection('a'), connection('b'), connection('setup-llm', { kind: 'llm' }));
+  config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default'), 'setup-llm');
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
 
@@ -58,7 +59,7 @@ describe('project store', () => {
     await expect(store.setCredential(config.connections.find(c => c.id === 'a')!, 'sk')).rejects.toMatchObject({ code: 'credential-target' });
     await expect(store.setCredential('custom', 'sk')).rejects.toMatchObject({ code: 'credential-target' });
     await expect(store.setCredential('openai', 'two\nlines')).rejects.toMatchObject({ code: 'invalid-credential' });
-    expect(credentialRequirements(config).map(k => [k.id, k.env, k.required, k.connection.id])).toEqual([['connection:a', undefined, false, 'a'], ['connection:b', undefined, false, 'b'], ['provider:openrouter', 'RAWSTEP_OPENROUTER_API_KEY', true, 'or-llm'], ['connection:keyed', 'RAWSTEP_TEST_CUSTOM_KEY', false, 'keyed']]);
+    expect(credentialRequirements(config).map(k => [k.id, k.env, k.required, k.connection.id])).toEqual([['connection:a', undefined, false, 'a'], ['connection:b', undefined, false, 'b'], ['connection:setup-llm', undefined, false, 'setup-llm'], ['provider:openrouter', 'RAWSTEP_OPENROUTER_API_KEY', true, 'or-llm'], ['connection:keyed', 'RAWSTEP_TEST_CUSTOM_KEY', false, 'keyed']]);
   });
   it('rejects paths outside the project and symlink escapes', async () => {
     const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
@@ -82,7 +83,7 @@ describe('project store', () => {
     await expect(initProject(dir)).rejects.toBeInstanceOf(ProjectError);
     expect(await readFile(join(dir, 'rawstep.config.json'), 'utf8')).toBe('{"mine":true}');
   });
-  it('reads an invalid config as an error naming the file, an old-version one as old-config with the way to convert it, and a missing task file as 404', async () => {
+  it('reads an invalid config as an error naming the file, an old-version one as old-config with what to do instead, and a missing task file as 404', async () => {
     const dir = await root(), store = new ProjectStore(dir);
     await writeFile(store.path, JSON.stringify({ ...defaultConfig(), version: 6 }));
     await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config', message: expect.stringContaining('rawstep.config.json') });
@@ -90,7 +91,7 @@ describe('project store', () => {
     await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config' });
     for (const version of [1, 2, 3, 4]) {
       await writeFile(store.path, JSON.stringify({ version, agents: [] }));
-      await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*migrate-config\\.mjs.*\\.bak`)) });
+      await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*rawstep init`)) });
     }
     await writeFile(store.path, JSON.stringify({ ...setup() }));
     await expect(store.read()).rejects.toMatchObject({ code: 'task-file-missing', status: 404 });
@@ -225,8 +226,9 @@ describe('connection schema', () => {
     expect(() => parseConfig(withProfile((_, c) => { c.project.suggestions.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
     expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = plannedWith(c.profiles[0]!, 'llm'); }))).not.toThrow();
     expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = plannedWith(c.profiles[0]!, 'a'); }))).toThrow(/plan with an LLM/);
-    expect(() => parseConfig(withProfile(a => { a.structure = 'planned'; }))).toThrow(/needs a planner/);
-    expect(() => parseConfig(withProfile(a => { a.executors.screenreader = { followPlan: true }; }))).toThrow(/no plan to follow/);
+    expect(() => parseConfig(withProfile(a => { (a as Record<string, unknown>).structure = 'planned'; }))).toThrow();
+    // A profile without a planner is saved as it is; only a screen reader run of it is refused.
+    expect(() => parseConfig(withProfile(a => { delete a.planner; a.executors.screenreader = { followPlan: true }; }))).not.toThrow();
     expect(() => parseConfig(withProfile(a => { a.executors.keyboard!.connectionId = 'ghost'; }))).toThrow(/does not exist/);
     expect(() => parseConfig(withProfile(a => { a.executors = {}; }))).not.toThrow();
     expect(() => parseConfig(withProfile(a => { (a.executors.screenreader as Executor).instructions = ' '; }))).toThrow();
@@ -237,8 +239,6 @@ describe('connection schema', () => {
     config.project.analysis.model = { connectionId: 'llm', modelId: 'writer' };
     expect(comboExecutor(config, combo, 'keyboard')).toMatchObject({ id: 'a', name: 'a · jev-latest', modelId: 'jev-latest', kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 });
     expect(comboPlanner(config, combo)).toMatchObject({ id: 'llm', name: 'My LLM · planner', kind: 'llm' });
-    // A solo profile has no planner, even when one is left in it.
-    expect(comboPlanner(config, { ...combo, structure: 'solo' })).toBeUndefined();
     expect(projectAnalysisModel(config)).toMatchObject({ id: 'llm', name: 'My LLM · writer', modelId: 'writer', kind: 'llm', inputs: ['text'] });
     // Without a project analysis model there is none; a decision connection is never an analysis or suggestion model.
     expect(projectAnalysisModel(setup())).toBeUndefined();
@@ -249,14 +249,17 @@ describe('connection schema', () => {
     expect(suggestionModel(config)).toMatchObject({ id: 'llm2', modelId: 'suggest' });
     // A text-only model takes no images, whatever maxImages says.
     expect(comboExecutor(config, { executors: { keyboard: { ...combo.executors.keyboard!, inputs: ['text'], maxImages: 2 } } }, 'keyboard')!.maxImages).toBe(0);
-    expect(comboExecutor(config, defaultProfile(), 'screenreader')).toBeUndefined();
+    expect(comboExecutor(config, defaultProfile(), 'screenreader')).toMatchObject({ id: 'rawstep-plan-follower' });
+    expect(comboExecutor(config, { executors: {} }, 'screenreader')).toBeUndefined();
     expect(comboExecutor(config, { executors: { screenreader: { ...combo.executors.screenreader!, connectionId: 'ghost' } } }, 'screenreader')).toBeUndefined();
-    expect(comboPlanner(config, { structure: 'planned', planner: { connectionId: 'a', modelId: 'x', instructions: '' } })).toBeUndefined();
+    expect(comboPlanner(config, { planner: { connectionId: 'a', modelId: 'x', instructions: '' } })).toBeUndefined();
   });
   it('lists the modes a profile can run', () => {
     const config = setup();
     expect(comboModes(config, config.profiles[0]!)).toEqual(['screenreader', 'keyboard']);
-    expect(comboModes(config, defaultProfile())).toEqual([]);
+    // The default screen reader executor follows the plan, so it needs no model.
+    expect(comboModes(config, defaultProfile())).toEqual(['screenreader']);
+    expect(comboModes(config, { ...defaultProfile(), executors: {} })).toEqual([]);
     const textOnly = profileWith('t', 'a'); textOnly.executors.keyboard!.inputs = ['text'];
     expect(comboModes(config, textOnly)).toEqual(['screenreader']);
   });
@@ -338,7 +341,7 @@ describe('project config', () => {
   });
   it('starts a project with one default profile', () => {
     const config = defaultConfig();
-    expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ structure: 'solo', executors: {}, page: 'default', screenReader: 'simulation' });
+    expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ executors: { screenreader: { followPlan: true } }, page: 'default', screenReader: 'simulation' }); expect(config.profiles[0]).not.toHaveProperty('structure'); expect(config.profiles[0]).not.toHaveProperty('planner');
     expect(config.profiles[0]!.actions.keyboard.keys).toContain('Tab'); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
   });
   it('finds connections and profiles by id first, then by name', () => {
@@ -482,12 +485,16 @@ describe('run checks', () => {
       const reader = check(setup(), c => planned(c), { mode: 'screenreader' });
       expect(reader.problem).toBeUndefined(); expect(reader.warnings).toEqual([]);
       expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner', kind: 'llm' }); expect(reader.plannerInstructions).toBe('Plan like an expert.');
-      expect(check(setup(), c => { c.profiles[0]!.planner = { connectionId: 'llm', modelId: 'planner', instructions: '' }; withLlm(c); }, { mode: 'screenreader' }).plannerModel).toBeUndefined();
     });
-    it('only warn in keyboard mode: the keyboard executor decides alone', () => {
+    it('refuse a screen reader run that has no planner, and leave the profile saveable', () => {
+      expect(check(setup(), c => { delete c.profiles[0]!.planner; }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
+      expect(check(setup(), c => { delete c.profiles[0]!.planner; c.profiles[0]!.executors.screenreader = { followPlan: true }; }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
+      expect(check(setup(), c => { delete c.profiles[0]!.planner; }).problem).toBeUndefined();
+    });
+    it('give keyboard runs no planner and no warning, whatever planner the profile has', () => {
       const keyboard = check(setup(), c => planned(c));
       expect(keyboard.problem).toBeUndefined(); expect(keyboard.plannerModel).toBeUndefined(); expect(keyboard.plannerInstructions).toBeUndefined();
-      expect(keyboard.warnings).toEqual([expect.stringMatching(/Keyboard runs do not use the planner/)]);
+      expect(keyboard.warnings).toEqual([]);
     });
     it('need a planner on an LLM connection or a plan file in screen reader mode, and count the four task choices only when the executor controls tasks', () => {
       expect(check(setup(), c => { c.profiles[0] = plannedWith(c.profiles[0]!, 'b'); }, { mode: 'screenreader' }).problem?.code).toBe('planner-model-invalid');
@@ -498,12 +505,12 @@ describe('run checks', () => {
       expect(choices(count + 3, true)).toBe('too-many-choices'); expect(choices(count + 4, true)).toBeUndefined();
     });
     it('give a file planner the task\'s own plan file, and record it in the conditions', () => {
-      const filed = check(setup(), c => { Object.assign(c.profiles[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
+      const filed = check(setup(), c => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
       expect(filed.problem).toBeUndefined(); expect(filed.plannerPlanFile).toBe('plans/cart/L2.json'); expect(filed.plannerModel).toBeUndefined();
-      expect(check(setup(), c => { Object.assign(c.profiles[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: {} }).problem?.code).toBe('plan-file-task');
+      expect(check(setup(), c => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); }, { mode: 'screenreader', taskEntry: {} }).problem?.code).toBe('plan-file-task');
     });
     it('run a profile that follows its plan without a screen reader executor model or its key', () => {
-      const follow = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); c.profiles[0]!.executors.screenreader = { followPlan: true }; };
+      const follow = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); c.profiles[0]!.executors.screenreader = { followPlan: true }; };
       const result = check(setup(), follow, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } });
       expect(result.problem).toBeUndefined();
       expect(result.model).toMatchObject({ id: 'rawstep-plan-follower', modelId: 'follow-plan' }); expect(result.prompt).toMatchObject({ instructions: '' });
@@ -515,12 +522,12 @@ describe('run checks', () => {
       expect(check(setup(), typing, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-text-entry');
     });
     it('give a constant plan file to any task, registered or not; only {task} needs the task file', () => {
-      const constant = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { structure: 'planned', planner: { planFile: 'plans/common.json' } }); };
+      const constant = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/common.json' } }); };
       const result = check(setup(), constant, { mode: 'screenreader', taskEntry: {} });
       expect(result.problem).toBeUndefined(); expect(result.plannerPlanFile).toBe('plans/common.json');
     });
     it('hand the screen reader executor\'s latitude to the run, and none when the plan is followed', () => {
-      const config = setup(); Object.assign(config.profiles[0]!, { structure: 'planned', planner: { planFile: 'plans/{task}/L2.json' } }); choiceOf(config, 'screenreader').latitude = 'direction';
+      const config = setup(); Object.assign(config.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); choiceOf(config, 'screenreader').latitude = 'direction';
       const conditions = profileConditions(config.profiles[0]!);
       const spec = (c: ProjectConfig) => runSpecOf(task as never, 'screenreader', conditions, assertRunnable(check(c, () => {}, { mode: 'screenreader', taskEntry: { file: 'tasks/cart.json' } })));
       expect(spec(config).executor).toMatchObject({ latitude: 'direction' });
@@ -636,7 +643,7 @@ describe('runTask', () => {
     expect(calls).toHaveLength(4);
   });
   it('uses the first profile unless one is named, with that profile\'s executor and instructions for the mode', async () => {
-    const { dir } = await project(config => { config.profiles.push(profileWith('second', 'b', 'm-b', 'Second')); });
+    const { dir } = await project(config => { config.profiles.push(plannedWith(profileWith('second', 'b', 'm-b', 'Second'), 'setup-llm')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute });
     expect(calls[0]!.spec.permissions.intents).toContain('next'); expect(calls[0]!.spec.mode).toBe('screenreader');
@@ -686,23 +693,24 @@ describe('runTask', () => {
       config.connections.push(connection('planner', { kind: 'llm', provider: 'openai' }));
       config.profiles[0] = plannedWith(config.profiles[0]!, 'planner', 'plan-model', 'Be careful.');
     };
-    it('plan only in screen reader mode, with the planner\'s key; keyboard runs warn and need no planner key', async () => {
+    it('plan only in screen reader mode, with the planner\'s key; keyboard runs get no planner, no warning and need no planner key', async () => {
       const { dir, store } = await project(planning), { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
       const keyboard = await runTask('task', { projectDir: dir }, { execute });
       expect(calls[0]!.spec.plannerModel).toBeUndefined();
-      expect(keyboard.warnings).toEqual([expect.stringMatching(/Keyboard runs do not use the planner/)]);
-      expect(keyboard.conditions).toMatchObject({ combo: { structure: 'planned' } });
+      expect(keyboard.warnings).toEqual([]);
+      expect(keyboard.conditions).toMatchObject({ combo: { structure: 'solo' } });
+      expect(keyboard.conditions!.combo).not.toHaveProperty('planner');
       await expect(runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
       await store.setCredential('openai', 'sk-planner-key');
       const reader = await runTask('task', { projectDir: dir, mode: 'screenreader' }, { execute });
       expect(calls).toHaveLength(2);
       expect(calls[1]!.spec).toMatchObject({ plannerModel: { id: 'planner', modelId: 'plan-model' }, plannerInstructions: 'Be careful.' });
-      expect(reader.warnings).toEqual([]); expect(reader.conditions).toMatchObject({ combo: { structure: 'planned', planner: 'planner · plan-model' } });
+      expect(reader.warnings).toEqual([]); expect(reader.conditions).toMatchObject({ combo: { planner: 'planner · plan-model' } });
     });
   });
   describe('assistive technology', () => {
     it('passes the profile\'s screen reader to screen reader runs, and ignores it in keyboard runs', async () => {
-      const { dir } = await project(config => { config.profiles.push({ ...profileWith('nvda', 'a', 'm-a', 'NVDA'), screenReader: 'nvda' }); });
+      const { dir } = await project(config => { config.profiles.push({ ...plannedWith(profileWith('nvda', 'a', 'm-a', 'NVDA'), 'setup-llm'), screenReader: 'nvda' }); });
       const { calls, execute } = player(recorded(['Enter'], 'success'));
       await runTask('task', { projectDir: dir, profile: 'nvda' }, { execute });
       expect(calls[0]!.spec.backend).toBe('nvda');
@@ -711,7 +719,7 @@ describe('runTask', () => {
     });
   });
   it('runs in the profile\'s mode, unless the options name one', async () => {
-    const { dir } = await project(config => { config.profiles.push(profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader')); });
+    const { dir } = await project(config => { config.profiles.push(plannedWith(profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader'), 'setup-llm')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir }, { execute });
     await runTask('task', { projectDir: dir, profile: 'reader' }, { execute });
@@ -735,7 +743,7 @@ describe('runTask', () => {
     const empty = await root(), { execute } = player();
     await expect(runTask('task', { projectDir: empty }, { execute })).rejects.toMatchObject({ code: 'no-config', message: expect.stringMatching(/rawstep\.config\.json.*rawstep init.*rawstep ui/) });
     const old = await root(); await writeFile(join(old, 'rawstep.config.json'), JSON.stringify({ version: 2 }));
-    await expect(runTask('task', { projectDir: old }, { execute })).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(/version 2.*migrate-config\.mjs/) });
+    await expect(runTask('task', { projectDir: old }, { execute })).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(/version 2.*rawstep init/) });
     const { dir } = await project();
     await expect(runTask('task', { projectDir: dir, repeat: 0 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });
     await expect(runTask('task', { projectDir: dir, repeat: 1.5 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });

@@ -38,14 +38,14 @@ export function supportsMode(model: Pick<Model, 'inputs' | 'maxImages'>, mode: M
   return mode === 'keyboard' ? model.inputs.includes('image') && model.maxImages >= 2 : model.inputs.includes('text');
 }
 /** The modes a profile can run: those it has an executor for that takes what the mode sends. */
-export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'> & Partial<Pick<Combo, 'structure'>>): Mode[] {
+export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>): Mode[] {
   return (['screenreader', 'keyboard'] as const).filter(mode => { const model = comboExecutor(config, combo, mode); return !!model && supportsMode(model, mode); });
 }
 /**
  * The executor's instructions as a run records them: identified by combo and mode, versioned by their content, so two runs with
  * different wording never share an ID and version.
  */
-export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'> & Partial<Pick<Combo, 'structure'>>, mode: Mode): Prompt | undefined {
+export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'>, mode: Mode): Prompt | undefined {
   if (followsPlan(combo, mode)) return { id: `${combo.id}.${mode}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
   const executor = executorModel(combo, mode);
   if (!executor) return undefined;
@@ -92,11 +92,10 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
   const backend: AtBackend = mode === 'screenreader' ? atEnvironment.backend : 'simulation';
   const model = comboExecutor(config, combo, mode), prompt = executorPrompt(combo, mode), analysisModel = projectAnalysisModel(config);
   const plannerModel = mode === 'screenreader' ? comboPlanner(config, combo) : undefined;
-  const filePlanner = mode === 'screenreader' && combo.structure === 'planned' && isFilePlanner(combo.planner) ? combo.planner : undefined;
+  const filePlanner = mode === 'screenreader' && isFilePlanner(combo.planner) ? combo.planner : undefined;
   // Only `{task}` needs the task's file name; a constant plan path works for any task, registered or not.
   const plannerPlanFile = !filePlanner ? undefined : !filePlanner.planFile.includes('{task}') ? filePlanner.planFile : taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
   const warnings: string[] = [];
-  if (combo.structure === 'planned' && mode === 'keyboard') warnings.push('Keyboard runs do not use the planner yet; the keyboard executor decides alone.');
   let permissions = structuredClone(actionSet[mode]);
   const models = { ...(model ? { model } : {}), ...(prompt ? { prompt } : {}), ...(analysisModel ? { analysisModel } : {}),
     ...(plannerModel ? { plannerModel, plannerInstructions: (combo.planner as LlmPlannerChoice).instructions } : {}), ...(plannerPlanFile ? { plannerPlanFile } : {}) };
@@ -110,7 +109,7 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
   // Following the plan only moves and presses: a task that has to type into a named input cannot be carried out that way.
   if (followsPlan(combo, mode) && permissions.inputKeys?.length) return fail('follow-plan-text-entry', 'Following the plan cannot type into inputs yet. Pick an executor model for this task, or a profile without text entry.');
   if (followsPlan(combo, mode) && settings.runRules.taskControl === 'executor') return fail('follow-plan-task-control', 'Following the plan needs Rawstep to decide when tasks are done. Set task control to Rawstep.');
-  if (combo.structure === 'planned' && mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'The profile plans, so its planner must be a model on an LLM connection or a plan file.');
+  if (mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'Screen reader runs plan, so the profile needs a planner: a model on an LLM connection or a plan file.');
   // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks.
   const planChoices = (plannerModel || plannerPlanFile) && settings.runRules.taskControl === 'executor' ? 4 : 0, stops = settings.runRules.modelGiveUp ? 3 : 1;
   // The headings survey is Rawstep's first action in a planned run, never a choice the executor sees.

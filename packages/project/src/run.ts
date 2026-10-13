@@ -112,7 +112,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : firstProfile(config);
   // The profile says how the user reaches the page; --mode overrides it for this run.
   const mode = options.mode ?? profile.mode;
-  const conditions = profileConditions(profile);
+  const conditions = profileConditions(profile, mode);
   const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, mode, ...conditions, ...(options.diagnoseStop ? { diagnoseStop: true } : {}) }));
   const { settings, model, analysisModel, plannerModel } = check, warnings = [...check.warnings];
   const apiKey = await requireKey(store, model!);

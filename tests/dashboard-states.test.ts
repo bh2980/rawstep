@@ -130,7 +130,7 @@ describe('settings helpers', () => {
     expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('names run profiles by structure and models, and tells which modes a profile can run', () => {
+  it('names run profiles by their models and mode, and tells which modes a profile can run', () => {
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
     const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
     expect(environmentViewport('default', presets)).toEqual({ width: 1280, height: 800 });
@@ -138,21 +138,23 @@ describe('settings helpers', () => {
     expect(environmentViewport({ id: 'x', viewport: { width: 800, height: 600 } }, presets)).toEqual({ width: 800, height: 600 });
     expect(environmentViewport({ viewport: { width: -1, height: 'x' } }, presets)).toEqual({ width: 1280, height: 800 });
     const bare = defaultProfile('p', 'Plain');
-    expect(comboSummary(bare, connections)).toBe('실행 모델 없음');
-    expect(comboModesOf(bare, connections)).toEqual([]);
+    expect(comboSummary(bare, connections, 'keyboard')).toBe('키보드 실행 모델 없음');
+    // The default screen reader executor follows the plan, so it needs no model.
+    expect(comboModesOf(bare, connections)).toEqual(['screenreader']);
     const solo = profileWith('s', 'jev', 'jev-latest');
-    expect(comboSummary(solo, connections)).toBe('계획 없이 jev-latest (두 모드)');
+    expect(comboSummary(solo, connections, 'keyboard')).toBe('계획 없이 jev-latest');
     expect(comboModesOf(solo, connections)).toEqual(['screenreader', 'keyboard']);
     const planned = plannedWith(solo, 'writer', 'planner-fixture');
     expect(comboSummary(planned, connections, 'screenreader')).toBe('planner-fixture 계획 → jev-latest');
-    // Keyboard runs do not plan yet.
+    // Keyboard runs do not plan.
     expect(comboSummary(planned, connections, 'keyboard')).toBe('계획 없이 jev-latest');
     // A text-only keyboard executor cannot run keyboard mode.
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
-    expect(comboBlocker({ ...bare, structure: 'planned' })).toBe('planner');
+    // A missing planner only stops runs, not saving.
+    expect(comboBlocker(bare)).toBeUndefined();
     // A planned combo whose screen reader executor follows the plan has no model there to finish.
-    expect(comboBlocker({ ...bare, structure: 'planned', executors: { screenreader: { followPlan: true } }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
+    expect(comboBlocker({ ...bare, executors: { screenreader: { followPlan: true } }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
     expect(comboBlocker(plannedWith(solo, 'writer', ''))).toBe('modelId');
     expect(comboBlocker(planned)).toBeUndefined();
     const executor = solo.executors.screenreader as Executor;

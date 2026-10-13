@@ -100,7 +100,7 @@ describe('dashboard API and sequential queue', () => {
     expect(report).toContain('data:image/png;base64,' + png.toString('base64')); expect(report).not.toContain('src="blobs/');
   });
   it('rejects foreign Origin and unsupported modes before queue acquisition', async () => {
-    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.profiles[0]!.executors.keyboard!.inputs = ['text']; config.profiles.push(defaultProfile('bare', 'Bare'));
+    const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); const config = setup(); config.profiles[0]!.executors.keyboard!.inputs = ['text']; config.profiles.push({ ...defaultProfile('bare', 'Bare'), executors: {} });
     await store.save(config, initial.revision, { file: 'task.json', task });
     const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web') }); apps.push(app);
     expect((await fetch(app.url + '/api/state', { headers: { origin: 'https://foreign.example' } })).status).toBe(403);
@@ -259,18 +259,17 @@ describe('dashboard run views and live events', () => {
     // The reference run itself is compared with the next shortest goal-reaching run, never with itself.
     expect((await (await get(short, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(middle.runs[0]!.id);
   });
-  it('takes the reference run only from runs of the same mode and structure', async () => {
-    const { experiment, get } = await launch([script(['Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')], config => {
+  it('takes the reference run only from runs of the same mode', async () => {
+    const { experiment, get } = await launch([script(['Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')], config => {
       config.connections.push(connection('planner-llm', { kind: 'llm' }));
-      config.profiles.push(plannedWith(profileWith('planned', 'a', 'm-a', 'Planned'), 'planner-llm'), profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader'));
+      config.profiles.push(plannedWith(profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader'), 'planner-llm'));
     });
-    const keyboard = await experiment(['default']), spoken = await experiment(['reader']), planned = await experiment(['planned']), slow = await experiment(['other']);
-    expect(planned.runs[0]).toMatchObject({ mode: 'keyboard', structure: 'planned' });
-    // The shortest runs are a screen reader run and a planned run, yet the keyboard solo run is compared with the keyboard solo one.
+    const keyboard = await experiment(['default']), spoken = await experiment(['reader']), slow = await experiment(['other']);
+    expect(spoken.runs[0]).toMatchObject({ mode: 'screenreader', structure: 'planned' });
+    // The shortest runs include a screen reader run, yet the slow keyboard run is compared with the keyboard one.
     expect((await (await get(slow, 0, 'hints')).json() as RunHintsView).referenceRun).toEqual({ experimentId: keyboard.id, runId: keyboard.runs[0]!.id });
-    // Alone in its mode, or alone with its structure, a run has no reference.
+    // Alone in its mode, a run has no reference.
     expect((await (await get(spoken, 0, 'hints')).json() as RunHintsView).referenceRun).toBeUndefined();
-    expect((await (await get(planned, 0, 'hints')).json() as RunHintsView).referenceRun).toBeUndefined();
   });
   it('broadcasts throttled run-event messages while a run records', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
@@ -315,7 +314,7 @@ describe('dashboard conditions in plans and runs', () => {
     return { app, store, dir, revision: saved.revision };
   };
   it('plans one row per repeat and run profile, in the profile\'s mode, in a key that names each of them', async () => {
-    const config = setup(); config.profiles.push(profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader'));
+    const config = setup(); config.connections.push(connection('planner-llm', { kind: 'llm' })); config.profiles.push(plannedWith(profileWith('reader', 'a', 'm-a', 'Reader', 'screenreader'), 'planner-llm'));
     const { app } = await create(config)();
     const asked: PlanRequest = { ...request, profileIds: ['default', 'reader'], repeats: 2 };
     const rows = (await app.queue.plan(asked)).rows;
@@ -358,7 +357,7 @@ describe('dashboard conditions in plans and runs', () => {
     await expect(app.queue.plan({ ...request, modes: ['keyboard'] } as never)).rejects.toThrow();
     expect(app.queue.experiments).toHaveLength(0);
   });
-  it('gives screen reader runs of a planned profile the planner, with a warning on keyboard rows that do not use it', async () => {
+  it('gives screen reader runs of a planned profile the planner, and keyboard runs of the same profile get none, without a warning', async () => {
     const config = setup();
     config.connections.push(connection('planner-llm', { kind: 'llm' }));
     config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default', 'screenreader'), 'planner-llm', 'planner-fixture', 'Plan in small steps');
@@ -371,14 +370,14 @@ describe('dashboard conditions in plans and runs', () => {
     expect(spec).toMatchObject({ plannerInstructions: 'Plan in small steps', plannerModel: { id: 'planner-llm', modelId: 'planner-fixture', kind: 'llm' } });
     expect(spec.conditions).toMatchObject({ combo: { structure: 'planned', planner: 'planner-llm · planner-fixture' } });
     await waitFor(async () => !!screenReader.runs[0]!.endedAt);
-    // Keyboard mode runs the planned profile without its planner and says so.
+    // Keyboard mode runs the profile solo: no planner, no warning.
     const keyboard = { ...request, profileIds: ['planned-keys'] }, row = (await app.queue.plan(keyboard)).rows[0]!;
-    expect(row).toMatchObject({ supported: true, structure: 'planned', warnings: [expect.stringContaining('계획 모델')] }); expect(row).not.toHaveProperty('plannerName');
+    expect(row).toMatchObject({ supported: true, structure: 'solo', warnings: [] }); expect(row).not.toHaveProperty('plannerName');
     const made = await app.queue.create(keyboard), made0 = made.runs[0]!;
     expect(made0.snapshot.spec).not.toHaveProperty('plannerModel'); expect(made0.snapshot.spec).not.toHaveProperty('plannerInstructions'); expect(made0).not.toHaveProperty('plannerName');
     await waitFor(async () => !!made0.endedAt);
-    // A solo profile in screen reader mode has no planner and no warning.
-    expect((await app.queue.plan({ ...spoken, profileIds: ['reader'] })).rows[0]).toMatchObject({ supported: true, structure: 'solo', warnings: [] });
+    // A screen reader run always plans, so a profile without a planner is not supported.
+    expect((await app.queue.plan({ ...spoken, profileIds: ['reader'] })).rows[0]).toMatchObject({ supported: false, reason: expect.stringContaining('계획 모델') });
   });
   it('applies the profile\'s run rules, with the experiment\'s over them, to the snapshot, and the analysis instructions of the project or the task', async () => {
     const config = setup();

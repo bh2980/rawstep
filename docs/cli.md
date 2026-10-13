@@ -23,7 +23,7 @@ rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader] [--rule 
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>` is a task id from `rawstep.config.json` or a path to a task JSON file (see [task files](./task.md)). Relative paths resolve from the project directory. A file that is not registered in the config runs with the project's first profile. The executor of the profile for the mode decides each step (with a planner too, in screen reader mode, when the profile is planned); a mode without an executor cannot run. A [run profile](./config.md#run-profiles) holds everything that changes a run: to compare models or prompts, what the user may do, page conditions or a simulated and a native screen reader, make profiles that differ in that part only and run the task with each.
+`<task>` is a task id from `rawstep.config.json` or a path to a task JSON file (see [task files](./task.md)). Relative paths resolve from the project directory. A file that is not registered in the config runs with the project's first profile. The executor of the profile for the mode decides each step (a screen reader run also plans, with the profile's planner); a mode without an executor, or a screen reader profile without a planner, cannot run. A [run profile](./config.md#run-profiles) holds everything that changes a run: to compare models or prompts, what the user may do, page conditions or a simulated and a native screen reader, make profiles that differ in that part only and run the task with each.
 
 | Option | Default |
 |---|---|
@@ -38,20 +38,20 @@ rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader] [--rule 
 
 ### Output
 
-The conditions come first (`Conditions: <profile> (solo · executor … | planned · planner … → executor …)` and the page environment and screen reader), followed by notes such as a planner that keyboard mode does not use. Then each run prints one line, such as `Run 1 of 2: goal reached · 7 steps`. The other forms are `goal not reached (reason)`, `inconclusive` and `no outcome recorded`. Run-level hints and the run directory follow. After all runs, findings are grouped under `Page`, `Run` and `Model`. Each line reads `<role "name"> · <kind> · <n> of <N> runs`.
+The conditions come first (`Conditions: <profile> (solo · executor … | planned · planner … → executor …)` and the page environment and screen reader), followed by notes. Then each run prints one line, such as `Run 1 of 2: goal reached · 7 steps`. The other forms are `goal not reached (reason)`, `inconclusive` and `no outcome recorded`. Run-level hints and the run directory follow. After all runs, findings are grouped under `Page`, `Run` and `Model`. Each line reads `<role "name"> · <kind> · <n> of <N> runs`.
 
 `--json` prints `{ conditions, warnings, runs: [{ runId, outDir, outcome, hints }], findings }` instead. Hints are friction signals: they point at steps worth a human look and are not a verdict. See [reports](./report.md).
 
 ### Run directory
 
-Each `run-<n>/` directory contains `trace.json` (with `trace.jsonl` and `blobs/`), `hints.json`, `analysis.json`, `report.html` and `report.json`. `analysis.json` holds the rule-based analysis, which always runs after a run; when the project has an analysis model, an LLM analysis is added (without its key the runs get the rule-based analysis only and a note says so). A run of a planned profile also writes `plan.json` and `plan.md`, the final plan document (see [planner and executor](./config.md#planner-and-executor-orchestration)). Screen reader runs also save a reference screenshot per step as `diagnostics/step-<n>.png` for people to look at; the model never sees them.
+Each `run-<n>/` directory contains `trace.json` (with `trace.jsonl` and `blobs/`), `hints.json`, `analysis.json`, `report.html` and `report.json`. `analysis.json` holds the rule-based analysis, which always runs after a run; when the project has an analysis model, an LLM analysis is added (without its key the runs get the rule-based analysis only and a note says so). A screen reader run also writes `plan.json` and `plan.md`, the final plan document (see [planner and executor](./config.md#planner-and-executor-orchestration)). Screen reader runs also save a reference screenshot per step as `diagnostics/step-<n>.png` for people to look at; the model never sees them.
 
 ### Exit codes
 
 | Code | Meaning |
 |---|---|
 | 0 | The runs completed, whether or not the goal was reached. |
-| 1 | An error: no config, a profile without an executor for the mode, an unsupported action or condition, a missing key, an old config version or a failed run. |
+| 1 | An error: no config, a profile without an executor for the mode or a screen reader profile without a planner, an unsupported action or condition, a missing key, an old config version or a failed run. |
 | 2 | Invalid usage. |
 | 130, 143 | Cancelled by SIGINT or SIGTERM. Traces written so far are kept. |
 

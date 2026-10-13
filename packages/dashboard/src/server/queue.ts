@@ -271,7 +271,7 @@ function safeTask(task: Task): Task {
 
 /** The run profiles an experiment lists, in its order; ids no profile has are left out (the plan then has fewer rows). */
 function conditionSets(config: ProjectConfig, request: { profileIds: string[] }): RunConditions[] {
-  return [...new Set(request.profileIds)].map(id => config.profiles.find(p => p.id === id)).filter(p => !!p).map(profileConditions);
+  return [...new Set(request.profileIds)].map(id => config.profiles.find(p => p.id === id)).filter(p => !!p).map(profile => profileConditions(profile));
 }
 /** Korean wording of the run check's English warnings. */
 function koreanWarning(warning: string): string {

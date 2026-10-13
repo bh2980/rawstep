@@ -14,4 +14,4 @@ export const profileWith = (id: string, connectionId: string, modelId = 'm-' + c
 };
 /** The same profile planning with `plannerModelId` on the LLM connection `plannerConnectionId`. */
 export const plannedWith = (profile: Profile, plannerConnectionId: string, plannerModelId = 'planner', plannerInstructions = ''): Profile =>
-  ({ ...profile, structure: 'planned', planner: { connectionId: plannerConnectionId, modelId: plannerModelId, instructions: plannerInstructions } });
+  ({ ...profile, planner: { connectionId: plannerConnectionId, modelId: plannerModelId, instructions: plannerInstructions } });

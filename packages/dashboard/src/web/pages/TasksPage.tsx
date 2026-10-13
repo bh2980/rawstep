@@ -53,7 +53,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   // Ready once some run profile has an executor that can run a mode.
   const ready = config.profiles.find(profile => comboModesOf(profile, config.connections).length > 0);
   const steps: SetupStep[] = [
-    { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
+    { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections, ready.mode) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
       to: { view: 'settings', section: config.connections.length ? 'profiles' : 'connections' } },
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('taskList.setup.taskDone', { count: config.tasks.length }) : t('taskList.setup.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: finished.length > 0, detail: finished.length ? t('taskList.setup.runDone', { count: finished.length }) : t('taskList.setup.runTodo') },

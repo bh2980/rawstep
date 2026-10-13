@@ -11,12 +11,12 @@ export const QUICK_RUN_REPEATS = 3;
  * for the executor or (a planned combo in screen reader mode) the planner, or a keyboard executor that does not take the two
  * screenshots keyboard mode sends. Undefined when it looks ready. The analysis model never blocks a run.
  */
-export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credentialStatus: Record<string, boolean>, combo: Pick<Combo, 'structure' | 'planner' | 'executors'>, mode: Mode): string | undefined {
+export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credentialStatus: Record<string, boolean>, combo: Pick<Combo, 'planner' | 'executors'>, mode: Mode): string | undefined {
   const missingKey = (model: Model) => modelKeyRequired(model) && !credentialStatus[credentialId(model)];
   const executor = comboExecutor(config, combo, mode);
   if (!executor) return t('runBox.problem.noExecutor', { mode: t(`sidebar.modes.${mode}`) });
   if (missingKey(executor)) return t('runBox.problem.noKey');
-  if (combo.structure === 'planned' && mode === 'screenreader' && !isFilePlanner(combo.planner)) {
+  if (mode === 'screenreader' && !isFilePlanner(combo.planner)) {
     const planner = comboPlanner(config, combo);
     if (!planner) return t('runBox.problem.noPlanner');
     if (missingKey(planner)) return t('runBox.problem.noPlannerKey');
