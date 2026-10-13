@@ -69,6 +69,11 @@ describe('plan document', () => {
     expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Return items within 30 days of delivery.')).toBe('heard');
     expect(matchCue({ cue: 'days', cueRole: 'text' }, 'Days, heading, level 2')).toBe('no');
     expect(matchCue({ cue: 'Returns', cueRole: 'heading' }, 'Help center, heading, level 1')).toBe('no');
+    // A role-only cue is heard on an item with that role; an unnamed item of the expected role is worth asking about.
+    expect(matchCue({ cue: '', cueRole: 'button' }, 'button')).toBe('heard');
+    expect(matchCue({ cue: '', cueRole: 'button' }, 'link, Home')).toBe('no');
+    expect(matchCue({ cue: 'Add to cart', cueRole: 'button' }, 'button')).toBe('candidate');
+    expect(matchCue({ cue: 'Add to cart', cueRole: 'button' }, 'Reviews, heading, level 2')).toBe('no');
   });
   it('reads a structured cue from the plan, dropping a role or state it does not know', () => {
     const v1 = applyDraft(undefined, { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Move to it', done: 'Hear it', cue: { name: 'Add to cart', role: 'Button' } },

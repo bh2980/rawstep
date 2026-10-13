@@ -195,7 +195,7 @@ function draftCue(cue: string | DraftCue | undefined): Pick<PlanTask, 'cue' | 'c
 /** The cue as one line, for the executor and the plan document: "Add to cart (button)". */
 export function cueText(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>): string {
   const extra = [task.cueRole, task.cueState].filter(Boolean).join(', ');
-  return task.cue ? `${task.cue}${extra ? ` (${extra})` : ''}` : '';
+  return task.cue ? `${task.cue}${extra ? ` (${extra})` : ''}` : extra ? `(${extra})` : '';
 }
 
 const ROLE_TOKENS = new Set(['button', 'link', 'checkbox', 'radio', 'heading', 'tab', 'image', 'field', 'menu', 'combo', 'group', 'navigation', 'list', 'region', 'banner', 'search', 'edit']);
@@ -223,7 +223,13 @@ export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, i
   }
   if (task.cueState && !said.includes(task.cueState)) return 'no';
   const cue = nameWords(task.cue), named = nameWords(item);
-  if (!cue.size) { const want = tokens(task.cue); return want.length && want.every(w => said.includes(w)) ? 'heard' : 'no'; }
+  if (!cue.size) {
+    // A cue with only a role and state ("the unnamed button before Reviews") is heard on any item that has them.
+    if (task.cueRole || task.cueState) return 'heard';
+    const want = tokens(task.cue); return want.length && want.every(w => said.includes(w)) ? 'heard' : 'no';
+  }
+  // An item of the expected role with no name at all ("button") might be the one: a listener wonders, so the planner is asked.
+  if (task.cueRole && !named.size) return 'candidate';
   const all = [...cue].every(w => named.has(w)), some = [...cue].some(w => named.has(w));
   if (all && (task.cueRole || [...named].every(w => cue.has(w)))) return 'heard';
   return some ? 'candidate' : 'no';
@@ -233,7 +239,7 @@ export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, i
  * quotes). A task with neither cannot be checked.
  */
 export function verifyCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState' | 'done'>, heard: readonly string[]): NonNullable<TaskEnding['verified']> {
-  const cues = task.cue ? [task] : [...task.done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => ({ cue: m[1]!.trim() })).filter(c => c.cue);
+  const cues = task.cue || task.cueRole || task.cueState ? [task] : [...task.done.matchAll(/["“”']([^"“”']{2,})["“”']/g)].map(m => ({ cue: m[1]!.trim() })).filter(c => c.cue);
   if (!cues.length) return 'unchecked';
   return cues.some(cue => heard.some(line => matchCue(cue, line) === 'heard')) ? 'heard' : 'not-heard';
 }
