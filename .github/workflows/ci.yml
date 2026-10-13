@@ -27,4 +27,6 @@ jobs:
       - run: pnpm test
       # The browser suites (tests/**/*.integration.test.ts) need Playwright's Chromium.
       - run: pnpm exec playwright install --with-deps chromium
+      # Ubuntu 24.04 blocks unprivileged user namespaces, which Chromium's sandbox needs; allow them rather than turn the sandbox off.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm run test:integration
