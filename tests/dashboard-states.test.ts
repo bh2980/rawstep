@@ -5,7 +5,7 @@ import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, profileReady, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
 import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
@@ -151,6 +151,14 @@ describe('settings helpers', () => {
     // A text-only keyboard executor cannot run keyboard mode.
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
+    // Ready to run in its own mode: a new project's profile follows the plan but has no planner yet, so it is not.
+    expect(profileReady(bare, connections)).toBe(false);
+    expect(profileReady({ ...bare, mode: 'keyboard' }, connections)).toBe(false);
+    expect(profileReady({ ...solo, mode: 'screenreader' }, connections)).toBe(false);
+    expect(profileReady({ ...solo, mode: 'keyboard' }, connections)).toBe(true);
+    expect(profileReady({ ...planned, mode: 'screenreader' }, connections)).toBe(true);
+    expect(profileReady({ ...plannedWith(solo, 'writer', ' '), mode: 'screenreader' }, connections)).toBe(false);
+    expect(profileReady({ ...bare, mode: 'screenreader', planner: { planFile: 'plans/p.json' } }, connections)).toBe(true);
     // A missing planner only stops runs, not saving.
     expect(comboBlocker(bare)).toBeUndefined();
     // A planned combo whose screen reader executor follows the plan has no model there to finish.

@@ -20,7 +20,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { NEW_TASK } from '../hooks/useRoute';
 import { roleLabel } from '../i18n/labels';
 import { dataFailureView } from '../lib/errors';
-import { comboModesOf, comboSummary } from '../lib/conditions';
+import { comboSummary, profileReady } from '../lib/conditions';
 import { formatSteps } from '../lib/format';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { isFinished, isLive, runModelsName, runStepCount, taskNameOf, taskRunNumbers } from '../lib/runs';
@@ -50,8 +50,8 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   const allShown = ordered.length > 0 && ordered.every(item => picked.includes(item.task.id));
   const profileName = (id: string) => config.profiles.find(profile => profile.id === id)?.name ?? id;
   const live = runs.filter(ref => isLive(ref.run)), finished = runs.filter(ref => isFinished(ref.run));
-  // Ready once some run profile has an executor that can run a mode.
-  const ready = config.profiles.find(profile => comboModesOf(profile, config.connections).length > 0);
+  // Ready once some run profile can run in its mode: an executor, and a planner for a screen reader run.
+  const ready = config.profiles.find(profile => profileReady(profile, config.connections));
   const steps: SetupStep[] = [
     { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections, ready.mode) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
       to: { view: 'settings', section: config.connections.length ? 'profiles' : 'connections' } },

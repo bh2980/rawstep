@@ -1,7 +1,7 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import {
   DEFAULT_EXECUTOR_INSTRUCTIONS, defaultInputs, executorModel, followsPlan, isFilePlanner,
-  type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type RunRules,
+  type ActionSet, type AtBackend, type Combo, type Connection, type Executor, type Mode, type Profile, type RunRules,
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
 import { i18n, t } from '../i18n/index.js';
@@ -33,6 +33,17 @@ export function comboSummary(combo: Pick<Combo, 'planner' | 'executors'>, connec
   const executor = followsPlan(combo, mode) ? t('conditions.combo.pipeline.followPlan') : shortName(executorModel(combo, mode), connections);
   if (!executor) return t('conditions.summary.noExecutorIn', { mode: t(`conditions.modes.${mode}`) });
   return planner ? t('conditions.summary.planned', { planner, executor }) : t('conditions.summary.solo', { executor });
+}
+
+/**
+ * Whether a profile looks ready to run in its own mode: it has an executor for the mode and, for a screen reader run (which always
+ * plans), a plan file or a planner model on an existing connection.
+ */
+export function profileReady(profile: Pick<Profile, 'mode' | 'planner' | 'executors'>, connections: readonly Connection[]): boolean {
+  if (!comboModesOf(profile, connections).includes(profile.mode)) return false;
+  if (profile.mode !== 'screenreader' || isFilePlanner(profile.planner)) return true;
+  const planner = profile.planner;
+  return !!planner && !!planner.modelId.trim() && connections.some(c => c.id === planner.connectionId && c.kind === 'llm');
 }
 
 /**
