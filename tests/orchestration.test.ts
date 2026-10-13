@@ -369,6 +369,13 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     await policy.decide(input({ goal, observation: said('Kimchi Fried Rice'), history: walk.slice(0, 2) }));
     expect(p.requests.map(r => r.trigger)).toEqual(['start', 'goal-heard']);
     expect(p.requests[1]!.currentItem).toBe('Kimchi Fried Rice');
+    // Not a correction, so a run with no replans left still tells the planner instead of giving up.
+    const q = planner(draft({ Order: ['Move to the Add Kimchi Fried Rice button'] }), draft({ Order: ['Move to the Add button'] }));
+    const strict = new OrchestratedSpeechPolicy(q.planner, executor(...Array(6).fill('intent:next')).executor, { maxReplans: 0 });
+    await strict.decide(input({ goal, observation: said('Hanok Kitchen') }));
+    const decision = await strict.decide(input({ goal, observation: said('Kimchi Fried Rice'), history: walk.slice(0, 2) }));
+    expect(q.requests.map(r => r.trigger)).toEqual(['start', 'goal-heard']);
+    expect(decision).not.toHaveProperty('stop');
   });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));

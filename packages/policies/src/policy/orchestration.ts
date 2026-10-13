@@ -204,7 +204,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (!this.doc) await this.replan(input, step, 'start');
     else {
       const trigger = repeated ? 'no-change' : this.trigger(input);
-      if (trigger) { if (this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
+      // Noticing the goal's item is not a correction: like the replan counter, the quota does not stop it.
+      if (trigger) { if (trigger !== 'goal-heard' && this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
     }
     // A "done" claim turned down in this step is not offered again until an action has been taken.
     let refused: string | undefined;
