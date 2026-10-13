@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { ProjectStore } from '@rawstep/project/store';
-import { defaultActionSet } from '@rawstep/project/config';
+import { defaultProfile, runRulesSchema } from '@rawstep/project/config';
 
 const dirs: string[] = [];
 afterEach(async () => { for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true }); });
@@ -25,25 +25,23 @@ describe('task files for editing', () => {
     expect(JSON.parse(await readFile(join(dir, 'tasks/pay.json'), 'utf8'))).toEqual(task);
   });
 
-  it('keeps a task\'s condition choices, run rules and task-only copy in the config next to its file', async () => {
+  it('keeps a task\'s profile choice next to its file, and deleting the task leaves the profiles', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-task-conditions-')); dirs.push(dir);
     const store = new ProjectStore(dir), initial = await store.initialize();
     const task = { url: 'https://example.com', goal: 'Pay', verify: { all: [{ textVisible: 'Paid' }] } };
+    const strict = { ...defaultProfile('strict', 'Strict'), runRules: runRulesSchema.parse({ maxReplans: 1, failureLimit: 5 }) };
     const config = { ...initial.config,
-      actionSets: [...initial.config.actionSets, { ...defaultActionSet('pay-keys', 'Pay keys'), owner: 'pay', copiedFrom: 'basic' }],
-      presets: [{ id: 'strict', name: 'Strict', runRules: { maxReplans: 1 } }],
-      tasks: [{ id: 'pay', name: 'Pay', file: 'tasks/pay.json', presetId: 'strict', actionSetId: 'pay-keys', runRules: { failureLimit: 5 } }] };
+      profiles: [...initial.config.profiles, strict],
+      tasks: [{ id: 'pay', name: 'Pay', file: 'tasks/pay.json', profileId: 'strict' }] };
     await store.save(config, initial.revision, { file: 'tasks/pay.json', task });
     const saved = (await store.read()).config;
-    expect(saved.tasks[0]).toMatchObject({ presetId: 'strict', actionSetId: 'pay-keys' });
-    expect(saved.actionSets.find(s => s.id === 'pay-keys')).toMatchObject({ owner: 'pay', copiedFrom: 'basic' });
-    // The task file holds only the task: conditions never leak into it.
+    expect(saved.tasks[0]).toMatchObject({ profileId: 'strict' });
+    expect(saved.profiles.find(p => p.id === 'strict')?.runRules).toMatchObject({ maxReplans: 1, failureLimit: 5 });
+    // The task file holds only the task: the profile never leaks into it.
     expect(JSON.parse(await readFile(join(dir, 'tasks/pay.json'), 'utf8'))).toEqual(task);
-    // Deleting the task deletes its own copies with it; shared items stay.
     await store.deleteTask('pay', (await store.read()).revision);
     const after = (await store.read()).config;
-    expect(after.actionSets.map(s => s.id)).toEqual(initial.config.actionSets.map(s => s.id));
-    expect(after.presets.map(p => p.id)).toEqual(['strict']);
+    expect(after.profiles.map(p => p.id)).toEqual(['default', 'strict']);
   });
 
   it('finds unregistered task files in the project and skips dependencies and non-task JSON', async () => {

@@ -6,11 +6,11 @@ import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } f
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, projectAnalysisModel, resolveBaseURL, taskConditions, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, taskProfile, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
 import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
-import { assertRunnable, checkRun, loadPlanFile, runSpecOf, type RunConditions } from './plan.js';
+import { assertRunnable, checkRun, loadPlanFile, runSpecOf } from './plan.js';
 import { executeRun, type RunExecutor, type RunSpec } from './execution.js';
 
 export type FinalizeOptions = {
@@ -45,12 +45,9 @@ export async function finalizeRun(trace: RunTrace, outDir: string, options: Fina
 export type RunTaskOptions = {
   /** The directory holding rawstep.config.json. Defaults to the current directory. */
   projectDir?: string;
-  /**
-   * Experiment conditions by id or name. Each defaults to the task's own, then its preset's, then the first shared item; `preset`
-   * fills the conditions it names before the individual options apply.
-   */
-  preset?: string; combo?: string; actionSet?: string; pageEnvironment?: string; atEnvironment?: string;
-  /** Run rules for these runs only, over the project's, the preset's and the task's. */
+  /** The run profile by id or name; defaults to the task's, then the project's first. */
+  profile?: string;
+  /** Run rules for these runs only, over the profile's. */
   runRules?: Partial<RunRules>;
   /** Keyboard runs: ask the executor, after a run that stopped early, why (never an action or verdict). */
   diagnoseStop?: boolean;
@@ -99,7 +96,7 @@ function pick<T extends { id: string; name: string }>(kind: string, list: readon
 
 /**
  * Runs a task from the project in `projectDir` and reports where the runs got slow or took detours. `task` is a task id
- * from rawstep.config.json or a path to a task JSON file; a file that is not registered runs with the first shared conditions.
+ * from rawstep.config.json or a path to a task JSON file; a file that is not registered runs with the project's first profile.
  * Reaching the goal is one signal in the hints, not a verdict, so a run that fails its goal still resolves.
  * It rejects on setup problems (no config, no usable model, a missing key) and on cancellation.
  *
@@ -112,8 +109,9 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > MAX_REPEAT) throw new ProjectError('invalid-repeat', `The repeat count must be an integer from 1 to ${MAX_REPEAT}.`);
   const store = new ProjectStore(projectDir), { config } = await store.read();
   const { entry, task: source } = await loadTask(store, config, task, projectDir);
-  const conditions = pickConditions(config, entry ?? {}, options);
-  const check = assertRunnable(checkRun({ config, task: source, taskEntry: { ...entry, runRules: { ...entry?.runRules, ...options.runRules } }, mode, ...conditions, ...(options.diagnoseStop ? { diagnoseStop: true } : {}) }));
+  const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : taskProfile(config, entry ?? {});
+  const conditions = profileConditions(profile);
+  const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, mode, ...conditions, ...(options.diagnoseStop ? { diagnoseStop: true } : {}) }));
   const { settings, model, analysisModel, plannerModel } = check, warnings = [...check.warnings];
   const apiKey = await requireKey(store, model!);
   const plannerApiKey = plannerModel ? await requireKey(store, plannerModel) : undefined;
@@ -145,19 +143,6 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   }
   return { conditions: spec.conditions ?? {}, warnings, runs, findings: aggregateHints(runs.map(r => r.hints)) };
 }
-/** The conditions of a run: the task's (and its preset's), then the options by id or name. */
-function pickConditions(config: ProjectConfig, task: Parameters<typeof taskConditions>[1], options: RunTaskOptions): RunConditions {
-  const preset = options.preset !== undefined ? pick('preset', config.presets, options.preset) : undefined;
-  const base = taskConditions(config, { ...task, ...(preset ? { presetId: preset.id, comboId: preset.comboId, actionSetId: preset.actionSetId, pageEnvironmentId: preset.pageEnvironmentId, atEnvironmentId: preset.atEnvironmentId } : {}) });
-  return {
-    combo: options.combo !== undefined ? pick('combo', config.combos, options.combo) : base.combo,
-    actionSet: options.actionSet !== undefined ? pick('action-set', config.actionSets, options.actionSet) : base.actionSet,
-    pageEnvironment: options.pageEnvironment !== undefined ? pick('page-environment', config.pageEnvironments, options.pageEnvironment) : base.pageEnvironment,
-    atEnvironment: options.atEnvironment !== undefined ? pick('at-environment', config.atEnvironments, options.atEnvironment) : base.atEnvironment,
-    ...(base.preset ? { preset: base.preset } : {}),
-  };
-}
-
 /** The key a model needs (`undefined` for a server that takes none); a missing required key stops the run before anything starts. */
 export async function requireKey(store: ProjectStore, model: Model): Promise<string | undefined> {
   const apiKey = await store.credential(model), env = modelKeyEnv(model);

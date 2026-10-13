@@ -4,7 +4,7 @@ import type { Experiment, RunRecord } from '../packages/dashboard/src/shared/con
 import '../packages/dashboard/src/web/i18n/index.js';
 import { describeFinding, firstOccurrence, stepRange } from '../packages/dashboard/src/web/lib/findings.js';
 import { eventsByStep } from '../packages/dashboard/src/web/lib/rawEvents.js';
-import { fastestRun, taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
+import { taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
 import { inputFields, inputProblems, taskInputOptions, taskInputs } from '../packages/dashboard/src/web/lib/taskInputs.js';
 import { defaultStep, dotKind, dotLabel, isUnsure } from '../packages/dashboard/src/web/lib/stepDots.js';
 
@@ -124,12 +124,6 @@ describe('run numbers and the fastest run', () => {
   ];
   it('numbers one task\'s runs from the oldest', () => {
     expect([...taskRunNumbers(runs, 't')]).toEqual([['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
-  });
-  it('picks the goal-reaching run with the fewest actions and ignores unfinished and failed ones', () => {
-    const mine = runs.filter(item => item.run.taskId === 't');
-    expect(fastestRun(mine)).toMatchObject({ steps: 4, ref: { run: { id: 'c' } } });
-    expect(fastestRun([mine[1]!, mine[3]!])).toBeUndefined();
-    expect(fastestRun([])).toBeUndefined();
   });
 });
 

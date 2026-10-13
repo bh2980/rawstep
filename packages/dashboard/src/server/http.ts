@@ -52,7 +52,7 @@ const korean: Record<string, string> = {
   'model-list-missing': '모델 목록 API가 없습니다. 명시적인 모델 ID와 입력 지원을 수동으로 등록하세요.',
   'unsupported-action': '이 백엔드가 지원하지 않는 행동이 선택되었습니다.',
   'unknown-input': '작업에 없는 입력 이름이 선택되었습니다.',
-  'combo-without-executor': '이 모델 조합에는 이 모드의 실행 모델이 없습니다. 모델 조합에서 실행 모델을 고르세요.',
+  'profile-without-executor': '이 실행 프로필에는 이 모드의 실행 모델이 없습니다. 실행 프로필에서 실행 모델을 고르세요.',
   'model-needs-images': '키보드 실행에는 화면 이미지를 받는 실행 모델이 필요합니다. 모델 조합의 키보드 실행 모델에서 이미지 입력을 켜거나 다른 모델을 고르세요.',
   'model-needs-text': '스크린리더 실행에는 텍스트 입력 지원이 필요합니다.',
   'too-many-choices': '선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.',

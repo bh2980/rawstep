@@ -43,6 +43,8 @@ type Props = {
   /** The option that means "no model", e.g. rule-based analysis only. */
   none?: string;
   onNone?: () => void;
+  /** The group's own heading already names this picker: the label then stays for screen readers only. */
+  hideLabel?: boolean;
 };
 
 /**
@@ -50,7 +52,7 @@ type Props = {
  * The connection's model list is read as soon as a connection is chosen. That asks the provider for its list, which costs nothing, and
  * for a coding-agent CLI connection starts the CLI without prompting it. Whatever is typed is the model ID, listed or not.
  */
-export function ModelPicker({ label, connections, connectionId, modelId, reasoningEffort, onChange, none, onNone }: Props) {
+export function ModelPicker({ label, connections, connectionId, modelId, reasoningEffort, onChange, none, onNone, hideLabel }: Props) {
   const { t } = useTranslation();
   const id = useId(), listId = id + '-list';
   const connection = connections.find(c => c.id === connectionId);
@@ -115,7 +117,7 @@ export function ModelPicker({ label, connections, connectionId, modelId, reasoni
   const placeholder = t(connection && agentOf(connection) ? 'modelPicker.modelIdPlaceholderAgent' : 'modelPicker.modelIdPlaceholder');
   const name = (c: Connection) => `${c.name} · ${t(`connections.kinds.${kindLabelKey(c)}.name`)}`;
   return <fieldset className="grid gap-3">
-    <legend className="mb-3 text-sm font-semibold">{label}</legend>
+    <legend className={hideLabel ? 'sr-only' : 'mb-2 text-sm font-semibold'}>{label}</legend>
     {/* Top-aligned so a hint under one field does not stretch the others. */}
     <div className={cn('grid items-start gap-3 sm:grid-cols-2 [&>*]:min-w-0', connection && levels && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]')}>
       <Choice label={t('modelPicker.connection')} value={connection?.id ?? (none ? NONE : '')}
@@ -149,12 +151,9 @@ export function ModelPicker({ label, connections, connectionId, modelId, reasoni
         </div>
         {current && current.name !== current.modelId && <p className="text-xs leading-5 text-muted-foreground">{t('modelPicker.selectedName', { name: current.name })}</p>}
       </div>}
-      {connection && levels && <div className="grid gap-1.5">
-        <Choice label={t('modelPicker.effort')} value={reasoningEffort ?? DEFAULT_EFFORT}
-          onChange={next => onChange({ connectionId: connection.id, modelId, ...(next === DEFAULT_EFFORT ? {} : { reasoningEffort: next }) })} options={effortOptions} />
-      </div>}
+      {connection && levels && <Choice label={t('modelPicker.effort')} info={t('modelPicker.effortHint')} value={reasoningEffort ?? DEFAULT_EFFORT}
+        onChange={next => onChange({ connectionId: connection.id, modelId, ...(next === DEFAULT_EFFORT ? {} : { reasoningEffort: next }) })} options={effortOptions} />}
     </div>
-    {connection && levels && <p className="text-xs leading-5 text-muted-foreground">{t('modelPicker.effortHint')}</p>}
     {error && <ErrorState alert view={error} actions={<Button type="button" variant="outline" size="sm" onClick={() => load(true)}><RefreshCw aria-hidden="true" />{t('modelPicker.reload')}</Button>} />}
   </fieldset>;
 }

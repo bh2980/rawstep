@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Download, ExternalLink, RotateCcw, Square, Trash2, X, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, Ellipsis, ExternalLink, RotateCcw, Square, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { RunStepsView } from '../../shared/api';
 import type { Experiment, RetryPreview } from '../../shared/config';
 import { api } from '../api';
+import { useTaskFindings } from '../hooks/useTaskFindings';
 import type { RouteChange } from '../hooks/useRoute';
 import { outcomeReasonLabel, runStateLabel } from '../i18n/labels';
 import { useNow } from '../hooks/useNow';
@@ -12,7 +13,7 @@ import { formatClock } from '../lib/format';
 import { liveCurrentLine } from '../lib/stepDots';
 import { runGlyphKind } from '../lib/runStrip';
 import { describeHint } from '../lib/describe';
-import { durationSeconds, fastestRun, isLive, runConditions, runConditionsLine, runPath, runStepCount, type RunRef } from '../lib/runs';
+import { durationSeconds, isLive, runConditions, runConditionsLine, runModelsName, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
@@ -22,24 +23,30 @@ import { RetryDialog } from './RetryDialog';
 import { FactLine } from './trace/FactLine';
 import { RunGlyph } from './trace/RunStrip';
 import { Button } from './ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 type Props = {
   runRef: RunRef;
-  /** Every run of the task, for the fastest run and the run numbers. */
-  taskRuns: RunRef[]; numbers: ReadonlyMap<string, number>;
+  /** Run numbers of the task. */
+  numbers: ReadonlyMap<string, number>;
   view: RunStepsView | undefined;
   pageProps: PageProps; navigate: (change: RouteChange) => void;
 };
 
-/** Run title with its state, the facts of the run, the run-level hints and the actions: stop while live, run again when done. */
-export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate }: Props) {
+/**
+ * One title row (run number and result left, actions right: stop while live, run again when done, the rest in a ⋯ menu with delete
+ * set apart), then one line of facts and the run-level hints and failure when there are any.
+ */
+export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props) {
   const { t } = useTranslation();
   const { run, experiment } = runRef;
   // The task may have been renamed since this run; the link says where it goes now.
   const taskName = pageProps.view.config.tasks.find(task => task.id === run.taskId)?.name ?? run.snapshot.taskName;
   const [retry, setRetry] = useState<RetryPreview>(), [deleting, setDeleting] = useState(false);
   const base = runPath(experiment.id, run.id), live = isLive(run);
-  const steps = runStepCount(run), seconds = durationSeconds(run), fastest = fastestRun(taskRuns);
+  const steps = runStepCount(run), seconds = durationSeconds(run);
+  // The fastest run is the server's definition (reached runs only, oldest wins a tie): the task overview shows the same one.
+  const fastest = useTaskFindings(run.taskId).data?.facts.fastest;
   const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const conditions = runConditions(run, pageProps.view.config);
   const { act, busy } = pageProps;
@@ -62,30 +69,33 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
   const elapsed = run.startedAt && run.state === 'running' ? Math.max(0, (now - Date.parse(run.startedAt)) / 1000) : undefined;
   const newest = view?.steps.at(-1);
   const failure = describeRunFailure(run), afterRun = describeAfterRunFailure(run);
-  return <header className="grid gap-3">
+  const reason = run.outcome?.reason && run.outcome.reason !== 'verified' && !failure ? outcomeReasonLabel(run.outcome.reason) : undefined;
+  const simulated = run.snapshot.spec.mode === 'screenreader' && run.snapshot.spec.backend === 'simulation';
+  return <header className="grid gap-2">
     <nav aria-label={t('runPage.breadcrumb')}>
-      <Link to={{ task: run.taskId, tab: 'runs' }} navigate={navigate} className="inline-flex min-h-9 items-center gap-1.5 rounded-sm text-sm font-medium text-trace underline-offset-4 hover:underline">
-        <ArrowLeft aria-hidden="true" className="size-4" />{t('runPage.backToTask')}<span className="font-normal text-muted-foreground">· {taskName}</span>
+      <Link to={{ task: run.taskId, tab: 'runs' }} navigate={navigate} className="inline-flex min-h-7 items-center gap-1 rounded-sm text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <ArrowLeft aria-hidden="true" className="size-3.5" /><span className="sr-only">{t('runPage.backToTask')}: </span>{taskName}
       </Link>
     </nav>
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="grid gap-1.5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('runPage.number', { n: own(run.id) ?? '' })}</h1>
-          {!live && <span className="inline-flex items-center gap-1.5 rounded-sm border border-edge-strong px-2 py-0.5 text-[13px]">
-            <RunGlyph kind={runGlyphKind(run.state)} /><span className="text-muted-foreground">{t('runHeader.outcomeLabel')}</span><span className="font-medium">{runStateLabel(run.state)}</span>
-          </span>}
-        </div>
-        <p className="text-sm text-muted-foreground">{runConditionsLine(conditions)}{conditions.preset && <span> · {t('runHeader.preset', { name: conditions.preset })}</span>}</p>
-        <RunModels conditions={conditions} />
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{t('runPage.number', { n: own(run.id) ?? '' })}</h1>
+        {!live && <span className="inline-flex items-center gap-1.5 text-sm font-medium" title={run.outcome?.reason}><RunGlyph kind={runGlyphKind(run.state)} />{runStateLabel(run.state)}</span>}
       </div>
-      <div className="grid justify-items-end gap-1.5"><div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {live && <Button variant="outline" disabled={busy} onClick={post(`${base}/cancel`)}><X aria-hidden="true" />{t('runPage.stop')}</Button>}
-        {live && <Button variant="ghost" disabled={busy} onClick={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{t('run.stopQueue')}</Button>}
         {!live && <Button variant="outline" disabled={busy || !run.taskFile} title={run.taskFile ? undefined : t('run.noTaskFile')} onClick={previewRetry}><RotateCcw aria-hidden="true" />{t('runPage.rerun')}</Button>}
-        <Button variant="ghost" disabled={busy || live} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runDelete.action')}</Button>
-      </div>
-        {live && <p className="max-w-xs text-right text-xs leading-5 text-muted-foreground">{t('runDelete.liveReason')}</p>}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t('runPage.moreActions')}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {live && <DropdownMenuItem disabled={busy} onSelect={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{t('run.stopQueue')}</DropdownMenuItem>}
+            {run.reportStatus === 'complete' && <DropdownMenuItem asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{t('run.openReport')}</a></DropdownMenuItem>}
+            {run.outcome && <DropdownMenuItem asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{t('run.downloadTrace')}</a></DropdownMenuItem>}
+            {run.diagnoseStop && run.outcome && <DropdownMenuItem asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></DropdownMenuItem>}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" disabled={busy || live} onSelect={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runDelete.action')}{live && <span className="sr-only"> — {t('runDelete.liveReason')}</span>}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
     {live && <div className="grid gap-1 border-l-2 border-trace pl-3">
@@ -102,46 +112,22 @@ export function RunHeader({ runRef, taskRuns, numbers, view, pageProps, navigate
         {newest ? <span className="font-mono break-words">{liveCurrentLine(newest)}</span> : <span className="text-muted-foreground">{t('runHeader.liveWaiting')}</span>}
       </p>}
     </div>}
-    {!live && steps !== undefined && <FactLine items={[
-      t('runHeader.factSteps', { steps }),
-      seconds !== undefined && t('runHeader.factSeconds', { seconds: seconds.toFixed(1) }),
-      fastest && (fastest.ref.run.id === run.id
+    <FactLine className="text-[13px] text-muted-foreground" items={[
+      !live && steps !== undefined && t('runHeader.factSteps', { steps }),
+      !live && seconds !== undefined && t('runHeader.factSeconds', { seconds: seconds.toFixed(1) }),
+      !live && fastest && (fastest.runId === run.id
         ? t('runHeader.factFastest')
-        : <Link key="f" to={{ task: run.taskId, run: fastest.ref.run.id }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, number: own(fastest.ref.run.id) ?? '' })}</Link>),
-    ]} />}
+        : <Link key="f" to={{ task: run.taskId, run: fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, number: own(fastest.runId) ?? '' })}</Link>),
+      reason,
+      runConditionsLine(conditions),
+      <span key="m" title={[conditions.planner, conditions.executor].filter(Boolean).join(' → ')}>{runModelsName(run)}</span>,
+      conditions.analysis && <span key="a" title={t('runConditions.noEffect')}>{t('runHeader.analysis', { model: conditions.analysis })}</span>,
+      simulated && t('run.simulationNotice'),
+    ]} />
     {runLevel.length > 0 && <ul aria-label={t('runPage.runHints')} className="grid gap-0.5 text-sm leading-6 text-muted-foreground">{runLevel.map((hint, index) => <li key={index}>{describeHint(hint)}</li>)}</ul>}
-    <div className="flex flex-wrap gap-2">
-      {run.reportStatus === 'complete' && <Button variant="outline" size="sm" asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{t('run.openReport')}</a></Button>}
-      {run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{t('run.downloadTrace')}</a></Button>}
-
-      {run.diagnoseStop && run.outcome && <Button variant="outline" size="sm" asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></Button>}
-    </div>
-    <div className="grid gap-1 text-sm">
-      {run.snapshot.spec.mode === 'screenreader' && run.snapshot.spec.backend === 'simulation' && <p className="text-muted-foreground">{t('run.simulationNotice')}</p>}
-      {run.outcome && !failure && <p title={run.outcome.reason}>{t('run.outcome', { status: runStateLabel(run.state), reason: run.outcome.reason ? outcomeReasonLabel(run.outcome.reason) : t('run.noReason') })}</p>}
-    </div>
     {failure && <ErrorState view={failure} navigate={navigate} />}
     {afterRun && <ErrorState view={afterRun} />}
     <DeleteRunsDialog open={deleting} onOpenChange={setDeleting} count={1} onConfirm={remove} />
     <RetryDialog preview={retry} busy={busy} onConfirm={confirmRetry} onClose={() => setRetry(undefined)} />
   </header>;
-}
-
-/**
- * "이 실행에 쓴 모델" by role. The planner and the executor are experiment conditions; the commentary model only explains the run
- * afterwards and never changes its outcome, so it is set apart.
- */
-function RunModels({ conditions }: { conditions: ReturnType<typeof runConditions> }) {
-  const { t } = useTranslation();
-  const roles: { role: string; model: string; note?: string }[] = [
-    ...(conditions.planner ? [{ role: t('runConditions.roles.planner'), model: conditions.planner }] : []),
-    { role: t('runConditions.roles.executor'), model: conditions.executor },
-    ...(conditions.analysis ? [{ role: t('runConditions.roles.analysis'), model: conditions.analysis, note: t('runConditions.noEffect') }] : []),
-  ];
-  return <dl aria-label={t('runHeader.modelsTitle')} className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-    {roles.map(item => <div key={item.role} className="flex items-baseline gap-1.5">
-      <dt className="text-xs text-muted-foreground">{item.role}</dt>
-      <dd className="font-mono text-[13px]">{item.model}{item.note && <span className="ml-1.5 font-sans text-xs text-muted-foreground">({item.note})</span>}</dd>
-    </div>)}
-  </dl>;
 }

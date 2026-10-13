@@ -33,9 +33,11 @@ export function runStateLabel(state: string): string {
   return has(core.runStates, state) ? lookup(`runStates.${state}`) : state;
 }
 
-/** Label for a recorded intent such as 'next'; unknown intents are shown as recorded. */
+/** Label for a recorded intent such as 'next' or 'heading.next'; unknown intents are shown as recorded. */
 export function intentLabel(intent: string): string {
-  return has(core.steps.intents, intent) ? lookup(`steps.intents.${intent}`) : intent;
+  if (has(core.steps.intents, intent)) return lookup(`steps.intents.${intent}`);
+  const key = `conditions.intents.${intent}`;
+  return i18n.exists(key) && typeof i18n.t(key as 'app.title') === 'string' ? lookup(key) : intent;
 }
 
 /** Short text for one page-observer change, for chips in the step timeline. */

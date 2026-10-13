@@ -16,6 +16,8 @@ const median = (values: number[]) => { if (!values.length) return null; const s 
 export class RunViews {
   /** Findings per task, valid while the task's set of finished runs is the one they were computed from. */
   private readonly findingsCache = new Map<string, { key: string; findings: HintFinding[] }>();
+  /** Whether a finished run reached its goal unheard; a finished run's journal does not change. */
+  private readonly unheardCache = new Map<string, boolean>();
   constructor(private readonly store: ProjectStore, private readonly queue: ExperimentQueue) {}
   private dir(experimentId: string, runId: string) { return this.store.file('.rawstep/experiments/' + experimentId + '/' + runId); }
   /** trace.jsonl is append-only, so a partly written last line of a live run is skipped rather than failing the request. */
@@ -82,10 +84,6 @@ export class RunViews {
     const steps = (run: RunRecord) => typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
     const reached = done.filter(entry => entry.run.outcome?.status === 'success');
     const fastest = reached.reduce<typeof reached[number] | undefined>((best, entry) => steps(entry.run) !== undefined && (!best || steps(entry.run)! < steps(best.run)!) ? entry : best, undefined);
-    const facts: TaskFindings['facts'] = {
-      runs: done.length, reached: reached.length, medianSteps: median(done.flatMap(entry => steps(entry.run) ?? [])),
-      fastest: fastest ? { experimentId: fastest.experimentId, runId: fastest.run.id, steps: steps(fastest.run)! } : null,
-    };
     const key = done.map(entry => entry.run.id).join(',');
     let cached = this.findingsCache.get(taskId);
     if (cached?.key !== key) {
@@ -98,7 +96,43 @@ export class RunViews {
       // A missing hints.json may still be written; only a complete set is kept.
       if (reports.length === done.length) this.findingsCache.set(taskId, cached); else this.findingsCache.delete(taskId);
     }
+    const unheard = new Set<string>();
+    for (const entry of reached) if (await this.unheard(entry.experimentId, entry.run.id)) unheard.add(entry.run.id);
+    const groups = new Map<string, typeof done>();
+    for (const entry of done) { const group = `${entry.run.profileId}\u0000${entry.run.mode}`; groups.set(group, [...groups.get(group) ?? [], entry]); }
+    const byProfile = [...groups.values()].map(group => {
+      const counts = group.flatMap(entry => steps(entry.run) ?? []), ids = new Set(group.map(entry => entry.run.id));
+      // The element the most of this group's runs got stuck on: findings count runs, so restrict them to this group's runs.
+      const top = cached.findings.filter(finding => finding.source === 'page' && finding.target)
+        .map(finding => ({ finding, runs: new Set(finding.occurrences.filter(occurrence => ids.has(occurrence.runId)).map(occurrence => occurrence.runId)).size }))
+        .filter(item => item.runs > 0).sort((a, b) => b.runs - a.runs)[0];
+      return {
+        profileId: group[0]!.run.profileId, mode: group[0]!.run.mode, runs: group.length,
+        reached: group.filter(entry => entry.run.outcome?.status === 'success').length,
+        medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
+        unheard: group.filter(entry => unheard.has(entry.run.id)).length,
+        topTarget: top?.finding.target ?? null,
+      };
+    });
+    const facts: TaskFindings['facts'] = {
+      runs: done.length, reached: reached.length, medianSteps: median(done.flatMap(entry => steps(entry.run) ?? [])),
+      fastest: fastest ? { experimentId: fastest.experimentId, runId: fastest.run.id, steps: steps(fastest.run)! } : null,
+      byProfile,
+    };
     return { entries, done, facts, findings: cached.findings, steps };
+  }
+  /** True when the run's last `goal.reached` says the user did not hear it (and no `goal.lost` came after it). */
+  private async unheard(experimentId: string, runId: string): Promise<boolean> {
+    const known = this.unheardCache.get(runId);
+    if (known !== undefined) return known;
+    let heard: unknown;
+    for (const event of await this.events(experimentId, runId)) {
+      if (event.type === 'goal.reached') heard = (event.data as { heard?: unknown } | null)?.heard;
+      else if (event.type === 'goal.lost') heard = undefined;
+    }
+    const result = heard === false;
+    this.unheardCache.set(runId, result);
+    return result;
   }
   /** Hint findings and facts over one task's finished runs. */
   async findings(taskId: string): Promise<TaskFindings> {

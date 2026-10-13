@@ -37,10 +37,9 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
   };
   return <div className="grid gap-5">
     <div className="grid gap-1.5">
-      <Choice label={t('environmentFields.preset')} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
+      <Choice label={t('environmentFields.preset')} info={preset !== 'custom' ? t('environmentFields.editNote') : undefined} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
         onChange={next => onChange(next === 'custom' ? { ...resolved, id } : next)} />
-      <p className="text-[13px] leading-5">{preset === 'custom' ? t('environmentFields.customHint') : t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' })}</p>
-      {preset !== 'custom' && <p className="text-xs leading-5 text-muted-foreground">{t('environmentFields.editNote')}</p>}
+      {preset !== 'custom' && <p className="text-[13px] leading-5 text-muted-foreground">{t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' })}</p>}
     </div>
     <div className="grid items-end gap-4 sm:grid-cols-3">
       <Field label={t('environmentFields.viewportWidth')} type="number" value={String(viewport.width)} onChange={width => custom({ viewport: { ...viewport, width: Number(width) } })} />
@@ -53,7 +52,7 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
       <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
         options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
     </div>
-    <Advanced description={t('environmentFields.note')}>
+    <Advanced>
       <div className="grid gap-4 sm:grid-cols-2">
         <Choice label={t('environmentFields.forcedColors')} value={String(resolved.forcedColors ?? 'none')} onChange={forcedColors => custom({ forcedColors })}
           options={[{ id: 'none', name: t('environmentFields.forcedNone') }, { id: 'active', name: t('environmentFields.forcedActive') }]} />

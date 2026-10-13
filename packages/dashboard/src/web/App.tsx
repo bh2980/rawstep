@@ -11,13 +11,10 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { PageProps } from './pages/types';
-import { HomePage } from './pages/HomePage';
 import { NewTaskPage } from './pages/NewTaskPage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
-import { ConnectionsPage } from './pages/ConnectionsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { ConditionsPage } from './pages/ConditionsPage';
 import { TaskPage } from './pages/TaskPage';
 import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
@@ -79,11 +76,11 @@ function Dashboard() {
     <div className="flex min-h-0 flex-1">
       {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} /></aside>}
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
-        <div className="mx-auto grid max-w-7xl gap-4">
+        <div className="grid gap-4">
           {!compare.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} startAndOpen={startAndOpen} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onCompare={taskId => setCompare({ open: true, ...(taskId ? { taskId } : {}) })} onRunTask={runTask} />}
         </div>
       </main>
     </div>
@@ -103,11 +100,10 @@ type PageSwitchProps = {
   pageProps: PageProps; data: ReturnType<typeof useDashboardData>; runs: ReturnType<typeof flattenRuns>;
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
   onCompare: (taskId?: string) => void; onRunTask: (taskId: string, options: RunOptions) => void;
-  startAndOpen: (view: ConfigView, taskId: string, options: RunOptions) => Promise<void>;
 };
 
-/** Chooses the page for the URL: a run, a task or the new-task page, otherwise the list or settings page of the current view. */
-function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask, startAndOpen }: PageSwitchProps) {
+/** Chooses the page for the URL: a run, a task or the new-task page, otherwise the run list, 설정, or the task list. */
+function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, onRunTask }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
@@ -118,13 +114,10 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onCompare, on
         <Button variant="outline" onClick={() => navigate({ view: 'runs' })}>{t('run.backToRuns')}</Button>
       </div>;
   }
-  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} startRun={startAndOpen} />;
+  if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
   if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onCompare={onCompare} onRun={onRunTask} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
-  if (route.view === 'tasks') return <TasksPage {...lists} onRun={onRunTask} />;
   if (route.view === 'runs') return <RunsPage {...lists} onCompare={() => onCompare()} />;
-  if (route.view === 'conditions') return <ConditionsPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.view === 'connections') return <ConnectionsPage key={editorKey} {...pageProps} navigate={navigate} />;
-  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} />;
-  return <HomePage {...lists} />;
+  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} section={route.section} navigate={navigate} />;
+  return <TasksPage {...lists} onRun={onRunTask} />;
 }

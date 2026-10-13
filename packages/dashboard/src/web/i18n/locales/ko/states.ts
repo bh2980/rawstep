@@ -15,8 +15,8 @@ export const states = {
   /** What is missing, why it is needed, what to do next. */
   empty: {
     connections: { title: '등록한 연결이 없습니다', why: '작업을 실행하려면 모델을 부를 곳(제공자와 인증키, 또는 직접 운영하는 서버)이 필요합니다.', action: '연결 추가' },
-    tasks: { title: '등록된 작업이 없습니다', why: '작업은 시작 URL과 목표, 목표에 닿았는지 알려 주는 완료 확인으로 이루어지며, 실행은 이 작업을 기준으로 기록됩니다.', action: '새 작업' },
-    runs: { title: '실행한 기록이 없습니다', why: '실행이 있어야 행동 순서와 페이지의 반응이 기록되고, 같은 작업을 여러 번 돌려 비교할 수 있습니다.', action: '작업 목록으로' },
+    tasks: { title: '등록된 작업이 없습니다', action: '새 작업' },
+    runs: { title: '실행한 기록이 없습니다', action: '작업 목록으로' },
     taskRuns: { title: '이 작업을 실행한 기록이 없습니다', why: '같은 작업을 여러 번 실행해야 페이지에서 되풀이되는 현상이 이 자리에 모입니다.', action: '실행 설정으로' },
     findings: { title: '페이지에서 되풀이된 현상이 없습니다', why: '현상은 같은 요소에서 여러 실행에 걸쳐 관찰될 때 모입니다. 실행이 3번 이상 쌓이면 가장 빠른 실행과 비교합니다.', action: '더 실행하기' },
     steps: {
@@ -34,7 +34,7 @@ export const states = {
     next: '다음에 할 일',
     raw: '원본 오류 보기',
     rawNote: '기록된 코드와 오류 메시지입니다. 인증키와 작업 입력값은 가려서 저장합니다.',
-    go: { machine: '설정 › 이 컴퓨터 열기', models: '연결 열기', conditions: '실험 조건 열기', check: '완료 확인 열기' },
+    go: { machine: '설정 › 이 컴퓨터 열기', models: '연결 열기', conditions: '실행 프로필 열기', check: '완료 확인 열기' },
     run: {
       progressSteps: '행동 {{n}}번까지 기록되었습니다.',
       progressNone: '첫 행동 전에 멈췄습니다. 기록된 행동이 없습니다.',
@@ -86,18 +86,29 @@ export const states = {
     },
   },
   /** One sentence the first time a concept appears (spec §38). */
-  concepts: {
-    dismiss: '알겠습니다',
-    conditions: { term: '실험 조건', text: '실행 결과를 바꾸는 설정입니다. 모델 조합, 행동 조합, 페이지 환경, 보조기술 환경, 실행 규칙이 있고 실행 기록에 내용 전체가 남습니다. 비교는 이름이 아니라 내용으로 합니다.' },
-    check: { term: '완료 확인', text: '실행이 목표에 닿았는지 알려 주는 조건입니다. 모델에게는 전달하지 않고, 살펴볼 지점은 완료 여부와 상관없이 기록됩니다.' },
-    decisionModel: { term: '결정 모델', text: '행동 후보마다 점수를 매기고 하나를 고르는 모델입니다. 점수는 확률로 보정된 값이 아닙니다.' },
-    inspect: { term: '살펴볼 지점', text: '실행 기록에서 사람이 근거를 확인할 만한 위치입니다. 결론이 아니라 확인할 자리를 가리킵니다.' },
+  infoTip: { label: '{{term}} 설명' },
+  /** Explanations shown behind an ⓘ beside the term they explain. */
+  help: {
+    conditions: '실행 결과를 바꾸는 설정입니다. 모델 조합, 행동 조합, 페이지 환경, 보조기술 환경, 실행 규칙이 있고 실행 기록에 내용 전체가 남습니다. 비교는 이름이 아니라 내용으로 합니다.',
+    check: '실행이 목표에 닿았는지 알려 주는 조건입니다. 모델에게는 전달하지 않고, 살펴볼 지점은 완료 여부와 상관없이 기록됩니다.',
+    decisionModel: '행동 후보마다 점수를 매기고 하나를 고르는 모델입니다. 점수는 확률로 보정된 값이 아닙니다.',
+    inspect: '실행 기록에서 사람이 근거를 확인할 만한 위치입니다. 결론이 아니라 확인할 자리를 가리킵니다.',
+  },
+  saveBar: {
+    label: '저장',
+    save: '저장',
+    discard: '되돌리기',
+    unsaved: '저장하지 않은 변경이 있습니다',
+    unsavedCount: '저장하지 않은 변경 {{count}}개',
+    behind: '편집하는 동안 프로젝트가 다른 곳에서 바뀌었습니다',
+    saveOnLatest: '내 변경으로 저장',
+    takeLatest: '편집 버리고 최신으로',
   },
   /** The result of asking a provider whether a model can be used. Nothing the provider sent is shown. */
   modelCheck: {
     title: {
       running: '확인하는 중',
-      ready: 'Ready',
+      ready: '연결됨',
       'missing-key': '인증키가 필요합니다',
       'invalid-address': '서버 주소를 쓸 수 없습니다',
       unreachable: '서버에 연결하지 못했습니다',
@@ -111,11 +122,10 @@ export const states = {
       'cli-signed-out': '로그인이 필요합니다',
     },
     signIn: '로그인',
-    signInHint: '에이전트 자체의 로그인을 진행합니다. 이 컴퓨터에 로그인된 계정을 그대로 쓰거나 브라우저에 로그인 페이지가 열릴 수 있습니다.',
+    signInHint: '에이전트 자체의 로그인을 진행합니다. 브라우저에 로그인 페이지가 열릴 수 있습니다.',
     reason: {
       'cli-signed-out-button': '이 에이전트는 자체 로그인이 필요합니다. 아래 로그인 버튼을 눌러 로그인한 뒤 다시 확인하세요.',
-      running: '모델 목록을 불러와 서버 응답과 인증키, 모델 ID를 확인합니다.',
-      ready: '서버가 응답했고 인증키가 받아들여졌으며 목록에 이 모델이 있습니다.',
+      ready: '서버가 응답했고 인증키와 모델이 확인되었습니다.',
       readyAgent: 'CLI가 실행되었고 모델 목록을 받았습니다.',
       'missing-key': '이 제공자는 인증키가 있어야 응답합니다. 인증키를 입력하거나 저장하세요.',
       'invalid-address': '주소는 https:// 이거나 이 컴퓨터의 http:// 이어야 하고, 인증 정보나 쿼리는 넣을 수 없습니다.',

@@ -3,15 +3,15 @@ import type { RunRecord } from '../packages/dashboard/src/shared/config.js';
 import { RUN_ERROR } from '../packages/dashboard/src/shared/config.js';
 import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
-import { CONCEPTS_KEY, dismissConcept, readDismissed } from '../packages/dashboard/src/web/lib/concepts.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, conditionNames, environmentViewport, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
-import { defaultActionSet, defaultCombo, defaultConfig, runRulesSchema, type Executor } from '@rawstep/project/config';
-import { comboWith, connection, plannedWith } from './helpers/project-config.js';
+import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile, runRulesSchema, type Executor } from '@rawstep/project/config';
+import { profileWith, connection, plannedWith } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
 type Run = Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>;
@@ -25,7 +25,7 @@ describe('error states', () => {
     expect(describeRunFailure(run('inconclusive', { status: 'inconclusive', reason: 'access-blocked' }))?.kind).toBe('start');
     // Runtime failure: it got going and stopped, and says how far.
     const runtime = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'policy', step: 4, steps: 4 }));
-    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'connections' } } });
+    expect(runtime).toMatchObject({ kind: 'runtime', progress: '행동 4번까지 기록되었습니다.', link: { to: { view: 'settings', section: 'connections' } } });
     expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'verification', steps: 2 }))).toMatchObject({ kind: 'runtime', link: { to: { task: 't', tab: 'check' } } });
     expect(describeRunFailure(run('interrupted', undefined, RUN_ERROR.restarted))?.kind).toBe('runtime');
     // Setup error: a condition cannot be applied here.
@@ -90,31 +90,6 @@ describe('error states', () => {
   });
 });
 
-describe('concept notes', () => {
-  const memory = () => { const data = new Map<string, string>(); return { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } }; };
-
-  it('remembers a dismissed concept once and in the order it was dismissed', () => {
-    const store = memory();
-    expect(readDismissed(store)).toEqual([]);
-    expect(dismissConcept('conditions', store)).toEqual(['conditions']);
-    expect(dismissConcept('inspect', store)).toEqual(['conditions', 'inspect']);
-    expect(dismissConcept('conditions', store)).toEqual(['conditions', 'inspect']);
-    expect(readDismissed(store)).toEqual(['conditions', 'inspect']);
-  });
-
-  it('ignores a value it cannot read and survives a store that throws', () => {
-    const broken = memory();
-    broken.setItem(CONCEPTS_KEY, '{not json');
-    expect(readDismissed(broken)).toEqual([]);
-    broken.setItem(CONCEPTS_KEY, JSON.stringify(['conditions', 'not-a-concept', 3]));
-    expect(readDismissed(broken)).toEqual(['conditions']);
-    const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-    expect(readDismissed(blocked)).toEqual([]);
-    expect(dismissConcept('check', blocked)).toEqual(['check']);
-    expect(readDismissed(undefined)).toEqual([]);
-  });
-});
-
 describe('result and run strip helpers', () => {
   it('draws and words a run that ended on an error as undecided, not as a goal that was missed', () => {
     expect(displayState({ state: 'failure', outcome: { status: 'failure', reason: 'error' } })).toBe('inconclusive');
@@ -155,23 +130,23 @@ describe('settings helpers', () => {
     expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('names model combos by structure and models, and tells which modes a combo can run', () => {
+  it('names run profiles by structure and models, and tells which modes a profile can run', () => {
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
     const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
     expect(environmentViewport('default', presets)).toEqual({ width: 1280, height: 800 });
     expect(environmentViewport('narrow', presets)).toEqual({ width: 375, height: 667 });
     expect(environmentViewport({ id: 'x', viewport: { width: 800, height: 600 } }, presets)).toEqual({ width: 800, height: 600 });
     expect(environmentViewport({ viewport: { width: -1, height: 'x' } }, presets)).toEqual({ width: 1280, height: 800 });
-    const bare = defaultCombo('p', 'Plain');
+    const bare = defaultProfile('p', 'Plain');
     expect(comboSummary(bare, connections)).toBe('실행 모델 없음');
     expect(comboModesOf(bare, connections)).toEqual([]);
-    const solo = comboWith('s', 'jev', 'jev-latest');
-    expect(comboSummary(solo, connections)).toBe('단독: jev-latest (두 모드)');
+    const solo = profileWith('s', 'jev', 'jev-latest');
+    expect(comboSummary(solo, connections)).toBe('계획 없이 jev-latest (두 모드)');
     expect(comboModesOf(solo, connections)).toEqual(['screenreader', 'keyboard']);
     const planned = plannedWith(solo, 'writer', 'planner-fixture');
-    expect(comboSummary(planned, connections, 'screenreader')).toBe('계획 + 실행: planner-fixture → jev-latest');
+    expect(comboSummary(planned, connections, 'screenreader')).toBe('planner-fixture 계획 → jev-latest');
     // Keyboard runs do not plan yet.
-    expect(comboSummary(planned, connections, 'keyboard')).toBe('단독: jev-latest');
+    expect(comboSummary(planned, connections, 'keyboard')).toBe('계획 없이 jev-latest');
     // A text-only keyboard executor cannot run keyboard mode.
     const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
     expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
@@ -187,18 +162,24 @@ describe('settings helpers', () => {
     expect(choiceName(undefined, connections)).toBeUndefined();
   });
 
-  it('marks the actions an assistive technology lacks and names conditions by id', () => {
+  it('marks the actions an assistive technology lacks and names the profile of a run', () => {
     const capabilities = {
       keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [] },
       screenreader: { simulation: { keys: [], intents: ['next', 'previous', 'activate'] }, voiceover: { keys: [], intents: ['next', 'previous', 'activate', 'form.next'] }, nvda: { keys: [], intents: ['next', 'previous', 'activate'] } },
     };
-    const basic = defaultActionSet();
+    const basic = DEFAULT_PERMISSIONS;
     expect(actionSetSummary(basic, capabilities)).toBe('초보: 다음·이전·누르기');
     const quick = { ...basic, screenreader: { ...basic.screenreader, intents: [...basic.screenreader.intents, 'form.next'] } };
     expect(unsupportedActions(quick, capabilities).screenreader).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
     expect(actionSetSummary(quick, capabilities)).toContain('모의 VoiceOver, NVDA에서 일부 지원 안 함');
     const config = defaultConfig();
-    expect(conditionNames(config, { comboId: 'default', actionSetId: 'gone' })).toMatchObject({ combo: 'Default', actionSet: '(삭제된 항목)' });
+    // A run names its profile as recorded; older runs fall back to their preset or combo, then to the project's profile by id.
+    const spec = (conditions: unknown) => ({ mode: 'keyboard' as const, backend: 'simulation', model: { name: 'm' }, conditions });
+    const ran = (conditions: unknown, profileId?: string) => runConditions({ snapshot: { spec: spec(conditions) }, structure: 'solo', ...(profileId ? { profileId } : {}) } as never, config).profile;
+    expect(ran({ profile: { id: 'default', name: 'Recorded' } }, 'default')).toBe('Recorded');
+    expect(ran({ preset: { name: 'Old preset' }, combo: { name: 'Old combo' } })).toBe('Old preset');
+    expect(ran({}, 'default')).toBe('Default');
+    expect(ran({}, 'gone')).toBe('gone');
     expect(runRulesSummary(runRulesSchema.parse({}))).toMatch(/^반복 감시 자동/);
     expect(sameValue({ a: 1, b: [1, { c: 2, d: 3 }] }, { b: [1, { d: 3, c: 2 }], a: 1 })).toBe(true);
     expect(sameValue({ a: 1 }, { a: 2 })).toBe(false);

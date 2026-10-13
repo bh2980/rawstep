@@ -123,11 +123,7 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
       projectDir, mode, repeat, signal,
-      ...(options.preset ? { preset: String(options.preset) } : {}),
-      ...(options.combo ? { combo: String(options.combo) } : {}),
-      ...(options.actions ? { actionSet: String(options.actions) } : {}),
-      ...(options.environment ? { pageEnvironment: String(options.environment) } : {}),
-      ...(options.at ? { atEnvironment: String(options.at) } : {}),
+      ...(options.profile ? { profile: String(options.profile) } : {}),
       ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
       ...(options.rule ? { runRules: parseRunRules(options.rule as string[]) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
@@ -149,10 +145,10 @@ const elementText = (finding: HintFinding) => finding.target ? `${finding.target
 /** One block per run, then the findings gathered across runs: Page findings first, then Model. */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
-  const c = result.conditions as { combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; actionSet?: { name?: string }; pageEnvironment?: { name?: string }; atEnvironment?: { name?: string } };
+  const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
   if (c.combo) {
-    lines.push(`Conditions: ${c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
-      `  actions ${c.actionSet?.name ?? '?'} · page ${c.pageEnvironment?.name ?? '?'} · ${c.atEnvironment?.name ?? '?'}`);
+    lines.push(`Conditions: ${c.profile?.name ?? c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
+      `  page ${typeof c.pageEnvironment?.profile === 'string' ? c.pageEnvironment.profile : 'custom'} · screen reader ${c.atEnvironment?.backend ?? '?'}`);
     for (const warning of result.warnings) lines.push(`  note: ${warning}`);
     lines.push('');
   }
@@ -189,7 +185,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   try {
     read = await store.read();
     const c = read.config;
-    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.combos.length} model combos, ${c.actionSets.length} action sets, ${c.pageEnvironments.length} page environments)`);
+    report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} run profiles)`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
   try {
@@ -217,7 +213,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       const present = !!await store.credential(key.connection);
       report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
     }
-    const natives = [...new Set(read.config.atEnvironments.map(a => a.backend).filter(b => b !== 'simulation'))];
+    const natives = [...new Set(read.config.profiles.map(p => p.screenReader).filter(b => b !== 'simulation'))];
     if (!natives.length) report(undefined, 'Screen reader', 'only the simulation is configured; no native screen reader to check');
     for (const backend of natives) {
       const atEndpoint = atEndpointOf(read.config.machine, backend);

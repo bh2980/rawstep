@@ -1,23 +1,20 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ProjectConfig } from '@rawstep/project/config';
-import type { TaskFindings } from '../../shared/api';
+import type { Mode, Profile } from '@rawstep/project/config';
+import type { ProfileFacts, TaskFindings } from '../../shared/api';
+import { targetLabel } from '../i18n/labels';
+import { cn } from '../lib/utils';
 import type { RouteChange } from '../hooks/useRoute';
 import { dataFailureView } from '../lib/errors';
 import { formatSteps } from '../lib/format';
-import { isFinished, runStepCount, type RunRef } from '../lib/runs';
-import { runGlyphKind, runStripLabel } from '../lib/runStrip';
-import { FactLine } from './trace/FactLine';
+import type { RunRef } from '../lib/runs';
 import { ModelBehaviorList, PageEvidenceLedger } from './trace/FindingLedgers';
-import { RunGlyph } from './trace/RunStrip';
 import { SourceMarker } from './trace/SourceMarker';
-import { ConceptNote } from './layout/ConceptNote';
+import { InfoTip } from './layout/InfoTip';
+import { SectionHead } from './layout/PageHeader';
 import { EmptyState } from './layout/EmptyState';
 import { ErrorState } from './layout/ErrorState';
 import { Link } from './Link';
-import { RunsTable } from './RunsTable';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
@@ -26,92 +23,85 @@ type Props = {
   /** Runs of this task, newest first. */
   runs: RunRef[]; numbers: ReadonlyMap<string, number>;
   findings: { data?: TaskFindings; error: string; loading: boolean };
-  /** The project's conditions, for names a run did not record. */
-  config: Pick<ProjectConfig, 'combos' | 'actionSets' | 'pageEnvironments' | 'atEnvironments' | 'presets'>;
   navigate: (change: RouteChange) => void;
   /** Takes a person to the run control of the task header. */
   onRun: () => void;
+  /** The profile and mode the next run uses: their results lead, the others follow in a table. */
+  profileId: string; mode: Mode; profiles: readonly Pick<Profile, 'id' | 'name'>[];
+  /** The fewest moves the goal takes, when the task says. */
+  minimalSteps?: number | undefined;
 };
 
 /**
- * The "개요" tab, an investigation sheet: one fact line, the page evidence ledger, the model's behaviour as a separate weaker layer,
- * and the run history in a closed block.
+ * The "개요" tab, an investigation sheet: the run facts as three figures, then what the page did (by element), then where the model
+ * wandered as a separate, weaker layer. The run list itself is the 실행 기록 tab.
  */
-export function TaskOverview({ taskId, runs, numbers, findings, config, navigate, onRun }: Props) {
+export function TaskOverview({ taskId, runs, numbers, findings, navigate, onRun, profileId, mode, profiles, minimalSteps }: Props) {
   const { t } = useTranslation();
   const { data } = findings;
   const page = data?.findings.filter(finding => finding.source === 'page') ?? [], model = data?.findings.filter(finding => finding.source === 'model') ?? [];
-  const facts = data?.facts, fastestNumber = facts?.fastest ? numbers.get(facts.fastest.runId) : undefined;
+  const facts = data?.facts;
   if (runs.length === 0) return <EmptyState title={t('empty.taskRuns.title')} why={t('empty.taskRuns.why')} action={<Button variant="outline" onClick={onRun}>{t('empty.taskRuns.action')}</Button>} />;
   const shared = { taskId, numbers, navigate };
-  return <div className="grid gap-7">
-    {facts && facts.runs > 0 && <FactLine className="text-[15px]" items={[
-      <strong key="r" className="font-semibold">{t('taskPage.factReached', { reached: facts.reached, runs: facts.runs })}</strong>,
-      t('taskPage.factMedian', { n: formatSteps(facts.medianSteps) }),
-      facts.fastest && <Link key="f" to={{ task: taskId, run: facts.fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">
-        {t('taskPage.factFastest', { n: facts.fastest.steps })}{fastestNumber !== undefined && t('taskPage.factFastestRun', { number: fastestNumber })}
-      </Link>,
-    ]} />}
+  const current = facts?.byProfile.find(group => group.profileId === profileId && group.mode === mode);
+  const others = facts?.byProfile.filter(group => group !== current) ?? [];
+  const nameOf = (group: ProfileFacts) => `${profiles.find(profile => profile.id === group.profileId)?.name ?? group.profileId} · ${t(`sidebar.modes.${group.mode}`)}`;
+  return <div className="grid gap-8">
+    {facts && facts.runs > 0 && <section aria-labelledby="results-current" className="grid gap-3">
+      <h2 id="results-current" className="text-sm font-semibold">{current ? t('taskPage.results.title', { count: current.runs }) : t('taskPage.results.none')}</h2>
+      {current && <dl aria-label={t('taskPage.factsLabel')} className="grid max-w-5xl gap-3 sm:grid-cols-3">
+        <Stat label={t('taskPage.results.moves')} value={<>{formatSteps(current.medianSteps)}{minimalSteps !== undefined && <span className="text-base font-normal text-muted-foreground"> {t('taskPage.results.minimal', { n: minimalSteps })}</span>}</>}
+          note={<>{t('taskPage.results.reached', { reached: current.reached, runs: current.runs })}{current.minSteps !== null && current.maxSteps !== null && current.minSteps !== current.maxSteps && <> · {t('taskPage.results.spread', { min: current.minSteps, max: current.maxSteps })}</>}</>} />
+        <Stat label={t('taskPage.results.lost')} value={<span className="text-lg">{current.topTarget ? targetLabel(current.topTarget) : t('taskPage.results.lostNone')}</span>} />
+        {mode === 'screenreader' && <Stat warn={current.unheard > 0} label={t('taskPage.results.unheard')} info={t('taskPage.results.unheardInfo')}
+          value={<span className="text-lg">{current.unheard > 0 ? t('taskPage.results.unheardCount', { unheard: current.unheard, reached: current.reached }) : t('taskPage.results.unheardNone')}</span>} />}
+      </dl>}
+      {others.length > 0 && <div className="max-w-5xl overflow-x-auto">
+        <table className="w-full min-w-[30rem] text-[13px] tabular-nums">
+          <caption className="pb-1 text-left text-xs text-muted-foreground">{t('taskPage.results.others')}</caption>
+          <thead><tr className="border-b border-edge text-xs text-muted-foreground">
+            <th scope="col" className="py-1.5 text-left font-normal">{t('taskPage.results.profile')}</th>
+            <th scope="col" className="py-1.5 text-right font-normal">{t('taskPage.results.moves')}</th>
+            <th scope="col" className="py-1.5 text-right font-normal">{t('taskPage.results.reachedShort')}</th>
+            <th scope="col" className="py-1.5 text-right font-normal">{t('taskPage.results.unheard')}</th>
+          </tr></thead>
+          <tbody>{others.map(group => <tr key={group.profileId + group.mode} className="border-b border-edge last:border-0">
+            <td className="py-1.5">{nameOf(group)}</td>
+            <td className="py-1.5 text-right">{formatSteps(group.medianSteps)}{group.minSteps !== null && group.maxSteps !== null && group.minSteps !== group.maxSteps && <span className="text-muted-foreground"> ({group.minSteps}–{group.maxSteps})</span>}</td>
+            <td className="py-1.5 text-right">{group.reached} / {group.runs}</td>
+            <td className={cn('py-1.5 text-right', group.unheard > 0 && 'text-inspect')}>{group.mode === 'screenreader' ? group.unheard : '—'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </section>}
     {findings.loading && !data && <div aria-busy="true" className="grid gap-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>}
     {findings.error && !data && <ErrorState view={dataFailureView(t('taskPage.findingsFailed'), findings.error)} />}
     {data && <>
-      <section aria-labelledby="findings-page" className="grid gap-2">
-        <div className="flex items-baseline justify-between gap-3 border-b border-edge-strong pb-1.5">
-          <h2 id="findings-page" className="flex items-center gap-2 text-base font-semibold"><SourceMarker source="page" />{t('taskPage.pageTitle')}</h2>
-          <Count n={page.length} />
-        </div>
-        <ConceptNote concept="inspect" />
-        <p className="text-[13px] leading-5 text-muted-foreground">{t('taskPage.pageNote')}</p>
+      <section aria-labelledby="findings-page" className="grid gap-3">
+        <SectionHead id="findings-page" title={<span className="flex items-center gap-2"><SourceMarker source="page" />{t('taskPage.pageTitle')}<InfoTip term={t('taskPage.pageTitle')}>{t('taskPage.pageNote')} {t('help.inspect')}</InfoTip></span>} aside={<Count n={page.length} />} />
         {page.length === 0
           ? <EmptyState compact title={t('empty.findings.title')} why={t('empty.findings.why')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.findings.action')}</Button>} />
           : <PageEvidenceLedger findings={page} {...shared} />}
       </section>
-      <section aria-labelledby="findings-model" className="grid gap-2">
-        <div className="flex items-baseline justify-between gap-3 border-b border-edge-strong pb-1.5">
-          <h2 id="findings-model" className="flex items-center gap-2 text-base font-semibold"><SourceMarker source="model" />{t('taskPage.modelTitle')}</h2>
-          <Count n={model.length} />
-        </div>
-        <p className="text-[13px] leading-5 text-muted-foreground">{t('taskPage.modelNote')}</p>
+      <section aria-labelledby="findings-model" className="grid gap-3">
+        <SectionHead id="findings-model" title={<span className="flex items-center gap-2"><SourceMarker source="model" />{t('taskPage.modelTitle')}<InfoTip term={t('taskPage.modelTitle')}>{t('taskPage.modelNote')}</InfoTip></span>} aside={<Count n={model.length} />} />
         {model.length === 0 ? <p className="text-sm text-muted-foreground">{t('taskPage.modelEmpty')}</p> : <ModelBehaviorList findings={model} {...shared} />}
       </section>
     </>}
-    <History taskId={taskId} runs={runs} numbers={numbers} config={config} navigate={navigate} />
+  </div>;
+}
+
+/** One figure of the results: a small label over a large value, on a tile; `warn` marks one that needs a look. */
+function Stat({ label, value, note, info, warn }: { label: string; value: ReactNode; note?: ReactNode; info?: string; warn?: boolean }) {
+  return <div className={cn('grid content-start gap-0.5 rounded-md px-3.5 py-3', warn ? 'bg-inspect-soft' : 'bg-raised')}>
+    <dt className={cn('flex items-center gap-1 text-xs', warn ? 'text-inspect' : 'text-muted-foreground')}>{label}{info && <InfoTip term={label}>{info}</InfoTip>}</dt>
+    <dd className={cn('text-2xl font-semibold tracking-tight tabular-nums', warn && 'text-inspect')}>{value}</dd>
+    {note && <dd className="text-xs leading-5 text-muted-foreground">{note}</dd>}
   </div>;
 }
 
 /** The number of records in a section, with its unit for a screen reader. */
-function Count({ n, className }: { n: number; className?: string }) {
+function Count({ n }: { n: number }) {
   const { t } = useTranslation();
-  return <span className={className}><span aria-hidden="true" className="font-semibold tabular-nums">{n}</span><span className="sr-only">{t('taskPage.countLabel', { count: n })}</span></span>;
-}
-
-/** One bar per finished run with its action count written beside it, above the table of all the task's runs. Closed until opened. */
-function History({ taskId, runs, numbers, config, navigate }: Pick<Props, 'taskId' | 'runs' | 'numbers' | 'config' | 'navigate'>) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const bars = useMemo(() => runs.filter(ref => isFinished(ref.run)).reverse(), [runs]);
-  const longest = Math.max(1, ...bars.map(ref => runStepCount(ref.run) ?? 0));
-  return <Collapsible open={open} onOpenChange={setOpen} className="border-t border-edge-strong">
-    <CollapsibleTrigger asChild>
-      <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 rounded-sm py-2.5 text-left">
-        <span><span className="text-sm font-medium">{t('taskPage.historyTitle', { count: runs.length })}</span><span className="ml-2 text-xs text-muted-foreground">{t('taskPage.historyHint')}</span></span>
-        <ChevronDown aria-hidden="true" className={'size-4 shrink-0 transition-transform' + (open ? ' rotate-180' : '')} />
-      </button>
-    </CollapsibleTrigger>
-    <CollapsibleContent className="motion-reveal grid gap-4 pt-1 pb-4">
-      {bars.length > 0 && <ol aria-label={t('taskPage.barsLabel')} className="grid gap-1">
-        {bars.map(ref => {
-          const steps = runStepCount(ref.run), number = numbers.get(ref.run.id), label = runStripLabel(number, ref.run.state, steps);
-          return <li key={ref.run.id} className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.5rem] items-center gap-3 text-sm">
-            <Link to={{ task: taskId, run: ref.run.id }} navigate={navigate} aria-label={label} title={label} className="flex items-center gap-2 rounded-sm tabular-nums hover:underline">
-              <RunGlyph kind={runGlyphKind(ref.run.state)} />#{number ?? '—'}
-            </Link>
-            <span aria-hidden="true" className="h-3 rounded-[2px] bg-muted-foreground" style={{ width: `${Math.max(2, Math.round((steps ?? 0) / longest * 100))}%` }} />
-            <span className="text-right font-mono tabular-nums">{steps ?? '—'}</span>
-          </li>;
-        })}
-      </ol>}
-      <RunsTable runs={runs} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
-    </CollapsibleContent>
-  </Collapsible>;
+  return <span><span aria-hidden="true" className="font-semibold tabular-nums text-foreground">{n}</span><span className="sr-only">{t('taskPage.countLabel', { count: n })}</span></span>;
 }

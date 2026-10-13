@@ -12,17 +12,15 @@ import { Switch } from '../components/ui/switch';
 import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { comboSummary, conditionNames } from '../lib/conditions';
+import { comboSummary } from '../lib/conditions';
 import type { PageProps } from './types';
 
-type Axis = 'presetIds' | 'comboIds' | 'actionSetIds' | 'pageEnvironmentIds' | 'atEnvironmentIds';
 const MODES = ['screenreader', 'keyboard'] as const satisfies readonly Mode[];
 
 /**
- * The experiment planner: tasks × modes × conditions (presets, model combos, action sets, page environments, assistive technology
- * environments) × repeats. Each condition axis is optional; left off, every task runs with its own (its choice, its preset's, the
- * first shared item). The checked plan lists every run with its conditions — the combo's structure and its planner and executor —
- * and whether it can run, so a person sees what each run will use before starting it.
+ * The experiment planner: tasks × modes × run profiles × repeats. Left off, every task runs with its own profile. The checked plan
+ * lists every run with its profile — structure, planner and executor — and whether it can run, so a person sees what each run will
+ * use before starting it.
  */
 export function ExperimentsPage({ onRun, initialTaskId, ...props }: PageProps & { onRun: (e: Experiment) => void; initialTaskId: string | undefined }) {
   const { t } = useTranslation();
@@ -35,24 +33,14 @@ export function ExperimentsPage({ onRun, initialTaskId, ...props }: PageProps & 
   const replace = (next: PlanRequest) => { setRequest(next); setRows([]); setPlannedRequest(undefined); };
   const update = (part: Partial<PlanRequest>) => replace({ ...request, ...part });
   const name = (list: readonly { id: string; name: string }[], id: string) => list.find(item => item.id === id)?.name ?? id;
-  /** Shared items first, then task-only copies named with their task, so a copy is never mistaken for the shared one. */
-  const choices = (list: readonly { id: string; name: string; owner?: string | undefined }[]) => [...list].sort((a, b) => Number(!!a.owner) - Number(!!b.owner))
-    .map(item => ({ id: item.id, name: item.owner ? t('experiments.taskOnly', { name: item.name, task: name(config.tasks, item.owner) }) : item.name }));
-  const axes: { key: Axis; label: string; items: { id: string; name: string }[] }[] = [
-    { key: 'presetIds', label: t('runConditions.preset'), items: choices(config.presets) },
-    { key: 'comboIds', label: t('runConditions.combo'), items: choices(config.combos) },
-    { key: 'actionSetIds', label: t('runConditions.actionSet'), items: choices(config.actionSets) },
-    { key: 'pageEnvironmentIds', label: t('runConditions.pageEnvironment'), items: choices(config.pageEnvironments) },
-    { key: 'atEnvironmentIds', label: t('runConditions.atEnvironment'), items: choices(config.atEnvironments) },
-  ];
-  /** Turns an optional axis on (starting from the first entry) or off (each task's own). */
-  const axis = (key: Axis, first: string | undefined) => (pick: boolean) => {
-    const next = { ...request };
-    if (pick && first) next[key] = [first]; else delete next[key];
-    replace(next);
+  const profiles = config.profiles.map(({ id, name }) => ({ id, name }));
+  /** Turns the profile list on (starting from the first profile) or off (each task's own). */
+  const compare = (pick: boolean) => {
+    const { profileIds: _off, ...rest } = request;
+    replace(pick && profiles[0] ? { ...rest, profileIds: [profiles[0].id] } : rest);
   };
   const supported = rows.filter(r => r.supported).length;
-  const empty = request.taskIds.length === 0 || request.modes.length === 0 || axes.some(a => request[a.key]?.length === 0);
+  const empty = request.taskIds.length === 0 || request.modes.length === 0 || request.profileIds?.length === 0;
   async function run(keys: string[]) {
     if (!plannedRequest) return;
     onRun(await api<Experiment>('/experiments', { method: 'POST', body: { ...plannedRequest, selected: keys } }));
@@ -68,11 +56,11 @@ export function ExperimentsPage({ onRun, initialTaskId, ...props }: PageProps & 
       <MultiChoice label={t('experimentsPage.tasks')} items={config.tasks} selected={request.taskIds} onChange={taskIds => update({ taskIds })} />
       <MultiChoice label={t('experiments.modes')} items={MODES.map(mode => ({ id: mode, name: t(`sidebar.modes.${mode}`) }))} selected={request.modes}
         onChange={modes => update({ modes: MODES.filter(mode => modes.includes(mode)), ...(modes.includes('keyboard') ? {} : { diagnoseStop: false }) })} />
-      {axes.map(a => <div key={a.key} className="grid gap-3">
-        <Toggle label={t('experiments.compare', { condition: a.label })} checked={request[a.key] !== undefined} disabled={a.items.length === 0} onChange={axis(a.key, a.items[0]?.id)}
-          hint={request[a.key] ? t(a.key === 'presetIds' ? 'experiments.presetOn' : 'experiments.axisOn') : t(a.key === 'presetIds' ? 'experiments.presetOff' : 'experiments.axisOff')} />
-        {request[a.key] && <MultiChoice label={a.label} items={a.items} selected={request[a.key]!} onChange={ids => update({ [a.key]: ids })} />}
-      </div>)}
+      <div className="grid gap-3">
+        <Toggle label={t('experiments.compare')} checked={request.profileIds !== undefined} onChange={compare} info={t('experiments.compareInfo')}
+          hint={request.profileIds ? undefined : t('experiments.compareOff')} />
+        {request.profileIds && <MultiChoice label={t('runConditions.profile')} items={profiles} selected={request.profileIds} onChange={profileIds => update({ profileIds })} />}
+      </div>
       <Field label={t('experimentsPage.repeats')} type="number" value={String(request.repeats)} onChange={s => update({ repeats: Number(s) })} />
       <p className="text-xs leading-5 text-muted-foreground">{t('experiments.analysis')}</p>
       <div className="flex gap-3">
@@ -98,20 +86,20 @@ export function ExperimentsPage({ onRun, initialTaskId, ...props }: PageProps & 
         <TableHeader><TableRow>
           <TableHead>{t('experimentsPage.colSelect')}</TableHead>
           <TableHead>{t('experimentsPage.colTaskMode')}</TableHead>
-          <TableHead>{t('runConditions.condition')}</TableHead>
+          <TableHead>{t('runConditions.profile')}</TableHead>
           <TableHead>{t('experimentsPage.colStatus')}</TableHead>
           <TableHead>{t('experimentsPage.colRun')}</TableHead>
         </TableRow></TableHeader>
         <TableBody>{rows.map(r => {
-          const names = conditionNames(config, r), combo = config.combos.find(c => c.id === r.comboId);
+          const profile = config.profiles.find(p => p.id === r.profileId);
           return <TableRow key={r.key} className="align-top">
             <TableCell><Checkbox aria-label={t('experimentsPage.selectAria', { key: r.key })} checked={selected.includes(r.key)} disabled={!r.supported} onCheckedChange={v => setSelected(v ? [...selected, r.key] : selected.filter(k => k !== r.key))} /></TableCell>
             <TableCell>{name(config.tasks, r.taskId)}<p className="text-xs text-muted-foreground">{t('experimentsPage.modeRepeat', { mode: t(`sidebar.modes.${r.mode}`), repeat: r.repeat })}</p></TableCell>
             <TableCell>
-              <p>{names.combo} <span className="text-xs text-muted-foreground">· {t(`runConditions.structures.${r.structure}`)}</span>{r.presetId && <span className="text-xs text-muted-foreground"> · {t('experiments.fromPreset', { name: name(config.presets, r.presetId) })}</span>}</p>
+              <p>{profile?.name ?? r.profileId} <span className="text-xs text-muted-foreground">· {t(`runConditions.structures.${r.structure}`)}</span></p>
               {r.plannerName && <p className="text-xs text-muted-foreground">{t('experiments.planner', { model: r.plannerName })}</p>}
-              <p className="text-xs text-muted-foreground">{r.modelName ? t('experiments.executor', { model: r.modelName }) : combo ? comboSummary(combo, config.connections, r.mode) : t('experiments.noExecutor')}</p>
-              <p className="text-xs text-muted-foreground">{[t('experiments.actionsLine', { name: names.actionSet, count: r.permissions.keys.length + r.permissions.intents.length }), names.pageEnvironment, ...(r.mode === 'screenreader' ? [names.atEnvironment] : [])].join(' · ')}</p>
+              <p className="text-xs text-muted-foreground">{r.modelName ? t('experiments.executor', { model: r.modelName }) : profile ? comboSummary(profile, config.connections, r.mode) : t('experiments.noExecutor')}</p>
+              <p className="text-xs text-muted-foreground">{t('experiments.actionsLine', { count: r.permissions.keys.length + r.permissions.intents.length })}{profile && r.mode === 'screenreader' ? ` · ${t(`conditions.backends.${profile.screenReader}`)}` : ''}</p>
             </TableCell>
             <TableCell>
               <Badge variant={r.supported ? 'secondary' : 'outline'}>{r.supported ? t('experimentsPage.ready') : t('experimentsPage.restricted')}</Badge>
