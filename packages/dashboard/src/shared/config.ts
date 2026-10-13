@@ -3,12 +3,10 @@ import type { Task } from '@rawstep/core/contracts';
 import { idSchema as id, runRulesOverrideSchema, type Mode, type Model, type Permissions, type ProjectConfig } from '@rawstep/project/config';
 import type { RunSpec } from '@rawstep/project/execution';
 
-const ids = z.array(id).min(1).max(100).optional();
-/** An experiment: tasks × modes × run profiles × repeats. Without `profileIds` each task runs with its own profile. */
+/** An experiment: tasks × run profiles × repeats. Each profile runs in its own mode. */
 export const planSchema = z.object({
   taskIds: z.array(id).min(1).max(100),
-  modes: z.array(z.enum(['keyboard', 'screenreader'])).min(1).max(2),
-  profileIds: ids,
+  profileIds: z.array(id).min(1).max(100),
   /** Run rules for this experiment only, over each profile's. */
   runRules: runRulesOverrideSchema.optional(),
   repeats: z.number().int().min(1).max(100),

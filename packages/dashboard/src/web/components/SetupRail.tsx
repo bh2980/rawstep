@@ -1,8 +1,13 @@
-import { Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RouteChange } from '../hooks/useRoute';
 import { cn } from '../lib/utils';
 import { Link } from './Link';
+import { Button } from './ui/button';
+
+const HIDDEN = 'rawstep.setup.hidden';
+function wasHidden() { try { return localStorage.getItem(HIDDEN) === '1'; } catch { return false; } }
 
 export type SetupStep = { id: 'model' | 'task' | 'run'; done: boolean; detail: string; /** Where to do it; a step done on the page itself has none. */ to?: RouteChange };
 
@@ -10,10 +15,14 @@ type Props = { steps: SetupStep[]; navigate: (change: RouteChange) => void };
 
 /**
  * Getting started on the task list (spec §13): three steps on one line each (`01 ━ 모델 연결`). Only the step to do now is emphasised;
- * a finished one is marked 완료 and the ones after it are drawn with a dashed line. The page shows it only while a step is undone.
+ * a finished one is marked 완료 and the ones after it are drawn with a dashed line. The page shows it only while a step is undone, and a
+ * person can close it for good in this browser.
  */
 export function SetupRail({ steps, navigate }: Props) {
   const { t } = useTranslation();
+  const [hidden, setHidden] = useState(wasHidden);
+  if (hidden) return null;
+  const hide = () => { try { localStorage.setItem(HIDDEN, '1'); } catch { /* closed for this visit only */ } setHidden(true); };
   const current = steps.find(step => !step.done);
   const rail = <ol aria-label={t('taskList.setup.title')} className="grid border-t border-edge-strong">{steps.map((step, index) => {
     const now = step === current, future = !step.done && !now;
@@ -31,7 +40,10 @@ export function SetupRail({ steps, navigate }: Props) {
     </li>;
   })}</ol>;
   return <section aria-labelledby="setup-rail" className="grid gap-2">
-    <h2 id="setup-rail" className="text-base font-semibold">{t('taskList.setup.title')}</h2>
+    <div className="flex items-center justify-between gap-2">
+      <h2 id="setup-rail" className="text-base font-semibold">{t('taskList.setup.title')}</h2>
+      <Button type="button" variant="ghost" size="sm" onClick={hide}><X aria-hidden="true" />{t('taskList.setup.hide')}</Button>
+    </div>
     {rail}
   </section>;
 }

@@ -193,6 +193,7 @@ describe('public API surface', () => {
       "filePlannerSchema",
       "finalizeRun",
       "findByIdOrName",
+      "firstProfile",
       "followsPlan",
       "idSchema",
       "initProject",
@@ -239,7 +240,6 @@ describe('public API surface', () => {
       "runTask",
       "suggestionModel",
       "supportsMode",
-      "taskProfile",
       "taskSchema",
     ]
   `); });

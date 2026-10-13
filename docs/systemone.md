@@ -20,10 +20,12 @@ The API key never goes into `rawstep.config.json`. Each preset provider reads it
 ```json
 {
   "connections": [
-    { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
+    { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 },
+    { "id": "openai", "name": "OpenAI", "kind": "llm", "provider": "openai", "timeoutMs": 60000 }
   ],
   "profiles": [
-    { "id": "default", "name": "Default", "structure": "solo",
+    { "id": "default", "name": "Default", "mode": "screenreader",
+      "planner": { "connectionId": "openai", "modelId": "gpt-5-mini", "instructions": "" },
       "executors": {
         "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "...", "historyLimit": 12, "focusGate": false }
       },
@@ -35,12 +37,13 @@ The API key never goes into `rawstep.config.json`. Each preset provider reads it
 ```dotenv
 # .env.local (never commit)
 RAWSTEP_TYPESAFE_API_KEY=YOUR_PRIVATE_KEY
+RAWSTEP_OPENAI_API_KEY=YOUR_PRIVATE_KEY
 ```
 
-Run a task with the profile's executor:
+Screen reader runs always plan, so the profile also names a planner LLM; Jev then picks the actions within each task of the plan. Run a task with the profile:
 
 ```sh
-npx rawstep run checkout --profile default --mode screenreader
+npx rawstep run checkout --profile default
 npx rawstep analyze .rawstep/runs/RUN_DIR --llm   # LLM analysis with the project's analysis model
 npx rawstep report .rawstep/runs/RUN_DIR
 ```

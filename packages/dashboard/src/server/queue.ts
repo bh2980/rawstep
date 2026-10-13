@@ -4,7 +4,7 @@ import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { ProjectError } from '@rawstep/project/errors';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, taskProfile, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, type Mode, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { ProjectStore, atomicJson } from '@rawstep/project/store';
 import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from '@rawstep/project/plan';
 import { executeRun } from '@rawstep/project/execution';
@@ -79,7 +79,8 @@ export class ExperimentQueue {
     const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
     for (const taskId of new Set(request.taskIds)) {
       const task = config.tasks.find(t => t.id === taskId), source = tasks[taskId];
-      for (const conditions of conditionSets(config, task ?? {}, request)) for (const mode of new Set(request.modes)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+      for (const conditions of conditionSets(config, request)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
+        const mode = conditions.profile.mode;
         if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
         const profileId = conditions.profile.id, key = [taskId, mode, profileId, repeat].join(':');
         let reason: string | undefined, warnings: string[] = [], modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone(conditions.actionSet[mode]);
@@ -149,7 +150,7 @@ export class ExperimentQueue {
     for (const key of ['startedAt', 'endedAt', 'outcome', 'error', 'analysisError', 'reportError'] as const) delete run[key];
     run.snapshot.spec.task = safeTask(task); this.liveTasks.set(run.id, task);
     const experiment: Experiment = { id: randomUUID(), createdAt: new Date().toISOString(), stopped: false, runs: [run],
-      request: { taskIds: [run.taskId], modes: [run.mode], profileIds: [run.profileId], repeats: 1 } };
+      request: { taskIds: [run.taskId], profileIds: [run.profileId], repeats: 1 } };
     await this.persist(experiment); this.experiments.unshift(experiment); this.changed(); this.start(); return experiment;
   }
   private start() {
@@ -268,10 +269,9 @@ function safeTask(task: Task): Task {
   return { ...redacted, ...(task.id ? { id: task.id } : {}), mode: task.mode, input: Object.fromEntries(Object.keys(task.input ?? {}).map(k => [k, '[REDACTED]'])) };
 }
 
-/** The run profiles of a task in an experiment: the ones the request lists, otherwise the task's own. */
-function conditionSets(config: ProjectConfig, task: { profileId?: string | undefined }, request: { profileIds?: string[] | undefined }): RunConditions[] {
-  const profiles = request.profileIds ? request.profileIds.map(id => config.profiles.find(p => p.id === id)).filter(p => !!p) : [taskProfile(config, task)];
-  return profiles.map(profileConditions);
+/** The run profiles an experiment lists, in its order; ids no profile has are left out (the plan then has fewer rows). */
+function conditionSets(config: ProjectConfig, request: { profileIds: string[] }): RunConditions[] {
+  return [...new Set(request.profileIds)].map(id => config.profiles.find(p => p.id === id)).filter(p => !!p).map(profile => profileConditions(profile));
 }
 /** Korean wording of the run check's English warnings. */
 function koreanWarning(warning: string): string {

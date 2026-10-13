@@ -20,7 +20,7 @@ const korean: Record<string, string> = {
   'combo-connection-missing': '모델 조합이 없는 연결을 가리킵니다. 모델 조합의 모델을 다시 고르세요.',
   'owner-missing': '작업 전용 조건이 없는 작업을 가리킵니다.',
   'task-copy-foreign': '작업이 다른 작업의 전용 조건을 쓰고 있습니다.',
-  'old-config': '예전 형식의 설정 파일입니다. Rawstep 저장소에서 node scripts/migrate-config.mjs <프로젝트 폴더>로 한 번 변환하세요.',
+  'old-config': '예전 형식의 설정 파일이라 읽지 않습니다. rawstep init으로 새 프로젝트를 만들고 작업을 옮기세요.',
   'duplicate-task-file': '작업 파일 경로가 중복되었습니다.',
   'task-combo-missing': '작업의 모델 조합을 찾을 수 없습니다.',
   'task-action-set-missing': '작업의 행동 조합을 찾을 수 없습니다.',

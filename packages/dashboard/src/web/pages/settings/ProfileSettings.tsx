@@ -21,8 +21,8 @@ const same = sameValue;
 
 /** A new profile from a starting point for who decides, with Rawstep's default actions, page, screen reader and rules. */
 export function profileFromPreset(preset: (typeof COMBO_PRESETS)[number], id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
-  const { structure, planner, executors } = comboFromPreset(preset, id, name, config.connections);
-  return { ...defaultProfile(id, name), structure, executors, ...(planner ? { planner } : {}) };
+  const { planner, executors } = comboFromPreset(preset, id, name, config.connections);
+  return { ...defaultProfile(id, name), executors, ...(planner ? { planner } : {}) };
 }
 
 /** Why a profile cannot be saved yet, if it cannot. */
@@ -51,45 +51,44 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
   const update = (next: Profile) => setItems(items.map(item => item.id === next.id ? next : item));
   const add = (item: Profile) => { setItems([...items, item]); setSelectedId(item.id); };
   const remove = (item: Profile) => { const next = items.filter(other => other.id !== item.id); setItems(next); setSelectedId(next[0]?.id); };
-  const usedBy = (id: string) => config.tasks.filter(task => (task.profileId ?? config.profiles[0]?.id) === id);
   const removed = saved.filter(s => !items.some(item => item.id === s.id));
-  /** Writes the profiles on top of the latest config; tasks that named a removed profile fall back to the first one. */
+  /** Writes the profiles on top of the latest config. */
   const save = () => void props.act(async () => {
-    const latest = props.view.config, ids = new Set(items.map(item => item.id));
-    const tasks = latest.tasks.map(task => task.profileId && !ids.has(task.profileId) ? (({ profileId: _gone, ...rest }) => rest)(task) : task);
-    await props.save({ ...latest, profiles: items, tasks }, undefined, props.view.revision);
+    await props.save({ ...props.view.config, profiles: items }, undefined, props.view.revision);
   });
-  const users = selected ? usedBy(selected.id) : [];
   return <div className="grid gap-5">
-    <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} />
-    <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-      <div className="grid gap-3 lg:sticky lg:top-0">
-        <ul aria-label={t('profile.listLabel')} className="grid border-y border-edge-strong">
+    <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} actions={
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button variant="outline"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
+          <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
+          <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
+        </DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+    } />
+    <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch">
+      <div className="flex flex-col gap-3">
+        {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}
+        {/* A long list scrolls on its own; beside the editor it is exactly as tall as the editor. */}
+        <div className="relative lg:min-h-48 lg:flex-1">
+        <ul aria-label={t('profile.listLabel')} className="grid max-h-72 content-start overflow-y-auto overscroll-contain border-y border-edge-strong lg:absolute lg:inset-0 lg:max-h-none">
           {items.map(item => <li key={item.id} className="border-b border-edge last:border-b-0">
             <button type="button" aria-current={item.id === selected?.id ? 'true' : undefined} onClick={() => setSelectedId(item.id)}
               data-selected={item.id === selected?.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2 pr-3 pl-4 text-left text-sm', item.id === selected?.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>
               <span className="break-words">{item.name || t('profile.unnamed')}{!same(item, saved.find(s => s.id === item.id)) && <span className="ml-1 text-trace" aria-label={t('settingsNav.unsaved')}>•</span>}</span>
-              <span className="text-xs leading-4 font-normal break-words text-muted-foreground">{comboSummary(item, config.connections)} · {t(`conditions.backends.${item.screenReader}`)}</span>
+              <span className="text-xs leading-4 font-normal break-words text-muted-foreground">{comboSummary(item, config.connections, item.mode)} · {t(`conditions.backends.${item.screenReader}`)}</span>
             </button>
           </li>)}
         </ul>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button variant="outline" className="justify-self-start"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-80">
-            {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
-              <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
-              <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
-            </DropdownMenuItem>)}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {!config.connections.length && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.connectionsFirst')} <Link to={{ view: 'settings', section: 'connections' }} navigate={navigate} className="font-medium text-trace underline underline-offset-4">{t('conditions.combo.toConnections')}</Link></p>}
+        </div>
       </div>
       {selected && <div className="grid min-w-0 max-w-5xl content-start gap-8">
         <div className="flex items-start justify-between gap-3 border-b border-edge pb-3">
           <div className="grid min-w-0 flex-1 gap-1">
             <Label htmlFor="profile-name" className="sr-only">{t('profile.name')}</Label>
             <Input id="profile-name" value={selected.name} onChange={event => update({ ...selected, name: event.target.value })} className="h-9 max-w-md text-base font-semibold" />
-            <p className="text-xs leading-5 text-muted-foreground">{users.length ? t('profile.usedBy', { count: users.length, tasks: users.slice(0, 3).map(task => task.name).join(', ') }) : t('profile.unused')}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={t('profile.more', { name: selected.name })}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>

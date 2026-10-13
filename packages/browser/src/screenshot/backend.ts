@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import type { Backend, BackendAction, BackendKeyboardObservation, BackendOperationOptions, BackendSession } from '@rawstep/core/contracts';
 
-import { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
+import { BROWSER_KEYS, SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
 export { SCREENSHOT_KEYS } from '@rawstep/core/screenshot';
 
 /** Only viewport pixels leave this adapter. No locators, DOM, AX, OCR, or mouse actions. */
@@ -34,7 +34,9 @@ export class ScreenshotKeyboardBackend implements Backend {
     if (action.kind === 'intent') throw new Error('Screen reader intents are unavailable in screenshot mode.');
     if (action.kind === 'key') {
       if (!(SCREENSHOT_KEYS as readonly string[]).includes(action.key)) throw new Error(`Unsupported screenshot key: ${action.key}`);
-      await page.keyboard.press(action.key);
+      // Alt+← is the browser's back, not the page's: a dispatched keystroke would not leave the page.
+      if (BROWSER_KEYS[action.key] === 'back') await page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => null);
+      else await page.keyboard.press(action.key);
     } else {
       // Mark the field before typing so its value can be hidden from the policy's screenshots.
       if (action.sensitive) { await page.evaluate(MARK_FOCUSED_FIELD); this.masking = true; }

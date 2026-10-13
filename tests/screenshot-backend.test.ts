@@ -10,7 +10,7 @@ const dirs:string[]=[];
 afterEach(async()=>{await Promise.all(dirs.splice(0).map(p=>rm(p,{recursive:true,force:true})));});
 async function out(){const p=await mkdtemp(join(tmpdir(),'rawstep-screenshot-backend-'));dirs.push(p);return p;}
 function browser(){return {
- page:{bringToFront:vi.fn(async()=>{}),evaluate:vi.fn(async()=>true),screenshot:vi.fn(async()=>Buffer.from('fixture-png')),viewportSize:()=>({width:1280,height:800}),keyboard:{press:vi.fn(async()=>{}),type:vi.fn(async()=>{})}},
+ page:{bringToFront:vi.fn(async()=>{}),evaluate:vi.fn(async()=>true),screenshot:vi.fn(async()=>Buffer.from('fixture-png')),viewportSize:()=>({width:1280,height:800}),goBack:vi.fn(async()=>null),keyboard:{press:vi.fn(async()=>{}),type:vi.fn(async()=>{})}},
  browser:{version:()=> 'test'},takeBlockedNavigations:()=>[],takeNavigationGuardWarnings:()=>[],close:vi.fn(async()=>{})
 } as unknown as BrowserSession;}
 const task={url:'https://example.test',goal:'Activate start',verify:{all:[{titleIncludes:'Done'}]},maxSteps:4,timeoutMs:1000};
@@ -21,9 +21,13 @@ describe('screenshot keyboard backend without any screen reader',()=>{
   expect(first.kind).toBe('keyboard');expect(first.screenshot.pngBase64).toBe(Buffer.from('fixture-png').toString('base64'));
   expect(second.previousScreenshot).toEqual(first.screenshot);expect(first).not.toHaveProperty('speech');await backend.close();
  });
- it.each(SCREENSHOT_KEYS)('preserves supported key mapping %s',async(key)=>{
+ it.each(SCREENSHOT_KEYS.filter(key=>key!=='Alt+ArrowLeft'))('preserves supported key mapping %s',async(key)=>{
   const session=browser();const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachSession({ page: session.page });
   await backend.execute({kind:'key',key});expect(session.page.keyboard.press).toHaveBeenCalledWith(key.replace('Mod+','ControlOrMeta+'));await backend.close();
+ });
+ it('goes back in the browser for Alt+ArrowLeft, which a page never receives as a keystroke',async()=>{
+  const session=browser();const backend=new ScreenshotKeyboardBackend();await backend.start();backend.attachSession({ page: session.page });
+  await backend.execute({kind:'key',key:'Alt+ArrowLeft'});expect(session.page.goBack).toHaveBeenCalled();expect(session.page.keyboard.press).not.toHaveBeenCalled();await backend.close();
  });
  it('runs through the same verifier, budgets and traces while warning',async()=>{
   const session=browser(),warning=vi.fn();const observed:unknown[]=[];
