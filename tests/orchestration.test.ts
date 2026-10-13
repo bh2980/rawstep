@@ -170,11 +170,16 @@ describe('orchestrated speech policy', () => {
     expect(await last.decide(input({ history: h, observation: said('End of content') }))).toEqual({ stop: 'stuck', stopSource: 'exploration-guard' });
   });
   it('stops with its own stop sources: the planner judging the goal done, or running out of new plans', async () => {
-    const p = planner(draft({ Any: ['Anything'] })), e = executor('intent:next', 'intent:next', 'intent:next');
+    const p = planner(draft({ Any: ['Anything'] })), e = executor(...Array(5).fill('intent:next'));
     const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { ...EXECUTOR_CLAIMS, maxReplans: 1, stepActionLimit: 1 });
+    // Every action lands on the same item: nothing new is heard, so each task runs out after one stale action.
+    const same = 'Thor Hammer, heading level 1', at = (n: number) => Array.from({ length: n }, (_, i) => acted(i + 1, 'next', same));
     expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'next' } });
-    expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
-    expect(await policy.decide(input({ history: [acted(1, 'next', 'Quantity, 1'), acted(2, 'next', 'Price')] }))).toEqual({ stop: 'stuck', stopSource: 'orchestration-limit' });
+    expect(await policy.decide(input({ history: at(1) }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(await policy.decide(input({ history: at(2) }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(p.requests.map(r => r.trigger)).toEqual(['start', 'task-limit']);
+    expect(await policy.decide(input({ history: at(3) }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(await policy.decide(input({ history: at(4) }))).toEqual({ stop: 'stuck', stopSource: 'orchestration-limit' });
     expect(evidence(policy).some(k => k.kind === 'orchestration-limit')).toBe(true);
     expect(currentTask(policy.planDocument()!)).toMatchObject({ status: 'failed' });
     const done = new OrchestratedSpeechPolicy(planner({ ...draft({}), complete: true, rationale: 'Already in the cart.' }).planner, executor().executor);
@@ -331,6 +336,14 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(await offered()).toEqual(['intent:activate', 'intent:heading.next']);
     expect(await offered('direction')).toEqual(['intent:activate', 'intent:heading.next', 'intent:heading.previous']);
     expect(await offered('method')).toEqual(['intent:next', 'intent:previous', 'intent:activate', 'intent:heading.next', 'intent:heading.previous']);
+  });
+  it('lets a task that keeps hearing new items walk past the task limit, and stops one that hears nothing new', async () => {
+    const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Try headings'] }));
+    const policy = new OrchestratedSpeechPolicy(p.planner, executor(...Array(8).fill('intent:next')).executor, { stepActionLimit: 3 });
+    const walk = Array.from({ length: 6 }, (_, i) => acted(i + 1, 'next', `item ${i}`));
+    await policy.decide(input({ observation: said('start') }));
+    for (let n = 1; n <= 6; n++) await policy.decide(input({ observation: said(`item ${n}`), history: walk.slice(0, n) }));
+    expect(p.requests.map(r => r.trigger)).toEqual(['start']);
   });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));

@@ -46,7 +46,7 @@ export interface Planner {
 export type OrchestrationOptions = SpeechPolicyOptions & {
   /** New plans after the first before the run stops (default 4). */
   maxReplans?: number;
-  /** Actions on one task before a new plan is requested (default 12). */
+  /** Actions on one task without hearing anything new before a new plan is requested (default 12); a task never runs past three times this. */
   stepActionLimit?: number;
   /** Failed actions in a row on one task before a new plan is requested (default 2). */
   failureLimit?: number;
@@ -347,7 +347,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const recent = spoken.slice(-this.limits.oscillationLimit);
     if (recent.length === this.limits.oscillationLimit && recent[0] && recent[1] && recent[0] !== recent[1] && recent.every((item, i) => item === recent[i % 2])) return 'oscillation';
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
-    if (since.length >= this.limits.stepActionLimit) return 'task-limit';
+    // A task that keeps hearing new items is making its way (walking a long page item by item), not stuck: only actions since the
+    // last newly heard item count, with a hard cap at three times the limit.
+    const heard = new Set<string>();
+    let sinceNew = 0;
+    for (const item of spoken) { if (item && !heard.has(item)) { heard.add(item); sinceNew = 0; } else sinceNew++; }
+    if (sinceNew >= this.limits.stepActionLimit || since.length >= this.limits.stepActionLimit * 3) return 'task-limit';
     return undefined;
   }
   private attempts(history: readonly HistoryEntry[], input: Input): TaskAttempt[] {

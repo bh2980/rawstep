@@ -140,7 +140,7 @@ export const runRulesSchema = z.object({
   modelGiveUp: z.boolean().default(false),
   /** With a planner: corrections of the plan before the run stops (checkpoints do not count). */
   maxReplans: count(0, 100, RAWSTEP_DEFAULTS.orchestration.maxReplans),
-  /** With a planner: actions on one task before a new plan is requested. */
+  /** With a planner: actions on one task without hearing anything new before a new plan is requested (never past three times this). */
   stepActionLimit: count(1, 1000, RAWSTEP_DEFAULTS.orchestration.stepActionLimit),
   /** With a planner: failed actions in a row on one task before a new plan is requested. */
   failureLimit: count(1, 100, 2),
