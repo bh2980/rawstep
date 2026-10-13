@@ -44,6 +44,25 @@ const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
   "form.next": ["f"],
 });
 
+/**
+ * A screen reader list read by listening: open it, move to the wanted list until its name is spoken, read item by item until an item
+ * comes round again or nothing new is said, then close it. Every word spoken along the way is kept as the action's speech.
+ */
+export interface AtDriverListRoutine {
+  open: readonly string[];
+  nextList: readonly string[];
+  nextItem: readonly string[];
+  close: readonly string[];
+  /** Spoken when the wanted list is shown (English default speech). */
+  listName: RegExp;
+  maxLists: number;
+  maxItems: number;
+}
+/** VoiceOver's rotor (VO+U) on its Headings list: Right/Left switch lists, Down reads the next item, Escape closes it. */
+const voiceoverRoutines: Readonly<Record<string, AtDriverListRoutine>> = Object.freeze({
+  "headings.list": { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], nextItem: [AT_DRIVER_KEYS.ArrowDown], close: [AT_DRIVER_KEYS.Escape], listName: /\bheadings\b/i, maxLists: 12, maxItems: 100 },
+});
+
 export interface AtDriverProfile {
   name: AtDriverProfileName;
   atName: string;
@@ -52,6 +71,8 @@ export interface AtDriverProfile {
   assumptions: readonly string[];
   sources: readonly string[];
   mapAction(action: AtDriverAction): string[][];
+  /** Intents carried out by listening between key presses (see `AtDriverListRoutine`). */
+  routines: Readonly<Record<string, AtDriverListRoutine>>;
 }
 
 const shiftedDigits: Readonly<Record<string, string>> = Object.freeze({
@@ -88,7 +109,8 @@ function textKeys(text: string, profile: AtDriverProfileName): string[][] {
 export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
   if (name !== "voiceover" && name !== "nvda") throw new Error(`Unsupported AT Driver profile: ${String(name)}`);
   const intents = name === "voiceover" ? voiceoverIntents : nvdaIntents;
-  const capabilities = Object.freeze({ intents: Object.freeze(Object.keys(intents)), keys: allowedKeys, textEntry: true, replaceText: true });
+  const routines = name === "voiceover" ? voiceoverRoutines : {};
+  const capabilities = Object.freeze({ intents: Object.freeze([...Object.keys(intents), ...Object.keys(routines)]), keys: allowedKeys, textEntry: true, replaceText: true });
   return {
     name,
     atName: name === "voiceover" ? "VoiceOver" : "NVDA",
@@ -96,7 +118,8 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     capabilities,
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
-      ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names"] : [
+      ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
+        "headings.list opens the rotor (VO+U), presses Right until English speech names the Headings list, reads with Down until an item repeats or nothing new is spoken, then presses Escape; not yet checked against a live VoiceOver"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
@@ -112,6 +135,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
       "https://github.com/Prime-Access-Consulting/nvda-at-automation/blob/main/NVDAPlugin/globalPlugins/CommandSocket/keyboard_input.py",
       "https://download.nvaccess.org/documentation/en/userGuide.html#BrowseMode",
     ],
+    routines,
     mapAction(action) {
       if (action.kind === "intent") {
         if (!Object.hasOwn(intents, action.intent)) throw new AtDriverError(`Unsupported ${name} intent: ${action.intent}`, "unsupported action");

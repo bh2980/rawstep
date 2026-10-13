@@ -419,6 +419,45 @@ describe("AT Driver backend", () => {
     await driver.close();
   });
 
+  it("lists headings on VoiceOver through the rotor: opens it, finds the Headings list by ear, reads to the end and closes it", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    const key = (keys: string[]) => keys.join("+");
+    const said: Record<string, string[]> = { [key([AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, "u"])]: ["Links"], [key([AT_DRIVER_KEYS.ArrowRight])]: ["Headings"], [key([AT_DRIVER_KEYS.Escape])]: [] };
+    const items = ["Shop, heading level 1", "Products, heading level 2", "Shop, heading level 1"];
+    socket.onSend = command => {
+      socket.reply(command.id);
+      const keys = command.params.keys as string[];
+      const speech = key(keys) === key([AT_DRIVER_KEYS.ArrowDown]) ? [items.shift() ?? ""] : said[key(keys)] ?? [];
+      for (const text of speech) if (text) socket.output(text);
+    };
+    const action = driver.execute({ kind: "intent", intent: "headings.list" });
+    await vi.advanceTimersByTimeAsync(5_000);
+    await action;
+    expect(socket.sent.slice(-6).map(command => command.params.keys)).toEqual([
+      [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, "u"], [AT_DRIVER_KEYS.ArrowRight], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.ArrowDown], [AT_DRIVER_KEYS.Escape],
+    ]);
+    const observation = await settle(driver);
+    expect(observation.speech).toEqual(["Links", "Headings", "Shop, heading level 1", "Products, heading level 2", "Shop, heading level 1"]);
+    expect(getAtDriverProfile("voiceover").capabilities.intents).toContain("headings.list");
+    expect(getAtDriverProfile("nvda").capabilities.intents).not.toContain("headings.list");
+    await driver.close();
+  });
+
+  it("closes the rotor without reading when no Headings list is found", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    socket.onSend = command => { socket.reply(command.id); if ((command.params.keys as string[]).includes("u")) socket.output("Links"); };
+    const action = driver.execute({ kind: "intent", intent: "headings.list" });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await action;
+    const keys = socket.sent.slice(1).map(command => command.params.keys as string[]);
+    expect(keys.filter(k => k.length === 1 && k[0] === AT_DRIVER_KEYS.ArrowRight)).toHaveLength(12);
+    expect(keys.some(k => k[0] === AT_DRIVER_KEYS.ArrowDown)).toBe(false);
+    expect(keys.at(-1)).toEqual([AT_DRIVER_KEYS.Escape]);
+    await driver.close();
+  });
+
   it("types by ordered per-character keypresses, never as one simultaneous chord", async () => {
     const { socket, backend: driver } = await backend();
     const receipt = await driver.execute({ kind: "replaceText", text: "A@b.co" });
