@@ -1,19 +1,21 @@
 import type { CDPSession, Page } from '@rawstep/browser/types';
 import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
+import { setTimeout as wait } from 'node:timers/promises';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v3' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v4' as const;
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
   'Selected wording and plain checked-control state-change rules are calibrated to versioned third-party observations and local macOS/Safari 26.6.2 captures; this is a composite simulation profile, not any one native version. Other state changes, hints and speech timing remain heuristic.',
   'Next at an enabled terminal button re-announces that object, inferred from the repeated final-button observations in the local corpus. Other endpoint roles and previous-boundary behavior remain uncalibrated.',
-  'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
+  'The projected accessibility cursor includes named group/landmark boundaries, list positions and table coordinates. Navigation synchronizes focus to actual focusable DOM objects, calibrated to the local native profile; static stops preserve keyboard focus. Configurable tracking preferences remain unimplemented.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
-  'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
-  'Live regions (status, alert, log, aria-live polite/assertive): new text is spoken once after the speech of the action that caused it, without the role and without timing or interruption; an empty live region is not a cursor stop (documented VoiceOver/Safari support for role=status, a11ysupport.io 2020; the empty-region skip is inferred).',
-  'List markers (bullets, "1.") are not cursor stops: VoiceOver reads a list item\'s content directly (inferred; markers are not separate accessibility objects in WebKit).',
+  'Quick navigation covers next/previous heading and next form control only. Native previous-heading input is unresolved in the local collector. Group interaction, rotor, speech queue/interruption and cross-frame navigation are unimplemented.',
+  'Live regions are polled during an explicit minimum observation window; successive observed text changes are preserved. Polling can miss brief changes and does not simulate native queue timing or interruption.',
+  'List item markers, positions, nested list levels and end boundaries are projected from Chromium and DOM metadata, calibrated to local captures.',
+  'Single-character editing echoes and caret/selection key receipts are calibrated on generated text inputs and textareas. Multi-character task input, native autocomplete/autofill and browser-specific focus selection need further validation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
   'headings.list reads every heading with its level in one announcement, like opening the VoiceOver rotor on headings (VO+U) and listening through it; the cursor does not move.',
@@ -29,11 +31,12 @@ const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => b
   'heading.previous': { step: -1, match: role => role === 'heading', none: 'No previous heading' },
   'form.next': { step: 1, match: role => formRoles.has(role), none: 'No more form controls' },
 });
-const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape']);
+const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'Home', 'End', 'Shift+Home', 'Shift+End', 'Backspace', 'Delete', 'ControlOrMeta+A']);
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 // Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
-// List markers (bullets, "1.") are not stops either: VoiceOver reads a list item's content directly.
+// Raw marker nodes are projected onto list-item stops, including marker-only stops before links.
 const skippedRoles = new Set(['RootWebArea', 'WebArea', 'none', 'presentation', 'generic', 'InlineTextBox', 'LineBreak', 'separator', 'ListMarker']);
 /** Live regions: their new text is announced when it changes; with nothing in them they are not a stop. */
 const liveRoles = new Set(['status', 'alert', 'log', 'marquee', 'timer']);
@@ -42,13 +45,17 @@ const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 
 const clickableRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab']);
 const editableRoles = new Set(['textbox', 'searchbox', 'spinbutton', 'combobox']);
 
-type AXValue = { value?: unknown };
+type AXValue = { value?: unknown; sources?: { type: string; superseded?: boolean; value?: { value?: unknown } }[] };
 type AXNode = {
   nodeId: string; backendDOMNodeId?: number; parentId?: string; childIds?: string[];
   ignored: boolean; role?: AXValue; name?: AXValue; value?: AXValue; description?: AXValue;
   properties?: { name: string; value: AXValue }[];
 };
-type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean };
+type Container = { id: string; name: string; role: string; items: number; rows?: number; columns?: number };
+type Cell = { table: string; row: number; column: number; rows: number; columns: number; header: string };
+type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
+type DOMMeta = { tag: string; attributes: Record<string, string>; parent?: number };
+type EditState = { value: string; start: number; end: number; multiline: boolean };
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[] };
 type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
@@ -59,7 +66,11 @@ export class MockVoiceOverBackend implements Backend {
   readonly evidenceProvenance = 'simulation' as const;
   readonly capabilities: Backend['capabilities'];
   private sourceCommand = 'next_item';
-  constructor(private readonly wording?: MockWordingOptions) { this.capabilities=Object.freeze(wording?.capabilities ?? {intents,keys,textEntry:true,replaceText:true}); }
+  constructor(private readonly wording?: MockWordingOptions, private readonly observationMinWaitMs = 0) {
+    if (!Number.isFinite(observationMinWaitMs) || observationMinWaitMs < 0) throw new Error('Invalid minimum observation wait');
+    this.capabilities=Object.freeze(wording?.capabilities ?? {intents,keys,textEntry:true,replaceText:true});
+  }
+  private actionEndedAt = 0;
   private page?: Page;
   private session?: CDPSession;
   private state: 'new' | 'ready' | 'closed' = 'new';
@@ -67,11 +78,14 @@ export class MockVoiceOverBackend implements Backend {
   private nodes: CursorNode[] = [];
   private cursor?: string;
   private focusedIdentity?: string;
+  private focusedEdit?: EditState;
   private focusInitialized = false;
   private window?: Window;
   private nextWindow = 1;
   private sequence = 0;
   private lastAnnouncement?: string;
+  private announcedContainers: string[] = [];
+  private announcedCell?: Cell;
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
@@ -95,7 +109,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, capabilities: this.capabilities, limitations: MOCK_VOICEOVER_LIMITATIONS, ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '3', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '4', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -131,9 +145,24 @@ export class MockVoiceOverBackend implements Backend {
     return this.window ??= { id: `mock-voiceover-window-${this.nextWindow++}`, startedAt: new Date().toISOString(), outputs: [] };
   }
 
-  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false): void {
+  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, textOverride?: string): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
-    const text = rendered?.speech ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged) : fallback);
+    let text = rendered?.speech ?? textOverride ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged) : fallback);
+    if (!this.wording && node) {
+      if (node.cell && !node.end) {
+        const c = node.cell, row = c.row > 0 && (this.announcedCell?.table !== c.table || this.announcedCell?.row !== c.row) ? `row ${c.row + 1} of ${c.rows}` : '';
+        text = [row, c.row > 0 ? c.header : '', node.semantic.name, `column ${c.column + 1} of ${c.columns}`].filter(Boolean).join(' ');
+        this.announcedCell = c;
+      } else this.announcedCell = undefined;
+      const entered = (node.containers ?? []).filter(c => c.id !== node.axId && !this.announcedContainers.includes(c.id) && c.name);
+      const dialogs = entered.filter(c => c.role === 'dialog' || c.role === 'alertdialog');
+      for (const c of dialogs) text = `${c.name} web dialog with ${c.items} items ${text}`;
+      const groupWords: Record<string, string> = { group: 'group', radiogroup: 'radio group', tablist: 'tab group' };
+      for (const c of entered.filter(c => groupWords[c.role])) text += ` ${c.name} ${groupWords[c.role]}`;
+      for (const c of entered.filter(c => ['main','navigation','banner','contentinfo','complementary','region','form'].includes(c.role))) text += ` ${c.name} ${c.role}`;
+      for (const c of entered.filter(c => c.role === 'table')) text += ` ${c.name} table ${c.columns} columns, ${c.rows} rows`;
+      this.announcedContainers = (node.containers ?? []).map(c => c.id);
+    }
     const fingerprint = JSON.stringify([node?.identity, text]);
     if (!force && this.lastAnnouncement === fingerprint) return;
     this.lastAnnouncement = fingerprint;
@@ -146,7 +175,7 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region' | 'editing' | 'value-change'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
@@ -165,6 +194,7 @@ export class MockVoiceOverBackend implements Backend {
   private currentFingerprint(): string { return JSON.stringify([this.cursor, this.current()?.semantic]); }
 
   private async readFocusedIdentity(session: CDPSession, signal?: AbortSignal): Promise<string | undefined> {
+    this.focusedEdit = undefined;
     const { result } = await session.send('Runtime.evaluate', {
       expression: `(() => { if (!document.hasFocus()) return null; let element = document.activeElement; while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement; return element; })()`,
       returnByValue: false,
@@ -174,6 +204,11 @@ export class MockVoiceOverBackend implements Backend {
     try {
       const { node } = await session.send('DOM.describeNode', { objectId: result.objectId });
       signal?.throwIfAborted();
+      if (!this.wording) {
+        const edit = await session.send('Runtime.callFunctionOn', { objectId: result.objectId, returnByValue: true,
+          functionDeclaration: `function() { if (!(this instanceof HTMLInputElement || this instanceof HTMLTextAreaElement) || this.type === 'password' || this.selectionStart === null) return null; return {value:this.value,start:this.selectionStart,end:this.selectionEnd,multiline:this instanceof HTMLTextAreaElement}; }` });
+        if (edit.result.value) this.focusedEdit = edit.result.value as EditState;
+      }
       return `dom:${node.backendNodeId}`;
     } finally { await session.send('Runtime.releaseObject', { objectId: result.objectId }).catch(() => {}); }
   }
@@ -184,32 +219,186 @@ export class MockVoiceOverBackend implements Backend {
     signal?.throwIfAborted();
     const axNodes = result.nodes as AXNode[];
     const byId = new Map(axNodes.map(node => [node.nodeId, node]));
+    const dom = new Map<number, DOMMeta>();
+    if (!this.wording) {
+      const document = await session.send('DOM.getDocument', { depth: -1, pierce: true });
+      const scan = (n: { backendNodeId: number; nodeName: string; attributes?: string[]; children?: unknown[]; shadowRoots?: unknown[] }, parent?: number) => {
+        const attrs = n.attributes ?? [], attributes: Record<string, string> = {};
+        for (let i = 0; i < attrs.length; i += 2) attributes[attrs[i]!] = attrs[i + 1]!;
+        dom.set(n.backendNodeId, { tag: n.nodeName.toLowerCase(), attributes, parent });
+        for (const child of [...n.children ?? [], ...n.shadowRoots ?? []]) scan(child as typeof n, n.backendNodeId);
+      };
+      scan(document.root);
+    }
     const next: CursorNode[] = [];
     const visited = new Set<string>();
-    // Text that only repeats what was just said — a group's legend after "Categories, group", a checkbox label after the checkbox —
-    // is one utterance, not two. Objects with nothing to say are not stops.
+    const containers = new Map<string, Container>();
+    const cellPositions = new Map<number, Omit<Cell, 'table' | 'header'>>();
+    const tableSizes = new Map<number, { rows: number; columns: number }>();
+    const ancestor = (id: number, tag: string): number | undefined => {
+      let parent = dom.get(id)?.parent;
+      while (parent !== undefined) { if (dom.get(parent)?.tag === tag) return parent; parent = dom.get(parent)?.parent; }
+      return undefined;
+    };
+    for (const [tableId, meta] of dom) if (meta.tag === 'table') {
+      const rows = [...dom].filter(([id, m]) => m.tag === 'tr' && ancestor(id, 'table') === tableId), occupied = new Set<string>();
+      let columns = 0;
+      for (const [row, [rowId]] of rows.entries()) {
+        let column = 0;
+        for (const [id, cell] of [...dom].filter(([, m]) => ['td','th'].includes(m.tag) && m.parent === rowId)) {
+          while (occupied.has(`${row}:${column}`)) column++;
+          const colspan = Math.min(1000, Math.max(1, Number.parseInt(cell.attributes.colspan ?? '1') || 1));
+          const rowspan = Math.min(rows.length - row, Math.max(1, Number.parseInt(cell.attributes.rowspan ?? '1') || 1));
+          cellPositions.set(id, { row, column, rows: rows.length, columns: 0 });
+          for (let r = row; r < row + rowspan; r++) for (let c = column; c < column + colspan; c++) occupied.add(`${r}:${c}`);
+          column += colspan; columns = Math.max(columns, column);
+        }
+      }
+      tableSizes.set(tableId, { rows: rows.length, columns });
+      for (const [id, cell] of cellPositions) if (ancestor(id, 'table') === tableId) cell.columns = columns;
+    }
+    const children = (n: AXNode) => (n.childIds ?? []).map(id => byId.get(id)).filter((child): child is AXNode => !!child);
+    const containsImage = (n: AXNode): boolean => children(n).some(c => !c.ignored && stringValue(c.role) === 'image' || containsImage(c));
+    const insideNamedLink = (n: AXNode): boolean => {
+      const seen = new Set<string>();
+      let parent = n.parentId ? byId.get(n.parentId) : undefined;
+      while (parent && !seen.has(parent.nodeId)) {
+        if (!parent.ignored && stringValue(parent.role) === 'link' && stringValue(parent.name)) return true;
+        seen.add(parent.nodeId); parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+      }
+      return false;
+    };
+    const labelControls = (n: AXNode): string[] => namedLeafRoles.has(stringValue(n.role)) ? [stringValue(n.name)] : children(n).flatMap(labelControls);
+    const listText = (n: AXNode): string => {
+      const role = stringValue(n.role);
+      if (role === 'ListMarker' || namedLeafRoles.has(role) || role === 'list') return '';
+      if (role === 'StaticText') return stringValue(n.name);
+      return children(n).map(listText).filter(Boolean).join(' ');
+    };
+    // External formatter profiles retain historical filtering; native-profile labels follow DOM order.
     let lastSaid = '';
-    const visit = (node: AXNode, suppressText: boolean, groupNames: readonly string[]) => {
+    const visit = (node: AXNode, suppressText: boolean, groupNames: readonly string[], scopes: Container[] = [], labelNames: string[] = []) => {
       if (visited.has(node.nodeId)) return;
       visited.add(node.nodeId);
-      const role = stringValue(node.role);
+      const sourceRole = stringValue(node.role);
       const name = stringValue(node.name), said = name.trim();
-      const repeated = textRoles.has(role) && (said === lastSaid || groupNames.includes(said));
-      if (!node.ignored && !skippedRoles.has(role) && !(suppressText && textRoles.has(role)) && !(unnamedContainerRoles.has(role) && !name) && (name || !textRoles.has(role)) && !repeated) {
+      const meta = node.backendDOMNodeId === undefined ? undefined : dom.get(node.backendDOMNodeId);
+      const role = !this.wording && meta?.tag === 'table' ? 'table' : !this.wording && meta?.tag === 'dl' ? 'descriptionlist' : sourceRole;
+      const list = !this.wording && !node.ignored && role === 'list';
+      const listItem = !this.wording && !node.ignored && role === 'listitem';
+      const description = !this.wording && !node.ignored && role === 'descriptionlist';
+      const descriptionItem = !this.wording && !node.ignored && ['dt','dd'].includes(meta?.tag ?? '');
+      const table = !this.wording && !node.ignored && role === 'table';
+      const structuralRow = !this.wording && (['row','rowgroup','LayoutTableRow','strong','emphasis','blockquote'].includes(role) || role === 'image' && insideNamedLink(node));
+      const caption = !this.wording && meta?.tag === 'caption';
+      const cell = !this.wording && node.backendDOMNodeId !== undefined ? cellPositions.get(node.backendDOMNodeId) : undefined;
+      const container = !this.wording && !node.ignored && (list || description || table || ['menu','listbox'].includes(role) || (['group','dialog','alertdialog','radiogroup','tablist'].includes(role) && !!name) || ['main','navigation','banner','contentinfo','complementary','region','form'].includes(role));
+      const scope = container ? { id: node.nodeId, name, role, items: 0 } : undefined;
+      if (scope && table && node.backendDOMNodeId !== undefined) Object.assign(scope, tableSizes.get(node.backendDOMNodeId));
+      if (scope) containers.set(scope.id, scope);
+      const innerScopes = scope ? [...scopes, scope] : scopes;
+      const repeated = textRoles.has(role) && (this.wording ? said === lastSaid || groupNames.includes(said) : labelNames.includes(said));
+      if (!node.ignored && !structuralRow && !caption && !skippedRoles.has(role) && !(suppressText && textRoles.has(role)) && (!(unnamedContainerRoles.has(role) && !name) || list || listItem || description || descriptionItem || scope) && (name || !textRoles.has(role)) && !repeated) {
         const semantic = semanticNode(node);
+        if (!this.wording) {
+          if (meta) {
+            semantic.tagName = meta.tag;
+            if (meta.tag === 'input') { semantic.inputType = meta.attributes.type ?? 'text'; semantic.autofill = ['username','email','name','given-name','family-name'].includes(meta.attributes.autocomplete ?? ''); }
+          }
+          semantic.hasPopup = typeof property(node, 'hasPopup') === 'string' ? property(node, 'hasPopup') as string : undefined;
+          const invalid = property(node, 'invalid');
+          semantic.invalid = invalid !== undefined && invalid !== false && invalid !== 'false';
+          // Safari exposes an empty required native input as invalid before submission; Chromium AX can defer it.
+          if (meta?.tag === 'input' && 'required' in meta.attributes && !semantic.value && !semantic.disabled && !semantic.readonly && ['text','email','tel','url','number','search','password'].includes(semantic.inputType ?? 'text')) semantic.invalid = true;
+          semantic.nameFromPlaceholder = node.name?.sources?.some(source => source.type === 'placeholder' && !source.superseded && source.value?.value === name);
+          semantic.currentPage = meta?.attributes['aria-current'] === 'page';
+          if (role === 'link') {
+            semantic.containsImage = containsImage(node);
+            const parent = node.parentId ? byId.get(node.parentId) : undefined;
+            const list = parent?.parentId ? byId.get(parent.parentId) : undefined;
+            if (parent && stringValue(parent.role) === 'listitem' && children(parent).length === 1 && list && stringValue(list.role) === 'list') {
+              const siblings = children(list).filter(c => stringValue(c.role) === 'listitem');
+              semantic.position = siblings.indexOf(parent) + 1; semantic.setSize = siblings.length;
+            }
+          }
+          if (role === 'progressbar') {
+            semantic.valueMin = typeof property(node, 'valuemin') === 'number' ? property(node, 'valuemin') as number : 0;
+            semantic.valueMax = typeof property(node, 'valuemax') === 'number' ? property(node, 'valuemax') as number : meta?.tag === 'progress' ? Number(meta.attributes.max ?? '1') : 100;
+          }
+          semantic.role = role;
+          if (list) { semantic.setSize = children(node).filter(c => stringValue(c.role) === 'listitem').length; semantic.level = innerScopes.filter(c => c.role === 'list').length; }
+          if (table && scope) { semantic.rows = (scope as Container).rows; semantic.columns = (scope as Container).columns; }
+          if (description) semantic.setSize = children(node).filter(c => c.backendDOMNodeId !== undefined && dom.get(c.backendDOMNodeId)?.tag === 'dt').length;
+          if (descriptionItem) {
+            semantic.role = 'descriptionitem'; semantic.name = name || children(node).map(listText).filter(Boolean).join(' ');
+            const parent = node.parentId ? byId.get(node.parentId) : undefined;
+            const siblings = parent ? children(parent).filter(c => c.backendDOMNodeId !== undefined && ['dt','dd'].includes(dom.get(c.backendDOMNodeId)?.tag ?? '')) : [];
+            semantic.position = siblings.indexOf(node) + 1; semantic.setSize = siblings.length;
+          }
+          if (listItem) {
+            semantic.name = name || children(node).map(listText).filter(Boolean).join(' ');
+            const marker = children(node).find(c => stringValue(c.role) === 'ListMarker');
+            const markerName = marker ? stringValue(marker.name).trim() : '';
+            semantic.marker = ({ '•': 'bullet', '◦': 'white bullet', '▪': 'black square' } as Record<string, string>)[markerName] ?? markerName;
+            const parent = node.parentId ? byId.get(node.parentId) : undefined;
+            const siblings = parent ? children(parent).filter(c => stringValue(c.role) === 'listitem') : [];
+            semantic.position = siblings.findIndex(c => c.nodeId === node.nodeId) + 1; semantic.setSize = siblings.length;
+          }
+        }
         if (formatSimulatedSpeech(semantic).trim()) {
-          next.push({ identity: identity(node), backendDOMNodeId: node.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId) });
+          const tableScope = [...innerScopes].reverse().find(c => c.role === 'table');
+          const tableParent = cell && node.backendDOMNodeId !== undefined ? ancestor(node.backendDOMNodeId, 'table') : undefined;
+          const header = cell && tableParent !== undefined ? axNodes.find(n => n.backendDOMNodeId !== undefined && ancestor(n.backendDOMNodeId, 'table') === tableParent && cellPositions.get(n.backendDOMNodeId)?.row === 0 && cellPositions.get(n.backendDOMNodeId)?.column === cell.column) : undefined;
+          let paragraph = node.parentId ? byId.get(node.parentId) : undefined;
+          while (paragraph && stringValue(paragraph.role) !== 'paragraph') paragraph = paragraph.parentId ? byId.get(paragraph.parentId) : undefined;
+          let label = node.parentId ? byId.get(node.parentId) : undefined;
+          while (label && stringValue(label.role) !== 'LabelText') label = label.parentId ? byId.get(label.parentId) : undefined;
+          next.push({ identity: identity(node), backendDOMNodeId: node.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes, ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
+            ...(!this.wording && textRoles.has(role) && label && labelControls(label).includes(name) ? { labelText: true } : {}),
+            ...(cell && tableScope ? { cell: { ...cell, table: tableScope.id, header: header ? stringValue(header.name) : '' } } : {}) });
           if (said) lastSaid = said;
         }
       }
-      const suppressDescendantText = suppressText || (!node.ignored && !!name && namedLeafRoles.has(role));
+      const suppressDescendantText = suppressText || listItem || descriptionItem || caption || !!cell || (!node.ignored && !!name && namedLeafRoles.has(role));
       const inner = !node.ignored && said && !textRoles.has(role) ? [...groupNames, said] : groupNames;
+      let innerLabels = labelNames;
+      if (!this.wording && (meta?.tag === 'label' || role === 'LabelText')) {
+        innerLabels = [...labelNames];
+        if (meta?.attributes.for) innerLabels.push(...axNodes.filter(n => visited.has(n.nodeId) && n.backendDOMNodeId !== undefined && dom.get(n.backendDOMNodeId)?.attributes.id === meta.attributes.for).map(n => stringValue(n.name)));
+      }
       for (const childId of node.childIds ?? []) {
         const child = byId.get(childId);
-        if (child) visit(child, suppressDescendantText, inner);
+        if (child) {
+          visit(child, suppressDescendantText, inner, innerScopes, innerLabels);
+          if (!this.wording && (meta?.tag === 'label' || role === 'LabelText')) innerLabels = [...innerLabels, ...labelControls(child)];
+        }
       }
+      if (scope && ['group','list','descriptionlist','table','main','navigation','banner','contentinfo','complementary','region','form'].includes(role)) next.push({ identity: identity(node) + ':end', axId: node.nodeId,
+        semantic: { ...semanticNode(node), role: ['list','descriptionlist','table'].includes(role) ? 'StaticText' : role,
+          name: role === 'list' ? 'end of list' : role === 'descriptionlist' ? 'end of description list' : role === 'table' ? 'end of table' : name ? `end of ${name}` : 'end of' },
+        containers: innerScopes, end: true });
     };
     for (const node of axNodes) if (!node.parentId || !byId.has(node.parentId)) visit(node, false, []);
+    if (!this.wording) for (let i = next.length - 1; i > 0; i--) {
+      const a = next[i - 1]!, b = next[i]!;
+      if (a.textGroup && a.textGroup === b.textGroup && a.semantic.role === 'StaticText' && b.semantic.role === 'StaticText' && !a.end && !b.end) {
+        a.semantic.name = (a.semantic.name + ' ' + b.semantic.name).replace(/\s+/g, ' ').replace(/\s+([.,!?;:])/g, '$1').trim(); next.splice(i, 1);
+      }
+    }
+    for (const c of containers.values()) c.items = next.filter(n => !n.end && !n.labelText && n.axId !== c.id && n.containers?.at(-1)?.id === c.id).length;
+    if (!this.wording) for (const n of next.filter(n => ['radio','tab','menuitem','option'].includes(n.semantic.role))) {
+      const scope = n.containers ? [...n.containers].reverse().find(c => ['group','radiogroup','tablist','menu','listbox'].includes(c.role)) : undefined;
+      const siblings = next.filter(s => !s.end && s.semantic.role === n.semantic.role && (scope ? s.containers?.some(c => c.id === scope.id) : true));
+      n.semantic.position = siblings.indexOf(n) + 1; n.semantic.setSize = siblings.length;
+    }
+    if (!this.wording) for (const n of next.filter(n => n.semantic.role === 'combobox' && n.backendDOMNodeId !== undefined)) {
+      const attrs = dom.get(n.backendDOMNodeId!)?.attributes;
+      const listId = attrs?.['aria-controls']?.split(/\s+/).find(id => [...dom.values()].some(m => m.attributes.id === id && m.attributes.role === 'listbox'));
+      const list = next.find(s => s.backendDOMNodeId !== undefined && dom.get(s.backendDOMNodeId)?.attributes.id === listId);
+      const options = list ? next.filter(s => s.semantic.role === 'option' && s.containers?.some(c => c.id === list.axId)) : [];
+      const active = options.find(s => s.backendDOMNodeId !== undefined && dom.get(s.backendDOMNodeId)?.attributes.id === attrs?.['aria-activedescendant']);
+      n.popup = { name: list?.semantic.name ?? '', count: options.length, activeId: attrs?.['aria-activedescendant'], active: active?.semantic };
+    }
     // Live regions: text that appeared or changed since the last look is queued to be spoken (not what the page loaded with).
     const live = new Map<string, string>();
     for (const node of axNodes) {
@@ -276,6 +465,7 @@ export class MockVoiceOverBackend implements Backend {
         while (move.match && index >= 0 && index < this.nodes.length && !move.match(this.nodes[index]!.semantic.role)) index += move.step;
         if (index >= 0 && index < this.nodes.length) {
           this.cursor = this.nodes[index]!.identity;
+          if (!this.wording) { await this.focusCursor(signal); await this.refresh(signal); }
           this.announce(this.current());
         } else if (!this.wording && action.kind === 'intent' && action.intent === 'next'
           && this.current()?.semantic.role === 'button' && !this.current()?.semantic.disabled
@@ -287,6 +477,8 @@ export class MockVoiceOverBackend implements Backend {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
       } else {
         const before = this.current();
+        const beforeFocus = this.focusedIdentity, beforeEdit = this.focusedEdit;
+        const focusedBefore = this.nodes.find(n => n.identity === beforeFocus);
         if (action.kind === 'intent') receipt.activation = await this.activate(signal);
         else if (action.kind === 'key') {
           if (['Enter', 'Space'].includes(action.key) && this.nodes.find(node => node.identity === this.focusedIdentity)?.semantic.disabled) {
@@ -303,13 +495,108 @@ export class MockVoiceOverBackend implements Backend {
           && before.semantic.role === after.semantic.role && before.semantic.name === after.semantic.name
           && typeof before.semantic.checked === 'boolean' && typeof after.semantic.checked === 'boolean'
           && before.semantic.checked !== after.semantic.checked;
-        this.announce(after, 'No accessible content', true, checkedStateChanged);
+        if (!this.wording && before && after && this.popupSpeech(action, before, after)) { /* Active-descendant announcements do not move DOM focus. */ }
+        else if (!this.wording && action.kind === 'key' && after?.semantic.role === 'radio' && before?.semantic.role === 'radio' && before.semantic.inputType === 'radio'
+          && before.identity !== after.identity && before.semantic.checked === true && after.semantic.checked === true && ['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(action.key)) {
+          this.announce({ ...before, semantic: { ...before.semantic, checked: false } }); this.announce(after);
+        } else if (!this.wording && action.kind === 'key' && after?.semantic.role === 'slider' && before?.identity === after.identity && !['Tab','Shift+Tab'].includes(action.key)) {
+          if (before.semantic.value !== after.semantic.value && after.semantic.value) this.announceText(after.semantic.value, 'value-change');
+        } else if (!this.wording && action.kind === 'key' && before && after && action.key === 'Space'
+          && before.identity === after.identity && before.semantic.role === after.semantic.role
+          && (after.semantic.role === 'button' && typeof before.semantic.expanded === 'boolean' && before.semantic.expanded !== after.semantic.expanded
+            || after.semantic.role === 'tab' && before.semantic.selected === false && after.semantic.selected === true)) {
+          // Two native state receipts were observed for Space on expanded buttons and manually selected tabs.
+          this.announce(after); this.announce(after);
+        } else if (!this.wording && action.kind === 'key' && before?.semantic.role === 'tab' && after?.semantic.role === 'tab'
+          && before.identity !== after.identity && after.semantic.selected === true && ['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].includes(action.key)) {
+          // Automatic selection emits three receipts in the captured profile; this is not a speech queue model.
+          this.announce(after); this.announce(after); this.announce(after);
+        } else if (!this.wording && after && (action.kind === 'typeText' && action.text.length === 1 || action.kind === 'key')
+          && this.editSpeech(action, beforeEdit, beforeFocus, after)) { /* Native editing receipts replace the object summary. */ }
+        else if (!this.wording && action.kind === 'key' && action.key === 'Enter' && beforeFocus === this.focusedIdentity) {
+          // Keyboard activation on the same object is silent even when its text changes; live updates remain audible.
+        } else if (!this.wording && action.kind === 'key' && action.key === 'Space' && before?.identity === after?.identity
+          && (after?.semantic.pressed !== undefined || after?.semantic.role === 'tab' && before?.semantic.selected === after.semantic.selected)) {
+          // Native toggle buttons and an already-selected tab stay silent on Space.
+        } else if (!this.wording && action.kind === 'key' && action.key === 'Space' && beforeFocus === this.focusedIdentity
+          && focusedBefore?.semantic.tagName === 'button' && focusedBefore.semantic.role === 'button' && focusedBefore.semantic.expanded === undefined) {
+          // Native plain-button keyboard activation stays silent; a resulting live update speaks on its own.
+        } else this.announce(after, 'No accessible content', true, checkedStateChanged);
       }
       this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
+      this.actionEndedAt = Date.now();
       signal?.throwIfAborted();
       return receipt;
     } finally { this.busy = false; }
+  }
+
+  private async focusCursor(signal?: AbortSignal): Promise<void> {
+    const node = this.current();
+    if (!node || node.end || node.backendDOMNodeId === undefined) return;
+    const session = await this.cdp(signal), { object } = await session.send('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
+    if (!object.objectId) return;
+    try {
+      const result = await session.send('Runtime.callFunctionOn', { objectId: object.objectId, returnByValue: true,
+        functionDeclaration: `function() { if (this instanceof HTMLElement && this.isConnected && this.matches('a[href],button,input,textarea,select,summary,[tabindex]') && !this.matches(':disabled') && !this.closest('[inert],[aria-disabled="true"]')) this.focus(); }` });
+      signal?.throwIfAborted();
+      if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? 'Cursor focus synchronization failed');
+    } finally { await session.send('Runtime.releaseObject', { objectId: object.objectId }).catch(() => {}); }
+  }
+
+  private popupSpeech(action: BackendAction, before: CursorNode, after: CursorNode): boolean {
+    if (after.semantic.role !== 'combobox' || before.identity !== after.identity || after.identity !== this.focusedIdentity || !after.popup) return false;
+    if (action.kind === 'typeText' && action.text.length === 1 && after.semantic.expanded) {
+      this.announceText(action.text, 'editing');
+      this.announceText(`expanded list ${after.popup.name} ${after.popup.count} items`, 'value-change'); return true;
+    }
+    if (action.kind === 'key' && ['ArrowDown','ArrowUp'].includes(action.key) && after.popup.active && before.popup?.activeId !== after.popup.activeId) {
+      const option = after.popup.active, position = `(${option.position} of ${option.setSize})`;
+      this.announceText(`${option.name} text ${position}`, 'value-change');
+      if (option.selected) this.announceText(`${option.name} selected ${position}`, 'value-change');
+      return true;
+    }
+    if (action.kind === 'key' && ['Enter','Escape'].includes(action.key) && before.semantic.expanded && after.semantic.expanded === false) {
+      this.announceText(`collapsed ${after.semantic.value ?? ''}`.trim(), 'value-change'); return true;
+    }
+    return false;
+  }
+
+  private editSpeech(action: BackendAction, before: EditState | undefined, beforeFocus: string | undefined, node: CursorNode): boolean {
+    const after = this.focusedEdit;
+    if (!after || node.identity !== this.focusedIdentity || node.semantic.protected) return false;
+    const emit = (text: string) => { if (text) this.announceText(text, 'editing'); };
+    if (action.kind === 'key' && (['Tab','Shift+Tab'].includes(action.key) || beforeFocus !== this.focusedIdentity) && after.value) {
+      const selection = after.value.slice(after.start, after.end), role = after.multiline ? 'text entry area' : 'edit text';
+      const caret = selection.length === after.value.length ? 'contents selected' : after.start === 0 ? 'Insertion at beginning of text.' : after.start === after.value.length ? 'Insertion at end of text.' : '';
+      this.announce(node, 'No accessible content', true, false, `${after.value} ${caret} ${node.semantic.name} ${role}`.replace(/\s+/g, ' ').trim());
+      return true;
+    }
+    if (!before || beforeFocus !== this.focusedIdentity) return false;
+    if (action.kind === 'typeText' && action.text.length === 1) {
+      if (before.end > before.start) emit(`selection replaced ${action.text}`);
+      else { emit(action.text); emit(after.value.slice(0, after.start).split(/\s/).at(-1) ?? ''); }
+      return true;
+    }
+    if (action.kind !== 'key') return false;
+    const selected = after.value.slice(after.start, after.end);
+    if (action.key === 'ControlOrMeta+A') { emit('Select All'); if (selected) emit(`${selected} selected`); return true; }
+    if (action.key.startsWith('Shift+') && ['Shift+Home','Shift+End'].includes(action.key)) { if (selected) emit(`${selected} selected`); return true; }
+    if (action.key === 'Home' || action.key === 'End') return true;
+    if (action.key === 'ArrowLeft' || action.key === 'ArrowRight') {
+      const index = before.end > before.start ? action.key === 'ArrowRight' ? before.end - 1 : before.start : action.key === 'ArrowLeft' ? before.start - 1 : before.start;
+      emit(before.value[index] ?? ''); return true;
+    }
+    if (action.key === 'Backspace' || action.key === 'Delete') {
+      const removed = before.end > before.start ? before.value.slice(before.start, before.end) : before.value[action.key === 'Backspace' ? before.start - 1 : before.start] ?? '';
+      if (removed === '\n' && after.multiline) {
+        const word = after.value.slice(0, after.start).split(/\s/).at(-1)! + after.value.slice(after.start).split(/\s/)[0];
+        emit(`${node.semantic.name} text entry area ${after.value} Insertion on word: ${word} , between characters: ${after.value[after.start - 1] ?? ''} and ${after.value[after.start] ?? ''}`);
+      } else emit(removed);
+      return true;
+    }
+    if (action.key === 'Enter' && after.multiline) { emit('new line'); emit(before.value.slice(0, before.start).split('\n').at(-1) ?? ''); return true; }
+    return false;
   }
 
   private async activate(signal?: AbortSignal): Promise<'dom-click-untrusted' | 'dom-focus'> {
@@ -384,12 +671,18 @@ export class MockVoiceOverBackend implements Backend {
     this.busy = true;
     const window = this.beginWindow();
     try {
-      await this.refresh(signal);
-      signal?.throwIfAborted();
-      if (this.lastCurrentFingerprint !== undefined && this.lastCurrentFingerprint !== this.currentFingerprint() && this.wording) this.sourceCommand = 'asynchronous_semantic_change';
-      if (this.lastCurrentFingerprint !== this.currentFingerprint()) this.announce(this.current(), 'No accessible content', false);
-      this.flushLive();
-      this.lastCurrentFingerprint = this.currentFingerprint();
+      const deadline = this.actionEndedAt + this.observationMinWaitMs;
+      do {
+        await this.refresh(signal);
+        signal?.throwIfAborted();
+        if (this.lastCurrentFingerprint !== undefined && this.lastCurrentFingerprint !== this.currentFingerprint() && this.wording) this.sourceCommand = 'asynchronous_semantic_change';
+        if (this.lastCurrentFingerprint !== this.currentFingerprint()) this.announce(this.current(), 'No accessible content', false);
+        this.flushLive();
+        this.lastCurrentFingerprint = this.currentFingerprint();
+        if (Date.now() >= deadline) break;
+        await wait(Math.min(100, deadline - Date.now()), undefined, { signal });
+      } while (true);
+      this.actionEndedAt = 0;
       signal?.throwIfAborted();
       const observation = {
         kind: 'screenreader' as const, evidenceProvenance: 'simulation' as const, profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE,
@@ -420,7 +713,7 @@ function booleanOrMixed(value: unknown): boolean | 'mixed' | undefined {
   return value === 'mixed' ? 'mixed' : value === true || value === 'true' ? true : value === false || value === 'false' ? false : undefined;
 }
 function semanticNode(node: AXNode): SimulatedSemanticNode {
-  const value = stringValue(node.value);
+  const value = typeof node.value?.value === 'number' && Number.isFinite(node.value.value) ? String(node.value.value) : stringValue(node.value);
   const description = stringValue(node.description);
   const level = property(node, 'level');
   const protectedValue = property(node, 'protected') === true;

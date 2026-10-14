@@ -126,7 +126,7 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 
 ## Verification
 
-- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 17 selected local wording cases, explicit
+- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 36 selected local wording cases, explicit
   simulation provenance, and protected-value safety
 - Existing Chromium-backed mock tests retain their navigation, DOM effect,
   focus, redaction and cancellation assertions; only affected speech wording
@@ -134,3 +134,56 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 - Run with the normal installed Playwright Chromium or set
   `RAWSTEP_TEST_BROWSER_PATH` to a verified compatible executable. Browser tests
   remain actual browser tests, not native VoiceOver tests
+
+## Structural and interaction calibration in v4 (2026-10-15)
+
+Fresh local English captures contain 52 training cases and 52 initially held-out cases, 265 actions each, with a native
+AX snapshot after every action. The held-out set changes names, input words and containing landmark context. Once its
+results were inspected, subsequent replays were labeled regression rather than new held-out evidence. Nine additional
+focus experiments (34 actions) test ordinary Space/Enter after VO navigation, text focus return and Tab across links.
+
+The native profile projects named groups and landmarks with end stops, lists with markers/positions and nested levels,
+description lists, table coordinates/column headers, dialog entry and item counts, radio/tab/menu positions, editable
+caret/selection changes and listbox active descendants. It preserves native silence on keyboard activation of unchanged
+controls and polls delayed live updates for an explicit minimum observation window. Local Space/arrow state receipts
+also support repeated announcements for expanded buttons and manual/automatic tab selection. Those receipt counts
+remain profile-specific; they do not establish an audio or speech-interruption model.
+
+The focus experiments confirm that native VO navigation to an actual button or link synchronizes keyboard focus:
+ordinary Space/Enter then executes that control. Static navigation preserves keyboard focus. The simulation now follows
+that distinction and still refuses to repair missing widget handlers or type into an unfocused/noneditable element.
+
+Validation uses every planned action, including missing, unaligned, unsupported and redacted actions as failures.
+Marker-only receipts and silence have separate rates. Main speech excludes known usage hints; full speech retains them.
+A separate generated-fixture oracle compares native AX focus/values/states with the simulated browser state. State
+evidence does not select actions and is absent for ordinary private task inputs. Native secure-field values are excluded.
+
+At the recorded focus-calibration checkpoint, training content main speech is 220/236 (93.2%), spoken content 201/217
+(92.6%), and the bounded state oracle 254/265 (95.8%, including nine missing native state observations as failures).
+Full speech including hints is only 75/265 (28.3%). The earlier validation set reached 213/238 content matches (89.5%)
+on a subsequent regression replay. These are fixture measurements, not proof of full replacement or random-site accuracy.
+The checkpoint runs and native source paths are recorded in `packages/vo-corpus/README.md`.
+
+Thirteen additional matrix receipts calibrate explicitly named empty email/telephone/URL/number fields, empty required
+and invalid inputs, current-page links and determinate/indeterminate progress indicators. Placeholder-only names,
+prefilled selection receipts and password/autofill sequences remain separate unresolved cases. These are calibration
+examples drawn from the existing matrix, not new held-out observations. A complete matrix replay after these changes
+matches 517/803 spoken content steps (64.4%), up from 439/803 (54.7%) at the structural v4 checkpoint. The original
+native matrix has no historical fixture byte fingerprint and is reported as legacy evidence.
+
+Eight reduced live-page questions were then collected (54 planned actions). The main content score improved from
+30/44 (68.2%) to 44/44 (100%) after treating image/SVG logos as a single `link image` stop and folding unmarked list
+positions into their links, omitting the position for a single item. Six selected receipts are included in the native
+wording fixture. This is a training regression; full speech including hints is only 2/54 (3.7%). A Tart internal
+virtualization error stopped the guest after five cases; their records were preserved and the final three resumed
+after restarting the same VM and AT Driver. The interruption is retained in the run's local resume event log.
+
+Seeded live-page validation samples a fixed public URL pool before collection, preserves failed samples, adds the same
+two harness markers in both browsers, and records URL, viewport and rendered-text hash. A content/viewport difference
+counts as an environment failure rather than a speech match. The first native eight-page batch completed, with only two
+aligned starts. One aligned page had different rendered text across browsers. Strict planned-step agreement was 15/240
+(6.3%); full speech matched 0/240. This result includes setup/content failures and does not isolate the speech formatter.
+The temporary Safari Apple Events JavaScript permission was restored off. Eight reduced follow-up cases now isolate
+logo links, unstyled breadcrumbs, landmark boundaries, navigation headings and cookie regions before further fitting.
+No real-page ≥90% or full-replacement claim is supported. Rotors, cross-frame traversal, native queue/interruption,
+Safari Tab settings, provider/caption fidelity and complex widget patterns remain open work.

@@ -10,18 +10,22 @@ import type { CaseSet } from "../cases.js";
 import { generateElements } from "./elements.js";
 import { generateScreening } from "./screening.js";
 import { generateWorkflows } from "./workflows.js";
+import { generateExpanded } from "./expanded.js";
+import { generateFollowup } from "./followup.js";
+import { generatePagePatterns } from "./page-patterns.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { values } = parseArgs({ options: { set: { type: "string", default: "elements-v1" }, out: { type: "string" } } });
-const generators = { "elements-v1": generateElements, "screening-v1": generateScreening, "workflows-v1": generateWorkflows };
+const generators = { "elements-v1": generateElements, "screening-v1": generateScreening, "workflows-v1": generateWorkflows,
+  "training-v2": () => generateExpanded("training"), "validation-v2": () => generateExpanded("validation"), "focus-followup-v3": generateFollowup, "page-patterns-v1": generatePagePatterns };
 const generator = Object.hasOwn(generators, values.set!) ? generators[values.set as keyof typeof generators] : undefined;
-if (!generator) throw new Error("--set must be elements-v1, screening-v1 or workflows-v1");
+if (!generator) throw new Error(`--set must be ${Object.keys(generators).join(", ")}`);
 const out = resolve(packageRoot, values.out ?? `data/cases/${values.set}`);
 
 const { pages, cases } = generator();
 await mkdir(join(out, "pages"), { recursive: true });
 for (const [id, html] of Object.entries(pages)) await writeFile(join(out, "pages", `${id}.html`), html);
-const set: CaseSet = { id: values.set!, generatedAt: new Date().toISOString(), cases };
+const set: CaseSet = { id: values.set!, generatedAt: new Date().toISOString(), syntheticInputs: true, cases };
 await writeFile(join(out, "cases.json"), JSON.stringify(set, null, 2));
 
 const byCommand: Record<string, number> = {};

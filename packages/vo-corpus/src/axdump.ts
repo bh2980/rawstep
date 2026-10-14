@@ -37,6 +37,7 @@ export interface AxDump {
   timestamp: string;
   nodeCount: number;
   truncated: boolean;
+  stringTruncations?: number;
   /** Child indices from the web area root to the focused element; null when focus is outside the web area. */
   focusedPath: number[] | null;
   root: AxNode;
@@ -55,10 +56,11 @@ export function focusedAxNode(dump: AxDump): AxNode | undefined {
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number } = {}): Promise<AxDump> {
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
+  if (options.maxStringLength) args.push("--max-string-length", String(options.maxStringLength));
   try {
     const stdout = await machine.exec(await machine.place(await ensureBinary()), args);
     return JSON.parse(stdout) as AxDump;

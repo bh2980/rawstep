@@ -43,8 +43,8 @@ describe('source-backed simulation navigation wording', () => {
   it('does not turn source-backed wording into native measurement provenance', async () => {
     const backend = new MockVoiceOverBackend();
     const started = await backend.start();
-    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v3');
-    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '3' } });
+    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v4');
+    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '4' } });
     await backend.close();
   });
 

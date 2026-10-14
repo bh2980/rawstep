@@ -507,3 +507,124 @@ Next calibration candidates are group reading stops and modal entry/focus contex
 timed updates. Safari link Tab settings, provider repetitions and previous-heading input fidelity require native
 follow-up before changing their rules. New composed/name-varied pages must remain out of fitting for a generalization
 evaluation; replaying these same pages again alone cannot establish a clone.
+
+## Continued calibration and independent validation (2026-10-15)
+
+New sets: `training-v2` (52 cases), `validation-v2` (52 name/context-varied cases), and `focus-followup-v3`
+(9 cases). The first two include 265 actions each; the focus followup has 34. All request a native AX snapshot after
+each action. The first validation result was inspected after the model had been fitted to training; later runs of that
+same set are regression checks. Reserve fresh URLs/fixtures before the next generalization claim.
+
+```sh
+node --import tsx src/generate/index.ts --set training-v2
+node --import tsx src/generate/index.ts --set validation-v2
+node --import tsx src/generate/index.ts --set focus-followup-v3
+node --import tsx src/collect.ts --vm vo-collector --url ws://127.0.0.1:14382/session \
+  --cases data/cases/training-v2 --settings observed-en-2026-10-15
+node --import tsx src/replay.ts --cases data/cases/training-v2
+node --import tsx src/validate.ts data/cases/training-v2 data/runs/<native> data/runs/<simulator>
+```
+
+The relay URL is specific to the configured host-to-VM relay; without a relay, pass the actual VM AT Driver URL.
+Do not regenerate a collected set in place: generated timestamps and fixture bytes identify the experiment. New runs
+hash case metadata and page bytes; resume rejects changed bytes. Simulator metadata also hashes the built JavaScript.
+The strict validator rejects wrong source/set identity, duplicate records and known fingerprint changes. Older runs
+without byte fingerprints are explicitly labeled legacy, rather than retroactively claiming byte verification.
+
+`validate.ts` uses every planned action as its denominator. Missing native/model steps, unsupported keys, unaligned
+starts and redacted input do not disappear. Marker-only receipts and silence are reported separately. Main speech
+excludes usage hints; full speech includes them. `state-validation.json` independently compares actual native AX
+focus/value/checked/selected/expanded/pressed evidence with generated-fixture browser state. It does not establish
+caret, timing, rotor, cross-frame or complete WebKit parity. Native secure-field values are excluded. The policy never
+uses the state oracle to choose its next action.
+
+Generated sets explicitly label their typed characters as public synthetic input. Ordinary task inputs remain sensitive
+by default. Existing unlabeled sets retain privacy withholding; do not edit old metadata to make their scores improve.
+
+Recorded checkpoints, before later v4 refinements:
+
+| Check | Main content | Spoken content | Full speech with hints | Bounded state oracle |
+| --- | ---: | ---: | ---: | ---: |
+| Training, group/list/table projection | 130/236 (55.1%) | 130/217 (59.9%) | 20/265 (7.5%) | Not collected by model |
+| First independent validation | 203/238 (85.3%) | 184/219 (84.0%) | 70/265 (26.4%) | 191/265 (72.1%) |
+| Training, autocomplete + focus calibration | 220/236 (93.2%) | 201/217 (92.6%) | 75/265 (28.3%) | 254/265 (95.8%) |
+| Validation-set regression, autocomplete | 213/238 (89.5%) | 194/219 (88.6%) | 71/265 (26.8%) | Separate JSON |
+| Validation-set regression, repeated state receipts + typed-field rules | 219/238 (92.0%) | 200/219 (91.3%) | 74/265 (27.9%) | 254/265 (95.8%) |
+| Original 392-case matrix, typed-field rules | 517/825 (62.7%) | 517/803 (64.4%) | 145/1342 (10.8%) | No per-action native state oracle |
+
+Native references:
+`data/runs/training-v2-2026-10-14T19-01-06-522Z`,
+`data/runs/validation-v2-2026-10-14T19-23-21-501Z`, and
+`data/runs/focus-followup-v3-2026-10-14T19-58-57-152Z`.
+Training checkpoint: `data/runs/training-v2-sim-2026-10-14T20-02-04-329Z/{validation.json,state-validation.json}`.
+First validation: `data/runs/validation-v2-sim-2026-10-14T19-46-19-365Z/validation.json`.
+Regression: `data/runs/validation-v2-sim-2026-10-14T19-57-06-269Z/validation.json`.
+Latest validation regression: `data/runs/validation-v2-sim-2026-10-14T20-45-47-375Z/{validation.json,state-validation.json}`.
+Matrix: `data/runs/elements-v1-sim-2026-10-14T20-45-46-317Z/validation.json`, compared with
+`data/runs/elements-v1-2026-10-14T05-11-20-479Z`. Its preceding structural-v4 spoken rate was 439/803 (54.7%).
+Failed focus-collection attempts are retained as failed runs: an OS screen-capture permission alert intercepted VO
+navigation. No experimental workflow keys were sent after failed alignment. The collector now halts at the first
+unaligned workflow. A stale VO cursor can be resynchronized only when native AX proves page keyboard focus at the marker.
+
+### Seeded live public pages
+
+`real-pages.ts` samples a fixed public candidate pool by a recorded random seed before collection. The pool contains
+blogs, articles, government services/search and shopping catalogs. This is random sampling within that pool, not a
+representative random sample of the entire web. It retains unavailable/access-blocked pages and never replaces them
+with easier successes. Only object/heading navigation and Tab are used; forms/orders are not submitted.
+
+```sh
+node --import tsx src/real-pages.ts --out data/cases/public-<new-id> --width 1024 --height 588 --count 8
+node --import tsx src/replay.ts --cases data/cases/public-<new-id>
+node --import tsx src/collect.ts --vm vo-collector --url ws://127.0.0.1:14382/session \
+  --cases data/cases/public-<new-id> --settings observed-en-2026-10-15
+node --import tsx src/validate.ts data/cases/public-<new-id> data/runs/<native> data/runs/<simulator>
+```
+
+Use the actual Safari content viewport, not a copied example size. Both browsers add the same two marker buttons,
+preserving the original page's content and handlers. URL, rendered-text hash and viewport must agree to score a match;
+dynamic/personalized/cookie-dependent differences are environment failures in the planned-step denominator. Tiny pages,
+obvious HTTP-error titles and access challenges are preserved as failed samples. This protocol does not establish
+arbitrary production interaction equivalence. The simulator's public-page run uses the existing read-only navigation guard.
+
+Safari requires **Settings → Advanced → Show features for web developers → Developer → Allow JavaScript from Apple Events**
+for marker preparation. The user authorized temporary use for this validation; restore it off after the native batch.
+Do not bypass the native authorization UI. Current collection proves native AX focus at the injected marker before
+VO+Shift+F4, then verifies marker speech and keyboard focus. VO+Home first can instead move focus into a cookie/banner
+group and invalidate that recovery. JavaScript `.focus()` alone can also leave Safari's native focus at a previous
+object; the harness sets native AX focus on the injected button, verifies its DOM identifier and then synchronizes VO.
+Initial native AX snapshots preserve failed public starts for diagnosis.
+
+Seed `5ca7ac1c4ef96162d1d48be9309e2108` selected eight pages before collection. First native batch:
+`data/runs/public-pages-5ca7ac1c4ef96162d1d48be9309e2108-2026-10-14T20-41-17-500Z`.
+Simulator: `data/runs/public-pages-5ca7ac1c4ef96162d1d48be9309e2108-sim-2026-10-14T20-41-18-808Z`.
+Only 2/8 starts aligned; one aligned page had a content-hash difference. Strict main agreement was **15/240 (6.3%)**;
+full speech was **0/240**. All six failed starts stayed in the denominator. A recovery-after-Home retry aligned only
+1/8 pages, confirming setup instability. Both batches restored the temporary setting off. These results include
+collection/environment failure and do not estimate formatter accuracy on identical accessible objects.
+
+An AX-focus start pilot on the preselected GOV.UK visa page then completed 30/30 planned actions with matching URL,
+rendered content hash and viewport. Main speech matched **26/30 (86.7%)** after the logo/list calibration. Its remaining
+differences were one navigation-heading context receipt and three Tab/Shift+Tab actions (Safari's link-tab preference).
+Native pilot: `data/runs/public-pages-5ca7ac1c4ef96162d1d48be9309e2108-2026-10-14T21-03-28-134Z`;
+model: `data/runs/public-pages-5ca7ac1c4ef96162d1d48be9309e2108-sim-2026-10-14T21-03-29-462Z`.
+This is an operational pilot on an already-inspected page, not a new independent eight-page result. Its full-set
+validation file still counts the other seven uncollected pages as failures. The temporary permission was restored off.
+
+`--first-heading` is an alternative diagnostic protocol that avoids injected markers and JavaScript permission. Its
+replay requires `--anchors-native-run <native directory>`. It requires the same unique native heading and exact heard
+heading name/level in both runs; a heading whose title merely begins with the anchor text is rejected. It excludes
+content before the anchor and uses conservative AX-text fingerprints, so it is not interchangeable with marker runs.
+
+`node --import tsx src/generate/index.ts --set page-patterns-v1` creates eight reduced live-page followups: image/SVG/text
+logo contrasts, styled one/two-item breadcrumbs, unnamed landmark boundaries, navigation heading context and cookie
+regions. These are training questions derived from the live sample. They do not replace the failed live pages or form
+a fresh real-world validation set. New page captures retain fingerprint input text locally for diagnosing content differences.
+Native followups: `data/runs/page-patterns-v1-2026-10-14T20-54-41-018Z`. The guest stopped with an internal Tart
+virtualization error after five cases; `resume-events.jsonl` records the restart and the final three cases were resumed
+without modifying or replacing the first five. Main content improved **30/44 (68.2%) → 44/44 (100%)** between
+`data/runs/page-patterns-v1-sim-2026-10-14T20-49-16-985Z` and
+`data/runs/page-patterns-v1-sim-2026-10-14T20-57-49-723Z`. All 54 planned actions were available. Full speech including
+hints remained **2/54 (3.7%)**. This is an in-sample calibration result, with 36 selected native wording fixtures now
+retained in the repository; it is not independent real-page accuracy.
+No full-replacement or real-page ≥90% claim is supported yet.

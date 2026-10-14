@@ -192,21 +192,21 @@ test("working reference fixtures: keyboard behavior, state, names, focus and del
 
 test("simulator records a missing command as a whole-case coverage gap", async () => {
   assert.deepEqual(replayAction("c", "letter"), { kind: "typeText", input: "letter" });
-  assert.equal(replayAction("Down", "letter"), null);
+  assert.deepEqual(replayAction("Down", "letter"), { kind: "key", key: "ArrowDown" });
   const dir = await mkdtemp(join(tmpdir(), "vo-replay-test-"));
   try {
     await writeFile(join(dir, "page.html"), '<!doctype html><title>Unsupported test</title><button autofocus>Before marker</button><button>Target</button><button>After marker</button>');
     await writeFile(join(dir, "input.html"), '<!doctype html><title>Typing test</title><button autofocus>Before marker</button><label>Query<input></label><button>After marker</button>');
-    const record = await replayCase({ id: "unsupported", page: "page.html", chords: ["VO+Right", "Down", "Enter"], axes: {} },
+    const record = await replayCase({ id: "unsupported", page: "page.html", chords: ["VO+Right", "VO+U", "Enter"], axes: {} },
       { id: "test", generatedAt: "", cases: [] }, dir);
     assert.equal(record.start.aligned, true);
     assert.ok(record.unsupportedReason);
     assert.deepEqual(record.steps.map(s => s.reason), ["unsupported", "unsupported", "unsupported"]);
     assert.ok(record.steps.every(s => s.utterances.length === 0));
-    const timed = await replayCase({ id: "timed", page: "page.html", chords: ["Tab", "Enter"], listen: { minWaitMs: 2300 }, axes: {} },
+    const timed = await replayCase({ id: "timed", page: "page.html", chords: ["Tab", "Enter"], listen: { minWaitMs: 120 }, axes: {} },
       { id: "test", generatedAt: "", cases: [] }, dir);
-    assert.match(timed.unsupportedReason!, /timed observation/);
-    assert.ok(timed.steps.every(s => s.reason === "unsupported"));
+    assert.equal(timed.unsupportedReason, undefined);
+    assert.ok(timed.steps.every(s => s.reason === "quiet"));
     const typed = await replayCase({ id: "typed", page: "input.html", chords: ["Tab", "c", "a", "t"], axes: {} },
       { id: "test", generatedAt: "", cases: [] }, dir);
     assert.equal(typed.start.aligned, true);

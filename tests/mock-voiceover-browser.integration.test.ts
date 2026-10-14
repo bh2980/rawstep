@@ -8,13 +8,13 @@ const cleanup: (() => Promise<void>)[] = [];
 beforeEach(async () => { browser = await launchTestBrowser(); });
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn(); });
 
-async function fixture(html: string) {
+async function fixture(html: string, observationMinWaitMs = 0) {
   const context: BrowserContext = await browser.newContext();
   cleanup.push(() => context.close());
   const page = await context.newPage();
   await page.setContent(`<!doctype html><html lang="en"><title>Simulation fixture</title>${html}</html>`);
   await page.bringToFront();
-  const backend = new MockVoiceOverBackend();
+  const backend = new MockVoiceOverBackend(undefined, observationMinWaitMs);
   const events: unknown[] = [];
   backend.subscribe(event => events.push(event));
   const metadata = await backend.start();
@@ -29,6 +29,40 @@ async function fixture(html: string) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('reads unmarked breadcrumb links in one stop, with positions only for multiple entries', async () => {
+    const f = await fixture('<nav aria-label="Breadcrumb"><ol role="list" style="list-style:none"><li><a href="#home">Home</a></li><li><a href="#guide" aria-current="page">Guide</a></li></ol></nav><button>After</button>');
+    expect(await f.intent('next')).toEqual(['list, 2 items']);
+    expect(await f.intent('next')).toEqual(['link, Home, 1 of 2']);
+    expect(await f.intent('next')).toEqual(['current page link, Guide, 2 of 2']);
+    expect(await f.intent('next')).toEqual(['end of list']);
+    expect(await f.intent('next')).toEqual(['end of Breadcrumb, navigation']);
+    const g = await fixture('<ol role="list" style="list-style:none"><li><a href="#home">Home</a></li></ol><button>After</button>');
+    expect(g.initial.speech).toEqual(['list, 1 item']);
+    expect(await g.intent('next')).toEqual(['link, Home']);
+    expect(await g.intent('next')).toEqual(['end of list']);
+  });
+
+  it('keeps linked image and SVG logos at one link-image stop while preserving plain text links', async () => {
+    const f = await fixture('<a href="#home" aria-label="Visit Harbor homepage"><img alt="Harbor" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"></a><a href="#home" aria-label="Visit Harbor homepage"><svg role="img" aria-label="Harbor"><rect width="10" height="10"/></svg></a><a href="#home">Visit Harbor homepage</a><button>After</button>');
+    expect(f.initial.speech).toEqual(['link image, Visit Harbor homepage']);
+    expect(await f.intent('next')).toEqual(['link image, Visit Harbor homepage']);
+    expect(await f.intent('next')).toEqual(['link, Visit Harbor homepage']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
+  it('projects typed empty fields, current links and progress ranges from real browser semantics', async () => {
+    const f = await fixture('<button>Start</button><input type="email" aria-label="Contact" required><input type="tel" aria-label="Phone"><input type="number" aria-label="Quantity"><a href="#" aria-current="page">Overview</a><progress max="200" value="80" aria-label="Upload"></progress><progress aria-label="Waiting"></progress>');
+    expect(await f.intent('next')).toEqual(['Contact, required, invalid data, email field']);
+    expect(await f.intent('next')).toEqual(['Phone, telephone number field']);
+    expect(await f.intent('next')).toEqual(['Quantity, incrementable number field']);
+    expect(await f.intent('next')).toEqual(['current page link, Overview']);
+    expect(await f.intent('next')).toEqual(['Upload, 40%, progress indicator']);
+    expect(await f.intent('next')).toEqual(['Waiting, indeterminate, progress indicator']);
+    // A placeholder does not establish the same named-field receipt as an associated label.
+    const g = await fixture('<input type="email" placeholder="Email"><button>Next</button>');
+    expect(g.initial.speech).toEqual(['Email, edit text']);
+  });
+
   it('uses changed-state wording only for the same checked control and keeps reading wording separate', async () => {
     const f = await fixture('<button role="switch" aria-checked="false" onclick="this.setAttribute(\'aria-checked\',String(this.getAttribute(\'aria-checked\')!==\'true\'))">Lights</button>');
     expect(await f.key('Tab')).toEqual(['Lights, off, switch']);
@@ -45,23 +79,23 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await mixed.intent('activate')).toEqual(['Partially selected, checked, checkbox']);
   });
 
-  it('repeats a terminal enabled plain button on next without moving focus or claiming a quick-navigation match', async () => {
+  it('repeats a terminal enabled plain button on next with synchronized focus and no quick-navigation match', async () => {
     const f = await fixture('<h2>Overview</h2><button>Finish</button>');
     expect(await f.intent('next')).toEqual(['Finish, button']);
     expect(await f.intent('next')).toEqual(['Finish, button']);
-    expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    expect(await f.page.evaluate(() => document.activeElement?.textContent)).toBe('Finish');
     expect(await f.intent('heading.next')).toEqual(['No more headings']);
     expect(await f.intent('previous')).toEqual(['heading, level 2, Overview']);
   });
 
-  it('says a legend or a label once, skips rules and silent objects, and jumps by heading and form control', async () => {
+  it('retains the native fieldset legend stop, suppresses repeated control labels, and jumps by heading and form control', async () => {
     const f = await fixture(`<h1>Shop</h1><hr>
       <fieldset><legend>Categories</legend><label><input type="checkbox"> Hammer</label><span aria-hidden="false"></span></fieldset>
       <hr><h2>Products</h2><a href="#p1"><h5>Claw Hammer</h5></a><a href="#p2"><h5>Thor Hammer</h5></a><input aria-label="Search">`);
     const actual = [...f.initial.speech];
     for (let index = 0; index < 8; index++) actual.push(...await f.intent('next'));
     expect(actual).not.toContain('separator');
-    expect(actual.filter(line => line.trim() === 'Categories')).toHaveLength(0);
+    expect(actual.filter(line => line.trim() === 'Categories')).toHaveLength(1);
     expect(actual.filter(line => line.trim() === 'Hammer')).toHaveLength(0);
     expect(actual.every(line => line.trim() !== '')).toBe(true);
     const g = await fixture(`<h1>Shop</h1><p>Intro</p><button>Menu</button><h2>Filters</h2><input aria-label="Search"><h2>Products</h2>`);
@@ -80,12 +114,11 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.backend.observe()).speech[0]).toBe('Cart');
   });
 
-  it('reads list items without stopping on their markers, and skips an empty live region', async () => {
+  it('reads list boundaries, item markers and positions, and skips an empty live region', async () => {
     const f = await fixture(`<ul><li><a href="#a">Home</a></li><li><a href="#b">Phones</a></li></ul><ol><li>First</li></ol><p role="status"></p><p>After</p>`);
     const actual = [...f.initial.speech];
-    for (let index = 0; index < 5; index++) actual.push(...await f.intent('next'));
-    expect(actual.map(line => line.trim())).not.toEqual(expect.arrayContaining(['•']));
-    expect(actual.some(line => /^\d+\.$/.test(line.trim()))).toBe(false);
+    for (let index = 0; index < 10; index++) actual.push(...await f.intent('next'));
+    expect(actual.slice(0, 10)).toEqual(['list, 2 items', 'bullet, 1 of 2', 'link, Home', 'bullet, 2 of 2', 'link, Phones', 'end of list', 'list, 1 item', '1., First, 1 of 1', 'end of list', 'After']);
     expect(actual).not.toContain('status');
     expect(actual).toContain('After');
   });
@@ -116,7 +149,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     const actual = [...f.initial.speech];
     for (let index = 0; index < 6; index++) actual.push(...await f.intent('next'));
     expect(actual).toEqual(['heading, level 2, Welcome', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, button, disabled', 'End of content']);
-    expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    expect(await f.page.evaluate(() => document.activeElement?.textContent)).toBe('Transparent');
     expect(f.metadata).toMatchObject({ backend: 'mock-voiceover', profile: MOCK_VOICEOVER_PROFILE, evidenceProvenance: 'simulation', environment: { nativeScreenReader: false } });
     expect(JSON.stringify(f.events)).not.toMatch(/backendDOMNodeId|childIds|Hidden secret/);
     expect(f.loaded.outputs[0]?.raw).toMatchObject({ evidenceProvenance: 'simulation', announcement: 'page-title' });
@@ -146,6 +179,30 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await f.page.evaluate(() => document.activeElement?.tagName)).toBe('INPUT');
   });
 
+  it('announces listbox suggestions and actual active-descendant selection without moving DOM focus', async () => {
+    const f = await fixture(`<label>Region<input id="query" role="combobox" aria-controls="choices" aria-expanded="false"></label>
+      <ul id="choices" role="listbox" aria-label="Region choices" hidden><li role="option" id="x" aria-selected="false">Xenon</li><li role="option" id="y" aria-selected="false">Xylem</li></ul>
+      <script>const q=document.getElementById('query'),list=document.getElementById('choices');q.oninput=()=>{list.hidden=false;q.setAttribute('aria-expanded','true')};q.onkeydown=e=>{if(e.key==='ArrowDown'){e.preventDefault();q.setAttribute('aria-activedescendant','x');document.getElementById('x').setAttribute('aria-selected','true')}if(e.key==='Enter'){q.value='Xenon';q.setAttribute('aria-expanded','false');q.removeAttribute('aria-activedescendant');list.hidden=true}};</script>`);
+    expect(await f.key('Tab')).toEqual(['Region, list box pop up, collapsed, combo box']);
+    await f.backend.execute({ kind:'typeText', text:'x' });
+    expect((await f.backend.observe()).speech).toEqual(['x','expanded list Region choices 2 items']);
+    expect(await f.key('ArrowDown')).toEqual(['Xenon text (1 of 2)','Xenon selected (1 of 2)']);
+    expect(await f.page.evaluate(() => document.activeElement?.id)).toBe('query');
+    expect(await f.page.locator('#x').getAttribute('aria-selected')).toBe('true');
+    expect(await f.key('Enter')).toEqual(['collapsed Xenon']);
+    expect(await f.page.locator('#query').inputValue()).toBe('Xenon');
+  });
+
+  it('announces native radio deselection before the newly selected radio on actual arrow movement', async () => {
+    const f = await fixture('<button autofocus>Before marker</button><fieldset><legend>Route</legend><input type="radio" name="route" aria-label="North" checked><input type="radio" name="route" aria-label="South"></fieldset>');
+    await f.page.locator('button').focus();
+    await f.backend.observe();
+    expect(await f.key('Tab')).toEqual(['North, selected, radio button, 1 of 2 Route group']);
+    expect(await f.key('ArrowDown')).toEqual(['North, radio button, 1 of 2','South, selected, radio button, 2 of 2']);
+    expect(await f.page.locator('input').first().isChecked()).toBe(false);
+    expect(await f.page.locator('input').last().isChecked()).toBe(true);
+  });
+
   it('preserves DOM node cursor identity across insertions and reconciles removed objects to surviving neighbors', async () => {
     const f = await fixture('<p id="one">First</p><p id="two">Second</p><p id="three">Third</p>');
     expect(await f.intent('next')).toEqual(['Second']);
@@ -167,9 +224,9 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await f.intent('activate')).toEqual(['Broken custom, unchecked, checkbox']);
     expect(await f.page.locator('[role=checkbox]').getAttribute('aria-checked')).toBe('false');
     await f.intent('next');
-    expect(await f.intent('activate')).toEqual(['Choice A, radio button, checked']);
+    expect(await f.intent('activate')).toEqual(['Choice A, selected, radio button, 1 of 2']);
     await f.intent('next');
-    expect(await f.intent('activate')).toEqual(['Choice B, radio button, checked']);
+    expect(await f.intent('activate')).toEqual(['Choice B, selected, radio button, 2 of 2']);
     expect(await f.page.locator('input[type=radio]').first().isChecked()).toBe(false);
   });
 
@@ -188,7 +245,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
 
   it('follows dialog autofocus and actual Escape close/focus behavior without implementing a dialog state machine', async () => {
     const f = await fixture('<button onclick="document.querySelector(\'dialog\').showModal()">Open</button><dialog aria-label="Settings"><h2>Preferences</h2><button autofocus onclick="this.closest(\'dialog\').close()">Close</button></dialog>');
-    expect(await f.intent('activate')).toEqual(['Close, button']);
+    expect(await f.intent('activate')).toEqual(['Settings web dialog with 2 items Close, button']);
     expect(await f.page.locator('dialog').evaluate(node => (node as HTMLDialogElement).open)).toBe(true);
     expect(await f.key('Escape')).toEqual(['Open, button']);
     expect(await f.page.locator('dialog').evaluate(node => (node as HTMLDialogElement).open)).toBe(false);
@@ -245,13 +302,46 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     await f.key('Tab');
     expect(await f.key('Space')).toEqual(['checked, Agree, checkbox']);
     await f.key('Tab');
-    expect(await f.key('Enter')).toEqual(['Ran, button']);
+    expect(await f.key('Enter')).toEqual([]);
+    expect(await f.page.locator('button').textContent()).toBe('Ran');
+  });
+
+  it('records character echoes, caret moves, deletion and replacement from actual focused input state', async () => {
+    const f = await fixture('<input aria-label="Note"><button>Done</button>');
+    await f.key('Tab');
+    await f.backend.execute({ kind: 'typeText', text: 'c' });
+    expect((await f.backend.observe()).speech).toEqual(['c','c']);
+    await f.backend.execute({ kind: 'typeText', text: 'u' });
+    expect((await f.backend.observe()).speech).toEqual(['u','cu']);
+    await f.backend.execute({ kind: 'typeText', text: 'p' });
+    expect((await f.backend.observe()).speech).toEqual(['p','cup']);
+    expect(await f.key('ArrowLeft')).toEqual(['p']);
+    expect(await f.key('Backspace')).toEqual(['u']);
+    expect(await f.page.locator('input').inputValue()).toBe('cp');
+    expect(await f.key('ControlOrMeta+A')).toEqual(['Select All','cp selected']);
+    await f.backend.execute({ kind: 'typeText', text: 'm' });
+    expect((await f.backend.observe()).speech).toEqual(['selection replaced m']);
+    expect(await f.page.locator('input').inputValue()).toBe('m');
+    expect(await f.key('End')).toEqual([]);
+  });
+
+  it('waits for delayed live updates, preserves successive messages, and stays silent for an unchanged button', async () => {
+    const f = await fixture('<button onclick="setTimeout(()=>document.getElementById(\'s\').textContent=\'Loading\',50);setTimeout(()=>document.getElementById(\'s\').textContent=\'Loaded\',210)">Refresh</button><p id="s" role="status"></p>', 400);
+    await f.key('Tab');
+    const began = Date.now();
+    expect(await f.key('Enter')).toEqual(['Loading','Loaded']);
+    expect(Date.now() - began).toBeGreaterThanOrEqual(390);
+    expect((await f.backend.observe()).speech).toEqual([]);
+    await f.backend.execute({ kind: 'key', key: 'Enter' });
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new Error('stop observation')), 20);
+    await expect(f.backend.observe({ signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('announces a browser-exposed dialog role and modal state when traversing its accessible content', async () => {
     const f = await fixture('<dialog aria-label="Settings"><h2>Preferences</h2><button autofocus>Save</button></dialog>');
     await f.page.locator('dialog').evaluate(node => (node as HTMLDialogElement).showModal());
-    expect((await f.backend.observe()).speech).toEqual(['Save, button']);
+    expect((await f.backend.observe()).speech).toEqual(['Settings web dialog with 2 items Save, button']);
     expect(await f.intent('previous')).toEqual(['heading, level 2, Preferences']);
     expect(await f.intent('previous')).toEqual(['Settings, dialog, modal']);
   });
@@ -274,7 +364,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(typed).toHaveBeenCalledTimes(1);
     await expect(f.backend.execute({ kind: 'intent', intent: 'interact' })).rejects.toThrow('Unsupported');
     await expect(f.backend.execute({ kind: 'intent', intent: 'rotor' })).rejects.toThrow('Unsupported');
-    await expect(f.backend.execute({ kind: 'key', key: 'ArrowDown' })).rejects.toThrow('Unsupported');
+    await expect(f.backend.execute({ kind: 'key', key: 'F13' })).rejects.toThrow('Unsupported');
     expect(await f.page.locator('input').inputValue()).toBe('a');
   });
 

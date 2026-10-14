@@ -46,24 +46,26 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v3` profile uses Chromium's CDP `Accessibility.getFullAXTree` for the main document. It visits a flattened subset of exposed objects, filters ignored and structural objects, and suppresses repeated text below named controls. Selected wording and checked-state changes also use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium names and states rather than claiming to reproduce Safari's or macOS's accessibility tree.
+The current `english-dom-navigation-evidence-v4` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, list positions and table coordinates, and preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 | Feature | Implemented behavior | Boundary |
 | --- | --- | --- |
 | `next`, `previous` | Move the simulated cursor without wrapping; next at a terminal enabled plain button repeats it, other boundaries keep fallback wording | Terminal-button behavior is inferred from local final-button observations; other endpoints and native grouping remain uncalibrated |
-| Cursor and focus | Cursor movement alone does not set DOM focus; a changed actual focus can move the cursor | Does not reproduce all configurable VoiceOver cursor-tracking behavior |
+| Cursor and focus | Object navigation focuses actual focusable DOM objects; static stops preserve keyboard focus; changed keyboard focus can move the cursor | Calibrated to the observed native profile, not all configurable tracking preferences |
 | `readCurrent` | Describe the object at the simulated cursor using deterministic English wording | No speech synthesis or native utterance capture |
 | `readFocused` | Describe the exposed object with actual keyboard focus | Cursor and focus may refer to different objects |
 | `activate` | Guarded DOM `.click()` on supported controls, or `.focus()` on an editable field | AXPress approximation; clicks are untrusted and may differ from native activation |
-| `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` | Deliver actual browser keyboard actions | Native browser or page behavior determines the result |
+| Keyboard | Tab/Shift+Tab, Enter/Space/Escape, arrows, Home/End, Shift+Home/End, Backspace/Delete, ControlOrMeta+A | Chromium determines actual key behavior; Safari link-Tab and focus-return selection differences remain |
 | `typeText`, `replaceText` | Enter a named task input only into an actually focused editable field; verify focus while typing | Merely browsing to a field is insufficient; disabled and read-only fields reject input |
-| Names and state | Read exposed names, values, roles, heading levels, checked/pressed/expanded/selected, disabled, read-only, required, multiline, and modal states | A small typed formatter, not VoiceOver's context-dependent wording |
+| Names and context | Roles, states, list markers/positions, nested-list levels, group/landmark ends, table row/column context, dialog entry, tab/radio/menu positions | Partial projection; complex grids, spanning/header relationships and WebKit heuristics need broader native validation |
+| Editing and suggestions | Single-character/word echo, selection replacement, caret/deletion receipts, listbox active-descendant announcements without moving DOM focus | Multi-character input and native autofill remain partial; ordinary task input privacy stays enabled |
+| Delayed live updates | `observationMinWaitMs` polls semantics during the minimum observation window and preserves successive observed updates | Can miss changes shorter than the polling interval; no native timing/queue/interruption model |
 | Dynamic pages | Refresh browser semantics between operations; keep stable object identity where available | No reconstruction of missing ARIA or missing widget handlers |
 | Password fields | Discard password values before formatting or emitting semantic diagnostics | Other page text can still contain private information |
 
 Disabled controls remain available for cursor reading when exposed by Chromium, but activation and text entry reject them. An ARIA role alone does not implement a widget: missing click or keyboard handlers remain missing. DOM changes and navigation come from the actual page and remain subject to runner navigation and action restrictions.
 
-Out of scope: native macOS/Safari AX parity, group interaction, rotor, Quick Nav, live-region announcement scheduling, earcons, speech queues and interruption, native pronunciation and verbosity settings, cross-frame navigation, browser chrome, and operating-system dialogs. An observation refresh is not a native speech-completion signal. The browser and its version can change the accessible objects or their names, even though the formatter is deterministic for the same semantic input.
+Out of scope: complete macOS/Safari AX parity, group interaction commands, rotor, Quick Nav modes, native live-region scheduling, earcons, speech queues and interruption, native pronunciation and verbosity settings, cross-frame navigation, browser chrome, and operating-system dialogs. Selected repeated state receipts are observations from one profile, not a queue model. An observation refresh is not a native speech-completion signal. Browser versions can change accessible objects and names.
 
 ## Evidence and privacy
 

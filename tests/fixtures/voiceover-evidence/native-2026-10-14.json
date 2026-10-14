@@ -457,6 +457,497 @@
       },
       "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
       "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-text-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-text-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Gold cat target edit text"
+      ],
+      "reportedSpeech": "Gold cat target edit text",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Gold cat target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "text"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-email-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-email-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Navy cat target email field"
+      ],
+      "reportedSpeech": "Navy cat target email field",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Navy cat target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "email"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-tel-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-tel-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Sky bee target telephone number field"
+      ],
+      "reportedSpeech": "Sky bee target telephone number field",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Sky bee target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "tel"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-url-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-url-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Gray elk target URL field"
+      ],
+      "reportedSpeech": "Gray elk target URL field",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Gray elk target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "url"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-number-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-number-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Lime bee target incrementable number field"
+      ],
+      "reportedSpeech": "Lime bee target incrementable number field",
+      "semanticInput": {
+        "role": "spinbutton",
+        "name": "Lime bee target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "number"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-search-aria-label.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-search-aria-label.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Pink bee target search text field"
+      ],
+      "reportedSpeech": "Pink bee target search text field",
+      "semanticInput": {
+        "role": "searchbox",
+        "name": "Pink bee target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "search"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-text-required.next:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-text-required.next",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Ink elk target required invalid data edit text"
+      ],
+      "reportedSpeech": "Ink elk target required invalid data edit text",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Ink elk target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": true,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "text",
+        "invalid": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-text-invalid.next:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-text-invalid.next",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Fire elk target invalid data edit text"
+      ],
+      "reportedSpeech": "Fire elk target invalid data edit text",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Fire elk target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "text",
+        "invalid": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:input-text-disabled.next:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "input-text-disabled.next",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Blue ant target dimmed edit text"
+      ],
+      "reportedSpeech": "Blue ant target dimmed edit text",
+      "semanticInput": {
+        "role": "textbox",
+        "name": "Blue ant target",
+        "protected": false,
+        "disabled": true,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "tagName": "input",
+        "inputType": "text"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:progress-value.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "progress-value.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Blue yak target 40% progress indicator"
+      ],
+      "reportedSpeech": "Blue yak target 40% progress indicator",
+      "semanticInput": {
+        "role": "progressbar",
+        "name": "Blue yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "value": "0.4",
+        "valueMin": 0,
+        "valueMax": 1
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:progress-indeterminate.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "progress-indeterminate.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Green yak target indeterminate progress indicator"
+      ],
+      "reportedSpeech": "Green yak target indeterminate progress indicator",
+      "semanticInput": {
+        "role": "progressbar",
+        "name": "Green yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:progress-role.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "progress-role.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Gold yak target 70% progress indicator"
+      ],
+      "reportedSpeech": "Gold yak target 70% progress indicator",
+      "semanticInput": {
+        "role": "progressbar",
+        "name": "Gold yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "value": "70",
+        "valueMin": 0,
+        "valueMax": 100
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:link-current-page.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "link-current-page.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        " current page link Sky fox target"
+      ],
+      "reportedSpeech": " current page link Sky fox target",
+      "semanticInput": {
+        "role": "link",
+        "name": "Sky fox target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "currentPage": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.logo-image:0",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.logo-image",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "link image Visit Harbor homepage"
+      ],
+      "reportedSpeech": "link image Visit Harbor homepage",
+      "semanticInput": {
+        "role": "link",
+        "name": "Visit Harbor homepage",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "containsImage": true
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.logo-svg:0",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.logo-svg",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "link image Visit Harbor homepage"
+      ],
+      "reportedSpeech": "link image Visit Harbor homepage",
+      "semanticInput": {
+        "role": "link",
+        "name": "Visit Harbor homepage",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "containsImage": true
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.logo-text:0",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.logo-text",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "link Visit Harbor homepage"
+      ],
+      "reportedSpeech": "link Visit Harbor homepage",
+      "semanticInput": {
+        "role": "link",
+        "name": "Visit Harbor homepage",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.one-breadcrumb:1",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.one-breadcrumb",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "list 1 item"
+      ],
+      "reportedSpeech": "list 1 item",
+      "semanticInput": {
+        "role": "list",
+        "name": "",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "setSize": 1
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.breadcrumb:2",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.breadcrumb",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "link Home 1 of 2"
+      ],
+      "reportedSpeech": "link Home 1 of 2",
+      "semanticInput": {
+        "role": "link",
+        "name": "Home",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "position": 1,
+        "setSize": 2
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "page-patterns-v1-2026-10-14T20-54-41-018Z:page-patterns.breadcrumb:3",
+      "sourceRun": "page-patterns-v1-2026-10-14T20-54-41-018Z",
+      "sourceCaseId": "page-patterns.breadcrumb",
+      "sourceStepIndex": 3,
+      "sourceRecordsSha256": "2f3884793dfc9ffde44cec7a229166932d58a6b216087470176c92235f3a6ec3",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        " current page link Guide 2 of 2"
+      ],
+      "reportedSpeech": " current page link Guide 2 of 2",
+      "semanticInput": {
+        "role": "link",
+        "name": "Guide",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "position": 2,
+        "setSize": 2,
+        "currentPage": true
+      },
+      "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
     }
   ]
 }

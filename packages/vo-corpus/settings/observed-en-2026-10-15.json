@@ -1,0 +1,9 @@
+{
+  "id": "observed-en-2026-10-15",
+  "inherits": "en-screening-2026-10-14",
+  "settingsSha256": "87f623b8b073ce6bd4f149a3bdfb2b119fd87d95023b1c3c12d1c89d6e7fc046",
+  "safariTabToLinksPreference": "not explicitly stored; behavior must be checked",
+  "keyboardPreviousHeading": "driver/numeric Shift/using-modifiers all returned Last heading; cause unresolved",
+  "baselineStatus": "observed profile, caption receipt fidelity still needs verification",
+  "rawSettingsLocation": "data/profiles/observed-en-2026-10-15-raw.txt (local, not committed)"
+}

@@ -13,6 +13,7 @@ func fail(_ message: String, _ code: Int32 = 1) -> Never {
 var appName = ""
 var maxDepth = 60
 var maxNodes = 5000
+var maxStringLength = 500
 var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
   let flag = arguments.removeFirst()
@@ -22,10 +23,12 @@ while !arguments.isEmpty {
   case "--app": appName = value
   case "--max-depth": maxDepth = Int(value) ?? maxDepth
   case "--max-nodes": maxNodes = Int(value) ?? maxNodes
+  case "--max-string-length": maxStringLength = Int(value) ?? maxStringLength
   default: fail("unknown flag \(flag)")
   }
 }
 if appName.isEmpty { fail("--app is required (Safari or \"Google Chrome\")") }
+if maxStringLength < 1 || maxStringLength > 1000000 { fail("--max-string-length must be between 1 and 1000000") }
 
 // Without the grant every call returns kAXErrorAPIDisabled. Do not prompt: the prompt would be a UI side effect.
 if !AXIsProcessTrusted() {
@@ -82,16 +85,22 @@ let wanted: [String] = [
   "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXARIACurrent", "AXInvalid", "AXURL",
 ]
 
+var stringTruncations = 0
+func limited(_ s: String) -> String {
+  if s.count <= maxStringLength { return s }
+  stringTruncations += 1
+  return String(s.prefix(maxStringLength)) + "…"
+}
 func json(_ value: AnyObject) -> Any? {
   switch value {
-  case let s as String: return s.count > 500 ? String(s.prefix(500)) + "…" : s
+  case let s as String: return limited(s)
   case let n as NSNumber: return CFGetTypeID(n) == CFBooleanGetTypeID() ? n.boolValue : n
   case let u as URL: return u.absoluteString
   case let a as [AnyObject]: return a.compactMap(json)
   default:
     if CFGetTypeID(value) == AXUIElementGetTypeID() { return nil }
     let s = "\(value)"
-    return s.count > 500 ? String(s.prefix(500)) + "…" : s
+    return limited(s)
   }
 }
 
@@ -128,7 +137,7 @@ var result: [String: Any] = [
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",
   "timestamp": ISO8601DateFormatter().string(from: Date()),
-  "maxDepth": maxDepth, "maxNodes": maxNodes, "nodeCount": nodeCount, "truncated": truncated,
+  "maxDepth": maxDepth, "maxNodes": maxNodes, "maxStringLength": maxStringLength, "stringTruncations": stringTruncations, "nodeCount": nodeCount, "truncated": truncated,
   "root": tree,
 ]
 // Path of child indices from the web area root; null when focus is outside the web area (address bar, toolbar) or none.

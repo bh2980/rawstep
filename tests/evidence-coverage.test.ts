@@ -67,6 +67,8 @@ describe('corpus counts and missing state/action coverage', () => {
   it('recognizes the updated simulation profile without increasing retained source evidence', () => {
     expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v3' }))
       .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v3' } });
+    expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v4' }))
+      .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v4' } });
   });
   it('keeps raw source volume separate from calibrated cases and returns actual gaps', () => {
     const summary = summarizeEvidenceCoverage();

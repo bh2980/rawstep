@@ -12,7 +12,7 @@
     "replay": "tsx src/replay.ts",
     "compare": "tsx src/compare.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/workflows.test.ts"
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "rawstep": "workspace:*"
