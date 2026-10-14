@@ -2,13 +2,15 @@ import type { CDPSession, Page } from '@rawstep/browser/types';
 import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 import { setTimeout as wait } from 'node:timers/promises';
+import {formatUsageHint} from './usage-hints.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v5' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v6' as const;
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
-  'Selected wording and plain checked-control state-change rules are calibrated to versioned third-party observations and local macOS/Safari 26.6.2 captures; this is a composite simulation profile, not any one native version. Other state changes, hints and speech timing remain heuristic.',
+  'Selected wording and plain checked-control state-change rules are calibrated to versioned third-party observations and local macOS/Safari 26.6.2 captures; this is a composite simulation profile, not any one native version. Other state changes and speech timing remain heuristic.',
+  'Role/context usage hints are polled after a 600 ms delay from their main receipt, rounded from local receipt-time measurements. New actions cancel pending hints and repeated targets suppress them. Editing/autofill hints, native speech queues and configurable verbosity remain incomplete.',
   'Next at an enabled terminal button re-announces that object, inferred from the repeated final-button observations in the local corpus. Other endpoint roles and previous-boundary behavior remain uncalibrated.',
   'The projected accessibility cursor includes named group/landmark boundaries, list positions and table coordinates. Navigation synchronizes focus to actual focusable DOM objects, calibrated to the local native profile; static stops preserve keyboard focus. Configurable tracking preferences remain unimplemented.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
@@ -57,7 +59,7 @@ type AXNode = {
 };
 type Container = { id: string; name: string; role: string; items: number; rows?: number; columns?: number };
 type Cell = { table: string; row: number; column: number; rows: number; columns: number; header: string };
-type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
+type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; hintInCell?:boolean;hintTextFragment?:boolean; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
 type DOMMeta = { tag: string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
 type EditState = { value: string; start: number; end: number; multiline: boolean };
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
@@ -70,7 +72,7 @@ export class MockVoiceOverBackend implements Backend {
   readonly evidenceProvenance = 'simulation' as const;
   readonly capabilities: Backend['capabilities'];
   private sourceCommand = 'next_item';
-  constructor(private readonly wording?: MockWordingOptions, private readonly observationMinWaitMs = 0) {
+  constructor(private readonly wording?: MockWordingOptions, private readonly observationMinWaitMs = wording ? 0 : 800) {
     if (!Number.isFinite(observationMinWaitMs) || observationMinWaitMs < 0) throw new Error('Invalid minimum observation wait');
     this.capabilities=Object.freeze(wording?.capabilities ?? {intents,keys,textEntry:true,replaceText:true});
   }
@@ -90,6 +92,8 @@ export class MockVoiceOverBackend implements Backend {
   private nextWindow = 1;
   private sequence = 0;
   private lastAnnouncement?: string;
+  private hintTarget?: string;
+  private pendingHint?: {text:string;dueAt:number};
   private announcedContainers: string[] = [];
   private announcedCell?: Cell;
   /** The document whose title was last spoken; a new one is announced by its title. */
@@ -115,7 +119,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, capabilities: this.capabilities, limitations: MOCK_VOICEOVER_LIMITATIONS, ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '5', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '6', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -178,10 +182,19 @@ export class MockVoiceOverBackend implements Backend {
     };
     this.beginWindow().outputs.push(output);
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
+    if(!this.wording&&node){
+      if(this.hintTarget!==node.identity){
+        const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
+        const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
+        const text=formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(this.sourceCommand),textFragment:node.hintTextFragment});
+        this.pendingHint=text?{text,dueAt:Date.now()+600}:undefined;
+      }
+      this.hintTarget=node.identity;
+    }else if(!this.wording){this.hintTarget=undefined;this.pendingHint=undefined;}
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region' | 'editing' | 'value-change'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region' | 'editing' | 'value-change' | 'usage-hint'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
@@ -411,12 +424,14 @@ export class MockVoiceOverBackend implements Backend {
           let label = node.parentId ? byId.get(node.parentId) : undefined;
           while (label && stringValue(label.role) !== 'LabelText') label = label.parentId ? byId.get(label.parentId) : undefined;
           next.push({ identity: identity(representative), backendDOMNodeId: representative.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes, ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
+            hintInCell:node.backendDOMNodeId!==undefined&&(ancestor(node.backendDOMNodeId,'td')!==undefined||ancestor(node.backendDOMNodeId,'th')!==undefined),
+            hintTextFragment:!!paragraph&&exposedChildren(paragraph).findIndex(c=>c.nodeId===node.nodeId)>0,
             ...(!this.wording && textRoles.has(role) && label && labelControls(label).includes(name) ? { labelText: true } : {}),
             ...(cell && tableScope ? { cell: { ...cell, table: tableScope.id, header: header ? stringValue(header.name) : '' } } : {}) });
           if (said) lastSaid = said;
         }
       }
-      const suppressDescendantText = suppressText || listItem || descriptionItem || caption || !!cell || (!node.ignored && !!name && namedLeafRoles.has(role));
+      const suppressDescendantText = suppressText || listItem || descriptionItem || caption || !!cell || (!node.ignored && !!name && (namedLeafRoles.has(role)||!this.wording&&role==='DisclosureTriangle'&&meta?.tag==='summary'));
       const inner = !node.ignored && said && !textRoles.has(role) ? [...groupNames, said] : groupNames;
       let innerLabels = labelNames;
       if (!this.wording && (meta?.tag === 'label' || role === 'LabelText')) {
@@ -474,6 +489,7 @@ export class MockVoiceOverBackend implements Backend {
     const root = axNodes.find(node => ['RootWebArea', 'WebArea'].includes(stringValue(node.role)) && (!node.parentId || !byId.has(node.parentId)));
     if (root && identity(root) !== this.documentIdentity) {
       this.documentIdentity = identity(root);
+      this.hintTarget=undefined;this.pendingHint=undefined;
       const title = stringValue(root.name).trim();
       if (title) this.announceText(title, 'page-title');
     }
@@ -514,6 +530,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
+    this.pendingHint=undefined;
     this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','headings.list':'rotor_headings'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
@@ -569,7 +586,9 @@ export class MockVoiceOverBackend implements Backend {
           && before.semantic.role === after.semantic.role && before.semantic.name === after.semantic.name
           && typeof before.semantic.checked === 'boolean' && typeof after.semantic.checked === 'boolean'
           && before.semantic.checked !== after.semantic.checked;
-        if (!this.wording && before && after && this.popupSpeech(action, before, after)) { /* Active-descendant announcements do not move DOM focus. */ }
+        if(!this.wording&&action.kind==='intent'&&action.intent==='activate'&&before&&after&&before.identity===after.identity&&after.semantic.role==='DisclosureTriangle'&&after.semantic.tagName==='summary'&&before.semantic.expanded!==after.semantic.expanded){
+          this.announceText(after.semantic.expanded?'expanded':'collapsed','value-change');
+        }else if (!this.wording && before && after && this.popupSpeech(action, before, after)) { /* Active-descendant announcements do not move DOM focus. */ }
         else if (!this.wording && action.kind === 'key' && after?.semantic.role === 'radio' && before?.semantic.role === 'radio' && before.semantic.inputType === 'radio'
           && before.identity !== after.identity && before.semantic.checked === true && after.semantic.checked === true && ['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(action.key)) {
           this.announce({ ...before, semantic: { ...before.semantic, checked: false } }); this.announce(after);
@@ -679,7 +698,8 @@ export class MockVoiceOverBackend implements Backend {
     if (node.semantic.disabled) throw new Error('Cannot activate a disabled accessible object.');
     const editable = editableRoles.has(node.semantic.role);
     const linkedHeading=node.semantic.role==='heading'&&node.semantic.headingLink;
-    if (!editable && !linkedHeading && !clickableRoles.has(node.semantic.role)) throw new Error(`Activation is unsupported for simulated role ${node.semantic.role}.`);
+    const disclosure=node.semantic.role==='DisclosureTriangle'&&node.semantic.tagName==='summary';
+    if (!editable && !linkedHeading && !disclosure && !clickableRoles.has(node.semantic.role)) throw new Error(`Activation is unsupported for simulated role ${node.semantic.role}.`);
     const session = await this.cdp(signal);
     const { object } = await session.send('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
     if (!object.objectId) throw new Error('Current simulated cursor is no longer attached to a DOM object.');
@@ -754,6 +774,7 @@ export class MockVoiceOverBackend implements Backend {
         if (this.lastCurrentFingerprint !== this.currentFingerprint()) this.announce(this.current(), 'No accessible content', false);
         this.flushLive();
         this.lastCurrentFingerprint = this.currentFingerprint();
+        if(this.pendingHint&&Date.now()>=this.pendingHint.dueAt){const hint=this.pendingHint;this.pendingHint=undefined;this.announceText(hint.text,'usage-hint');}
         if (Date.now() >= deadline) break;
         await wait(Math.min(100, deadline - Date.now()), undefined, { signal });
       } while (true);
@@ -776,6 +797,7 @@ export class MockVoiceOverBackend implements Backend {
     this.page = undefined;
     this.nodes = [];
     this.window = undefined;
+    this.pendingHint=undefined;
     this.listeners.clear();
     if (session) await session.detach().catch(() => {});
   }

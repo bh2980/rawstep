@@ -64,15 +64,16 @@ const session = new VoSession(values.url ?? atDriverUrl(machine), guard);
 const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?join(out,"inputs"):casesDir, machine);
 const started = Date.now();
 let aligned = 0;
+const workflowStartProtocol="Public: native AX marker focus then VO+Shift+F4. Local: VO+Home and VO+Cmd+F4 verification; synthetic fixtures may recover by bounded ordinary Tab to proven marker focus, then VO+Shift+F4. Workflow keys require final native marker focus.";
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);
-  await appendFile(join(out,'sessions.jsonl'),JSON.stringify({schemaVersion:1,captureSessionId,receiptClockOrigin:session.startedAt,settings,atDriver:negotiated,machine:facts,casesSha256})+'\n');
+  await appendFile(join(out,'sessions.jsonl'),JSON.stringify({schemaVersion:1,captureSessionId,receiptClockOrigin:session.startedAt,settings,atDriver:negotiated,machine:facts,casesSha256,workflowStartProtocol})+'\n');
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
     settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: facts, captureSessionId,
     inputArchive, stepJournal:"steps.jsonl", receiptClock: {origin:session.startedAt,basis:"host receipt time; not synthesis latency"},
-    workflowStartProtocol: "Public: native AX marker focus then VO+Shift+F4 from proven native marker focus. Local: VO+Home with proven-focus recovery. VO+Cmd+F4 verifies keyboard focus before workflow keys.",
+    workflowStartProtocol,
   }, null, 2));
   console.log(`${set.id}: ${todo.length} to run, ${done.size} already recorded -> ${out}`);
 
@@ -171,7 +172,24 @@ try {
         if (!values["no-ax"]) {
           start.axPath = await saveAxSnapshot(out,attemptId,'verified-focus',startAx);
         }
-        const focused = focusedAxNode(startAx);
+        let focused = focusedAxNode(startAx);
+        if((focused?.AXRole!=="AXButton"||focused.AXTitle!==START_MARKER)&&set.syntheticInputs&&!item.url){
+          // Speech can name the VO marker while Safari keyboard focus remains in chrome. Only setup Tab is allowed here.
+          for(let i=0;i<12;i++){
+            await session.press('Tab');start.commands!.push('Tab');start.speech.push(...spoken(await session.listen()));
+            startAx=await dumpAxTree(machine,browserApps[browser]);
+            if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,`focus-recovery-${i+1}`,startAx);
+            focused=focusedAxNode(startAx);
+            if(focused?.AXRole==='AXButton'&&focused.AXTitle===START_MARKER){
+              await session.press('VO+Shift+F4');start.commands!.push('VO+Shift+F4');
+              const synchronizedSpeech=spoken(await session.listen());start.speech.push(...synchronizedSpeech);
+              if(!synchronizedSpeech.join(' ').includes(START_MARKER))throw new Error('VO cursor did not confirm proven marker focus after Tab recovery');
+              startAx=await dumpAxTree(machine,browserApps[browser]);
+              if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'recovered-focus',startAx);
+              focused=focusedAxNode(startAx);break;
+            }
+          }
+        }
         if (focused?.AXRole !== "AXButton" || focused.AXTitle !== START_MARKER) {
           alignmentError = "keyboard focus is outside the start marker after VO+Cmd+F4";
           start.aligned = false;

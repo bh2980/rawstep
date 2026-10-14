@@ -128,6 +128,8 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 
 - `tests/mock-voiceover-evidence.test.ts`: 13 historical and 50 selected local wording cases, explicit
   simulation provenance, and protected-value safety
+- `tests/mock-voiceover-hints.test.ts`: 16 selected native role/context/direction hint receipts and protected/unknown
+  semantic input guards
 - Existing Chromium-backed mock tests retain their navigation, DOM effect,
   focus, redaction and cancellation assertions; only affected speech wording
   expectations changed
@@ -222,3 +224,34 @@ These are small synthetic compositions, not a random-site or full-replacement re
 further fitting must treat it as regression. Transfer errors involve containing-context heading jumps, headings in
 tables and fragment destinations. Safari/Chromium Tab preferences and usage hints remain substantial gaps. Run IDs,
 source hashes, reports and the next collection priorities are recorded in the corpus README.
+
+## Usage hints and actual summary activation in v6 (2026-10-15)
+
+Twenty new calibration pages (145 native actions) and eight reserved compositions (89 planned actions) extend the
+corpus with role/state, containing context, revisit, directional boundaries and editing histories. Sixteen selected
+native hint receipts retain source hashes in `native-hints-2026-10-15.json`. Hints depend on observable semantic
+structure and navigation history, not fixture IDs or a lookup of element names. The default minimum post-action
+observation is 800 ms; hints are polled after a rounded 600 ms delay from the main receipt, with repeated-target
+suppression and pending-hint cancellation on another action. Local receipt intervals do not establish audio latency
+or native interruption fidelity. Corpus-based alternative wording profiles retain their historical behavior.
+
+Calibration also identified an unsupported actual HTML summary activation. The native profile now activates the
+summary through the existing guarded click, emits its observed `expanded` / `collapsed` state receipt, and suppresses
+the repeated summary child-text stop. Browser checks verify the actual details state, reading order, hints and focus.
+Editing/autofill hints, protected-field hints, timing preferences and complete speech queues remain incomplete.
+
+On the same 20 calibration pages, content main speech improves from 91/101 (90.1%) to 95/101 (94.1%). Full speech over
+all planned actions improves from 26/145 (17.9%) to 133/145 (91.7%); **content full speech with marker steps excluded
+improves from 10/101 (9.9%) to 91/101 (90.1%)**. Bounded state matches 140/145, with two missing native state readings.
+The confirmed build and predicted outputs were fixed before opening native transfer labels.
+
+The first eight-composition test reaches only 46/89 (51.7%) full speech and 32/72 (44.4%) content full speech. Three
+start-focus failures leave 31 actions absent; these remain failures. Labels after controls, controls inside table
+cells and dialog Tab order also fail in successfully started cases. Later start-recovery repeats are separate
+diagnostics, never replacements for the first test. This set is now inspected and future fitting must call it
+regression. Passing ≥90% on the calibration set does not satisfy the replacement goal or real-site/NVDA validation.
+
+The familiar 52-case / 265-action regression preserves main content 219/238 (92.0%), spoken content 200/219 (91.3%) and
+bounded state 254/265 (nine missing). Full speech improves from 74/265 (27.9%) to **211/265 (79.6%)**; full speech with
+marker-only steps excluded is **185/238 (77.7%)**. Exact measured JS and engine source hashes are archived locally.
+These results still leave substantial full-speech, real-site and native NVDA work before a replacement claim.

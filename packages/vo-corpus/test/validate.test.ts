@@ -26,6 +26,7 @@ test("validation includes every planned failure and separates markers, silence a
   assert.equal(r.content.planned, 5);
   assert.equal(r.content.matched, 1);
   assert.equal(r.fullSpeech.matched, 3); // absent hint remains a full-speech failure
+  assert.deepEqual(r.contentFullSpeech,{matched:0,planned:5,rate:0}); // repeated harness markers cannot raise this rate
   assert.equal(r.verdicts.missing, 3);
   assert.equal(r.verdicts.unaligned, 2);
   assert.equal(r.verdicts.unsupported, 1);

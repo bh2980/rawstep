@@ -916,6 +916,102 @@ Separately instrument hint/context history and timing before fitting full-speech
 needs a prospectively defined same-input protocol; it must retain the failed historical browser-fingerprint results.
 Rotor/group/frame coverage and native NVDA collection remain required work, with no model-specific training assumed.
 
+#### Hint and context experiments in v6
+
+`hints-v1` adds 20 calibration pages covering ordinary/disabled buttons, links, headings, split text, checkbox/switch/
+toggle changes, editing, sliders, disclosure, lists, nested groups, articles, tables, dialogs, radio groups, navigation
+and figures. `hints-transfer-v1` reserves eight separately authored combinations: account settings, an article/list,
+navigation actions, an order table, a support dialog, shipping disclosure, a booking form and an article/figure.
+Both sets use the same document title and a pre-observation frozen v2 input-group manifest. Each action retains its
+history, native AX, raw speech and host receipt times with a 1,000 ms minimum observation window. Test labels remain
+separate from calibration; subsequent tuning after inspecting the test must call it regression.
+
+The experiment asks whether hints depend on role/state, immediate semantic container, directional container boundaries
+and whether the cursor actually changed. It distinguishes hint receipt delay from command/guard overhead: the first
+75 paired training receipts had a median main-to-hint interval of 571 ms (550–593 ms), versus 764 ms from command
+request. The initial 750 ms candidate is retained as development evidence; the candidate chosen before opening test
+labels rounds the measured main-to-hint delay to 600 ms. It queues hints during observation and cancels pending hints
+when another action arrives. This does not establish native speech synthesis latency or a complete interruption model.
+
+The first guest stopped unexpectedly before completing any case. The collector's uncaught stdin EPIPE was corrected
+with a checked stream pipeline; helper uploads now replace the executable only after completing a temporary copy.
+The VM/server were restarted, output re-muted, and the same archived inputs resumed with a new capture session.
+The original failed run and logs remain local; no observation was fabricated or replaced.
+
+`analyze.ts` now reports hint-only agreement and the first hint divergence per case alongside main-speech root failures.
+The validator additionally reports **content full speech**, excluding harness-only marker steps while retaining hints
+and their ordering. The existing full-speech rate over all planned actions is retained. Missing, unsupported,
+unaligned and environment-failed observations do not become successful empty-hint matches.
+
+Sixteen selected native hint receipts retain raw text, source record hashes and structure/history-derived inputs in
+`tests/fixtures/voiceover-evidence/native-hints-2026-10-15.json`. Browser checks cover delayed output, rapid target
+changes, repeated endpoints, unchanged state transitions, directional container hints, live updates and cancellation.
+Editing hints that interleave with typed echoes, autofill/provider-specific menus, missing label reading stops and
+native queue/verbosity behavior remain open work; a correct hint formatter cannot repair a wrong reading cursor.
+
+The completed native calibration retains 20/20 aligned cases and 145 actions. It also exposed an existing gap:
+Chromium's `DisclosureTriangle` was formatted as a summary but could not be activated, and its child text was an
+extra reading stop. Actual HTML summary activation now uses the guarded DOM click; the observed activation receipt
+is just `expanded` / `collapsed`. The browser test verifies real `details.open` changes, the single summary stop,
+content traversal and return. No missing custom-widget handler is supplied. Intermediate candidates remain local;
+the confirmed build was frozen before opening native transfer labels, with model/build hashes checked explicitly.
+
+| Cohort | Content main speech | Full speech, all planned | Content full speech, no marker steps | Bounded state |
+| --- | --- | --- | --- | --- |
+| New 20-case calibration, v5 | 91/101 (90.1%) | 26/145 (17.9%) | 10/101 (9.9%) | 135/145; seven missing |
+| Same calibration, confirmed v6 | 95/101 (94.1%) | 133/145 (91.7%) | 91/101 (90.1%) | 140/145; two missing |
+| First eight-composition test, confirmed v6 | 32/72 (44.4%) | 46/89 (51.7%) | 32/72 (44.4%) | 52/89; 34 missing |
+
+The first transfer run aligned only five of eight cases. Three pages spoke the marker while native AX showed keyboard
+focus outside it; the collector correctly sent no workflow keys. Those 31 absent actions remain failures in the first
+test. Failed records were skipped during resume, never replaced with later attempts. The transfer labels are now
+inspected, so future tuning must call this set regression. Even successfully started cases expose label-after-control
+stops, controls inside table cells and dialog Tab ordering; this is not a ≥90% generalization result.
+
+Native calibration: `data/runs/hints-v1-2026-10-14T22-47-38-217Z`. Before model:
+`data/runs/hints-v1-sim-2026-10-14T22-47-39-643Z`; confirmed model:
+`data/runs/hints-v1-sim-2026-10-14T23-01-51-317Z`. Reports:
+`data/analyses/hints-v5-calibration-before/` and `data/analyses/hints-v6-confirmed-calibration/`.
+First transfer native: `data/runs/hints-transfer-v1-2026-10-14T22-59-05-810Z`; confirmed model:
+`data/runs/hints-transfer-v1-sim-2026-10-14T23-01-52-418Z`; report:
+`data/analyses/hints-v6-first-transfer/`. The three cases absent from the first run have a separate repeat under a
+prospectively amended setup protocol, not substituted observations in the original score. The confirmed candidate
+freeze is `data/analyses/hints-v6-confirmed-freeze.json`; prior candidate freezes and model outputs remain development
+evidence. Setup quality flags use step `-1` and do not count as native speech or remove failures.
+
+The amended synthetic-fixture setup uses at most 12 ordinary Tab presses to reach an AX-proven start button, then
+VO+Shift+F4 to align the VO cursor, followed by another native focus check. Every setup command and AX attempt is
+retained; final workflow keys still require proven native marker focus. It does not inject DOM focus or change
+production browser Tab behavior. Session manifests now preserve the exact start protocol alongside environment facts.
+
+The three-case recovery repeat aligned 3/3 and retained all 31 actions: content main speech 25/26 (96.2%), full speech
+29/31 (93.5%), content full speech 24/26 (92.3%) and hint-only agreement 30/31. The first case required six setup Tabs
+and VO+Shift+F4; the next two needed no recovery. Each final native start AX names the marker, and each first action's
+`beforeAxPath` refers to that verified start tree. Native source:
+`data/runs/hints-transfer-v1-2026-10-14T23-04-37-886Z`; separate hash-pinned proof and comparison:
+`data/analyses/hints-v6-start-recovery-repeat.json`. This selected repeat is not a new untouched test or a replacement
+for 46/89 in the original first-test report. A later read-only quality audit adds the three setup flags at
+`data/analyses/hints-v6-first-transfer-reviewed/`; it leaves the original report intact.
+
+The post-round inventory `data/inventory-hints-v6-2026-10-15.json` contains 36 native runs, 791 case records, 752 aligned
+records, 680 distinct case keys and 3,730 actual actions. It separates 2,960 content events (1,210 distinct normalized
+texts) from 3,099 hints and 900 harness marker events. Native AX files exist for 1,969 actions, with zero missing
+references or malformed JSONL lines. Repeat and failed-start records remain included; these are raw counts, not
+independent quality-approved training examples.
+
+The confirmed v6 build also completed the familiar 52-case / 265-action regression. Main speech remains unchanged:
+219/238 content (92.0%), 200/219 spoken (91.3%) and 245/265 all main (92.5%). Full speech improves from 74/265 (27.9%)
+to **211/265 (79.6%)**; content full speech is **185/238 (77.7%)**. Bounded state remains 254/265, with nine missing
+native observations. Native source: `data/runs/validation-v2-2026-10-14T19-23-21-501Z`; measured model and legacy-labeled
+reports: `data/runs/validation-v2-sim-2026-10-14T23-03-36-209Z`. The native source still lacks historical fixture-byte
+verification. Remaining full-speech errors are substantial, even on this familiar set.
+
+The exact measured JS build is preserved under `data/analyses/hints-v6-frozen-build/`, with its build hash checked
+against the confirmed freeze and its engine source hashes retained. A subsequent caller-only adaptation keeps the
+dashboard's reading-stop counter on explicit immediate snapshots (`0` ms), avoiding a new 800 ms speech wait per
+counted stop. It does not change the measured engine or task replay settings. Runtime metadata continues to identify
+all output as simulated; the corpus recordings remain native observations.
+
 #### Next collection budget
 
 Allocate the next round approximately 50% to reproducible first-divergence contrasts, 25% to uncovered commands/context/

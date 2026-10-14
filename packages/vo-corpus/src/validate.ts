@@ -45,6 +45,7 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
     renderedTextDifferentCases: set.cases.filter(c => c.contentProtocol && native.get(c.id)?.pageContext?.renderedTextSha256 && simulator.get(c.id)?.pageContext?.renderedTextSha256 && native.get(c.id)!.pageContext!.renderedTextSha256 !== simulator.get(c.id)!.pageContext!.renderedTextSha256).length,
     all: metric(rows), content: metric(content), spoken: metric(spoken), silent: metric(silent),
     fullSpeech: { matched: rows.filter(r => r.fullSpeechMatched).length, planned: rows.length, rate: rows.length ? rows.filter(r => r.fullSpeechMatched).length / rows.length : null },
+    contentFullSpeech: { matched: content.filter(r => r.fullSpeechMatched).length, planned: content.length, rate: content.length ? content.filter(r => r.fullSpeechMatched).length / content.length : null },
     familyMacroRate: rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
     verdicts: Object.fromEntries([...new Set(rows.map(r => r.verdict))].sort().map(v => [v, rows.filter(r => r.verdict === v).length])), families, rows,
   };
@@ -57,6 +58,7 @@ export function renderValidation(report: ReturnType<typeof validateRuns>): strin
     `DOM-protocol cases with different rendered-text hashes: ${report.renderedTextDifferentCases}. DOM-protocol matches require identical capture-script hash and DOM snapshot hash; rendered text remains separately recorded.`, "",
     "Every planned step is included. Missing/unaligned/unsupported/redacted steps count as failures. Live pages require equal URL, content fingerprint source/hash and viewport. Natural-anchor runs also require the same native heading anchor. AX-text fingerprints are conservative checks, not identical HTML verification; engine/content differences count as failures. Content excludes only native receipts consisting entirely of a fixture marker. Spoken includes missing native observations as failures. Main speech ignores documented usage hints; full speech includes them. Silence is reported separately. These speech rates do not establish equivalent focus, editing, activation or timing.", "",
     `- All main speech: ${rate(report.all)}`, `- Content main speech: ${rate(report.content)}`, `- Spoken content: ${rate(report.spoken)}`, `- Silence: ${rate(report.silent)}`, `- Full speech including hints: ${rate(report.fullSpeech)}`,
+    `- Content full speech including hints: ${rate(report.contentFullSpeech)}`,
     `- Equal-weight family rate: ${report.familyMacroRate === null ? "unavailable" : (100 * report.familyMacroRate).toFixed(1) + "%"}`, "",
     "| Family | Matched / planned content |", "| --- | ---: |", ...Object.entries(report.families).map(([name, m]) => `| ${name} | ${rate(m)} |`), "",
     "| Result | Steps |", "| --- | ---: |", ...Object.entries(report.verdicts).map(([v, n]) => `| ${v} | ${n} |`), ""].join("\n");

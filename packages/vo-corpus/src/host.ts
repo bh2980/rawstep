@@ -9,6 +9,8 @@ import { basename } from "node:path";
 import { createServer, type Server } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { pipeline } from "node:stream/promises";
+import { randomUUID } from "node:crypto";
 
 const run = promisify(execFile);
 
@@ -54,12 +56,14 @@ export async function tartMachine(vm: string): Promise<Machine> {
 /** Streams a local file into the VM's ~/vo-corpus/bin over `tart exec -i`, once per run. Same CPU and macOS, so binaries run as is. */
 async function copyInto(vm: string, localPath: string): Promise<string> {
   const remote = `/Users/admin/vo-corpus/bin/${basename(localPath)}`;
-  await new Promise<void>((done, fail) => {
-    const child = spawn("tart", ["exec", "-i", vm, "sh", "-c", `mkdir -p /Users/admin/vo-corpus/bin && cat > '${remote}' && chmod +x '${remote}'`], { stdio: ["pipe", "ignore", "inherit"] });
-    createReadStream(localPath).pipe(child.stdin);
+  const temporary=remote+'.upload-'+randomUUID(),quote=(s:string)=>"'"+s.replaceAll("'","'\\''")+"'";
+  const child = spawn("tart", ["exec", "-i", vm, "sh", "-c", `mkdir -p /Users/admin/vo-corpus/bin && cat > ${quote(temporary)} && chmod +x ${quote(temporary)} && mv ${quote(temporary)} ${quote(remote)}`], { stdio: ["pipe", "ignore", "inherit"] });
+  const exited=new Promise<void>((done, fail) => {
     child.on("error", fail);
-    child.on("exit", code => code === 0 ? done() : fail(new Error(`Copying ${localPath} into ${vm} failed (exit ${code})`)));
+    child.on("close", code => code === 0 ? done() : fail(new Error(`Copying ${localPath} into ${vm} failed (exit ${code})`)));
   });
+  // A stopped guest can close stdin early; pipeline handles EPIPE instead of crashing the collector.
+  await Promise.all([pipeline(createReadStream(localPath),child.stdin),exited]);
   return remote;
 }
 

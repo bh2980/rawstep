@@ -7,14 +7,25 @@ import {casesFingerprint,type CaseRecord,type CaseSet} from "./cases.js";
 import {validateRuns} from "./validate.js";
 import {comparePageState,nativePageState} from "./state.js";
 import type {AxDump} from "./axdump.js";
+import {normalize} from "./compare.js";
+
+export function hintComparison(report:ReturnType<typeof validateRuns>){
+  const rows=report.rows.map(r=>({caseId:r.caseId,step:r.step,chord:r.chord,axes:r.axes,
+    native:r.voiceoverHint,model:r.simulatorHint,
+    matched:['exact','normalized','mismatch'].includes(r.verdict)&&normalize(r.voiceoverHint)===normalize(r.simulatorHint)}));
+  const first=new Map<string,typeof rows[number]>();
+  for(const r of rows)if(!r.matched&&!first.has(r.caseId))first.set(r.caseId,r);
+  return {matched:rows.filter(r=>r.matched).length,planned:rows.length,nativeHintSteps:rows.filter(r=>r.native).length,
+    modelHintSteps:rows.filter(r=>r.model).length,firstDifferences:[...first.values()]};
+}
 
 /** Candidates for curation, not permission to remove observations from the score. */
 export function captureWarnings(record:CaseRecord){
-  return record.steps.flatMap((step,i)=>[
+  return [...(!record.start.aligned?[{caseId:record.caseId,step:-1,flag:'native-start-unaligned'}]:[]),...record.steps.flatMap((step,i)=>[
     ...(step.reason==='deadline'?[{caseId:record.caseId,step:i,flag:'native-speech-window-deadline'}]:[]),
     ...(step.utterances.some(u=>/^Safari(?: is)? not responding$/i.test(u.text.trim()))?[{caseId:record.caseId,step:i,flag:'possible-native-browser-unresponsive-receipt'}]:[]),
     ...(step.axError?[{caseId:record.caseId,step:i,flag:'native-AX-capture-failed'}]:[]),
-  ]);
+  ])];
 }
 
 export function firstDivergences(report:ReturnType<typeof validateRuns>){
@@ -62,8 +73,8 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   }
   await mkdir(dirname(out),{recursive:true});await mkdir(out);
   const summary={schemaVersion:1,analyzedAt:new Date().toISOString(),partition,casesSha256:hash,sourceHashes,
-    nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,verdicts:report.verdicts,state:{matched:states.filter(s=>s.matched).length,planned:states.length,missing:states.filter(s=>s.missing).length}},
-    queue:firstDivergences(report),qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Known hints are separate; absence of a hint model remains visible in full-speech metrics.'};
+    nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,contentFullSpeech:report.contentFullSpeech,verdicts:report.verdicts,state:{matched:states.filter(s=>s.matched).length,planned:states.length,missing:states.filter(s=>s.missing).length}},
+    queue:firstDivergences(report),hints:hintComparison(report),qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Hints have a separate comparison; full-speech metrics retain their ordering with other receipts.'};
   await writeFile(join(out,'summary.json'),JSON.stringify(summary,null,2),{flag:'wx'});
   await writeFile(join(out,'speech.json'),JSON.stringify(report,null,2),{flag:'wx'});
   await writeFile(join(out,'state.json'),JSON.stringify(states,null,2),{flag:'wx'});

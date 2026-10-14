@@ -46,7 +46,16 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v5` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v6` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+
+The native profile also synthesizes selected English usage hints from role, state, enclosing container and navigation
+direction. It queues a hint 600 ms after the object's main receipt, polls it while observing, cancels pending hints on
+a new action, and suppresses a hint when the same object is re-announced. The default post-action minimum observation
+window is now 800 ms. Set `observationMinWaitMs: 0` for immediate snapshots; a short window may end before the hint,
+which remains pending until another observation or action. Longer explicit windows still poll live changes. These are
+receipt-time approximations, not an audio or native speech queue model. Editing/autofill hints, verbosity preferences,
+complete interaction/exit semantics and rapid-input timing need further native validation. Corpus-based alternative
+wording profiles retain their own behavior and do not inherit these native-profile hints.
 
 | Feature | Implemented behavior | Boundary |
 | --- | --- | --- |

@@ -29,6 +29,49 @@ async function fixture(html: string, observationMinWaitMs = 0) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('activates an actual summary and emits only the observed expanded/collapsed state receipt',async()=>{
+    const f=await fixture('<button>Start</button><details><summary>Ticket conditions</summary><p>Refunds before departure.</p></details><button>Finish</button>',850);
+    const hint='You are currently on a summary, inside of web content. To expand or collapse the contents of this item, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.';
+    expect(await f.intent('next')).toEqual(['Ticket conditions, collapsed, summary',hint]);
+    expect(await f.intent('activate')).toEqual(['expanded']);
+    expect(await f.page.locator('details').evaluate(n=>(n as HTMLDetailsElement).open)).toBe(true);
+    expect(await f.intent('next')).toEqual(['Refunds before departure.','You are currently on a selectable text, inside of web content. To exit this web area, press Control -Option -Shift -Up Arrow.']);
+    expect(await f.intent('previous')).toEqual(['Ticket conditions, expanded, summary',hint]);
+    expect(await f.intent('activate')).toEqual(['collapsed']);
+    expect(await f.page.locator('details').evaluate(n=>(n as HTMLDetailsElement).open)).toBe(false);
+  });
+
+  it('delivers delayed role/context hints, suppresses repeated endpoint hints and keeps actual control state effects',async()=>{
+    const f=await fixture('<button>Start</button><input type="checkbox" aria-label="Updates"><button>Finish</button>',850);
+    expect(await f.intent('next')).toEqual(['Updates, unchecked, checkbox','You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.']);
+    expect(await f.key('Space')).toEqual(['checked, Updates, checkbox']);
+    expect(await f.page.locator('input').isChecked()).toBe(true);
+    expect(await f.intent('next')).toEqual(['Finish, button','You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.']);
+    expect(await f.intent('next')).toEqual(['Finish, button']);
+    expect(f.events.some(e=>(e as any).output?.raw?.announcement==='usage-hint')).toBe(true);
+  });
+
+  it('cancels stale hints during rapid navigation and retains only the last delayed target',async()=>{
+    const f=await fixture('<button>Start</button><h2>Routes</h2><button>Book</button>');
+    expect(await f.intent('next')).toEqual(['heading, level 2, Routes']);
+    expect(await f.intent('next')).toEqual(['Book, button']);
+    await f.page.waitForTimeout(800);
+    expect((await f.backend.observe()).speech).toEqual(['You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.']);
+    expect((await f.backend.observe()).speech).toEqual([]);
+  });
+
+  it('distinguishes container entry, interior and directional end hints without changing DOM focus for static stops',async()=>{
+    const f=await fixture('<button id="start">Start</button><article><h2>Port report</h2><p>Crossings resume.</p></article><button>Finish</button>',850);
+    await f.key('Tab');
+    expect(await f.intent('next')).toEqual(['Port report, article','You are currently on a article, inside of web content.']);
+    expect(await f.intent('next')).toEqual(['heading, level 2, Port report','You are currently on a heading level 2.']);
+    expect(await f.intent('next')).toEqual(['Crossings resume.','You are currently on a selectable text.']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('start');
+    expect(await f.intent('next')).toEqual(['end of Port report, article','You are currently on a article, inside of web content. To exit this web area, press Control -Option -Shift -Up Arrow.']);
+    await f.intent('next');
+    expect(await f.intent('previous')).toEqual(['end of Port report, article','You are currently on a article, inside of web content.']);
+  });
+
   it('reads linked headings as one object, preserves the nesting order and focuses the actual anchor',async()=>{
     const f=await fixture('<button>Start</button><h2><a id="inner" href="#destination">Harbor guide</a></h2><a id="outer" href="#destination"><h3>River trail</h3></a><button>After</button><p id="destination">Destination reached.</p>');
     expect(await f.intent('next')).toEqual(['heading level 2 link Harbor guide']);

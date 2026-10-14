@@ -1,0 +1,257 @@
+{
+  "referenceEnvironment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": "Safari",
+    "browserVersion": "26.6.2",
+    "at": "VoiceOver",
+    "atVersion": "26.6.2",
+    "uiLanguage": "en-US",
+    "locale": "en_KR",
+    "captureVoice": "MacOSATDriverServerExtensionVoice",
+    "atDriverVersion": "0.1.3",
+    "unknownSettings": [
+      "verbosity",
+      "punctuation",
+      "grouping",
+      "Quick Nav",
+      "caption/capture agreement"
+    ]
+  },
+  "evaluationScope": "Selected native hint calibration receipts; not held-out accuracy, audio fidelity or a complete speech queue model.",
+  "observations": [
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.name-content.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "button"
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.checkbox-toggle.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "Tab",
+      "semanticInput": {
+        "role": "checkbox"
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.switch-toggle.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "Tab",
+      "semanticInput": {
+        "role": "switch"
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a switch, inside of web content. To toggle this switch, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.favorite-toggle.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "Tab",
+      "semanticInput": {
+        "role": "button",
+        "pressed": false
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a toggle button, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.text-editing.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "Tab",
+      "semanticInput": {
+        "role": "textbox"
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a text field, inside of web content. To enter text in this field, type. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.list-text",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "listitem",
+        "name": "Morning session"
+      },
+      "context": {
+        "parentRole": "list"
+      },
+      "rawHintReceipt": "You are currently on a text element.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.list-text",
+      "sourceStepIndex": 3,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "list"
+      },
+      "context": {
+        "end": true,
+        "forward": true
+      },
+      "rawHintReceipt": "You are currently on a list, inside of web content. To move between items in this list, press Control -Option -Right Arrow or Control -Option -Left Arrow. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.list-text",
+      "sourceStepIndex": 7,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Left",
+      "semanticInput": {
+        "role": "list"
+      },
+      "context": {
+        "end": true,
+        "forward": false
+      },
+      "rawHintReceipt": "You are currently on a list, inside of web content.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.nested-groups",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "group"
+      },
+      "context": {
+        "parentRole": "group"
+      },
+      "rawHintReceipt": "You are currently in a group.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.table-simple",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "columnheader"
+      },
+      "context": {
+        "inCell": true,
+        "parentRole": "table"
+      },
+      "rawHintReceipt": "You are currently on a selectable text, inside of a cell.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "training-v2-2026-10-14T19-01-06-522Z",
+      "sourceCaseId": "training.dialog-checkbox",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "d1f48b1b03b35dc6a66820d2346853ed86fca9f0be433097f23c96bc181de5d9",
+      "command": "Enter",
+      "semanticInput": {
+        "role": "checkbox"
+      },
+      "context": {
+        "parentRole": "dialog"
+      },
+      "rawHintReceipt": "You are currently on a checkbox, inside of a web dialog. To select or deselect this checkbox, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.two-links",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "heading",
+        "level": 2
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a heading level 2, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.named-figure",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "image"
+      },
+      "context": {
+        "parentRole": "figure"
+      },
+      "rawHintReceipt": "You are currently on an image. To begin interacting with the contents of this image, press Control -Option -Shift -Down Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.punctuation",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "StaticText",
+        "name": "."
+      },
+      "context": {
+        "textFragment": true
+      },
+      "rawHintReceipt": "You are currently on a text element, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "hints-v1-2026-10-14T22-47-38-217Z",
+      "sourceCaseId": "hints-v1.buttons",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "f4de10f668fd2bdaf8ccb0be8014c27cf4d32fce554086adc4635fb0d8235d63",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "button",
+        "disabled": true
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a button, inside of web content. This item is dimmed. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    },
+    {
+      "sourceRun": "hints-v1-2026-10-14T22-47-38-217Z",
+      "sourceCaseId": "hints-v1.details",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "f4de10f668fd2bdaf8ccb0be8014c27cf4d32fce554086adc4635fb0d8235d63",
+      "command": "VO+Right",
+      "semanticInput": {
+        "role": "DisclosureTriangle",
+        "tagName": "summary"
+      },
+      "context": {},
+      "rawHintReceipt": "You are currently on a summary, inside of web content. To expand or collapse the contents of this item, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+      "semanticInputProvenance": "Abstracted from the synthetic input structure and command history, independent of label words; runtime projection is tested separately."
+    }
+  ]
+}

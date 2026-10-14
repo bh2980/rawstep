@@ -18,12 +18,14 @@ import { generateListHeuristics } from "./list-heuristics.js";
 import { generateArticlePatterns } from "./article-patterns.js";
 import { generateDiversity } from "./diversity.js";
 import { generateArticleFollowup } from "./article-followup.js";
+import { generateHints } from "./hints.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { values } = parseArgs({ options: { set: { type: "string", default: "elements-v1" }, out: { type: "string" } } });
 const generators = { "elements-v1": generateElements, "screening-v1": generateScreening, "workflows-v1": generateWorkflows,
   "training-v2": () => generateExpanded("training"), "validation-v2": () => generateExpanded("validation"), "focus-followup-v3": generateFollowup, "page-patterns-v1": generatePagePatterns, "list-heuristics-v1":generateListHeuristics, "article-patterns-v1":generateArticlePatterns, "diversity-v1":generateDiversity,
-  "article-followup-v2":()=>generateArticleFollowup('train'),"article-transfer-v2":()=>generateArticleFollowup('test') };
+  "article-followup-v2":()=>generateArticleFollowup('train'),"article-transfer-v2":()=>generateArticleFollowup('test'),
+  "hints-v1":()=>generateHints('train'),"hints-transfer-v1":()=>generateHints('test') };
 const generator = Object.hasOwn(generators, values.set!) ? generators[values.set as keyof typeof generators] : undefined;
 if (!generator) throw new Error(`--set must be ${Object.keys(generators).join(", ")}`);
 const out = resolve(packageRoot, values.out ?? `data/cases/${values.set}`);

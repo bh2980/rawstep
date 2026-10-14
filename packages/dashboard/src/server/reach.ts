@@ -33,7 +33,8 @@ export async function estimateReach(options: { task: Task; projectDir: string; m
     await settlePage(session.page);
     await new Promise(resolve => setTimeout(resolve, SETTLE_MS));
     const walk = async (intent: string, stop: string) => {
-      const reader = new MockVoiceOverBackend();
+      // This counts reading stops; waiting for delayed speech hints would add minutes on large pages.
+      const reader = new MockVoiceOverBackend(undefined,0);
       await reader.start();
       reader.attachSession(session);
       const heard = [(await reader.observe()).speech.join(' ')];
