@@ -464,3 +464,46 @@ order is: command-specific navigation/state-change wording; group entry/exit and
 selection; timed live updates and focus restoration. Calibrate against the raw native records and their action AX trees,
 then evaluate on newly named/composed pages kept out of calibration. A better score on these same pages is a regression
 result, not proof of generalization to blogs, shops or other sites.
+
+### First simulator calibration: v3 (2026-10-14)
+
+`english-dom-navigation-evidence-v3` applies five bounded changes from the observed English profile:
+heading role/level before the name; boolean switch on/off wording; state-first plain checkbox/switch changes;
+description before the role on plain buttons; and repeating an enabled terminal plain button on next.
+Checked-change wording requires Space or simulated activation, the same node/role/name, and an actual boolean state
+change. Required/disabled/readonly/value/description combinations, mixed transitions, object replacement and renaming
+retain heuristic output. Terminal buttons with pressed/expanded state and other endpoint roles keep their fallback.
+Other behaviors, including toggle/details silence, duplicated receipts and the backward-heading anomaly, were not fitted.
+
+The selected native fixture subset has 17 observations with original record hashes and available per-action AX
+references: 2/17 wording matches before, 17/17 after. All 13 historical wording fixtures remain compatible.
+Actual Chromium tests verify changed vs unchanged state, navigation vs activation, replacement, mixed transitions,
+terminal-button cursor/focus behavior, independent corpus-wording backends, and the existing runner.
+
+Both complete case sets were replayed against the same native runs and the same generated fixtures. Matching case/step
+keys and identical `casesGeneratedAt`/`casesDir` metadata were checked; scoring and exclusions did not change.
+
+| Comparison | Before (v2) | After (v3) | Newly matched | Previously matched → mismatched |
+| --- | ---: | ---: | ---: | ---: |
+| Elements: scoreable wording | 540/1329 (40.6%) | 731/1329 (55.0%) | 191 | 0 |
+| Elements: nonempty, nonmarker native speech | 254/791 (32.1%) | 297/791 (37.5%) | 43 | 0 |
+| Workflows: scoreable wording | 29/63 (46.0%) | 39/63 (61.9%) | 10 | 0 |
+
+The elements comparison still has 1337 total steps, 391/392 native-aligned cases and 8 unsupported steps. Of its 191
+new matches, 148 are endpoint-marker repeats; do not present that gain as target-wording generalization. The workflows
+comparison still has 139 total steps, 35/35 aligned cases, 69 unsupported steps and 7 privacy-redacted observations.
+Its remaining 24 mismatches include the unresolved backward-heading command. Unsupported and privacy-redacted rows
+were not removed or reclassified to improve the score. These are same-fixture regression results, not held-out clone
+accuracy. No new native collection or Tart session was needed.
+
+After-run outputs:
+`data/runs/elements-v1-sim-2026-10-14T09-50-34-833Z/{report.md,compare.json}` and
+`data/runs/workflows-v1-sim-2026-10-14T09-50-38-498Z/{report.md,compare.json}`.
+`data/runs/calibration-v3-2026-10-14.json` retains counts and all improved/regressed rows with both simulated texts and
+the native reference. The final boolean-only guard was also checked on the three mixed-checkbox cases; their speech
+was unchanged from the complete replay. These local data outputs remain ignored by Git.
+
+Next calibration candidates are group reading stops and modal entry/focus context, followed by keyboard editing and
+timed updates. Safari link Tab settings, provider repetitions and previous-heading input fidelity require native
+follow-up before changing their rules. New composed/name-varied pages must remain out of fitting for a generalization
+evaluation; replaying these same pages again alone cannot establish a clone.

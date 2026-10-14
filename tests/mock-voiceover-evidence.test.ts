@@ -15,12 +15,19 @@ type Fixture = {
   runtimeEvidenceProvenance: 'simulation';
 };
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/a11ysupport-navigation.json', import.meta.url), 'utf8')) as Fixture[];
+const native = JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-2026-10-14.json', import.meta.url), 'utf8')) as {
+  observations: { observationId: string; reportedSpeech: string; semanticInput: SimulatedSemanticNode; checkedStateChanged: boolean; sourceRecordsSha256: string }[];
+};
 // Compare only token ordering: reported manual transcripts do not reliably preserve
 // punctuation/capitalization. Never normalize away state, role, value, or hint words.
 const wording = (value: string) => value.toLowerCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
 const semantic = (value: Partial<SimulatedSemanticNode>): SimulatedSemanticNode => ({ role: 'button', name: '', protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false, ...value });
 
 describe('source-backed simulation navigation wording', () => {
+  it.each(native.observations)('matches the selected native receipt for $observationId', fixture => {
+    expect(wording(formatSimulatedSpeech(fixture.semanticInput, fixture.checkedStateChanged))).toBe(wording(fixture.reportedSpeech));
+    expect(fixture.sourceRecordsSha256).toMatch(/^[a-f0-9]{64}$/);
+  });
   it.each(fixtures)('matches the limited recorded wording for $observationId', fixture => {
     expect(wording(formatSimulatedSpeech(semantic(fixture.semanticInput)))).toBe(wording(fixture.reportedSpeech));
     expect(fixture.sourceUrl).toContain('/6730ad42e83dd780f63555ab3f14f1c26ea0fae5/');
@@ -36,13 +43,14 @@ describe('source-backed simulation navigation wording', () => {
   it('does not turn source-backed wording into native measurement provenance', async () => {
     const backend = new MockVoiceOverBackend();
     const started = await backend.start();
-    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v2');
-    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '2' } });
+    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v3');
+    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '3' } });
     await backend.close();
   });
 
   it('never reads a protected value even when calling the formatter directly', () => {
     expect(formatSimulatedSpeech(semantic({ role: 'textbox', name: 'Password', protected: true, value: 'do-not-announce' }))).toBe('Password, secure text field');
+    expect(formatSimulatedSpeech(semantic({ role: 'textbox', name: 'Password', protected: true, value: 'do-not-announce' }), true)).toBe('Password, secure text field');
   });
 
   it("never speaks Chromium's internal role names such as LabelText", () => {

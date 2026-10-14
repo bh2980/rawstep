@@ -4,10 +4,11 @@ import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.j
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v2' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v3' as const;
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
-  'Selected navigation-wording rules are calibrated to versioned third-party VoiceOver observations; this is a composite profile, not any one macOS/Safari version. Other wording and state-change announcements remain heuristic.',
+  'Selected wording and plain checked-control state-change rules are calibrated to versioned third-party observations and local macOS/Safari 26.6.2 captures; this is a composite simulation profile, not any one native version. Other state changes, hints and speech timing remain heuristic.',
+  'Next at an enabled terminal button re-announces that object, inferred from the repeated final-button observations in the local corpus. Other endpoint roles and previous-boundary behavior remain uncalibrated.',
   'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
   'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
@@ -94,7 +95,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, capabilities: this.capabilities, limitations: MOCK_VOICEOVER_LIMITATIONS, ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '2', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '3', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -130,9 +131,9 @@ export class MockVoiceOverBackend implements Backend {
     return this.window ??= { id: `mock-voiceover-window-${this.nextWindow++}`, startedAt: new Date().toISOString(), outputs: [] };
   }
 
-  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true): void {
+  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
-    const text = rendered?.speech ?? (node ? formatSimulatedSpeech(node.semantic) : fallback);
+    const text = rendered?.speech ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged) : fallback);
     const fingerprint = JSON.stringify([node?.identity, text]);
     if (!force && this.lastAnnouncement === fingerprint) return;
     this.lastAnnouncement = fingerprint;
@@ -276,12 +277,16 @@ export class MockVoiceOverBackend implements Backend {
         if (index >= 0 && index < this.nodes.length) {
           this.cursor = this.nodes[index]!.identity;
           this.announce(this.current());
-        } else this.announce(undefined, move.none);
+        } else if (!this.wording && action.kind === 'intent' && action.intent === 'next'
+          && this.current()?.semantic.role === 'button' && !this.current()?.semantic.disabled
+          && this.current()?.semantic.pressed === undefined && this.current()?.semantic.expanded === undefined) this.announce(this.current());
+        else this.announce(undefined, move.none);
       } else if (action.kind === 'intent' && action.intent === 'headings.list') this.announceText(headingsList(this.nodes), 'headings-list');
       else if (action.kind === 'intent' && action.intent === 'readCurrent') this.announce(this.current());
       else if (action.kind === 'intent' && action.intent === 'readFocused') {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
       } else {
+        const before = this.current();
         if (action.kind === 'intent') receipt.activation = await this.activate(signal);
         else if (action.kind === 'key') {
           if (['Enter', 'Space'].includes(action.key) && this.nodes.find(node => node.identity === this.focusedIdentity)?.semantic.disabled) {
@@ -292,7 +297,13 @@ export class MockVoiceOverBackend implements Backend {
         else await this.enterText(action, signal);
         signal?.throwIfAborted();
         await this.refresh(signal);
-        this.announce(this.current());
+        const after = this.current();
+        const checkedStateChanged = (action.kind === 'intent' && action.intent === 'activate' || action.kind === 'key' && action.key === 'Space')
+          && before !== undefined && after !== undefined && before.identity === after.identity
+          && before.semantic.role === after.semantic.role && before.semantic.name === after.semantic.name
+          && typeof before.semantic.checked === 'boolean' && typeof after.semantic.checked === 'boolean'
+          && before.semantic.checked !== after.semantic.checked;
+        this.announce(after, 'No accessible content', true, checkedStateChanged);
       }
       this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();

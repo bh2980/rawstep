@@ -2,11 +2,11 @@
 
 `MockVoiceOverBackend` is a browser-backed development and policy-testing adapter.
 It is **simulation evidence**, not native VoiceOver output or a conformance result.
-The `english-dom-navigation-evidence-v2` profile makes a deliberately small, reproducible set of
+The `english-dom-navigation-evidence-v3` profile makes a deliberately small, reproducible set of
 choices inspired by screen-reader object navigation. It does not claim exact macOS,
 Safari, VoiceOver wording, or interaction fidelity. Selected navigation wording is
-now calibrated against versioned, third-party reported VoiceOver output; see
-[the evidence and limits](../../docs/mock-voiceover-evidence.md). This composite
+calibrated against versioned third-party output and selected local macOS/Safari 26.6.2 captures; see
+[the evidence and limits](../../../../docs/mock-voiceover-evidence.md). This composite
 profile is not one specific macOS/Safari version.
 
 The backend implements the generic `Backend` interface: `start`, `execute`,
@@ -70,9 +70,10 @@ applies to other input values and echoed page content.
 A typed semantic formatter produces deterministic English speech, such as
 `Agree, checked, checkbox` or `Settings, dialog, modal`. Only the current or
 explicitly requested focused object is spoken. Current-object semantic changes can
-produce new output on observation. This is not a live-region announcement model. The same current-state summary after
-activation is still a heuristic: native activation announcements can differ from
-navigation announcements or produce no speech.
+produce new output on observation. This is not a live-region announcement model. For plain checkboxes and switches, Space or simulated activation of the same control with an observed boolean checked
+change uses state-first wording. Navigation remains name-first for those controls. Replacement, renaming, mixed-state
+transitions and combinations with required/disabled/readonly/value/description retain heuristic wording. Other activation
+announcements remain heuristic, including actions that native VoiceOver might leave silent.
 Each output includes `evidenceProvenance: 'simulation'` and the profile name;
 sanitized semantic details can appear in diagnostic output metadata.
 

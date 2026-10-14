@@ -1,0 +1,462 @@
+{
+  "referenceEnvironment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": "Safari",
+    "browserVersion": "26.6.2",
+    "at": "VoiceOver",
+    "atVersion": "26.6.2",
+    "uiLanguage": "en-US",
+    "locale": "en_KR",
+    "captureVoice": "MacOSATDriverServerExtensionVoice",
+    "atDriverVersion": "0.1.3",
+    "unknownSettings": [
+      "verbosity",
+      "punctuation",
+      "grouping",
+      "Quick Nav",
+      "caption/capture agreement"
+    ]
+  },
+  "evaluationScope": "Selected calibration fixtures, not a holdout or native parity score; main receipt punctuation is normalized but word order and repetitions remain",
+  "observations": [
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h1.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h1.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 1 Gray yak target"
+      ],
+      "reportedSpeech": "heading level 1 Gray yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Gray yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 1
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h2.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h2.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 2 Teal yak target"
+      ],
+      "reportedSpeech": "heading level 2 Teal yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Teal yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 2
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h3.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h3.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 3 Plum yak target"
+      ],
+      "reportedSpeech": "heading level 3 Plum yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Plum yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 3
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h4.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h4.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 4 Jade yak target"
+      ],
+      "reportedSpeech": "heading level 4 Jade yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Jade yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 4
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h5.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h5.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 5 Rust yak target"
+      ],
+      "reportedSpeech": "heading level 5 Rust yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Rust yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 5
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h6.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h6.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 6 Navy yak target"
+      ],
+      "reportedSpeech": "heading level 6 Navy yak target",
+      "semanticInput": {
+        "role": "heading",
+        "name": "Navy yak target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "level": 6
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:checkbox-toggle.workflow:0",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "checkbox-toggle.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Tab",
+      "rawMainReceipts": [
+        "Email updates unchecked checkbox"
+      ],
+      "reportedSpeech": "Email updates unchecked checkbox",
+      "semanticInput": {
+        "role": "checkbox",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false,
+      "sourceAxPath": "ax/steps/checkbox-toggle.workflow.1.json",
+      "sourceAxSha256": "125867134c39c59d2da6c7a1736886a9c6f579060c9446c2ea49f88e688d6a89"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:checkbox-toggle.workflow:1",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "checkbox-toggle.workflow",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Space",
+      "rawMainReceipts": [
+        "checked Email updates checkbox"
+      ],
+      "reportedSpeech": "checked Email updates checkbox",
+      "semanticInput": {
+        "role": "checkbox",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true,
+      "sourceAxPath": "ax/steps/checkbox-toggle.workflow.2.json",
+      "sourceAxSha256": "d8439b88d8bdb213b16d4fcdeebc01e2e9862bdcef4665bf7b0c1dce456a87d0"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:checkbox-toggle.workflow:2",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "checkbox-toggle.workflow",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Space",
+      "rawMainReceipts": [
+        "unchecked Email updates checkbox"
+      ],
+      "reportedSpeech": "unchecked Email updates checkbox",
+      "semanticInput": {
+        "role": "checkbox",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true,
+      "sourceAxPath": "ax/steps/checkbox-toggle.workflow.3.json",
+      "sourceAxSha256": "9be6da8939830dcf45ffe9143e82c7a943aecf372c0c7b821feeb2cfb7bdcdec"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:switch-toggle.workflow:0",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "switch-toggle.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Tab",
+      "rawMainReceipts": [
+        "Email updates off switch"
+      ],
+      "reportedSpeech": "Email updates off switch",
+      "semanticInput": {
+        "role": "switch",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false,
+      "sourceAxPath": "ax/steps/switch-toggle.workflow.1.json",
+      "sourceAxSha256": "0ac6c84666c512d20701aa36a173023028aa691ed91933a9ea573af1e894c9eb"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:switch-toggle.workflow:1",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "switch-toggle.workflow",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Space",
+      "rawMainReceipts": [
+        "on Email updates switch"
+      ],
+      "reportedSpeech": "on Email updates switch",
+      "semanticInput": {
+        "role": "switch",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true,
+      "sourceAxPath": "ax/steps/switch-toggle.workflow.2.json",
+      "sourceAxSha256": "6d0f684b4858f2c3e598db79b84afdf8e10b92726b51ddb43337297348bbd6e7"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:switch-toggle.workflow:2",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "switch-toggle.workflow",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "Space",
+      "rawMainReceipts": [
+        "off Email updates switch"
+      ],
+      "reportedSpeech": "off Email updates switch",
+      "semanticInput": {
+        "role": "switch",
+        "name": "Email updates",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true,
+      "sourceAxPath": "ax/steps/switch-toggle.workflow.3.json",
+      "sourceAxSha256": "ca271b1ade2929fa1a7605aaa1bc9244036b6ec056774cbe9df957938e9747cd"
+    },
+    {
+      "observationId": "workflows-v1-2026-10-14T07-53-14-329Z:name-description.workflow:0",
+      "sourceRun": "workflows-v1-2026-10-14T07-53-14-329Z",
+      "sourceCaseId": "name-description.workflow",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "d1b9c069a65cc2ec267ff2f99d4fb82ad091be98109932049322520de0bef932",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Save changes Only affects this account button"
+      ],
+      "reportedSpeech": "Save changes Only affects this account button",
+      "semanticInput": {
+        "role": "button",
+        "name": "Save changes",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "description": "Only affects this account"
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false,
+      "sourceAxPath": "ax/steps/name-description.workflow.1.json",
+      "sourceAxSha256": "e03e2d673862b6166060c1fcf7381a5b76c70df019f58cd42e75982c110e479f"
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:checkbox-unchecked.activate:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "checkbox-unchecked.activate",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Space",
+      "rawMainReceipts": [
+        "checked Gray owl target checkbox"
+      ],
+      "reportedSpeech": "checked Gray owl target checkbox",
+      "semanticInput": {
+        "role": "checkbox",
+        "name": "Gray owl target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:checkbox-checked.activate:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "checkbox-checked.activate",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Space",
+      "rawMainReceipts": [
+        "unchecked Teal owl target checkbox"
+      ],
+      "reportedSpeech": "unchecked Teal owl target checkbox",
+      "semanticInput": {
+        "role": "checkbox",
+        "name": "Teal owl target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:switch-input.activate:1",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "switch-input.activate",
+      "sourceStepIndex": 1,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Space",
+      "rawMainReceipts": [
+        "on Fire owl target switch"
+      ],
+      "reportedSpeech": "on Fire owl target switch",
+      "semanticInput": {
+        "role": "switch",
+        "name": "Fire owl target",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "checked": true
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": true
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:heading-h1.next:2",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "heading-h1.next",
+      "sourceStepIndex": 2,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "After marker button"
+      ],
+      "reportedSpeech": "After marker button",
+      "semanticInput": {
+        "role": "button",
+        "name": "After marker",
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
+      "checkedStateChanged": false
+    }
+  ]
+}

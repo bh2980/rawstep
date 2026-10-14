@@ -29,6 +29,31 @@ async function fixture(html: string) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('uses changed-state wording only for the same checked control and keeps reading wording separate', async () => {
+    const f = await fixture('<button role="switch" aria-checked="false" onclick="this.setAttribute(\'aria-checked\',String(this.getAttribute(\'aria-checked\')!==\'true\'))">Lights</button>');
+    expect(await f.key('Tab')).toEqual(['Lights, off, switch']);
+    expect(await f.key('Space')).toEqual(['on, Lights, switch']);
+    expect(await f.intent('readCurrent')).toEqual(['Lights, on, switch']);
+    expect(await f.key('Space')).toEqual(['off, Lights, switch']);
+    const broken = await fixture('<div role="switch" aria-checked="false" tabindex="0">Broken</div>');
+    expect(await broken.key('Tab')).toEqual(['Broken, off, switch']);
+    expect(await broken.key('Space')).toEqual(['Broken, off, switch']);
+    expect(await broken.page.locator('[role=switch]').getAttribute('aria-checked')).toBe('false');
+    const replaced = await fixture('<button role="switch" aria-checked="false" onclick="this.outerHTML=\'<button role=&quot;switch&quot; aria-checked=&quot;true&quot;>Replacement</button>\'">Original</button>');
+    expect(await replaced.intent('activate')).toEqual(['Replacement, on, switch']);
+    const mixed = await fixture('<button role="checkbox" aria-checked="mixed" onclick="this.setAttribute(\'aria-checked\',\'true\')">Partially selected</button>');
+    expect(await mixed.intent('activate')).toEqual(['Partially selected, checked, checkbox']);
+  });
+
+  it('repeats a terminal enabled plain button on next without moving focus or claiming a quick-navigation match', async () => {
+    const f = await fixture('<h2>Overview</h2><button>Finish</button>');
+    expect(await f.intent('next')).toEqual(['Finish, button']);
+    expect(await f.intent('next')).toEqual(['Finish, button']);
+    expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    expect(await f.intent('heading.next')).toEqual(['No more headings']);
+    expect(await f.intent('previous')).toEqual(['heading, level 2, Overview']);
+  });
+
   it('says a legend or a label once, skips rules and silent objects, and jumps by heading and form control', async () => {
     const f = await fixture(`<h1>Shop</h1><hr>
       <fieldset><legend>Categories</legend><label><input type="checkbox"> Hammer</label><span aria-hidden="false"></span></fieldset>
@@ -40,10 +65,10 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(actual.filter(line => line.trim() === 'Hammer')).toHaveLength(0);
     expect(actual.every(line => line.trim() !== '')).toBe(true);
     const g = await fixture(`<h1>Shop</h1><p>Intro</p><button>Menu</button><h2>Filters</h2><input aria-label="Search"><h2>Products</h2>`);
-    expect(await g.intent('heading.next')).toEqual(['Filters, heading, level 2']);
-    expect(await g.intent('heading.next')).toEqual(['Products, heading, level 2']);
+    expect(await g.intent('heading.next')).toEqual(['heading, level 2, Filters']);
+    expect(await g.intent('heading.next')).toEqual(['heading, level 2, Products']);
     expect(await g.intent('heading.next')).toEqual(['No more headings']);
-    expect(await g.intent('heading.previous')).toEqual(['Filters, heading, level 2']);
+    expect(await g.intent('heading.previous')).toEqual(['heading, level 2, Filters']);
     expect(await g.intent('form.next')).toEqual(['Search, edit text']);
   });
 
@@ -77,7 +102,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
   it('lists every heading with its level in one announcement without moving the cursor', async () => {
     const f = await fixture('<h1>Shop</h1><p>Intro</p><h2>Products</h2><button>Buy</button><h3>Reviews</h3>');
     expect(await f.intent('headings.list')).toEqual(['Headings, 3 items: Shop, level 1; Products, level 2; Reviews, level 3']);
-    expect(await f.intent('readCurrent')).toEqual(['Shop, heading, level 1']);
+    expect(await f.intent('readCurrent')).toEqual(['heading, level 1, Shop']);
     const none = await fixture('<p>Plain page</p>');
     expect(await none.intent('headings.list')).toEqual(['Headings, no items']);
   });
@@ -87,10 +112,10 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
       <button><span>Continue</span></button><button style="opacity:0">Transparent</button>
       <p style="position:absolute;top:5000px">Far below</p><button disabled>Unavailable</button>
       <p hidden>Hidden secret</p><p aria-hidden="true">Aria hidden secret</p>`);
-    expect(f.initial.speech).toEqual(['Welcome, heading, level 2']);
+    expect(f.initial.speech).toEqual(['heading, level 2, Welcome']);
     const actual = [...f.initial.speech];
     for (let index = 0; index < 6; index++) actual.push(...await f.intent('next'));
-    expect(actual).toEqual(['Welcome, heading, level 2', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, button, disabled', 'End of content']);
+    expect(actual).toEqual(['heading, level 2, Welcome', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, button, disabled', 'End of content']);
     expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
     expect(f.metadata).toMatchObject({ backend: 'mock-voiceover', profile: MOCK_VOICEOVER_PROFILE, evidenceProvenance: 'simulation', environment: { nativeScreenReader: false } });
     expect(JSON.stringify(f.events)).not.toMatch(/backendDOMNodeId|childIds|Hidden secret/);
@@ -136,7 +161,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
   it('uses real native checkbox/radio state and never repairs a custom ARIA widget with no handler', async () => {
     const f = await fixture('<input type="checkbox" aria-label="Agree"><div role="checkbox" aria-checked="false" tabindex="0">Broken custom</div><input type="radio" name="group" aria-label="Choice A"><input type="radio" name="group" aria-label="Choice B">');
     expect(f.initial.speech).toEqual(['Agree, unchecked, checkbox']);
-    expect(await f.intent('activate')).toEqual(['Agree, checked, checkbox']);
+    expect(await f.intent('activate')).toEqual(['checked, Agree, checkbox']);
     expect(await f.page.locator('input[type=checkbox]').isChecked()).toBe(true);
     expect(await f.intent('next')).toEqual(['Broken custom, unchecked, checkbox']);
     expect(await f.intent('activate')).toEqual(['Broken custom, unchecked, checkbox']);
@@ -218,7 +243,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     await f.key('Enter');
     expect(new URL(f.page.url()).hash).toBe('#destination');
     await f.key('Tab');
-    expect(await f.key('Space')).toEqual(['Agree, checked, checkbox']);
+    expect(await f.key('Space')).toEqual(['checked, Agree, checkbox']);
     await f.key('Tab');
     expect(await f.key('Enter')).toEqual(['Ran, button']);
   });
@@ -227,7 +252,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     const f = await fixture('<dialog aria-label="Settings"><h2>Preferences</h2><button autofocus>Save</button></dialog>');
     await f.page.locator('dialog').evaluate(node => (node as HTMLDialogElement).showModal());
     expect((await f.backend.observe()).speech).toEqual(['Save, button']);
-    expect(await f.intent('previous')).toEqual(['Preferences, heading, level 2']);
+    expect(await f.intent('previous')).toEqual(['heading, level 2, Preferences']);
     expect(await f.intent('previous')).toEqual(['Settings, dialog, modal']);
   });
 

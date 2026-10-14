@@ -46,11 +46,11 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v2` profile uses Chromium's CDP `Accessibility.getFullAXTree` for the main document. It visits a flattened subset of exposed objects, filters ignored and structural objects, and suppresses repeated text below named controls. It uses Chromium names and states rather than claiming to reproduce Safari's or macOS's accessibility tree.
+The current `english-dom-navigation-evidence-v3` profile uses Chromium's CDP `Accessibility.getFullAXTree` for the main document. It visits a flattened subset of exposed objects, filters ignored and structural objects, and suppresses repeated text below named controls. Selected wording and checked-state changes also use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium names and states rather than claiming to reproduce Safari's or macOS's accessibility tree.
 
 | Feature | Implemented behavior | Boundary |
 | --- | --- | --- |
-| `next`, `previous` | Move the simulated cursor through exposed objects, including non-focusable text; announce the boundary without wrapping | No native grouping, rotor, heading shortcuts, or Quick Nav semantics |
+| `next`, `previous` | Move the simulated cursor without wrapping; next at a terminal enabled plain button repeats it, other boundaries keep fallback wording | Terminal-button behavior is inferred from local final-button observations; other endpoints and native grouping remain uncalibrated |
 | Cursor and focus | Cursor movement alone does not set DOM focus; a changed actual focus can move the cursor | Does not reproduce all configurable VoiceOver cursor-tracking behavior |
 | `readCurrent` | Describe the object at the simulated cursor using deterministic English wording | No speech synthesis or native utterance capture |
 | `readFocused` | Describe the exposed object with actual keyboard focus | Cursor and focus may refer to different objects |

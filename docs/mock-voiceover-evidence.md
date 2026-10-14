@@ -2,9 +2,9 @@
 
 ## What was collected
 
-We collected **reported native VoiceOver output**, not just ARIA expectations or
-browser accessibility-tree fields. No Mac or native VoiceOver session was run by
-Rawstep during this work.
+The initial research collected **reported native VoiceOver output**, not just ARIA expectations or
+browser accessibility-tree fields. That phase did not run native VoiceOver. Local native collection and the v3
+calibration described below followed on 2026-10-14.
 
 1. [Accessibility Supported](https://github.com/accessibilitysupported/a11ysupport.io)
    at commit `6730ad42e83dd780f63555ab3f14f1c26ea0fae5`: 548 macOS command-result
@@ -53,11 +53,37 @@ change and 13 afterward. This comparison ignores case, whitespace, commas and
 full stops, while retaining every word and its order. **13/13 is a result on this
 small selected wording set, not a fidelity or accessibility-conformance score.**
 
+## Local native calibration in v3 (2026-10-14)
+
+`english-dom-navigation-evidence-v3` retains the historical wording fixtures and adds selected observations from
+macOS/Safari/VoiceOver 26.6.2, captured in `vo-collector` with AT Driver 0.1.3 and its English capture voice. UI language
+was en-US and locale en_KR. Verbosity, punctuation, grouping, Quick Nav and caption/capture agreement remain unverified.
+It is still a composite Chromium simulation profile, not a complete emulator of that native configuration.
+
+The new fixture file `tests/fixtures/voiceover-evidence/native-2026-10-14.json` retains 17 main-speech observations with
+source run/case/step identifiers, SHA-256 of the original JSONL, commands and available per-action AX references/hashes.
+Semantic inputs are manually abstracted from the fixture and native evidence; they do not establish Chromium/Safari
+tree equivalence. Source runs and full raw captures remain local under `packages/vo-corpus/data/runs/`.
+
+- Heading navigation: `heading`, `level N`, name, supported by all six native heading levels and forward blog jumps
+- Boolean switch navigation: name, `on`/`off`, `switch`
+- Plain checkbox/switch changes: state, name, role after Space or simulated activation, only when the same named
+  object actually changes its boolean checked state. Replacement, renaming, mixed transitions and combined attributes
+  do not use this calibrated change template
+- Plain button descriptions: name, description, `button`, without changing toggle/disclosure combinations
+- Next at a terminal enabled plain button: re-read the current button. The source matrix repeats the endpoint marker
+  in 137 cases; applying this behavior to other button names is an inference. Other roles, disabled/toggle/disclosure
+  endpoints, previous-boundary behavior and heading exhaustion retain their existing fallback semantics
+
+The 17 selected wording fixtures matched 2 before and 17 after the change, ignoring separators but preserving words
+and order. This is a calibration regression result, not a held-out accuracy estimate. Full before/after fixture replay
+results and remaining limitations are documented in [the corpus README](../packages/vo-corpus/README.md).
+
 ## What is deliberately not claimed
 
 - The runtime still uses Chromium semantics and produces simulation evidence.
   Collected Safari output does not establish Chromium/Safari AX equivalence
-- The same formatter still summarizes current state after simulated activation.
+- Apart from the limited boolean checked-change rule above, the formatter still summarizes current state after simulated activation.
   Native activation speech is action-specific. Checkbox activation can put the
   changed state first. A toggle's activation can produce a short state word or
   no speech. [ARIA-AT toggle results](https://aria-at.w3.org/report/163626/targets/483)
@@ -71,7 +97,7 @@ small selected wording set, not a fidelity or accessibility-conformance score.**
   The current simulator does not model that state or VoiceOver's speech queue
 - Password output remains deliberately sanitized. It does not attempt to
   reproduce character counts, autofill hints, or typing sounds
-- Other role/state ordering, descriptions, hints, radio position, group context,
+- Other role/state combinations, description timing, hints, radio position, group context,
   heading behavior, live regions, earcons and timing remain uncalibrated heuristics
 - OS/AT versions and test dates are preserved per record. Quick Nav, verbosity,
   punctuation, voice, keyboard layout and other unreported settings remain
@@ -100,7 +126,7 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 
 ## Verification
 
-- `tests/mock-voiceover-evidence.test.ts`: 13 source-backed wording cases, explicit
+- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 17 selected local wording cases, explicit
   simulation provenance, and protected-value safety
 - Existing Chromium-backed mock tests retain their navigation, DOM effect,
   focus, redaction and cancellation assertions; only affected speech wording
