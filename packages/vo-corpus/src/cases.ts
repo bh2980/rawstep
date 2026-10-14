@@ -13,6 +13,10 @@ export interface Case {
   page: string;
   /** Chords in session.ts notation, pressed in order after the start check. */
   chords: string[];
+  /** Keep the observation window open for delayed page updates, independently of silence. */
+  listen?: { minWaitMs?: number; quietMs?: number; maxWaitMs?: number };
+  /** Save a native AX snapshot after each action, in addition to the initial page tree. */
+  captureAxAfterSteps?: boolean;
   /** What the case covers, for coverage tables: e.g. { role: "checkbox", state: "checked", name: "label-wrap", command: "next" }. */
   axes: Record<string, string>;
 }
@@ -29,9 +33,16 @@ export interface CaseRecord {
   caseSet: string;
   caseId: string;
   source: "voiceover" | "simulator";
+  /** Simulator coverage gap; kept separate from collection failures. */
+  unsupportedReason?: string;
   /** Speech after the start chord (VO+Home); aligned when it names START_MARKER. */
   start: { aligned: boolean; speech: string[] };
-  steps: { chord: string; utterances: { t: number; text: string }[]; reason: "quiet" | "deadline" | "unsupported" }[];
+  steps: {
+    chord: string; utterances: { t: number; text: string }[]; reason: "quiet" | "deadline" | "unsupported";
+    /** Relative to the run directory. AX evidence is separate from speech and may arrive later. */
+    axPath?: string;
+    axError?: string;
+  }[];
   /** Set when the case stopped early (connection lost, browser not in front); steps then holds what ran. */
   error?: string;
 }

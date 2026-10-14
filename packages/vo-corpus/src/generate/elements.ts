@@ -8,7 +8,7 @@ interface Variant {
   id: string;
   axes: Record<string, string>;
   html: string;
-  /** Items VO walks through (default 1): "next" presses VO+Right items+2 times. */
+  /** Estimated VO stops (default 1): "next" presses VO+Right items+2 times; traversal completion is not asserted. */
   items: number;
   /** Target takes keyboard focus: gets the "tab" command. */
   focusable: boolean;

@@ -6,7 +6,8 @@
  * Chromium per case, pages opened as file URLs. Compare with `tsx src/compare.ts`.
  *
  * Chord mapping: VO+Right next, VO+Left previous, VO+Space activate, VO+Cmd+H heading.next, VO+Cmd+J form.next,
- * Tab / Shift+Tab / Enter / Space / Escape as browser keys. Anything else is recorded "unsupported" with no utterances.
+ * Tab / Shift+Tab / Enter / Space / Escape as browser keys, lowercase ASCII letters/digits as text entry.
+ * Unsupported commands or timed observation windows mark the whole case unsupported, without replaying its workflow.
  * VO+Home: a freshly loaded page puts the simulated cursor on its first object, so the start chord is `readCurrent`
  * (no move); the start check then needs "Before marker" in that speech. The page-load title announcement is discarded,
  * as the live runner discards auto-read.
@@ -27,10 +28,17 @@ const chordActions: Record<string, PolicyAction> = {
   "VO+Left": { kind: "intent", intent: "previous" },
   "VO+Space": { kind: "intent", intent: "activate" },
   "VO+Cmd+H": { kind: "intent", intent: "heading.next" },
+  "VO+Cmd+Shift+H": { kind: "intent", intent: "heading.previous" },
   "VO+Cmd+J": { kind: "intent", intent: "form.next" },
   ...Object.fromEntries(["Tab", "Shift+Tab", "Enter", "Space", "Escape"].map(key => [key, { kind: "key", key } as PolicyAction])),
 };
 const startAction: PolicyAction = { kind: "intent", intent: "readCurrent" };
+
+/** The mock supports text entry, but does not expose arbitrary browser keys as policy actions. */
+export function replayAction(chord: string, input: string): PolicyAction | null {
+  if (/^[a-z0-9]$/.test(chord)) return { kind: "typeText", input };
+  return chordActions[chord] ?? null;
+}
 
 /** Plays `actions` in order (null = unsupported, skipped) and keeps what each observation said. */
 class ChordPolicy implements DecisionPolicy {
@@ -52,14 +60,20 @@ class ChordPolicy implements DecisionPolicy {
   }
 }
 
-async function replayCase(item: CaseSet["cases"][number], set: CaseSet, casesDir: string): Promise<CaseRecord> {
+export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, casesDir: string): Promise<CaseRecord> {
   const record: CaseRecord = { caseSet: set.id, caseId: item.id, source: "simulator", start: { aligned: false, speech: [] }, steps: [] };
   const began = Date.now();
+  const mapped = item.chords.map((chord, i) => replayAction(chord, `stroke-${i}`));
+  const inputs = Object.fromEntries(item.chords.flatMap((chord, i) => /^[a-z0-9]$/.test(chord) ? [[`stroke-${i}`, chord]] : []));
+  // Skipping one key changes the remainder of a workflow. Do not score later actions in a different state.
+  const unsupported = mapped.some(a => !a) ? "case contains a command unsupported by the simulator"
+    : (item.listen?.minWaitMs ?? 0) > 0 ? "simulator replay does not implement timed observation windows" : undefined;
   const run = async (actions: (PolicyAction | null)[]) => {
     const policy = new ChordPolicy(actions, began);
     const task = resolveTask({
       url: pathToFileURL(join(casesDir, item.page)).href, goal: "Replay recorded chords.", maxSteps: actions.length + 1, timeoutMs: 60_000,
       verify: { all: [{ titleIncludes: "\u0000never" }] },
+      input: inputs,
     }, casesDir);
     const outDir = await mkdtemp(join(tmpdir(), "vo-replay-"));
     try { await runMockVoiceOverTask(task, { policy, outDir, warn: () => {} }); } finally { await rm(outDir, { recursive: true, force: true }); }
@@ -67,26 +81,28 @@ async function replayCase(item: CaseSet["cases"][number], set: CaseSet, casesDir
   };
   try {
     // One browser per case: start check first, chords only when aligned, as the live runner does. Both ride the same page load.
-    const actions = [startAction, ...item.chords.map(chord => chordActions[chord] ?? null)];
+    const actions = [startAction, ...(unsupported ? [] : mapped)];
     const heard = await run(actions);
     const [first, ...rest] = heard;
     const speech = first?.speech ?? [];
     record.start = { aligned: speech.join(" ").includes(START_MARKER), speech };
     if (!record.start.aligned) { record.error = "start marker not heard on first object"; return record; }
+    if (unsupported) record.unsupportedReason = unsupported;
+    let blocked = !!unsupported;
     item.chords.forEach((chord, i) => {
       const got = rest[i];
-      const unsupported = !chordActions[chord] || !got || got.failed;
+      blocked ||= !mapped[i] || !got || got.failed;
       record.steps.push({
-        chord, reason: unsupported ? "unsupported" : "quiet",
-        utterances: unsupported ? [] : got.speech.filter(text => text.trim()).map(text => ({ t: got.t, text })),
+        chord, reason: blocked ? "unsupported" : "quiet",
+        utterances: blocked ? [] : got!.speech.filter(text => text.trim()).map(text => ({ t: got!.t, text })),
       });
     });
   } catch (error) { record.error = (error as Error).message; }
   return record;
 }
 
-const { values } = parseArgs({ options: { cases: { type: "string" }, filter: { type: "string" }, limit: { type: "string" } } });
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const { values } = parseArgs({ options: { cases: { type: "string" }, filter: { type: "string" }, limit: { type: "string" } } });
   const casesDir = resolve(packageRoot, values.cases ?? "");
   const set = JSON.parse(await readFile(join(casesDir, "cases.json"), "utf8").catch(() => { throw new Error("Pass --cases <dir with cases.json>"); })) as CaseSet;
   const filter = values.filter ? new RegExp(values.filter) : undefined;

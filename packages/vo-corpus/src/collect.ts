@@ -27,6 +27,7 @@ const { values } = parseArgs({ options: {
   resume: { type: "string" },
   filter: { type: "string" },
   limit: { type: "string" },
+  reverse: { type: "boolean" },
   settings: { type: "string", default: "baseline-v1" },
   "no-ax": { type: "boolean", default: false },
 } });
@@ -45,7 +46,9 @@ const records = join(out, "records.jsonl");
 const done = new Set<string>();
 if (existsSync(records)) for (const line of (await readFile(records, "utf8")).split("\n")) if (line) done.add((JSON.parse(line) as CaseRecord).caseId);
 const filter = values.filter ? new RegExp(values.filter) : undefined;
-const todo = set.cases.filter(c => !done.has(c.id) && (!filter || filter.test(c.id))).slice(0, values.limit ? Number(values.limit) : undefined);
+const reverse = values.reverse ?? meta?.caseOrder === "reverse";
+const ordered = reverse ? [...set.cases].reverse() : set.cases;
+const todo = ordered.filter(c => !done.has(c.id) && (!filter || filter.test(c.id))).slice(0, values.limit ? Number(values.limit) : undefined);
 
 const machine = await resolveMachine(values.vm);
 const guard = requireFrontmost(machine, browser);
@@ -56,7 +59,7 @@ let aligned = 0;
 try {
   const negotiated = await session.start();
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
-    caseSet: set.id, casesGeneratedAt: set.generatedAt, casesDir: casesDir.slice(packageRoot.length + 1),
+    caseSet: set.id, casesGeneratedAt: set.generatedAt, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
     settings: values.settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: await machineFacts(machine, browser),
   }, null, 2));
   console.log(`${set.id}: ${todo.length} to run, ${done.size} already recorded -> ${out}`);
@@ -79,15 +82,26 @@ try {
     const record: CaseRecord = { caseSet: set.id, caseId: item.id, source: "voiceover", start, steps: [] };
     if (start.aligned) {
       aligned++;
-      for (const chord of item.chords) {
+      for (const [stepIndex, chord] of item.chords.entries()) {
         await session.press(chord);
-        const heard = await session.listen();
-        record.steps.push({ chord, utterances: heard.utterances, reason: heard.reason });
+        const heard = await session.listen(item.listen);
+        const step: CaseRecord["steps"][number] = { chord, utterances: heard.utterances, reason: heard.reason };
+        if (item.captureAxAfterSteps && !values["no-ax"]) {
+          const relative = `ax/steps/${encodeURIComponent(item.id)}.${stepIndex + 1}.json`;
+          try {
+            await mkdir(join(out, "ax/steps"), { recursive: true });
+            await writeFile(join(out, relative), JSON.stringify(await dumpAxTree(machine, browserApps[browser])));
+            step.axPath = relative;
+          } catch (error) { step.axError = (error as Error).message; }
+          step.utterances.push(...session.takeBuffered());
+        }
+        record.steps.push(step);
       }
     } else record.error = "start marker not heard after VO+Home";
     await appendFile(records, JSON.stringify(record) + "\n");
+    const target = record.steps.flatMap(s => s.utterances).find(u => u.text.trim() && !/^(Before marker|After marker|You are currently)/.test(u.text.trim()));
     const last = record.steps.at(-1);
-    console.log(`[${index + 1}/${todo.length}] ${item.id}${start.aligned ? "" : "  ! misaligned"}  ${last ? last.utterances.map(u => u.text.trim()).filter(Boolean).join(" | ") : ""}`);
+    console.log(`[${index + 1}/${todo.length}] ${item.id}${start.aligned ? "" : "  ! misaligned"}  target: ${target?.text.trim() ?? "(none)"}  last: ${last ? last.utterances.map(u => u.text.trim()).filter(Boolean).join(" | ") : ""}${record.steps.some(s => s.axError) ? "  ! step AX missing" : ""}`);
   }
 } finally {
   await session.close();

@@ -1,0 +1,47 @@
+{
+  "id": "en-screening-2026-10-14",
+  "recordedAt": "2026-10-14",
+  "status": "provisional-profile-with-three-screening-runs",
+  "machine": {
+    "name": "vo-collector",
+    "vmMemoryGiB": 4,
+    "vmCpuCount": 2,
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": "Safari",
+    "browserVersion": "26.6.2",
+    "atDriverVersion": "0.1.3"
+  },
+  "language": {
+    "ui": "en-US",
+    "locale": "en_KR",
+    "fixturePageLang": "en",
+    "mixedTextCase": "text-korean-mixed.next"
+  },
+  "capture": {
+    "voice": "MacOSATDriverServerExtensionVoice",
+    "registeredLanguages": ["en-US"],
+    "selectionEvidence": "Native VoiceOver speech received through AT Driver after reboot, including button and heading announcements in English",
+    "modifier": "Control+Option",
+    "modifierEvidence": "Probe VO+Home and VO+Right completed with matching announcements"
+  },
+  "notVerified": [
+    "VoiceOver grouping and DOM navigation settings",
+    "cursor and keyboard focus synchronization settings",
+    "Quick Nav and input source",
+    "language detection settings",
+    "verbosity, punctuation and hint delay settings",
+    "agreement between VoiceOver caption and captured text"
+  ],
+  "screeningRepeatability": {
+    "completedRuns": 3,
+    "caseRecords": 60,
+    "keySteps": 240,
+    "comparedStepsAgainstFirstRun": 160,
+    "exactMainSpeechMatches": 160,
+    "includedReverseOrderRun": true,
+    "summary": "data/runs/english-repeatability-2026-10-14.json",
+    "hintsAndTimingEvaluated": false
+  },
+  "note": "This records observed setup facts. The collector does not apply this file; --settings is a metadata label. A fully verified frozen baseline is still pending."
+}

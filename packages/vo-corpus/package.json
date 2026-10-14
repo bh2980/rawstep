@@ -11,13 +11,15 @@
     "collect": "tsx src/collect.ts",
     "replay": "tsx src/replay.ts",
     "compare": "tsx src/compare.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/workflows.test.ts"
   },
   "dependencies": {
     "rawstep": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
+    "playwright": "1.59.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3"
   }

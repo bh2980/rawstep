@@ -19,7 +19,7 @@ export interface Heard {
   endedAt: number;
 }
 
-export interface ListenOptions { quietMs?: number; maxWaitMs?: number }
+export interface ListenOptions { quietMs?: number; maxWaitMs?: number; minWaitMs?: number }
 
 const named: Record<string, string> = {
   ...AT_DRIVER_KEYS,
@@ -77,14 +77,17 @@ export class VoSession {
   }
 
   /** Everything spoken since the last listen, after speech has paused for quietMs (or maxWaitMs passed). */
-  async listen({ quietMs = 800, maxWaitMs = 6_000 }: ListenOptions = {}): Promise<Heard> {
+  async listen({ quietMs = 800, maxWaitMs = 6_000, minWaitMs = 0 }: ListenOptions = {}): Promise<Heard> {
+    if (![quietMs, maxWaitMs, minWaitMs].every(Number.isFinite) || quietMs < 0 || minWaitMs < 0 || maxWaitMs <= 0 || minWaitMs > maxWaitMs) {
+      throw new Error("Invalid listen window: nonnegative finite quiet/minimum times and a positive deadline >= minimum are required");
+    }
     const startedAt = this.now(), deadline = startedAt + maxWaitMs;
     const reason = await new Promise<"quiet" | "deadline">((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const check = () => {
         clearTimeout(timer);
         if (this.failure) { this.wake = undefined; reject(new Error(this.failure)); return; }
-        const now = this.now(), quietAt = Math.max(startedAt, this.lastAt) + quietMs;
+        const now = this.now(), quietAt = Math.max(startedAt + minWaitMs, Math.max(startedAt, this.lastAt) + quietMs);
         if (now >= deadline || now >= quietAt) { this.wake = undefined; resolve(now >= quietAt ? "quiet" : "deadline"); return; }
         timer = setTimeout(check, Math.min(quietAt, deadline) - now);
       };
@@ -96,6 +99,9 @@ export class VoSession {
 
   /** Discards whatever is buffered: speech from before a reset must not land in the next case. */
   drain(): void { this.buffer = []; }
+
+  /** Receipts arriving during a read-only AX dump still belong to the action preceding that dump. */
+  takeBuffered(): Utterance[] { return this.buffer.splice(0); }
 
   close(): Promise<void> { return this.client.close(); }
 }

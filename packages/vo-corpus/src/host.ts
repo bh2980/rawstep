@@ -38,7 +38,7 @@ export const localMachine: Machine = {
 
 /** A running Tart VM. Its default route points at this Mac on Tart's NAT network, which is where pages are served. */
 export async function tartMachine(vm: string): Promise<Machine> {
-  const exec = async (file: string, args: string[]) => (await run("tart", ["exec", vm, file, ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout;
+  const exec = async (file: string, args: string[]) => (await run("tart", ["exec", vm, "/usr/bin/env", "PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin", file, ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout;
   const ip = (await run("tart", ["ip", vm])).stdout.trim();
   const route = await exec("route", ["-n", "get", "default"]);
   const gateway = /gateway:\s*(\S+)/.exec(route)?.[1];
