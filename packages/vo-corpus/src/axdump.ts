@@ -1,6 +1,7 @@
 /** Native macOS accessibility tree of a browser's web area: the tree VoiceOver speaks from. Read-only, never activates the app. */
 import { execFile } from "node:child_process";
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { Machine } from "./host.js";
@@ -53,6 +54,16 @@ export function focusedAxNode(dump: AxDump): AxNode | undefined {
     if (!node) return undefined;
   }
   return node;
+}
+
+/** A retry has a new attempt ID; even repeated stages refuse to replace raw observations. */
+export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string,dump:AxDump):Promise<string> {
+  if(!/^[\w-]+$/.test(attemptId)||!/^[\w.-]+$/.test(stage))throw new Error("Invalid AX snapshot identity");
+  const directory=join('ax','attempts',attemptId);
+  await mkdir(join(runDir,directory),{recursive:true});
+  const relative=join(directory,stage+'.json');
+  await writeFile(join(runDir,relative),JSON.stringify(dump),{flag:'wx'});
+  return relative;
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */

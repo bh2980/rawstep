@@ -19,6 +19,7 @@ export interface Case {
   url?: string;
   viewport?: { width: number; height: number };
   startProtocol?: "first-heading";
+  contentProtocol?: "visible-dom-v1";
   /** Chords in session.ts notation, pressed in order after the start check. */
   chords: string[];
   /** Keep the observation window open for delayed page updates, independently of silence. */
@@ -43,6 +44,10 @@ export interface CaseRecord {
   caseSet: string;
   caseId: string;
   source: "voiceover" | "simulator";
+  /** One collection attempt; a resumed partial case receives a different ID. */
+  attemptId?: string;
+  captureSessionId?: string;
+  receiptClockOrigin?: string;
   /** Simulator coverage gap; kept separate from collection failures. */
   unsupportedReason?: string;
   pageContext?: import("./real-pages.js").PageContext;
@@ -53,6 +58,10 @@ export interface CaseRecord {
     /** Relative to the run directory. AX evidence is separate from speech and may arrive later. */
     axPath?: string;
     axError?: string;
+    /** Last measured start/post-action tree before this action, not an instantaneous pre-action capture. */
+    beforeAxPath?: string;
+    /** Host receipt-clock milliseconds, sharing the origin used by utterances[].t. Not synthesis latency. */
+    timing?: { requestedAt: number; acknowledgedAt: number; observationStartedAt: number; observationEndedAt: number };
     /** Generated-fixture DOM oracle, kept outside policy observations and speech scoring. */
     state?: import("./state.js").PageState;
   }[];

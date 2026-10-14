@@ -63,6 +63,7 @@ export class VoSession {
   }
 
   now(): number { return Date.now() - this.origin; }
+  get startedAt(): string { return new Date(this.origin).toISOString(); }
 
   async start(): Promise<Record<string, unknown>> {
     await this.client.connect();

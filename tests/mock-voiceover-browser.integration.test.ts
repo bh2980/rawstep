@@ -29,6 +29,27 @@ async function fixture(html: string, observationMinWaitMs = 0) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('projects unmarked linked lists by explicit role and navigation context without changing the DOM', async () => {
+    for (const tag of ['ul','ol']) for (const nav of [false,true]) for (const explicit of [false,true]) {
+      const list=`<${tag}${explicit?' role="list"':''} style="list-style:none"><li><a href="#first">First route</a></li><li><a href="#second">Second route</a></li></${tag}>`;
+      const f=await fixture('<button>Start</button>'+(nav?'<nav aria-label="Routes">'+list+'</nav>':list)+'<button>After</button>');
+      if(nav)expect(await f.intent('next')).toEqual(['Routes, navigation']);
+      if(nav||explicit)expect(await f.intent('next')).toEqual(['list, 2 items']);
+      expect(await f.intent('next')).toEqual([nav||explicit?'link, First route, 1 of 2':'link, First route']);
+      expect(await f.intent('next')).toEqual([nav||explicit?'link, Second route, 2 of 2':'link, Second route']);
+      if(nav||explicit)expect(await f.intent('next')).toEqual(['end of list']);
+      if(nav)expect(await f.intent('next')).toEqual(['end of Routes, navigation']);
+      expect(await f.intent('next')).toEqual(['After, button']);
+      expect(await f.page.locator(tag).getAttribute('role')).toBe(explicit?'list':null);
+    }
+  });
+
+  it('keeps an unnamed image inside a named button out of the reading sequence', async () => {
+    const f=await fixture('<button aria-label="Search the site"><svg role="img"><rect width="10" height="10"/></svg></button><button>After</button>');
+    expect(f.initial.speech).toEqual(['Search the site, button']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
   it('reads unmarked breadcrumb links in one stop, with positions only for multiple entries', async () => {
     const f = await fixture('<nav aria-label="Breadcrumb"><ol role="list" style="list-style:none"><li><a href="#home">Home</a></li><li><a href="#guide" aria-current="page">Guide</a></li></ol></nav><button>After</button>');
     expect(await f.intent('next')).toEqual(['list, 2 items']);
@@ -148,7 +169,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(f.initial.speech).toEqual(['heading, level 2, Welcome']);
     const actual = [...f.initial.speech];
     for (let index = 0; index < 6; index++) actual.push(...await f.intent('next'));
-    expect(actual).toEqual(['heading, level 2, Welcome', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, button, disabled', 'End of content']);
+    expect(actual).toEqual(['heading, level 2, Welcome', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, dimmed, button', 'End of content']);
     expect(await f.page.evaluate(() => document.activeElement?.textContent)).toBe('Transparent');
     expect(f.metadata).toMatchObject({ backend: 'mock-voiceover', profile: MOCK_VOICEOVER_PROFILE, evidenceProvenance: 'simulation', environment: { nativeScreenReader: false } });
     expect(JSON.stringify(f.events)).not.toMatch(/backendDOMNodeId|childIds|Hidden secret/);
@@ -344,6 +365,15 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.backend.observe()).speech).toEqual(['Settings web dialog with 2 items Save, button']);
     expect(await f.intent('previous')).toEqual(['heading, level 2, Preferences']);
     expect(await f.intent('previous')).toEqual(['Settings, dialog, modal']);
+  });
+
+  it('passes real Space to an enabled native button with an incorrect aria-disabled state', async () => {
+    const f=await fixture('<button>Start</button><button id="target" aria-disabled="true" onclick="document.getElementById(\'status\').textContent=\'Sample seat reserved\'">Reserve sample seat</button><p id="status" role="status"></p>');
+    expect(await f.intent('next')).toEqual(['Reserve sample seat, dimmed, button']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('target');
+    expect(await f.key('Space')).toEqual(['Sample seat reserved']);
+    expect(await f.page.locator('#target').getAttribute('aria-disabled')).toBe('true');
+    await expect(f.backend.execute({kind:'intent',intent:'activate'})).rejects.toThrow('disabled');
   });
 
   it('refuses Enter/Space activation of an actually focused AX-disabled custom control', async () => {

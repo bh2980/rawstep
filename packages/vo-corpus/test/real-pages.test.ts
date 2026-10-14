@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { publicPagePool, samplePublicPages, realPageContext, prepareRealPageScript, firstUniqueHeading, hearsHeading, nativeAccessibleText, chromiumAccessibleText, accessiblePageContext } from "../src/real-pages.js";
+import { publicPagePool, samplePublicPages, realPageContext, prepareRealPageScript, publicPageScript, firstUniqueHeading, hearsHeading, nativeAccessibleText, chromiumAccessibleText, accessiblePageContext } from "../src/real-pages.js";
 import { chromium } from "playwright";
 import type { AxDump } from "../src/axdump.js";
 import { validateRuns } from "../src/validate.js";
@@ -44,6 +44,47 @@ test("public-page harness preserves original content and handlers, adds stable m
     await page.locator('#vo-corpus-public-before').evaluate(node => node.removeAttribute('data-vo-corpus-marker'));
     await assert.rejects(page.evaluate(prepareRealPageScript), /marker ID collision/);
   } finally { await browser.close(); }
+});
+
+test("DOM fingerprinting preserves semantic attributes, visible state and public control values while excluding passwords", async () => {
+  const browser = await chromium.launch({headless:true});
+  try {
+    const page = await browser.newPage();
+    await page.route("https://example.test/dom", route => route.fulfill({contentType:"text/html",body:'<!doctype html><title>DOM protocol</title><p>'+"Public content words. ".repeat(10)+'</p><button aria-label="Original">Action</button><input aria-label="Query"><input type="password" value="secret-password"><input type="hidden" value="csrf-secret"><div id="optional">Optional</div>'}));
+    await page.goto("https://example.test/dom");
+    const capture = async () => realPageContext(await page.evaluate(publicPageScript("visible-dom-v1")),publicPageScript("visible-dom-v1"));
+    const first = await capture();
+    assert.equal(first.contentSource,"visible-dom-v1");
+    assert.equal(await page.locator('#vo-corpus-public-before').evaluate(node=>getComputedStyle(node).position),'fixed');
+    assert.ok(first.domSnapshot && !first.domSnapshot.includes("secret-password"));
+    assert.ok(!first.domSnapshot.includes("csrf-secret"));
+    assert.match(first.harnessSha256!,/^[a-f0-9]{64}$/);
+    assert.equal((await capture()).contentSha256,first.contentSha256);
+    await page.locator('button[aria-label="Original"]').evaluate(node => node.setAttribute('aria-label','Changed'));
+    const label = await capture();
+    assert.notEqual(label.contentSha256,first.contentSha256);
+    assert.equal(label.renderedTextSha256,first.renderedTextSha256);
+    await page.getByRole('textbox',{name:'Query',exact:true}).fill('new query');
+    const value = await capture();
+    assert.notEqual(value.contentSha256,label.contentSha256);
+    assert.equal(value.renderedTextSha256,label.renderedTextSha256);
+    await page.addStyleTag({content:'#optional{display:none}'});
+    assert.notEqual((await capture()).contentSha256,value.contentSha256);
+  } finally {await browser.close();}
+});
+
+test("DOM protocol retains rendered-text differences and cannot silently fall back to the old protocol", () => {
+  const base={url:"https://example.test/page",title:"Public",width:1000,height:700,contentSource:"visible-dom-v1",domSnapshot:JSON.stringify(['body',[],['text','PrivacyAbout'.repeat(12)]])};
+  const a=realPageContext(JSON.stringify({...base,text:"PrivacyAbout ".repeat(12)}),publicPageScript("visible-dom-v1")),b=realPageContext(JSON.stringify({...base,text:"Privacy About ".repeat(12)}),publicPageScript("visible-dom-v1"));
+  assert.equal(a.contentSha256,b.contentSha256);
+  assert.notEqual(a.renderedTextSha256,b.renderedTextSha256);
+  assert.throws(()=>realPageContext(JSON.stringify({...base,domSnapshot:undefined,text:"Public ".repeat(30)})),/fingerprint input/);
+  const set:CaseSet={id:"dom",generatedAt:"fixed",cases:[{id:"page",page:"",url:base.url,contentProtocol:"visible-dom-v1",chords:["VO+Right"],axes:{}}]};
+  const record=(source:CaseRecord['source'],pageContext:typeof a):CaseRecord=>({caseSet:set.id,caseId:"page",source,pageContext,start:{aligned:true,speech:[]},steps:[{chord:"VO+Right",utterances:[{t:0,text:"Same"}],reason:"quiet"}]});
+  const old=realPageContext(JSON.stringify({...base,contentSource:undefined,text:"Public ".repeat(30)}));
+  assert.equal(validateRuns(set,new Map([["page",record("voiceover",old)]]),new Map([["page",record("simulator",old)]])).verdicts.environment,1);
+  assert.equal(validateRuns(set,new Map([["page",record("voiceover",a)]]),new Map([["page",record("simulator",b)]])).all.rate,1);
+  assert.equal(validateRuns(set,new Map([["page",record("voiceover",a)]]),new Map([["page",record("simulator",{...b,harnessSha256:"changed"})]])).verdicts.environment,1);
 });
 
 test("natural anchors are unique native headings and alignment uses heard heading speech", () => {

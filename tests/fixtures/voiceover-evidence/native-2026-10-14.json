@@ -948,6 +948,56 @@
       },
       "semanticInputProvenance": "Manually abstracted from reduced live-page followup and captured native speech/state; Chromium runtime semantics are not assumed equivalent to Safari AX",
       "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:button-disabled.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "button-disabled.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Rust fox target dimmed button"
+      ],
+      "reportedSpeech": "Rust fox target dimmed button",
+      "semanticInput": {
+        "role": "button",
+        "tagName": "button",
+        "name": "Rust fox target",
+        "protected": false,
+        "disabled": true,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture markup; native raw receipt retained separately; historical fixture byte fingerprint unavailable",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "elements-v1-2026-10-14T05-11-20-479Z:button-aria-disabled.next:0",
+      "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+      "sourceCaseId": "button-aria-disabled.next",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Navy fox target dimmed button"
+      ],
+      "reportedSpeech": "Navy fox target dimmed button",
+      "semanticInput": {
+        "role": "button",
+        "tagName": "button",
+        "name": "Navy fox target",
+        "protected": false,
+        "disabled": true,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false
+      },
+      "semanticInputProvenance": "Manually abstracted from generated fixture markup; native raw receipt retained separately; historical fixture byte fingerprint unavailable",
+      "checkedStateChanged": false
     }
   ]
 }

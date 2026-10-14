@@ -24,8 +24,10 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
     const voiceover = x ? splitSpeech(x.utterances).main : undefined, model = y ? splitSpeech(y.utterances).main : undefined;
     const aligned = startsAligned(c,a,b);
     // A stopped or reordered run cannot turn absent speech into a silence match.
-    const environment = !c.url || !!a?.pageContext && !!b?.pageContext && a.pageContext.url === b.pageContext.url && a.pageContext.contentSource === b.pageContext.contentSource
-      && a.pageContext.contentSha256 === b.pageContext.contentSha256 && a.pageContext.width === b.pageContext.width && a.pageContext.height === b.pageContext.height;
+    const contentSource = c.startProtocol === "first-heading" ? "accessibility-text" : c.contentProtocol;
+    const environment = !c.url || !!a?.pageContext && !!b?.pageContext && a.pageContext.url === b.pageContext.url && a.pageContext.contentSource === contentSource && b.pageContext.contentSource === contentSource
+      && a.pageContext.contentSha256 === b.pageContext.contentSha256 && a.pageContext.width === b.pageContext.width && a.pageContext.height === b.pageContext.height
+      && (!c.contentProtocol || !!a.pageContext.harnessSha256 && a.pageContext.harnessSha256 === b.pageContext.harnessSha256);
     const available = aligned && environment && x?.chord === chord && y?.chord === chord && !!base;
     const verdict = !a || !b || !x || !y ? "missing" : !aligned ? "unaligned" : !environment ? "environment" : !available ? "missing" : base!.verdict;
     rows.push({ ...(base ?? { caseId: c.id, step, chord, axes: c.axes, voiceover, simulator: model, voiceoverHint: x ? splitSpeech(x.utterances).hint : "", simulatorHint: y ? splitSpeech(y.utterances).hint : "", onlyVoiceover: [], onlySimulator: [], tokenSimilarity: 0 }), chord, verdict,
@@ -40,6 +42,7 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
     caseSet: set.id, casesGeneratedAt: set.generatedAt, plannedCases: set.cases.length,
     nativeCases: set.cases.filter(c => native.has(c.id)).length, simulatorCases: set.cases.filter(c => simulator.has(c.id)).length,
     alignedCases: set.cases.filter(c => startsAligned(c,native.get(c.id),simulator.get(c.id))).length,
+    renderedTextDifferentCases: set.cases.filter(c => c.contentProtocol && native.get(c.id)?.pageContext?.renderedTextSha256 && simulator.get(c.id)?.pageContext?.renderedTextSha256 && native.get(c.id)!.pageContext!.renderedTextSha256 !== simulator.get(c.id)!.pageContext!.renderedTextSha256).length,
     all: metric(rows), content: metric(content), spoken: metric(spoken), silent: metric(silent),
     fullSpeech: { matched: rows.filter(r => r.fullSpeechMatched).length, planned: rows.length, rate: rows.length ? rows.filter(r => r.fullSpeechMatched).length / rows.length : null },
     familyMacroRate: rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
@@ -51,6 +54,7 @@ function rate(m: { matched: number; planned: number; rate: number | null }) { re
 export function renderValidation(report: ReturnType<typeof validateRuns>): string {
   return ["# Planned-step validation", "", `Set: ${report.caseSet}; generated: ${report.casesGeneratedAt}`, "",
     `Cases: ${report.plannedCases} planned, ${report.nativeCases} native, ${report.simulatorCases} simulated, ${report.alignedCases} aligned in both.`, "",
+    `DOM-protocol cases with different rendered-text hashes: ${report.renderedTextDifferentCases}. DOM-protocol matches require identical capture-script hash and DOM snapshot hash; rendered text remains separately recorded.`, "",
     "Every planned step is included. Missing/unaligned/unsupported/redacted steps count as failures. Live pages require equal URL, content fingerprint source/hash and viewport. Natural-anchor runs also require the same native heading anchor. AX-text fingerprints are conservative checks, not identical HTML verification; engine/content differences count as failures. Content excludes only native receipts consisting entirely of a fixture marker. Spoken includes missing native observations as failures. Main speech ignores documented usage hints; full speech includes them. Silence is reported separately. These speech rates do not establish equivalent focus, editing, activation or timing.", "",
     `- All main speech: ${rate(report.all)}`, `- Content main speech: ${rate(report.content)}`, `- Spoken content: ${rate(report.spoken)}`, `- Silence: ${rate(report.silent)}`, `- Full speech including hints: ${rate(report.fullSpeech)}`,
     `- Equal-weight family rate: ${report.familyMacroRate === null ? "unavailable" : (100 * report.familyMacroRate).toFixed(1) + "%"}`, "",

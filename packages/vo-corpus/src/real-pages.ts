@@ -31,29 +31,51 @@ export function samplePublicPages(seed: string, count: number) {
 }
 
 // Only the two harness buttons are added; original page content and handlers stay live.
-export const prepareRealPageScript = `(() => {
+export function publicPageScript(protocol?: "visible-dom-v1"): string { return `(() => {
   if (!document.body || document.readyState === 'loading') throw new Error('Public page is not ready');
   const add = (id, label, first) => {
     let button = document.getElementById(id);
     if (button && (!(button instanceof HTMLButtonElement) || button.getAttribute('data-vo-corpus-marker') !== 'true' || button.textContent !== label)) throw new Error('Public page marker ID collision');
     if (!button) { button = document.createElement('button'); button.id=id; button.textContent=label;
-      button.setAttribute('data-vo-corpus-marker','true'); button.style.cssText='display:block!important;visibility:visible!important;position:relative!important;z-index:2147483647!important;font:16px system-ui!important';
+      button.setAttribute('data-vo-corpus-marker','true'); button.style.cssText='display:block!important;visibility:visible!important;position:${protocol === "visible-dom-v1" ? "fixed" : "relative"}!important;z-index:2147483647!important;font:16px system-ui!important'+(${protocol === "visible-dom-v1"}?(first?';top:0!important;left:0!important':';bottom:0!important;right:0!important'):'');
       if(first)document.body.prepend(button);else document.body.append(button);
     } return button;
   };
   const before=add('vo-corpus-public-before','Before marker',true);add('vo-corpus-public-after','After marker',false);
   before.focus(); window.scrollTo(0,0);
   const text=document.body.innerText.replace(/\\s+/g,' ').trim();
-  return JSON.stringify({url:location.href,title:document.title,width:innerWidth,height:innerHeight,readyState:document.readyState,text});
-})()`;
+  let domSnapshot;
+  if (${protocol === "visible-dom-v1"}) {
+    const walk = node => {
+      if(node.nodeType===Node.TEXT_NODE)return ['text',node.nodeValue.replace(/\\s+/g,' ')];
+      if(node.nodeType!==Node.ELEMENT_NODE)return null;
+      const tag=node.localName;
+      if(['script','style','template','noscript'].includes(tag)||node.getAttribute('data-vo-corpus-marker')==='true'||node instanceof HTMLInputElement&&node.type==='hidden')return null;
+      const style=getComputedStyle(node);
+      const attrs=Array.from(node.attributes,a=>[a.name,a.value]).filter(a=>!(node instanceof HTMLInputElement&&node.type==='password'&&a[0]==='value')).sort((a,b)=>a[0].localeCompare(b[0]));
+      const state=node instanceof HTMLInputElement ? {checked:node.checked,...(node.type==='password'?{}:{value:node.value})} : node instanceof HTMLTextAreaElement||node instanceof HTMLSelectElement ? {value:node.value} : null;
+      return [tag,attrs,{hidden:style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse',listStyle:style.listStyleType,before:getComputedStyle(node,'::before').content,after:getComputedStyle(node,'::after').content},state,Array.from(node.childNodes,walk).filter(x=>x!==null),node.shadowRoot?Array.from(node.shadowRoot.childNodes,walk).filter(x=>x!==null):null];
+    };
+    domSnapshot=JSON.stringify(walk(document.body));
+    if(domSnapshot.length>4*1024*1024)throw new Error('Public DOM fingerprint input exceeds 4 MiB; preserve failed sample');
+  }
+  return JSON.stringify({url:location.href,title:document.title,width:innerWidth,height:innerHeight,readyState:document.readyState,text,...(domSnapshot?{domSnapshot,contentSource:'visible-dom-v1'}:{})});
+})()`; }
+export const prepareRealPageScript = publicPageScript();
 
-export interface PageContext { url: string; title: string; width: number; height: number; contentSha256: string; textLength: number; sampledAt: string; contentSource?: "accessibility-text"; contentText?: string }
-export function realPageContext(raw: string): PageContext {
-  const parsed = JSON.parse(raw) as { url: string; title: string; width: number; height: number; text: string };
+export interface PageContext { url: string; title: string; width: number; height: number; contentSha256: string; textLength: number; sampledAt: string; contentSource?: "accessibility-text" | "visible-dom-v1"; contentText?: string; domSnapshot?: string; renderedTextSha256?: string; harnessSha256?: string }
+export function realPageContext(raw: string, scriptSource?: string): PageContext {
+  const parsed = JSON.parse(raw) as { url: string; title: string; width: number; height: number; text: string; contentSource?: string; domSnapshot?: string };
   if (!/^https:\/\//.test(parsed.url) || !parsed.text || !Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) throw new Error("Invalid public page context");
   if (parsed.text.length < 100 || /^(404|403|page not found|access denied|just a moment|attention required)/i.test(parsed.title)) throw new Error("Public page is empty, unavailable or an access challenge; preserve this failed sample");
+  if (parsed.contentSource !== undefined && parsed.contentSource !== "visible-dom-v1") throw new Error("Unknown public content fingerprint protocol");
+  if (parsed.contentSource && (!parsed.domSnapshot || parsed.domSnapshot.length > 4*1024*1024 || !Array.isArray(JSON.parse(parsed.domSnapshot)))) throw new Error("Missing or invalid public DOM fingerprint input");
+  if (parsed.contentSource && !scriptSource) throw new Error("DOM fingerprint requires the capture script source for provenance");
+  const renderedTextSha256 = createHash("sha256").update(parsed.text).digest("hex");
   return { url: parsed.url, title: parsed.title, width: parsed.width, height: parsed.height,
-    contentSha256: createHash("sha256").update(parsed.text).digest("hex"), textLength: parsed.text.length, sampledAt: new Date().toISOString(), contentText: parsed.text };
+    contentSha256: parsed.contentSource ? createHash("sha256").update(parsed.domSnapshot!).digest("hex") : renderedTextSha256,
+    textLength: parsed.text.length, sampledAt: new Date().toISOString(), contentText: parsed.text,
+    ...(parsed.contentSource ? {contentSource:"visible-dom-v1",domSnapshot:parsed.domSnapshot,renderedTextSha256,harnessSha256:createHash("sha256").update(scriptSource!).digest("hex")} : {}) };
 }
 
 type Anchor = NonNullable<import("./cases.js").CaseRecord["start"]["anchor"]>;
@@ -99,19 +121,21 @@ export function chromiumAccessibleText(nodes: {nodeId:string;childIds?:string[];
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  const { values } = parseArgs({ options: { out: { type: "string" }, seed: { type: "string" }, count: { type: "string", default: "8" }, width: { type: "string" }, height: { type: "string" }, "first-heading": {type:"boolean"} } });
+  const { values } = parseArgs({ options: { out: { type: "string" }, seed: { type: "string" }, count: { type: "string", default: "8" }, width: { type: "string" }, height: { type: "string" }, "first-heading": {type:"boolean"}, "dom-fingerprint":{type:"boolean"} } });
   if (!values.out || !values.width || !values.height) throw new Error("Usage: real-pages.ts --out <directory> --width <Safari width> --height <Safari height> [--seed value] [--count 8]");
   const viewport = { width: Number(values.width), height: Number(values.height) };
   if (!Number.isSafeInteger(viewport.width) || !Number.isSafeInteger(viewport.height) || viewport.width < 1 || viewport.height < 1) throw new Error("Invalid viewport");
   const seed = values.seed ?? randomBytes(16).toString("hex"), chosen = samplePublicPages(seed, Number(values.count)), generatedAt = new Date().toISOString();
-  const set: CaseSet = { id: `public-pages-${seed}${values["first-heading"] ? "-first-heading" : ""}`, generatedAt,
+  if (values["first-heading"] && values["dom-fingerprint"]) throw new Error("Heading anchors and DOM marker fingerprints are separate protocols");
+  const set: CaseSet = { id: `public-pages-${seed}${values["first-heading"] ? "-first-heading" : values["dom-fingerprint"] ? "-visible-dom-v1" : ""}`, generatedAt,
     cases: chosen.map((p, i) => ({ id: `public.${i + 1}.${p.family}`, page: "", url: p.url, viewport,
       chords: [...Array.from({ length: 24 }, () => "VO+Right"), "VO+Cmd+H", "VO+Cmd+H", "VO+Left", "Tab", "Tab", "Shift+Tab"],
       ...(values["first-heading"] ? {startProtocol:"first-heading" as const} : {}),
+      ...(values["dom-fingerprint"] ? {contentProtocol:"visible-dom-v1" as const} : {}),
       captureAxAfterSteps: !values["first-heading"], axes: { family: p.family, role: "real-page", command: "read-only-navigation", partition: "validation", source: "live-public-page" } })) };
   const out = resolve(values.out);
   await mkdir(out, { recursive: true });
   await writeFile(join(out, "cases.json"), JSON.stringify(set, null, 2), { flag: "wx" });
-  await writeFile(join(out, "sampling.json"), JSON.stringify({ seed, generatedAt, pool: publicPagePool, selected: chosen, protocol: values["first-heading"] ? "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples." : "Fixed candidates, seeded hash ranking before collection. No replacement of failed pages; navigation only. Adds two fixture markers. Pages remain live; hashes and viewports must match before scoring speech as a match." }, null, 2), { flag: "wx" });
+  await writeFile(join(out, "sampling.json"), JSON.stringify({ seed, generatedAt, pool: publicPagePool, selected: chosen, contentProtocol: values["dom-fingerprint"] ? "visible-dom-v1" : values["first-heading"] ? "accessibility-text" : "rendered-text-v1", protocol: values["first-heading"] ? "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples." : "Fixed candidates, seeded hash ranking before collection. No replacement of failed pages; navigation only. Adds two fixture markers. Pages remain live; hashes and viewports must match before scoring speech as a match." }, null, 2), { flag: "wx" });
   console.log(`${chosen.length} seeded public pages -> ${out}`);
 }

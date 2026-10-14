@@ -628,3 +628,238 @@ without modifying or replacing the first five. Main content improved **30/44 (68
 hints remained **2/54 (3.7%)**. This is an in-sample calibration result, with 36 selected native wording fixtures now
 retained in the repository; it is not independent real-page accuracy.
 No full-replacement or real-page ≥90% claim is supported yet.
+
+Eight factorial list followups (`list-heuristics-v1`) then crossed `ul/ol`, body/navigation context and explicit list
+role under `list-style:none`. Native sources: `data/runs/list-heuristics-v1-2026-10-14T21-22-44-095Z`. Main content
+improved **38/44 → 44/44** between the `21-22-45-539Z` and `21-27-34-999Z` simulator runs. The correction flattens
+only unmarked, implicit, link-only body lists, retaining explicit/navigation list structure and generated markers.
+It also removes an unnamed image stop inside a named button, as observed on MDN. This narrow rule is not complete
+WebKit list-detection emulation. The original matrix checkpoint after earlier logo/list-position changes was
+521/803 spoken matches (64.9%); this is still legacy regression evidence.
+
+### Separate DOM-input fingerprint protocol (experimental)
+
+The first live runs exposed cross-engine `innerText` differences: Wikipedia's adjacent footer links acquired spaces in
+Chromium while Safari joined them. IKEA also had genuinely different product counts/content. The existing rendered-text
+protocol and its failures are preserved. `--dom-fingerprint` generates a separate case set with `contentProtocol:
+"visible-dom-v1"`; do not change old cases or reinterpret old captures with this protocol.
+
+This protocol hashes a canonical DOM snapshot containing structure, sorted attributes, visibility flags, list style,
+pseudo-element content and current public control values. It includes open shadow roots. It excludes script/style/
+template/noscript contents, harness buttons, hidden form inputs and password values. The exact capture-script hash must
+also match. Actual DOM, attribute, state or visibility differences remain failures. Rendered text and its hash are kept
+separately, and the validator reports differing rendered-text hashes even when the DOM snapshot agrees. This is a
+conservative input-equivalence check, not proof of identical native accessibility trees; closed shadow roots and
+cross-origin frame contents are not covered by this snapshot.
+
+The two markers use fixed overlay positions in this protocol so existing page layout cannot move them offscreen; both
+browsers receive the same harness. Native AX focus and heard marker speech are still required. Candidate selection,
+30 planned actions per page and failed-sample retention are unchanged. The prototype uses already-inspected pages;
+any result is protocol development/regression, not a fresh independent holdout.
+
+```sh
+node --import tsx src/real-pages.ts --out data/cases/public-dom-<new-id> --width 1024 --height 588 \
+  --seed <recorded-seed> --count 8 --dom-fingerprint
+```
+
+### Collection audit and model-independent redesign (2026-10-15)
+
+The collection unit is an **observed transition**, not an isolated utterance: measured prior context and action history,
+actual native command, environment, raw speech receipts, and observed subsequent state. Keep that representation usable
+for rule calibration, classification, retrieval and generative models. No model training or engine replacement is part
+of this change. A target utterance count alone is not an acceptance gate.
+
+The local audit snapshot at `2026-10-14T21:47:20Z` is retained in
+`data/collection-audit-2026-10-15.json`, including source-run hashes. It predates the new diversity batch:
+
+| Observation | Audit result and implication |
+| --- | --- |
+| Native workflow actions | 3,001; excludes simulator outputs and startup speech |
+| Next / previous / Tab / Shift+Tab | 1,723 / 341 / 329 / 187: **86.0%** of actions |
+| Heading-next / heading-previous / Escape | 49 / 5 / 11; rotor, interaction modes and structural table commands have no workflow coverage |
+| Main-speech candidates | 2,433 receipts, 951 distinct normalized texts; these are not 2,433 curated independent training examples |
+| Repetition | 314 repeated nominal scenario/step/environment/output combinations; four runs of the same 20-case screening set |
+| Per-action AX | 1,240/3,001 (41.3%); 30 snapshots report string truncation |
+| Environment breadth | One native macOS/Safari/VoiceOver version tuple; provisional setting profiles and mixed-language history |
+| Live-page breadth | Six hostnames, several related Mozilla sites; this is a fixed small pool, not a random sample of the web |
+| Explicit grouping and contrast IDs | Absent from the audited historical cases; generator names alone do not prove independence |
+
+The audit's English marker filter leaves some Korean marker receipts among its main-speech candidates. `inventory.ts`
+now identifies the known English and Korean marker receipts separately. Historical counts are retained rather than
+silently rewritten. Run `node --import tsx src/inventory.ts data/runs` for current raw inventory counts. It excludes
+simulator records and verifies that referenced AX files exist; it does not certify training eligibility.
+
+An output-independent structural review of 392 distinct local page paths across eight historical fixture sets found
+295 coarse skeletons, 73 repeated-skeleton groups and 59 groups spanning multiple sets. The local result is
+`data/fixture-similarity-audit-2026-10-15.json`, with page hashes. Skeletons retain role/state attributes and name-source
+presence but omit text, styles, scripts and resource destinations. They are **review candidates**, not behavioral
+equivalence or an automatic deletion/split rule: language, punctuation, handlers and CSS can be the intended contrast.
+Identical speech from different states is also not automatically a duplicate. Preserve repeats for native variability;
+down-weight redundant examples only in a derived training view.
+
+The separate versioned evidence catalog has 2,914 third-party reported result records, including 1,624 NVDA records.
+Those are not locally captured AX/history transitions and must not be added to the native utterance count as equivalent
+training examples. See `../../docs/screenreader-evidence.md` for source versions, output classifications, unknown settings
+and attribution. This Mac collector has no native NVDA measurement path.
+
+#### Preserve evidence without rewriting the pipeline
+
+The existing `records.jsonl`, nested command history, `meta.json`, native AX dumper, generated-fixture state oracle,
+case fingerprints and strict validator remain in use. Raw `utterances[].text` is unchanged; main/hint separation and
+normalization are derived comparison views. New collections add:
+
+- `inputs/`: exact case metadata, local HTML bytes and an optional precollection `split.json`, with file hashes and a
+  manifest hash. Exclusive writes reject replacement. Resume prefers these archived inputs and verifies their fingerprint.
+  The collector and CLI replayer now load local pages from the archived copy, preventing concurrent fixture edits from
+  changing the actual experiment. Generator output refuses replacement, new run directories are exclusive, and both
+  native and model records append rather than rewriting the accumulated raw file.
+- `sessions.jsonl`: each collector invocation's actual AT/browser/OS facts and receipt-clock origin; case records identify
+  the capture session and attempt, including after a resume. A setting profile name does not make unknown preferences known.
+- `ax/attempts/<attempt-id>/`: distinct preparation, marker-focus, verified-focus and action snapshots, using exclusive
+  writes. A retry cannot replace the previous attempt's trees. Legacy page-level AX files remain readable.
+- `beforeAxPath` and `timing` on each new action: link the last measured start/post-action tree and host request,
+  acknowledgement and observation-window times. **The previous post-action tree is not a fresh instantaneous pre-action
+  measurement**; independently changing pages need a separately measured pre-action snapshot. Host receipts are not
+  synthesis latency. AX capture has its own timestamp and buffered receipts can arrive while that read takes place.
+- `steps.jsonl`: completed action observations are appended immediately, with their attempt/session IDs. An interrupted
+  case's completed actions survive independently of its final case record. A crash during an unfinished action can still
+  lose that action; do not fabricate it or promote an incomplete case into a successful workflow.
+
+Native AX keyboard focus is not an independently measured VoiceOver reading cursor. Caret/selection, operating mode,
+browser chrome, closed shadow roots, cross-origin frames and unmeasured settings stay unknown when instrumentation is
+absent. The model replay still does not persist every raw Chromium AX tree; its bounded DOM state oracle and generated
+speech are not a substitute. Persisting paired model-input AX is a subsequent instrumentation task, without replacing
+the existing native archive. Old missing trees/input bytes cannot be retroactively claimed as captured.
+
+For a future dataset view, inputs are prior observed trees/state, preceding actions and reader/browser profile; targets
+are raw speech and subsequent state. **Do not feed the post-action tree, intended fixture assertion, native expected
+text or simulator-generated speech into the input/ground-truth side.** Attach quality flags for alignment, truncation,
+deadline, missing evidence, stale prior state, language, source provenance and declared/observed-mode differences.
+Keep protected/private values out of derived training exports. Raw native AX stays local and is ignored by Git;
+do not assume every attribute has been explicitly scrubbed by the dumper.
+
+#### Freeze groups before native observation
+
+`dataset-split.ts` joins connected `templateGroup`, `contrastGroup` and optional `siteGroup` components, then assigns
+complete groups by a recorded seed. Calibration-exposed components are train-only. Missing template/exposure metadata
+is rejected instead of being called unseen. Browser/AT/version siblings must carry the same input group IDs; related
+subdomains and shared site templates need one explicitly reviewed site group. Near-clone review happens **before**
+freezing, and never uses target speech to make favorable partitions. A manifest is created exclusively and pins fixture
+bytes. Small group counts need not attain the nominal 70/15/15 ratios; do not change the seed after inspecting outcomes.
+Planner v2 hashes input group IDs rather than member IDs, so adding a browser/AT sibling does not move a group. Explicit
+frozen assignments are inherited; conflicting train/test group merges or calibration-exposed heldouts are rejected for
+review. The first diversity batch's original v1 manifest remains untouched; its pre-observation assignments are frozen
+in the v1 generator. A v2 compatibility check retains the same 12/2/6 case partition.
+
+Historical `validation-v2` and already-inspected live pages remain regression/development evidence. For future evaluation,
+reserve separate unseen scenario/template groups and unseen site groups, plus a later-time/profile robustness cohort.
+Whole action sequences and all contrast variants stay together. Report per-reader/browser/profile, per-family macro,
+full-sequence success, speech, state and timing separately; missing and unsupported actions remain failures. Native
+repeat variability is measured separately. A repeatedly inspected test becomes regression evidence for later tuning.
+
+```sh
+node --import tsx src/generate/index.ts --set diversity-v1
+node --import tsx src/dataset-split.ts data/cases/diversity-v1/split.json \
+  rawstep-diversity-2026-10-15-v1 data/cases/diversity-v1
+node --import tsx src/replay.ts --cases data/cases/diversity-v1
+node --import tsx src/collect.ts --cases data/cases/diversity-v1 --vm vo-collector \
+  --url ws://127.0.0.1:14382/session --settings observed-en-2026-10-15
+node --import tsx src/analyze.ts data/cases/diversity-v1 <native-run> <model-run> <new-analysis-dir> train
+```
+
+Do not regenerate existing cases in place. `analyze.ts` requires verified case bytes, operates on one requested
+partition, pins raw-run hashes, and refuses an existing analysis directory. Its queue groups only the **first divergence
+per case**, preventing one ordering error from appearing as dozens of independent failures. Setup/content, language,
+unsupported commands, redaction and behavior remain distinct. Native `records.jsonl` is the observation source;
+`steps.jsonl` is an attempt journal, not additional independent training examples.
+
+#### First redesigned experiment
+
+`diversity-v1` contains 10 matched pairs / 20 cases / 76 planned actions. Labels and intended defects are construction
+metadata, not assumed native outcomes. Delayed live cases use a 1,100 ms minimum observation window.
+
+| Pair family | One changed condition |
+| --- | --- |
+| Entry history | The same checkbox entered through VO navigation or Tab |
+| Custom button | Enter handler present or missing |
+| ARIA-disabled native button | `aria-disabled=false/true`, with the same deliberately unconditional handler |
+| Dialog focus return | Return to opener or an unrelated control |
+| Focused-element mutation | Remove the element or hide it |
+| Label reference | Valid or dangling `aria-labelledby` |
+| Hidden focus | `aria-hidden=false/true` around an otherwise focusable button |
+| Atomic live update | `aria-atomic=false/true` |
+| Busy live update | `aria-busy=false/true`, with the same 700 ms release |
+| Previous containing context | Unnamed or named group around the same checkbox |
+
+The input seed assigned 12 cases to train, two to validation and six to test before capture. Test speech is retained but
+not printed in collector/replayer progress logs. The complete native run aligned 20/20 cases in 5.9 minutes. Independent
+checks verified 76 before/after AX links, 76 timing rows/journal events, 20 distinct attempts, all archived file hashes,
+and no truncated trees. A two-case native confirmation repeated the ARIA-disabled contrast.
+
+Native source: `data/runs/diversity-v1-2026-10-14T21-56-05-931Z`.
+Model before: `data/runs/diversity-v1-sim-2026-10-14T21-54-17-449Z`.
+Model after: `data/runs/diversity-v1-sim-2026-10-14T22-01-34-315Z`.
+Partition reports: `data/analyses/diversity-v1-{train-before,train-after,validation-after,test-frozen}/`.
+
+The training contrast exposed a false repair: an enabled native HTML button marked `aria-disabled=true` still receives
+physical Space in Safari and executes its broken handler. The mock had prevented native focus/keyboard input. The
+correction preserves real browser keyboard behavior for this measured native-button scope and says `dimmed button`;
+explicit activation intents and AX-disabled custom controls retain their existing guards pending native evidence.
+It does not change the page's ARIA attribute or add a missing handler.
+
+| Partition | Content main speech | Full speech with hints | Bounded state check |
+| --- | --- | --- | --- |
+| Train before | 32/40 (80.0%) | 8/46 (17.4%) | 42/46 |
+| Train after | 34/40 (85.0%) | 9/46 (19.6%) | 44/46 |
+| Validation after | 2/6 (33.3%) | 0/8 | 2/8; two state observations missing |
+| First frozen-model scenario test | 14/20 (70.0%) | 4/22 (18.2%) | 20/22 |
+
+The test model build was fixed before opening its native results. These tiny synthetic cohorts do not establish
+real-site or native NVDA fidelity, and this test is no longer untouched after inspection. Remaining priorities include
+focus after removal/hiding, live-region atomicity and focus on hidden content, containing-context/continuation receipts
+and dialog timing. A second exploratory 12-case article suite isolates linked-heading nesting, partial links, article
+cards/figures, heading jumps and activation; it is training evidence, not another untouched benchmark.
+All 12 article cases subsequently aligned, retaining 89 native actions. Their current-build content baseline is only
+**5/57 (8.8%)**, with 31/89 all main-speech matches and six unsupported steps. Native source:
+`data/runs/article-patterns-v1-2026-10-14T22-04-42-256Z`; current model:
+`data/runs/article-patterns-v1-sim-2026-10-14T22-11-18-823Z`; analysis:
+`data/analyses/article-patterns-v1-current/`. These failures prioritize linked-heading reading units and article
+containers/boundaries ahead of collecting more equivalent static controls. Cascading order failures are not independent
+error patterns. A later archive-served native/model confirmation again matched all six planned main-speech steps in the
+two ARIA-disabled cases. A zero-action resume verified archived inputs and profile inheritance without changing the
+original diversity native record hash.
+
+The 52-case historical regression re-run after this correction remained **219/238 content (92.0%)**, 200/219 spoken
+(91.3%), 74/265 full speech (27.9%), and 254/265 bounded state matches (nine native observations missing). Model run:
+`data/runs/validation-v2-sim-2026-10-14T22-04-42-493Z`. New failure-oriented cohorts remain harder than this familiar suite.
+The first paired pages also carry variant IDs in their document titles. A stricter future paired-fixture version should
+use the same title per pair; derived learning views must not expose artificial fixture IDs/markers as predictive shortcuts.
+Retain their raw observations and exclude harness-only targets from quality-approved training views.
+
+The separately completed experimental DOM-fingerprint live batch aligned 7/8 starts but returned **0/240** strict main
+matches: 210 environment failures and 30 missing actions. The snapshot includes browser-computed styles, which can differ
+even when authored content matches, and actual live content also changes. This is an unusable same-input benchmark for
+isolating formatter accuracy, not evidence that its conditional speech accuracy is zero. Retain this result and the
+earlier rendered-text results. Before another expensive live batch, pin authored inputs/resources or classify the
+cross-engine differences under a prospectively defined protocol; do not loosen historical checks to obtain 90%.
+Temporary Safari JavaScript permission was restored off after that batch.
+
+#### Next collection budget
+
+Allocate the next round approximately 50% to reproducible first-divergence contrasts, 25% to uncovered commands/context/
+dynamic/defect combinations, 15% to genuinely new scenario and site groups, and 10% to targeted native repeatability.
+Start with one-factor pairs, then cover selected role × state × command × preceding-context combinations rather than
+enumerating the full Cartesian product. Retain unsupported native observations: implementation coverage is part of the
+goal. Stage rotor/group interaction, frame traversal and table navigation only with explicit command/mode instrumentation.
+
+NVDA should reuse these HTML behaviors and dataset identities while recording its own actual gestures, browse/focus mode,
+virtual-buffer/review units, Windows accessibility API and browser/version. Do not translate VO object-next into an NVDA
+line-reading key and assume equivalent granularity. Same-AT real-versus-simulated comparisons are the primary metrics;
+cross-AT differences are profile conditions. A Windows adapter and native NVDA captures remain required work.
+
+This design follows the distinction between modes/focus/review in the
+[NVDA user guide](https://download.nvaccess.org/documentation/en/userGuide.html), uses
+[NIST's combinatorial-testing approach](https://csrc.nist.gov/projects/automated-combinatorial-testing-for-software)
+as a cost-control rationale, and treats duplicate/test overlap as an evaluation concern supported by
+[Lee et al., ACL 2022](https://aclanthology.org/2022.acl-long.577/). These references guide the design, not the native
+speech labels or a claim that any data quantity guarantees fidelity.

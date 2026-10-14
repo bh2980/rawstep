@@ -12,6 +12,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Next at an enabled terminal button re-announces that object, inferred from the repeated final-button observations in the local corpus. Other endpoint roles and previous-boundary behavior remain uncalibrated.',
   'The projected accessibility cursor includes named group/landmark boundaries, list positions and table coordinates. Navigation synchronizes focus to actual focusable DOM objects, calibrated to the local native profile; static stops preserve keyboard focus. Configurable tracking preferences remain unimplemented.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
+  'Physical Enter/Space reaches an enabled native HTML button even when it is incorrectly marked aria-disabled, calibrated to a paired native capture. Explicit activate intents and custom AX-disabled controls retain their guards.',
   'Quick navigation covers next/previous heading and next form control only. Native previous-heading input is unresolved in the local collector. Group interaction, rotor, speech queue/interruption and cross-frame navigation are unimplemented.',
   'Live regions are polled during an explicit minimum observation window; successive observed text changes are preserved. Polling can miss brief changes and does not simulate native queue timing or interruption.',
   'List item markers, positions, nested list levels and end boundaries are projected from Chromium and DOM metadata, calibrated to local captures.',
@@ -54,7 +55,7 @@ type AXNode = {
 type Container = { id: string; name: string; role: string; items: number; rows?: number; columns?: number };
 type Cell = { table: string; row: number; column: number; rows: number; columns: number; header: string };
 type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
-type DOMMeta = { tag: string; attributes: Record<string, string>; parent?: number };
+type DOMMeta = { tag: string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
 type EditState = { value: string; start: number; end: number; multiline: boolean };
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[] };
@@ -73,6 +74,7 @@ export class MockVoiceOverBackend implements Backend {
   private actionEndedAt = 0;
   private page?: Page;
   private session?: CDPSession;
+  private cssEnabled = false;
   private state: 'new' | 'ready' | 'closed' = 'new';
   private busy = false;
   private nodes: CursorNode[] = [];
@@ -222,10 +224,10 @@ export class MockVoiceOverBackend implements Backend {
     const dom = new Map<number, DOMMeta>();
     if (!this.wording) {
       const document = await session.send('DOM.getDocument', { depth: -1, pierce: true });
-      const scan = (n: { backendNodeId: number; nodeName: string; attributes?: string[]; children?: unknown[]; shadowRoots?: unknown[] }, parent?: number) => {
+      const scan = (n: { nodeId: number; backendNodeId: number; nodeName: string; attributes?: string[]; children?: unknown[]; shadowRoots?: unknown[]; pseudoElements?: unknown[] }, parent?: number) => {
         const attrs = n.attributes ?? [], attributes: Record<string, string> = {};
         for (let i = 0; i < attrs.length; i += 2) attributes[attrs[i]!] = attrs[i + 1]!;
-        dom.set(n.backendNodeId, { tag: n.nodeName.toLowerCase(), attributes, parent });
+        dom.set(n.backendNodeId, { tag: n.nodeName.toLowerCase(), attributes, parent, nodeId:n.nodeId, generatedContent:!!n.pseudoElements?.length });
         for (const child of [...n.children ?? [], ...n.shadowRoots ?? []]) scan(child as typeof n, n.backendNodeId);
       };
       scan(document.root);
@@ -259,11 +261,11 @@ export class MockVoiceOverBackend implements Backend {
     }
     const children = (n: AXNode) => (n.childIds ?? []).map(id => byId.get(id)).filter((child): child is AXNode => !!child);
     const containsImage = (n: AXNode): boolean => children(n).some(c => !c.ignored && stringValue(c.role) === 'image' || containsImage(c));
-    const insideNamedLink = (n: AXNode): boolean => {
+    const insideNamedControl = (n: AXNode): boolean => {
       const seen = new Set<string>();
       let parent = n.parentId ? byId.get(n.parentId) : undefined;
       while (parent && !seen.has(parent.nodeId)) {
-        if (!parent.ignored && stringValue(parent.role) === 'link' && stringValue(parent.name)) return true;
+        if (!parent.ignored && stringValue(parent.name) && (stringValue(parent.role) === 'link' || stringValue(parent.role) === 'button' && !stringValue(n.name))) return true;
         seen.add(parent.nodeId); parent = parent.parentId ? byId.get(parent.parentId) : undefined;
       }
       return false;
@@ -275,6 +277,18 @@ export class MockVoiceOverBackend implements Backend {
       if (role === 'StaticText') return stringValue(n.name);
       return children(n).map(listText).filter(Boolean).join(' ');
     };
+    const layoutLists = new Set<string>();
+    if (!this.wording) for (const list of axNodes.filter(n=>!n.ignored && stringValue(n.role)==='list')) {
+      const meta=list.backendDOMNodeId===undefined?undefined:dom.get(list.backendDOMNodeId);
+      if (!meta || !['ul','ol'].includes(meta.tag) || meta.attributes.role?.split(/\s+/).includes('list')) continue;
+      let parent=meta.parent===undefined?undefined:dom.get(meta.parent), inNavigation=false;
+      while(parent){if(parent.tag==='nav'||parent.attributes.role==='navigation'){inNavigation=true;break;}parent=parent.parent===undefined?undefined:dom.get(parent.parent);}
+      const items=children(list).filter(n=>!n.ignored);
+      if (inNavigation || !items.length || !items.every(item=>stringValue(item.role)==='listitem' && children(item).length===1 && stringValue(children(item)[0]!.role)==='link' && item.backendDOMNodeId!==undefined && !dom.get(item.backendDOMNodeId)?.generatedContent)) continue;
+      if (!this.cssEnabled) {await session.send('DOM.enable');await session.send('CSS.enable');this.cssEnabled=true;}
+      const style=await session.send('CSS.getComputedStyleForNode',{nodeId:meta.nodeId}); signal?.throwIfAborted();
+      if (style.computedStyle.some((p:{name:string;value:string})=>p.name==='list-style-type'&&p.value==='none') && style.computedStyle.some((p:{name:string;value:string})=>p.name==='list-style-image'&&p.value==='none')) layoutLists.add(list.nodeId);
+    }
     // External formatter profiles retain historical filtering; native-profile labels follow DOM order.
     let lastSaid = '';
     const visit = (node: AXNode, suppressText: boolean, groupNames: readonly string[], scopes: Container[] = [], labelNames: string[] = []) => {
@@ -284,12 +298,12 @@ export class MockVoiceOverBackend implements Backend {
       const name = stringValue(node.name), said = name.trim();
       const meta = node.backendDOMNodeId === undefined ? undefined : dom.get(node.backendDOMNodeId);
       const role = !this.wording && meta?.tag === 'table' ? 'table' : !this.wording && meta?.tag === 'dl' ? 'descriptionlist' : sourceRole;
-      const list = !this.wording && !node.ignored && role === 'list';
+      const list = !this.wording && !node.ignored && role === 'list' && !layoutLists.has(node.nodeId);
       const listItem = !this.wording && !node.ignored && role === 'listitem';
       const description = !this.wording && !node.ignored && role === 'descriptionlist';
       const descriptionItem = !this.wording && !node.ignored && ['dt','dd'].includes(meta?.tag ?? '');
       const table = !this.wording && !node.ignored && role === 'table';
-      const structuralRow = !this.wording && (['row','rowgroup','LayoutTableRow','strong','emphasis','blockquote'].includes(role) || role === 'image' && insideNamedLink(node));
+      const structuralRow = !this.wording && (['row','rowgroup','LayoutTableRow','strong','emphasis','blockquote'].includes(role) || layoutLists.has(node.nodeId) || role==='listitem' && !!node.parentId && layoutLists.has(node.parentId) || role === 'image' && insideNamedControl(node));
       const caption = !this.wording && meta?.tag === 'caption';
       const cell = !this.wording && node.backendDOMNodeId !== undefined ? cellPositions.get(node.backendDOMNodeId) : undefined;
       const container = !this.wording && !node.ignored && (list || description || table || ['menu','listbox'].includes(role) || (['group','dialog','alertdialog','radiogroup','tablist'].includes(role) && !!name) || ['main','navigation','banner','contentinfo','complementary','region','form'].includes(role));
@@ -316,7 +330,7 @@ export class MockVoiceOverBackend implements Backend {
             semantic.containsImage = containsImage(node);
             const parent = node.parentId ? byId.get(node.parentId) : undefined;
             const list = parent?.parentId ? byId.get(parent.parentId) : undefined;
-            if (parent && stringValue(parent.role) === 'listitem' && children(parent).length === 1 && list && stringValue(list.role) === 'list') {
+            if (parent && stringValue(parent.role) === 'listitem' && children(parent).length === 1 && list && stringValue(list.role) === 'list' && !layoutLists.has(list.nodeId)) {
               const siblings = children(list).filter(c => stringValue(c.role) === 'listitem');
               semantic.position = siblings.indexOf(parent) + 1; semantic.setSize = siblings.length;
             }
@@ -482,7 +496,11 @@ export class MockVoiceOverBackend implements Backend {
         if (action.kind === 'intent') receipt.activation = await this.activate(signal);
         else if (action.kind === 'key') {
           if (['Enter', 'Space'].includes(action.key) && this.nodes.find(node => node.identity === this.focusedIdentity)?.semantic.disabled) {
-            throw new Error('Cannot activate a disabled focused accessible object.');
+            const enabledNativeButton = !this.wording && await this.getPage().evaluate(() => {
+              const active=document.activeElement;
+              return active instanceof HTMLButtonElement && !active.matches(':disabled') && !active.closest('[inert]');
+            });
+            if (!enabledNativeButton) throw new Error('Cannot activate a disabled focused accessible object.');
           }
           await this.getPage().keyboard.press(action.key);
         }
@@ -538,7 +556,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!object.objectId) return;
     try {
       const result = await session.send('Runtime.callFunctionOn', { objectId: object.objectId, returnByValue: true,
-        functionDeclaration: `function() { if (this instanceof HTMLElement && this.isConnected && this.matches('a[href],button,input,textarea,select,summary,[tabindex]') && !this.matches(':disabled') && !this.closest('[inert],[aria-disabled="true"]')) this.focus(); }` });
+        functionDeclaration: `function() { if (this instanceof HTMLElement && this.isConnected && this.matches('a[href],button,input,textarea,select,summary,[tabindex]') && !this.matches(':disabled') && !this.closest('[inert]') && (!this.closest('[aria-disabled="true"]') || this instanceof HTMLButtonElement)) this.focus(); }` });
       signal?.throwIfAborted();
       if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? 'Cursor focus synchronization failed');
     } finally { await session.send('Runtime.releaseObject', { objectId: object.objectId }).catch(() => {}); }

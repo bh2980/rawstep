@@ -126,7 +126,7 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 
 ## Verification
 
-- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 36 selected local wording cases, explicit
+- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 38 selected local wording cases, explicit
   simulation provenance, and protected-value safety
 - Existing Chromium-backed mock tests retain their navigation, DOM effect,
   focus, redaction and cancellation assertions; only affected speech wording
@@ -187,3 +187,11 @@ The temporary Safari Apple Events JavaScript permission was restored off. Eight 
 logo links, unstyled breadcrumbs, landmark boundaries, navigation headings and cookie regions before further fitting.
 No real-page ≥90% or full-replacement claim is supported. Rotors, cross-frame traversal, native queue/interruption,
 Safari Tab settings, provider/caption fidelity and complex widget patterns remain open work.
+
+The redesigned paired collection and partition-scoped reports are documented in the corpus README's collection audit.
+Twenty new cases retain complete action histories, attempt-specific native AX snapshots, input-byte archives and host
+observation timing. A measured native-button contrast corrects physical Space dispatch when `aria-disabled` is only
+an incorrectly enforced ARIA state; explicit activation and custom-control guards remain unchanged. Two legacy native
+button receipts retain the observed `dimmed button` wording. The new frozen-model scenario test reached 14/20 content
+matches (70.0%) and 4/22 full-speech matches (18.2%); it does not support a 90% replacement claim. The existing 52-case
+regression remains 219/238 content, 200/219 spoken and 74/265 full speech after this correction.

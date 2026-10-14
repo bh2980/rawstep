@@ -12,7 +12,7 @@
  * (no move); the start check then needs "Before marker" in that speech. The page-load title announcement is discarded,
  * as the live runner discards auto-read.
  */
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -21,9 +21,10 @@ import { parseArgs } from "node:util";
 import { resolveTask, type Decision, type DecisionPolicy, type PolicyAction } from "rawstep";
 import { MOCK_VOICEOVER_PROFILE, runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { createBrowserSession } from "rawstep/browser";
-import { prepareRealPageScript, realPageContext, accessiblePageContext, chromiumAccessibleText, hearsHeading } from "./real-pages.js";
+import { publicPageScript, realPageContext, accessiblePageContext, chromiumAccessibleText, hearsHeading } from "./real-pages.js";
 import { fixtureStateScript, type PageState } from "./state.js";
 import { START_MARKER, casesFingerprint, type CaseRecord, type CaseSet } from "./cases.js";
+import { archiveCaseInputs } from "./archive.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -113,7 +114,10 @@ export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, c
                 const info = await session.page.evaluate(() => ({url:location.href,title:document.title,width:innerWidth,height:innerHeight}));
                 record.pageContext = accessiblePageContext(chromiumAccessibleText(tree.nodes),info);
               } finally { await cdp.detach(); }
-            } else record.pageContext = realPageContext(await session.page.evaluate(prepareRealPageScript));
+            } else {
+              const script = publicPageScript(item.contentProtocol);
+              record.pageContext = realPageContext(await session.page.evaluate(script),script);
+            }
           }
           if (set.syntheticInputs) readState = () => session.page.evaluate(fixtureStateScript);
           return session;
@@ -155,27 +159,27 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const anchorRecords = values["anchors-native-run"] ? await readFile(join(resolve(values["anchors-native-run"]),"records.jsonl"),"utf8") : "";
   const anchors = new Map(anchorRecords.split("\n").filter(Boolean).map(line=>{const r=JSON.parse(line) as CaseRecord;if(r.caseSet!==set.id||r.source!=="voiceover")throw new Error("Native anchor source differs from public cases");return [r.caseId,r.start.anchor] as const}));
   const out = join(packageRoot, "data/runs", `${set.id}-sim-${new Date().toISOString().replace(/[:.]/g, "-")}`);
-  await mkdir(out, { recursive: true });
+  await mkdir(dirname(out),{recursive:true});await mkdir(out);
+  const casesSha256=await casesFingerprint(casesDir,set),inputArchive=await archiveCaseInputs(casesDir,out,set,casesSha256);
+  const capturedCasesDir=join(out,'inputs');
   const rawstepVersion = (JSON.parse(await readFile(new URL("../node_modules/rawstep/package.json", import.meta.url), "utf8")) as { version: string }).version;
   const dist = fileURLToPath(new URL("../node_modules/rawstep/dist/", import.meta.url)), buildHash = createHash("sha256");
   for (const path of (await readdir(dist, { recursive: true })).filter(p => p.endsWith(".js")).sort()) buildHash.update(path).update(await readFile(join(dist, path)));
   await writeFile(join(out, "meta.json"), JSON.stringify({
-    caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256: await casesFingerprint(casesDir, set), casesDir: casesDir.slice(packageRoot.length + 1), source: "simulator",
+    caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, inputArchive, casesDir: casesDir.slice(packageRoot.length + 1), source: "simulator",
     simulatorProfile: MOCK_VOICEOVER_PROFILE, simulatorBuildSha256: buildHash.digest("hex"), rawstepVersion, startedAt: new Date().toISOString(),
     ...(anchorRecords?{anchorSourceSha256:createHash("sha256").update(anchorRecords).digest("hex"),anchorSourceRun:resolve(values["anchors-native-run"]!)}:{}),
   }, null, 2));
-  const lines: string[] = [];
   const started = Date.now();
   let aligned = 0;
   {
     for (const [index, item] of todo.entries()) {
       const t0 = Date.now();
-      const record = await replayCase(item, set, casesDir, anchors.get(item.id));
+      const record = await replayCase(item, set, capturedCasesDir, anchors.get(item.id));
       if (record.start.aligned) aligned++;
-      lines.push(JSON.stringify(record));
-      await writeFile(join(out, "records.jsonl"), lines.join("\n") + "\n");
+      await appendFile(join(out,"records.jsonl"),JSON.stringify(record)+'\n');
       const last = record.steps.at(-1);
-      console.log(`[${index + 1}/${todo.length}] ${item.id} ${Date.now() - t0}ms${record.error ? `  ! ${record.error}` : ""}  ${last ? last.utterances.map(u => u.text.trim()).join(" | ") || `(${last.reason})` : ""}`);
+      console.log(`[${index + 1}/${todo.length}] ${item.id} ${Date.now() - t0}ms${record.error ? `  ! ${record.error}` : ""}${item.axes.partition==='test'?'  [test outputs retained; not printed]':`  ${last ? last.utterances.map(u => u.text.trim()).join(" | ") || `(${last.reason})` : ""}`}`);
     }
   }
   console.log(`${aligned}/${todo.length} aligned in ${((Date.now() - started) / 1000).toFixed(1)} s -> ${out}`);

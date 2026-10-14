@@ -50,6 +50,7 @@ const roleNames: Readonly<Record<string, string>> = {
  * Other states, value/description timing, and activation announcements remain approximations.
  */
 export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateChanged = false): string {
+  if (!node.protected && node.tagName === 'button' && node.role === 'button' && node.disabled && node.pressed === undefined && node.expanded === undefined && !node.hasPopup && !node.description && !node.value && !node.required && !node.readonly && !node.modal) return [node.name,'dimmed','button'].filter(Boolean).join(', ');
   if (!node.protected && node.tagName === 'textarea') return [node.name, 'text entry area', node.value].filter(Boolean).join(', ');
   if (!node.protected && node.role === 'slider' && node.value) return [node.value, node.name, 'slider'].filter(Boolean).join(', ');
   if (!node.protected && node.role === 'button' && node.hasPopup === 'menu') return [node.name, 'menu pop up button'].filter(Boolean).join(', ');
