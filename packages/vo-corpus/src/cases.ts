@@ -36,7 +36,7 @@ export interface CaseRecord {
   /** Simulator coverage gap; kept separate from collection failures. */
   unsupportedReason?: string;
   /** Speech after the start chord (VO+Home); aligned when it names START_MARKER. */
-  start: { aligned: boolean; speech: string[] };
+  start: { aligned: boolean; speech: string[]; commands?: string[]; axPath?: string };
   steps: {
     chord: string; utterances: { t: number; text: string }[]; reason: "quiet" | "deadline" | "unsupported";
     /** Relative to the run directory. AX evidence is separate from speech and may arrive later. */

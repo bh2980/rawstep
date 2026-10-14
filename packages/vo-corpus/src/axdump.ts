@@ -42,6 +42,18 @@ export interface AxDump {
   root: AxNode;
 }
 
+/** AXFocused on a stale web node is insufficient: Safari can report actual focus in browser chrome. */
+export function focusedAxNode(dump: AxDump): AxNode | undefined {
+  if (!dump.focusedPath || dump.truncated) return undefined;
+  let node: AxNode | undefined = dump.root;
+  for (const index of dump.focusedPath) {
+    if (!Number.isInteger(index) || index < 0) return undefined;
+    node = node?.children?.[index];
+    if (!node) return undefined;
+  }
+  return node;
+}
+
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
 export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number } = {}): Promise<AxDump> {
   const args = ["--app", app];

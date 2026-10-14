@@ -10,6 +10,7 @@ import { generateScreening } from "../src/generate/screening.js";
 import { generateWorkflows } from "../src/generate/workflows.js";
 import { replayAction, replayCase } from "../src/replay.js";
 import { chordKeys, VoSession } from "../src/session.js";
+import { focusedAxNode, type AxDump } from "../src/axdump.js";
 
 test("new fixtures keep the existing matrix intact and have valid reference/command metadata", () => {
   const original = generateElements(), screening = generateScreening(), workflows = generateWorkflows();
@@ -36,6 +37,20 @@ test("silent observation stays open for delayed updates and rejects impossible w
   assert.equal((await session.listen({ quietMs: 200, maxWaitMs: 40 })).reason, "deadline");
   await assert.rejects(session.listen({ minWaitMs: 100, maxWaitMs: 20 }), /Invalid listen window/);
   await assert.rejects(session.listen({ minWaitMs: Number.NaN }), /Invalid listen window/);
+});
+
+test("workflow alignment requires actual AX focus, not a stale AXFocused flag", () => {
+  const dump = { focusedPath: null, truncated: false, root: { children: [{ AXRole: "AXButton", AXTitle: "Before marker", AXFocused: true }] } } as unknown as AxDump;
+  assert.equal(focusedAxNode(dump), undefined);
+  dump.focusedPath = [0];
+  assert.equal(focusedAxNode(dump)?.AXTitle, "Before marker");
+  dump.focusedPath = [5];
+  assert.equal(focusedAxNode(dump), undefined);
+  dump.focusedPath = [-1];
+  assert.equal(focusedAxNode(dump), undefined);
+  dump.focusedPath = [0]; dump.truncated = true;
+  assert.equal(focusedAxNode(dump), undefined);
+  assert.deepEqual(chordKeys("VO+Cmd+F4"), ["\uE009", "\uE00A", "\uE03D", "\uE034"]);
 });
 
 const focus = async (page: Page) => page.evaluate(() => document.activeElement?.id);

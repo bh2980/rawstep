@@ -25,6 +25,7 @@ const named: Record<string, string> = {
   ...AT_DRIVER_KEYS,
   Ctrl: AT_DRIVER_KEYS.Control, Opt: AT_DRIVER_KEYS.Alt, Option: AT_DRIVER_KEYS.Alt, Cmd: AT_DRIVER_KEYS.Meta, Command: AT_DRIVER_KEYS.Meta,
   Left: AT_DRIVER_KEYS.ArrowLeft, Right: AT_DRIVER_KEYS.ArrowRight, Up: AT_DRIVER_KEYS.ArrowUp, Down: AT_DRIVER_KEYS.ArrowDown,
+  F4: "\uE034",
 };
 
 /** "VO+Cmd+H" → Control, Option, Command, "h". VO is Control+Option; single characters are lowercase key names. */

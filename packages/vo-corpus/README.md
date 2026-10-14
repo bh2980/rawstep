@@ -107,6 +107,14 @@ selection/focus. Named buttons retain the visible word "Save" in their accessibl
 reading only, not save functionality. Existing incomplete/invalid static fixtures remain exploratory controls; do not mix
 them with a working-reference workflow's expected outcomes.
 
+Workflow start alignment also verifies keyboard focus. After VO+Home speaks the marker, the collector uses VO+Command+F4
+to move keyboard focus to the VoiceOver cursor, then checks that the native AX `focusedPath` identifies the marker button.
+It records these reset commands and the start tree in `start.commands` and `start.axPath`. An AXFocused flag on a page node
+alone is insufficient: Safari can retain that flag while actual focus is in its toolbar. A failed focus check records the
+attempt and stops the workflow before its keys. See
+[Apple's cursor/focus commands](https://support.apple.com/guide/voiceover/navigation-commands-cpvokys04/10/mac/26).
+AT Driver sends the F4 function key directly; the physical-keyboard guide includes Fn.
+
 The native collector saves a tree after **each** action for these cases, referenced by `steps[].axPath`; a failed dump is
 stored as `steps[].axError`. This is in addition to the initial page tree. AX focus is still distinct from the VoiceOver
 cursor, and a later tree timestamp is not an atomic snapshot of the speech receipt. Case-specific minimum observation
@@ -122,7 +130,28 @@ success. Unexpected silence, focus/value differences and unsupported commands re
 Validation on 2026-10-14: all 35 fixtures passed keyboard/DOM assertions in a separate headless Chromium on macOS,
 including modal focus containment/return, selection vs focus, corrected errors, input values, cart changes and delayed
 updates. Static name/context/heading assertions and session-window/replay coverage checks also passed. These checks validate
-fixture implementation; **the new native Safari/VoiceOver run and Windows execution are not yet verified**.
+fixture implementation; Windows execution is not yet verified.
+
+The first native workflow pilot exposed a reset bug: marker speech passed, but Tab moved through Safari chrome and the
+checkbox/modal/radio states did not change. That pilot is retained as unsuitable for calibration. After the focus reset
+and AX verification were added, seven fresh pilot cases completed with every start verified: checkbox 0/1/0, modal Tab
+containment and opener focus return, native radio Red/Green/Blue/Green, text editing to `bee`, autocomplete choose/dismiss,
+and a 1500 ms polite update. The repeated identical live update was silent. Run:
+`data/runs/workflows-v1-2026-10-14T07-53-14-329Z/`. The remaining 28 cases then completed in that run, giving **35/35
+verified starts, all 139 expected actions and 205 usable, untruncated AX snapshots** (31 initial page trees, 35 starts and
+139 action trees). Native AX checks of focus, selection, values, visible panels, corrected errors, cart contents and live
+content passed 217 assertions, including start/completeness checks. Results are in `completion-summary.json`. The AT session
+boundary after the pilot is recorded in `continuation-events.jsonl`. Focus-gate checks bring the package test count to 40.
+
+Several observations need care during calibration. Favorite toggles and native details changed AX state while some
+keyboard activation steps were silent. Off live regions exposed updated text without speech; the other tested live
+semantics announced their first update but not the identical repeated message. Text-entry receipts contained repeated
+characters/values, whose full caption/receipt sequence fidelity remains unverified. Keep the raw receipts.
+
+The blog's backward-heading chord returned the last heading rather than the expected preceding heading; fresh smoke
+probes also advanced or stayed at the last heading. The command/provider interpretation is unresolved. Retain that
+observation as an anomaly, not a calibrated previous-heading rule. The 217 AX assertions do not verify the VoiceOver
+reading cursor or establish simulator accuracy; collection completion is distinct from those remaining checks.
 
 ### Windows: generate fixtures and replay the simulator
 

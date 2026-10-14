@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { dumpAxTree } from "./axdump.js";
+import { dumpAxTree, focusedAxNode, type AxDump } from "./axdump.js";
 import { START_MARKER, type CaseRecord, type CaseSet } from "./cases.js";
 import { atDriverUrl, browserApps, machineFacts, navigateBrowser, requireFrontmost, resolveMachine, serveDirectory, type BrowserName } from "./host.js";
 import { spoken, VoSession } from "./session.js";
@@ -61,6 +61,7 @@ try {
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, casesGeneratedAt: set.generatedAt, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
     settings: values.settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: await machineFacts(machine, browser),
+    workflowStartProtocol: "VO+Home marker; VO+Cmd+F4 keyboard-focus sync; native AX focusedPath must identify the marker",
   }, null, 2));
   console.log(`${set.id}: ${todo.length} to run, ${done.size} already recorded -> ${out}`);
 
@@ -68,15 +69,41 @@ try {
     await navigateBrowser(machine, browser, `${pages.origin}/${item.page}`);
     await session.listen({ quietMs: 1_500, maxWaitMs: 30_000 }); // auto-read of the new page
     session.drain();
-    let start = { aligned: false, speech: [] as string[] };
+    let start: CaseRecord["start"] = { aligned: false, speech: [], commands: [] };
+    let startAx: AxDump | undefined;
+    let alignmentError: string | undefined;
     for (let attempt = 0; attempt < 2 && !start.aligned; attempt++) {
       await session.press("VO+Home");
+      start.commands!.push("VO+Home");
       const speech = spoken(await session.listen());
-      start = { aligned: speech.join(" ").includes(START_MARKER), speech };
+      start.aligned = speech.join(" ").includes(START_MARKER);
+      start.speech = speech;
+    }
+    if (start.aligned && item.captureAxAfterSteps) {
+      await session.press("VO+Cmd+F4");
+      start.commands!.push("VO+Cmd+F4");
+      start.speech.push(...spoken(await session.listen()));
+      try {
+        startAx = await dumpAxTree(machine, browserApps[browser]);
+        if (!values["no-ax"]) {
+          const relative = `ax/starts/${encodeURIComponent(item.id)}.json`;
+          await mkdir(join(out, "ax/starts"), { recursive: true });
+          await writeFile(join(out, relative), JSON.stringify(startAx));
+          start.axPath = relative;
+        }
+        const focused = focusedAxNode(startAx);
+        if (focused?.AXRole !== "AXButton" || focused.AXTitle !== START_MARKER) {
+          alignmentError = "keyboard focus is outside the start marker after VO+Cmd+F4";
+          start.aligned = false;
+        }
+      } catch (error) {
+        alignmentError = `cannot verify start keyboard focus: ${(error as Error).message}`;
+        start.aligned = false;
+      }
     }
     const axPath = join(out, "ax", item.page.replace(/[\\/]/g, "_").replace(/\.html$/, ".json"));
     if (start.aligned && !values["no-ax"] && !existsSync(axPath)) {
-      try { await writeFile(axPath, JSON.stringify(await dumpAxTree(machine, browserApps[browser]))); }
+      try { await writeFile(axPath, JSON.stringify(startAx ?? await dumpAxTree(machine, browserApps[browser]))); }
       catch (error) { console.log(`  ! AX dump failed for ${item.page}: ${(error as Error).message}`); }
     }
     const record: CaseRecord = { caseSet: set.id, caseId: item.id, source: "voiceover", start, steps: [] };
@@ -97,8 +124,9 @@ try {
         }
         record.steps.push(step);
       }
-    } else record.error = "start marker not heard after VO+Home";
+    } else record.error = alignmentError ?? "start marker not heard after VO+Home";
     await appendFile(records, JSON.stringify(record) + "\n");
+    if (alignmentError) throw new Error(`${item.id}: ${alignmentError}; workflow keys were not pressed`);
     const target = record.steps.flatMap(s => s.utterances).find(u => u.text.trim() && !/^(Before marker|After marker|You are currently)/.test(u.text.trim()));
     const last = record.steps.at(-1);
     console.log(`[${index + 1}/${todo.length}] ${item.id}${start.aligned ? "" : "  ! misaligned"}  target: ${target?.text.trim() ?? "(none)"}  last: ${last ? last.utterances.map(u => u.text.trim()).filter(Boolean).join(" | ") : ""}${record.steps.some(s => s.axError) ? "  ! step AX missing" : ""}`);
