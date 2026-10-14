@@ -18,7 +18,9 @@ describe('physical workspace ownership and aggregate verification contract',()=>
     const lock=await readFile('pnpm-lock.yaml','utf8');
     expect(lock).not.toMatch(/guidepup|virtual-screen-reader|pixelmatch|pngjs|onnxruntime|transformers|torch/);
     const importers=lock.split('\nimporters:\n')[1]!.split('\npackages:\n')[0]!;
-    expect(importers.match(/^  \S[^\n]*:/gm)?.sort()).toEqual(['  .:',...order.map(n=>`  packages/${n}:`),'  packages/dashboard:'].sort());
+    expect(importers.match(/^  \S[^\n]*:/gm)?.sort()).toEqual(['  .:',...order.map(n=>`  packages/${n}:`),'  packages/dashboard:','  packages/vo-corpus:'].sort());
+    const corpus=JSON.parse(await readFile('packages/vo-corpus/package.json','utf8'));
+    expect(corpus.private).toBe(true);expect(corpus.dependencies).toEqual({rawstep:'workspace:*'});
     const dashboard=JSON.parse(await readFile('packages/dashboard/package.json','utf8'));
     expect(dashboard.name).toBe('@rawstep/dashboard');expect(dashboard.private).toBe(true);
     for(const name of order){
