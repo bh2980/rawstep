@@ -8,6 +8,15 @@ import {validateRuns} from "./validate.js";
 import {comparePageState,nativePageState} from "./state.js";
 import type {AxDump} from "./axdump.js";
 
+/** Candidates for curation, not permission to remove observations from the score. */
+export function captureWarnings(record:CaseRecord){
+  return record.steps.flatMap((step,i)=>[
+    ...(step.reason==='deadline'?[{caseId:record.caseId,step:i,flag:'native-speech-window-deadline'}]:[]),
+    ...(step.utterances.some(u=>/^Safari(?: is)? not responding$/i.test(u.text.trim()))?[{caseId:record.caseId,step:i,flag:'possible-native-browser-unresponsive-receipt'}]:[]),
+    ...(step.axError?[{caseId:record.caseId,step:i,flag:'native-AX-capture-failed'}]:[]),
+  ]);
+}
+
 export function firstDivergences(report:ReturnType<typeof validateRuns>){
   const first=new Map<string,typeof report.rows[number]>();
   for(const row of report.rows)if(!row.markerOnly&&!['exact','normalized'].includes(row.verdict)&&!first.has(row.caseId))first.set(row.caseId,row);
@@ -42,9 +51,11 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   const selected={...set,cases:set.cases.filter(c=>partition==='all'||c.axes.partition===partition)};
   if(!selected.cases.length)throw new Error('No cases in requested partition');
   const report=validateRuns(selected,native,model),states=[];
+  const qualityWarnings=selected.cases.flatMap(c=>native.has(c.id)?captureWarnings(native.get(c.id)!):[]);
   for(const c of selected.cases)for(const [i,chord]of c.chords.entries()){
     const a=native.get(c.id),b=model.get(c.id),x=a?.steps[i],y=b?.steps[i];
     const ax=x?.axPath?await readFile(join(nativeDir,x.axPath),'utf8').then(s=>JSON.parse(s) as AxDump).catch(()=>undefined):undefined;
+    if(ax?.truncated||ax?.stringTruncations)qualityWarnings.push({caseId:c.id,step:i,flag:'native-AX-truncated'});
     const state=comparePageState(ax?nativePageState(ax):undefined,y?.state);
     if(!a?.start.aligned||!b?.start.aligned||x?.chord!==chord||y?.chord!==chord||y?.reason==='unsupported'){state.matched=false;state.differences.push('workflow missing, unsupported or unaligned');}
     states.push({caseId:c.id,step:i,chord,...state});
@@ -52,7 +63,7 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   await mkdir(dirname(out),{recursive:true});await mkdir(out);
   const summary={schemaVersion:1,analyzedAt:new Date().toISOString(),partition,casesSha256:hash,sourceHashes,
     nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,verdicts:report.verdicts,state:{matched:states.filter(s=>s.matched).length,planned:states.length,missing:states.filter(s=>s.missing).length}},
-    queue:firstDivergences(report),note:'Queue groups only the first divergence per case to limit cascading-order inflation. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Known hints are separate; absence of a hint model remains visible in full-speech metrics.'};
+    queue:firstDivergences(report),qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Known hints are separate; absence of a hint model remains visible in full-speech metrics.'};
   await writeFile(join(out,'summary.json'),JSON.stringify(summary,null,2),{flag:'wx'});
   await writeFile(join(out,'speech.json'),JSON.stringify(report,null,2),{flag:'wx'});
   await writeFile(join(out,'state.json'),JSON.stringify(states,null,2),{flag:'wx'});

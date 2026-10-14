@@ -29,6 +29,59 @@ async function fixture(html: string, observationMinWaitMs = 0) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('reads linked headings as one object, preserves the nesting order and focuses the actual anchor',async()=>{
+    const f=await fixture('<button>Start</button><h2><a id="inner" href="#destination">Harbor guide</a></h2><a id="outer" href="#destination"><h3>River trail</h3></a><button>After</button><p id="destination">Destination reached.</p>');
+    expect(await f.intent('next')).toEqual(['heading level 2 link Harbor guide']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('inner');
+    expect(await f.intent('next')).toEqual(['link heading level 3 River trail']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('outer');
+    expect(await f.intent('previous')).toEqual(['heading level 2 link Harbor guide']);
+    expect(await f.intent('heading.next')).toEqual(['River trail link heading level 3']);
+    expect(await f.intent('activate')).toEqual(['Destination reached.']);
+    expect(await f.page.evaluate(()=>location.hash)).toBe('#destination');
+    expect(await f.page.locator('#inner').evaluate(n=>n.parentElement?.tagName)).toBe('H2');
+  });
+
+  it('keeps mixed heading contents in one reading unit without moving focus to a partial link',async()=>{
+    const f=await fixture('<button id="start">Start</button><h2>Harbor <a href="#one">guide</a></h2><h2><a href="#one">Timetable</a> and <a href="#two">Fares</a></h2><h2><span>Harbor</span><em> services</em></h2><button>After</button>');
+    await f.key('Tab');
+    expect(await f.intent('next')).toEqual(['heading level 2 Harbor link guide 2 items']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('start');
+    expect(await f.intent('next')).toEqual(['heading level 2 link Timetable and link Fares 3 items']);
+    expect(await f.intent('next')).toEqual(['heading level 2 Harbor services 2 items']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
+  it('retains an explicit heading label while synchronizing to its sole child link',async()=>{
+    const f=await fixture('<button>Start</button><h2 aria-label="Journey planner"><a id="target" href="#one">Harbor information</a></h2><button>After</button>');
+    expect(await f.intent('next')).toEqual(['heading, level 2, Journey planner']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('target');
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
+  it('names articles from their first own heading and preserves article and named-figure boundaries',async()=>{
+    const f=await fixture('<button>Start</button><article><header><h2><a href="#story">Harbor report</a></h2></header><figure><img alt="Bay at sunrise"><figcaption>Early crossings</figcaption></figure><p>Filed by <a href="#author">Nora</a>.</p></article><figure aria-label="Bay photograph"><img alt="Bay"><figcaption>Caption</figcaption></figure><button>After</button>');
+    expect(await f.intent('next')).toEqual(['Harbor report, article']);
+    expect(await f.intent('next')).toEqual(['heading level 2 link Harbor report']);
+    expect(await f.intent('next')).toEqual(['Bay at sunrise, image']);
+    expect(await f.intent('next')).toEqual(['Early crossings']);
+    expect(await f.intent('next')).toEqual(['Filed by ']);
+    expect(await f.intent('next')).toEqual(['link, Nora']);
+    expect(await f.intent('next')).toEqual(['period']);
+    expect(await f.intent('next')).toEqual(['end of Harbor report, article']);
+    expect(await f.intent('next')).toEqual(['Bay photograph, figure']);
+    expect(await f.intent('next')).toEqual(['Bay, image']);
+    expect(await f.intent('next')).toEqual(['Caption']);
+    expect(await f.intent('next')).toEqual(['end of Bay photograph, figure']);
+  });
+
+  it('projects plain time content once and the observed ISO-date time receipt twice without adding a container stop',async()=>{
+    const f=await fixture('<button>Start</button><time datetime="2026-11-04">November 4, 2026</time><time>June 15, 2026</time><button>After</button>');
+    expect(await f.intent('next')).toEqual(['November 4, 2026 November 4, 2026']);
+    expect(await f.intent('next')).toEqual(['June 15, 2026']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
   it('projects unmarked linked lists by explicit role and navigation context without changing the DOM', async () => {
     for (const tag of ['ul','ol']) for (const nav of [false,true]) for (const explicit of [false,true]) {
       const list=`<${tag}${explicit?' role="list"':''} style="list-style:none"><li><a href="#first">First route</a></li><li><a href="#second">Second route</a></li></${tag}>`;

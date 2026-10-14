@@ -16,7 +16,7 @@ type Fixture = {
 };
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/a11ysupport-navigation.json', import.meta.url), 'utf8')) as Fixture[];
 const native = JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-2026-10-14.json', import.meta.url), 'utf8')) as {
-  observations: { observationId: string; reportedSpeech: string; semanticInput: SimulatedSemanticNode; checkedStateChanged: boolean; sourceRecordsSha256: string }[];
+  observations: { observationId: string; reportedSpeech: string; semanticInput: SimulatedSemanticNode; checkedStateChanged: boolean; sourceRecordsSha256: string; sourceCommand?:string }[];
 };
 // Compare only token ordering: reported manual transcripts do not reliably preserve
 // punctuation/capitalization. Never normalize away state, role, value, or hint words.
@@ -25,7 +25,7 @@ const semantic = (value: Partial<SimulatedSemanticNode>): SimulatedSemanticNode 
 
 describe('source-backed simulation navigation wording', () => {
   it.each(native.observations)('matches the selected native receipt for $observationId', fixture => {
-    expect(wording(formatSimulatedSpeech(fixture.semanticInput, fixture.checkedStateChanged))).toBe(wording(fixture.reportedSpeech));
+    expect(wording(formatSimulatedSpeech(fixture.semanticInput, fixture.checkedStateChanged,fixture.sourceCommand))).toBe(wording(fixture.reportedSpeech));
     expect(fixture.sourceRecordsSha256).toMatch(/^[a-f0-9]{64}$/);
   });
   it.each(fixtures)('matches the limited recorded wording for $observationId', fixture => {
@@ -43,8 +43,8 @@ describe('source-backed simulation navigation wording', () => {
   it('does not turn source-backed wording into native measurement provenance', async () => {
     const backend = new MockVoiceOverBackend();
     const started = await backend.start();
-    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v4');
-    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '4' } });
+    expect(MOCK_VOICEOVER_PROFILE).toBe('english-dom-navigation-evidence-v5');
+    expect(started).toMatchObject({ evidenceProvenance: 'simulation', profile: MOCK_VOICEOVER_PROFILE, environment: { nativeScreenReader: false, atVersion: '5' } });
     await backend.close();
   });
 

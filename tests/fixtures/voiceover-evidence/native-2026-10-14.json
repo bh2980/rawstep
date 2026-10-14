@@ -998,6 +998,328 @@
       },
       "semanticInputProvenance": "Manually abstracted from generated fixture markup; native raw receipt retained separately; historical fixture byte fingerprint unavailable",
       "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.heading-inside:0",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.heading-inside",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 2 link Harbor guide"
+      ],
+      "reportedSpeech": "heading level 2 link Harbor guide",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Harbor guide",
+        "level": 2,
+        "headingParts": [
+          {
+            "text": "Harbor guide",
+            "link": true
+          }
+        ]
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.heading-outside:0",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.heading-outside",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "link heading level 2 Harbor guide"
+      ],
+      "reportedSpeech": "link heading level 2 Harbor guide",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Harbor guide",
+        "level": 2,
+        "headingLinkOrder": "link-heading"
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.jump-outside:0",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.jump-outside",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Cmd+H",
+      "rawMainReceipts": [
+        " Harbor guide link heading level 2"
+      ],
+      "reportedSpeech": " Harbor guide link heading level 2",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Harbor guide",
+        "level": 2,
+        "headingLinkOrder": "link-heading"
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false,
+      "sourceCommand": "next_heading"
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.heading-partial:0",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.heading-partial",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 2 Harbor  link guide 2 items "
+      ],
+      "reportedSpeech": "heading level 2 Harbor  link guide 2 items ",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Harbor guide",
+        "level": 2,
+        "headingParts": [
+          {
+            "text": "Harbor"
+          },
+          {
+            "text": "guide",
+            "link": true
+          }
+        ]
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.article-plain:0",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.article-plain",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "Harbor guide article"
+      ],
+      "reportedSpeech": "Harbor guide article",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "article",
+        "name": "Harbor guide"
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.article-plain:6",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.article-plain",
+      "sourceStepIndex": 6,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "end of Harbor guide article"
+      ],
+      "reportedSpeech": "end of Harbor guide article",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "article",
+        "name": "end of Harbor guide"
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.article-plain:5",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.article-plain",
+      "sourceStepIndex": 5,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "period"
+      ],
+      "reportedSpeech": "period",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "StaticText",
+        "name": "."
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-patterns-v1-2026-10-14T22-04-42-256Z:article-patterns.article-card:7",
+      "sourceRun": "article-patterns-v1-2026-10-14T22-04-42-256Z",
+      "sourceCaseId": "article-patterns.article-card",
+      "sourceStepIndex": 7,
+      "sourceRecordsSha256": "c1352452d198f45bcd75b0215a0448ce39533496af840933900652d6973da870",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "October 1, 2026 October 1, 2026"
+      ],
+      "reportedSpeech": "October 1, 2026 October 1, 2026",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "StaticText",
+        "name": "October 1, 2026",
+        "timeValueRepeated": true
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-followup-v2-2026-10-14T22-26-14-772Z:article-followup-v2.inline-heading:0",
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.inline-heading",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 2 Harbor  services 2 items "
+      ],
+      "reportedSpeech": "heading level 2 Harbor  services 2 items ",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Harbor services",
+        "level": 2,
+        "headingParts": [
+          {
+            "text": "Harbor"
+          },
+          {
+            "text": "services"
+          }
+        ]
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-followup-v2-2026-10-14T22-26-14-772Z:article-followup-v2.heading-label:0",
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.heading-label",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "heading level 2 Journey planner"
+      ],
+      "reportedSpeech": "heading level 2 Journey planner",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "heading",
+        "name": "Journey planner",
+        "level": 2
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-followup-v2-2026-10-14T22-26-14-772Z:article-followup-v2.named-figure:3",
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.named-figure",
+      "sourceStepIndex": 3,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "end of Bay photograph figure"
+      ],
+      "reportedSpeech": "end of Bay photograph figure",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "figure",
+        "name": "end of Bay photograph"
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
+    },
+    {
+      "observationId": "article-followup-v2-2026-10-14T22-26-14-772Z:article-followup-v2.time:0",
+      "sourceRun": "article-followup-v2-2026-10-14T22-26-14-772Z",
+      "sourceCaseId": "article-followup-v2.time",
+      "sourceStepIndex": 0,
+      "sourceRecordsSha256": "3d1edff375df3a4fcc80feea50475c9d6fa0ce75098d020696e45927ada7dc82",
+      "command": "VO+Right",
+      "rawMainReceipts": [
+        "November 4, 2026 November 4, 2026"
+      ],
+      "reportedSpeech": "November 4, 2026 November 4, 2026",
+      "semanticInput": {
+        "protected": false,
+        "disabled": false,
+        "readonly": false,
+        "required": false,
+        "multiline": false,
+        "modal": false,
+        "role": "StaticText",
+        "name": "November 4, 2026",
+        "timeValueRepeated": true
+      },
+      "semanticInputProvenance": "Manual projection from generated HTML/name/state, not generated from the expected transcript; raw native receipts retained separately",
+      "checkedStateChanged": false
     }
   ]
 }

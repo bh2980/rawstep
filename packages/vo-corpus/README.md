@@ -844,6 +844,78 @@ earlier rendered-text results. Before another expensive live batch, pin authored
 cross-engine differences under a prospectively defined protocol; do not loosen historical checks to obtain 90%.
 Temporary Safari JavaScript permission was restored off after that batch.
 
+#### Completed reading-unit experiments and v5 calibration
+
+The next round followed the first-divergence queue rather than expanding equivalent static controls. The original
+article suite isolated link/heading nesting, partial links, article naming/boundaries, figures and activation. Twelve
+additional native questions then tested multiple links, explicit heading names, physical Tab, nested/unnamed articles,
+headers/footers, named figures, dates and punctuation. Eight reserved compositions combine these structures in news,
+product cards, navigation, tables and anchor journeys. Every page in the new round has the same title, preventing a
+variant ID in the title from revealing the condition. These remain synthetic reduced patterns, not new live sites.
+
+Use the reviewed inputs `data/cases/article-followup-v2-reviewed` (12 train cases / 81 actions) and
+`data/cases/article-transfer-v2-reviewed` (8 test cases / 79 actions). Their shared pre-observation v2 split manifest
+freezes the disjoint input groups with seed `article-reading-v2-reviewed`. Draft directories were never collected;
+the reviewed transfer set replaces a near-duplicate draft question with a table composition. Do not regenerate
+these captured inputs in place. New copies can be generated with `--set article-followup-v2` / `article-transfer-v2`
+and a fresh `--out`; generate a new split manifest before collecting another evaluation round.
+
+The v5 native profile treats linked text headings as one reading unit, preserving real anchor focus/activation for
+fully linked headings and static focus for partial links. It models observed article/figure entry and exit, preserves
+unnamed structural contents, reads isolated `.` as `period`, and repeats simple date-only `time[datetime]` text in this
+captured environment. Same-document fragment activation updates the reading cursor only after an actual URL hash
+change, without injecting DOM focus. Other datetime formats, mixed interactive/image headings, repeated unchanged
+hashes and ambiguous fragment targets remain unvalidated. Browser Tab preferences are not emulated by rewriting
+`tabindex` or silently issuing additional Tab presses.
+
+| Cohort | Content main speech | All main speech | Full speech including hints | Bounded state |
+| --- | --- | --- | --- | --- |
+| Original article calibration, before | 5/57 (8.8%) | 31/89 (34.8%) | Baseline report retained | 60/89 |
+| Original article calibration, v5 | 54/57 (94.7%) | 86/89 (96.6%) | 22/89 (24.7%) | 81/89; eight missing |
+| New followup calibration, v5 | 46/48 (95.8%) | 76/81 (93.8%) | 18/81 (22.2%) | 77/81 |
+| First reserved composition test, v5 | 45/50 (90.0%) | 73/79 (92.4%) | 23/79 (29.1%) | 76/79; one missing |
+| Familiar 52-case regression, v5 | 219/238 (92.0%) | 245/265 (92.5%) | 74/265 (27.9%) | 254/265; nine missing |
+
+The build was fixed before opening reserved native results. Spoken content in that test is 45/49 (91.8%). All eight
+starts aligned and no capture-quality warnings were emitted there. The result does not establish 90% on arbitrary
+sites or full replacement. Those eight compositions are now inspected and must be treated as regression during
+future fitting. Root transfer failures concern a heading jump in navigation, a heading in a table and fragment
+destination context. Followup failures include Tab behavior and an unnamed article's directional end naming.
+
+The original article activation case contains `Safari is not responding` / `Safari not responding` receipts. Analysis
+now emits explicit review warnings for these receipts, speech-window deadlines and missing/truncated AX. It never
+removes them from the original score or rewrites raw text. A hash-pinned local annotation quarantines the affected
+receipts for learning review. A separately collected two-case repeat matched 8/8 main-speech actions, with no
+unresponsive receipt, but 0/8 full-speech matches. It does not replace the original failed baseline.
+
+Reproducible local evidence (all paths below are relative to this package):
+
+- Article native `data/runs/article-patterns-v1-2026-10-14T22-04-42-256Z`; v5 model
+  `data/runs/article-patterns-v1-sim-2026-10-14T22-37-15-772Z`; report `data/analyses/article-v5-regression/`.
+- Followup native `data/runs/article-followup-v2-2026-10-14T22-26-14-772Z`; v5 model
+  `data/runs/article-followup-v2-sim-2026-10-14T22-37-38-579Z`; report `data/analyses/article-followup-v5-calibration/`.
+- Transfer native `data/runs/article-transfer-v2-2026-10-14T22-31-21-409Z`; v5 model
+  `data/runs/article-transfer-v2-sim-2026-10-14T22-37-58-975Z`; report `data/analyses/article-transfer-v5-first-test/`.
+- Separate activation repeat `data/runs/article-patterns-v1-2026-10-14T22-24-37-677Z`; diagnostic
+  `data/analyses/article-v5-activation-repeat.json`; original annotation
+  `data/annotations/article-v1-native-unresponsive.json`.
+- Legacy 52-case native source remains `data/runs/validation-v2-2026-10-14T19-23-21-501Z`; v5 model and planned-step
+  reports are in `data/runs/validation-v2-sim-2026-10-14T22-37-15-773Z`. The native source predates byte archives;
+  the stricter new analysis tool correctly refuses to certify its historical fixture bytes. The legacy validator
+  explicitly labels that limitation rather than retroactively assigning a verified fingerprint.
+
+The 22:43 UTC archive inventory is `data/inventory-reading-v5-2026-10-15.json`: 33 native runs, 760 case records,
+724 aligned records, 652 distinct case keys, 3,496 actions, 2,786 marker/hint-filtered content events and 1,099 distinct
+normalized content texts. Native post-action AX files exist for 1,735 actions; zero referenced files are missing and
+zero incomplete JSONL lines were found. These totals include repeats, failed starts and language/protocol variants;
+they are not 2,786 independent quality-approved training examples. Raw archives remain local, while selected public
+synthetic receipts and their source hashes are retained in the tracked native evidence fixture.
+
+Next, isolate the three transfer root failures with new controlled contrasts and retain this test as regression.
+Separately instrument hint/context history and timing before fitting full-speech behavior. New live-site evaluation
+needs a prospectively defined same-input protocol; it must retain the failed historical browser-fingerprint results.
+Rotor/group/frame coverage and native NVDA collection remain required work, with no model-specific training assumed.
+
 #### Next collection budget
 
 Allocate the next round approximately 50% to reproducible first-divergence contrasts, 25% to uncovered commands/context/

@@ -5,7 +5,7 @@ import { setTimeout as wait } from 'node:timers/promises';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v4' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v5' as const;
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
   'Selected wording and plain checked-control state-change rules are calibrated to versioned third-party observations and local macOS/Safari 26.6.2 captures; this is a composite simulation profile, not any one native version. Other state changes, hints and speech timing remain heuristic.',
@@ -16,6 +16,9 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Quick navigation covers next/previous heading and next form control only. Native previous-heading input is unresolved in the local collector. Group interaction, rotor, speech queue/interruption and cross-frame navigation are unimplemented.',
   'Live regions are polled during an explicit minimum observation window; successive observed text changes are preserved. Polling can miss brief changes and does not simulate native queue timing or interruption.',
   'List item markers, positions, nested list levels and end boundaries are projected from Chromium and DOM metadata, calibrated to local captures.',
+  'Linked text headings are projected as one reading unit, preserving nesting-dependent navigation wording and actual anchor focus. Mixed interactive/image headings need further calibration.',
+  'Articles and named figures have observed entry/exit stops. Simple time elements with date-only datetime attributes repeat their text in the captured profile; other datetime formats remain uncalibrated.',
+  'Fragment activation moves the reading cursor to an observed same-document hash target without changing DOM focus manually. Repeated activation of an unchanged hash and browser-specific Tab preferences remain uncalibrated.',
   'Single-character editing echoes and caret/selection key receipts are calibrated on generated text inputs and textareas. Multi-character task input, native autocomplete/autofill and browser-specific focus selection need further validation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
@@ -75,6 +78,7 @@ export class MockVoiceOverBackend implements Backend {
   private page?: Page;
   private session?: CDPSession;
   private cssEnabled = false;
+  private fragmentTargets = new Map<string,string>();
   private state: 'new' | 'ready' | 'closed' = 'new';
   private busy = false;
   private nodes: CursorNode[] = [];
@@ -111,7 +115,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, capabilities: this.capabilities, limitations: MOCK_VOICEOVER_LIMITATIONS, ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '4', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '5', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -149,7 +153,7 @@ export class MockVoiceOverBackend implements Backend {
 
   private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, textOverride?: string): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
-    let text = rendered?.speech ?? textOverride ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged) : fallback);
+    let text = rendered?.speech ?? textOverride ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged,this.sourceCommand) : fallback);
     if (!this.wording && node) {
       if (node.cell && !node.end) {
         const c = node.cell, row = c.row > 0 && (this.announcedCell?.table !== c.table || this.announcedCell?.row !== c.row) ? `row ${c.row + 1} of ${c.rows}` : '';
@@ -260,6 +264,40 @@ export class MockVoiceOverBackend implements Backend {
       for (const [id, cell] of cellPositions) if (ancestor(id, 'table') === tableId) cell.columns = columns;
     }
     const children = (n: AXNode) => (n.childIds ?? []).map(id => byId.get(id)).filter((child): child is AXNode => !!child);
+    const exposedChildren = (n:AXNode):AXNode[] => children(n).flatMap(c=>c.ignored||['generic','none','strong','emphasis'].includes(stringValue(c.role))?exposedChildren(c):[c]);
+    const headingProjections = new Map<string,{level:number;parts?:SimulatedSemanticNode['headingParts'];outer?:boolean;target?:AXNode;name?:string}>(), folded = new Set<string>();
+    const fold = (n:AXNode) => {folded.add(n.nodeId);for(const c of children(n))fold(c);};
+    if(!this.wording){
+      for(const n of axNodes.filter(n=>!n.ignored&&stringValue(n.role)==='link')){
+        const inner=exposedChildren(n),h=inner.length===1?inner[0]:undefined;
+        if(h&&stringValue(h.role)==='heading'&&typeof property(h,'level')==='number'&&stringValue(n.name)===stringValue(h.name)&&exposedChildren(h).every(c=>stringValue(c.role)==='StaticText')){
+          headingProjections.set(n.nodeId,{level:property(h,'level') as number,outer:true,target:n});
+          for(const c of children(n))fold(c);
+        }
+      }
+      for(const n of axNodes.filter(n=>!n.ignored&&!folded.has(n.nodeId)&&stringValue(n.role)==='heading')){
+        const inner=exposedChildren(n);
+        if(typeof property(n,'level')!=='number'||!inner.length||!inner.every(c=>['StaticText','link'].includes(stringValue(c.role))))continue;
+        const parts=inner.map(c=>({text:stringValue(c.name).trim()||'space',...(stringValue(c.role)==='link'?{link:true}:{})}));
+        if(!parts.some(p=>p.link)&&parts.length===1)continue;
+        const explicitName=n.backendDOMNodeId!==undefined&&dom.get(n.backendDOMNodeId)?.attributes['aria-label']&&stringValue(n.name)!==parts.map(p=>p.text).join(' ');
+        if(explicitName&&!(parts.length===1&&parts[0]!.link))continue;
+        headingProjections.set(n.nodeId,{level:property(n,'level') as number,...(explicitName?{name:stringValue(n.name)}:{parts}),...(parts.length===1&&parts[0]!.link?{target:inner[0]}:{})});
+        for(const c of children(n))fold(c);
+      }
+    }
+    const timeUnits=new Map<string,{name:string;repeated:boolean}>();
+    if(!this.wording)for(const n of axNodes.filter(n=>!n.ignored&&stringValue(n.role)==='time'&&!stringValue(n.name))){
+      const meta=n.backendDOMNodeId===undefined?undefined:dom.get(n.backendDOMNodeId),inner=exposedChildren(n).filter(c=>stringValue(c.name).trim());
+      if(meta?.tag==='time'&&inner.length===1&&stringValue(inner[0]!.role)==='StaticText'){
+        timeUnits.set(n.nodeId,{name:stringValue(inner[0]!.name).trim(),repeated:/^\d{4}-\d{2}-\d{2}$/.test(meta.attributes.datetime??'')});
+        for(const c of children(n))fold(c);
+      }
+    }
+    const articleHeading = (n:AXNode):string => {
+      for(const c of children(n)){if(stringValue(c.role)==='article')continue;if(!c.ignored&&stringValue(c.role)==='heading')return stringValue(c.name);const name=articleHeading(c);if(name)return name;}
+      return '';
+    };
     const containsImage = (n: AXNode): boolean => children(n).some(c => !c.ignored && stringValue(c.role) === 'image' || containsImage(c));
     const insideNamedControl = (n: AXNode): boolean => {
       const seen = new Set<string>();
@@ -292,28 +330,30 @@ export class MockVoiceOverBackend implements Backend {
     // External formatter profiles retain historical filtering; native-profile labels follow DOM order.
     let lastSaid = '';
     const visit = (node: AXNode, suppressText: boolean, groupNames: readonly string[], scopes: Container[] = [], labelNames: string[] = []) => {
-      if (visited.has(node.nodeId)) return;
+      if (visited.has(node.nodeId)||folded.has(node.nodeId)) return;
       visited.add(node.nodeId);
       const sourceRole = stringValue(node.role);
-      const name = stringValue(node.name), said = name.trim();
+      const timeUnit=timeUnits.get(node.nodeId);
+      const name = timeUnit?.name??(stringValue(node.name)||(!this.wording&&sourceRole==='article'?articleHeading(node):'')), said = name.trim();
       const meta = node.backendDOMNodeId === undefined ? undefined : dom.get(node.backendDOMNodeId);
-      const role = !this.wording && meta?.tag === 'table' ? 'table' : !this.wording && meta?.tag === 'dl' ? 'descriptionlist' : sourceRole;
+      const projection=headingProjections.get(node.nodeId), representative=projection?.target??node;
+      const role = projection?'heading':timeUnit?'StaticText':!this.wording && meta?.tag === 'table' ? 'table' : !this.wording && meta?.tag === 'dl' ? 'descriptionlist' : sourceRole;
       const list = !this.wording && !node.ignored && role === 'list' && !layoutLists.has(node.nodeId);
       const listItem = !this.wording && !node.ignored && role === 'listitem';
       const description = !this.wording && !node.ignored && role === 'descriptionlist';
       const descriptionItem = !this.wording && !node.ignored && ['dt','dd'].includes(meta?.tag ?? '');
       const table = !this.wording && !node.ignored && role === 'table';
-      const structuralRow = !this.wording && (['row','rowgroup','LayoutTableRow','strong','emphasis','blockquote'].includes(role) || layoutLists.has(node.nodeId) || role==='listitem' && !!node.parentId && layoutLists.has(node.parentId) || role === 'image' && insideNamedControl(node));
+      const structuralRow = !this.wording && (['row','rowgroup','LayoutTableRow','strong','emphasis','blockquote'].includes(role) || ['figure','sectionheader','sectionfooter'].includes(role)&&!name || layoutLists.has(node.nodeId) || role==='listitem' && !!node.parentId && layoutLists.has(node.parentId) || role === 'image' && insideNamedControl(node));
       const caption = !this.wording && meta?.tag === 'caption';
       const cell = !this.wording && node.backendDOMNodeId !== undefined ? cellPositions.get(node.backendDOMNodeId) : undefined;
-      const container = !this.wording && !node.ignored && (list || description || table || ['menu','listbox'].includes(role) || (['group','dialog','alertdialog','radiogroup','tablist'].includes(role) && !!name) || ['main','navigation','banner','contentinfo','complementary','region','form'].includes(role));
+      const container = !this.wording && !node.ignored && (list || description || table || ['article','menu','listbox'].includes(role) || (['figure','group','dialog','alertdialog','radiogroup','tablist'].includes(role) && !!name) || ['main','navigation','banner','contentinfo','complementary','region','form'].includes(role));
       const scope = container ? { id: node.nodeId, name, role, items: 0 } : undefined;
       if (scope && table && node.backendDOMNodeId !== undefined) Object.assign(scope, tableSizes.get(node.backendDOMNodeId));
       if (scope) containers.set(scope.id, scope);
       const innerScopes = scope ? [...scopes, scope] : scopes;
       const repeated = textRoles.has(role) && (this.wording ? said === lastSaid || groupNames.includes(said) : labelNames.includes(said));
       if (!node.ignored && !structuralRow && !caption && !skippedRoles.has(role) && !(suppressText && textRoles.has(role)) && (!(unnamedContainerRoles.has(role) && !name) || list || listItem || description || descriptionItem || scope) && (name || !textRoles.has(role)) && !repeated) {
-        const semantic = semanticNode(node);
+        const semantic = semanticNode(representative);
         if (!this.wording) {
           if (meta) {
             semantic.tagName = meta.tag;
@@ -340,6 +380,9 @@ export class MockVoiceOverBackend implements Backend {
             semantic.valueMax = typeof property(node, 'valuemax') === 'number' ? property(node, 'valuemax') as number : meta?.tag === 'progress' ? Number(meta.attributes.max ?? '1') : 100;
           }
           semantic.role = role;
+          if(role==='article')semantic.name=name;
+          if(projection){semantic.level=projection.level;semantic.headingParts=projection.parts;semantic.headingLink=!!projection.target;if(projection.name)semantic.name=projection.name;if(projection.outer)semantic.headingLinkOrder='link-heading';}
+          if(timeUnit){semantic.name=timeUnit.name;semantic.timeValueRepeated=timeUnit.repeated;}
           if (list) { semantic.setSize = children(node).filter(c => stringValue(c.role) === 'listitem').length; semantic.level = innerScopes.filter(c => c.role === 'list').length; }
           if (table && scope) { semantic.rows = (scope as Container).rows; semantic.columns = (scope as Container).columns; }
           if (description) semantic.setSize = children(node).filter(c => c.backendDOMNodeId !== undefined && dom.get(c.backendDOMNodeId)?.tag === 'dt').length;
@@ -367,7 +410,7 @@ export class MockVoiceOverBackend implements Backend {
           while (paragraph && stringValue(paragraph.role) !== 'paragraph') paragraph = paragraph.parentId ? byId.get(paragraph.parentId) : undefined;
           let label = node.parentId ? byId.get(node.parentId) : undefined;
           while (label && stringValue(label.role) !== 'LabelText') label = label.parentId ? byId.get(label.parentId) : undefined;
-          next.push({ identity: identity(node), backendDOMNodeId: node.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes, ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
+          next.push({ identity: identity(representative), backendDOMNodeId: representative.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes, ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
             ...(!this.wording && textRoles.has(role) && label && labelControls(label).includes(name) ? { labelText: true } : {}),
             ...(cell && tableScope ? { cell: { ...cell, table: tableScope.id, header: header ? stringValue(header.name) : '' } } : {}) });
           if (said) lastSaid = said;
@@ -387,7 +430,7 @@ export class MockVoiceOverBackend implements Backend {
           if (!this.wording && (meta?.tag === 'label' || role === 'LabelText')) innerLabels = [...innerLabels, ...labelControls(child)];
         }
       }
-      if (scope && ['group','list','descriptionlist','table','main','navigation','banner','contentinfo','complementary','region','form'].includes(role)) next.push({ identity: identity(node) + ':end', axId: node.nodeId,
+      if (scope && ['article','figure','group','list','descriptionlist','table','main','navigation','banner','contentinfo','complementary','region','form'].includes(role)) next.push({ identity: identity(node) + ':end', axId: node.nodeId,
         semantic: { ...semanticNode(node), role: ['list','descriptionlist','table'].includes(role) ? 'StaticText' : role,
           name: role === 'list' ? 'end of list' : role === 'descriptionlist' ? 'end of description list' : role === 'table' ? 'end of table' : name ? `end of ${name}` : 'end of' },
         containers: innerScopes, end: true });
@@ -400,6 +443,11 @@ export class MockVoiceOverBackend implements Backend {
       }
     }
     for (const c of containers.values()) c.items = next.filter(n => !n.end && !n.labelText && n.axId !== c.id && n.containers?.at(-1)?.id === c.id).length;
+    this.fragmentTargets.clear();
+    if(!this.wording)for(const n of next.filter(n=>!n.end)){
+      let id=n.backendDOMNodeId;
+      while(id!==undefined){const m=dom.get(id);if(!m)break;const target=m.attributes.id||(m.tag==='a'?m.attributes.name:undefined);if(target&&!this.fragmentTargets.has(target))this.fragmentTargets.set(target,n.identity);id=m.parent;}
+    }
     if (!this.wording) for (const n of next.filter(n => ['radio','tab','menuitem','option'].includes(n.semantic.role))) {
       const scope = n.containers ? [...n.containers].reverse().find(c => ['group','radiogroup','tablist','menu','listbox'].includes(c.role)) : undefined;
       const siblings = next.filter(s => !s.end && s.semantic.role === n.semantic.role && (scope ? s.containers?.some(c => c.id === scope.id) : true));
@@ -491,6 +539,7 @@ export class MockVoiceOverBackend implements Backend {
         this.announce(this.nodes.find(node => node.identity === this.focusedIdentity), 'No focused accessible object');
       } else {
         const before = this.current();
+        const beforeUrl=this.getPage().url();
         const beforeFocus = this.focusedIdentity, beforeEdit = this.focusedEdit;
         const focusedBefore = this.nodes.find(n => n.identity === beforeFocus);
         if (action.kind === 'intent') receipt.activation = await this.activate(signal);
@@ -507,6 +556,13 @@ export class MockVoiceOverBackend implements Backend {
         else await this.enterText(action, signal);
         signal?.throwIfAborted();
         await this.refresh(signal);
+        if(!this.wording&&action.kind==='intent'&&action.intent==='activate'&&this.getPage().url()!==beforeUrl){
+          const a=new URL(beforeUrl),b=new URL(this.getPage().url());
+          if(a.origin===b.origin&&a.pathname===b.pathname&&a.search===b.search&&b.hash){
+            let fragment:string|undefined;try{fragment=decodeURIComponent(b.hash.slice(1));}catch{/* Invalid fragments have no measured target. */}
+            const target=fragment===undefined?undefined:this.fragmentTargets.get(fragment);if(target)this.cursor=target;
+          }
+        }
         const after = this.current();
         const checkedStateChanged = (action.kind === 'intent' && action.intent === 'activate' || action.kind === 'key' && action.key === 'Space')
           && before !== undefined && after !== undefined && before.identity === after.identity
@@ -622,7 +678,8 @@ export class MockVoiceOverBackend implements Backend {
     if (!node || node.backendDOMNodeId === undefined) throw new Error('Current simulated cursor has no activatable DOM object.');
     if (node.semantic.disabled) throw new Error('Cannot activate a disabled accessible object.');
     const editable = editableRoles.has(node.semantic.role);
-    if (!editable && !clickableRoles.has(node.semantic.role)) throw new Error(`Activation is unsupported for simulated role ${node.semantic.role}.`);
+    const linkedHeading=node.semantic.role==='heading'&&node.semantic.headingLink;
+    if (!editable && !linkedHeading && !clickableRoles.has(node.semantic.role)) throw new Error(`Activation is unsupported for simulated role ${node.semantic.role}.`);
     const session = await this.cdp(signal);
     const { object } = await session.send('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
     if (!object.objectId) throw new Error('Current simulated cursor is no longer attached to a DOM object.');

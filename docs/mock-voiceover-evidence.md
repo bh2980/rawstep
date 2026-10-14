@@ -126,7 +126,7 @@ or an endorsed modified W3C document. No Apple/W3C/maintainer endorsement is imp
 
 ## Verification
 
-- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 38 selected local wording cases, explicit
+- `tests/mock-voiceover-evidence.test.ts`: 13 historical and 50 selected local wording cases, explicit
   simulation provenance, and protected-value safety
 - Existing Chromium-backed mock tests retain their navigation, DOM effect,
   focus, redaction and cancellation assertions; only affected speech wording
@@ -195,3 +195,30 @@ an incorrectly enforced ARIA state; explicit activation and custom-control guard
 button receipts retain the observed `dimmed button` wording. The new frozen-model scenario test reached 14/20 content
 matches (70.0%) and 4/22 full-speech matches (18.2%); it does not support a 90% replacement claim. The existing 52-case
 regression remains 219/238 content, 200/219 spoken and 74/265 full speech after this correction.
+
+## Article reading units in v5 (2026-10-15)
+
+Native contrasts show that text headings containing links and links wrapping headings form one reading stop, with
+nesting- and command-dependent wording. A fully linked heading uses its actual anchor for keyboard focus and guarded
+activation; a partially linked heading preserves static focus. The native profile also projects article names and
+boundaries, named figure boundaries, unnamed figure/header/footer contents, isolated punctuation and a repeated text
+receipt for simple date-only `time[datetime]`. Other datetime formats and mixed interactive/image headings remain
+uncalibrated. Same-document activation updates the reading cursor after an actual hash change without manually
+repairing DOM focus. Unchanged hashes, duplicate targets and shadow-tree targets need separate native validation.
+
+The original 12-case article calibration improves from 5/57 (8.8%) to 54/57 (94.7%) content matches. Its remaining three
+failures include a native Safari-unresponsive receipt and following cursor divergence. They remain in the historical
+denominator. Analysis emits quality-review warnings without changing observations or scores. A separate two-case
+activation repeat has 8/8 main-speech matches but 0/8 full-speech matches; it does not replace the failed original run.
+
+Twelve additional calibration questions (81 actions) and eight reserved new compositions (79 actions) use a constant
+page title and pre-observation frozen input-group partitions. The v5 build was fixed before opening the reserved results.
+Calibration content matches 46/48 (95.8%). The first reserved composition test matches **45/50 content steps (90.0%)**,
+45/49 spoken steps (91.8%), 73/79 all main-speech steps (92.4%), and 76/79 bounded state checks (one native observation
+missing). **Full speech including hints matches only 23/79 (29.1%)**. The familiar 52-case regression remains unchanged
+at 219/238 content, 200/219 spoken, 74/265 full speech and 254/265 bounded state checks.
+
+These are small synthetic compositions, not a random-site or full-replacement result. The reserved set is now inspected;
+further fitting must treat it as regression. Transfer errors involve containing-context heading jumps, headings in
+tables and fragment destinations. Safari/Chromium Tab preferences and usage hints remain substantial gaps. Run IDs,
+source hashes, reports and the next collection priorities are recorded in the corpus README.

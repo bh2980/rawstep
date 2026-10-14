@@ -46,7 +46,7 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v4` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, list positions and table coordinates, and preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v5` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 | Feature | Implemented behavior | Boundary |
 | --- | --- | --- |
