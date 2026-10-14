@@ -11,6 +11,28 @@ import { generateWorkflows } from "../src/generate/workflows.js";
 import { replayAction, replayCase } from "../src/replay.js";
 import { chordKeys, VoSession } from "../src/session.js";
 import { focusedAxNode, type AxDump } from "../src/axdump.js";
+import { compareRuns, splitSpeech } from "../src/compare.js";
+import type { CaseRecord } from "../src/cases.js";
+
+test("comparison counts privacy withholding separately from wording mismatches", () => {
+  const record = (text: string): CaseRecord => ({ caseSet: "workflows-v1", caseId: "search", source: "simulator", start: { aligned: true, speech: ["Before marker"] }, steps: [{ chord: "c", reason: "quiet", utterances: [{ t: 0, text }] }] });
+  const vo = new Map([["search", { ...record("c c c c"), source: "voiceover" as const }]]);
+  assert.equal(compareRuns(vo, new Map([["search", record("[typed input withheld]")]]), new Map()).rows[0]?.verdict, "redacted");
+  assert.equal(compareRuns(vo, new Map([["search", record("c")]]), new Map()).rows[0]?.verdict, "mismatch");
+});
+
+test("comparison preserves announcements after hints and repeated typing receipts", () => {
+  const split = splitSpeech([
+    { text: "c" },
+    { text: "You are currently on a text field. To enter text, type." },
+    { text: "c" },
+    { text: "Delivery arrives tomorrow" },
+    { text: "To open the autofill menu, press the up or down arrow key." },
+  ]);
+  assert.equal(split.main, "c c Delivery arrives tomorrow");
+  assert.equal(split.hint, "You are currently on a text field. To enter text, type. To open the autofill menu, press the up or down arrow key.");
+  assert.equal(splitSpeech([{ text: "Save changes Only affects this account button" }]).main, "Save changes Only affects this account button");
+});
 
 test("new fixtures keep the existing matrix intact and have valid reference/command metadata", () => {
   const original = generateElements(), screening = generateScreening(), workflows = generateWorkflows();

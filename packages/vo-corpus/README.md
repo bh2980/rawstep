@@ -141,7 +141,7 @@ and a 1500 ms polite update. The repeated identical live update was silent. Run:
 verified starts, all 139 expected actions and 205 usable, untruncated AX snapshots** (31 initial page trees, 35 starts and
 139 action trees). Native AX checks of focus, selection, values, visible panels, corrected errors, cart contents and live
 content passed 217 assertions, including start/completeness checks. Results are in `completion-summary.json`. The AT session
-boundary after the pilot is recorded in `continuation-events.jsonl`. Focus-gate checks bring the package test count to 40.
+boundary after the pilot is recorded in `continuation-events.jsonl`. Focus-gate and comparison checks bring the package test count to 42.
 
 Several observations need care during calibration. Favorite toggles and native details changed AX state while some
 keyboard activation steps were silent. Off live regions exposed updated text without speech; the other tested live
@@ -403,13 +403,64 @@ speech. Keep the raw runs and the small regression snapshots versioned by fixtur
 
 ## Simulator replay and comparison
 
-`replay.ts` runs the same case set on Rawstep's VoiceOver simulator (`rawstep/mock-voiceover`, headless Chromium, no Mac or VoiceOver needed; do not run it while another process owns a live VoiceOver) and writes records in the live runner's shape, with `source: "simulator"`:
+`replay.ts` runs the same case set on Rawstep's VoiceOver simulator (`rawstep/mock-voiceover`, headless Chromium, no Mac or VoiceOver needed) and writes records in the live runner's shape, with `source: "simulator"`. Stored runs can be analyzed with Tart stopped. Headless replay does not control the guest's VoiceOver or Safari.
 
 ```sh
 corepack pnpm --filter vo-corpus replay --cases data/cases/elements-v1 [--filter re] [--limit n]   # -> data/runs/<set>-sim-<time>/{records.jsonl,meta.json}
 corepack pnpm --filter vo-corpus compare data/runs/<voiceover run> data/runs/<sim run> [--out report.md]
 ```
 
-Chord mapping: `VO+Right` next, `VO+Left` previous, `VO+Space` activate, `VO+Cmd+H` next heading, `VO+Cmd+J` next form control, `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` as browser keys. Any other chord, or an action the simulator refuses (e.g. activating a disabled control), is a step with reason `unsupported` and no utterances. `VO+Home` has no equivalent: a freshly loaded page puts the simulated cursor on its first object, so the start chord is a read of the current object, which must name "Before marker". The page-load title announcement is dropped, like auto-read in the live runner. Utterance `t` is ms since the case started (browser launch included) and only orders steps; the simulator has no speech timing. One Chromium is launched per case, about 1 to 2 seconds each.
+Chord mapping: `VO+Right` next, `VO+Left` previous, `VO+Space` activate, `VO+Cmd+H` next heading, `VO+Cmd+Shift+H` previous heading, `VO+Cmd+J` next form control, `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` as browser keys, and lowercase ASCII letters/digits as task input. A case with any other chord or a minimum timed observation window is marked unsupported in full before its workflow runs. An action the simulator refuses (e.g. activating a disabled control) marks that and subsequent steps unsupported. `VO+Home` has no equivalent: a freshly loaded page puts the simulated cursor on its first object, so the start chord is a read of the current object, which must name "Before marker". The page-load title announcement is dropped, like auto-read in the live runner. Utterance `t` is ms since the case started (browser launch included) and only orders steps; the simulator has no speech timing. One Chromium is launched per case, about 1 to 2 seconds each.
 
-`compare.ts` joins by case id and step index, only for cases aligned in both runs. Hints (an utterance starting `현재 ` or `You are currently`, and anything after it) are split from the main announcement, shown apart, and not scored. Per step: `exact`, `normalized` (lowercase, no commas or periods, collapsed spaces), `language` (VoiceOver text has Hangul, simulator text does not; real runs are Korean UI, the simulator is English), `unsupported`, `missing`, or `mismatch` with a token diff. Match rate = (exact + normalized) / (exact + normalized + mismatch). `report.md` has overall counts, tables by `axes.role` and `axes.command`, and the 30 worst mismatches; `compare.json` has one row per step. Both default to the simulator run directory.
+`compare.ts` joins by case id and step index, only for cases aligned in both runs. Each known hint receipt (starting `현재 `, `You are currently`, or `To open the autofill menu,`) is shown apart and not scored. Main receipts after a hint remain in the comparison, including repeated characters and delayed updates. Per step: `exact`, `normalized` (lowercase, no commas or periods, collapsed spaces), `language` (a heuristic: VoiceOver text has Hangul, simulator text does not), `unsupported`, `redacted` (the public runner withheld typed input or redacted content), `missing`, or `mismatch` with a token diff. Privacy protection remains enabled. Match rate = (exact + normalized) / (exact + normalized + mismatch). The report also shows the scoreable fraction of all compared steps and matches over that whole denominator. These figures include marker navigation and silence; they are not a clone fidelity score. `report.md` has overall counts, tables by `axes.role` and `axes.command`, and the 30 worst mismatches; `compare.json` has one row per step. Both default to the simulator run directory.
+
+### First native-pattern analysis (2026-10-14)
+
+The completed English runs establish a useful **training baseline**, not an independently validated clone. The scope is
+the observed macOS/Safari 26.6.2 profile with the AT Driver capture voice. Full preference settings remain provisional.
+Exclude the original host captures, Korean exploratory runs, failed toolbar workflow pilot and menubar reset failure from
+this English calibration. Keep the backward-heading anomaly as provider/command evidence, not a rule to imitate.
+
+The `workflows-v1` replay of `english-dom-navigation-evidence-v2` compared all 139 recorded steps: **29 matches, 34 wording
+mismatches, 69 unsupported steps and 7 privacy-redacted observations**. The scoreable subset is 63/139 (45.3%), with
+29/63 matches (46.0%); matches over every compared step are 29/139 (20.9%). All 35 starts aligned. A case containing an
+unsupported key or timed observation window is withheld in full, so 69 is a workflow coverage gap, not 69 individually
+unsupported keys. The four-heading case includes one unresolved backward-command anomaly among the mismatches.
+The comparison does not establish behavioral or native-tree equivalence. Files:
+`data/runs/workflows-v1-sim-2026-10-14T09-32-12-851Z/{report.md,compare.json}`.
+
+The full `elements-v1` replay aligned all 392 simulated starts; the native run aligned 391/392. The paired comparison
+contains **1337 steps: 540 matches, 789 mismatches and 8 unsupported**. Its scoreable wording match rate is 540/1329
+(40.6%), or 540/1337 (40.4%) over all compared steps. Restricting the scoreable rows to native speech that is nonempty
+and not just a marker gives 254/791 matches (32.1%). This simple subset is a diagnostic, not an independent test set.
+There are 148 differences where native speech repeats `After marker button` and the simulation says `End of content`.
+Ten Tab steps skip an HTML link in Safari while the simulation focuses it; Safari's link Tab preference and the older
+collector's unverified keyboard reset must be resolved before treating these as simulator defects. Fixed-length walks,
+static/no-op widget activations and incomplete group/table traversal also limit this older matrix. Files:
+`data/runs/elements-v1-sim-2026-10-14T09-32-12-026Z/{report.md,compare.json}`. The local combined analysis, source references
+and raw examples are in `data/runs/pattern-analysis-2026-10-14.json`; these raw-data outputs remain ignored by Git.
+
+Observed patterns preserve command, context and silence:
+
+| Context/action | Observed native speech | Implication for calibration |
+| --- | --- | --- |
+| Focus checkbox vs Space toggles | `Email updates unchecked checkbox` → `checked Email updates checkbox` → `unchecked Email updates checkbox` | Navigation and state-change templates have different ordering |
+| Focus switch vs Space toggles | `Email updates off switch` → `on Email updates switch` → `off Email updates switch` | Switch state uses on/off; checkbox wording does not transfer |
+| Forward heading jump | `heading level 1 Cat care`, then `heading level 2 Feeding` | Role/level precede the heading name in this profile |
+| Button with description | `Save changes Only affects this account button` | Description participates in the main announcement before the role |
+| Named group traversal | `Billing address group` → `Save button` → `end of Billing address group` | Group entry/exit are reading stops; a flat node list loses context |
+| Right at the final page object | `After marker button` repeats in 137 matrix cases | Reaching an endpoint does not necessarily produce the simulation's `End of content` text |
+| Fieldset traversal | `Billing address group` → `Billing address` → `Save button` | Suppressing every repeated legend changes subsequent cursor positions |
+| Modal opening | `Delivery settings web dialog with 4 items Alex Insertion at beginning of text. Delivery name edit text` | Container entry and caret state add information beyond the focused input |
+| Favorite toggle/native details | AX state changes on activation with no speech | Re-announcing the current object after every action produces false output |
+| Search/cart updates | `2 results`, `No results`, `1 items, total 10 dollars` | Ordinary Enter actions can announce only changed live text |
+| Remove last cart item | `Add Cat toy to cart button`, while AX contains `Cart empty` | Focus restoration can dominate the captured announcement; AX text is not automatically spoken |
+| Live update and identical repeat | off: silence; polite/assertive/status/alert: `Delivery arrives tomorrow` once, then silence | Change detection and duplicate suppression matter; interruption behavior is still untested |
+| Manual vs automatic tabs | Focus can move without selected state; automatic selection adds repeated receipts | Model keyboard focus and selection separately; preserve raw repetitions until capture fidelity is checked |
+
+These findings support a scoped English web simulator. They do not cover VoiceOver audio, earcons, all settings,
+rotor/group interaction, tables, frames, complex content editing or speech-queue interruption. The next implementation
+order is: command-specific navigation/state-change wording; group entry/exit and modal context; keyboard editing and
+selection; timed live updates and focus restoration. Calibrate against the raw native records and their action AX trees,
+then evaluate on newly named/composed pages kept out of calibration. A better score on these same pages is a regression
+result, not proof of generalization to blogs, shops or other sites.

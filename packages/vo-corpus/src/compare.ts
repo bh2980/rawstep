@@ -2,10 +2,10 @@
  * Compares a live VoiceOver run with a simulator run of the same case set, step by step.
  *   tsx src/compare.ts <voiceoverRunDir> <simulatorRunDir> [--out report.md]
  *
- * Joins records by caseId and step index. Each step's speech is split into the main announcement and the trailing hint
- * (a later utterance starting "현재 " or "You are currently"); hints are listed apart and never scored. Scoring: exact,
+ * Joins records by caseId and step index. Known hint utterances are listed apart and never scored; subsequent main
+ * announcements stay in the comparison. Scoring: exact,
  * normalized (lowercase, no commas/periods, collapsed spaces), else a token diff. A VoiceOver text with Hangul against a
- * simulator text without is a language mismatch (the real runs are Korean UI, the simulator is English), counted apart.
+ * simulator text without is a possible language mismatch, counted apart. Privacy-redacted output is not scored.
  * Writes report.md and compare.json (default: inside the simulator run dir).
  */
 import { existsSync } from "node:fs";
@@ -17,7 +17,7 @@ import type { Case, CaseRecord, CaseSet } from "./cases.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export type Verdict = "exact" | "normalized" | "language" | "mismatch" | "unsupported" | "missing";
+export type Verdict = "exact" | "normalized" | "language" | "mismatch" | "unsupported" | "redacted" | "missing";
 export interface StepRow {
   caseId: string; step: number; chord: string; axes: Record<string, string>; verdict: Verdict;
   voiceover?: string; simulator?: string; voiceoverHint: string; simulatorHint: string;
@@ -27,14 +27,13 @@ export interface StepRow {
   tokenSimilarity: number;
 }
 
-const hintStart = /^\s*(현재 |You are currently)/;
+const hintStart = /^\s*(현재 |You are currently|To open the autofill menu,)/;
 const hangul = /[ㄱ-ㆎ가-힣]/;
 
-/** Main announcement and hint of one step: utterances from the first hint onward are the hint. */
+/** Classify each receipt: typing and delayed updates can arrive after a usage hint. */
 export function splitSpeech(utterances: { text: string }[]): { main: string; hint: string } {
   const texts = utterances.map(u => u.text.trim()).filter(Boolean);
-  const cut = texts.findIndex(text => hintStart.test(text));
-  return { main: (cut < 0 ? texts : texts.slice(0, cut)).join(" "), hint: cut < 0 ? "" : texts.slice(cut).join(" ") };
+  return { main: texts.filter(text => !hintStart.test(text)).join(" "), hint: texts.filter(text => hintStart.test(text)).join(" ") };
 }
 
 export const normalize = (text: string): string => text.toLowerCase().replace(/[,.，。]/g, " ").replace(/\s+/g, " ").trim();
@@ -94,6 +93,7 @@ export function compareRuns(vo: Map<string, CaseRecord>, sim: Map<string, CaseRe
       let verdict: Verdict;
       if (!x || !y || x.chord !== y.chord) verdict = "missing";
       else if (y.reason === "unsupported") verdict = "unsupported";
+      else if (/\[(?:typed input withheld|REDACTED)\]/.test(ys!.main)) verdict = "redacted";
       else if (xs!.main === ys!.main) verdict = "exact";
       else if (normalize(xs!.main) === normalize(ys!.main)) verdict = "normalized";
       else if (hangul.test(xs!.main) && !hangul.test(ys!.main)) verdict = "language";
@@ -112,11 +112,11 @@ const cell = (text: string | undefined) => (text ?? "(none)").replace(/\|/g, "\\
 
 function axisTable(axis: string, rows: StepRow[], caseInfo: { axes: Record<string, string>; aligned: boolean }[]): string {
   const keys = [...new Set(caseInfo.map(c => c.axes[axis] ?? "?"))].sort();
-  const lines = [`| ${axis} | cases | aligned | steps | matched | language | unsupported | mismatch | match rate |`, "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"];
+  const lines = [`| ${axis} | cases | aligned | steps | matched | language | unsupported | redacted | mismatch | match rate |`, "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"];
   for (const key of keys) {
     const cs = caseInfo.filter(c => (c.axes[axis] ?? "?") === key), rs = rows.filter(r => (r.axes[axis] ?? "?") === key);
     const matched = count(rs, "exact") + count(rs, "normalized"), lang = count(rs, "language"), uns = count(rs, "unsupported"), mis = count(rs, "mismatch");
-    lines.push(`| ${key} | ${cs.length} | ${cs.filter(c => c.aligned).length} | ${rs.length} | ${matched} | ${lang} | ${uns} | ${mis} | ${pct(matched, matched + mis)} |`);
+    lines.push(`| ${key} | ${cs.length} | ${cs.filter(c => c.aligned).length} | ${rs.length} | ${matched} | ${lang} | ${uns} | ${count(rs, "redacted")} | ${mis} | ${pct(matched, matched + mis)} |`);
   }
   return lines.join("\n");
 }
@@ -127,12 +127,15 @@ export function renderReport(rows: StepRow[], caseInfo: { caseId: string; axes: 
   return [
     "# VoiceOver vs simulator", "",
     `VoiceOver run: \`${names.vo}\`  `, `Simulator run: \`${names.sim}\``, "",
-    "Match rate = (exact + normalized) / (exact + normalized + mismatch). Language-mismatch steps (VoiceOver Korean, simulator English), unsupported chords and unaligned cases are counted apart. Hints are not scored.", "",
+    "Match rate = (exact + normalized) / (exact + normalized + mismatch). Language-mismatch steps, unsupported chords, privacy-redacted observations and unaligned cases are counted apart. Known hint receipts are not scored; later main receipts are preserved. Redaction is never disabled for comparison.", "",
     "## Overall", "",
     `- cases in both runs: ${caseInfo.length}, aligned in both: ${caseInfo.filter(c => c.aligned).length}`,
     `- steps compared: ${rows.length}`,
-    `- exact: ${count(rows, "exact")}, normalized: ${count(rows, "normalized")}, language mismatch: ${count(rows, "language")}, unsupported by simulator: ${count(rows, "unsupported")}, step missing: ${count(rows, "missing")}, mismatch: ${mis}`,
-    `- match rate (excluding language, unsupported, missing): ${pct(matched, matched + mis)}`, "",
+    `- exact: ${count(rows, "exact")}, normalized: ${count(rows, "normalized")}, language mismatch: ${count(rows, "language")}, unsupported by simulator: ${count(rows, "unsupported")}, privacy redacted: ${count(rows, "redacted")}, step missing: ${count(rows, "missing")}, mismatch: ${mis}`,
+    `- match rate (excluding language, unsupported, redacted, missing): ${pct(matched, matched + mis)}`, "",
+    `- scoreable comparison coverage: ${pct(matched + mis, rows.length)} (${matched + mis}/${rows.length} compared steps)`,
+    `- matches among all compared steps: ${pct(matched, rows.length)} (${matched}/${rows.length}); includes silence and marker navigation`,
+    "These are wording comparisons on this fixture set, not an overall VoiceOver fidelity score. Unaligned and absent cases are outside the compared-step denominator.", "",
     "## By role", "", axisTable("role", rows, caseInfo), "",
     "## By command", "", axisTable("command", rows, caseInfo), "",
     `## Worst ${worst.length} mismatches`, "",
