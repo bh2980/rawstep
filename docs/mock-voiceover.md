@@ -419,6 +419,11 @@ Your page must supply the actions and completion state used by its task; the sni
 
 The wrapper accepts normal runner options including `policy`, `allowedActions`, budgets from the task, `signal`, `diagnosticScreenshots`, and `browserExecutablePath` (these library options are not exposed as CLI flags); it supplies the simulator backend and defaults `headless` to `true`. A `warn` callback can redirect the startup warning. Advanced injected browser sessions must provide a real compatible Chromium page. Policies receive the same model-neutral screen-reader-shaped observation contract, with `provenance: 'simulation'`, rather than a screenshot or privileged DOM selector. A policy can be scripted, local, remote, or model-backed; no provider is selected by Rawstep.
 
+Advanced evaluator code can call `backend.getReadingCursorObservation()` after `observe()` to inspect its cached
+simulation target, including the matching observation window ID. This method performs no navigation and is absent
+from policy observations. It is a simulator diagnostic, not a native cursor oracle; the corpus independently joins it
+to CDP inventory and retains unknown native geometry/structural identities instead of inferring targets from speech.
+
 For article containers, `entryChildName` is the name of the immediate **exposed AX child** along the path to the
 reading target. Pass an empty string for an unnamed structural child; do not replace it with the descendant button's
 label. The formatter uses it only when the reference profile has no Native article name. `inferredName` marks the

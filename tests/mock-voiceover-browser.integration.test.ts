@@ -29,6 +29,21 @@ async function fixture(html: string, observationMinWaitMs = 0) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('records the observed reading cursor independently of unchanged keyboard focus without changing speech',async()=>{
+    const f=await fixture('<button id="start" autofocus>Start</button><h2 id="topic">Visit guide</h2><p>Arrival instructions</p>');
+    await f.page.locator('#start').focus();
+    const first=f.backend.getReadingCursorObservation()!;
+    expect(first.windowId).toBe(f.loaded.windowId);expect(first.target).toMatchObject({role:'button',name:'Start',end:false});
+    await f.intent('next');const heading=f.backend.getReadingCursorObservation()!;
+    expect(heading.target).toMatchObject({role:'heading',name:'Visit guide'});
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('start');
+    await f.intent('next');expect(f.backend.getReadingCursorObservation()!.target).toMatchObject({role:'StaticText',name:'Arrival instructions'});
+    const copy=f.backend.getReadingCursorObservation()!;copy.target!.name='tampered';expect(f.backend.getReadingCursorObservation()!.target!.name).toBe('Arrival instructions');
+    const quiet=await f.backend.observe();expect(quiet.speech).toEqual([]);expect(f.backend.getReadingCursorObservation()!.windowId).toBe(quiet.windowId);
+    expect(quiet).not.toHaveProperty('readingCursor');
+    await f.backend.close();expect(f.backend.getReadingCursorObservation()).toBeUndefined();
+  });
+
   it('uses native radio name/form groups, omits anonymous singleton positions and stays silent on repeated selection',async()=>{
     const f=await fixture('<button>Start</button><form><input type="radio" name="choice" aria-label="Harbor"></form><form><input type="radio" name="choice" aria-label="Park"></form><input type="radio" aria-label="Museum">');
     expect(await f.intent('next')).toEqual(['Harbor radio button 1 of 1']);

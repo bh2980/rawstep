@@ -69,6 +69,10 @@ type Cell = VoiceOverCell;
 type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; hintInCell?:boolean;hintTextFragment?:boolean; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
 type DOMMeta = { tag: string;text?:string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
 type EditState = VoiceOverEditState;
+export type MockVoiceOverCursorObservation = {
+  protocol:'mock-reading-cursor-v1';windowId:string;capturedAt:string;
+  target?:{identity:string;axId:string;backendDOMNodeId?:number;role:string;name:string;end:boolean;cell?:{row:number;column:number}};
+};
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 export type MockVoiceOverSpeechInputObservation = {
   protocol:'mock-speech-inputs-v1';windowId:string;capturedAt:string;
@@ -110,6 +114,7 @@ export class MockVoiceOverBackend implements Backend {
   private pendingHint?: {text:string;dueAt:number};
   private speechContext: VoiceOverSpeechContext = {containers:[]};
   private speechInputObservation?: MockVoiceOverSpeechInputObservation;
+  private cursorObservation?: MockVoiceOverCursorObservation;
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
@@ -146,6 +151,11 @@ export class MockVoiceOverBackend implements Backend {
   /** Evaluator-only inputs used in the last completed window; never included in policy observations. */
   getSpeechInputObservation(): MockVoiceOverSpeechInputObservation | undefined {
     return this.speechInputObservation && structuredClone(this.speechInputObservation);
+  }
+
+  /** Evaluator-only cached reading target from the last completed observation; never included in policy observations. */
+  getReadingCursorObservation(): MockVoiceOverCursorObservation | undefined {
+    return this.cursorObservation && structuredClone(this.cursorObservation);
   }
 
   private emit(event: unknown): void {
@@ -872,6 +882,11 @@ export class MockVoiceOverBackend implements Backend {
         outputs: [...window.outputs], speech: window.outputs.map(output => output.text),
       };
       this.speechInputObservation={protocol:'mock-speech-inputs-v1',windowId:window.id,capturedAt:observation.endedAt,events:structuredClone(window.speechInputs)};
+      const current=this.current();
+      this.cursorObservation={protocol:'mock-reading-cursor-v1',windowId:window.id,capturedAt:observation.endedAt,
+        ...(current?{target:{identity:current.identity,axId:current.axId,backendDOMNodeId:current.backendDOMNodeId,
+          role:current.semantic.role,name:current.semantic.name,end:current.end===true,
+          ...(current.cell?{cell:{row:current.cell.row,column:current.cell.column}}:{})}}:{})};
       this.window = undefined;
       return observation;
     } finally { this.busy = false; }
@@ -884,6 +899,7 @@ export class MockVoiceOverBackend implements Backend {
     this.page = undefined;
     this.nodes = [];
     this.speechInputObservation=undefined;
+    this.cursorObservation=undefined;
     this.window = undefined;
     this.pendingHint=undefined;
     this.listeners.clear();
