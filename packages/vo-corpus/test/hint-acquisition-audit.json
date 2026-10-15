@@ -1,0 +1,127 @@
+{
+  "at": "2026-10-15T20:36:28.880Z",
+  "scope": "Every scheduled Native attempt, including terminal start failure and unexecuted planned rows; no raw start speech is published. Model-based task or fixture-health scores are separate. Recovered attempts do not erase the original failure.",
+  "recovery": {
+    "at": "2026-10-15T20:13:38.715Z",
+    "failedRun": "hint-source-context-v1-2026-10-15T20-08-18-625Z",
+    "plannedActionsInFailedRun": 30,
+    "scoredActionsInFailedRun": 0,
+    "evidence": {
+      "start-recovery-probe.json": "41e574ce4ff10af902b5d2b0ba646771aca6660edcad7b41ac54b64274f5d0d9",
+      "start-recovery-key-probe.json": "09a7d6244d354e5c80ef2876edc51153e488b719c3dfa6acdf27a18885b404d4",
+      "voiceover-restart-before.json": "5b7ad9f19237b377e6ef9fceab02662eae64a7063cd96a5aacff8f44ee8df159",
+      "voiceover-restart-after.json": "2dec25cc1655a55c261f7aff61b036d4f3499e2711b08172e48164cc81f696e8"
+    },
+    "summary": "Safari keyboard focus moved with Tab and Shift+Tab but repeated VO synchronization/Home retained an outline unmatched to current Safari AX. VoiceOver process restart restored both the marker receipt and unique marker outline/AX. Cause remains unestablished; this does not prove AT Driver interference. Guest VoiceOver was quit and restored with Command-F5; no voice/settings preference or model/case/source change was made. Setup-probe target speech was not used to alter rules, predictions or selection.",
+    "commandReference": "https://support.apple.com/en-euro/guide/voiceover/cpvokys04/mac"
+  },
+  "attempts": [
+    {
+      "run": "hint-context-transfer-v1-2026-10-15T20-28-24-002Z",
+      "caseSet": "hint-context-transfer-v1",
+      "browser": {
+        "name": "safari",
+        "version": "26.6.2"
+      },
+      "startedAt": "2026-10-15T20:28:24.675Z",
+      "settings": "baseline-v2-dnd",
+      "sourceRecordsSha256": "c1254974bd2290d5a31899eeb1496e2a2be72d61b2241f28557d12a4391cacf4",
+      "sourceStepsSha256": "0b4cf500f761c6feebe0f892018a4a0b837054d4816d1208091903106bc3aea3",
+      "plannedCases": 2,
+      "plannedActions": 24,
+      "caseRecords": 2,
+      "recordedActions": 24,
+      "alignedCases": 2,
+      "errors": [],
+      "sourceMetaSha256": "b8296021fa85663a1cfc52ebe32a078350e9830d5eb24f9727e280cf5b2c044c"
+    },
+    {
+      "run": "hint-context-transfer-v1-2026-10-15T20-30-26-125Z",
+      "caseSet": "hint-context-transfer-v1",
+      "browser": {
+        "name": "chrome",
+        "version": "155.0.8059.80"
+      },
+      "startedAt": "2026-10-15T20:30:26.389Z",
+      "settings": "baseline-v2-dnd",
+      "sourceRecordsSha256": "a617032bfc2146ebcbf11df455d6586f88c31de4cc08f231299e3c22f3f9089b",
+      "sourceStepsSha256": "81ea5da867ec68797f5fe875e78d293d8ae71186814c379dc0ed83feb6ec5463",
+      "plannedCases": 2,
+      "plannedActions": 24,
+      "caseRecords": 2,
+      "recordedActions": 24,
+      "alignedCases": 2,
+      "errors": [],
+      "sourceMetaSha256": "ff3d3d44efb285a512669ce325c03f6ae38e4797595925f35b3bc90e9b9c4c0a"
+    },
+    {
+      "run": "hint-source-context-v1-2026-10-15T20-08-18-625Z",
+      "caseSet": "hint-source-context-v1",
+      "browser": {
+        "name": "safari",
+        "version": "26.6.2"
+      },
+      "startedAt": "2026-10-15T20:08:19.575Z",
+      "settings": "baseline-v2-dnd",
+      "sourceRecordsSha256": "38bc539cbed69217551e7f25bce5b7dcc02ca9d600d76edcf8fda67ed83fb011",
+      "sourceStepsSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "plannedCases": 10,
+      "plannedActions": 30,
+      "caseRecords": 1,
+      "recordedActions": 0,
+      "alignedCases": 0,
+      "errors": [
+        {
+          "caseId": "hint-source-context-v1.button-title-none",
+          "kind": "start-alignment",
+          "errorSha256": "afc2536d66bd725545cf41c11f4826ca80d7950037159c03f7b6c1536ad4419d",
+          "observedActions": 0
+        }
+      ],
+      "sourceMetaSha256": "30c367e8ad9e9bb6d641d6f32a627b86acb8e3f6f170c49a98c59d1c521500cd"
+    },
+    {
+      "run": "hint-source-context-v1-2026-10-15T20-13-39-010Z",
+      "caseSet": "hint-source-context-v1",
+      "browser": {
+        "name": "safari",
+        "version": "26.6.2"
+      },
+      "startedAt": "2026-10-15T20:13:39.623Z",
+      "settings": "baseline-v2-dnd",
+      "sourceRecordsSha256": "b3eeab9ffd35ef817a6d8422e7f043bacd3b059c56b8616093e2e599ed6a93cf",
+      "sourceStepsSha256": "5c1805629f1b1645e6e40ce8a397492c16eb43bcf9526e2a2f9d945d651341ad",
+      "plannedCases": 10,
+      "plannedActions": 30,
+      "caseRecords": 10,
+      "recordedActions": 30,
+      "alignedCases": 10,
+      "errors": [],
+      "sourceMetaSha256": "989a46ef582b09bf39a437cc9b2f84584b259e22d889ea5b13a821470ff50611"
+    },
+    {
+      "run": "hint-source-context-v1-2026-10-15T20-17-13-343Z",
+      "caseSet": "hint-source-context-v1",
+      "browser": {
+        "name": "chrome",
+        "version": "155.0.8059.80"
+      },
+      "startedAt": "2026-10-15T20:17:13.600Z",
+      "settings": "baseline-v2-dnd",
+      "sourceRecordsSha256": "28aad137b879fb53dbee1493cf8ec860fc3bdaaf4565d8386eefe035d85dbd85",
+      "sourceStepsSha256": "d10318fb0615d81c0ee6f36d5adae24f8c82783b1dbcdf1ee13a3ead25f5a320",
+      "plannedCases": 10,
+      "plannedActions": 30,
+      "caseRecords": 10,
+      "recordedActions": 30,
+      "alignedCases": 10,
+      "errors": [],
+      "sourceMetaSha256": "a8cc5122600a59938a5cc0a8342638f48a3b8dc783e3615dd42d50c7deb09800"
+    }
+  ],
+  "total": {
+    "plannedActions": 138,
+    "recordedActions": 108,
+    "caseRecords": 25
+  }
+}

@@ -65,7 +65,8 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
     if(!checkboxChange)speech=[row,columnChanged&&c.row>0?c.header:'',entered&&c.rowSpan>1?`spans ${c.rowSpan} rows`:'',entered&&c.columnSpan>1?`spans ${c.columnSpan} columns`:'',['cell','columnheader','rowheader'].includes(node.semantic.role)?node.semantic.name:speech,entered?`column ${c.column+1} of ${c.columns}`:''].filter(Boolean).join(' ');
     context.cell={...c};context.column={table:c.table,column:c.column};
   }else context.cell=referenceBrowser==='chrome'&&node.cell&&focused&&edit?{...node.cell}:undefined;
-  const scopes=(node.containers??[]).filter(c=>c.id!==node.axId);
+  const transparent=(c:VoiceOverContainer)=>focusMove&&c.role==='form'&&!c.name;
+  const scopes=(node.containers??[]).filter(c=>c.id!==node.axId&&!transparent(c));
   const entered=scopes.filter(c=>!context.containers.includes(c.id)&&c.name);
   const groupWords:Record<string,string>={group:'group',radiogroup:'radio group',tablist:'tab group'};
   const landmarks=['main','navigation','banner','contentinfo','complementary','region','form'];
@@ -88,8 +89,8 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   if(focusLink)for(const c of contexts.filter(c=>c.role==='list'))speech+=` ${[c.name,'list',Number.isSafeInteger(c.items)&&c.items>0?`${c.items} ${c.items===1?'item':'items'}`:''].filter(Boolean).join(' ')}`;
   for(const c of contexts.filter(c=>c.role==='table'))speech+=` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
   if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[(referenceBrowser==='chrome'&&c.inferredName?'':c.name)||c.entryChildName,'article'].filter(Boolean).join(' ')}`;
-  context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
-  const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId&&(c.role!=='dialog'||!!c.name));
+  context.containers=(node.containers??[]).filter(c=>!transparent(c)).map(c=>c.id);context.focusContext=nearest?.id;
+  const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId&&!transparent(c)&&(c.role!=='dialog'||!!c.name));
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
   const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{referenceBrowser,parentRole:parent?.role,dialogAsFocusContext:!!parent&&focusDialogs.has(parent.id),inCell:(node.hintInCell||!!node.cell)&&!(node.semantic.role==='checkbox'&&parent?.role==='group'&&parent.name),end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {...provenance,speech,usageHint,context};

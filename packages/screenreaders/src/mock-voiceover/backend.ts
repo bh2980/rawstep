@@ -7,8 +7,8 @@ import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechCon
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v24' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v18' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v25' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v19' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -426,6 +426,7 @@ export class MockVoiceOverBackend implements Backend {
               semantic.help=descriptionText;semantic.description=undefined;semantic.hasMoreContent=false;
             }
           }
+          if(this.referenceBrowser==='safari'&&['button','link'].includes(role)&&attrs.title&&attrs.title===name&&!related&&!ariaDescription)semantic.help=attrs.title;
           semantic.hasPopup = typeof property(node, 'hasPopup') === 'string' ? property(node, 'hasPopup') as string : undefined;
           const invalid = property(node, 'invalid');
           semantic.invalid = invalid !== undefined && invalid !== false && invalid !== 'false';

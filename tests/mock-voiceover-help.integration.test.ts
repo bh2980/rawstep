@@ -15,8 +15,7 @@ it.each(evidence.profiles)('projects DOM description sources into the $browser s
    for(const row of profile.rows.filter(r=>r.caseId===fixture.id)){
     await backend.execute({kind:'key',key:row.chord});
     const actual=(await backend.observe()).speech;
-    // Retain the literal trailing-space gap in the unit evidence test; compare content here.
-    expect(actual).toEqual(row.utterances.map(u=>u.text.trimEnd()));
+    expect(actual).toEqual(row.utterances.map(u=>u.text));
    }
   }finally{await backend.close();await page.close();}
  }

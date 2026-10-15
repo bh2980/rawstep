@@ -29,15 +29,14 @@ for(const name of ['dialog-compositions','description-help-combinations']){
      expect((target.containers??[]).map(s=>({role:s.role,name:s.name,...s.role==='dialog'?{items:s.items}:{}}))).toEqual(row.evaluation.inputVerification.observedScopes);
      const native=row.utterances.map(u=>u.text);
      if(JSON.stringify(observation.speech)===JSON.stringify(native))literalFull++;
-     // Known Native title-help receipt space remains in the separate literal Full count.
-     expect(observation.speech,`${c.id} ${row.step}`).toEqual(native.map(s=>s.trimEnd()));
+     expect(observation.speech,`${c.id} ${row.step}`).toEqual(native);
      const state=await fixturePageState(page);expect(state.objectErrors??[]).toEqual([]);expect(state.focusId).toBe(row.keyboardFocus.native);
      for(const f of row.stateFields){const controls=state.objects!.filter(o=>o.role===f.role&&o.name===f.name);expect(controls).toHaveLength(1);expect((controls[0]!.state as Record<string,unknown>)[f.key]).toEqual(f.native);fields++;}actions++;
     }
     expect(evaluateTaskOutcome(c.taskOutcome,await fixturePageState(page)).status).toBe('success');await cdp.detach();
    }finally{await backend.close();await context.close();}
   }}finally{await browser.close();}
-  const expected=name==='dialog-compositions'?{actions:39,literalFull:profile.browser==='safari'?36:39,fields:97}:{actions:15,literalFull:profile.browser==='safari'?7:13,fields:15};
+  const expected=name==='dialog-compositions'?{actions:39,literalFull:39,fields:97}:{actions:15,literalFull:15,fields:15};
   expect({actions,literalFull,fields}).toEqual(expected);
   process.stdout.write('VO_PROJECTION_REGRESSION '+JSON.stringify({cohort:name,browser:profile.browser,...expected,fullContent:actions,actualInputVerified:actions})+'\n');
  },120000);

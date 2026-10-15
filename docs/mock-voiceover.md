@@ -188,6 +188,12 @@ missing title-help inputs motivated source contrasts and the v21 / Chrome v15 pr
 input/receipt regressions are separate from AX-supplied pure-formatter regressions and from the first independent score.
 Combined ARIA/title help is calibrated for native HTML buttons; unknown roles/contexts remain outside that claim.
 
+The [help/form contrast and reserved-task study](./voiceover-hint-source-context.md) records Safari/Chrome source
+and role differences for equal title help, transparent unnamed-form Tab context and literal help-receipt spaces.
+The reserved tasks retain first 19/24 gated matches per profile and a separate 24/24 verification-scope audit of the
+same predictions. Actual-input regressions and independent first results remain distinct; image-map link context
+and the current final build's new-site generalization remain unverified.
+
 ## List focus wording and dynamic-list evaluation
 
 Safari v22 / Chrome v16 distinguish a link reached by Tab/Shift+Tab from an object-reading command.
@@ -429,7 +435,7 @@ and interaction-mode-dependent hints remain uncalibrated.
 ## Browser reference profiles and evaluation limits
 
 `referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v21`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v18`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v19`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -462,7 +468,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v24` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v25` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

@@ -53,7 +53,8 @@ function compoundHeading(node:AxNode,ancestors:AxNode[]){
 export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
   const frame=nativeContainerPath(dump,path);if(frame.status!=='observed')return frame;
-  const {node,containers,ancestors}=frame;
+  const {node,ancestors}=frame;
+  const focusMove=['next_focusable_item','previous_focusable_item'].includes(command),containers=frame.containers.filter(c=>!(focusMove&&c.role==='form'&&!c.name));
   if(compoundHeading(node,ancestors))return unknown('compound link/heading reading unit requires independent input verification');
   const semanticRole=role(node);if(!semanticRole)return unknown('target role outside this input verifier');
   if(typeof node.AXEnabled!=='boolean')return unknown('enabled state missing');
@@ -67,7 +68,7 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   if(focusLink&&containers.some(c=>c.role==='list'&&c.items<1))return unknown('Native list item count unmeasured');
   const linkSet=semanticRole==='link'&&!focusLink?nativeLinkSet(node,ancestors):undefined;
   if(linkSet?.status==='unmeasured')return unknown(linkSet.reason);
-  const inCell=ancestors.some(n=>n.AXRole==='AXCell'),focusMove=['next_focusable_item','previous_focusable_item'].includes(command);
+  const inCell=ancestors.some(n=>n.AXRole==='AXCell');
   const cell=inCell&&!focusMove?nativeCellContext(dump,ancestors):undefined;
   if(cell&&cell.status!=='observed')return unknown(cell.status==='unmeasured'?cell.reason:'Native cell missing');
   const table=containers.filter(c=>c.role==='table').at(-1);
@@ -140,7 +141,7 @@ function scope(n:AxNode){
 }
 
 /** Verifies supported object inputs against visible geometry and AX attributes, never speech or keyboard focus. */
-export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefined){
+export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefined,options:{buttonSpaceEvent?:boolean}={}){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reasons:[reason]});
   if(!dump)return unknown('native AX snapshot missing');
   const visible=observeVisualCursor(dump);
@@ -151,6 +152,9 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     return {node,ancestors};
   });
   const {node}=chains[0]!,expected=input.target.semantic;
+  const focusMove=['next_focusable_item','previous_focusable_item'].includes(input.command);
+  if(options.buttonSpaceEvent&&(expected.role!=='button'||expected.tagName!=='button'||input.command!=='activate_form_control'))return unknown('button Space event verification requires the guarded native-button activation API');
+  const transparentForm=focusMove||options.buttonSpaceEvent;
   if(chains.some(c=>compoundHeading(c.node,c.ancestors))||expected.headingParts!==undefined||expected.headingLinkOrder!==undefined||expected.headingLink)return unknown('compound link/heading reading unit requires independent input verification');
   if(chains.some(c=>c.ancestors.some((n,i)=>unsupportedSpeechAncestor(n,i))))return unknown('dialog or nested web-area context not independently verified');
   if(chains.some(c=>c.ancestors.some(unmappedLandmark)))return unknown('Native landmark role outside this input verifier');
@@ -216,9 +220,9 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     }
   }
   const focusLink=expected.role==='link'&&['next_focusable_item','previous_focusable_item'].includes(input.command);
-  const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s.role==='list'&&!focusLink?{...s,items:undefined}:s]:[]}));
+  const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s&&!(transparentForm&&s.role==='form'&&!s.name)?[s.role==='list'&&!focusLink?{...s,items:undefined}:s]:[]}));
   if(observedScopes.some(s=>JSON.stringify(s)!==JSON.stringify(observedScopes[0])))return unknown('native alias ancestor contexts disagree');
-  const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:c.role==='dialog'||c.role==='list'&&focusLink?{items:c.items}:{})}));
+  const expectedScopes=(input.target.containers??[]).filter(c=>!(transparentForm&&c.role==='form'&&!c.name)).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:c.role==='dialog'||c.role==='list'&&focusLink?{items:c.items}:{})}));
   if(focusLink&&observedScopes[0]!.some(s=>s.role==='list'&&(!('items' in s)||!s.items)))return unknown('Native list item count unmeasured');
   if(observedScopes[0]!.some(s=>s.role==='table'&&(!s.rows||!s.columns)))return unknown('native table dimensions not observed');
   if(JSON.stringify(observedScopes[0])!==JSON.stringify(expectedScopes))reasons.push('ancestor context differs');
@@ -253,7 +257,7 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     }
   }
 
-  const inCell=chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXCell')),focusMove=['next_focusable_item','previous_focusable_item'].includes(input.command);
+  const inCell=chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXCell'));
   if(!!(input.target.cell||input.target.hintInCell)!==inCell)reasons.push('cell context differs');
   if(!focusMove&&inCell){
     const cells=chains.map(c=>nativeCellContext(dump,c.ancestors));

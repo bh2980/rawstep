@@ -13,7 +13,7 @@ it.each(fixture.profiles)('replays inspected description/state combinations thro
    await page.setContent(c.html);await page.locator('#before').focus();await backend.start();backend.attachSession({page});await backend.observe();
    for(const row of profile.rows.filter(r=>r.caseId===c.id)){
     await backend.execute({kind:'key',key:row.chord});
-    expect((await backend.observe()).speech).toEqual(row.utterances.map(u=>u.text.trimEnd()));
+    expect((await backend.observe()).speech).toEqual(row.utterances.map(u=>u.text));
    }
   }finally{await backend.close();await page.close();}
  }

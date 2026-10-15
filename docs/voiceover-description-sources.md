@@ -66,3 +66,5 @@ contrasts, including equal strings. Safari v21 preserves the native button's ind
 retains inline description and omits the superseded title. The source-input verifier now catches omitted observed help,
 description and more-content fields. Original inputs/scores above remain unchanged; other roles and ambiguous sources
 remain uncalibrated.
+
+The later [help/form study](./voiceover-hint-source-context.md) preserves the final space in emitted help receipts. Current inspected regressions now match all 12 literal receipt windows per browser; the original first scores above remain unchanged.

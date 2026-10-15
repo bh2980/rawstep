@@ -21,13 +21,10 @@ it.each(evidence.profiles)('reproduces observed description/help placement on fi
     contexts.set(row.caseId,result.context);
     expect(result.speech).toBe(row.utterances[0]!.text);
     const generated=[result.speech,result.usageHint],native=row.utterances.map(u=>u.text);
-    if(row.observedHelp){
-      // Known raw-receipt gap: Native adds one final space to the help+hint receipt.
-      expect(native).toEqual([result.speech,result.usageHint+' ']);
-      expect(row.originalInputEquivalent).toBe(false);
-    }else{expect(generated).toEqual(native);literalFull++;}
+    expect(generated).toEqual(native);literalFull++;
+    if(row.observedHelp)expect(row.originalInputEquivalent).toBe(false);
   }
-  expect(profile.rows).toHaveLength(12);expect(literalFull).toBe(10);
+  expect(profile.rows).toHaveLength(12);expect(literalFull).toBe(12);
 });
 it('keeps shared HTML and all planned observations intact',()=>{
   expect(evidence.attemptSummary).toEqual({planned:24,observed:24,startupFailures:0});

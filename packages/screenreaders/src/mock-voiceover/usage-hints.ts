@@ -49,5 +49,6 @@ export function formatUsageHint(node:SimulatedSemanticNode,context:HintContext={
   const exit=web&&(!container||context.end&&context.forward)?exitWeb:dialog?'To exit this group, press Control -Option -Shift -Up Arrow.':'';
   const more=node.hasMoreContent?'Press Control -Option -Command -Slash to bring up the more content menu.':'';
   const hint=[`You are currently ${position} ${article} ${label}${location}.`,action,more,exit].filter(Boolean).join(' ');
-  return node.help?`${node.help}  ${hint}`:hint;
+  const help=node.help&&!(context.referenceBrowser==='safari'&&role==='button'&&node.help===node.name)?node.help:undefined;
+  return help?`${help}  ${hint} `:hint;
 }

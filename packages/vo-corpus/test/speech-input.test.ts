@@ -117,6 +117,25 @@ test('a primary link/heading role cannot hide a compound reading unit from input
  assert.equal(checkSpeechInput(target,d).status,'unmeasured');
 });
 
+test('Tab context projection treats an unnamed form as transparent while object context still requires it',()=>{
+ const d=dump(),region=d.root.children![0]!.children![0]!,node=region.children![0]!;
+ node.AXCustomContent={status:'no-value',errorCode:-25212};
+ region.children=[{AXRole:'AXGroup',AXRoleDescription:'form',AXDOMIdentifier:'plain-form',children:[node]}];
+ assert.equal(checkSpeechInput(input,d).status,'verified');
+ const explicit=structuredClone(input);explicit.target.containers!.push({id:'plain-form',role:'form',name:'',items:0});
+ assert.equal(checkSpeechInput(explicit,d).status,'verified');
+ const focus=nativeSpeechInput(d,[0,0,0,0],'next_focusable_item');assert.equal(focus.status,'constructed');
+ if(focus.status==='constructed')assert.equal(focus.input.target.containers!.some(c=>c.role==='form'),false);
+ const object={...input,command:'next_item'};assert.equal(checkSpeechInput(object,d).status,'mismatch');
+ const reading=nativeSpeechInput(d,[0,0,0,0],'next_item');assert.equal(reading.status,'constructed');
+ if(reading.status==='constructed')assert.equal(reading.input.target.containers!.at(-1)!.role,'form');
+ const event={...input,command:'activate_form_control',target:{...input.target,semantic:{...input.target.semantic,tagName:'button'}}};
+ assert.equal(checkSpeechInput(event,d).status,'mismatch');
+ assert.equal(checkSpeechInput(event,d,{buttonSpaceEvent:true}).status,'verified');
+ assert.equal(checkSpeechInput({...event,command:'activate_button'},d,{buttonSpaceEvent:true}).status,'unmeasured');
+ assert.equal(checkSpeechInput({...event,target:{...event.target,semantic:{...event.target.semantic,tagName:'input'}}},d,{buttonSpaceEvent:true}).status,'unmeasured');
+});
+
 test('target-conditioned inputs use AX and visible geometry while withholding unsupported contexts',()=>{
  const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
  node.AXCustomContent={status:'no-value',errorCode:-25212};

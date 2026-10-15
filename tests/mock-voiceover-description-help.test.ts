@@ -18,9 +18,9 @@ for(const cohort of audit.cohorts){
    contexts.set(row.caseId,context);main++;
    const native=row.utterances.map((u:any)=>u.text);
    if(JSON.stringify(utterances)===JSON.stringify(native))full++;
-   expect(utterances).toEqual(native.map((s:string)=>s.trimEnd()));expect(JSON.stringify(row.diagnostic)).toBe(original);
+   expect(utterances).toEqual(native);expect(JSON.stringify(row.diagnostic)).toBe(original);
   }
   expect(main).toBe(cohort.name==='dialog-compositions'?39:15);
-  expect(full).toBe(cohort.name==='dialog-compositions'?(profile.browser==='safari'?36:39):(profile.browser==='safari'?7:13));
+  expect(full).toBe(cohort.name==='dialog-compositions'?39:15);
  });
 }
