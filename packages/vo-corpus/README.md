@@ -1149,3 +1149,87 @@ no observed pre-request/post-window receipts. This is still calibration and does
 speech completion. Derived results: `data/analyses/chrome155-v1-controls-new-timing/`. The failed pre-recovery attempt
 is separately reported as 0/20 planned comparison successes in `data/analyses/chrome155-v1-controls-recovery-failure/`;
 it is never replaced by the repeat or removed from capture performance accounting.
+
+
+## State observability and Chrome v2 calibration
+
+`voiceover-evaluation-v3` keeps the prior speech/failure denominators and adds a bounded control-state oracle that can
+join DOM IDs or unique AX role/name identities. It uses a separate CDP session and actual DOM control values/selection,
+never simulator-predicted speech or state. Names come from AX, not from a control's current value. Duplicate names are
+not disambiguated by order, expected values or speech. Source identity is local to a snapshot, not a stable cross-run ID.
+
+Native AX schema v3 records snapshot-local `AXElementId` values using CFHash buckets with CFEqual collision checks.
+A table can expose one editable object through both row and column paths. This was observed for the generated table
+input: both occurrences had native object ID 15. Those aliases merge only when the recorded native identity agrees;
+differing state observations of that identity mark a non-atomic snapshot and fail comparison. Older captures without
+these IDs keep their identity ambiguity. Actual separate same-name controls remain ambiguous.
+
+`AXSelectedTextRange` is retained as location/length and interpreted as a caret only on nonsecure native text fields
+and text areas. Static text/web-area ranges do not establish an editable caret or VO cursor. Secure AX values and
+selection are explicitly withheld by the native observer. A one-case native smoke verified both withholding flags;
+`data/analyses/native-secure-state-smoke-v1/audit.json` pins the source hashes. The fixture's public password remains in
+its archived HTML by design; this check covers AX withholding, not arbitrary private-page speech.
+
+The original eight Chrome focus-context cases completed 54 planned actions. The same frozen input cohort was replayed
+with Chrome v1 and v2 against the same native records. No case or failure was removed:
+
+| Calibration/regression metric | Chrome v1 | Chrome v2 |
+| --- | ---: | ---: |
+| All planned main speech | 47/54 (87.0%) | 52/54 (96.3%) |
+| Content main speech | 39/46 (84.8%) | 44/46 (95.7%) |
+| Normalized full speech including hints (legacy) | 43/54 (79.6%) | 48/54 (88.9%) |
+| Full Speech Exact (raw full text) | 10/54 (18.5%) | 11/54 (20.4%) |
+
+A separate preplanned repeat selected only the three editing cases (29 actions) to capture native selection and alias
+identity. Native metadata stores that subset before workflow execution; the other five fixtures were not planned in
+this repeat. The same native subset yields v1 main speech 22/29 and v2 27/29; normalized full speech 18/29 and 23/29. Both builds
+match all 29 bounded keyboard-focus/control-state observations (174 compared properties, including native caret range),
+with zero identity ambiguity in this repeat. This identifies a wording/context bug rather than a caret-state mutation.
+It does not prove complete State Accuracy or navigation fidelity. The earlier 54-action captures retain their unresolved
+aliases; their state results are not silently replaced by this repeat.
+
+Chrome v2 announces the actual collapsed caret when object navigation enters/returns to a nonempty table field and
+retains row context after Tab entry. These rules use DOM identity, selection and table geometry, not fixture names or
+stored answers. Regression tests replay the actual action prefixes and assert five observed caret/row-context positions;
+full corpus comparison still scores every planned action, including the remaining header and editing-hint differences.
+Safari v7 behavior remains unchanged pending a controlled browser pair for these new rules.
+
+The candidate JS build was frozen before replay at `5a08b76d6a568d78af5ab23c2ec501ec90f78c3840b125af54791f4f059b14aa`;
+source hashes and copied JS are in `data/analyses/browser-profiles-v7-v2-caret-build/`. Native Chrome and the isolated model
+renderer are both 155.0.8059.80. Final derived reports, with evaluator source hashes, are in
+`data/analyses/chrome155-v2-focus-context-final-evaluator/` and
+`data/analyses/chrome155-v2-focus-context-state-final-evaluator/`.
+
+Every case above was inspected for calibration; none is an independent generalization result. Native VO reading cursor,
+complete task outcomes, partial/non-Latin selection behavior and generalization to new structures/sites remain unproven.
+The eight originally reserved transfer inputs still require the stricter action-sequence isolation review. Independent
+Navigation Accuracy and full State Accuracy are not inferred from the rates in this section.
+
+Capture metadata now freezes `plannedCaseIds` and `plannedActions` before execution. Resume cannot expand that plan;
+analysis retains every planned missing/failed action and rejects records outside the frozen plan. Legacy captures with
+no explicit subset continue to mean the complete input set. Controlled browser comparisons require equal frozen plans.
+`validate.ts` accepts an optional **new** output directory for reevaluating a historical model run and refuses to overwrite
+existing reports. New analyses fingerprint evaluator sources in addition to fixture bytes and source record/metadata hashes.
+
+
+`fullSpeechExact` is distinct from the historical `fullSpeech` normalization score. It preserves raw full-text case,
+punctuation, whitespace, hints, repetitions and order; receipt texts are joined with one space, so event batching and
+audio timing are still not scored. The normalized full-speech score remains for backward comparisons and is explicitly
+labelled legacy. Thus the 8-case v2 normalized full result is 48/54, while raw Full Speech Exact is only 11/54; neither
+should be presented as general simulator accuracy. The stricter evaluator reports are in
+`data/analyses/chrome155-v{1,2}-focus-context-full-exact-v3/` and
+`data/analyses/chrome155-v2-focus-context-state-full-exact-v3/`. All historical reports remain intact.
+
+Property coverage is coverage of the selected bounded oracle: value, checked/pressed/tab selection, expansion,
+accessibility-disabled state and exposed editable selection ranges. It is not all state available in the raw native AX
+tree. List selection models, hidden/removed object identity, configurable cursor tracking and unexposed properties still
+need further validation. Native focus never substitutes for the independent VO reading cursor. Read-only direct,
+nested-get and transactional AppleScript cursor probes still timed out on this guest; navigation remains unmeasured.
+
+
+Release-check reports from the committed evaluator sources are
+`data/analyses/chrome155-v2-focus-context-release-check/` and
+`data/analyses/chrome155-v2-focus-context-state-release-check/`. Earlier intermediate reports retain their original
+source hashes. Comparison failure can include missing observation or identity ambiguity; it is not automatically a
+confirmed simulator-state error. The known full-text differences and unmeasured native cursor keep replacement and
+independent 90% achievement unproven.

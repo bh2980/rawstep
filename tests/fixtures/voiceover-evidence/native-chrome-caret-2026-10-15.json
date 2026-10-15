@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 1,
+  "sourceRecordsSha256": "da30ea0cc68e306870b69be21c818ab5bb934e9915f767596470d808270a38ee",
+  "source": "Native Chrome 155 + VoiceOver; caret main-speech calibration only; table header/hint differences remain separate",
+  "cases": [
+    {
+      "sourceCaseId": "focus-context-v1.typed-return-end",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><input aria-label=\"Travel note\" autocomplete=\"off\"></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "42a3a41d98bec3412541bb7a5715464ed99ff3a79b029fa65ba417aaabf7a926",
+      "assertedSteps": [
+        9
+      ],
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 293351,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 293911,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 296128,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 296694,
+              "text": "You are currently on a selectable text, inside of a column header."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 298910,
+              "text": "Action Action column 2 of 2"
+            },
+            {
+              "t": 299470,
+              "text": "You are currently on a selectable text, inside of a column header."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 301759,
+              "text": "row 2 of 2 Day Monday column 1 of 2"
+            },
+            {
+              "t": 302328,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 304538,
+              "text": "Action "
+            },
+            {
+              "t": 304594,
+              "text": "Travel note edit text column 2 of 2"
+            },
+            {
+              "t": 305231,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        },
+        {
+          "chord": "b",
+          "utterances": [
+            {
+              "t": 307278,
+              "text": "b"
+            },
+            {
+              "t": 307858,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            },
+            {
+              "t": 308293,
+              "text": "b"
+            }
+          ]
+        },
+        {
+          "chord": "Left",
+          "utterances": [
+            {
+              "t": 310050,
+              "text": "b"
+            },
+            {
+              "t": 310622,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        },
+        {
+          "chord": "Right",
+          "utterances": [
+            {
+              "t": 313015,
+              "text": "b"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 315795,
+              "text": "Day Monday column 1 of 2"
+            },
+            {
+              "t": 316352,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 318578,
+              "text": "Action "
+            },
+            {
+              "t": 318641,
+              "text": "b Insertion at end of text. Travel note edit text column 2 of 2"
+            },
+            {
+              "t": 319282,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "focus-context-v1.prefilled-vo",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><input aria-label=\"Travel note\" value=\"Dock\" autocomplete=\"off\"></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "854b941286f6e99dd38ad352f0dfb74f3f514a0c7495ff30e4676aa37ce11cbb",
+      "assertedSteps": [
+        4,
+        7
+      ],
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 364636,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 365193,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 367429,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 367989,
+              "text": "You are currently on a selectable text, inside of a column header."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 370108,
+              "text": "Action Action column 2 of 2"
+            },
+            {
+              "t": 370666,
+              "text": "You are currently on a selectable text, inside of a column header."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 372878,
+              "text": "row 2 of 2 Day Monday column 1 of 2"
+            },
+            {
+              "t": 373438,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 375760,
+              "text": "Action "
+            },
+            {
+              "t": 375814,
+              "text": "Dock Insertion at beginning of text. Travel note edit text column 2 of 2"
+            },
+            {
+              "t": 376456,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        },
+        {
+          "chord": "Right",
+          "utterances": [
+            {
+              "t": 378498,
+              "text": "d"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 381293,
+              "text": "Day Monday column 1 of 2"
+            },
+            {
+              "t": 381860,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 384064,
+              "text": "Action "
+            },
+            {
+              "t": 384123,
+              "text": "Dock Insertion on word: Dock , between characters: d  and o Travel note edit text column 2 of 2"
+            },
+            {
+              "t": 384767,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "focus-context-v1.prefilled-tab",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><input aria-label=\"Travel note\" value=\"Dock\" autocomplete=\"off\"></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "854b941286f6e99dd38ad352f0dfb74f3f514a0c7495ff30e4676aa37ce11cbb",
+      "assertedSteps": [
+        5,
+        6
+      ],
+      "steps": [
+        {
+          "chord": "Tab",
+          "utterances": [
+            {
+              "t": 431724,
+              "text": "Dock contents selected Travel note edit text Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 432305,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        },
+        {
+          "chord": "Right",
+          "utterances": [
+            {
+              "t": 434481,
+              "text": "k"
+            }
+          ]
+        },
+        {
+          "chord": "Tab",
+          "utterances": [
+            {
+              "t": 437177,
+              "text": "After marker button"
+            },
+            {
+              "t": 437751,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "Shift+Tab",
+          "utterances": [
+            {
+              "t": 440185,
+              "text": "Dock contents selected Travel note edit text Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 440751,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        },
+        {
+          "chord": "Left",
+          "utterances": [
+            {
+              "t": 442797,
+              "text": "d"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 445445,
+              "text": "Day Monday column 1 of 2"
+            },
+            {
+              "t": 445999,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 448228,
+              "text": "Action "
+            },
+            {
+              "t": 448285,
+              "text": "Dock Insertion at beginning of text. Travel note edit text column 2 of 2"
+            },
+            {
+              "t": 448922,
+              "text": "You are currently on a text field, inside of a cell. To enter text in this field, type."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

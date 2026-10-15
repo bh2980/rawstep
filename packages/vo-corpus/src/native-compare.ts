@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {casesFingerprint,type CaseRecord,type CaseSet} from './cases.js';
+import {casesFingerprint,plannedCaseSet,type CaseRecord,type CaseSet} from './cases.js';
 import {focusedAxNode,nativeNodeName,type AxDump,type AxNode} from './axdump.js';
 import {nativePageState} from './state.js';
 import {validateRuns} from './validate.js';
@@ -13,10 +13,13 @@ const controlRoles=new Set(['AXButton','AXCheckBox','AXRadioButton','AXSwitch','
 /** Compare logical control identities across browser wrapper trees, not raw child-index paths. */
 export function nativeBehavior(dump:AxDump){
   if(dump.truncated||dump.stringTruncations)return undefined;
-  const counts=new Map<string,number>(),controls:Record<string,unknown>={};
+  if(nativePageState(dump)?.objectErrors?.length)return undefined;
+  const counts=new Map<string,number>(),controls:Record<string,unknown>={},seen=new Set<number>();
   const identity=(n:AxNode)=>({role:n.AXRole??'',name:nativeNodeName(n),id:typeof n.AXDOMIdentifier==='string'?n.AXDOMIdentifier:''});
   const visit=(n:AxNode)=>{
-    if(controlRoles.has(n.AXRole??'')){
+    const alias=typeof n.AXElementId==='number'&&seen.has(n.AXElementId);
+    if(controlRoles.has(n.AXRole??'')&&!alias){
+      if(typeof n.AXElementId==='number')seen.add(n.AXElementId);
       const target=identity(n),base=target.id?'id:'+target.id:JSON.stringify([target.role,target.name]),ordinal=(counts.get(base)??0)+1;counts.set(base,ordinal);
       const key=base+':'+ordinal;
       const state=nativePageState({...dump,focusedPath:[],root:{...n,AXDOMIdentifier:key,children:[]}})?.controls[key]??{};
@@ -26,14 +29,15 @@ export function nativeBehavior(dump:AxDump){
   };
   visit(dump.root);
   const focus=focusedAxNode(dump);
-  return {focus:focus?identity(focus):null,controls:Object.fromEntries(Object.entries(controls).sort(([a],[b])=>a.localeCompare(b)))};
+  const target=focus?identity(focus):undefined,key=target?.id?'id:'+target.id:JSON.stringify([target?.role,target?.name]);
+  return {focus:target??null,focusComparable:!!target&&counts.get(key)===1,ambiguousIdentities:[...counts].filter(([,n])=>n>1).map(([id,count])=>({id,count})),controls:Object.fromEntries(Object.entries(controls).sort(([a],[b])=>a.localeCompare(b)))};
 }
 
 export function nativeSpeechComparison(set:CaseSet,safari:Map<string,CaseRecord>,chrome:Map<string,CaseRecord>){
   for(const records of [safari,chrome])for(const r of records.values())if(r.source!=='voiceover')throw new Error('Both browser comparison sources must be native VoiceOver');
   const report=validateRuns(set,safari,chrome);
-  return {cases:report.plannedCases,aligned:report.alignedCases,allMain:report.all,contentMain:report.content,fullSpeech:report.fullSpeech,contentFullSpeech:report.contentFullSpeech,
-    firstDifferences:firstDivergences(report),verdicts:report.verdicts,rows:report.rows.map(r=>({caseId:r.caseId,step:r.step,chord:r.chord,axes:r.axes,verdict:r.verdict,markerOnly:r.markerOnly,fullSpeechMatched:r.fullSpeechMatched,safariMain:r.voiceover,chromeMain:r.simulator,safariHint:r.voiceoverHint,chromeHint:r.simulatorHint}))};
+  return {cases:report.plannedCases,aligned:report.alignedCases,allMain:report.all,contentMain:report.content,fullSpeech:report.fullSpeech,fullSpeechExact:report.fullSpeechExact,contentFullSpeech:report.contentFullSpeech,
+    firstDifferences:firstDivergences(report),verdicts:report.verdicts,rows:report.rows.map(r=>({caseId:r.caseId,step:r.step,chord:r.chord,axes:r.axes,verdict:r.verdict,markerOnly:r.markerOnly,fullSpeechMatched:r.fullSpeechMatched,fullSpeechExactMatched:r.fullSpeechExactMatched,safariMain:r.voiceover,chromeMain:r.simulator,safariHint:r.voiceoverHint,chromeHint:r.simulatorHint}))};
 }
 
 if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
@@ -47,22 +51,25 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
     const bytes=await readFile(join(dir,'records.jsonl')),metaBytes=await readFile(join(dir,'meta.json')),meta=JSON.parse(metaBytes.toString());
     const archived=JSON.parse(await readFile(join(dir,'inputs/cases.json'),'utf8')) as CaseSet;
     if(meta.machine?.browser?.name!==browser||meta.caseSet!==set.id||meta.casesGeneratedAt!==set.generatedAt||meta.casesSha256!==hash||await casesFingerprint(join(dir,'inputs'),archived)!==hash)throw new Error('Native browser or archived input identity differs');
+    const plan=plannedCaseSet(set,meta.plannedCaseIds);
     const records=new Map<string,CaseRecord>();
     for(const line of bytes.toString().split('\n').filter(Boolean)){
       const r=JSON.parse(line) as CaseRecord;
-      if(r.source!=='voiceover'||r.caseSet!==set.id||records.has(r.caseId)||!set.cases.some(c=>c.id===r.caseId))throw new Error('Wrong native source, duplicate or unknown case');
+      if(r.source!=='voiceover'||r.caseSet!==set.id||records.has(r.caseId)||!plan.cases.some(c=>c.id===r.caseId))throw new Error('Wrong native source, duplicate or unknown case');
       records.set(r.caseId,r);
     }
-    const environment={reader:meta.atDriver.capabilities,macos:meta.machine.macos,build:meta.machine.build,locale:meta.machine.locale,languages:meta.machine.languages,settings:meta.settings,workflowStartProtocol:meta.workflowStartProtocol};
+    const environment={reader:meta.atDriver.capabilities,voiceOverAppVersion:meta.machine.voiceOverAppVersion,keyboardNavigation:meta.machine.keyboardNavigation,macos:meta.machine.macos,build:meta.machine.build,locale:meta.machine.locale,languages:meta.machine.languages,settings:meta.settings,caseOrder:meta.caseOrder,workflowStartProtocol:meta.workflowStartProtocol,observationProtocol:meta.observationProtocol};
     sources.push({browser,run:dir,recordsSha256:createHash('sha256').update(bytes).digest('hex'),metaSha256:createHash('sha256').update(metaBytes).digest('hex'),environment:{...environment,browser:meta.machine.browser}});
-    return {records,environment};
+    return {records,environment,plan};
   }
   const safari=await readRun(safariDir,'safari'),chrome=await readRun(chromeDir,'chrome');
   if(JSON.stringify(safari.environment)!==JSON.stringify(chrome.environment))throw new Error('Reader, OS, language, settings label or start protocol differs; collect a controlled pair instead of attributing these differences to the browser');
-  const speech=nativeSpeechComparison(set,safari.records,chrome.records),states=[];
+  if(JSON.stringify(safari.plan.cases.map(c=>c.id))!==JSON.stringify(chrome.plan.cases.map(c=>c.id)))throw new Error('Frozen native capture plans differ; compare the same preplanned cases');
+  const planned=safari.plan;
+  const speech=nativeSpeechComparison(planned,safari.records,chrome.records),states=[];
   const roles:{browser:string;caseId:string;counts:Record<string,number>}[]=[];
   for(const [browser,dir,records]of [['safari',safariDir,safari.records],['chrome',chromeDir,chrome.records]] as const){
-    for(const c of set.cases){
+    for(const c of planned.cases){
       const r=records.get(c.id),counts:Record<string,number>={};
       if(r?.start.axPath){
         const d=JSON.parse(await readFile(join(dir,r.start.axPath),'utf8')) as AxDump;
@@ -71,14 +78,14 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
       roles.push({browser,caseId:c.id,counts});
     }
   }
-  for(const c of set.cases)for(const [step,chord]of c.chords.entries()){
+  for(const c of planned.cases)for(const [step,chord]of c.chords.entries()){
     const records=[safari.records.get(c.id),chrome.records.get(c.id)],snapshots=[];
     for(const [i,r]of records.entries()){
       const s=r?.steps[step],dir=i===0?safariDir:chromeDir;
       snapshots.push(r?.start.aligned&&s?.chord===chord&&!s.foregroundError&&s.axPath?await readFile(join(dir,s.axPath),'utf8').then(text=>nativeBehavior(JSON.parse(text) as AxDump)).catch(()=>undefined):undefined);
     }
     const [a,b]=snapshots,available=!!a&&!!b;
-    states.push({caseId:c.id,step,chord,available,keyboardFocusMatched:available&&!!a.focus&&!!b.focus&&JSON.stringify(a.focus)===JSON.stringify(b.focus),controlsMatched:available&&JSON.stringify(a.controls)===JSON.stringify(b.controls),safari:a??null,chrome:b??null});
+    states.push({caseId:c.id,step,chord,available,keyboardFocusMatched:available&&a.focusComparable&&b.focusComparable&&JSON.stringify(a.focus)===JSON.stringify(b.focus),controlsMatched:available&&!a.ambiguousIdentities.length&&!b.ambiguousIdentities.length&&JSON.stringify(a.controls)===JSON.stringify(b.controls),safari:a??null,chrome:b??null});
   }
   const result={schemaVersion:1,comparedAt:new Date().toISOString(),casesSha256:hash,sources,speech,
     stateMetrics:{planned:states.length,available:states.filter(r=>r.available).length,keyboardFocusMatched:states.filter(r=>r.keyboardFocusMatched).length,controlsMatched:states.filter(r=>r.controlsMatched).length},states,initialAxRoleCounts:roles,

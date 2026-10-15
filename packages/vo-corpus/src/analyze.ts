@@ -3,8 +3,8 @@ import {createHash} from "node:crypto";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import {dirname,join,resolve} from "node:path";
 import {pathToFileURL} from "node:url";
-import {casesFingerprint,type CaseRecord,type CaseSet} from "./cases.js";
-import {validateRuns} from "./validate.js";
+import {casesFingerprint,plannedCaseSet,type CaseRecord,type CaseSet} from "./cases.js";
+import {evaluationSourceHashes,validateRuns} from "./validate.js";
 import {comparePageState,nativePageState,summarizeState} from "./state.js";
 import type {AxDump} from "./axdump.js";
 import {normalize} from "./compare.js";
@@ -51,15 +51,18 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   const [casesDir,nativeDir,modelDir,out]=[casesArg,nativeArg,modelArg,outArg].map(p=>resolve(p)) as [string,string,string,string];
   const set=JSON.parse(await readFile(join(casesDir,'cases.json'),'utf8')) as CaseSet,hash=await casesFingerprint(casesDir,set);
   const sourceHashes:{source:string;recordsSha256:string;metaSha256:string}[]=[],referenceBrowsers:Partial<Record<CaseRecord['source'],string>>={};
+  let nativePlan: unknown;
   async function readRun(dir:string,source:CaseRecord['source']){
     const bytes=await readFile(join(dir,'records.jsonl')),metaBytes=await readFile(join(dir,'meta.json')),meta=JSON.parse(metaBytes.toString());
     if(meta.caseSet!==set.id||meta.casesGeneratedAt!==set.generatedAt||meta.casesSha256!==hash)throw new Error('Analysis requires verified case identity and fixture bytes');
     await verifyArchivedInputs(dir,hash);
     referenceBrowsers[source]=source==='voiceover'?meta.machine?.browser?.name:meta.referenceBrowser??'safari';
+    if(source==='voiceover')nativePlan=meta.plannedCaseIds;
+    const allowed=new Set(plannedCaseSet(set,meta.plannedCaseIds).cases.map(c=>c.id));
     const records=new Map<string,CaseRecord>();
     for(const line of bytes.toString().split('\n').filter(Boolean)){
       const r=JSON.parse(line) as CaseRecord;
-      if(r.source!==source||r.caseSet!==set.id||records.has(r.caseId)||!set.cases.some(c=>c.id===r.caseId))throw new Error('Wrong source, set, duplicate or unknown case in analysis');
+      if(r.source!==source||r.caseSet!==set.id||records.has(r.caseId)||!allowed.has(r.caseId))throw new Error('Wrong source, set, duplicate, unknown or unplanned case in analysis');
       records.set(r.caseId,r);
     }
     sourceHashes.push({source,recordsSha256:createHash('sha256').update(bytes).digest('hex'),metaSha256:createHash('sha256').update(metaBytes).digest('hex')});
@@ -67,7 +70,8 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   }
   const native=await readRun(nativeDir,'voiceover'),model=await readRun(modelDir,'simulator');
   if(!['safari','chrome'].includes(referenceBrowsers.voiceover??'')||referenceBrowsers.voiceover!==referenceBrowsers.simulator)throw new Error('Native browser differs from simulator reference browser; score each profile independently');
-  const selected={...set,cases:set.cases.filter(c=>partition==='all'||c.axes.partition===partition)};
+  const planned=plannedCaseSet(set,nativePlan);
+  const selected={...planned,cases:planned.cases.filter(c=>partition==='all'||c.axes.partition===partition)};
   if(!selected.cases.length)throw new Error('No cases in requested partition');
   const report=validateRuns(selected,native,model),states=[];
   const qualityWarnings=selected.cases.flatMap(c=>native.has(c.id)?captureWarnings(native.get(c.id)!):[]);
@@ -80,8 +84,8 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
     states.push({caseId:c.id,step:i,chord,...state});
   }
   await mkdir(dirname(out),{recursive:true});await mkdir(out);
-  const summary={schemaVersion:2,evaluationProtocol:report.evaluationProtocol,analyzedAt:new Date().toISOString(),partition,casesSha256:hash,sourceHashes,referenceBrowser:referenceBrowsers.voiceover,
-    nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,contentFullSpeech:report.contentFullSpeech,verdicts:report.verdicts,state:summarizeState(states),funnel:report.funnel,conditionalSpeech:report.conditionalSpeech,conditionalFullSpeech:report.conditionalFullSpeech,evaluation:report.evaluation},
+  const summary={schemaVersion:2,evaluationProtocol:report.evaluationProtocol,evaluatorSourceHashes:await evaluationSourceHashes(),analyzedAt:new Date().toISOString(),partition,casesSha256:hash,sourceHashes,referenceBrowser:referenceBrowsers.voiceover,capturePlan:{caseSetCases:set.cases.length,nativePlannedCaseIds:planned.cases.map(c=>c.id),explicit:nativePlan!==undefined},
+    nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,fullSpeechExact:report.fullSpeechExact,contentFullSpeech:report.contentFullSpeech,verdicts:report.verdicts,state:summarizeState(states),funnel:report.funnel,conditionalSpeech:report.conditionalSpeech,conditionalFullSpeech:report.conditionalFullSpeech,evaluation:report.evaluation},
     queue:firstDivergences(report),hints:hintComparison(report),qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Hints have a separate comparison; full-speech metrics retain their ordering with other receipts.'};
   await writeFile(join(out,'summary.json'),JSON.stringify(summary,null,2),{flag:'wx'});
   await writeFile(join(out,'speech.json'),JSON.stringify(report,null,2),{flag:'wx'});

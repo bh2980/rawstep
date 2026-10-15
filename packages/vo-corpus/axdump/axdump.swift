@@ -81,7 +81,7 @@ let focused: AXUIElement? = { let f = attribute(application, "AXFocusedUIElement
 
 let wanted: [String] = [
   "AXRole", "AXSubrole", "AXRoleDescription", "AXTitle", "AXDescription", "AXValue", "AXHelp", "AXPlaceholderValue",
-  "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXExpanded", "AXRequired", "AXVisited",
+  "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXSelectedTextRange", "AXExpanded", "AXRequired", "AXVisited",
   "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXARIACurrent", "AXInvalid", "AXURL",
 ]
 
@@ -99,9 +99,28 @@ func json(_ value: AnyObject) -> Any? {
   case let a as [AnyObject]: return a.compactMap(json)
   default:
     if CFGetTypeID(value) == AXUIElementGetTypeID() { return nil }
+    if CFGetTypeID(value) == AXValueGetTypeID() {
+      let ax = value as! AXValue
+      if AXValueGetType(ax) == .cfRange {
+        var range = CFRange(location: 0, length: 0)
+        if AXValueGetValue(ax, .cfRange, &range) { return ["location": range.location, "length": range.length] }
+      }
+    }
     let s = "\(value)"
     return limited(s)
   }
+}
+
+// IDs are local to one snapshot and use AX equality, not tree position or accessible name.
+var elementBuckets: [CFHashCode: [(AXUIElement, Int)]] = [:]
+var nextElementId = 1
+func elementId(_ element: AXUIElement) -> Int {
+  let key = CFHash(element)
+  if let previous = elementBuckets[key]?.first(where: { CFEqual($0.0, element) }) { return previous.1 }
+  let id = nextElementId
+  nextElementId += 1
+  elementBuckets[key, default: []].append((element, id))
+  return id
 }
 
 var nodeCount = 0
@@ -113,8 +132,10 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
   if focusedPath == nil, let focused, CFEqual(element, focused) { focusedPath = path }
   var names: CFArray?
   let available = AXUIElementCopyAttributeNames(element, &names) == .success ? (names as? [String] ?? []) : []
-  var node: [String: Any] = [:]
+  var node: [String: Any] = ["AXElementId": elementId(element)]
+  let secure = string(element, "AXSubrole") == "AXSecureTextField"
   for name in wanted where available.contains(name) {
+    if secure && (name == "AXValue" || name == "AXSelectedTextRange") { node[name + "Withheld"] = true; continue }
     if let value = attribute(element, name), let converted = json(value) { node[name] = converted }
   }
   let children = available.contains("AXChildren") ? elements(element, "AXChildren") : []
@@ -133,6 +154,7 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
 
 let tree = dump(webArea, depth: 0, path: [])
 var result: [String: Any] = [
+  "schemaVersion": 3,
   "app": appName,
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",

@@ -1,4 +1,4 @@
-/** Native macOS accessibility tree of a browser's web area: the tree VoiceOver speaks from. Read-only, never activates the app. */
+/** Read-only native browser AX web-area snapshot. AX keyboard focus is not the VoiceOver reading cursor. */
 import { execFile } from "node:child_process";
 import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";

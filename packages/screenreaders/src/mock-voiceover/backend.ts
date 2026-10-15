@@ -7,7 +7,7 @@ import {formatUsageHint} from './usage-hints.js';
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
 export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v7' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v1' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v2' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -124,8 +124,8 @@ export class MockVoiceOverBackend implements Backend {
     this.state = 'ready';
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
-      profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: only native label/control calibration has been inspected; broader structure, editing and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'1':'7', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'2':'7', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -164,6 +164,15 @@ export class MockVoiceOverBackend implements Backend {
   private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, textOverride?: string): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
     let text = rendered?.speech ?? textOverride ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged,this.sourceCommand) : fallback);
+    if (!this.wording && textOverride === undefined && this.referenceBrowser === 'chrome' && node?.cell && ['next_item','previous_item'].includes(this.sourceCommand)) {
+      const edit = this.focusedEdit;
+      if (node.identity === this.focusedIdentity && edit?.value && edit.start === edit.end && !node.semantic.protected) {
+        const left = edit.value.slice(0,edit.start).match(/[A-Za-z]+$/)?.[0], right = edit.value.slice(edit.start).match(/^[A-Za-z]+/)?.[0];
+        const caret = edit.start === 0 ? 'Insertion at beginning of text.' : edit.start === edit.value.length ? 'Insertion at end of text.'
+          : left && right ? `Insertion on word: ${left}${right} , between characters: ${left.at(-1)} and ${right[0]}` : undefined;
+        if (caret) text = [edit.value,caret,node.semantic.name,edit.multiline?'text entry area':'edit text'].filter(Boolean).join(' ');
+      }
+    }
     if (!this.wording && node) {
       if (node.cell && !node.end&&!['next_focusable_item','previous_focusable_item'].includes(this.sourceCommand)) {
         const c = node.cell, row = c.row > 0 && (this.announcedCell?.table !== c.table || this.announcedCell?.row !== c.row) ? `row ${c.row + 1} of ${c.rows}` : '';
@@ -172,7 +181,7 @@ export class MockVoiceOverBackend implements Backend {
         text = [row, columnChanged&&c.row>0?c.header:'',entered&&c.rowSpan>1?`spans ${c.rowSpan} rows`:'',entered&&c.columnSpan>1?`spans ${c.columnSpan} columns`:'', ['cell','columnheader','rowheader'].includes(node.semantic.role)?node.semantic.name:text, entered?`column ${c.column + 1} of ${c.columns}`:''].filter(Boolean).join(' ');
         this.announcedCell = c;
         this.announcedColumn = c;
-      } else this.announcedCell = undefined;
+      } else this.announcedCell = this.referenceBrowser === 'chrome' && node.cell && node.identity === this.focusedIdentity && this.focusedEdit ? node.cell : undefined;
       const entered = (node.containers ?? []).filter(c => c.id !== node.axId && !this.announcedContainers.includes(c.id) && c.name);
       const dialogs = entered.filter(c => c.role === 'dialog' || c.role === 'alertdialog');
       for (const c of dialogs) text = `${c.name} web dialog with ${c.items} items ${text}`;

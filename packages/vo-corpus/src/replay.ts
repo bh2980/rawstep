@@ -22,7 +22,7 @@ import { resolveTask, type Decision, type DecisionPolicy, type PolicyAction } fr
 import { MOCK_VOICEOVER_PROFILE,MOCK_VOICEOVER_CHROME_PROFILE,runMockVoiceOverTask,type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";
 import { createBrowserSession } from "rawstep/browser";
 import { publicPageScript, realPageContext, accessiblePageContext, chromiumAccessibleText, hearsHeading } from "./real-pages.js";
-import { fixtureStateScript, type PageState } from "./state.js";
+import { fixturePageState, type PageState } from "./state.js";
 import { START_MARKER, casesFingerprint, type CaseRecord, type CaseSet } from "./cases.js";
 import { archiveCaseInputs } from "./archive.js";
 
@@ -120,7 +120,7 @@ export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, c
               record.pageContext = realPageContext(await session.page.evaluate(script),script);
             }
           }
-          if (set.syntheticInputs) readState = () => session.page.evaluate(fixtureStateScript);
+          if (set.syntheticInputs) readState = () => fixturePageState(session.page);
           return session;
         } catch (error) { await session.close(); throw error; }
       } } : {}),
@@ -170,7 +170,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   for (const path of (await readdir(dist, { recursive: true })).filter(p => p.endsWith(".js")).sort()) buildHash.update(path).update(await readFile(join(dist, path)));
   await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, inputArchive, casesDir: casesDir.slice(packageRoot.length + 1), source: "simulator",
+    plannedCaseIds: todo.map(c=>c.id), plannedActions: todo.reduce((n,c)=>n+c.chords.length,0),
     simulatorProfile: referenceBrowser==='chrome'?MOCK_VOICEOVER_CHROME_PROFILE:MOCK_VOICEOVER_PROFILE, referenceBrowser, ...(values['browser-executable']?{browserExecutablePath:resolve(values['browser-executable'])}:{}), simulatorBuildSha256: buildHash.digest("hex"), rawstepVersion, startedAt: new Date().toISOString(),
+    ...(set.syntheticInputs ? {stateObservationProtocol:"fixture-state-v2: independent CDP AX identities and DOM control state, optional text selection, no VO cursor evidence"} : {}),
     ...(anchorRecords?{anchorSourceSha256:createHash("sha256").update(anchorRecords).digest("hex"),anchorSourceRun:resolve(values["anchors-native-run"]!)}:{}),
   }, null, 2));
   const started = Date.now();

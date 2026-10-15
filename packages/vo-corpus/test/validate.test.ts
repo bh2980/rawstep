@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validateRuns } from "../src/validate.js";
 import type { CaseRecord, CaseSet } from "../src/cases.js";
-import { casesFingerprint } from "../src/cases.js";
+import { casesFingerprint, plannedCaseSet } from "../src/cases.js";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -85,4 +85,31 @@ test('a matching late hint is retained raw but cannot pass as certain command sp
   assert.equal(report.conditionalSpeech.planned,0);
   assert.equal(report.funnel.nativeAttribution.uncertain,1);
   assert.equal(JSON.stringify(native),original);
+});
+
+
+test('a frozen input subset changes the planned scope before execution and retains absent planned cases',()=>{
+  const set:CaseSet={id:'subset',generatedAt:'fixed',cases:['a','b','c'].map(id=>({id,page:id+'.html',chords:['Tab'],axes:{}}))};
+  const subset=plannedCaseSet(set,['a','b']);
+  assert.deepEqual(subset.cases.map(c=>c.id),['a','b']);
+  assert.equal(validateRuns(subset,new Map(),new Map()).all.planned,2);
+  assert.equal(plannedCaseSet(set),set);
+  assert.throws(()=>plannedCaseSet(set,['a','unknown']),/frozen capture/);
+  assert.throws(()=>plannedCaseSet(set,['a','a']),/frozen capture/);
+  assert.throws(()=>plannedCaseSet(set,'a'),/frozen capture/);
+});
+
+
+test('Full Speech Exact retains punctuation, case, repetitions and hint order independently of normalized speech',()=>{
+  const set:CaseSet={id:'full',generatedAt:'fixed',cases:[{id:'a',page:'a.html',chords:['Tab','Tab'],axes:{}}]};
+  const native:CaseRecord={caseSet:set.id,caseId:'a',source:'voiceover',start:{aligned:true,speech:[]},steps:[{chord:'Tab',reason:'quiet',utterances:[{t:1,text:'Save, button'}]},{chord:'Tab',reason:'quiet',utterances:[{t:2,text:'Save button'},{t:3,text:'Save button'},{t:4,text:'You are currently on a button.'}]}]};
+  const model=structuredClone(native);model.source='simulator';model.steps[0]!.utterances[0]!.text='save button';
+  const report=validateRuns(set,new Map([['a',native]]),new Map([['a',model]]));
+  assert.equal(report.all.matched,2);
+  assert.equal(report.fullSpeech.matched,2);
+  assert.equal(report.fullSpeechExact.matched,1);
+  model.steps[1]!.utterances.reverse();
+  assert.equal(validateRuns(set,new Map([['a',native]]),new Map([['a',model]])).fullSpeechExact.matched,0);
+  model.steps[1]!.utterances.pop();
+  assert.equal(validateRuns(set,new Map([['a',native]]),new Map([['a',model]])).all.matched,1);
 });

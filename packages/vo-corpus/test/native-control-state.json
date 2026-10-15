@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "source": "Native Chrome + VoiceOver; synthetic public control-state regression evidence, not a VO cursor oracle",
+  "sourceRecordsSha256": "18639adc1339ac8e2b9367df53760547e2ea4d0e8ad22d864f2851da36c7ee26",
+  "cases": [
+    {
+      "caseId": "reading-state-v1.radio-anonymous",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"radio\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "0df58094bce63056feaea1ccd98fbcf68e8192f1591dda008a2cdc477dcfb73c",
+      "observations": [
+        {
+          "step": 0,
+          "sourceAxSha256": "d763f0cad96aaa0fbded6d63004aecca72c6b9ab488e35e4e0e6f6105c00ca31",
+          "ax": {
+            "root": {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXWebArea",
+              "AXRoleDescription": "HTML content",
+              "AXSelected": false,
+              "AXTitle": "Coastal interface study",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "before",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "Before marker",
+                      "AXValue": ""
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXEnabled": true,
+                      "AXFocused": true,
+                      "AXRole": "AXRadioButton",
+                      "AXRoleDescription": "radio button",
+                      "AXSelected": false,
+                      "AXTitle": "Travel updates",
+                      "AXValue": 0
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "after",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "After marker",
+                      "AXValue": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            "focusedPath": [
+              0,
+              1
+            ],
+            "truncated": false
+          }
+        },
+        {
+          "step": 1,
+          "sourceAxSha256": "93354716ce0c7529835ab6ac4255606e614817851962ac7002d1880b15be9673",
+          "ax": {
+            "root": {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXWebArea",
+              "AXRoleDescription": "HTML content",
+              "AXSelected": false,
+              "AXTitle": "Coastal interface study",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "before",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "Before marker",
+                      "AXValue": ""
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXEnabled": true,
+                      "AXFocused": true,
+                      "AXRole": "AXRadioButton",
+                      "AXRoleDescription": "radio button",
+                      "AXSelected": false,
+                      "AXTitle": "Travel updates",
+                      "AXValue": 1
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "after",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "After marker",
+                      "AXValue": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            "focusedPath": [
+              0,
+              1
+            ],
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "caseId": "reading-state-v1.checkbox-vo",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"checkbox\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "4f8bfe67a9c51a0a70bd0a097b24538d3579ee699e4b0b85cc4c52367aa5fad6",
+      "observations": [
+        {
+          "step": 0,
+          "sourceAxSha256": "58fbe68710ebafae57363f6d2d5d053478fd0857cf2277e1eb6c89344cc3d8c6",
+          "ax": {
+            "root": {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXWebArea",
+              "AXRoleDescription": "HTML content",
+              "AXSelected": false,
+              "AXTitle": "Coastal interface study",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "before",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "Before marker",
+                      "AXValue": ""
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXEnabled": true,
+                      "AXFocused": true,
+                      "AXRole": "AXCheckBox",
+                      "AXRoleDescription": "checkbox",
+                      "AXSelected": false,
+                      "AXTitle": "Travel updates",
+                      "AXValue": 0
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "after",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "After marker",
+                      "AXValue": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            "focusedPath": [
+              0,
+              1
+            ],
+            "truncated": false
+          }
+        },
+        {
+          "step": 1,
+          "sourceAxSha256": "5cef35e97cf4a73bee2e1ef5f3a2823c002fce0bd57f0d13effbb6767b41930b",
+          "ax": {
+            "root": {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXWebArea",
+              "AXRoleDescription": "HTML content",
+              "AXSelected": false,
+              "AXTitle": "Coastal interface study",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "before",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "Before marker",
+                      "AXValue": ""
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXEnabled": true,
+                      "AXFocused": true,
+                      "AXRole": "AXCheckBox",
+                      "AXRoleDescription": "checkbox",
+                      "AXSelected": false,
+                      "AXTitle": "Travel updates",
+                      "AXValue": 1
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "after",
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXTitle": "After marker",
+                      "AXValue": ""
+                    }
+                  ]
+                }
+              ]
+            },
+            "focusedPath": [
+              0,
+              1
+            ],
+            "truncated": false
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -76,6 +76,14 @@ export interface CaseRecord {
 export const START_MARKER = "Before marker";
 export const END_MARKER = "After marker";
 
+/** An explicit capture subset is frozen before execution; absent legacy plans mean the complete case set. */
+export function plannedCaseSet(set: CaseSet, ids?: unknown): CaseSet {
+  if (ids === undefined) return set;
+  if (!Array.isArray(ids) || ids.some(id => typeof id !== "string") || new Set(ids).size !== ids.length || ids.some(id => !set.cases.some(c => c.id === id))) throw new Error("Invalid frozen capture case plan");
+  const selected = new Set(ids);
+  return { ...set, cases: set.cases.filter(c => selected.has(c.id)) };
+}
+
 /** Pins case metadata and local page bytes; a resumed run must use exactly the same fixture contents. */
 export async function casesFingerprint(directory: string, set: CaseSet): Promise<string> {
   const hash = createHash("sha256").update(await readFile(join(directory, "cases.json")));

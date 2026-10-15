@@ -48,19 +48,25 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 ## Browser reference profiles and evaluation limits
 
 `referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v7`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v1`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v2`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
 
-Only confirmed browser differences are specialized so far: associated label reading stops, anonymous native-radio
+Confirmed browser differences currently specialized: associated label reading stops, anonymous native-radio
 position announcements, and VO-activation versus physical-Space checkbox/radio receipts. Other shared behavior still
 needs independent Chrome validation. The inspected native controls are regression/calibration evidence, not a claim
-that the Chrome profile reproduces all VoiceOver behavior.
+that the Chrome profile reproduces all VoiceOver behavior. Chrome v2 additionally uses independently observed
+selection ranges to announce beginning/end/interior Latin-word caret context when object navigation enters or returns
+to a nonempty table field. Tab entry into such a field establishes row context for the following object movement.
+Safari counterparts require paired validation before sharing these new rules. Partial selections, interior non-Latin
+word boundaries, table-header repetition and editing hints remain incomplete.
 
-Main and full speech, navigation, state and task outcomes must be evaluated separately. Native AX keyboard focus does
-not establish the native VO reading cursor. The corpus ID-based state oracle does not observe anonymous controls or
-complete text selection; empty evidence cannot count as success. Reports expose these gaps and retain collection
+Normalized main speech, raw Full Speech Exact, navigation, state and task outcomes must be evaluated separately. Historical normalized full-speech scores are retained as a distinct legacy measure. Native AX keyboard focus does
+not establish the native VO reading cursor. The corpus state oracle joins DOM IDs or independently unique AX role/name identities. Snapshot-local native AX
+equality IDs distinguish aliases from different controls with the same name. Optional native text selection is observed
+separately from the VO cursor; ambiguous identities and unexposed properties remain unmeasured. Empty evidence cannot
+count as success. Reports expose these gaps and retain collection
 failures in planned denominators. No validated overall 90% accuracy or native replacement is currently established.
 See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-audit-2026-10-15).
 

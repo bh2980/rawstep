@@ -1,0 +1,1118 @@
+{
+  "schemaVersion": 1,
+  "source": "Native Chrome/VoiceOver state and AX alias identity calibration; not a VO cursor oracle",
+  "sourceRecordsSha256": "c9897fbc8af66b88368979034af2c57c8bbaa29f922d68b679eaea5e689749f7",
+  "environment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": {
+      "name": "chrome",
+      "version": "155.0.8059.80"
+    },
+    "voiceOverAppVersion": "10"
+  },
+  "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><input aria-label=\"Travel note\" value=\"Dock\" autocomplete=\"off\"></td></tr></table><button id=\"after\">After marker</button></body></html>",
+  "htmlSha256": "854b941286f6e99dd38ad352f0dfb74f3f514a0c7495ff30e4676aa37ce11cbb",
+  "observations": [
+    {
+      "step": 4,
+      "sourceAxSha256": "68fe5627ed1174fe56c1f4d1d1318045171a89e1841fc326acab49e06e9055c9",
+      "expectedSelection": [
+        0,
+        0
+      ],
+      "ax": {
+        "schemaVersion": 3,
+        "truncated": false,
+        "focusedPath": [
+          1,
+          2,
+          1,
+          0
+        ],
+        "root": {
+          "AXDescription": "",
+          "AXDOMIdentifier": "",
+          "AXElementId": 1,
+          "AXEnabled": true,
+          "AXFocused": false,
+          "AXRole": "AXWebArea",
+          "AXRoleDescription": "HTML content",
+          "AXSelected": false,
+          "AXSelectedTextRange": {
+            "length": 0,
+            "location": 0
+          },
+          "AXTitle": "Coastal interface study",
+          "AXValue": "",
+          "children": [
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "before",
+              "AXElementId": 2,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Before marker",
+              "AXValue": ""
+            },
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXTable",
+              "AXRoleDescription": "table",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Departure options",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 4,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 5,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXStaticText",
+                      "AXRoleDescription": "text",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "Departure options"
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 6,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXRow",
+                  "AXRoleDescription": "row",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 11,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXRow",
+                  "AXRoleDescription": "row",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 12,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Monday"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 14,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "Travel note",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 15,
+                          "AXEnabled": true,
+                          "AXFocused": true,
+                          "AXRole": "AXTextField",
+                          "AXRoleDescription": "text field",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "Travel note",
+                          "AXValue": "Dock"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 16,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXColumn",
+                  "AXRoleDescription": "column",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 12,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Monday"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 17,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXColumn",
+                  "AXRoleDescription": "column",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 14,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "Travel note",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 15,
+                          "AXEnabled": true,
+                          "AXFocused": true,
+                          "AXRole": "AXTextField",
+                          "AXRoleDescription": "text field",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "Travel note",
+                          "AXValue": "Dock"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 18,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "after",
+              "AXElementId": 19,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "After marker",
+              "AXValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 5,
+      "sourceAxSha256": "339c89c2754e1385571bdff850ea42507418db82b28738bbcd91ca60117d7ff7",
+      "expectedSelection": [
+        1,
+        1
+      ],
+      "ax": {
+        "schemaVersion": 3,
+        "truncated": false,
+        "focusedPath": [
+          1,
+          2,
+          1,
+          0
+        ],
+        "root": {
+          "AXDescription": "",
+          "AXDOMIdentifier": "",
+          "AXElementId": 1,
+          "AXEnabled": true,
+          "AXFocused": false,
+          "AXRole": "AXWebArea",
+          "AXRoleDescription": "HTML content",
+          "AXSelected": false,
+          "AXSelectedTextRange": {
+            "length": 0,
+            "location": 0
+          },
+          "AXTitle": "Coastal interface study",
+          "AXValue": "",
+          "children": [
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "before",
+              "AXElementId": 2,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Before marker",
+              "AXValue": ""
+            },
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXTable",
+              "AXRoleDescription": "table",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Departure options",
+              "AXValue": "",
+              "children": [
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 4,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 5,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXStaticText",
+                      "AXRoleDescription": "text",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "Departure options"
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 6,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXRow",
+                  "AXRoleDescription": "row",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 11,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXRow",
+                  "AXRoleDescription": "row",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 12,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Monday"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 14,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "Travel note",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 15,
+                          "AXEnabled": true,
+                          "AXFocused": true,
+                          "AXRole": "AXTextField",
+                          "AXRoleDescription": "text field",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 1
+                          },
+                          "AXTitle": "Travel note",
+                          "AXValue": "Dock"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 16,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXColumn",
+                  "AXRoleDescription": "column",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 12,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Monday"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 17,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXColumn",
+                  "AXRoleDescription": "column",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 14,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "cell",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "Travel note",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 15,
+                          "AXEnabled": true,
+                          "AXFocused": true,
+                          "AXRole": "AXTextField",
+                          "AXRoleDescription": "text field",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 1
+                          },
+                          "AXTitle": "Travel note",
+                          "AXValue": "Dock"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "AXDescription": "",
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 18,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "group",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXTitle": "",
+                  "AXValue": "",
+                  "children": [
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 7,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Day"
+                        }
+                      ]
+                    },
+                    {
+                      "AXDescription": "",
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 9,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXRole": "AXCell",
+                      "AXRoleDescription": "column header",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXTitle": "",
+                      "AXValue": "",
+                      "children": [
+                        {
+                          "AXDescription": "",
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXRole": "AXStaticText",
+                          "AXRoleDescription": "text",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXTitle": "",
+                          "AXValue": "Action"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "AXDescription": "",
+              "AXDOMIdentifier": "after",
+              "AXElementId": 19,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "After marker",
+              "AXValue": ""
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

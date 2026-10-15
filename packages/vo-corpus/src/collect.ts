@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { randomUUID } from "node:crypto";
 import { dumpAxTree, focusedAxNode, nativeNodeName, saveAxSnapshot, type AxDump } from "./axdump.js";
-import { START_MARKER, casesFingerprint, type CaseRecord, type CaseSet } from "./cases.js";
+import { START_MARKER, casesFingerprint, plannedCaseSet, type CaseRecord, type CaseSet } from "./cases.js";
 import { assertResumeEnvironment, atDriverUrl, browserApps, collectionBrowser, machineFacts, navigateBrowser, requireFrontmost, resolveMachine, serveDirectory } from "./host.js";
 import { spoken, VoSession } from "./session.js";
 import { archiveCaseInputs } from "./archive.js";
@@ -53,7 +53,8 @@ const done = new Set<string>();
 if (existsSync(records)) for (const line of (await readFile(records, "utf8")).split("\n")) if (line) done.add((JSON.parse(line) as CaseRecord).caseId);
 const filter = values.filter ? new RegExp(values.filter) : undefined;
 const reverse = values.reverse ?? meta?.caseOrder === "reverse";
-const ordered = reverse ? [...set.cases].reverse() : set.cases;
+const planned = plannedCaseSet(set,meta?.plannedCaseIds);
+const ordered = reverse ? [...planned.cases].reverse() : planned.cases;
 const todo = ordered.filter(c => !done.has(c.id) && (!filter || filter.test(c.id))).slice(0, values.limit ? Number(values.limit) : undefined);
 
 const machine = await resolveMachine(values.vm);
@@ -63,7 +64,7 @@ const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?joi
 const started = Date.now();
 let aligned = 0;
 const workflowStartProtocol="Synthetic local v3: prove native marker focus (up to 12 setup Tabs), then VO+Shift+F4 and fresh speech/focus verification before any workflow keys. Browser-specific AXTitle/AXDescription names are accepted. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
-const observationProtocol="host-receipts-v2: wire request/ack, bounded listen, AX start/end; preserve page-load and late raw receipts; no completion or causal attribution claim";
+const observationProtocol="host-receipts-v4: wire request/ack, bounded listen, AX start/end, optional native selection range and snapshot-local AX equality IDs (AX schema v3); preserve page-load and late raw receipts; no completion or causal attribution claim";
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);
@@ -71,6 +72,7 @@ try {
   await appendFile(join(out,'sessions.jsonl'),JSON.stringify({schemaVersion:1,collectionProfile,captureSessionId,receiptClockOrigin:session.startedAt,settings,atDriver:negotiated,machine:facts,casesSha256,workflowStartProtocol,observationProtocol})+'\n');
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, collectionProfile, casesGeneratedAt: set.generatedAt, casesSha256, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
+    plannedCaseIds: todo.map(c=>c.id), plannedActions: todo.reduce((n,c)=>n+c.chords.length,0),
     settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: facts, captureSessionId,
     inputArchive, stepJournal:"steps.jsonl", receiptClock: {origin:session.startedAt,basis:"host receipt time; not synthesis latency"},
     workflowStartProtocol, observationProtocol,
