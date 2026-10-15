@@ -7,8 +7,8 @@ import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContai
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v17' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v11' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v18' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v12' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -24,7 +24,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Safari listboxes are outer reading units until explicit interaction. Native select and ARIA selected-option summaries differ. Listbox interaction itself remains unsupported pending native calibration.',
   'Linked text headings are projected as one reading unit, preserving nesting-dependent navigation wording and actual anchor focus. Mixed interactive/image headings need further calibration.',
   'Articles and named figures have observed entry/exit stops. Simple time elements with date-only datetime attributes repeat their text in the captured profile; other datetime formats remain uncalibrated.',
-  'Tab context announces the nearest named group, landmark, table or article when that context changes. Chrome unnamed-article focus naming is unresolved; only its article role is announced rather than inventing a name.',
+  'Tab context announces the nearest named group, landmark, table or article when that context changes. When the Native article name is empty, focus entry uses the immediate exposed AX child name, preserving empty anonymous-group names.',
   'Fragment activation moves the reading cursor to an observed same-document hash target without changing DOM focus manually. Repeated activation of an unchanged hash and browser-specific Tab preferences remain uncalibrated.',
   'Single-character editing echoes and caret/selection key receipts are calibrated on generated text inputs and textareas. Multi-character task input, native autocomplete/autofill and browser-specific focus selection need further validation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
@@ -321,6 +321,14 @@ export class MockVoiceOverBackend implements Backend {
       for(const c of children(n)){if(stringValue(c.role)==='article')continue;if(!c.ignored&&stringValue(c.role)==='heading')return stringValue(c.name);const name=articleHeading(c);if(name)return name;}
       return '';
     };
+    const articleEntryName = (node:AXNode, article:string):string|undefined => {
+      let child=node, parent=node.parentId?byId.get(node.parentId):undefined;
+      while(parent&&parent.nodeId!==article){
+        if(!parent.ignored)child=parent;
+        parent=parent.parentId?byId.get(parent.parentId):undefined;
+      }
+      return parent?stringValue(child.name):undefined;
+    };
     const containsImage = (n: AXNode): boolean => children(n).some(c => !c.ignored && stringValue(c.role) === 'image' || containsImage(c));
     const insideNamedControl = (n: AXNode): boolean => {
       const seen = new Set<string>();
@@ -451,7 +459,7 @@ export class MockVoiceOverBackend implements Backend {
           while (paragraph && stringValue(paragraph.role) !== 'paragraph') paragraph = paragraph.parentId ? byId.get(paragraph.parentId) : undefined;
           let label = node.parentId ? byId.get(node.parentId) : undefined;
           while (label && stringValue(label.role) !== 'LabelText' && (label.backendDOMNodeId===undefined||dom.get(label.backendDOMNodeId)?.tag!=='label')) label = label.parentId ? byId.get(label.parentId) : undefined;
-          next.push({ identity: identity(representative), backendDOMNodeId: representative.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes, ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
+          next.push({ identity: identity(representative), backendDOMNodeId: representative.backendDOMNodeId, axId: node.nodeId, semantic, unmodeledContext: hasUnmodeledContext(node, byId), containers: innerScopes.map(c=>c.role==='article'&&c.id!==node.nodeId?{...c,entryChildName:articleEntryName(node,c.id)}:c), ...(!this.wording && role === 'StaticText' && paragraph ? { textGroup: paragraph.nodeId } : {}),
             hintInCell:node.backendDOMNodeId!==undefined&&(ancestor(node.backendDOMNodeId,'td')!==undefined||ancestor(node.backendDOMNodeId,'th')!==undefined),
             hintTextFragment:!!paragraph&&exposedChildren(paragraph).findIndex(c=>c.nodeId===node.nodeId)>0||labelNames.some(n=>n.trim()===name.trim())||cellOwner!==undefined&&!!byDOM.get(cellOwner)&&exposedChildren(byDOM.get(cellOwner)!).findIndex(c=>c.nodeId===node.nodeId)>0,
             ...(!this.wording && textRoles.has(role) && label && labelControls(label).some(n=>n.trim()===name.trim()) ? { labelText: true } : {}),
@@ -485,6 +493,7 @@ export class MockVoiceOverBackend implements Backend {
       }
     }
     for (const c of containers.values()) c.items = next.filter(n => !n.end && !n.labelText && n.axId !== c.id && n.containers?.at(-1)?.id === c.id).length;
+    for(const n of next)for(const c of n.containers??[])if(c.role==='article')c.items=containers.get(c.id)?.items??c.items;
     this.fragmentTargets.clear();
     if(!this.wording)for(const n of next.filter(n=>!n.end)){
       let id=n.backendDOMNodeId;

@@ -29,8 +29,8 @@ describe('native nearest-context calibration workflows',()=>{
         await backend.execute({kind:'key',key:step.chord});
         const actual=await backend.observe();
         expect(await page.evaluate(()=>document.activeElement?.id),`${c.id} focus ${index}`).toBe(step.keyboardFocusId);
-        // Chrome's unnamed-article naming is unresolved; retain its raw receipts and failures in corpus reports.
-        if(c.assertFullSpeech)expect(normalize(actual.speech.join(' ')),`${c.id} speech ${index}`).toBe(normalize(step.utterances.map(u=>u.text).join(' ')));
+        // Inspected regression now includes unnamed articles; original first scores stay in the corpus reports.
+        expect(normalize(actual.speech.join(' ')),`${c.id} speech ${index}`).toBe(normalize(step.utterances.map(u=>u.text).join(' ')));
       }
     }finally{await backend.close();await context.close();}
   },30000);

@@ -160,10 +160,17 @@ Your page must supply the actions and completion state used by its task; the sni
 
 The wrapper accepts normal runner options including `policy`, `allowedActions`, budgets from the task, `signal`, `diagnosticScreenshots`, and `browserExecutablePath` (these library options are not exposed as CLI flags); it supplies the simulator backend and defaults `headless` to `true`. A `warn` callback can redirect the startup warning. Advanced injected browser sessions must provide a real compatible Chromium page. Policies receive the same model-neutral screen-reader-shaped observation contract, with `provenance: 'simulation'`, rather than a screenshot or privileged DOM selector. A policy can be scripted, local, remote, or model-backed; no provider is selected by Rawstep.
 
+For article containers, `entryChildName` is the name of the immediate **exposed AX child** along the path to the
+reading target. Pass an empty string for an unnamed structural child; do not replace it with the descendant button's
+label. The formatter uses it only when the reference profile has no Native article name. `inferredName` marks the
+Chromium adapter's heading-derived name, which Chrome VoiceOver does not use as an explicit article name. Omitting
+`entryChildName` retains the older role-only approximation when a fallback is needed. These inputs describe observed
+structure, not a prior utterance. The browser adapter extracts them from the AX path; the formatter never moves focus.
+
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v17`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v11`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v18`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v12`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -181,8 +188,10 @@ Safari v10 / Chrome v4 use observed space separators between generated speech pa
 
 Safari v9 / Chrome v3 correct Tab/Shift+Tab context transitions using paired native contrasts: announce the nearest
 group, named landmark, table or article on entry, and announce its ancestor again when leaving the inner context.
-Safari uses the inspected heading-derived article name; Chrome's unnamed-article naming depends on unresolved history,
-so that case announces only `article` and retains its native mismatch. No fixture text is embedded in these rules.
+Safari uses the inspected heading-derived article name. Safari v18 / Chrome v12 additionally preserve the immediate
+exposed AX child name when an article's own Native name is empty. An unnamed intermediate AX group remains empty;
+its descendant's label is not substituted. The [article calibration](./voiceover-article-entry-speech.md) resolves the
+earlier apparent history difference without fixture text or layout-specific formatting rules.
 
 Normalized main speech, raw Full Speech Exact, navigation, state and task outcomes must be evaluated separately. Historical normalized full-speech scores are retained as a distinct legacy measure. Native AX keyboard focus does
 not establish the native VO reading cursor. The corpus state oracle joins DOM IDs or independently unique AX role/name identities. Snapshot-local native AX
@@ -194,7 +203,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v17` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v18` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

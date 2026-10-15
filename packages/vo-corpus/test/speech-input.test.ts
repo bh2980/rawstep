@@ -83,7 +83,8 @@ test('target-conditioned inputs use AX and visible geometry while withholding un
  assert.equal(checkSpeechInput(observed.input,d).status,'verified');
  d.focusedPath=[99];assert.deepEqual(observedSpeechInput(d,'next_focusable_item'),observed);
  delete node.AXDOMIdentifier;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'observed');
- d.root.children![0]!.children![0]!.AXRoleDescription='article';assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
+ d.root.children![0]!.children![0]!.AXRoleDescription='article';const article=observedSpeechInput(d,'next_focusable_item');assert.equal(article.status,'observed');
+ if(article.status==='observed')assert.equal(article.input.target.containers!.at(-1)!.entryChildName,'Prepare booking');
  d.root.children![0]!.children![0]!.AXRoleDescription='region';delete node.AXCustomContent;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
 });
 
@@ -161,4 +162,19 @@ test('Native content-list context is preserved for links and list markers withou
  if(previous.status==='observed')assert.notEqual(previous.context.focusContext,previous.context.containers.at(-1));
  list.AXSubrole='AXListBox';assert.equal(observedSpeechContext(d).status,'unmeasured');
  if(candidate.status==='constructed')assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
+});
+
+test('article inputs preserve the immediate exposed AX child rather than inventing a descendant label',()=>{
+ const d=dump(),node={...button,AXCustomContent:{status:'observed',byteCount:0,rawBase64:'',entries:[]}};
+ d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'article',AXTitle:'',AXDescription:'',children:[{AXRole:'AXGroup',AXRoleDescription:'group',AXTitle:'',children:[node]}]}];
+ const direct=nativeSpeechInput(d,[0,0,0],'next_focusable_item');assert.equal(direct.status,'constructed');
+ if(direct.status!=='constructed')throw new Error('Native article input missing');
+ assert.equal(direct.input.target.containers?.[0]?.entryChildName,'');assert.equal(checkSpeechInput(direct.input,d).status,'verified');
+ const missing=structuredClone(direct.input);delete missing.target.containers![0]!.entryChildName;
+ assert.equal(checkSpeechInput(missing,d).status,'unmeasured');
+ const absent=structuredClone(d);delete absent.root.children![0]!.children![0]!.AXTitle;assert.equal(nativeSpeechInput(absent,[0,0,0],'next_focusable_item').status,'unmeasured');assert.equal(checkSpeechInput(direct.input,absent).status,'unmeasured');
+ const guessed=structuredClone(direct.input);guessed.target.containers![0]!.entryChildName='Prepare booking';assert.equal(checkSpeechInput(guessed,d).status,'mismatch');
+ d.root.children[0]!.children=[node];const exposed=nativeSpeechInput(d,[0,0],'next_focusable_item');
+ assert.equal(exposed.status,'constructed');if(exposed.status!=='constructed')throw new Error('Native direct child missing');
+ assert.equal(exposed.input.target.containers?.[0]?.entryChildName,'Prepare booking');assert.equal(checkSpeechInput(exposed.input,d).status,'verified');
 });

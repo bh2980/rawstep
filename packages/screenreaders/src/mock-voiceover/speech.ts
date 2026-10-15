@@ -2,7 +2,7 @@ import {formatSimulatedSpeech, type SimulatedSemanticNode} from './semantics.js'
 import {formatUsageHint} from './usage-hints.js';
 
 /** Keep Native-exposed landmark roles even when their accessible name is empty. */
-export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;role:string;items:number;rows?:number;columns?:number};
+export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;/** Name of the immediate exposed AX child on the path to the target; empty is meaningful. */ entryChildName?:string;role:string;items:number;rows?:number;columns?:number};
 export type VoiceOverCell = {table:string;row:number;column:number;rows:number;columns:number;header:string;rowSpan:number;columnSpan:number};
 export type VoiceOverEditState = {value:string;start:number;end:number;multiline:boolean};
 export type VoiceOverSpeechTarget = {
@@ -60,7 +60,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   for(const c of contexts.filter(c=>groupWords[c.role]))speech+=` ${c.name} ${groupWords[c.role]}`;
   for(const c of contexts.filter(c=>landmarks.includes(c.role)))speech+=` ${[c.name,c.role==='contentinfo'?referenceBrowser==='chrome'?'footer':'content information':c.role].filter(Boolean).join(' ')}`;
   for(const c of contexts.filter(c=>c.role==='table'))speech+=` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
-  if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[referenceBrowser==='chrome'&&c.inferredName?'':c.name,'article'].filter(Boolean).join(' ')}`;
+  if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[(referenceBrowser==='chrome'&&c.inferredName?'':c.name)||c.entryChildName,'article'].filter(Boolean).join(' ')}`;
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
   const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;

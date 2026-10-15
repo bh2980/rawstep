@@ -21,9 +21,11 @@ function targetFromInput(document:Document,id:string):VoiceOverSpeechTarget{
   const containers=ancestors.flatMap(parent=>{
     const role=parent.getAttribute('role')??({SECTION:'region',ARTICLE:'article',TABLE:'table'} as Record<string,string>)[parent.tagName];
     if(!role)return [];
+    let entry=element;while(entry.parentElement!==parent)entry=entry.parentElement!;
+    const entryChildName=entry.getAttribute('aria-label')??(entry.tagName==='BUTTON'?entry.textContent??'':entry.tagName==='TABLE'?entry.querySelector('caption')?.textContent??'':'');
     const label=parent.getAttribute('aria-label'),name=label??(role==='article'?parent.querySelector('h1,h2,h3,h4,h5,h6')?.textContent??'':role==='table'?parent.querySelector('caption')?.textContent??'':'');
     return [{id:String(all.indexOf(parent)),name,role,items:parent.querySelectorAll('button').length,
-      ...(role==='article'&&!label?{inferredName:true}:{}),
+      ...(role==='article'?{entryChildName,...(!label?{inferredName:true}:{})}:{}),
       ...(role==='table'?{rows:parent.querySelectorAll('tr').length,columns:parent.querySelector('tr')?.children.length}:{}),
     }];
   });
@@ -43,14 +45,14 @@ describe('speech engine with caller-owned target and history',()=>{
         for(const [index,step]of c.steps.entries()){
           const result=formatVoiceOverSpeech({target:targetFromInput(dom.window.document,step.keyboardFocusId),command:step.chord==='Tab'?'next_focusable_item':'previous_focusable_item',referenceBrowser:profile.referenceBrowser},context);
           const actual=normalize(result.speech),expected=normalize(splitSpeech(step.utterances).main);
-          if(c.assertFullSpeech)expect(actual,`${c.id} step ${index}`).toBe(expected);
+          expect(actual,`${c.id} step ${index}`).toBe(expected);
           if(actual===expected)matched++;else unresolved++;
           context=result.context;
         }
       }finally{dom.window.close();}
     }
-    // Preserve the known Chrome inferred-article naming gap instead of feeding its observed answer into input.
-    expect({matched,unresolved}).toEqual(profile.referenceBrowser==='safari'?{matched:36,unresolved:0}:{matched:32,unresolved:4});
+    // Immediate exposed child metadata comes from the shared authored structure, never the reference speech.
+    expect({matched,unresolved}).toEqual({matched:36,unresolved:0});
   });
 
   it('changes the same target wording with prior scope, without mutating caller history',()=>{

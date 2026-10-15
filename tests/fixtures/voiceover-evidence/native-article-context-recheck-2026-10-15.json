@@ -1,0 +1,3607 @@
+{
+  "schemaVersion": 1,
+  "scope": "Calibration of article naming/history, not independent generalization. Static authored inputs and both predictions fixed before Native; no speech-engine changes until both profiles finish. Native AX scope names and target geometry independently checked. inferredName is authored name-source metadata, not a measured VO private cache. Raw receipts/first predictions/failures immutable. No Navigation/State/Task accuracy or native speech-completion claim.",
+  "plan": {
+    "id": "article-context-recheck-v1",
+    "classification": "calibration",
+    "frozenAt": "2026-10-15T12:35:01.467Z",
+    "sourceCommit": "a2f87ff",
+    "casesSha256": "1025f6b9c96396d43d3aa4f5d7f106c8532997936f29ef248e9ae803419466a8",
+    "modelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+    "plannedCasesPerBrowser": 2,
+    "plannedActionsPerBrowser": 13,
+    "browsers": [
+      "safari",
+      "chrome"
+    ],
+    "settings": "baseline-v2-dnd",
+    "question": "The newer Chrome article first-entry receipt differs from older captures. Repeat the old HTML byte-for-byte and change only DOM id on the new page. Calibration replication, not independent evaluation. No input or model changes.",
+    "hypothesis": "Safari uses Native article name; Chrome begins with unnamed article and may use the focus target name on later entry. Observe without changing formatter or caller inputs until both profiles finish.",
+    "inputPolicy": "Authored DOM supplies static target/default semantics and per-browser expected article AX name; independently verify role/name/state/ancestor scopes and visible target geometry after each action. inferredName identifies absent explicit article name, never a target inferred from speech. Unused counts are placeholders. A mismatch stays a mismatch.",
+    "attribution": "Existing bounded receipt-window quality gate; no native completion guarantee. Collect both browsers before changes. All planned rows preserved. Calibration, not independent accuracy or Navigation/State/Task Success.",
+    "sourceHashes": {
+      "src/speech-input.ts": "7371cffce71202f389251d736022cda1cec997048fb95c8e1d1776d2db81fc9e",
+      "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+      "src/compare.ts": "e0cbc99a8d4e0e0c739d36ba62be08f5b910f1b9b579fb5544f91eee3f27dbcb",
+      "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+      "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+      "src/state.ts": "c5daa612286b315e0104d964845570d4b1e00da7d896c407b757e491bf481f65",
+      "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+      "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+      "src/collect.ts": "a96eb3eaa26d253d026cec88a8ac1c4761d158b68decb12750630bd2135d5fef",
+      "src/document-ready.ts": "4661bea09d012887d7ee8120bbd8931c9d7d5b3399e3b3f6aac3909b8ebd2cf6",
+      "src/generate/article-context-speech.ts": "538069fb5f1edb0a852f1656661b8219db4c11ad535ffde5efa8c933a17fb8ba",
+      "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+      "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+      "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395"
+    },
+    "legacyHTMLSha256": "52ae3e3a0b72e0975a1a0b3da74067972f32e72698eb11d87b56b45d62852151",
+    "newPageDOMIDOnlyChange": true
+  },
+  "pages": [
+    {
+      "id": "article-context-recheck-v1.without-id",
+      "page": "pages/without-id.html",
+      "chords": [
+        "Tab",
+        "Tab",
+        "Tab",
+        "Shift+Tab",
+        "Shift+Tab",
+        "Shift+Tab",
+        "Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 2400,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "article-name-and-history",
+        "role": "button",
+        "partition": "train",
+        "exposure": "calibration",
+        "templateGroup": "article-context-recheck-v1",
+        "contrastGroup": "article-context-recheck-v1",
+        "command": "focus-entry-and-return",
+        "question": "only-remove-article-dom-id"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Workshop controls</title><style>body{font:17px system-ui;padding:18px}button{display:block;margin:12px}article,[role=group]{padding:6px}</style><body><button id=\"before\" autofocus>Before marker</button><article><h2>Workshop bulletin</h2><button id=\"first\">Review notes</button><button id=\"second\">Publish notes</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "d1b5b44501f917b59a4ef1c9a6d959eafece48a469f84360227eb3a14e75aa64"
+    },
+    {
+      "id": "article-context-recheck-v1.legacy-exact",
+      "page": "pages/legacy-exact.html",
+      "chords": [
+        "Tab",
+        "Tab",
+        "Shift+Tab",
+        "Tab",
+        "Tab",
+        "Shift+Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 2400,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "article-name-and-history",
+        "role": "button",
+        "partition": "train",
+        "exposure": "calibration",
+        "templateGroup": "article-context-recheck-v1",
+        "contrastGroup": "article-context-recheck-v1",
+        "command": "focus-entry-and-return",
+        "question": "rerun-byte-identical-previous-unnamed-article"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><article><h2>Editorial desk</h2><div><button id=\"inner\">Review draft</button></div><button id=\"outer\">Publish draft</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "52ae3e3a0b72e0975a1a0b3da74067972f32e72698eb11d87b56b45d62852151"
+    }
+  ],
+  "profiles": [
+    {
+      "browser": "safari",
+      "run": "article-context-recheck-v1-2026-10-15T12-35-50-526Z",
+      "sourceRecordsSha256": "a9a30206d0ebcc5bc4e750471849f73ba70bede7c99da79c21acc68b61ba8bc4",
+      "predictedAt": "2026-10-15T12:35:02.223Z",
+      "nativeStartedAt": "2026-10-15T12:35:50.950Z",
+      "inputsSha256": "43a9e111ce437dd85e9bdd63cbdd5845a03752ac4b4eee72b8d040a2c247819a",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR",
+        "settings": "baseline-v2-dnd"
+      },
+      "summary": {
+        "planned": 13,
+        "nativeObserved": 13,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 13,
+        "inputEquivalent": 13,
+        "eligible": 13,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 13,
+          "eligible": 13,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 13,
+          "eligible": 13,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 13,
+          "eligible": 13,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "alignedCases": 2
+      },
+      "rows": [
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Workshop bulletin",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button Workshop bulletin article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 8557,
+              "text": "Review notes button Workshop bulletin article"
+            },
+            {
+              "t": 9123,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 8341,
+            "acknowledgedAt": 8813,
+            "observationStartedAt": 8813,
+            "observationEndedAt": 11214,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 11214,
+            "axObservationEndedAt": 11919
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "e1282f2c117d0239a889b277502bdea0bcf019758e74b3c89422c8c17a1a21f7",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Workshop bulletin"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review notes button Workshop bulletin article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button Workshop bulletin article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Workshop bulletin",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish notes button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 12575,
+              "text": "Publish notes button"
+            },
+            {
+              "t": 13136,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 12417,
+            "acknowledgedAt": 12869,
+            "observationStartedAt": 12869,
+            "observationEndedAt": 15270,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 15270,
+            "axObservationEndedAt": 16601
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "a1f7e1653706b801babe8c4ea117dd73105c79c07464903b53ea265c8d582fdc",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish notes",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Workshop bulletin"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish notes button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish notes button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 2,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "after",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "After marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 17273,
+              "text": "After marker button"
+            },
+            {
+              "t": 17839,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 17154,
+            "acknowledgedAt": 17578,
+            "observationStartedAt": 17578,
+            "observationEndedAt": 19978,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 19979,
+            "axObservationEndedAt": 20737
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "afea25c4f4d1943fb7376a26725a4381447590aba882eee2636600f4cc12db1c",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 3,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Workshop bulletin",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish notes button Workshop bulletin article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 21487,
+              "text": "Publish notes button Workshop bulletin article"
+            },
+            {
+              "t": 22056,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 21238,
+            "acknowledgedAt": 22103,
+            "observationStartedAt": 22103,
+            "observationEndedAt": 24505,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 24505,
+            "axObservationEndedAt": 25718
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "3b2cf731e9dff4eda01bc883e92df17538ba393f5227086f84f11df90b506e54",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish notes",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Workshop bulletin"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish notes button Workshop bulletin article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish notes button Workshop bulletin article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 4,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Workshop bulletin",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 26150,
+              "text": "Review notes button"
+            },
+            {
+              "t": 26740,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 25920,
+            "acknowledgedAt": 26786,
+            "observationStartedAt": 26786,
+            "observationEndedAt": 29187,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 29187,
+            "axObservationEndedAt": 30555
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "8a29fe1706ac9085d176f95731895620081a3ac06eba989bdde28e81e65067d6",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Workshop bulletin"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review notes button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 31304,
+              "text": "Before marker button"
+            },
+            {
+              "t": 31883,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 31030,
+            "acknowledgedAt": 31872,
+            "observationStartedAt": 31872,
+            "observationEndedAt": 34273,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 34273,
+            "axObservationEndedAt": 35622
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "e4d4b0a832278333caffa72541c6f012c0db3414d0783d7c1977f4141659859d",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 6,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Workshop bulletin",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button Workshop bulletin article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 36249,
+              "text": "Review notes button Workshop bulletin article"
+            },
+            {
+              "t": 36820,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 36125,
+            "acknowledgedAt": 36564,
+            "observationStartedAt": 36564,
+            "observationEndedAt": 38965,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 38965,
+            "axObservationEndedAt": 39682
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "896abee4c587ab8058984a939564b8ae80a903d2ac46e8434b1a81448a67c8bb",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Workshop bulletin",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 26,
+                "y": 150
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 145,
+                "width": 972
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Workshop bulletin"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review notes button Workshop bulletin article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button Workshop bulletin article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "inner",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Editorial desk",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review draft button Editorial desk article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 50420,
+              "text": "Review draft button Editorial desk article"
+            },
+            {
+              "t": 50992,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 50291,
+            "acknowledgedAt": 50713,
+            "observationStartedAt": 50713,
+            "observationEndedAt": 53113,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 53113,
+            "axObservationEndedAt": 53842
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "7f18964650ae210d7c95d39ee4c7149b276ff59b7bf38e4740ea05aa9fa19957",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review draft",
+                "id": "inner"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Editorial desk"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review draft button Editorial desk article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review draft button Editorial desk article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Editorial desk",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 54468,
+              "text": "Publish draft button"
+            },
+            {
+              "t": 55033,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 54365,
+            "acknowledgedAt": 54787,
+            "observationStartedAt": 54787,
+            "observationEndedAt": 57189,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 57189,
+            "axObservationEndedAt": 57871
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "30f5fb2d3c10fbe69ecc65e643e837641516e536ed95c51e459398b343668cb6",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Editorial desk"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "inner",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Editorial desk",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 58441,
+              "text": "Review draft button"
+            },
+            {
+              "t": 59010,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 58143,
+            "acknowledgedAt": 59021,
+            "observationStartedAt": 59021,
+            "observationEndedAt": 61422,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 61422,
+            "axObservationEndedAt": 62690
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "f410d1e3c1cb7aa24d6bf83e570079ad9021f05fbda67a171c226274ae50f264",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review draft",
+                "id": "inner"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Editorial desk"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Editorial desk",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 63456,
+              "text": "Publish draft button"
+            },
+            {
+              "t": 64041,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 63264,
+            "acknowledgedAt": 63747,
+            "observationStartedAt": 63747,
+            "observationEndedAt": 66148,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 66148,
+            "axObservationEndedAt": 66942
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "76436bf97c26496344daacccb2409e7ad02a1a5a4943b2ddc165275e9bc88fa8",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Editorial desk"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 4,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "after",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "After marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 67504,
+              "text": "After marker button"
+            },
+            {
+              "t": 68073,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 67338,
+            "acknowledgedAt": 67770,
+            "observationStartedAt": 67770,
+            "observationEndedAt": 70170,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 70170,
+            "axObservationEndedAt": 70809
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "2ac9e78f75f581a7394d9e1dbf5daa6615114b26c207f723d6b00a03db5865be",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "Editorial desk",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button Editorial desk article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 71342,
+              "text": "Publish draft button Editorial desk article"
+            },
+            {
+              "t": 71915,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 71104,
+            "acknowledgedAt": 71991,
+            "observationStartedAt": 71991,
+            "observationEndedAt": 74391,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 74391,
+            "axObservationEndedAt": 75811
+          },
+          "receiptClockOrigin": "2026-10-15T12:35:50.783Z",
+          "nativeAxSha256": "e333f1603f656dc86223282274ded587ba628c006666f38fba1972e6ceb5144c",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Editorial desk",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 8,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 87,
+                "width": 1008
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": "Editorial desk"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish draft button Editorial desk article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button Editorial desk article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "run": "article-context-recheck-v1-2026-10-15T12-37-07-001Z",
+      "sourceRecordsSha256": "c52f6bde0913dee79f58202c259ece72072ede8b35fafa6828556b6c4c7049b9",
+      "predictedAt": "2026-10-15T12:35:02.224Z",
+      "nativeStartedAt": "2026-10-15T12:37:07.254Z",
+      "inputsSha256": "40114907a7975bf673055f538f124fd1894d628c514ffc117f8f6faa9d603fdd",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR",
+        "settings": "baseline-v2-dnd"
+      },
+      "summary": {
+        "planned": 13,
+        "nativeObserved": 13,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 13,
+        "inputEquivalent": 13,
+        "eligible": 13,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 9,
+          "eligible": 13,
+          "conditionalRate": 0.6923076923076923,
+          "allPlannedRate": 0.6923076923076923
+        },
+        "fullSpeechExact": {
+          "matched": 9,
+          "eligible": 13,
+          "conditionalRate": 0.6923076923076923,
+          "allPlannedRate": 0.6923076923076923
+        },
+        "hintCandidateExact": {
+          "matched": 13,
+          "eligible": 13,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "alignedCases": 2
+      },
+      "rows": [
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 10076,
+              "text": "Review notes button Review notes article"
+            },
+            {
+              "t": 10644,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 9962,
+            "acknowledgedAt": 10383,
+            "observationStartedAt": 10383,
+            "observationEndedAt": 12783,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 12783,
+            "axObservationEndedAt": 13427
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "3cf64bae82a1a4688677f413fc2213d16aed691ee0f939b1794f27f194de1ba1",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": false,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": false,
+            "nativeMain": "Review notes button Review notes article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish notes button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 13976,
+              "text": "Publish notes button"
+            },
+            {
+              "t": 14550,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 13878,
+            "acknowledgedAt": 14302,
+            "observationStartedAt": 14302,
+            "observationEndedAt": 16703,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 16703,
+            "axObservationEndedAt": 17359
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "04c701f001e45fa89348488105c93355ffc31ed41471c22fb6d4d23ab2591040",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish notes",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish notes button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish notes button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 2,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "after",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "After marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 17919,
+              "text": "After marker button"
+            },
+            {
+              "t": 18491,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 17814,
+            "acknowledgedAt": 18222,
+            "observationStartedAt": 18222,
+            "observationEndedAt": 20622,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 20622,
+            "axObservationEndedAt": 21342
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "968a264dd0f2e3ac306d1db1e428c6a6b8f67d12efd7900707abcc9c9ee52f6b",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 3,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish notes button article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 22591,
+              "text": "Publish notes button Publish notes article"
+            },
+            {
+              "t": 23148,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 22329,
+            "acknowledgedAt": 23177,
+            "observationStartedAt": 23177,
+            "observationEndedAt": 25579,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 25579,
+            "axObservationEndedAt": 26854
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "9f5e527c68f3cc5c75066f65b517f604bab6fa25329c5ed883f0d9a0e20acbd2",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish notes",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": false,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": false,
+            "nativeMain": "Publish notes button Publish notes article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish notes button article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 4,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 27800,
+              "text": "Review notes button"
+            },
+            {
+              "t": 28375,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 27567,
+            "acknowledgedAt": 28423,
+            "observationStartedAt": 28423,
+            "observationEndedAt": 30824,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 30824,
+            "axObservationEndedAt": 32115
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "16cc5f60612817700588081d1bd4af6a547005b93f8c2051ad5e37af3a543707",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review notes button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 33090,
+              "text": "Before marker button"
+            },
+            {
+              "t": 33674,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 32886,
+            "acknowledgedAt": 33736,
+            "observationStartedAt": 33736,
+            "observationEndedAt": 36138,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 36138,
+            "axObservationEndedAt": 37409
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "c621c120f6b184aee573532e59540c218f2b56bf73126e78cdf7ba2f74ba77a8",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.without-id",
+          "step": 6,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review notes",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review notes button article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 38060,
+              "text": "Review notes button Review notes article"
+            },
+            {
+              "t": 38636,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 37932,
+            "acknowledgedAt": 38353,
+            "observationStartedAt": 38353,
+            "observationEndedAt": 40754,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 40754,
+            "axObservationEndedAt": 41428
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "3eef638324eafb90020baf265a250eeaeee8129287a49d4d41b1fa7b7f80b777",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 48,
+                "y": 266
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 151,
+                "width": 928
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review notes",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": false,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": false,
+            "nativeMain": "Review notes button Review notes article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review notes button article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "inner",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review draft button article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 51625,
+              "text": "Review draft button article"
+            },
+            {
+              "t": 52207,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 51409,
+            "acknowledgedAt": 51873,
+            "observationStartedAt": 51873,
+            "observationEndedAt": 54274,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 54274,
+            "axObservationEndedAt": 54880
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "71f1d93e0f07ccedd97d22d82a462aaa747a3e3554dd1dfd5466959625fceaf3",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review draft",
+                "id": "inner"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review draft button article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review draft button article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 55595,
+              "text": "Publish draft button"
+            },
+            {
+              "t": 56172,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 55485,
+            "acknowledgedAt": 55891,
+            "observationStartedAt": 55891,
+            "observationEndedAt": 58292,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 58292,
+            "axObservationEndedAt": 58993
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "7c87a35f5a5d5ec7b934a7bf34d83556ce93f36951a44b6d55d66c07c0a7060d",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "inner",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Review draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Review draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 59843,
+              "text": "Review draft button"
+            },
+            {
+              "t": 60416,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 59575,
+            "acknowledgedAt": 60430,
+            "observationStartedAt": 60430,
+            "observationEndedAt": 62831,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 62831,
+            "axObservationEndedAt": 64218
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "406bf866b448f1febae3249ed3205158871000b3649186f617c5c8665b82e3fc",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review draft",
+                "id": "inner"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Review draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 65033,
+              "text": "Publish draft button"
+            },
+            {
+              "t": 65598,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 64901,
+            "acknowledgedAt": 65307,
+            "observationStartedAt": 65307,
+            "observationEndedAt": 67708,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 67708,
+            "axObservationEndedAt": 68459
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "fb174faa669b82327b769fc455849ddf081d1c2c8fc2bf94273515e702ae0348",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Publish draft button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 4,
+          "chord": "Tab",
+          "input": {
+            "command": "next_focusable_item",
+            "target": {
+              "identity": "after",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "After marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            }
+          },
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 69338,
+              "text": "After marker button"
+            },
+            {
+              "t": 69909,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 69233,
+            "acknowledgedAt": 69602,
+            "observationStartedAt": 69602,
+            "observationEndedAt": 72004,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 72004,
+            "axObservationEndedAt": 72732
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "7c6f4bec9bc8bce8c81da60113d2420dc35ec0615ac019697779317d26ece850",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "article-context-recheck-v1.legacy-exact",
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "command": "previous_focusable_item",
+            "target": {
+              "identity": "outer",
+              "semantic": {
+                "role": "button",
+                "tagName": "button",
+                "name": "Publish draft",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": [
+                {
+                  "id": "story",
+                  "role": "article",
+                  "name": "",
+                  "inferredName": true,
+                  "items": 0
+                }
+              ]
+            }
+          },
+          "prediction": {
+            "speech": "Publish draft button article",
+            "usageHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "context": {
+              "containers": [
+                "story"
+              ],
+              "focusContext": "story"
+            }
+          },
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 73494,
+              "text": "Publish draft button Publish draft article"
+            },
+            {
+              "t": 74063,
+              "text": "You are currently on a button. To click this button, press Control -Option -Space."
+            }
+          ],
+          "timing": {
+            "requestedAt": 73273,
+            "acknowledgedAt": 74128,
+            "observationStartedAt": 74128,
+            "observationEndedAt": 76529,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 76529,
+            "axObservationEndedAt": 78165
+          },
+          "receiptClockOrigin": "2026-10-15T12:37:07.095Z",
+          "nativeAxSha256": "905cf37a50834c2b7b990708c822cf05439685fed3a99dbe1249fabd6c79aeb5",
+          "articles": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 30,
+                "y": 243
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "article",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 91,
+                "width": 964
+              },
+              "AXSubrole": "AXDocumentArticle",
+              "AXTitle": "",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Publish draft",
+                "id": "outer"
+              },
+              "observedScopes": [
+                {
+                  "role": "article",
+                  "name": ""
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": false,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": false,
+            "nativeMain": "Publish draft button Publish draft article",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Publish draft button article",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        }
+      ]
+    }
+  ]
+}

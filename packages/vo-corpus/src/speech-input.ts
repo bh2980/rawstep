@@ -9,9 +9,11 @@ function nativeContainerPath(dump:AxDump,path:number[]){
   let node=dump.root;
   const containers:NonNullable<VoiceOverSpeechInput['target']['containers']>[number][]=[];
   for(const [i,index]of path.entries()){
-    if(['AXTable','AXCell','AXOutline'].includes(node.AXRole??'')||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||node.AXRoleDescription==='article'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
-    const s=scope(node);if(s)containers.push({...s,id:String(node.AXDOMIdentifier||`scope:${path.slice(0,i).join('.')}:${s.role}:${s.name}`),items:0});
+    if(['AXTable','AXCell','AXOutline'].includes(node.AXRole??'')||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
     if(!Number.isSafeInteger(index)||index<0||!node.children?.[index])return unknown('Native target path missing');
+    const s=scope(node);
+    if(s?.role==='article'&&(!measuredName(node)||!s.name&&!measuredName(node.children[index]!)))return unknown('Native article or entry child name attributes missing');
+    if(s)containers.push({...s,...(s.role==='article'&&measuredName(node.children[index]!)?{entryChildName:nativeNodeName(node.children[index])}:{}),id:String(node.AXDOMIdentifier||`scope:${path.slice(0,i).join('.')}:${s.role}:${s.name}`),items:0});
     node=node.children[index]!;
   }
   return {status:'observed' as const,node,containers,path};
@@ -63,6 +65,7 @@ export function observedSpeechInput(dump:AxDump,command:string){
   return verification.status==='verified'?{status:'observed' as const,input:candidate.input,verification}:{status:'unmeasured' as const,reason:verification.reasons.join('; ')};
 }
 
+const measuredName=(n:AxNode)=>typeof n.AXTitle==='string'||typeof n.AXDescription==='string';
 const names=(a:unknown)=>typeof a==='string'?a.replace(/\s+/g,' ').trim():'';
 const containsNativeImage=(n:AxNode):boolean=>(n.children??[]).some(child=>child.AXRole==='AXImage'||containsNativeImage(child));
 const roles:Record<string,string>={AXButton:'button',AXCheckBox:'checkbox',AXLink:'link',AXHeading:'heading'};
@@ -152,6 +155,17 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:{})}));
   if(observedScopes[0]!.some(s=>s.role==='table'&&(!s.rows||!s.columns)))return unknown('native table dimensions not observed');
   if(JSON.stringify(observedScopes[0])!==JSON.stringify(expectedScopes))reasons.push('ancestor context differs');
+  const articleEntries=chains.map(c=>c.ancestors.flatMap((n,i)=>scope(n)?.role==='article'?[{name:nativeNodeName(n),nameMeasured:measuredName(n),entryChildName:measuredName(c.ancestors[i+1]??c.node)?nativeNodeName(c.ancestors[i+1]??c.node):undefined}]:[]));
+  const expectedArticles=(input.target.containers??[]).filter(c=>c.role==='article');
+  if(articleEntries.some(entries=>JSON.stringify(entries)!==JSON.stringify(articleEntries[0])))return unknown('native alias article entry children disagree');
+  for(const [i,article]of articleEntries[0]!.entries()){
+    const expected=expectedArticles[i];
+    if(!expected)continue;
+    if(!article.nameMeasured||(!article.name||expected.entryChildName!==undefined)&&article.entryChildName===undefined)return unknown('Native article or entry child name attributes missing');
+    if(!article.name&&expected.entryChildName===undefined)return unknown('unnamed article entry child name unmeasured');
+    if(expected?.entryChildName!==undefined&&expected.entryChildName!==article.entryChildName)reasons.push('article entry child name differs');
+  }
+
   if(!!input.target.cell!==chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXCell')))reasons.push('cell context differs');
   return {status:reasons.length?'mismatch' as const:'verified' as const,reasons,observedTarget:{role:role(node),name:nativeNodeName(node),id:String(node.AXDOMIdentifier??'')},observedScopes:observedScopes[0],observedHelp:typeof node.AXHelp==='string'?node.AXHelp:undefined,
     scope:'Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified.'};
