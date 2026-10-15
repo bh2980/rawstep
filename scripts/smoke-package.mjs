@@ -117,10 +117,13 @@ try {
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
     assert.notEqual(runTask, lowLevelRunTask);
-    assert.equal(MOCK_VOICEOVER_PROFILE, 'english-dom-navigation-evidence-v25');
-    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v19');
+    assert.equal(MOCK_VOICEOVER_PROFILE, 'english-dom-navigation-evidence-v26');
+    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v20');
     assert.equal(typeof MockVoiceOverBackend.prototype.getSpeechInputObservation, 'function');
     assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech); assert.equal(rootActivation, formatVoiceOverActivation);
+    const target={identity:'guide',semantic:{role:'heading',name:'Guide',level:4,nativeDisclosureLevel:3,headingLink:true,headingParts:[{text:'Guide',link:true}],protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}};
+    assert.equal(formatVoiceOverSpeech({target,command:'next_item',referenceBrowser:'chrome'}).speech,'heading level 4 level 3 link Guide');
+    assert.equal(formatVoiceOverSpeech({target,command:'next_item',referenceBrowser:'safari'}).speech,'heading level 4 link Guide');
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);
@@ -147,6 +150,7 @@ try {
     'const diagnostic: MockVoiceOverSpeechInputObservation | undefined = new MockVoiceOverBackend().getSpeechInputObservation(); void diagnostic;',
     'const speech: VoiceOverSpeechResult = formatVoiceOverSpeech({ command: "next_item", target: { identity: "save", semantic: { role: "button", name: "Save", protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false } } });',
     'const speechContext: VoiceOverSpeechContext = speech.context; void speechContext;',
+    'const linkedSpeech: VoiceOverSpeechResult = formatVoiceOverSpeech({command:"next_item",referenceBrowser:"chrome",target:{identity:"guide",semantic:{role:"heading",name:"Guide",level:4,nativeDisclosureLevel:3,headingLink:true,headingParts:[{text:"Guide",link:true}],protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}}}); void linkedSpeech;',
     'const nativeParity: false = speech.nativeParityEstablished; void nativeParity;',
     'const rootResult: import("rawstep").VoiceOverSpeechResult = speech; void rootResult;',
     '// @ts-expect-error Simulation results never certify Native parity.',
