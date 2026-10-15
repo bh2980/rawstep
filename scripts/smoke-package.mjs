@@ -125,10 +125,10 @@ try {
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);
   check(`import { runTask, aggregateHints } from 'rawstep'; ${exportedModules.length} export-map entries import`);
-  command(process.execPath,['--test',join(directory,'node_modules/rawstep/examples/v2/voiceover-speech.test.mjs')]);
-  check('installed browser-free speech example preserves caller-owned context in both profiles');
-  command(process.execPath,['--test',join(directory,'node_modules/rawstep/examples/v2/voiceover-regression.test.mjs')]);
-  check('installed model-free VoiceOver keyboard regression example passes both profiles and detects disabled-control failures');
+  command(process.execPath,['node_modules/rawstep/examples/v2/voiceover-speech.test.mjs']);
+  check('installed browser-free speech example uses the documented relative Node command and preserves caller-owned context in both profiles');
+  command(process.execPath,['node_modules/rawstep/examples/v2/voiceover-regression.test.mjs']);
+  check('installed model-free VoiceOver keyboard regression example uses the documented relative Node command, passes both profiles and detects disabled-control failures');
 
   // 6. A TypeScript consumer compiles against the bundled declarations.
   await writeFile(join(directory, 'consumer.ts'), [

@@ -75,7 +75,7 @@ for Native evidence, first/return histories and the remaining timing/VO-entry li
 Run the browser-free executable example after installing Rawstep:
 
 ```sh
-node --test node_modules/rawstep/examples/v2/voiceover-speech.test.mjs
+node node_modules/rawstep/examples/v2/voiceover-speech.test.mjs
 ```
 
 The context-return Native fixtures are calibration/regression evidence: Safari 36/36 and Chrome 32/36 main-speech
@@ -270,7 +270,7 @@ Native inputs/history in the audited score. Matching the other four strings does
 After installing Rawstep and a compatible Chromium, run:
 
 ```sh
-node --test node_modules/rawstep/examples/v2/voiceover-regression.test.mjs
+node node_modules/rawstep/examples/v2/voiceover-regression.test.mjs
 ```
 
 From this repository, `npm run test:voiceover` builds and runs both the browser-free speech example and the keyboard
