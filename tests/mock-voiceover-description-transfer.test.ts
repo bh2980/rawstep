@@ -21,10 +21,11 @@ it.each(fixture.profiles)('matches Native description/state wording in the inspe
   expect(fold(result.speech)).toBe(fold(row.evaluation.nativeMain));
   expect(fold(result.usageHint??'')).toBe(fold(row.evaluation.nativeHint));
   const candidate=[result.speech,...result.usageHint?[result.usageHint]:[]],native=row.utterances.map(u=>u.text);
+  expect(candidate).toEqual(native);
   literalFull+=Number(JSON.stringify(candidate)===JSON.stringify(native));foldedFull+=Number(JSON.stringify(candidate.map(fold))===JSON.stringify(native.map(fold)));
   if(row.input.checkedStateChanged){transitions++;expect(row.transition).toMatchObject({status:'verified',before:!row.input.target.semantic.checked,after:row.input.target.semantic.checked});}
  }
- expect(transitions).toBe(5);expect(literalFull).toBe(12);expect(foldedFull).toBe(21);
+ expect(transitions).toBe(5);expect(literalFull).toBe(21);expect(foldedFull).toBe(21);
  expect(createHash('sha256').update(JSON.stringify(inputs,null,2)+'\n').digest('hex')).toBe(fixture.plan.speechInputsSha256);
  for(const page of fixture.pages)expect(createHash('sha256').update(page.html).digest('hex')).toBe(page.htmlSha256);
 });
