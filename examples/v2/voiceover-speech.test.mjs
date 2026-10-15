@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {formatVoiceOverSpeech,formatVoiceOverActivation} from 'rawstep/mock-voiceover';
+import {formatVoiceOverSpeech,formatVoiceOverActivation,formatVoiceOverEditing} from 'rawstep/mock-voiceover';
 
 for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: caller supplies target and prior context`,()=>{
   const target={
@@ -53,4 +53,13 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: act
   assert.equal(noChange.status,'modeled');assert.deepEqual(noChange.utterances,[]);
   const unknown=formatVoiceOverActivation({...input,beforeTarget:undefined});
   assert.equal(unknown.status,'unsupported');assert.equal('utterances' in unknown,false);
+});
+
+for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: caller supplies an observed edit without a browser`,()=>{
+  const target={identity:'note',semantic:{role:'textbox',name:'Note',protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}};
+  const result=formatVoiceOverEditing({target,command:'enter_text',text:'r',before:{value:'sta',start:3,end:3,multiline:false},after:{value:'star',start:4,end:4,multiline:false},beforeFocus:'note',focus:'note',referenceBrowser});
+  assert.equal(result.status,'approximation');assert.equal(result.nativeParityEstablished,false);
+  assert.deepEqual(result.utterances,['r','star']);
+  const unsupported=formatVoiceOverEditing({target,command:'enter_text',text:'many',before:{value:'',start:0,end:0,multiline:false},after:{value:'many',start:4,end:4,multiline:false},beforeFocus:'note',focus:'note',referenceBrowser});
+  assert.equal(unsupported.status,'unsupported');assert.equal('utterances' in unsupported,false);
 });

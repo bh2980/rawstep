@@ -139,6 +139,39 @@ events to this same function while retaining its legacy approximations for other
 and their histories separate. Live-region announcements, navigation, event interruption and timing remain outside
 this API. The [activation evaluation](./voiceover-activation-evaluation.md) reports calibration, frozen first evaluation and corrected regression separately.
 
+### Format an edit already performed by Rawstep
+
+```js
+import {formatVoiceOverEditing} from 'rawstep/mock-voiceover';
+const result = formatVoiceOverEditing({
+  target: {identity: 'note', semantic: {
+    role: 'textbox', name: 'Note', protected: false, disabled: false,
+    readonly: false, required: false, multiline: false, modal: false,
+  }},
+  command: 'enter_text', text: 'r', beforeFocus: 'note', focus: 'note',
+  before: {value: 'sta', start: 3, end: 3, multiline: false},
+  after: {value: 'star', start: 4, end: 4, multiline: false},
+  referenceBrowser: 'chrome',
+}, {containers: []});
+if (result.status === 'unsupported') throw new Error(result.reason);
+console.log(result.utterances); // ['r', 'star'] — candidate receipts
+```
+
+The caller supplies observed before/after values, UTF-16 selection ranges and the keyboard-focus recipient IDs.
+This function performs no action, changes no focus and preserves a copied structural context. It extracts the
+adapter's existing single-code-unit typing, selection/replacement, Left/Right, Home/End, deletion and multiline
+Enter receipt rules. These return `status: 'approximation'`, not a Native match certificate. Invalid/missing ranges,
+changed or missing focus, protected targets, multi-character input and other commands return `unsupported` without
+utterances. A nonempty field's focus-entry object announcement still uses `formatVoiceOverSpeech` with `focusEntry`;
+single-line Enter, popup/autofill, IME/grapheme editing, live regions, delayed hints and queue behavior are outside
+this API. The two browser profiles remain explicit even where the existing receipt calculation is shared.
+
+The browser adapter delegates those same editing calculations and retains actual input diagnostics. Extraction
+does not add a Native rule or improve the original task scores. In the preserved search task, two Safari typing
+windows match literally; Chrome's corresponding windows include additional repeats. Caret receipts match in both
+browsers, but whole-object reading positions are unmeasured in those windows. First-character hints/repeats and
+their attribution remain unresolved. See [the practical task evidence](./voiceover-practical-speech-tasks.md).
+
 ### Evidence boundaries for test callers
 
 | Area | Current evidence | What the caller must still establish |
@@ -147,7 +180,8 @@ this API. The [activation evaluation](./voiceover-activation-evaluation.md) repo
 | Landmark, named group and article context | Entry/return rules and controlled composition transfer | Complete exposed ancestor path and stable IDs; the Chromium projection is a separate check |
 | Nonmodal dialog context | Standalone/parent contrasts and a 40-action actual-input task regression per browser | Direct exposed children/name inputs; modal, nested and mixed-command behavior remain uncalibrated |
 | State-change receipts | Activation API explicitly reports `modeled` or `unsupported` for its measured scope | Independently observed before/after state; a modeled silence is distinct from unsupported |
-| Editing, live updates, nested documents and speech timing | Partial legacy adapter rules or unmeasured behavior | Do not treat a generated object summary as a validated event sequence |
+| Editing | External before/after receipt API using existing approximate rules | Correct focus/value/selection observations; no general queue, repeat, IME or browser selection fidelity claim |
+| Live updates, nested documents and speech timing | Partial legacy adapter rules or unmeasured behavior | Do not treat a generated object summary as a validated event sequence |
 
 Command recognition is not an evidence/coverage checker. The object formatter marks its role/state fallbacks as
 approximations; it never certifies a call as Native-verified. Until those combinations are independently
@@ -156,9 +190,12 @@ empty history for unknown previous context cannot establish a valid speech match
 Rawstep input-projection/interaction results must be reported separately.
 
 For evaluator code that owns a `MockVoiceOverBackend`, call `getSpeechInputObservation()` after `observe()`.
-It returns a copied `mock-speech-inputs-v1` record with the completed observation's `windowId`, capture time and
+It returns a copied `mock-speech-inputs-v2` record with the completed observation's `windowId`, capture time and
 the actual formatter inputs plus their previous speech contexts. Reading events distinguish emitted announcements
-from suppressed duplicates; activation events retain `modeled`/`unsupported`. Compare the window IDs before joining
+from suppressed duplicates; activation events retain `modeled`/`unsupported`, and editing events retain their
+before/after values, focus IDs and `approximation`/`unsupported` status. Version 1 archives retain their original
+reading/activation-only schema. Consumers must branch on event kind; do not interpret an editing event as reading.
+Compare the window IDs before joining
 this diagnostic to outputs. It does not perform an action or infer Native reading position. The record is absent from
 policy observations/events, excludes protected edit values and is cleared on close. Other fixture/user text can still
 be present, so keep evaluator archives outside policy inputs and apply the usual data-handling policy. These are

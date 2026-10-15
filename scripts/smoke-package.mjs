@@ -109,9 +109,9 @@ try {
   assert.deepEqual(['./project', './hints', './runner', './screenshot', './systemone', './trace', './cli'].filter(name => !exportedModules.includes(name)), []);
   command(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
-    import { runTask, aggregateHints, readTrace, formatVoiceOverSpeech as rootSpeech, formatVoiceOverActivation as rootActivation } from 'rawstep';
+    import { runTask, aggregateHints, readTrace, formatVoiceOverSpeech as rootSpeech, formatVoiceOverActivation as rootActivation, formatVoiceOverEditing as rootEditing } from 'rawstep';
     import { runTask as lowLevelRunTask } from 'rawstep/runner';
-    import { MOCK_VOICEOVER_PROFILE, MOCK_VOICEOVER_CHROME_PROFILE, MockVoiceOverBackend, runMockVoiceOverTask, formatVoiceOverSpeech, formatVoiceOverActivation } from 'rawstep/mock-voiceover';
+    import { MOCK_VOICEOVER_PROFILE, MOCK_VOICEOVER_CHROME_PROFILE, MockVoiceOverBackend, runMockVoiceOverTask, formatVoiceOverSpeech, formatVoiceOverActivation, formatVoiceOverEditing } from 'rawstep/mock-voiceover';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
@@ -121,7 +121,7 @@ try {
     assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v21');
     assert.equal(typeof MockVoiceOverBackend.prototype.getSpeechInputObservation, 'function');
     assert.equal(typeof MockVoiceOverBackend.prototype.getReadingCursorObservation, 'function');
-    assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech); assert.equal(rootActivation, formatVoiceOverActivation);
+    assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech); assert.equal(rootActivation, formatVoiceOverActivation); assert.equal(rootEditing,formatVoiceOverEditing);
     const target={identity:'guide',semantic:{role:'heading',name:'Guide',level:4,nativeDisclosureLevel:3,headingLink:true,headingParts:[{text:'Guide',link:true}],protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}};
     assert.equal(formatVoiceOverSpeech({target,command:'next_item',referenceBrowser:'chrome'}).speech,'heading level 4 level 3 link Guide');
     assert.equal(formatVoiceOverSpeech({target,command:'next_item',referenceBrowser:'safari'}).speech,'heading level 4 link Guide');
@@ -142,7 +142,7 @@ try {
     'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
     'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
     'import { SpeechDecisionPolicy } from "rawstep/policy";',
-    'import { MockVoiceOverBackend, formatVoiceOverSpeech, formatVoiceOverActivation, type MockVoiceOverCursorObservation, type MockVoiceOverSpeechInputObservation, type VoiceOverActivationResult, type VoiceOverSpeechResult, type VoiceOverSpeechContext, type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
+    'import { MockVoiceOverBackend, formatVoiceOverSpeech, formatVoiceOverActivation, formatVoiceOverEditing, type VoiceOverEditingResult, type MockVoiceOverCursorObservation, type MockVoiceOverSpeechInputObservation, type VoiceOverActivationResult, type VoiceOverSpeechResult, type VoiceOverSpeechContext, type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
@@ -161,6 +161,7 @@ try {
     'const nativeCertificate: true = speech.nativeParityEstablished; void nativeCertificate;',
     'const activation: VoiceOverActivationResult = formatVoiceOverActivation({command: "activate_form_control", target: {identity: "save", semantic: {role: "button", tagName: "button", name: "Save", protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false}}}); void activation;',
     'const activationParity: false = activation.nativeParityEstablished; void activationParity;',
+    'const editing: VoiceOverEditingResult = formatVoiceOverEditing({target:{identity:"note",semantic:{role:"textbox",name:"Note",protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}},command:"ArrowLeft",before:{value:"hi",start:2,end:2,multiline:false},after:{value:"hi",start:1,end:1,multiline:false},beforeFocus:"note",focus:"note"}); const rootEditing: import("rawstep").VoiceOverEditingResult = editing; void rootEditing;',
     'const task: Task = { url: "https://example.com", goal: "Read the page", verify: { all: [{ titleIncludes: "Example" }] } };',
     'const analyzer: TraceAnalyzer = { id: "example", analyze: async () => ({ summary: "Done", findings: [] }) };',
     'const model: ScreenshotModelAdapter = new SystemOneScreenshotAdapter(new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { inputs: ["text", "image"], maxChoices: 255, maxImages: 2 } }));',

@@ -3,6 +3,7 @@ import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, Ba
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 import { setTimeout as wait } from 'node:timers/promises';
 import {formatVoiceOverActivation,type VoiceOverActivationInput} from './activation.js';
+import {formatVoiceOverEditing,type VoiceOverEditingInput} from './editing.js';
 import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechContext, type VoiceOverContainer, type VoiceOverCell, type VoiceOverEditState} from './speech.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
@@ -75,9 +76,10 @@ export type MockVoiceOverCursorObservation = {
 };
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 export type MockVoiceOverSpeechInputObservation = {
-  protocol:'mock-speech-inputs-v1';windowId:string;capturedAt:string;
+  protocol:'mock-speech-inputs-v2';windowId:string;capturedAt:string;
   events:({kind:'reading';input:VoiceOverSpeechInput;previousContext:VoiceOverSpeechContext;emitted:boolean}
-    |{kind:'activation';input:VoiceOverActivationInput;previousContext:VoiceOverSpeechContext;status:'modeled'|'unsupported';reason?:string})[];
+    |{kind:'activation';input:VoiceOverActivationInput;previousContext:VoiceOverSpeechContext;status:'modeled'|'unsupported';reason?:string}
+    |{kind:'editing';input:VoiceOverEditingInput;previousContext:VoiceOverSpeechContext;status:'approximation'|'unsupported';reason?:string})[];
 };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[];speechInputs:MockVoiceOverSpeechInputObservation['events'] };
 type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
@@ -761,31 +763,13 @@ export class MockVoiceOverBackend implements Backend {
       this.announce(node, 'No accessible content', true, false, true);
       return true;
     }
-    if (!before || beforeFocus !== this.focusedIdentity) return false;
-    if (action.kind === 'typeText' && action.text.length === 1) {
-      if (before.end > before.start) emit(`selection replaced ${action.text}`);
-      else { emit(action.text); emit(after.value.slice(0, after.start).split(/\s/).at(-1) ?? ''); }
-      return true;
-    }
-    if (action.kind !== 'key') return false;
-    const selected = after.value.slice(after.start, after.end);
-    if (action.key === 'ControlOrMeta+A') { emit('Select All'); if (selected) emit(`${selected} selected`); return true; }
-    if (action.key.startsWith('Shift+') && ['Shift+Home','Shift+End'].includes(action.key)) { if (selected) emit(`${selected} selected`); return true; }
-    if (action.key === 'Home' || action.key === 'End') return true;
-    if (action.key === 'ArrowLeft' || action.key === 'ArrowRight') {
-      const index = before.end > before.start ? action.key === 'ArrowRight' ? before.end - 1 : before.start : action.key === 'ArrowLeft' ? before.start - 1 : before.start;
-      emit(before.value[index] ?? ''); return true;
-    }
-    if (action.key === 'Backspace' || action.key === 'Delete') {
-      const removed = before.end > before.start ? before.value.slice(before.start, before.end) : before.value[action.key === 'Backspace' ? before.start - 1 : before.start] ?? '';
-      if (removed === '\n' && after.multiline) {
-        const word = after.value.slice(0, after.start).split(/\s/).at(-1)! + after.value.slice(after.start).split(/\s/)[0];
-        emit(`${node.semantic.name} text entry area ${after.value} Insertion on word: ${word} , between characters: ${after.value[after.start - 1] ?? ''} and ${after.value[after.start] ?? ''}`);
-      } else emit(removed);
-      return true;
-    }
-    if (action.key === 'Enter' && after.multiline) { emit('new line'); emit(before.value.slice(0, before.start).split('\n').at(-1) ?? ''); return true; }
-    return false;
+    if(action.kind==='key'&&['Tab','Shift+Tab'].includes(action.key))return false;
+    if(action.kind!=='key'&&action.kind!=='typeText')return false;
+    const input:VoiceOverEditingInput={target:node,command:action.kind==='key'?action.key:'enter_text',...(action.kind==='typeText'?{text:action.text}:{}),before,after,beforeFocus,focus:this.focusedIdentity,referenceBrowser:this.referenceBrowser};
+    const result=formatVoiceOverEditing(input,this.speechContext);
+    this.beginWindow().speechInputs.push(structuredClone({kind:'editing',input,previousContext:this.speechContext,status:result.status,...result.status==='unsupported'?{reason:result.reason}:{}}));
+    if(result.status==='unsupported')return false;
+    this.speechContext=result.context;for(const text of result.utterances)emit(text);return true;
   }
 
   private async activate(signal?: AbortSignal): Promise<'dom-click-untrusted' | 'dom-focus'> {
@@ -881,7 +865,7 @@ export class MockVoiceOverBackend implements Backend {
         windowId: window.id, startedAt: window.startedAt, endedAt: new Date().toISOString(), reason: 'simulation-snapshot',
         outputs: [...window.outputs], speech: window.outputs.map(output => output.text),
       };
-      this.speechInputObservation={protocol:'mock-speech-inputs-v1',windowId:window.id,capturedAt:observation.endedAt,events:structuredClone(window.speechInputs)};
+      this.speechInputObservation={protocol:'mock-speech-inputs-v2',windowId:window.id,capturedAt:observation.endedAt,events:structuredClone(window.speechInputs)};
       const current=this.current();
       this.cursorObservation={protocol:'mock-reading-cursor-v1',windowId:window.id,capturedAt:observation.endedAt,
         ...(current?{target:{identity:current.identity,axId:current.axId,backendDOMNodeId:current.backendDOMNodeId,
