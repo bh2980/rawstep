@@ -32,3 +32,15 @@ test('table dimensions require identifiable native rows and columns',()=>{
   delete table.children![0]!.AXElementId;
   assert.equal(checkSpeechInput(input,d).status,'unmeasured');
 });
+
+test('description, help and more-content availability require independent Native attributes',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ const described=structuredClone(input);Object.assign(described.target.semantic,{description:'Independent note',hasMoreContent:true});
+ assert.equal(checkSpeechInput(described,d).status,'unmeasured');
+ node.AXCustomContent={status:'observed',byteCount:1,rawBase64:'eA==',entries:[{label:'description',value:'Independent note',importance:1}]};
+ assert.equal(checkSpeechInput(described,d).status,'verified');
+ described.target.semantic.description='Predicted but unobserved';assert.equal(checkSpeechInput(described,d).status,'mismatch');
+ delete described.target.semantic.description;described.target.semantic.help='Observed help';
+ assert.equal(checkSpeechInput(described,d).status,'unmeasured');node.AXHelp='Observed help';assert.equal(checkSpeechInput(described,d).status,'verified');
+ node.AXHelp='Different help';assert.equal(checkSpeechInput(described,d).status,'mismatch');
+});

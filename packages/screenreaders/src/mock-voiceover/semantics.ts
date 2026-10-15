@@ -104,16 +104,16 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   const switchControl = !node.protected && node.role === 'switch' && typeof node.checked === 'boolean';
   const heading = !node.protected && node.role === 'heading' && node.level !== undefined;
   if(checkedStateChanged&&radio&&node.tagName==='input'&&node.checked===true)return ['selected',node.name,'radio button',node.position!==undefined&&node.setSize!==undefined?`${node.position} of ${node.setSize}`:''].filter(Boolean).join(partSeparator);
-  const buttonDescription = button && node.pressed === undefined && node.expanded === undefined && node.description && node.description !== node.name;
+  const inlineDescription = (button && node.pressed === undefined && node.expanded === undefined || checkbox) && node.description && node.description !== node.name;
   // Native Space/VO+Space receipts for plain checked controls differ from navigation wording.
   if (checkedStateChanged && (checkbox || switchControl) && typeof node.checked === 'boolean'
-    && !node.required && !node.disabled && !node.readonly && !node.description && !node.value) {
-    return [switchControl ? node.checked ? 'on' : 'off' : checkedState(node.checked), node.name, roleNames[node.role]].filter(Boolean).join(partSeparator);
+    && !node.required && !node.disabled && !node.readonly && (checkbox || !node.description) && !node.value) {
+    return [switchControl ? node.checked ? 'on' : 'off' : checkedState(node.checked), node.name, checkbox && inlineDescription ? node.description : '', roleNames[node.role]].filter(Boolean).join(partSeparator);
   }
   if (heading) parts.push('heading', `level ${node.level}`);
   if (link) parts.push([node.currentPage ? 'current page link' : 'link', node.containsImage ? 'image' : ''].filter(Boolean).join(' '));
   if (node.name) parts.push(node.name);
-  if (buttonDescription) parts.push(node.description!);
+  if (inlineDescription) parts.push(node.description!);
   if (node.protected) parts.push('secure text field');
   else {
     if (!textbox || !node.multiline) {
@@ -143,7 +143,7 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   if (!textbox && node.required) parts.push('required');
   if (!textbox && node.multiline) parts.push('multi-line');
   if (node.modal) parts.push('modal');
-  if (!buttonDescription && node.description && node.description !== node.name) parts.push(node.description);
+  if (!inlineDescription && node.description && node.description !== node.name) parts.push(node.description);
   return parts.join(partSeparator);
 }
 

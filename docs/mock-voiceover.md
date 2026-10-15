@@ -66,6 +66,11 @@ The [new context composition evaluation](./voiceover-speech-context-evaluation.m
 per browser on a frozen, initially unseen synthetic cohort, with literal full-speech failures and input-quality scope
 reported separately. It is now inspected regression evidence.
 
+The [description/state transfer evaluation](./voiceover-speech-transfer-evaluation.md) exposed a 15/21 first-evaluation
+main result in each browser. Corrections reach 21/21 on those inspected regression inputs; this does not replace
+the first evaluation. [The sample coverage audit](./voiceover-sample-coverage.md) separates archive volume from
+verified independent examples and records the Safari/forward-reading imbalance.
+
 ## Run the bundled browser fixture
 
 Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and a profile with `screenReader: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
@@ -109,8 +114,8 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v11`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v5`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v12`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v6`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -141,7 +146,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v11` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v12` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

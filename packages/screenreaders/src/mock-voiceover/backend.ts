@@ -6,8 +6,8 @@ import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContai
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v11' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v5' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v12' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v6' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -125,7 +125,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'5':'11', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'6':'12', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }

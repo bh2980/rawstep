@@ -1,6 +1,7 @@
 import type {VoiceOverSpeechInput} from 'rawstep/mock-voiceover';
 import {nativeNodeName,type AxDump,type AxNode} from './axdump.js';
 import {observeVisualCursor} from './cursor.js';
+import {nativeCustomContent} from './native-content.js';
 
 const names=(a:unknown)=>typeof a==='string'?a.replace(/\s+/g,' ').trim():'';
 const roles:Record<string,string>={AXButton:'button',AXCheckBox:'checkbox'};
@@ -43,12 +44,26 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     const checked=node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true;
     if(checked!==expected.checked)reasons.push('checked state differs');
   }
+  if(expected.description!==undefined||expected.help!==undefined||expected.hasMoreContent!==undefined){
+    const contents=chains.map(c=>nativeCustomContent(c.node));
+    if(contents.some(c=>c.status!=='observed'))return unknown('native custom content unmeasured');
+    if(contents.some(c=>JSON.stringify(c)!==JSON.stringify(contents[0])))return unknown('native alias custom content differs');
+    const content=contents[0]!;
+    if(content.status==='observed'){
+      if(expected.hasMoreContent!==undefined&&expected.hasMoreContent!==content.hasMoreContent)reasons.push('additional content availability differs');
+      if(expected.description!==undefined&&expected.description!==content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' '))reasons.push('inline description differs');
+    }
+    if(expected.help!==undefined){
+      if(chains.some(c=>typeof c.node.AXHelp!=='string'))return unknown('native help unmeasured');
+      if(chains.some(c=>c.node.AXHelp!==expected.help))reasons.push('native help differs');
+    }
+  }
   const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s]:[]}));
   if(observedScopes.some(s=>JSON.stringify(s)!==JSON.stringify(observedScopes[0])))return unknown('native alias ancestor contexts disagree');
   const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:{})}));
   if(observedScopes[0]!.some(s=>s.role==='table'&&(!s.rows||!s.columns)))return unknown('native table dimensions not observed');
   if(JSON.stringify(observedScopes[0])!==JSON.stringify(expectedScopes))reasons.push('ancestor context differs');
   if(!!input.target.cell!==chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXCell')))reasons.push('cell context differs');
-  return {status:reasons.length?'mismatch' as const:'verified' as const,reasons,observedTarget:{role:roles[node.AXRole??''],name:nativeNodeName(node),id:String(node.AXDOMIdentifier??'')},observedScopes:observedScopes[0],
+  return {status:reasons.length?'mismatch' as const:'verified' as const,reasons,observedTarget:{role:roles[node.AXRole??''],name:nativeNodeName(node),id:String(node.AXDOMIdentifier??'')},observedScopes:observedScopes[0],observedHelp:typeof node.AXHelp==='string'?node.AXHelp:undefined,
     scope:'Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified.'};
 }

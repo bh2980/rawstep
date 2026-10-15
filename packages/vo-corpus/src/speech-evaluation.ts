@@ -9,7 +9,7 @@ type Step=CaseRecord['steps'][number];
 export function evaluateSpeechCandidate(input:VoiceOverSpeechInput,prediction:{speech:string;usageHint?:string},native:Step|undefined,dump:AxDump|undefined,options:{chord:string;startAligned:boolean;previousContextVerified:boolean}){
   const inputVerification=checkSpeechInput(input,dump),attribution=native?speechAttribution(native):undefined;
   const issues=[...(!native?['native-action-missing']:[]),...(!options.startAligned?['start-not-aligned']:[]),...(native&&native.chord!==options.chord?['command-differs']:[]),...(inputVerification.status!=='verified'?[`input-${inputVerification.status}`]:[]),...(!options.previousContextVerified?['previous-context-unverified']:[]),...(attribution?.status!=='bounded-window'?['speech-attribution-unverified']:[]),...(native?.axError?['ax-error']:[]),...(native?.foregroundError?['foreground-error']:[])];
-  const nativeSpeech=native?.utterances??[],actual=splitSpeech(nativeSpeech),candidate=[prediction.speech,...(prediction.usageHint?[prediction.usageHint]:[])];
+  const nativeSpeech=native?.utterances??[],actual=splitSpeech(nativeSpeech,{observedHelp:inputVerification.status==='verified'?inputVerification.observedHelp:undefined}),candidate=[prediction.speech,...(prediction.usageHint?[prediction.usageHint]:[])];
   const eligible=issues.length===0;
   return {nativeObserved:!!native,inputVerification,attribution,eligible,issues,
     mainSpeechExact:eligible?normalize(actual.main)===normalize(prediction.speech):null,

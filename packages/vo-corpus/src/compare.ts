@@ -31,9 +31,11 @@ const hintStart = /^\s*(현재 |You are currently|To open the autofill menu,)/;
 const hangul = /[ㄱ-ㆎ가-힣]/;
 
 /** Classify each receipt: typing and delayed updates can arrive after a usage hint. */
-export function splitSpeech(utterances: { text: string }[]): { main: string; hint: string } {
+export function splitSpeech(utterances: { text: string }[], context: {observedHelp?:string} = {}): { main: string; hint: string } {
   const texts = utterances.map(u => u.text.trim()).filter(Boolean);
-  return { main: texts.filter(text => !hintStart.test(text)).join(" "), hint: texts.filter(text => hintStart.test(text)).join(" ") };
+  const help=context.observedHelp?.trim();
+  const isHint=(text:string)=>hintStart.test(text)||!!help&&text.startsWith(help)&&/^\s+/.test(text.slice(help.length))&&hintStart.test(text.slice(help.length));
+  return { main: texts.filter(text => !isHint(text)).join(" "), hint: texts.filter(isHint).join(" ") };
 }
 
 export const normalize = (text: string): string => text.toLowerCase().replace(/[,.，。]/g, " ").replace(/\s+/g, " ").trim();

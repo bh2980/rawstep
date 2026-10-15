@@ -60,6 +60,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
   const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-  const usageHint=formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
+  const checkboxChange=input.checkedStateChanged&&command==='activate_form_control'&&node.semantic.role==='checkbox';
+  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {speech,usageHint,context};
 }
