@@ -23,7 +23,7 @@ Native description content was independently observable in `AXCustomContent`: an
 
 Chromium CDP reports a single description string for all three sources. The existing DOM adapter now distinguishes unambiguous ARIA descriptions from title help using DOM attributes and CDP described-by relations. It does not implement a replacement accessible-description algorithm. Combined/ambiguous sources, nested help contexts, other roles and live changes require further observation. For callers that already have semantic inputs, `SimulatedSemanticNode.description` is inline content, `help` is a help/usage-hint prefix, and `hasMoreContent` independently requests the observed menu instruction. Do not infer that flag from any arbitrary description string.
 
-The [shared regression fixture](../tests/fixtures/voiceover-evidence/native-additional-content-2026-10-15.json) preserves HTML, hashes, frozen original inputs/predictions, revised input provenance, Native receipts, timing, environment and source AX/record hashes. Full AX archives remain in the local source runs. Revised inputs use observed AX attributes, never speech. The original frozen input incorrectly represented title help as inline description in two actions per browser; these are recorded as input differences, not engine errors.
+The [shared regression fixture](https://github.com/bh2980/rawstep/blob/385fad4/tests/fixtures/voiceover-evidence/native-additional-content-2026-10-15.json) preserves HTML, hashes, frozen original inputs/predictions, revised input provenance, Native receipts, timing, environment and source AX/record hashes. Full AX archives remain in the local source runs. Revised inputs use observed AX attributes, never speech. The original frozen input incorrectly represented title help as inline description in two actions per browser; these are recorded as input differences, not engine errors.
 
 ## Results and denominators
 
@@ -42,7 +42,7 @@ Input verification uses stable unique visible geometry candidates plus AX role/n
 
 ## Reproduction and provenance
 
-Run the shared speech regression and Chromium projection checks after building:
+From a source checkout, run the shared speech regression and Chromium projection checks after building:
 
 ```sh
 npm run build
