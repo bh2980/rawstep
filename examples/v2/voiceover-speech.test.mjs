@@ -30,3 +30,10 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: cal
   assert.match(tooltip.usageHint,/^Copies, not originals\.  You are currently/);
   assert.doesNotMatch(tooltip.usageHint,/more content menu/);
 });
+
+for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: VO activation uses the observed browser wording`,()=>{
+  const semantic={role:'checkbox',name:'Backup reminders',checked:true,protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false};
+  const result=formatVoiceOverSpeech({target:{identity:'backup',semantic},command:'activate_button',checkedStateChanged:true,referenceBrowser});
+  assert.equal(result.speech,referenceBrowser==='chrome'?'checked':'checked Backup reminders checkbox');
+  assert.equal(result.usageHint,undefined);
+});

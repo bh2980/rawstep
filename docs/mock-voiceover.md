@@ -51,6 +51,12 @@ character-edit echoes and activation silence/repetition still have adapter-speci
 covered by this target formatter. Unknown native context must be reported by the calling test as unmeasured;
 passing missing context as an empty history is not proof of a correct prediction.
 
+For a verified checkbox change, `activate_form_control` describes physical Space and `activate_button` describes VO activation.
+Chrome VO activation returns only `checked`/`unchecked` and preserves previous structural speech history; Safari
+returns the measured object-change wording. Both measured commands omit a new checkbox hint candidate. Reading
+the same control still returns a hint. See [the controlled checkbox contrasts](./voiceover-checkbox-speech-contrasts.md)
+for Native evidence, first/return histories and the remaining timing/VO-entry limits.
+
 Run the browser-free executable example after installing Rawstep:
 
 ```sh
@@ -114,8 +120,8 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v12`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v6`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v13`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v7`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -146,7 +152,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v12` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v13` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

@@ -26,6 +26,9 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   const referenceBrowser=input.referenceBrowser??'safari';
   if(referenceBrowser!=='safari'&&referenceBrowser!=='chrome')throw new Error('Reference browser must be safari or chrome');
   const context:VoiceOverSpeechContext={...previous,containers:[...previous.containers],cell:previous.cell&&{...previous.cell},column:previous.column&&{...previous.column}};
+  const checkboxChange=checkedStateChanged&&!node.semantic.protected&&node.semantic.role==='checkbox'&&typeof node.semantic.checked==='boolean'&&['activate_form_control','activate_button'].includes(command);
+  // Chrome VO activation emits a value-change receipt without reading the object or its structure.
+  if(referenceBrowser==='chrome'&&checkboxChange&&command==='activate_button')return {speech:node.semantic.checked?'checked':'unchecked',usageHint:undefined,context};
   let speech=formatSimulatedSpeech(node.semantic,checkedStateChanged,command,' ');
   const focusEntry=focused&&edit?.value&&!node.semantic.protected&&input.focusEntry;
   if(focusEntry&&edit){
@@ -60,7 +63,6 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
   const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-  const checkboxChange=input.checkedStateChanged&&command==='activate_form_control'&&node.semantic.role==='checkbox';
   const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {speech,usageHint,context};
 }
