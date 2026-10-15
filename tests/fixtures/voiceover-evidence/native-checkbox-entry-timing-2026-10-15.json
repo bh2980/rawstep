@@ -1,0 +1,4301 @@
+{
+  "schemaVersion": 1,
+  "scope": "Pre-calibration comparison of a controlled factorial calibration cohort; no independent/global VoiceOver accuracy claim. Reuses prior Native HTML and calibration groups; contrasts Tab/VO entry with a 5000ms observation horizon. Preserve action clocks and hint receipt times. No causal completion claim. Native collected for both browsers before any speech-engine change. All planned actions retained. Once inspected, this cohort is regression. Hint candidate equality is not speech queue behavior; state transitions verify prediction inputs rather than whole-engine State Accuracy.",
+  "plan": {
+    "frozenAt": "2026-10-15T08:41:50.426Z",
+    "sourceCommit": "7f3e87e",
+    "casesSha256": "8394bbaa39ed3c293f7b9a2ce2792401ca5ef727a2206ddbebfbefe67fa3c8a7",
+    "speechInputsSha256": "e7aa7cda588188ff8925cef8ac4b34a2e35fdffecb70eedf37a38eeecfae1904",
+    "modelBuildSha256": "92934e131f842f998609b534b54b5caaf6c9dbc6141b9d649a4f767bbdae76ce",
+    "priorInputCasesAudited": 801,
+    "collisions": [
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.native-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.native-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.native-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.native-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.aria-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.aria-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.aria-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-tab",
+        "oldCase": "checkbox-speech-v1.aria-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.native-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.native-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.native-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.native-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.aria-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.aria-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.aria-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.plain-vo",
+        "oldCase": "checkbox-speech-v1.aria-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.native-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.native-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.native-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.native-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.aria-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.aria-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.aria-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-tab",
+        "oldCase": "checkbox-speech-v1.aria-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.native-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.native-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.native-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.native-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.aria-plain-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.aria-plain-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.aria-description-physical",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      },
+      {
+        "newCase": "checkbox-entry-timing-v1.description-vo",
+        "oldCase": "checkbox-speech-v1.aria-description-vo",
+        "fields": [
+          "templateGroup",
+          "siteGroup",
+          "contrastGroup"
+        ]
+      }
+    ],
+    "browsers": [
+      "safari",
+      "chrome"
+    ],
+    "settings": "baseline-v2-dnd",
+    "plannedCasesPerBrowser": 4,
+    "plannedActionsPerBrowser": 20,
+    "scope": "Controlled timing follow-up: identical native checkbox pages reused from the preceding calibration group; Tab versus VO first/return entry, description absent/present, physical Space changes. Minimum observation horizon 5000ms for every action. Preserve original receipt times and examine whether entry hints arrive before later state-change requests. No independent/general accuracy claim.",
+    "metrics": [
+      "Main Speech Exact",
+      "literal Full Speech candidate equality",
+      "normalized hint candidate equality",
+      "conditional eligible speech and all-plan match rates"
+    ],
+    "inputEquivalence": "Retain every planned row. Require independently visible unique geometry candidate, matching AX target role/name, current checked state, AXCustomContent/AXHelp and independent before/after checked-state changes; retain unverified/unstable target or ancestor context as unknown. Keyboard focus alone does not prove a reading target.",
+    "attribution": "Existing wire-request-v1 bounded-window quality check; no native speech-completion guarantee. Predict before Native collection; never feed observed speech or target corrections into predictions.",
+    "failurePolicy": "No engine or input changes until both browsers finish. Inspected cohort becomes regression. No Navigation or Task Success claim. Native checked-state transition observations verify speech inputs, not whole-engine State Accuracy.",
+    "verifierFiles": {
+      "src/speech-input.ts": "7d7c3bfcd8ea261fcfa16f84ec491de971a7e4df7a748b6faf1a35b84fe93547",
+      "src/speech-evaluation.ts": "7964d489fa6baa8d8083ee5d3b33ddfc8de2c64b85c27cff1184bda48bda77d9",
+      "src/compare.ts": "e0cbc99a8d4e0e0c739d36ba62be08f5b910f1b9b579fb5544f91eee3f27dbcb",
+      "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b"
+    },
+    "mainPolicy": "Existing normalized Main Speech plus case/punctuation-preserving whitespace-only exact diagnostic. Help prefix classification requires actual observed AXHelp, never predicted help.",
+    "fullPolicy": "Literal main/hint candidate equality; candidate is not a queue scheduler. Keep missing/repeated hints distinct from main wording and preserve raw receipts."
+  },
+  "attemptSummary": {
+    "attempts": 2,
+    "startupFailures": 0,
+    "planned": 40,
+    "observed": 40
+  },
+  "pages": [
+    {
+      "id": "checkbox-entry-timing-v1.plain-tab",
+      "page": "pages/plain-tab.html",
+      "chords": [
+        "Tab",
+        "Space",
+        "Shift+Tab",
+        "Tab",
+        "Space"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 5000,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "checkbox-entry-timing",
+        "role": "checkbox",
+        "implementation": "native",
+        "description": "none",
+        "command": "Tab",
+        "templateGroup": "checkbox-speech-v1",
+        "contrastGroup": "checkbox-speech-v1",
+        "siteGroup": "synthetic-checkbox-speech-v1",
+        "partition": "train",
+        "exposure": "calibration",
+        "observationHorizon": "5000ms"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Backup notification preferences</title><style>body{font:18px system-ui;padding:24px}button{display:block;margin:16px}input,[role=checkbox]{display:inline-block;width:24px;height:24px;border:2px solid #555;margin:12px;vertical-align:middle}[role=checkbox][aria-checked=true]{background:#174}</style><body><button id=\"before\" autofocus>Before marker</button><input id=\"target\" aria-labelledby=\"label\" type=\"checkbox\"><span id=\"label\">Backup reminders</span><p id=\"detail\" hidden>Sent once a week, when enabled.</p><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "64e24c2277ecfa8d708729e428439fc90137b46b3090d7fe02821a43bd420f16"
+    },
+    {
+      "id": "checkbox-entry-timing-v1.plain-vo",
+      "page": "pages/plain-vo.html",
+      "chords": [
+        "VO+Right",
+        "Space",
+        "VO+Left",
+        "VO+Right",
+        "Space"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 5000,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "checkbox-entry-timing",
+        "role": "checkbox",
+        "implementation": "native",
+        "description": "none",
+        "command": "VO+Right",
+        "templateGroup": "checkbox-speech-v1",
+        "contrastGroup": "checkbox-speech-v1",
+        "siteGroup": "synthetic-checkbox-speech-v1",
+        "partition": "train",
+        "exposure": "calibration",
+        "observationHorizon": "5000ms"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Backup notification preferences</title><style>body{font:18px system-ui;padding:24px}button{display:block;margin:16px}input,[role=checkbox]{display:inline-block;width:24px;height:24px;border:2px solid #555;margin:12px;vertical-align:middle}[role=checkbox][aria-checked=true]{background:#174}</style><body><button id=\"before\" autofocus>Before marker</button><input id=\"target\" aria-labelledby=\"label\" type=\"checkbox\"><span id=\"label\">Backup reminders</span><p id=\"detail\" hidden>Sent once a week, when enabled.</p><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "64e24c2277ecfa8d708729e428439fc90137b46b3090d7fe02821a43bd420f16"
+    },
+    {
+      "id": "checkbox-entry-timing-v1.description-tab",
+      "page": "pages/description-tab.html",
+      "chords": [
+        "Tab",
+        "Space",
+        "Shift+Tab",
+        "Tab",
+        "Space"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 5000,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "checkbox-entry-timing",
+        "role": "checkbox",
+        "implementation": "native",
+        "description": "inline",
+        "command": "Tab",
+        "templateGroup": "checkbox-speech-v1",
+        "contrastGroup": "checkbox-speech-v1",
+        "siteGroup": "synthetic-checkbox-speech-v1",
+        "partition": "train",
+        "exposure": "calibration",
+        "observationHorizon": "5000ms"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Backup notification preferences</title><style>body{font:18px system-ui;padding:24px}button{display:block;margin:16px}input,[role=checkbox]{display:inline-block;width:24px;height:24px;border:2px solid #555;margin:12px;vertical-align:middle}[role=checkbox][aria-checked=true]{background:#174}</style><body><button id=\"before\" autofocus>Before marker</button><input id=\"target\" aria-labelledby=\"label\" aria-describedby=\"detail\" type=\"checkbox\"><span id=\"label\">Backup reminders</span><p id=\"detail\" hidden>Sent once a week, when enabled.</p><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "edfb6f5aaf9a22d36057fd58cd35cf6bfa8f15250d9b885a754853f71f7f27b8"
+    },
+    {
+      "id": "checkbox-entry-timing-v1.description-vo",
+      "page": "pages/description-vo.html",
+      "chords": [
+        "VO+Right",
+        "Space",
+        "VO+Left",
+        "VO+Right",
+        "Space"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 5000,
+        "quietMs": 1200,
+        "maxWaitMs": 8500
+      },
+      "axes": {
+        "family": "checkbox-entry-timing",
+        "role": "checkbox",
+        "implementation": "native",
+        "description": "inline",
+        "command": "VO+Right",
+        "templateGroup": "checkbox-speech-v1",
+        "contrastGroup": "checkbox-speech-v1",
+        "siteGroup": "synthetic-checkbox-speech-v1",
+        "partition": "train",
+        "exposure": "calibration",
+        "observationHorizon": "5000ms"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Backup notification preferences</title><style>body{font:18px system-ui;padding:24px}button{display:block;margin:16px}input,[role=checkbox]{display:inline-block;width:24px;height:24px;border:2px solid #555;margin:12px;vertical-align:middle}[role=checkbox][aria-checked=true]{background:#174}</style><body><button id=\"before\" autofocus>Before marker</button><input id=\"target\" aria-labelledby=\"label\" aria-describedby=\"detail\" type=\"checkbox\"><span id=\"label\">Backup reminders</span><p id=\"detail\" hidden>Sent once a week, when enabled.</p><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "edfb6f5aaf9a22d36057fd58cd35cf6bfa8f15250d9b885a754853f71f7f27b8"
+    }
+  ],
+  "profiles": [
+    {
+      "browser": "safari",
+      "run": "checkbox-entry-timing-v1-2026-10-15T08-41-50-695Z",
+      "sourceRecordsSha256": "02d53842850fb5884063adf7e3f2ed0d7b2957fe069b10447781e33abfad8f99",
+      "predictedAt": "2026-10-15T08:41:50.581Z",
+      "nativeStartedAt": "2026-10-15T08:41:51.636Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 20,
+        "nativeObserved": 20,
+        "inputVerified": 20,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "eligible": 20,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "mainWhitespaceExact": 20,
+        "checkedTransitions": {
+          "planned": 8,
+          "verified": 8
+        },
+        "alignedCases": 4,
+        "hintTiming": {
+          "entryReceipts": 8,
+          "stateChangeReceipts": 0,
+          "entryBeforeFollowingAction": true
+        }
+      },
+      "rows": [
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 8944,
+              "afterRequestMs": 675,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 8371,
+              "text": "Backup reminders unchecked checkbox"
+            },
+            {
+              "t": 8944,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 8269,
+            "acknowledgedAt": 8714,
+            "observationStartedAt": 8714,
+            "observationEndedAt": 13716,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 13716,
+            "axObservationEndedAt": 14883
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "07b8162a5588b720545200c8c9c24f917a01bc46510e5b5b8c439b54f3724c19",
+          "beforeAxSha256": "c7d98b3c03c39e1787f085fcaabb71631bae2ef933daf1e596bb1828c27ed0a7",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 15638,
+              "text": "checked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 15525,
+            "acknowledgedAt": 15914,
+            "observationStartedAt": 15914,
+            "observationEndedAt": 20915,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 20915,
+            "axObservationEndedAt": 22074
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "4414ecd2efc6b5fccaa231cdb8a435c029e9042c1dbffadaeb1b51c6c523a0e9",
+          "beforeAxSha256": "07b8162a5588b720545200c8c9c24f917a01bc46510e5b5b8c439b54f3724c19",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 23415,
+              "afterRequestMs": 791,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 22845,
+              "text": "Before marker button"
+            },
+            {
+              "t": 23415,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 22624,
+            "acknowledgedAt": 23435,
+            "observationStartedAt": 23435,
+            "observationEndedAt": 28436,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 28436,
+            "axObservationEndedAt": 29117
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "e044979ef91a311e4a974794f76b660fd7b97eea3d01fc97283715b0edb3e92c",
+          "beforeAxSha256": "4414ecd2efc6b5fccaa231cdb8a435c029e9042c1dbffadaeb1b51c6c523a0e9",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 30104,
+              "afterRequestMs": 683,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 29525,
+              "text": "Backup reminders checked checkbox"
+            },
+            {
+              "t": 30104,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 29421,
+            "acknowledgedAt": 29847,
+            "observationStartedAt": 29847,
+            "observationEndedAt": 34848,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 34848,
+            "axObservationEndedAt": 35973
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "b97f203d865268b2574cbc2a856e09d4dc0cffe2271d1cd9d4746eacc59bced4",
+          "beforeAxSha256": "e044979ef91a311e4a974794f76b660fd7b97eea3d01fc97283715b0edb3e92c",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 36622,
+              "text": "unchecked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 36519,
+            "acknowledgedAt": 36923,
+            "observationStartedAt": 36923,
+            "observationEndedAt": 41924,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 41924,
+            "axObservationEndedAt": 43107
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "725541970a360535168f0a6168e237715056ecb264c58ae3abe353c2762afa37",
+          "beforeAxSha256": "b97f203d865268b2574cbc2a856e09d4dc0cffe2271d1cd9d4746eacc59bced4",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 0,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 53757,
+              "afterRequestMs": 679,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 53198,
+              "text": "Backup reminders unchecked checkbox"
+            },
+            {
+              "t": 53757,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 53078,
+            "acknowledgedAt": 54113,
+            "observationStartedAt": 54113,
+            "observationEndedAt": 59114,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 59114,
+            "axObservationEndedAt": 59641
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "7b957b5bf0ca3bedaa87a2d7db37fede38b8b9cbc9fc2789c398fc75cf6dc3ce",
+          "beforeAxSha256": "e75c6ef546985a63ae86ef0910a317d3e3be5a656cd34b4ccec1286171d1e104",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 60356,
+              "text": "checked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 60156,
+            "acknowledgedAt": 60648,
+            "observationStartedAt": 60648,
+            "observationEndedAt": 65650,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 65650,
+            "axObservationEndedAt": 66649
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "0cff2de41e709c709dfbc78cce9f7aebcda153e6e2e501080578082d358675e4",
+          "beforeAxSha256": "7b957b5bf0ca3bedaa87a2d7db37fede38b8b9cbc9fc2789c398fc75cf6dc3ce",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 2,
+          "chord": "VO+Left",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 67629,
+              "afterRequestMs": 687,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 67071,
+              "text": "Before marker button"
+            },
+            {
+              "t": 67629,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 66942,
+            "acknowledgedAt": 68043,
+            "observationStartedAt": 68043,
+            "observationEndedAt": 73044,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 73044,
+            "axObservationEndedAt": 73418
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "90e655ddf157a877dea9f4ca272e450602cb46ca1cb16e92b63da838988f4dcc",
+          "beforeAxSha256": "0cff2de41e709c709dfbc78cce9f7aebcda153e6e2e501080578082d358675e4",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 3,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 74401,
+              "afterRequestMs": 678,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 73824,
+              "text": "Backup reminders checked checkbox"
+            },
+            {
+              "t": 74401,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 73723,
+            "acknowledgedAt": 74799,
+            "observationStartedAt": 74799,
+            "observationEndedAt": 79800,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 79801,
+            "axObservationEndedAt": 80291
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "da5845f715c820b5e1e8387e57c79a4a38f1f3287410db354c5cf7c07badceda",
+          "beforeAxSha256": "90e655ddf157a877dea9f4ca272e450602cb46ca1cb16e92b63da838988f4dcc",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 80950,
+              "text": "unchecked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 80828,
+            "acknowledgedAt": 81227,
+            "observationStartedAt": 81227,
+            "observationEndedAt": 86228,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 86228,
+            "axObservationEndedAt": 87407
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "38b6fa2acf3fbeea230a2e928c951f53af7e9dcb56f30b574719c59d9290147b",
+          "beforeAxSha256": "da5845f715c820b5e1e8387e57c79a4a38f1f3287410db354c5cf7c07badceda",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 98028,
+              "afterRequestMs": 667,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 97453,
+              "text": "Backup reminders Sent once a week, when enabled. unchecked checkbox"
+            },
+            {
+              "t": 98028,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 97361,
+            "acknowledgedAt": 97782,
+            "observationStartedAt": 97782,
+            "observationEndedAt": 102783,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 102783,
+            "axObservationEndedAt": 104257
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "6868f1d3b14ea1dcfc5da417e4904350eddcb1b5733a8f62e5f5f76a111d37f1",
+          "beforeAxSha256": "63cfb3618e1248928d569eb95efde21cf617f5fd0d839cfd46d07ec5cf810fac",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 105506,
+              "text": "checked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 105321,
+            "acknowledgedAt": 105777,
+            "observationStartedAt": 105777,
+            "observationEndedAt": 110779,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 110780,
+            "axObservationEndedAt": 112143
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "419f2f0a9031b8e0641f9d3455ba765c4ccc9cede79b23bbba14b6db74e32e2c",
+          "beforeAxSha256": "6868f1d3b14ea1dcfc5da417e4904350eddcb1b5733a8f62e5f5f76a111d37f1",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 113348,
+              "afterRequestMs": 861,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 112776,
+              "text": "Before marker button"
+            },
+            {
+              "t": 113348,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 112487,
+            "acknowledgedAt": 113373,
+            "observationStartedAt": 113373,
+            "observationEndedAt": 118375,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 118376,
+            "axObservationEndedAt": 119087
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "94bc7805564521886ca2b6157dd8c0c4307daa15a392ba66dd343b4ecea0ea66",
+          "beforeAxSha256": "419f2f0a9031b8e0641f9d3455ba765c4ccc9cede79b23bbba14b6db74e32e2c",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 120222,
+              "afterRequestMs": 676,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 119648,
+              "text": "Backup reminders Sent once a week, when enabled. checked checkbox"
+            },
+            {
+              "t": 120222,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 119546,
+            "acknowledgedAt": 119945,
+            "observationStartedAt": 119945,
+            "observationEndedAt": 124945,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 124945,
+            "axObservationEndedAt": 126118
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "4d5c553e373b18e00e989f2f1523abb79446e791d2b31277d5ce184da7f6dd1c",
+          "beforeAxSha256": "94bc7805564521886ca2b6157dd8c0c4307daa15a392ba66dd343b4ecea0ea66",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 126737,
+              "text": "unchecked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 126644,
+            "acknowledgedAt": 127051,
+            "observationStartedAt": 127051,
+            "observationEndedAt": 132051,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 132051,
+            "axObservationEndedAt": 133136
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "4caaffd94c9bb92ffa697e0f086435150577616e6c22d16dd35eb1193c75c1b6",
+          "beforeAxSha256": "4d5c553e373b18e00e989f2f1523abb79446e791d2b31277d5ce184da7f6dd1c",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 0,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 141882,
+              "afterRequestMs": 687,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 141311,
+              "text": "Backup reminders Sent once a week, when enabled. unchecked checkbox"
+            },
+            {
+              "t": 141882,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 141195,
+            "acknowledgedAt": 142290,
+            "observationStartedAt": 142290,
+            "observationEndedAt": 147291,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 147291,
+            "axObservationEndedAt": 147653
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "563f19458d4a3f45f7dc4026a6d6cf6f43f1059897aca25ec4f676798b283fee",
+          "beforeAxSha256": "ff84c449efbc5460c6b27e958201f275e605c47eefe28fe7fd57195cf8c2869c",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 148072,
+              "text": "checked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 147980,
+            "acknowledgedAt": 148386,
+            "observationStartedAt": 148386,
+            "observationEndedAt": 153387,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 153387,
+            "axObservationEndedAt": 154470
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "97ae9629d85a37187fe49c4001bac544a3c0a1ea113161aaf2b4a086f9d31e97",
+          "beforeAxSha256": "563f19458d4a3f45f7dc4026a6d6cf6f43f1059897aca25ec4f676798b283fee",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 2,
+          "chord": "VO+Left",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 155440,
+              "afterRequestMs": 682,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 154868,
+              "text": "Before marker button"
+            },
+            {
+              "t": 155440,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 154758,
+            "acknowledgedAt": 155824,
+            "observationStartedAt": 155824,
+            "observationEndedAt": 160825,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 160825,
+            "axObservationEndedAt": 161251
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "ae463a6ebbf9a28f23607bfc4e3d9b9b7e4ed9c062284f1b86c8b5e42c65165e",
+          "beforeAxSha256": "97ae9629d85a37187fe49c4001bac544a3c0a1ea113161aaf2b4a086f9d31e97",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 3,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 162223,
+              "afterRequestMs": 683,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 161652,
+              "text": "Backup reminders Sent once a week, when enabled. checked checkbox"
+            },
+            {
+              "t": 162223,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 161540,
+            "acknowledgedAt": 162622,
+            "observationStartedAt": 162622,
+            "observationEndedAt": 167623,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 167623,
+            "axObservationEndedAt": 168008
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "31b01fe8c46d6a7cf2a9d7f059146791735bb8a0217134b5dc1f95f23ce0eda1",
+          "beforeAxSha256": "ae463a6ebbf9a28f23607bfc4e3d9b9b7e4ed9c062284f1b86c8b5e42c65165e",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 168417,
+              "text": "unchecked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 168310,
+            "acknowledgedAt": 168722,
+            "observationStartedAt": 168722,
+            "observationEndedAt": 173723,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 173723,
+            "axObservationEndedAt": 175004
+          },
+          "receiptClockOrigin": "2026-10-15T08:41:51.420Z",
+          "nativeAxSha256": "97aa8a794058a50f470bff70ddbec1451207dab84aec3e9f98e86c15ee1c90cd",
+          "beforeAxSha256": "31b01fe8c46d6a7cf2a9d7f059146791735bb8a0217134b5dc1f95f23ce0eda1",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "run": "checkbox-entry-timing-v1-2026-10-15T08-45-30-892Z",
+      "sourceRecordsSha256": "043de910370f31d673b0d9a3a7bf3296921a369a959e19357bc927ba0b1a1a1e",
+      "predictedAt": "2026-10-15T08:41:50.583Z",
+      "nativeStartedAt": "2026-10-15T08:45:31.161Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 20,
+        "nativeObserved": 20,
+        "inputVerified": 20,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "eligible": 20,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 20,
+          "eligible": 20,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "mainWhitespaceExact": 20,
+        "checkedTransitions": {
+          "planned": 8,
+          "verified": 8
+        },
+        "alignedCases": 4,
+        "hintTiming": {
+          "entryReceipts": 8,
+          "stateChangeReceipts": 0,
+          "entryBeforeFollowingAction": true
+        }
+      },
+      "rows": [
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 10612,
+              "afterRequestMs": 675,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 10033,
+              "text": "Backup reminders unchecked checkbox"
+            },
+            {
+              "t": 10612,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 9937,
+            "acknowledgedAt": 10365,
+            "observationStartedAt": 10365,
+            "observationEndedAt": 15366,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 15366,
+            "axObservationEndedAt": 16439
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "8b45912aa105356910bd92357447fee5b4b44873d3a25b1c4b01e19a8959c107",
+          "beforeAxSha256": "85810facfeef9a25a9221b99c86729664bab97965df606f8d82e98b1fa031cdc",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 17151,
+              "text": "checked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 17043,
+            "acknowledgedAt": 17459,
+            "observationStartedAt": 17459,
+            "observationEndedAt": 22460,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 22460,
+            "axObservationEndedAt": 23551
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "1e56d4930c0571e0bc721f159c1879dce3e07c91d971f6e9b0112a9bac8d905f",
+          "beforeAxSha256": "8b45912aa105356910bd92357447fee5b4b44873d3a25b1c4b01e19a8959c107",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 24936,
+              "afterRequestMs": 784,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 24354,
+              "text": "Before marker button"
+            },
+            {
+              "t": 24936,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 24152,
+            "acknowledgedAt": 24947,
+            "observationStartedAt": 24947,
+            "observationEndedAt": 29949,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 29949,
+            "axObservationEndedAt": 30755
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "8035862e59cc78afc216941b05be56162236945bff9bb630262db3586bc0318b",
+          "beforeAxSha256": "1e56d4930c0571e0bc721f159c1879dce3e07c91d971f6e9b0112a9bac8d905f",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 32404,
+              "afterRequestMs": 675,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 31823,
+              "text": "Backup reminders checked checkbox"
+            },
+            {
+              "t": 32404,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 31729,
+            "acknowledgedAt": 32102,
+            "observationStartedAt": 32102,
+            "observationEndedAt": 37103,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 37103,
+            "axObservationEndedAt": 38221
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "5a138c6febe273b99e3f3c2bc1b4775aebd5f17213b48c838780b5684db961f0",
+          "beforeAxSha256": "8035862e59cc78afc216941b05be56162236945bff9bb630262db3586bc0318b",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-tab",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 38952,
+              "text": "unchecked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 38848,
+            "acknowledgedAt": 39226,
+            "observationStartedAt": 39226,
+            "observationEndedAt": 44228,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 44228,
+            "axObservationEndedAt": 45390
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "27ad5d81ff74f3d5b0e7a05d637f8d916f9ea1e7a26fb1d2b1e2e173decebc4e",
+          "beforeAxSha256": "5a138c6febe273b99e3f3c2bc1b4775aebd5f17213b48c838780b5684db961f0",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 0,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 56145,
+              "afterRequestMs": 694,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 55565,
+              "text": "Backup reminders unchecked checkbox"
+            },
+            {
+              "t": 56145,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 55451,
+            "acknowledgedAt": 56531,
+            "observationStartedAt": 56531,
+            "observationEndedAt": 61532,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 61532,
+            "axObservationEndedAt": 61929
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "1a61fa0d3be909f911df6342ea79c7a2c2725b449a5894c3e4b9e1c46beadf77",
+          "beforeAxSha256": "849afde0bfe74668fcc3e9ba07b8839c6f4b93e18b23990907372b60a410cbbb",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 62650,
+              "text": "checked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 62547,
+            "acknowledgedAt": 62960,
+            "observationStartedAt": 62960,
+            "observationEndedAt": 67962,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 67962,
+            "axObservationEndedAt": 69051
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "ab43957c09752e53aab43179df0cf552bcd82f850e48e59d13f34849ab602fc7",
+          "beforeAxSha256": "1a61fa0d3be909f911df6342ea79c7a2c2725b449a5894c3e4b9e1c46beadf77",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 2,
+          "chord": "VO+Left",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 70361,
+              "afterRequestMs": 702,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 69790,
+              "text": "Before marker button"
+            },
+            {
+              "t": 70361,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 69659,
+            "acknowledgedAt": 70759,
+            "observationStartedAt": 70759,
+            "observationEndedAt": 75760,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 75760,
+            "axObservationEndedAt": 76203
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "cad5f6f8d400dcc7f5d0078f346d8683c93156096cc60fb00fc37aa0fe7c4bc7",
+          "beforeAxSha256": "ab43957c09752e53aab43179df0cf552bcd82f850e48e59d13f34849ab602fc7",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 3,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 77723,
+              "afterRequestMs": 659,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 77156,
+              "text": "Backup reminders checked checkbox"
+            },
+            {
+              "t": 77723,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 77064,
+            "acknowledgedAt": 78132,
+            "observationStartedAt": 78132,
+            "observationEndedAt": 83134,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 83134,
+            "axObservationEndedAt": 83576
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "14ae986ee5449a5bea40b87d57fc6246fb255354e364d1c754c124e5e0312935",
+          "beforeAxSha256": "cad5f6f8d400dcc7f5d0078f346d8683c93156096cc60fb00fc37aa0fe7c4bc7",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.plain-vo",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 84266,
+              "text": "unchecked Backup reminders checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 84172,
+            "acknowledgedAt": 84554,
+            "observationStartedAt": 84554,
+            "observationEndedAt": 89555,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 89555,
+            "axObservationEndedAt": 90742
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "bb97fbd13929cd7463457bb861c9c9d2c7b24c1973ccb4d6c510ae65a23cdac1",
+          "beforeAxSha256": "14ae986ee5449a5bea40b87d57fc6246fb255354e364d1c754c124e5e0312935",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 100466,
+              "afterRequestMs": 674,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 99879,
+              "text": "Backup reminders Sent once a week, when enabled. unchecked checkbox"
+            },
+            {
+              "t": 100466,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 99792,
+            "acknowledgedAt": 100187,
+            "observationStartedAt": 100187,
+            "observationEndedAt": 105188,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 105188,
+            "axObservationEndedAt": 106335
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "73d422030b1fd202b8047ef203931d0fd110f637674f728bb169109aac2108db",
+          "beforeAxSha256": "82bece8666edd3d73621f04c91aa4baa43b622481f9bcaf4126b0da7e11f840f",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 107301,
+              "text": "checked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 107209,
+            "acknowledgedAt": 107587,
+            "observationStartedAt": 107587,
+            "observationEndedAt": 112589,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 112589,
+            "axObservationEndedAt": 113786
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "d910507191c76c483e34176151f8bc367a27495c8f9ebb951642b1f384f8367b",
+          "beforeAxSha256": "73d422030b1fd202b8047ef203931d0fd110f637674f728bb169109aac2108db",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 2,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 115414,
+              "afterRequestMs": 779,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 114835,
+              "text": "Before marker button"
+            },
+            {
+              "t": 115414,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 114635,
+            "acknowledgedAt": 115482,
+            "observationStartedAt": 115482,
+            "observationEndedAt": 120483,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 120483,
+            "axObservationEndedAt": 121116
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "c3428bbe4196e265b0f46cc35b692830f75554f470ea226bbb29619a1e257eb4",
+          "beforeAxSha256": "d910507191c76c483e34176151f8bc367a27495c8f9ebb951642b1f384f8367b",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_focusable_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 122406,
+              "afterRequestMs": 665,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 121824,
+              "text": "Backup reminders Sent once a week, when enabled. checked checkbox"
+            },
+            {
+              "t": 122406,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 121741,
+            "acknowledgedAt": 122120,
+            "observationStartedAt": 122121,
+            "observationEndedAt": 127122,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 127122,
+            "axObservationEndedAt": 128241
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "519700cc1958079e2d09fa044bfeeedc9892b9a217e3a012851a17b96a5d0866",
+          "beforeAxSha256": "c3428bbe4196e265b0f46cc35b692830f75554f470ea226bbb29619a1e257eb4",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-tab",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 128952,
+              "text": "unchecked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 128848,
+            "acknowledgedAt": 129249,
+            "observationStartedAt": 129249,
+            "observationEndedAt": 134250,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 134250,
+            "axObservationEndedAt": 135354
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "50331f74c3ddea58ebc3d8af920ff1d4b523b10bbcc23f9c04dc0ab9ee729a4a",
+          "beforeAxSha256": "519700cc1958079e2d09fa044bfeeedc9892b9a217e3a012851a17b96a5d0866",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 0,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 144880,
+              "afterRequestMs": 682,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 144312,
+              "text": "Backup reminders Sent once a week, when enabled. unchecked checkbox"
+            },
+            {
+              "t": 144880,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 144198,
+            "acknowledgedAt": 145290,
+            "observationStartedAt": 145290,
+            "observationEndedAt": 150291,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 150291,
+            "axObservationEndedAt": 150719
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "1f4f7021748933eff0161d522437fbb6f4b6e36d69aa764fcf0452073e047fd2",
+          "beforeAxSha256": "fa51321cedb43647ffedfbff1e23e38a30770b722f872248ce3c529f1368bae8",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 1,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 151396,
+              "text": "checked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 151293,
+            "acknowledgedAt": 151665,
+            "observationStartedAt": 151665,
+            "observationEndedAt": 156667,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 156667,
+            "axObservationEndedAt": 157791
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "5bf16bb07580376cb82d8cf279d9806ef9962c4e06b94cad6b2d8e5ade09c50e",
+          "beforeAxSha256": "1f4f7021748933eff0161d522437fbb6f4b6e36d69aa764fcf0452073e047fd2",
+          "transition": {
+            "status": "verified",
+            "before": false,
+            "after": true,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 2,
+          "chord": "VO+Left",
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_item"
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 159171,
+              "afterRequestMs": 689,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 158602,
+              "text": "Before marker button"
+            },
+            {
+              "t": 159171,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 158482,
+            "acknowledgedAt": 159592,
+            "observationStartedAt": 159592,
+            "observationEndedAt": 164593,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 164593,
+            "axObservationEndedAt": 165919
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "f275e9fee1a06c127ccfa9b1c3a1943dc629b0007faaa35d373a39c2b14649c0",
+          "beforeAxSha256": "5bf16bb07580376cb82d8cf279d9806ef9962c4e06b94cad6b2d8e5ade09c50e",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 3,
+          "chord": "VO+Right",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": true,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "next_item"
+          },
+          "prediction": {
+            "speech": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [
+            {
+              "receivedAt": 167208,
+              "afterRequestMs": 693,
+              "beforeNextRequest": true
+            }
+          ],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 166629,
+              "text": "Backup reminders Sent once a week, when enabled. checked checkbox"
+            },
+            {
+              "t": 167208,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 166515,
+            "acknowledgedAt": 167599,
+            "observationStartedAt": 167599,
+            "observationEndedAt": 172600,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 172600,
+            "axObservationEndedAt": 173014
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "40c131998c7bb22c734abaaeca47cd37b673ca7ac634e1afe430c63d13d39740",
+          "beforeAxSha256": "f275e9fee1a06c127ccfa9b1c3a1943dc629b0007faaa35d373a39c2b14649c0",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "nativeHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Backup reminders Sent once a week, when enabled. checked checkbox",
+            "predictedHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+          },
+          "mainWhitespaceExact": true
+        },
+        {
+          "caseId": "checkbox-entry-timing-v1.description-vo",
+          "step": 4,
+          "chord": "Space",
+          "input": {
+            "target": {
+              "identity": "target",
+              "containers": [],
+              "semantic": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": true,
+                "tagName": "input",
+                "inputType": "checkbox",
+                "checked": false,
+                "description": "Sent once a week, when enabled."
+              }
+            },
+            "command": "activate_form_control",
+            "checkedStateChanged": true
+          },
+          "prediction": {
+            "speech": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "context": {
+              "containers": []
+            }
+          },
+          "hintTiming": [],
+          "nativeObserved": true,
+          "utterances": [
+            {
+              "t": 173719,
+              "text": "unchecked Backup reminders Sent once a week, when enabled. checkbox"
+            }
+          ],
+          "timing": {
+            "requestedAt": 173623,
+            "acknowledgedAt": 174014,
+            "observationStartedAt": 174014,
+            "observationEndedAt": 179015,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 179016,
+            "axObservationEndedAt": 180175
+          },
+          "receiptClockOrigin": "2026-10-15T08:45:31.005Z",
+          "nativeAxSha256": "8293282d73b258cebcd3396045cd8f101425f44ff30d66e28d2c5a381297bac3",
+          "beforeAxSha256": "40c131998c7bb22c734abaaeca47cd37b673ca7ac634e1afe430c63d13d39740",
+          "transition": {
+            "status": "verified",
+            "before": true,
+            "after": false,
+            "beforeFocusId": "target",
+            "afterFocusId": "target"
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Backup reminders",
+                "id": "target"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "nativeHint": "",
+            "predictedMain": "unchecked Backup reminders Sent once a week, when enabled. checkbox",
+            "predictedHint": ""
+          },
+          "mainWhitespaceExact": true
+        }
+      ]
+    }
+  ]
+}

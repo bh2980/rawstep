@@ -19,3 +19,19 @@ export function generateCheckboxSpeech(){
  }
  return {pages,cases,speechInputs};
 }
+
+/** Same Native fixtures, longer receipt horizon, and explicit Tab/VO first/return entry histories. */
+export function generateCheckboxEntryTiming(){
+ const original=generateCheckboxSpeech(),pages:Record<string,string>={},cases:Case[]=[],speechInputs:Record<string,VoiceOverSpeechInput[]>={};
+ for(const described of [false,true])for(const vo of [false,true]){
+  const mode=described?'description':'plain',variant=`${mode}-${vo?'vo':'tab'}`,parent=original.cases.find(c=>c.id===`checkbox-speech-v1.native-${mode}-physical`)!;
+  const id=`checkbox-entry-timing-v1.${variant}`,entry=vo?'VO+Right':'Tab',reverse=vo?'VO+Left':'Shift+Tab';
+  pages[variant]=original.pages[`native-${mode}-physical`]!;
+  cases.push({...parent,id,page:`pages/${variant}.html`,chords:[entry,'Space',reverse,entry,'Space'],listen:{minWaitMs:5000,quietMs:1200,maxWaitMs:8500},axes:{...parent.axes,family:'checkbox-entry-timing',command:entry,observationHorizon:'5000ms'}});
+  const inputs=structuredClone(original.speechInputs[parent.id]!);
+  inputs[0]!.command=inputs[3]!.command=vo?'next_item':'next_focusable_item';
+  inputs[2]!.target.identity='before';inputs[2]!.target.semantic.name='Before marker';inputs[2]!.command=vo?'previous_item':'previous_focusable_item';
+  speechInputs[id]=inputs;
+ }
+ return {pages,cases,speechInputs};
+}
