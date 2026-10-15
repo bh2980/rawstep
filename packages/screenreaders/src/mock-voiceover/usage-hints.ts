@@ -1,6 +1,6 @@
 import type {SimulatedSemanticNode} from './semantics.js';
 
-export type HintContext={parentRole?:string;inCell?:boolean;end?:boolean;forward?:boolean;textFragment?:boolean};
+export type HintContext={referenceBrowser?:'safari'|'chrome';parentRole?:string;inCell?:boolean;end?:boolean;forward?:boolean;textFragment?:boolean};
 const click='press Control -Option -Space.',exitWeb='To exit this web area, press Control -Option -Shift -Up Arrow.';
 const boundaries=new Set(['group','article','figure','list','descriptionlist','table','main','navigation','banner','contentinfo','complementary','region','form']);
 
@@ -9,7 +9,7 @@ export function formatUsageHint(node:SimulatedSemanticNode,context:HintContext={
   if(node.protected)return undefined;
   const {role}=node,container=boundaries.has(role),parent=context.parentRole;
   const web=!parent&&!context.inCell,dialog=parent==='dialog'||parent==='alertdialog';
-  const location=context.inCell?', inside of a cell':dialog?', inside of a web dialog':web?', inside of web content':'';
+  const location=context.inCell?', inside of a cell':dialog?`, inside of a ${context.referenceBrowser==='chrome'&&parent==='dialog'?'dialog':'web dialog'}`:web?', inside of web content':'';
   let label:string|undefined,article='a',action='';
   if(role==='heading'&&node.level!==undefined)label=`heading level ${node.level}`;
   else if(role==='button'||role==='DisclosureTriangle'){

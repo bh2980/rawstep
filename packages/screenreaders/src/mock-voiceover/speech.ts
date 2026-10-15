@@ -2,7 +2,7 @@ import {formatSimulatedSpeech, type SimulatedSemanticNode} from './semantics.js'
 import {formatUsageHint} from './usage-hints.js';
 
 /** Keep Native-exposed landmark roles even when their accessible name is empty. */
-export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;/** Name of the immediate exposed AX child on the path to the target; empty is meaningful. */ entryChildName?:string;role:string;items:number;rows?:number;columns?:number};
+export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;/** Native exposed first-child name, used for an unnamed dialog summary. */ firstChildName?:string;/** Name of the immediate exposed AX child on the path to the target; empty is meaningful. */ entryChildName?:string;role:string;items:number;rows?:number;columns?:number};
 export type VoiceOverCell = {table:string;row:number;column:number;rows:number;columns:number;header:string;rowSpan:number;columnSpan:number};
 export type VoiceOverEditState = {value:string;start:number;end:number;multiline:boolean};
 export type VoiceOverSpeechTarget = {
@@ -51,7 +51,13 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   }else context.cell=referenceBrowser==='chrome'&&node.cell&&focused&&edit?{...node.cell}:undefined;
   const scopes=(node.containers??[]).filter(c=>c.id!==node.axId);
   const entered=scopes.filter(c=>!context.containers.includes(c.id)&&c.name);
-  for(const c of entered.filter(c=>c.role==='dialog'||c.role==='alertdialog'))speech=`${c.name} web dialog with ${c.items} items ${speech}`;
+  for(const c of scopes.filter(c=>c.role==='dialog'&&!context.containers.includes(c.id))){
+    const word=referenceBrowser==='chrome'?'dialog':'web dialog',remaining=c.items-1;
+    const summary=c.name?[c.name,word,c.items>1?`with ${c.items} items`:'']
+      :[c.firstChildName,c.firstChildName&&remaining>0?`and ${remaining} more ${remaining===1?'item':'items'}`:'',word];
+    speech=[...summary,speech].filter(Boolean).join(' ');
+  }
+  for(const c of entered.filter(c=>c.role==='alertdialog'))speech=`${c.name} web dialog with ${c.items} items ${speech}`;
   const groupWords:Record<string,string>={group:'group',radiogroup:'radio group',tablist:'tab group'};
   const landmarks=['main','navigation','banner','contentinfo','complementary','region','form'];
   const nearest=scopes.filter(c=>c.role==='article'||c.role==='table'||landmarks.includes(c.role)||!!c.name&&groupWords[c.role]).at(-1);
@@ -62,8 +68,8 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   for(const c of contexts.filter(c=>c.role==='table'))speech+=` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
   if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[(referenceBrowser==='chrome'&&c.inferredName?'':c.name)||c.entryChildName,'article'].filter(Boolean).join(' ')}`;
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
-  const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
+  const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId&&(c.role!=='dialog'||!!c.name));
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
+  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{referenceBrowser,parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {speech,usageHint,context};
 }

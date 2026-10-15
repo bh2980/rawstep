@@ -1,0 +1,2978 @@
+{
+  "evaluatedAt": "2026-10-15T14:00:59.723Z",
+  "scope": "Inspected observed-target regression. Original unavailable first scores and authored-target differences preserved. No new independent generalization claim or Navigation/State/Task metrics.",
+  "observedInputsSha256": "2253882af78ee444396291562d9651210305f6563addd77a1b3cc2ee57dcd3b6",
+  "modelBuildSha256": "afa8602154b8e69fcbde609879249851d974417bbc9f08bb017e327f88890471",
+  "sourceHashes": {
+    "src/speech-input.ts": "ccb2d357a38d36a45c21c9c3bc68eb5483a9fb4209e03c7b9da1992929835193",
+    "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+    "../../packages/screenreaders/src/mock-voiceover/speech.ts": "a46ef0f0e22c54244bd3526c8288ae77a806f6b16abd719adf23727ada7bb3ff",
+    "../../packages/screenreaders/src/mock-voiceover/usage-hints.ts": "23cba2fa11d6ea45b1df4544fc30704b80d0d21bbbe8ec0384d7c18ec51fac27",
+    "../../packages/screenreaders/src/mock-voiceover/backend.ts": "7f6323aff10efd6c84353fddf80f7b746943775d93c68ab1ac37f695bde25e0b"
+  },
+  "profiles": [
+    {
+      "browser": "safari",
+      "summary": {
+        "planned": 29,
+        "nativeObserved": 29,
+        "inputVerified": 29,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 29,
+        "inputEquivalent": 29,
+        "eligible": 29,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 29,
+          "eligible": 29,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 27,
+          "eligible": 29,
+          "conditionalRate": 0.9310344827586207,
+          "allPlannedRate": 0.9310344827586207
+        },
+        "hintCandidateExact": {
+          "matched": 29,
+          "eligible": 29,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options web dialog with 4 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog with 4 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog with 4 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch options web dialog with 4 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog with 4 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog with 4 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options web dialog with 3 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog with 3 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog with 3 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch options web dialog with 3 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog with 3 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog with 3 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch panel web dialog with 4 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch panel",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch panel web dialog with 4 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch panel web dialog with 4 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch panel",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch panel web dialog with 4 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch panel",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch panel web dialog with 4 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch panel web dialog with 4 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch panel",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options web dialog with 4 items heading level 2 Dispatch panel",
+            "usageHint": "You are currently on a heading level 2, inside of a web dialog. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Dispatch panel",
+                "id": ""
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog with 4 items heading level 2 Dispatch panel",
+            "nativeHint": "You are currently on a heading level 2, inside of a web dialog.  To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog with 4 items heading level 2 Dispatch panel",
+            "predictedHint": "You are currently on a heading level 2, inside of a web dialog. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 1,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 2,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 3,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 4,
+          "prediction": {
+            "speech": "heading level 2 Dispatch panel",
+            "usageHint": "You are currently on a heading level 2, inside of a web dialog. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Dispatch panel",
+                "id": ""
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": false,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 2 Dispatch panel",
+            "nativeHint": "You are currently on a heading level 2, inside of a web dialog.  To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 2 Dispatch panel",
+            "predictedHint": "You are currently on a heading level 2, inside of a web dialog. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options web dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 1,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 2,
+          "prediction": {
+            "speech": "Dispatch options web dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 3,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 4,
+          "prediction": {
+            "speech": "Dispatch options web dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options web dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options web dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "summary": {
+        "planned": 29,
+        "nativeObserved": 29,
+        "inputVerified": 29,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 29,
+        "inputEquivalent": 29,
+        "eligible": 29,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 29,
+          "eligible": 29,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 29,
+          "eligible": 29,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 29,
+          "eligible": 29,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options dialog with 4 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 4 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 4 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch options dialog with 4 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 4 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 4 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-direct",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options dialog with 3 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 3 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 3 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch options dialog with 3 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 3 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 3 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.named-wrapped",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch panel and 3 more items dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch panel and 3 more items dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch panel and 3 more items dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch panel and 3 more items dialog Keep draft button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch panel and 3 more items dialog Keep draft button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch panel and 3 more items dialog Keep draft button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.unnamed-direct",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options dialog with 4 items Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 4 items Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 4 items Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 1,
+          "prediction": {
+            "speech": "Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 2,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 3,
+          "prediction": {
+            "speech": "Dispatch options dialog with 4 items Keep draft button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Keep draft",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog with 4 items Keep draft button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog with 4 items Keep draft button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 4,
+          "prediction": {
+            "speech": "Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 4
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.native-open",
+          "step": 5,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 0,
+          "prediction": {
+            "speech": "Dispatch options dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 1,
+          "prediction": {
+            "speech": "After marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 2,
+          "prediction": {
+            "speech": "Dispatch options dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 3,
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "dialog-speech-v1.singleton",
+          "step": 4,
+          "prediction": {
+            "speech": "Dispatch options dialog Review dispatch button",
+            "usageHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": [
+                "panel"
+              ]
+            }
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Review dispatch",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "dialog",
+                  "name": "Dispatch options",
+                  "items": 1
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Dispatch options dialog Review dispatch button",
+            "nativeHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Dispatch options dialog Review dispatch button",
+            "predictedHint": "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -88,7 +88,7 @@ test('target-conditioned inputs use AX and visible geometry while withholding un
  d.root.children![0]!.children![0]!.AXRoleDescription='region';delete node.AXCustomContent;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
 });
 
-test('web dialogs and embedded web areas cannot pass as context-free button inputs',()=>{
+test('incomplete dialog observations and embedded web areas cannot pass as context-free button inputs',()=>{
  for(const attributes of [{AXRole:'AXGroup',AXRoleDescription:'web dialog',AXSubrole:'AXApplicationDialog'},{AXRole:'AXWebArea'},{AXRole:'AXDialog'}]){
   const d=dump();Object.assign(d.root.children![0]!,attributes);
   assert.equal(checkSpeechInput(input,d).status,'unmeasured');
@@ -177,4 +177,24 @@ test('article inputs preserve the immediate exposed AX child rather than inventi
  d.root.children[0]!.children=[node];const exposed=nativeSpeechInput(d,[0,0],'next_focusable_item');
  assert.equal(exposed.status,'constructed');if(exposed.status!=='constructed')throw new Error('Native direct child missing');
  assert.equal(exposed.input.target.containers?.[0]?.entryChildName,'Prepare booking');assert.equal(checkSpeechInput(exposed.input,d).status,'verified');
+});
+
+test('dialog inputs use observed names and direct Native children, retaining a first-child summary for unnamed dialogs',()=>{
+ const d=dump(),node={...button,AXCustomContent:{status:'no-value',errorCode:-25212}};
+ const heading:AxNode={AXRole:'AXHeading',AXTitle:'Dispatch panel',AXElementId:10,AXEnabled:true,AXValue:2};
+ const dialog:AxNode={AXRole:'AXGroup',AXSubrole:'AXApplicationDialog',AXRoleDescription:'dialog',AXTitle:'Dispatch options',AXDescription:'',children:[heading,node]};
+ d.root.children=[dialog];const result=nativeSpeechInput(d,[0,1],'next_focusable_item');assert.equal(result.status,'constructed');
+ if(result.status!=='constructed')throw new Error('Complete Native dialog was not constructed');
+ assert.deepEqual(result.input.target.containers?.map(c=>({role:c.role,name:c.name,items:c.items,firstChildName:c.firstChildName})),[{role:'dialog',name:'Dispatch options',items:2,firstChildName:'Dispatch panel'}]);
+ assert.equal(checkSpeechInput(result.input,d).status,'verified');
+ const wrong=structuredClone(result.input);wrong.target.containers![0]!.items=99;assert.equal(checkSpeechInput(wrong,d).status,'mismatch');
+ const unavailable=structuredClone(d);delete unavailable.root.children![0]!.children![0]!.AXTitle;assert.equal(checkSpeechInput(result.input,unavailable).status,'unmeasured');
+ const nested=structuredClone(d);nested.root.children![0]!.AXElementId=20;nested.root.children=[{...dialog,AXTitle:'Outer dialog',children:nested.root.children}];assert.equal(observedSpeechInput(nested,'next_focusable_item').status,'unmeasured');
+ const alert=structuredClone(d);alert.root.children![0]!.AXSubrole='AXApplicationAlertDialog';assert.equal(nativeSpeechInput(alert,[0,1],'next_focusable_item').status,'unmeasured');
+ delete heading.AXElementId;assert.equal(nativeSpeechInput(d,[0,1],'next_focusable_item').status,'unmeasured');assert.equal(checkSpeechInput(result.input,d).status,'unmeasured');heading.AXElementId=10;
+ dialog.AXTitle='';const unnamed=nativeSpeechInput(d,[0,1],'next_focusable_item');assert.equal(unnamed.status,'constructed');
+ if(unnamed.status!=='constructed')throw new Error('Measured unnamed dialog missing');
+ assert.equal(checkSpeechInput(unnamed.input,d).status,'verified');
+ delete unnamed.input.target.containers![0]!.firstChildName;assert.equal(checkSpeechInput(unnamed.input,d).status,'unmeasured');
+ delete heading.AXTitle;assert.equal(nativeSpeechInput(d,[0,1],'next_focusable_item').status,'unmeasured');
 });

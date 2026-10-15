@@ -12,8 +12,9 @@ function nativeContainerPath(dump:AxDump,path:number[]){
     if(['AXTable','AXCell','AXOutline'].includes(node.AXRole??'')||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
     if(!Number.isSafeInteger(index)||index<0||!node.children?.[index])return unknown('Native target path missing');
     const s=scope(node);
+    if(s?.role==='dialog'&&(s.items===undefined||s.items<1||!measuredName(node)||!s.name&&!dialogFirstChildName(node)))return unknown('Native dialog name, direct children or named first child unmeasured');
     if(s?.role==='article'&&(!measuredName(node)||!s.name&&!measuredName(node.children[index]!)))return unknown('Native article or entry child name attributes missing');
-    if(s)containers.push({...s,...(s.role==='article'&&measuredName(node.children[index]!)?{entryChildName:nativeNodeName(node.children[index])}:{}),id:String(node.AXDOMIdentifier||`scope:${path.slice(0,i).join('.')}:${s.role}:${s.name}`),items:0});
+    if(s)containers.push({...s,...(s.role==='dialog'&&dialogFirstChildName(node)!==undefined?{firstChildName:dialogFirstChildName(node)}:{}),...(s.role==='article'&&measuredName(node.children[index]!)?{entryChildName:nativeNodeName(node.children[index])}:{}),id:String(node.AXDOMIdentifier||`scope:${path.slice(0,i).join('.')}:${s.role}:${s.name}`),items:s.items??0});
     node=node.children[index]!;
   }
   return {status:'observed' as const,node,containers,path};
@@ -54,7 +55,7 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
     ...(semanticRole==='checkbox'?{checked:node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true}:{}),
     ...(semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node)}:{})
   }}};
-  return {status:'constructed' as const,input,unmeasuredFields:['target.containers.items'],scope:'Native target attributes and ancestry only; reading position remains unverified. Unused container item counts are placeholders, not observed zeroes.'};
+  return {status:'constructed' as const,input,unmeasuredFields:containers.flatMap((c,i)=>c.role==='dialog'?[]:[`target.containers.${i}.items`]),scope:'Native target attributes and ancestry only; reading position remains unverified. Dialog items count independently exposed Native children; other unused counts remain placeholders, not observed zeroes.'};
 }
 
 /** Caller input from an independently visible Native target, never an utterance or AX keyboard focus. */
@@ -72,15 +73,20 @@ const roles:Record<string,string>={AXButton:'button',AXCheckBox:'checkbox',AXLin
 const role=(n:AxNode)=>n.AXRole==='AXCheckBox'&&['AXToggle','AXToggleButton'].includes(String(n.AXSubrole))?'button':roles[n.AXRole??''];
 const landmarkRoles=new Set(['main','navigation','banner','contentinfo','complementary','region','form']);
 const scopeRoles=new Set([...landmarkRoles,'group','radio group','tab group','article']);
-const unsupportedSpeechAncestor=(n:AxNode,index:number)=>n.AXRole==='AXWebArea'&&index>0||['AXDialog','AXSheet'].includes(n.AXRole??'')||['AXApplicationDialog','AXApplicationAlertDialog'].includes(String(n.AXSubrole))||['dialog','web dialog','alertdialog','web alert dialog'].includes(String(n.AXRoleDescription));
+const isDialog=(n:AxNode)=>n.AXRole==='AXGroup'&&n.AXSubrole==='AXApplicationDialog'&&['dialog','web dialog'].includes(String(n.AXRoleDescription));
+const dialogFirstChildName=(n:AxNode)=>n.children?.[0]&&measuredName(n.children[0])?nativeNodeName(n.children[0]):undefined;
+const unsupportedSpeechAncestor=(n:AxNode,index:number)=>n.AXRole==='AXWebArea'&&index>0||!isDialog(n)&&(['AXDialog','AXSheet'].includes(n.AXRole??'')||['AXApplicationDialog','AXApplicationAlertDialog'].includes(String(n.AXSubrole))||['dialog','web dialog','alertdialog','web alert dialog'].includes(String(n.AXRoleDescription)));
 const unmappedLandmark=(n:AxNode)=>String(n.AXSubrole??'').startsWith('AXLandmark')&&!scope(n);
 function scope(n:AxNode){
   // Both browsers expose the same subrole; Safari calls it "content information", Chrome "footer".
   const description=n.AXSubrole==='AXLandmarkContentInfo'?'contentinfo':String(n.AXRoleDescription??'');
-  const role=n.AXRole==='AXTable'?'table':n.AXRole==='AXList'&&n.AXSubrole==='AXContentList'?'list':n.AXRole==='AXGroup'&&scopeRoles.has(description)?description.replace('radio group','radiogroup').replace('tab group','tablist'):undefined;
+  const role=isDialog(n)?'dialog':n.AXRole==='AXTable'?'table':n.AXRole==='AXList'&&n.AXSubrole==='AXContentList'?'list':n.AXRole==='AXGroup'&&scopeRoles.has(description)?description.replace('radio group','radiogroup').replace('tab group','tablist'):undefined;
   if(!role)return undefined;
-  const name=nativeNodeName(n);if(!name&&!landmarkRoles.has(role)&&!['article','table','list'].includes(role))return undefined;
-  const result:{role:string;name:string;rows?:number;columns?:number}={role,name};
+  const name=nativeNodeName(n);if(!name&&!landmarkRoles.has(role)&&!['article','table','list','dialog'].includes(role))return undefined;
+  const result:{role:string;name:string;rows?:number;columns?:number;items?:number}={role,name};
+  if(role==='dialog'){
+    const nodes=n.children;result.items=nodes&&!n.childrenTruncated&&nodes.every(c=>Number.isSafeInteger(c.AXElementId)&&Number(c.AXElementId)>0)?new Set(nodes.map(c=>c.AXElementId)).size:undefined;
+  }
   if(role==='table'){
     const count=(role:string)=>{const nodes=n.children?.filter(c=>c.AXRole===role)??[];return nodes.some(c=>!Number.isSafeInteger(c.AXElementId))?undefined:new Set(nodes.map(c=>c.AXElementId)).size;};
     result.rows=count('AXRow');result.columns=count('AXColumn');
@@ -152,9 +158,24 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   }
   const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s]:[]}));
   if(observedScopes.some(s=>JSON.stringify(s)!==JSON.stringify(observedScopes[0])))return unknown('native alias ancestor contexts disagree');
-  const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:{})}));
+  const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:c.role==='dialog'?{items:c.items}:{})}));
   if(observedScopes[0]!.some(s=>s.role==='table'&&(!s.rows||!s.columns)))return unknown('native table dimensions not observed');
   if(JSON.stringify(observedScopes[0])!==JSON.stringify(expectedScopes))reasons.push('ancestor context differs');
+  const dialogChains=chains.map(c=>c.ancestors.filter(isDialog));
+  if(dialogChains.some(c=>c.length>1))return unknown('nested dialog speech context not calibrated');
+  const firstChildNames=dialogChains.map(chain=>chain.map(dialogFirstChildName));
+  if(firstChildNames.some(names=>JSON.stringify(names)!==JSON.stringify(firstChildNames[0])))return unknown('native alias dialog first children disagree');
+  for(const [i,dialog]of dialogChains[0]!.entries()){
+    const observed=scope(dialog)!,expected=(input.target.containers??[]).filter(c=>c.role==='dialog')[i];
+    if(observed.items===undefined||observed.items<1||!measuredName(dialog))return unknown('Native dialog name or direct-child count unmeasured');
+    if(!expected)continue;
+    if(!observed.name&&(!dialogFirstChildName(dialog)||expected.firstChildName===undefined))return unknown('unnamed dialog first-child summary unmeasured');
+    if(expected.firstChildName!==undefined){
+      if(dialogFirstChildName(dialog)===undefined)return unknown('Native dialog first child name attributes missing');
+      if(expected.firstChildName!==dialogFirstChildName(dialog))reasons.push('dialog first child name differs');
+    }
+  }
+
   const articleEntries=chains.map(c=>c.ancestors.flatMap((n,i)=>scope(n)?.role==='article'?[{name:nativeNodeName(n),nameMeasured:measuredName(n),entryChildName:measuredName(c.ancestors[i+1]??c.node)?nativeNodeName(c.ancestors[i+1]??c.node):undefined}]:[]));
   const expectedArticles=(input.target.containers??[]).filter(c=>c.role==='article');
   if(articleEntries.some(entries=>JSON.stringify(entries)!==JSON.stringify(articleEntries[0])))return unknown('native alias article entry children disagree');
