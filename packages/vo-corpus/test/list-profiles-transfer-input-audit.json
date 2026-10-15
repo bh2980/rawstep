@@ -1,0 +1,3110 @@
+{
+  "scope": "Post-inspection audit of unchanged first model inputs/predictions and Native receipts. Named article entryChildName is unused unless the Chrome inferred-name fallback consumes it. Original scores remain immutable. Post-action outline gaps and following unknown history remain unmeasured; keyboard focus and matching words do not repair them. No fresh evaluation or model refit.",
+  "sourceFixtureSha256": "ae8bdfc49135295110008833e3a7f582251523c8ecbcfe926bef316b63774882",
+  "verifierSha256": "0f11ddc5e1448b3fa9347df589cf5a072ef66925a9ed4c57b0e4dd0fdc64cf90",
+  "profiles": [
+    {
+      "browser": "safari",
+      "originalSummary": {
+        "planned": 28,
+        "nativeObserved": 28,
+        "inputVerified": 24,
+        "inputMismatch": 2,
+        "inputUnmeasured": 2,
+        "commandVerified": 28,
+        "inputEquivalent": 24,
+        "eligible": 22,
+        "issues": {
+          "input-mismatch": 2,
+          "input-unmeasured": 2,
+          "activation-before-mismatch": 1,
+          "previous-context-unverified": 2
+        },
+        "mainSpeechExact": {
+          "matched": 22,
+          "eligible": 22,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7857142857142857
+        },
+        "fullSpeechExact": {
+          "matched": 22,
+          "eligible": 22,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7857142857142857
+        },
+        "hintCandidateExact": {
+          "matched": 22,
+          "eligible": 22,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7857142857142857
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "readingTargets": {
+          "matched": 26,
+          "mismatch": 0,
+          "unmeasured": 2,
+          "planned": 28
+        },
+        "declaredStateFields": {
+          "matched": 50,
+          "mismatch": 0,
+          "unmeasured": 6,
+          "planned": 56
+        },
+        "declaredStateTransitions": {
+          "matched": 2,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 2
+        },
+        "declaredControlPresence": {
+          "matched": 56,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 56
+        },
+        "declaredPresenceTransitions": {
+          "matched": 2,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 2
+        },
+        "keyboardFocus": {
+          "matched": 28,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 28
+        },
+        "tasks": {
+          "success": 2,
+          "planned": 2
+        },
+        "alignedCases": 2
+      },
+      "auditedSummary": {
+        "planned": 28,
+        "nativeObserved": 28,
+        "inputVerified": 26,
+        "inputMismatch": 0,
+        "inputUnmeasured": 2,
+        "commandVerified": 28,
+        "inputEquivalent": 26,
+        "eligible": 24,
+        "issues": {
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2
+        },
+        "mainSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "fullSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "hintCandidateExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "geometry": [
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 3,
+          "beforeAxSha256": "8fad9546b97444b561148ac34c40f6c980efb8516884ecd469e4274118c95a82",
+          "afterAxSha256": "fa795f8896827a014073b0c870172426c763bf8874b84f9826d9bcefacd7591b",
+          "outline": {
+            "height": 20,
+            "width": 20,
+            "x": 22,
+            "y": 261
+          },
+          "stable": true,
+          "controlBefore": {
+            "role": "AXCheckBox",
+            "position": {
+              "x": 26,
+              "y": 265
+            },
+            "size": {
+              "height": 12,
+              "width": 12
+            }
+          },
+          "controlAfter": {
+            "role": "AXCheckBox",
+            "position": {
+              "x": 26,
+              "y": 311
+            },
+            "size": {
+              "height": 12,
+              "width": 12
+            }
+          },
+          "deltaY": 46,
+          "status": "unmeasured",
+          "reason": "Stable post-action outline matches the independently observed pre-action control rectangle; current AX control moved 46px. No current AX geometry candidate. Cause/private logical cursor unknown."
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 3,
+          "beforeAxSha256": "7cddf33ab292228d7b5967844af088d277ea56d3bd0f15e2dbd344dc6fc5f8bf",
+          "afterAxSha256": "2879394d32f57af85cab4092de516b19aa6bde9adfd266b37f42da75d4465876",
+          "outline": {
+            "height": 26,
+            "width": 132,
+            "x": 24,
+            "y": 258
+          },
+          "stable": true,
+          "controlBefore": {
+            "role": "AXButton",
+            "position": {
+              "x": 28,
+              "y": 262
+            },
+            "size": {
+              "height": 18,
+              "width": 124
+            }
+          },
+          "controlAfter": {
+            "role": "AXButton",
+            "position": {
+              "x": 28,
+              "y": 308
+            },
+            "size": {
+              "height": 18,
+              "width": 124
+            }
+          },
+          "deltaY": 46,
+          "status": "unmeasured",
+          "reason": "Stable post-action outline matches the independently observed pre-action control rectangle; current AX control moved 46px. No current AX geometry candidate. Cause/private logical cursor unknown."
+        }
+      ],
+      "rows": [
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 0,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect atlas",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect atlas Research collection article",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect atlas Research collection article",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 1,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 2,
+          "originalStatus": "mismatch",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Include research resources",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Include research resources unchecked checkbox",
+            "nativeHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space.",
+            "predictedMain": "Include research resources unchecked checkbox",
+            "predictedHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 3,
+          "originalStatus": "unmeasured",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Include research resources",
+              "id": "choice"
+            },
+            "observedScopes": [
+              {
+                "role": "main",
+                "name": "Reading workspace"
+              },
+              {
+                "role": "article",
+                "name": "Research collection"
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "unmeasured",
+              "reasons": [
+                "stable unique visible target not established"
+              ]
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "input-unmeasured"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Include research resources checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Include research resources checkbox",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 4,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect research notes",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "previous-context-unverified"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect research notes",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect research notes",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 5,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 6,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect atlas",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect atlas",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect atlas",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 7,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 8,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect research notes",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect research notes",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect research notes",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 9,
+          "originalStatus": "mismatch",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Include research resources",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Include research resources checked checkbox",
+            "nativeHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space.",
+            "predictedMain": "Include research resources checked checkbox",
+            "predictedHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 10,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save reading collection",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save reading collection button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save reading collection button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 11,
+          "originalStatus": "verified",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save reading collection",
+              "id": "save"
+            },
+            "observedScopes": [
+              {
+                "role": "main",
+                "name": "Reading workspace"
+              },
+              {
+                "role": "article",
+                "name": "Research collection"
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save reading collection",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "",
+            "nativeHint": "",
+            "predictedMain": "",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 0,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect materials",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect materials Product references region",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect materials Product references region",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 1,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 2,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference collapsed button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference collapsed button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 3,
+          "originalStatus": "unmeasured",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Show care reference",
+              "id": "choice"
+            },
+            "observedScopes": [
+              {
+                "role": "region",
+                "name": "Product references"
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "unmeasured",
+              "reasons": [
+                "stable unique visible target not established"
+              ]
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "input-unmeasured"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button Show care reference expanded button",
+            "nativeHint": "",
+            "predictedMain": "Show care reference expanded button Show care reference expanded button",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 4,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "previous-context-unverified"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 5,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 6,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save product references button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save product references button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 7,
+          "originalStatus": "verified",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save product references",
+              "id": "save"
+            },
+            "observedScopes": [
+              {
+                "role": "region",
+                "name": "Product references"
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "",
+            "nativeHint": "",
+            "predictedMain": "",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 8,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 9,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 10,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 11,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect materials",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect materials",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect materials",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 12,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 13,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 14,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 15,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save product references button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save product references button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "originalSummary": {
+        "planned": 28,
+        "nativeObserved": 28,
+        "inputVerified": 26,
+        "inputMismatch": 0,
+        "inputUnmeasured": 2,
+        "commandVerified": 28,
+        "inputEquivalent": 26,
+        "eligible": 24,
+        "issues": {
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2
+        },
+        "mainSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "fullSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "hintCandidateExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "readingTargets": {
+          "matched": 26,
+          "mismatch": 0,
+          "unmeasured": 2,
+          "planned": 28
+        },
+        "declaredStateFields": {
+          "matched": 50,
+          "mismatch": 0,
+          "unmeasured": 6,
+          "planned": 56
+        },
+        "declaredStateTransitions": {
+          "matched": 2,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 2
+        },
+        "declaredControlPresence": {
+          "matched": 56,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 56
+        },
+        "declaredPresenceTransitions": {
+          "matched": 2,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 2
+        },
+        "keyboardFocus": {
+          "matched": 28,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 28
+        },
+        "tasks": {
+          "success": 2,
+          "planned": 2
+        },
+        "alignedCases": 2
+      },
+      "auditedSummary": {
+        "planned": 28,
+        "nativeObserved": 28,
+        "inputVerified": 26,
+        "inputMismatch": 0,
+        "inputUnmeasured": 2,
+        "commandVerified": 28,
+        "inputEquivalent": 26,
+        "eligible": 24,
+        "issues": {
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2
+        },
+        "mainSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "fullSpeechExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "hintCandidateExact": {
+          "matched": 24,
+          "eligible": 24,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8571428571428571
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "geometry": [
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 3,
+          "beforeAxSha256": "3240f352b112fa8010d9edaacbeefb3435d4f870f2ccdf513af6a0b4e0e7fe30",
+          "afterAxSha256": "d4faebf107c791ff140a01ca3fff4f03b6f68c190d39cf46a39d65c57121b838",
+          "outline": {
+            "height": 21,
+            "width": 21,
+            "x": 46,
+            "y": 376
+          },
+          "stable": true,
+          "controlBefore": {
+            "role": "AXCheckBox",
+            "position": {
+              "x": 50,
+              "y": 380
+            },
+            "size": {
+              "height": 13,
+              "width": 13
+            }
+          },
+          "controlAfter": {
+            "role": "AXCheckBox",
+            "position": {
+              "x": 50,
+              "y": 426
+            },
+            "size": {
+              "height": 13,
+              "width": 13
+            }
+          },
+          "deltaY": 46,
+          "status": "unmeasured",
+          "reason": "Stable post-action outline matches the independently observed pre-action control rectangle; current AX control moved 46px. No current AX geometry candidate. Cause/private logical cursor unknown."
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 3,
+          "beforeAxSha256": "ec27483c5294a4abf9eaf6a36e2162b38d162c9018a4af6168deef66160ccc2f",
+          "afterAxSha256": "13be8e3b987a4e935fd1ab2cbae79371c7fe44845895f2366815f1304b18901a",
+          "outline": {
+            "height": 29,
+            "width": 147,
+            "x": 46,
+            "y": 374
+          },
+          "stable": true,
+          "controlBefore": {
+            "role": "AXButton",
+            "position": {
+              "x": 50,
+              "y": 378
+            },
+            "size": {
+              "height": 21,
+              "width": 139
+            }
+          },
+          "controlAfter": {
+            "role": "AXButton",
+            "position": {
+              "x": 50,
+              "y": 424
+            },
+            "size": {
+              "height": 21,
+              "width": 139
+            }
+          },
+          "deltaY": 46,
+          "status": "unmeasured",
+          "reason": "Stable post-action outline matches the independently observed pre-action control rectangle; current AX control moved 46px. No current AX geometry candidate. Cause/private logical cursor unknown."
+        }
+      ],
+      "rows": [
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 0,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect atlas",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 2
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect atlas list 2 items",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect atlas list 2 items",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 1,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 2
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 2,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Include research resources",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Include research resources unchecked checkbox Research collection article",
+            "nativeHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space.",
+            "predictedMain": "Include research resources unchecked checkbox Research collection article",
+            "predictedHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 3,
+          "originalStatus": "unmeasured",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Include research resources",
+              "id": "choice"
+            },
+            "observedScopes": [
+              {
+                "role": "main",
+                "name": "Reading workspace"
+              },
+              {
+                "role": "article",
+                "name": "Research collection"
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "unmeasured",
+              "reasons": [
+                "stable unique visible target not established"
+              ]
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "input-unmeasured"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "checked Include research resources checkbox",
+            "nativeHint": "",
+            "predictedMain": "checked Include research resources checkbox",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 4,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect research notes",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "previous-context-unverified"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect research notes list 3 items",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect research notes list 3 items",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 5,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 6,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect atlas",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect atlas",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect atlas",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 7,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect archive",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect archive",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect archive",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 8,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect research notes",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect research notes",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect research notes",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 9,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "checkbox",
+                "name": "Include research resources",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Include research resources checked checkbox Research collection article",
+            "nativeHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space.",
+            "predictedMain": "Include research resources checked checkbox Research collection article",
+            "predictedHint": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 10,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save reading collection",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save reading collection button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save reading collection button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.reading-workspace",
+          "step": 11,
+          "originalStatus": "verified",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save reading collection",
+              "id": "save"
+            },
+            "observedScopes": [
+              {
+                "role": "main",
+                "name": "Reading workspace"
+              },
+              {
+                "role": "article",
+                "name": "Research collection"
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save reading collection",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "main",
+                  "name": "Reading workspace"
+                },
+                {
+                  "role": "article",
+                  "name": "Research collection"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "",
+            "nativeHint": "",
+            "predictedMain": "",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 0,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect materials",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 2
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect materials list 2 items",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect materials list 2 items",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 1,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 2
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 2,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference collapsed button Product references region",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference collapsed button Product references region",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 3,
+          "originalStatus": "unmeasured",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Show care reference",
+              "id": "choice"
+            },
+            "observedScopes": [
+              {
+                "role": "region",
+                "name": "Product references"
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "unmeasured",
+              "reasons": [
+                "stable unique visible target not established"
+              ]
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "input-unmeasured"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button Show care reference expanded button",
+            "nativeHint": "",
+            "predictedMain": "Show care reference expanded button Show care reference expanded button",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 4,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": false,
+            "issues": [
+              "previous-context-unverified"
+            ],
+            "mainSpeechExact": null,
+            "fullSpeechExact": null,
+            "hintCandidateExact": null,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions list 3 items",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions list 3 items",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 5,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button Product references region",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button Product references region",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 6,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save product references button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save product references button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 7,
+          "originalStatus": "verified",
+          "beforeInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save product references",
+              "id": "save"
+            },
+            "observedScopes": [
+              {
+                "role": "region",
+                "name": "Product references"
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "",
+            "nativeHint": "",
+            "predictedMain": "",
+            "predictedHint": ""
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 8,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 9,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions list 3 items",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions list 3 items",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 10,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 11,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect materials",
+                "id": "first"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect materials",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect materials",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 12,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect dimensions",
+                "id": "second"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect dimensions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect dimensions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 13,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "link",
+                "name": "Inspect care instructions",
+                "id": "third"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                },
+                {
+                  "role": "list",
+                  "name": "",
+                  "items": 3
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link Inspect care instructions",
+            "nativeHint": "You are currently on a link. To click this link, press Control -Option -Space.",
+            "predictedMain": "link Inspect care instructions",
+            "predictedHint": "You are currently on a link. To click this link, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 14,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Show care reference",
+                "id": "choice"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Show care reference expanded button Product references region",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Show care reference expanded button Product references region",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        },
+        {
+          "caseId": "list-profiles-measured-transfer-v1.product-references",
+          "step": 15,
+          "originalStatus": "verified",
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Save product references",
+                "id": "save"
+              },
+              "observedScopes": [
+                {
+                  "role": "region",
+                  "name": "Product references"
+                }
+              ],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Save product references button",
+            "nativeHint": "You are currently on a button. To click this button, press Control -Option -Space.",
+            "predictedMain": "Save product references button",
+            "predictedHint": "You are currently on a button. To click this button, press Control -Option -Space."
+          }
+        }
+      ]
+    }
+  ]
+}

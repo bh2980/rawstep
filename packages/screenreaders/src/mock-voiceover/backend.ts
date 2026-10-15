@@ -7,8 +7,8 @@ import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechCon
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v21' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v15' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v22' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v16' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -364,7 +364,7 @@ export class MockVoiceOverBackend implements Backend {
       return children(n).map(listText).filter(Boolean).join(' ');
     };
     const layoutLists = new Set<string>();
-    if (!this.wording) for (const list of axNodes.filter(n=>!n.ignored && stringValue(n.role)==='list')) {
+    if (!this.wording&&this.referenceBrowser==='safari') for (const list of axNodes.filter(n=>!n.ignored && stringValue(n.role)==='list')) {
       const meta=list.backendDOMNodeId===undefined?undefined:dom.get(list.backendDOMNodeId);
       if (!meta || !['ul','ol'].includes(meta.tag) || meta.attributes.role?.split(/\s+/).includes('list')) continue;
       let parent=meta.parent===undefined?undefined:dom.get(meta.parent), inNavigation=false;
@@ -512,7 +512,7 @@ export class MockVoiceOverBackend implements Backend {
         a.semantic.name = (a.semantic.name + ' ' + b.semantic.name).replace(/\s+/g, ' ').replace(/\s+([.,!?;:])/g, '$1').trim(); next.splice(i, 1);
       }
     }
-    for (const c of containers.values()) c.items = c.role==='dialog'?dialogChildren(byId.get(c.id)!).length:next.filter(n => !n.end && !n.labelText && n.axId !== c.id && n.containers?.at(-1)?.id === c.id).length;
+    for (const c of containers.values()) c.items = c.role==='dialog'?dialogChildren(byId.get(c.id)!).length:c.role==='list'?children(byId.get(c.id)!).filter(n=>stringValue(n.role)==='listitem').length:next.filter(n => !n.end && !n.labelText && n.axId !== c.id && n.containers?.at(-1)?.id === c.id).length;
     for(const n of next)for(const c of n.containers??[])if(c.role==='article')c.items=containers.get(c.id)?.items??c.items;
     this.fragmentTargets.clear();
     if(!this.wording)for(const n of next.filter(n=>!n.end)){

@@ -44,7 +44,9 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   const checkboxChange=checkedStateChanged&&!node.semantic.protected&&node.semantic.role==='checkbox'&&typeof node.semantic.checked==='boolean'&&['activate_form_control','activate_button'].includes(command);
   // Chrome VO activation emits a value-change receipt without reading the object or its structure.
   if(referenceBrowser==='chrome'&&checkboxChange&&command==='activate_button')return {...provenance,speech:node.semantic.checked?'checked':'unchecked',usageHint:undefined,context};
-  let speech=formatSimulatedSpeech(node.semantic,checkedStateChanged,command,' ');
+  const focusMove=['next_focusable_item','previous_focusable_item'].includes(command);
+  const focusLink=focusMove&&node.semantic.role==='link';
+  let speech=formatSimulatedSpeech(focusLink?{...node.semantic,position:undefined,setSize:undefined}:node.semantic,checkedStateChanged,command,' ');
   const focusEntry=focused&&edit?.value&&!node.semantic.protected&&input.focusEntry;
   if(focusEntry&&edit){
     const selection=edit.value.slice(edit.start,edit.end),role=edit.multiline?'text entry area':'edit text';
@@ -67,8 +69,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   const entered=scopes.filter(c=>!context.containers.includes(c.id)&&c.name);
   const groupWords:Record<string,string>={group:'group',radiogroup:'radio group',tablist:'tab group'};
   const landmarks=['main','navigation','banner','contentinfo','complementary','region','form'];
-  const focusMove=['next_focusable_item','previous_focusable_item'].includes(command);
-  const focusScope=(c:VoiceOverContainer)=>c.role==='article'||c.role==='table'||landmarks.includes(c.role)||!!c.name&&!!groupWords[c.role];
+  const focusScope=(c:VoiceOverContainer)=>node.semantic.role==='link'&&c.role==='list'||c.role==='article'||c.role==='table'||landmarks.includes(c.role)||!!c.name&&!!groupWords[c.role];
   // In measured Tab moves, named dialogs inside an exposed focus context use nearest-context wording.
   const focusDialogs=new Set(focusMove?scopes.filter((c,i)=>c.role==='dialog'&&c.name&&scopes.slice(0,i).some(focusScope)).map(c=>c.id):[]);
   const dialogWord=referenceBrowser==='chrome'?'dialog':'web dialog';
@@ -84,6 +85,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   for(const c of contexts.filter(c=>groupWords[c.role]))speech+=` ${c.name} ${groupWords[c.role]}`;
   for(const c of contexts.filter(c=>landmarks.includes(c.role)))speech+=` ${[c.name,c.role==='contentinfo'?referenceBrowser==='chrome'?'footer':'content information':c.role].filter(Boolean).join(' ')}`;
   for(const c of contexts.filter(c=>focusDialogs.has(c.id)))speech+=` ${c.name} ${dialogWord}`;
+  if(focusLink)for(const c of contexts.filter(c=>c.role==='list'))speech+=` ${[c.name,'list',Number.isSafeInteger(c.items)&&c.items>0?`${c.items} ${c.items===1?'item':'items'}`:''].filter(Boolean).join(' ')}`;
   for(const c of contexts.filter(c=>c.role==='table'))speech+=` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
   if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[(referenceBrowser==='chrome'&&c.inferredName?'':c.name)||c.entryChildName,'article'].filter(Boolean).join(' ')}`;
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;

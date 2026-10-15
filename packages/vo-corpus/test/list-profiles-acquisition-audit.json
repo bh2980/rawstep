@@ -1,0 +1,114 @@
+{
+  "scope": "Acquisition denominators across all list-profile attempts. Calibration and transfer use different model builds and cannot be pooled into one speech accuracy. Journal windows are not proven dispatched-key count; inflight requests at interruption remain unknown. The original unpadded reserved source cohort had no scheduled Native attempt and remains input preparation, not an omitted Native failure.",
+  "attempts": [
+    {
+      "run": "list-profiles-v1-2026-10-15T17-13-27-703Z",
+      "caseSet": "list-profiles-v1",
+      "browser": "safari",
+      "plannedCases": 6,
+      "plannedActions": 36,
+      "recordedCases": 4,
+      "caseRecordActions": 24,
+      "journalWindows": 27,
+      "status": "interrupted-environment-failure",
+      "reason": "Safari first physical Tab focused after button rather than either link despite readback 1 of WebKitTabToLinksPreferenceKey. Native word/target comparisons invalid for declared intended inputs.",
+      "stop": "SIGINT on confirmed collector PID 56052; terminal exit 130.",
+      "recordsSha256": "52e29d78db810f23dd4583f5d8f9af22a859194d3effab873b5603bff9afe8c8",
+      "journalSha256": "260c6a0fd3fcc779bb7165412fa8f5cacb4dfaf60c1c98fa59c30244cca78ac6"
+    },
+    {
+      "run": "list-profiles-v1-2026-10-15T17-20-56-661Z",
+      "caseSet": "list-profiles-v1",
+      "browser": "safari",
+      "plannedCases": 6,
+      "plannedActions": 36,
+      "recordedCases": 6,
+      "caseRecordActions": 36,
+      "journalWindows": 36,
+      "status": "collector-completed",
+      "recordsSha256": "2a04b8bec5b4371c83b0b701540f0bef7a75fa94349614ba2e80d025b7116a2d",
+      "journalSha256": "4f427009f6f45871169ce9c7e0ac42f973687c4d1d771f883b830ef25d7f0494"
+    },
+    {
+      "run": "list-profiles-v1-2026-10-15T17-26-04-148Z",
+      "caseSet": "list-profiles-v1",
+      "browser": "chrome",
+      "plannedCases": 6,
+      "plannedActions": 36,
+      "recordedCases": 6,
+      "caseRecordActions": 36,
+      "journalWindows": 36,
+      "status": "collector-completed",
+      "recordsSha256": "4f880b62f66460afeb8069140f65ea609d41d03590e57e3f8a007b1f685e9dce",
+      "journalSha256": "2288da9613a3453445fddc39897a6c406f9f667df0d9fce433a6bafbecaf387c"
+    },
+    {
+      "run": "list-profile-geometry-v1-2026-10-15T17-40-21-980Z",
+      "caseSet": "list-profile-geometry-v1",
+      "browser": "safari",
+      "plannedCases": 3,
+      "plannedActions": 18,
+      "recordedCases": 3,
+      "caseRecordActions": 18,
+      "journalWindows": 18,
+      "status": "collector-completed",
+      "recordsSha256": "53c01b35877163ff0cb3268f3b2ee88a025b70bfec6b2aca90e64113411d02a7",
+      "journalSha256": "8d90994f48ad5122b60aa1a8f589d87b31041c5b60fa9fe390094c72abd11600"
+    },
+    {
+      "run": "list-profile-geometry-v1-2026-10-15T17-46-14-140Z",
+      "caseSet": "list-profile-geometry-v1",
+      "browser": "chrome",
+      "plannedCases": 3,
+      "plannedActions": 18,
+      "recordedCases": 3,
+      "caseRecordActions": 18,
+      "journalWindows": 18,
+      "status": "collector-completed",
+      "recordsSha256": "4130655e2ce648a3687fb56c66f761de5d5f0f858d1cd388f50bf7b4ac6cd7b1",
+      "journalSha256": "caee4a6728dbbd75e36da22eb02e59c74bf7c5ebcaf7db413fed27505bcb2ce5"
+    },
+    {
+      "run": "list-profiles-measured-transfer-v1-2026-10-15T18-02-37-698Z",
+      "caseSet": "list-profiles-measured-transfer-v1",
+      "browser": "safari",
+      "plannedCases": 2,
+      "plannedActions": 28,
+      "recordedCases": 2,
+      "caseRecordActions": 28,
+      "journalWindows": 28,
+      "status": "collector-completed",
+      "recordsSha256": "c7059b446aff7c4e07aae7bb9d1d9e9e1a366e3b9e3a8382683c7430013d5413",
+      "journalSha256": "4f23822a851fba8f668b8feafe2f86a27d25a76d0de106d25daac9027e48239d"
+    },
+    {
+      "run": "list-profiles-measured-transfer-v1-2026-10-15T18-04-54-367Z",
+      "caseSet": "list-profiles-measured-transfer-v1",
+      "browser": "chrome",
+      "plannedCases": 2,
+      "plannedActions": 28,
+      "recordedCases": 2,
+      "caseRecordActions": 28,
+      "journalWindows": 28,
+      "status": "collector-completed",
+      "recordsSha256": "91885900d1fdef06cb568893a7742321c47f8659fd379b7a5f7be76e4804c1ae",
+      "journalSha256": "56d12936c23b24de1852b5cba0277533cfe03340deedf2d955a5c0dfc3566e89"
+    }
+  ],
+  "totals": {
+    "plannedActions": 200,
+    "caseRecordActions": 188,
+    "journalWindows": 191
+  },
+  "safariTabRestoration": {
+    "observedAt": "2026-10-15T18:07:32.032Z",
+    "ui": {
+      "control": "Press Tab to highlight each item on a webpage",
+      "readback": "1, 0",
+      "value": 0
+    },
+    "keyAfter": {
+      "status": "absent"
+    }
+  }
+}

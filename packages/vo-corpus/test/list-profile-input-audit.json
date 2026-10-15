@@ -1,0 +1,1353 @@
+{
+  "scope": "Post-inspection input audit of immutable train geometry receipts using direct Native AX list children. Original first scores retained; no test/transfer Native data used.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "rows": [
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 0,
+          "nativeAxSha256": "724391279f6fe15eb67fefc3240270f254d95f0a0eab06b833336cc44fdd1a48",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 1,
+          "nativeAxSha256": "4bab9b6f3cf2ac85080da25718ad28595e3b324b9f9469809ca0536e7d7168c5",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 2,
+          "nativeAxSha256": "7ee098e50ad28790444d9df93e0ffc5d5cc92c92c5c42cc3e50ffd1955024e72",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 3,
+          "nativeAxSha256": "60af74854e82c2a9b9c9eb65e5627d82caa7b2f0615a5b8805a13cb061a1568a",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 4,
+          "nativeAxSha256": "e2bcfbb80a90e6d6b6867bd714f7a7e793b51e3eed230e265e1a5cda24ea47a0",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 5,
+          "nativeAxSha256": "2a57f85316066f6fd306b5bfc665199aad2099654e1a4b7b15db79c2d62119ab",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 0,
+          "nativeAxSha256": "250eb3127f8379f7a88a91fc0ef869944e91657bc4c32f4e9cfd0bd4ccc6ada7",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 1,
+          "nativeAxSha256": "b565183fb5069ac2499bc331c3f5f0120e790ba572e7ff5b5fa8e136ce79b1f6",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 2,
+          "nativeAxSha256": "24250d4dfcb0de43625ac72e38d3223d9795ff7258b3fb9c0501d20d633b1b9b",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 3,
+          "nativeAxSha256": "a2b94dce339e4c634225dc3adfaab9506c19dc8a14abe82f474d83eb93f151f7",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 4,
+          "nativeAxSha256": "ebd44d26dbf52a686de67f54596d15c93e4d521d51481b92326045251322a867",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 5,
+          "nativeAxSha256": "68698492c038d146d626fd81414feed0c2ac7163d23f6e4316d74e157d8180aa",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 0,
+          "nativeAxSha256": "734a0478ed3086d9adfd7290a5c0df57178df8634149bd4ced0f3804df07602f",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 1,
+          "nativeAxSha256": "00d829973e83a38fa745695172c73d36f6c98051898b91c5692cc849d5cec0cb",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 2,
+          "nativeAxSha256": "384600ace8c97c551963758e4875c19afcd0fe66cfa6c272c05d9526a841d44c",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 3,
+          "nativeAxSha256": "febfea76ea4bee4a3704712772d219cc134b9ed17bb73dc2d67fc4aafdea0a32",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 4,
+          "nativeAxSha256": "3a9a010312e91cb15e2a7d4fc5a47ecd1231a8680c18dbc7abaf0c1385f05c69",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 5,
+          "nativeAxSha256": "e1a2139c4e9b7055f3cc2fd73beeb7b1fc71603cd91641168b14482202e96590",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "observedHelp": "",
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "rows": [
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 0,
+          "nativeAxSha256": "e46e7d4fba748e4107b651ea367e5bde07b79c1c5f20b66d88025f0610f1c380",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 1,
+          "nativeAxSha256": "cc5857281d5ee4feeaa639dac648cad4206675e23018b3fbcd9381456c68cb79",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 2,
+          "nativeAxSha256": "a0f551bbdfb02687cf1ce2ce3cee2df7561c4bc01b68c1eb6408347129a6ca34",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 3,
+          "nativeAxSha256": "757adba4fe199c4e78d928148268018bd04d4f25afa201d14475465db6ac3270",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 4,
+          "nativeAxSha256": "a044881d7fb39678bdb841d806cc7c32907699a43b0c5dad30553f1775949d9a",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none-role",
+          "step": 5,
+          "nativeAxSha256": "494d571321e07225013f70c6082e6b5236279a44cfa247c04631b820a8888d56",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 0,
+          "nativeAxSha256": "ff15662e5722fe4f184d604440a4b8b38e5542638ceaf23d78d820ff08221743",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 1,
+          "nativeAxSha256": "e8b8c2ad5da6a9579d3972840ae6a779c01e74919ea06595218a5534c709d9fe",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 2,
+          "nativeAxSha256": "a3922de5a9d7f83154f455d373968a990fba64ffa98bb2b1bc332277a4260978",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 3,
+          "nativeAxSha256": "9bdd095be1f6061b232f704b0ac91c34ca25c85025bcae79b41ef9007c356bb6",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 4,
+          "nativeAxSha256": "db09d44586c8ba8101d1eb452001f84bf168d760d6b9520efd65527f602685e4",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ul-none",
+          "step": 5,
+          "nativeAxSha256": "d740e51f0218bfa57527724112dad40e1877c75ad8604cc0066ff64120c38e65",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 0,
+          "nativeAxSha256": "b1464ffb36679c349050ceb08909fbcfad54ce07b37f9c0850778571f1e29945",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 1,
+          "nativeAxSha256": "aef8a6097f14260942e9d395b237b0ec34c6c4d2399e8bf469a575e3f43f64d9",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 2,
+          "nativeAxSha256": "813a430ad9a8d39949089a02fbd75895ad50344c13ae66e9d8541247130fa492",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "After marker",
+              "id": "after"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "After marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 3,
+          "nativeAxSha256": "6ee7cdb25d926d195e5ae5d2a0e46288a385c40b5858a782ebe1f83130d512f9",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "Second resource",
+              "id": "second"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "Second resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 4,
+          "nativeAxSha256": "3f7c83f2cf7be5f52a99c21dc1dd0785389c299b53522ef54da123544da51d68",
+          "originalInputAudit": {
+            "status": "mismatch",
+            "reasons": [
+              "ancestor context differs"
+            ],
+            "observedTarget": {
+              "role": "link",
+              "name": "First resource",
+              "id": "first"
+            },
+            "observedScopes": [
+              {
+                "role": "list",
+                "name": "",
+                "items": 2
+              }
+            ],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "link",
+            "name": "First resource",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false,
+            "currentPage": false,
+            "containsImage": false
+          },
+          "observedScopes": [
+            {
+              "role": "list",
+              "name": "",
+              "items": 2
+            }
+          ]
+        },
+        {
+          "caseId": "list-profile-geometry-v1.ol-default",
+          "step": 5,
+          "nativeAxSha256": "26d72a7fabac7e5d0097d8e133602ef0aa267026ae0abc49257c37157e2ac5e9",
+          "originalInputAudit": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied; unused container counts and cell coordinates are not independently verified."
+          },
+          "observedSemantic": {
+            "role": "button",
+            "name": "Before marker",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          },
+          "observedScopes": []
+        }
+      ]
+    }
+  ]
+}

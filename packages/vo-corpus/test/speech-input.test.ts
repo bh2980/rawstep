@@ -215,6 +215,22 @@ test('a singleton still needs measured set metadata, while explicit or conflicti
  assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
 });
 
+test('focus links use independently counted list children without requiring object-reading ordinals',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ Object.assign(node,{AXRole:'AXLink',AXCustomContent:{status:'no-value',errorCode:-25212}});
+ const list:AxNode={AXRole:'AXList',AXSubrole:'AXContentList',AXElementId:20,children:[
+  {AXRole:'AXGroup',AXElementId:21,children:[node]},
+  {AXRole:'AXGroup',AXElementId:23,children:[{AXRole:'AXLink',AXElementId:24,AXTitle:'Another'}]},
+ ]};d.root.children![0]!.children=[list];
+ const candidate=nativeSpeechInput(d,[0,0,0,0],'next_focusable_item');assert.equal(candidate.status,'constructed');if(candidate.status!=='constructed')return;
+ assert.equal(candidate.input.target.semantic.position,undefined);assert.equal(candidate.input.target.semantic.setSize,undefined);
+ assert.equal(candidate.input.target.containers!.at(-1)!.items,2);assert.equal(checkSpeechInput(candidate.input,d).status,'verified');
+ const wrong=structuredClone(candidate.input);wrong.target.containers!.at(-1)!.items=4;assert.equal(checkSpeechInput(wrong,d).status,'mismatch');
+ list.childrenTruncated=true;assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');delete list.childrenTruncated;
+ delete list.children![1]!.AXElementId;assert.equal(nativeSpeechInput(d,[0,0,0,0],'next_focusable_item').status,'unmeasured');
+ list.children![1]!.AXElementId=21;assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
+});
+
 test('article inputs preserve the immediate exposed AX child rather than inventing a descendant label',()=>{
  const d=dump(),node={...button,AXCustomContent:{status:'observed',byteCount:0,rawBase64:'',entries:[]}};
  d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'article',AXTitle:'',AXDescription:'',children:[{AXRole:'AXGroup',AXRoleDescription:'group',AXTitle:'',children:[node]}]}];
@@ -228,6 +244,18 @@ test('article inputs preserve the immediate exposed AX child rather than inventi
  d.root.children[0]!.children=[node];const exposed=nativeSpeechInput(d,[0,0],'next_focusable_item');
  assert.equal(exposed.status,'constructed');if(exposed.status!=='constructed')throw new Error('Native direct child missing');
  assert.equal(exposed.input.target.containers?.[0]?.entryChildName,'Prepare booking');assert.equal(checkSpeechInput(exposed.input,d).status,'verified');
+});
+
+test('named article verification checks only the child-name fallback actually consumed by the browser profile',()=>{
+ const d=dump(),node={...button,AXCustomContent:{status:'no-value',errorCode:-25212}};
+ d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'article',AXTitle:'Resources',AXDescription:'',children:[node]}];
+ const result=nativeSpeechInput(d,[0,0],'next_focusable_item');assert.equal(result.status,'constructed');if(result.status!=='constructed')return;
+ result.input.target.containers![0]!.entryChildName='Unused Chromium projection';
+ assert.equal(checkSpeechInput(result.input,d).status,'verified');
+ result.input.referenceBrowser='chrome';assert.equal(checkSpeechInput(result.input,d).status,'verified');
+ result.input.target.containers![0]!.inferredName=true;assert.equal(checkSpeechInput(result.input,d).status,'mismatch');
+ result.input.target.containers![0]!.entryChildName='Prepare booking';assert.equal(checkSpeechInput(result.input,d).status,'verified');
+ delete result.input.target.containers![0]!.entryChildName;assert.equal(checkSpeechInput(result.input,d).status,'unmeasured');
 });
 
 test('dialog inputs use observed names and direct Native children, retaining a first-child summary for unnamed dialogs',()=>{

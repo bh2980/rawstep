@@ -183,6 +183,88 @@ missing title-help inputs motivated source contrasts and the v21 / Chrome v15 pr
 input/receipt regressions are separate from AX-supplied pure-formatter regressions and from the first independent score.
 Combined ARIA/title help is calibrated for native HTML buttons; unknown roles/contexts remain outside that claim.
 
+## List focus wording and dynamic-list evaluation
+
+Safari v22 / Chrome v16 distinguish a link reached by Tab/Shift+Tab from an object-reading command.
+A measured Tab entry appends the nearest exposed list and its direct item count; subsequent moves within that
+list omit the repeated context. Leaving and returning announces the count again. Object-reading link ordinals
+remain separate. Supply `containers` outer to inner, retain the Native-exposed list, and give `items` its actual
+direct exposed-item count. Markers and a link within one item do not count as two items. List context on
+non-link controls, named/nested lists and mixed object/Tab histories need separate validation.
+
+For conventional `ul`/`ol` list items, the Chromium adapter counts direct list items. Markerless implicit body
+lists are omitted in the measured Safari projection and retained in Chrome; explicit list roles and navigation
+contexts have separate controls. Arbitrary direct children and custom list semantics are not established by this
+study. Pure formatter callers supply the selected browser's exposed context themselves.
+
+The immutable [first list contrasts](../tests/fixtures/voiceover-evidence/native-list-profiles-calibration-2026-10-16.json)
+and [geometry contrasts](../tests/fixtures/voiceover-evidence/native-list-profile-geometry-2026-10-16.json) retain
+baseline Safari v21 / Chrome v15 predictions. These are original gate results; the old gate did not yet verify
+focus-link list counts. Initial list contrasts had Safari Main/Full 19/27 comparable
+(19/36 planned); Chrome's 24 link targets were geometrically ambiguous and no complete speech window was
+normally comparable. Those original ambiguities remain unmeasured. A three-page train contrast added only
+inline-block anchor padding to distinguish link and child-text geometry. Its first Main/Full scores were Safari
+10/14 (10/18 planned) and Chrome 4/8 (4/18 planned), with input-projection errors recorded separately.
+After correction, actual Rawstep input and literal Full regressions match all 18 geometry actions per browser.
+These are inspected regressions, not independent generalization scores.
+
+Two task bodies and their complete command histories were reserved before calibration Native was inspected.
+Their effective measurement pages add the same train-derived anchor padding; raw source pages remain preserved
+and unobserved. Source/effective counterparts share test groups and are not separate independent examples.
+No template/site/contrast group or complete-sequence collision was found against external prior cases. Primitive
+roles and measurement CSS are shared, so this is limited composition transfer, not representative web sampling.
+The corrected model build `743f8c2ff2e3ab15363d366951b14cf7926ebe83fe0123ffd5ba29cefe249e2c`, actual inputs,
+histories and predictions were sealed before Native started in either browser. Full hashes and the effective/source
+reservation are retained in the [first task fixture](../tests/fixtures/voiceover-evidence/native-list-profiles-transfer-2026-10-16.json).
+
+| Reserved tasks, per browser | Safari | Chrome |
+| --- | ---: | ---: |
+| Planned / Native observed | 28 / 28 | 28 / 28 |
+| First comparable Main / literal Full | 22/22 / 22/22 | 24/24 / 24/24 |
+| First matches / all planned | 22/28 | 24/28 |
+| Post-inspection input audit: Main / literal Full | 24/24 / 24/24 | 24/24 / 24/24 |
+| Audited matches / all planned | 24/28 (85.7%) | 24/28 (85.7%) |
+| Independently joined reading targets | 26/28; 2 unmeasured | 26/28; 2 unmeasured |
+| Keyboard focus | 28/28 | 28/28 |
+| Observed state fields | 50/56; 6 unmeasured | 50/56; 6 unmeasured |
+| Boolean state / appearance transitions | 2/2 / 2/2 | 2/2 / 2/2 |
+| Final task outcomes | 2/2 | 2/2 |
+
+The [separate input audit](../packages/vo-corpus/test/list-profiles-transfer-input-audit.json) preserves first scores.
+It corrects two Safari false input rejections: a named article consumes its own name, so its unused projected
+entry-child name need not equal Native. Chrome's inferred-name fallback and unnamed articles still require that
+child name. Speech rules, model predictions and observations are unchanged by this audit.
+
+In both tasks/browsers, revealing the third list item moves the control down 46px. The stable post-action VoiceOver
+outline remains at its observed pre-action rectangle and matches no current AX object. These four target windows
+and their following unknown histories remain unmeasured despite matching words and keyboard focus. This observation
+does not identify the private logical cursor or prove an AT Driver cause. Six state-field windows concern the
+initially absent third link; its absence is measured separately, not invented as a disabled-state value. Two tasks
+and two boolean transitions do not establish whole-engine Navigation/State Accuracy or 90% real-web parity.
+
+The [acquisition audit](../packages/vo-corpus/test/list-profiles-acquisition-audit.json) retains every attempt:
+200 planned actions, 188 in case records and 191 completed journal windows. The first Safari attempt was interrupted
+after the effective Tab setting skipped links despite a defaults readback of 1; 24 case-record actions and 27 journal
+windows remain archived against its 36 planned actions. Journal windows do not prove the number of dispatched keys.
+The actual Safari checkbox was then enabled and read back for paired runs. It and the temporary defaults key have
+been restored to the prior off/absent state. Both browsers used the same effective HTML and commands with English
+VoiceOver; `baseline-v2-dnd-tablinks-probe-v1` records this controlled collection setting. The differing model builds
+and calibration/transfer populations must not be pooled into one accuracy percentage. Bounded receipt windows still
+do not establish native queue timing, completion or interruption fidelity.
+
+To regenerate update pages, use the existing corpus generator sets `list-profiles-v1`, `list-profile-geometry-v1`
+and `list-profiles-measured-transfer-v1`, each with a new output directory. These inspected pages are now regression
+material. Replay the public evidence without a Native server:
+
+```sh
+npm run build
+npm run test:integration -- tests/mock-voiceover-list-focus.integration.test.ts tests/mock-voiceover-list-transfer.integration.test.ts
+node --import tsx --test packages/vo-corpus/test/list-profiles.test.ts packages/vo-corpus/test/speech-input.test.ts
+```
+
+The task regression preserves all 28 literal receipt comparisons as diagnostics while only 24 retain comparable
+Native inputs/history in the audited score. Matching the other four strings does not promote them to successes.
+
 ## Run a deterministic regression test
 
 After installing Rawstep and a compatible Chromium, run:
@@ -257,7 +339,7 @@ and interaction-mode-dependent hints remain uncalibrated.
 ## Browser reference profiles and evaluation limits
 
 `referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v21`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v15`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v16`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -290,7 +372,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v21` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v22` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

@@ -49,7 +49,9 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   if(semanticRole==='button'&&node.AXRole==='AXCheckBox'&&pressed===undefined)return unknown('pressed state missing');
   if(semanticRole==='heading'&&nativeHeadingLevel(node)===undefined)return unknown('heading level missing');
   if(semanticRole==='checkbox'&&![0,1,2,false,true,'mixed'].includes(node.AXValue as never))return unknown('checked state missing');
-  const linkSet=semanticRole==='link'?nativeLinkSet(node,ancestors):undefined;
+  const focusLink=semanticRole==='link'&&['next_focusable_item','previous_focusable_item'].includes(command);
+  if(focusLink&&containers.some(c=>c.role==='list'&&c.items<1))return unknown('Native list item count unmeasured');
+  const linkSet=semanticRole==='link'&&!focusLink?nativeLinkSet(node,ancestors):undefined;
   if(linkSet?.status==='unmeasured')return unknown(linkSet.reason);
   const description=content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' ');
   const input:VoiceOverSpeechInput={command,target:{identity:String(node.AXDOMIdentifier||`target:${path.join('.')}`),containers,semantic:{
@@ -59,7 +61,7 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
     ...(semanticRole==='checkbox'?{checked:node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true}:{}),
     ...(semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node),...(linkSet?.status==='observed'?{position:linkSet.position,setSize:linkSet.setSize}:{})}:{})
   }}};
-  return {status:'constructed' as const,input,unmeasuredFields:containers.flatMap((c,i)=>c.role==='dialog'?[]:[`target.containers.${i}.items`]),scope:'Native target attributes and ancestry only; reading position remains unverified. Dialog items count independently exposed Native children; other unused counts remain placeholders, not observed zeroes.'};
+  return {status:'constructed' as const,input,unmeasuredFields:containers.flatMap((c,i)=>c.role==='dialog'||c.role==='list'&&c.items>0?[]:[`target.containers.${i}.items`]),scope:'Native target attributes and ancestry only; reading position remains unverified. Dialog/list counts use complete unique exposed Native children. Other unused counts remain placeholders. Focus-link wording uses list context/count rather than object-navigation ordinals.'};
 }
 
 /** Caller input from an independently visible Native target, never an utterance or AX keyboard focus. */
@@ -108,8 +110,8 @@ function scope(n:AxNode){
   if(!role)return undefined;
   const name=nativeNodeName(n);if(!name&&!landmarkRoles.has(role)&&!['article','table','list','dialog'].includes(role))return undefined;
   const result:{role:string;name:string;rows?:number;columns?:number;items?:number}={role,name};
-  if(role==='dialog'){
-    const nodes=n.children;result.items=nodes&&!n.childrenTruncated&&nodes.every(c=>Number.isSafeInteger(c.AXElementId)&&Number(c.AXElementId)>0)?new Set(nodes.map(c=>c.AXElementId)).size:undefined;
+  if(role==='dialog'||role==='list'){
+    const nodes=n.children;result.items=nodes&&!n.childrenTruncated&&nodes.every(c=>Number.isSafeInteger(c.AXElementId)&&Number(c.AXElementId)>0)&&(role!=='list'||new Set(nodes.map(c=>c.AXElementId)).size===nodes.length)?new Set(nodes.map(c=>c.AXElementId)).size:undefined;
   }
   if(role==='table'){
     const count=(role:string)=>{const nodes=n.children?.filter(c=>c.AXRole===role)??[];return nodes.some(c=>!Number.isSafeInteger(c.AXElementId))?undefined:new Set(nodes.map(c=>c.AXElementId)).size;};
@@ -146,13 +148,16 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   if(expected.role==='link'){
     if(!!expected.containsImage!==containsNativeImage(node))reasons.push('link image content differs');
     if(!!expected.currentPage!==(node.AXARIACurrent==='page'))reasons.push('current-page state differs');
-    const sets=chains.map(c=>nativeLinkSet(c.node,c.ancestors)),set=sets[0]!;
-    if(sets.some(s=>JSON.stringify(s)!==JSON.stringify(set)))return unknown('native alias link set metrics disagree');
-    if(set.status==='unmeasured')return unknown(set.reason);
-    if(set.status==='observed'){
-      if(expected.position===undefined||expected.setSize===undefined)reasons.push('link set metrics missing in input');
-      else if(expected.position!==set.position||expected.setSize!==set.setSize)reasons.push('link set metrics differ');
-    }else if(expected.position!==undefined||expected.setSize!==undefined)return unknown('Native link set metrics unmeasured');
+    const focusMove=['next_focusable_item','previous_focusable_item'].includes(input.command);
+    if(!focusMove||expected.position!==undefined||expected.setSize!==undefined){
+      const sets=chains.map(c=>nativeLinkSet(c.node,c.ancestors)),set=sets[0]!;
+      if(sets.some(s=>JSON.stringify(s)!==JSON.stringify(set)))return unknown('native alias link set metrics disagree');
+      if(set.status==='unmeasured')return unknown(set.reason);
+      if(set.status==='observed'){
+        if(expected.position===undefined||expected.setSize===undefined)reasons.push('link set metrics missing in input');
+        else if(expected.position!==set.position||expected.setSize!==set.setSize)reasons.push('link set metrics differ');
+      }else if(expected.position!==undefined||expected.setSize!==undefined)return unknown('Native link set metrics unmeasured');
+    }
   }
   if(expected.role==='heading'){
     const level=nativeHeadingLevel(node);
@@ -190,9 +195,11 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
       if(node.AXHelp!==(expected.help??''))reasons.push('native help differs');
     }
   }
-  const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s]:[]}));
+  const focusLink=expected.role==='link'&&['next_focusable_item','previous_focusable_item'].includes(input.command);
+  const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s.role==='list'&&!focusLink?{...s,items:undefined}:s]:[]}));
   if(observedScopes.some(s=>JSON.stringify(s)!==JSON.stringify(observedScopes[0])))return unknown('native alias ancestor contexts disagree');
-  const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:c.role==='dialog'?{items:c.items}:{})}));
+  const expectedScopes=(input.target.containers??[]).map(c=>({role:c.role,name:c.name,...(c.role==='table'?{rows:c.rows,columns:c.columns}:c.role==='dialog'||c.role==='list'&&focusLink?{items:c.items}:{})}));
+  if(focusLink&&observedScopes[0]!.some(s=>s.role==='list'&&(!('items' in s)||!s.items)))return unknown('Native list item count unmeasured');
   if(observedScopes[0]!.some(s=>s.role==='table'&&(!s.rows||!s.columns)))return unknown('native table dimensions not observed');
   if(JSON.stringify(observedScopes[0])!==JSON.stringify(expectedScopes))reasons.push('ancestor context differs');
   const dialogChains=chains.map(c=>c.ancestors.filter(isDialog));
@@ -212,13 +219,18 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
 
   const articleEntries=chains.map(c=>c.ancestors.flatMap((n,i)=>scope(n)?.role==='article'?[{name:nativeNodeName(n),nameMeasured:measuredName(n),entryChildName:measuredName(c.ancestors[i+1]??c.node)?nativeNodeName(c.ancestors[i+1]??c.node):undefined}]:[]));
   const expectedArticles=(input.target.containers??[]).filter(c=>c.role==='article');
-  if(articleEntries.some(entries=>JSON.stringify(entries)!==JSON.stringify(articleEntries[0])))return unknown('native alias article entry children disagree');
+  const usesEntryChild=(name:string,index:number)=>!name||input.referenceBrowser==='chrome'&&expectedArticles[index]?.inferredName===true;
+  const usedEntries=articleEntries.map(entries=>entries.map((article,i)=>({name:article.name,nameMeasured:article.nameMeasured,...usesEntryChild(article.name,i)?{entryChildName:article.entryChildName}:{}})));
+  if(usedEntries.some(entries=>JSON.stringify(entries)!==JSON.stringify(usedEntries[0])))return unknown('native alias article entry children disagree');
   for(const [i,article]of articleEntries[0]!.entries()){
     const expected=expectedArticles[i];
     if(!expected)continue;
-    if(!article.nameMeasured||(!article.name||expected.entryChildName!==undefined)&&article.entryChildName===undefined)return unknown('Native article or entry child name attributes missing');
-    if(!article.name&&expected.entryChildName===undefined)return unknown('unnamed article entry child name unmeasured');
-    if(expected?.entryChildName!==undefined&&expected.entryChildName!==article.entryChildName)reasons.push('article entry child name differs');
+    if(!article.nameMeasured)return unknown('Native article name attributes missing');
+    // A named article uses its name; Chrome's inferred-name fallback still consumes the entry child.
+    if(usesEntryChild(article.name,i)){
+      if(article.entryChildName===undefined||expected.entryChildName===undefined)return unknown('article entry child name unmeasured');
+      if(expected.entryChildName!==article.entryChildName)reasons.push('article entry child name differs');
+    }
   }
 
   if(!!input.target.cell!==chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXCell')))reasons.push('cell context differs');
