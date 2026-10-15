@@ -1,0 +1,910 @@
+{
+  "sourceRun": "reading-units-v1-2026-10-14T23-13-14-379Z",
+  "sourceRecordsSha256": "2cebcc9eb3d3c909208fde4f65d2393b8352d94a3f638baaf1807233d8546ef0",
+  "referenceEnvironment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": {
+      "name": "safari",
+      "version": "26.6.2"
+    },
+    "at": "VoiceOver",
+    "atVersion": "26.6.2",
+    "locale": "en_KR",
+    "languages": "( \"en-US\" )"
+  },
+  "scope": "Selected public synthetic calibration workflows; native raw speech and exact served HTML, not held-out or real-site accuracy. No model-produced labels.",
+  "cases": [
+    {
+      "sourceCaseId": "reading-units-v1.wrap-checkbox-before",
+      "htmlSha256": "bd9778d4ab368b26d89182123e0b0c4a9ffaae5d7fc52b386ada2b6d16963bf9",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><label>Travel updates<input type=\"checkbox\"></label><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 10566,
+              "text": "Travel updates"
+            },
+            {
+              "t": 11146,
+              "text": "You are currently on a selectable text, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 12934,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 13503,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 15299,
+              "text": "After marker button"
+            },
+            {
+              "t": 15880,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 17694,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 18262,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 20049,
+              "text": "After marker button"
+            },
+            {
+              "t": 20616,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.wrap-checkbox-after",
+      "htmlSha256": "c5d903f4516aca813bf0c987bd1b17059d78918dcb67eb11e4dc93f0ef047eb7",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"checkbox\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 31550,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 32128,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 33910,
+              "text": "Travel updates"
+            },
+            {
+              "t": 34488,
+              "text": "You are currently on a text element, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 36284,
+              "text": "After marker button"
+            },
+            {
+              "t": 36864,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 38648,
+              "text": "Travel updates"
+            },
+            {
+              "t": 39228,
+              "text": "You are currently on a text element, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 41014,
+              "text": "After marker button"
+            },
+            {
+              "t": 41589,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.for-checkbox-after",
+      "htmlSha256": "6a3c5ce07a0acf146c21119e96b92d37b514f2a937b36d0772dc69336e64e201",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><input id=\"updates\" type=\"checkbox\"><label for=\"updates\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 157419,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 157985,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 159748,
+              "text": "Travel updates"
+            },
+            {
+              "t": 160323,
+              "text": "You are currently on a selectable text, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 162133,
+              "text": "After marker button"
+            },
+            {
+              "t": 162714,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 164516,
+              "text": "Travel updates"
+            },
+            {
+              "t": 165090,
+              "text": "You are currently on a selectable text, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 166883,
+              "text": "After marker button"
+            },
+            {
+              "t": 167464,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.cell-text-button",
+      "htmlSha256": "f12c085b7606ce27f14b80c5980f89abe73f28d5086e59601d2cb93291032f0b",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td>Available <button>Reserve seat</button> today</td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 352854,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 353421,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 355312,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 355873,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 357775,
+              "text": "Action column 2 of 2"
+            },
+            {
+              "t": 358349,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 360227,
+              "text": "row 2 of 2 Day Monday column 1 of 2"
+            },
+            {
+              "t": 360797,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 362676,
+              "text": "Action Available  column 2 of 2"
+            },
+            {
+              "t": 363247,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 365127,
+              "text": "Reserve seat button"
+            },
+            {
+              "t": 365691,
+              "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 367568,
+              "text": " today"
+            },
+            {
+              "t": 368130,
+              "text": "You are currently on a text element, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 370034,
+              "text": "end of table"
+            },
+            {
+              "t": 370615,
+              "text": "You are currently on a table, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 372471,
+              "text": "After marker button"
+            },
+            {
+              "t": 373049,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 374934,
+              "text": "end of table"
+            },
+            {
+              "t": 375514,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 377385,
+              "text": "After marker button"
+            },
+            {
+              "t": 377960,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.cell-two-buttons",
+      "htmlSha256": "0195e9d11c178939234d321e278688fcca93df8f30234d9527d33376aec9a45a",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><button>Reserve seat</button><button>More information</button></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 390019,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 390585,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 392496,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 393071,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 394942,
+              "text": "Action column 2 of 2"
+            },
+            {
+              "t": 395507,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 397412,
+              "text": "row 2 of 2 Day Monday column 1 of 2"
+            },
+            {
+              "t": 397988,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 399864,
+              "text": "Action "
+            },
+            {
+              "t": 399927,
+              "text": "Reserve seat button column 2 of 2"
+            },
+            {
+              "t": 400571,
+              "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 402305,
+              "text": "More information button"
+            },
+            {
+              "t": 402883,
+              "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 404750,
+              "text": "end of table"
+            },
+            {
+              "t": 405328,
+              "text": "You are currently on a table, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 407218,
+              "text": "After marker button"
+            },
+            {
+              "t": 407786,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 409668,
+              "text": "end of table"
+            },
+            {
+              "t": 410247,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 412121,
+              "text": "After marker button"
+            },
+            {
+              "t": 412691,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.cell-heading-link",
+      "htmlSha256": "ec74fc68b8f611a6303bd026bdb09212b16ddc7332085d6f60d37f0fd48fb679",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><h3><a href=\"#seat\">Reserve seat</a></h3></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 456802,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 457380,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 459282,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 459856,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 461748,
+              "text": "Action column 2 of 2"
+            },
+            {
+              "t": 462320,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 464119,
+              "text": "row 2 of 2 Day Monday column 1 of 2"
+            },
+            {
+              "t": 464687,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 466488,
+              "text": "Action "
+            },
+            {
+              "t": 466550,
+              "text": "heading level 3 link Reserve seat column 2 of 2"
+            },
+            {
+              "t": 467188,
+              "text": "You are currently on a heading level 3, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 468853,
+              "text": "end of table"
+            },
+            {
+              "t": 469412,
+              "text": "You are currently on a table, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 471222,
+              "text": "After marker button"
+            },
+            {
+              "t": 471790,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 473668,
+              "text": "end of table"
+            },
+            {
+              "t": 474248,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 476102,
+              "text": "After marker button"
+            },
+            {
+              "t": 476676,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.cell-column-span",
+      "htmlSha256": "d305a817e6d4c521032ce8b44678a34f7ea92b26d46d944d68dc814a2676e870",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th colspan=\"2\">Service</th></tr><tr><td>Monday</td><td><button>Reserve seat</button></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 488744,
+              "text": "Departure options table 2 columns, 2 rows"
+            },
+            {
+              "t": 489308,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 491128,
+              "text": " spans 2 columns Service column 1 of 2"
+            },
+            {
+              "t": 491695,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 493426,
+              "text": "row 2 of 2 Monday column 1 of 2"
+            },
+            {
+              "t": 493999,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 496668,
+              "text": "Reserve seat button column 2 of 2"
+            },
+            {
+              "t": 497326,
+              "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 499349,
+              "text": "end of table"
+            },
+            {
+              "t": 499932,
+              "text": "You are currently on a table, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 501787,
+              "text": "After marker button"
+            },
+            {
+              "t": 502367,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 504252,
+              "text": "end of table"
+            },
+            {
+              "t": 504834,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 506701,
+              "text": "After marker button"
+            },
+            {
+              "t": 507282,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-units-v1.cell-row-span",
+      "htmlSha256": "3e73a39f3cb74ff5eb6f5f98174ddbcb03082e340d1c518332ddcbd954d2f27a",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><style>body{font:18px system-ui;padding:20px}button,a,input{margin:8px}td,th{padding:10px}</style><body><button id=\"before\" autofocus>Before marker</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td rowspan=\"2\">Monday</td><td><button>Reserve seat</button></td></tr><tr><td><a href=\"#details\">More information</a></td></tr></table><button id=\"after\">After marker</button></body></html>",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 520370,
+              "text": "Departure options table 2 columns, 3 rows"
+            },
+            {
+              "t": 520947,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 522850,
+              "text": "Day column 1 of 2"
+            },
+            {
+              "t": 523423,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 525294,
+              "text": "Action column 2 of 2"
+            },
+            {
+              "t": 525865,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 527729,
+              "text": "row 2 of 3 Day  spans 2 rows Monday column 1 of 2"
+            },
+            {
+              "t": 528306,
+              "text": "You are currently on a selectable text, inside of a cell."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 530183,
+              "text": "Action "
+            },
+            {
+              "t": 530244,
+              "text": "Reserve seat button column 2 of 2"
+            },
+            {
+              "t": 530891,
+              "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 532633,
+              "text": "row 3 of 3"
+            },
+            {
+              "t": 532685,
+              "text": "link More information column 2 of 2"
+            },
+            {
+              "t": 533330,
+              "text": "You are currently on a link, inside of a cell. To click this link, press Control -Option -Space."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 535083,
+              "text": "end of table"
+            },
+            {
+              "t": 535660,
+              "text": "You are currently on a table, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 537537,
+              "text": "After marker button"
+            },
+            {
+              "t": 538118,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 539987,
+              "text": "end of table"
+            },
+            {
+              "t": 540565,
+              "text": "You are currently on a table, inside of web content. To navigate the cells within this table press Control -Option, and then Up Arrow, Down Arrow, Left Arrow, or Right Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 542436,
+              "text": "After marker button"
+            },
+            {
+              "t": 543008,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

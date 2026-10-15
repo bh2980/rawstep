@@ -20,8 +20,8 @@ export { ANALYSIS_SCHEMA_VERSION, analyzeSavedTrace, analyzeTrace, deterministic
 export type { AnalysisFailure, AnalysisFinding, AnalysisReport, AnalyzerResult, AnalyzeSavedTraceOptions, EvidenceModality, LlmAnalyzerOptions, TraceAnalyzer, TraceEvidenceSummary } from './analyze/index.js';
 export { renderReportHtml, summarizeTrace, writeReport } from './report/index.js';
 export type { ReportAction, ReportCounts, ReportFailure, ReportSummary, ReportVerification, ReportVerificationRule } from './report/index.js';
-export { formatSimulatedSpeech, MOCK_VOICEOVER_LIMITATIONS, MOCK_VOICEOVER_PROFILE, MOCK_VOICEOVER_WARNING, MockVoiceOverBackend, runMockVoiceOverTask } from './mock-voiceover/index.js';
-export type { MockVoiceOverRunOptions, MockWordingOptions, SimulatedSemanticNode } from './mock-voiceover/index.js';
+export { formatSimulatedSpeech, MOCK_VOICEOVER_LIMITATIONS, MOCK_VOICEOVER_PROFILE, MOCK_VOICEOVER_CHROME_PROFILE, MOCK_VOICEOVER_WARNING, MockVoiceOverBackend, runMockVoiceOverTask } from './mock-voiceover/index.js';
+export type { MockVoiceOverRunOptions, MockVoiceOverReferenceBrowser, MockWordingOptions, SimulatedSemanticNode } from './mock-voiceover/index.js';
 export { assertScreenshotReplayTaskSafety, diagnoseScreenshotStop, exportScreenshotReplay, FOCUS_CONTEXT_CHOICES, restrictChoicesByVisualFocus, runScreenshotReplay, runScreenshotTask, SCREENSHOT_KEYS, SCREENSHOT_MODEL_PROTOCOL, screenshotChoices, ScreenshotDecisionPolicy, ScreenshotKeyboardBackend, ScreenshotReplayPolicy, screenshotReplayTaskHash, STOP_REASON_CHOICES, summarizeVisualExploration, validateModelResponse, validateScreenshotReplay } from './screenshot/index.js';
 export type { FocusGateOptions, ScreenshotChoice, ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse, ScreenshotPolicyOptions, ScreenshotReplay, ScreenshotRunOptions, StopReasonReport, VisualExplorationSummary } from './screenshot/index.js';
 export { applyProfile, BUILTIN_PROFILES, collectBrowserDiagnostics, createChromiumTabZoomController, DEFAULT_PROFILE, ProfileApplicationError, resolveEnvironmentProfile, verifyLiveProfile } from './profiles/index.js';

@@ -89,7 +89,7 @@ try {
   assert.match(command(npx, ['--no-install', 'rawstep', '--help']), /rawstep\.config\.json/);
   assert.equal(command(npx, ['--no-install', 'rawstep', '--version']).trim(), installed.version);
   assert.match(command(npx, ['--no-install', 'rawstep', 'init']), /Created .*rawstep\.config\.json/);
-  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 3);
+  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 4);
   assert.throws(() => command(npx, ['--no-install', 'rawstep', 'init']), /already exists/);
   check('npx rawstep --help / --version / init');
 
@@ -111,11 +111,14 @@ try {
     import assert from 'node:assert/strict';
     import { runTask, aggregateHints, readTrace } from 'rawstep';
     import { runTask as lowLevelRunTask } from 'rawstep/runner';
+    import { MOCK_VOICEOVER_CHROME_PROFILE, runMockVoiceOverTask } from 'rawstep/mock-voiceover';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
     assert.notEqual(runTask, lowLevelRunTask);
+    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v1');
+    assert.equal(typeof runMockVoiceOverTask, 'function');
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);
@@ -127,10 +130,14 @@ try {
     'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
     'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
     'import { SpeechDecisionPolicy } from "rawstep/policy";',
+    'import { type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
     'const policy: DecisionPolicy = new ScriptedPolicy([{ stop: "stuck" }]);',
+    'const referenceBrowser: MockVoiceOverReferenceBrowser = "chrome";',
+    'const mockOptions: MockVoiceOverRunOptions = { policy, outDir: "./mock-output", referenceBrowser };',
+    'void mockOptions;',
     'const task: Task = { url: "https://example.com", goal: "Read the page", verify: { all: [{ titleIncludes: "Example" }] } };',
     'const analyzer: TraceAnalyzer = { id: "example", analyze: async () => ({ summary: "Done", findings: [] }) };',
     'const model: ScreenshotModelAdapter = new SystemOneScreenshotAdapter(new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { inputs: ["text", "image"], maxChoices: 255, maxImages: 2 } }));',

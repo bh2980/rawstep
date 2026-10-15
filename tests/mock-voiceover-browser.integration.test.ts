@@ -29,6 +29,113 @@ async function fixture(html: string, observationMinWaitMs = 0) {
 }
 
 describe('browser-backed simulated English VoiceOver profile in real Chromium', () => {
+  it('uses native radio name/form groups, omits anonymous singleton positions and stays silent on repeated selection',async()=>{
+    const f=await fixture('<button>Start</button><form><input type="radio" name="choice" aria-label="Harbor"></form><form><input type="radio" name="choice" aria-label="Park"></form><input type="radio" aria-label="Museum">');
+    expect(await f.intent('next')).toEqual(['Harbor, radio button, 1 of 1']);
+    expect(await f.intent('activate')).toEqual(['selected, Harbor, radio button, 1 of 1']);
+    expect(await f.intent('activate')).toEqual([]);
+    expect(await f.intent('next')).toEqual(['Park, radio button, 1 of 1']);
+    await f.intent('activate');
+    expect(await f.page.locator('input:checked').count()).toBe(2);
+    expect(await f.intent('next')).toEqual(['Museum, radio button']);
+    expect(await f.intent('activate')).toEqual(['selected, Museum, radio button']);
+  });
+
+  it('keeps native column context across a table boundary and announces only a resulting live update on an unchanged button',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Visits</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><button id="book" onclick="document.querySelector(\'[role=status]\').textContent=\'Visit reserved\'">Reserve visit</button></td></tr></table><p role="status"></p><button>After</button>');
+    for(let i=0;i<5;i++)await f.intent('next');
+    expect(await f.intent('activate')).toEqual(['Visit reserved']);
+    expect(await f.intent('next')).toEqual(['end of table']);
+    expect(await f.intent('previous')).toEqual(['row 2 of 2 Reserve visit, button column 2 of 2']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('book');
+  });
+
+  it('retains trailing wrapped and explicitly associated labels as reading stops while preserving control focus',async()=>{
+    for(const html of ['<label><input id="choice" type="checkbox">Travel updates</label>','<input id="choice" type="checkbox"><label for="choice"><span>Travel updates</span></label>']){
+      const f=await fixture('<button>Start</button>'+html+'<button>After</button>');
+      expect(await f.intent('next')).toEqual(['Travel updates, unchecked, checkbox']);
+      expect(await f.intent('next')).toEqual(['Travel updates']);
+      expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('choice');
+      expect(await f.intent('previous')).toEqual(['Travel updates, unchecked, checkbox']);
+      expect(await f.key('Space')).toEqual(['checked, Travel updates, checkbox']);
+      expect(await f.page.locator('#choice').isChecked()).toBe(true);
+    }
+  });
+
+  it('restores only label-elided text and keeps hidden label descendants excluded',async()=>{
+    const f=await fixture('<button>Start</button><label><input type="checkbox">Travel updates<span hidden>Hidden delivery secret</span></label><label aria-hidden="true"><input type="checkbox">Hidden account secret</label><button>After</button>');
+    expect(await f.intent('next')).toEqual(['Travel updates, unchecked, checkbox']);
+    expect(await f.intent('next')).toEqual(['Travel updates']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+    expect(JSON.stringify(f.events)).not.toMatch(/Hidden delivery secret|Hidden account secret/);
+  });
+
+  it('distinguishes the trailing wrapped-label hint from a separate associated label',async()=>{
+    for(const [html,kind]of [['<label><input type="checkbox">Travel updates</label>','text element'],['<input id="choice" type="checkbox"><label for="choice">Travel updates</label>','selectable text']]){
+      const f=await fixture('<button>Start</button>'+html+'<button>After</button>',850);
+      await f.intent('next');
+      expect(await f.intent('next')).toEqual(['Travel updates',`You are currently on a ${kind}, inside of web content. To exit this web area, press Control -Option -Shift -Up Arrow.`]);
+    }
+  });
+
+  it('uses a sole cell control as the reading stop and focuses the actual button without a duplicate cell stop',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Departure options</caption><tr><th>Day</th><th>Action</th></tr><tr><td>Monday</td><td><button id="reserve" onclick="this.dataset.count=String(Number(this.dataset.count||0)+1)">Reserve seat</button></td></tr></table><button>After</button>');
+    expect(await f.intent('next')).toEqual(['Departure options, table, 2 columns, 2 rows']);
+    expect(await f.intent('next')).toEqual(['Day column 1 of 2']);
+    expect(await f.intent('next')).toEqual(['Action column 2 of 2']);
+    expect(await f.intent('next')).toEqual(['row 2 of 2 Day Monday column 1 of 2']);
+    expect(await f.intent('next')).toEqual(['Action Reserve seat, button column 2 of 2']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('reserve');
+    expect(await f.key('Enter')).toEqual([]);
+    expect(await f.page.locator('#reserve').getAttribute('data-count')).toBe('1');
+    expect(await f.intent('next')).toEqual(['end of table']);
+    expect(await f.intent('next')).toEqual(['After, button']);
+  });
+
+  it('keeps Tab into a table control distinct from object navigation coordinates',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Orders</caption><tr><th>Item</th><th>Action</th></tr><tr><td>Parcel</td><td><button id="edit">Edit booking</button></td></tr></table><button>After</button>');
+    await f.key('Tab');
+    expect(await f.key('Tab')).toEqual(['Edit booking, button Orders table 2 columns, 2 rows']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('edit');
+    expect(await f.key('Shift+Tab')).toEqual(['Start, button']);
+  });
+
+  it('keeps mixed text and multiple controls in cell order and announces coordinates only on cell entry',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Bookings</caption><tr><th>Item</th><th>Action</th></tr><tr><td>Tour</td><td>Available <button id="reserve">Reserve seat</button> today <button id="more">More information</button></td></tr></table><button>After</button>');
+    for(let i=0;i<4;i++)await f.intent('next');
+    expect(await f.intent('next')).toEqual(['Action Available  column 2 of 2']);
+    expect(await f.intent('next')).toEqual(['Reserve seat, button']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('reserve');
+    expect(await f.intent('next')).toEqual([' today ']);
+    expect(await f.intent('next')).toEqual(['More information, button']);
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('more');
+    expect(await f.intent('next')).toEqual(['end of table']);
+  });
+
+  it('retains span geometry and avoids repeating a header when moving down within the same column',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Routes</caption><tr><th>Day</th><th>Action</th></tr><tr><td rowspan="2">Monday</td><td><button>Reserve seat</button></td></tr><tr><td><a href="#details">More information</a></td></tr></table>');
+    for(let i=0;i<3;i++)await f.intent('next');
+    expect(await f.intent('next')).toEqual(['row 2 of 3 Day spans 2 rows Monday column 1 of 2']);
+    expect(await f.intent('next')).toEqual(['Action Reserve seat, button column 2 of 2']);
+    expect(await f.intent('next')).toEqual(['row 3 of 3 link, More information column 2 of 2']);
+    const g=await fixture('<button>Start</button><table><caption>Routes</caption><tr><th colspan="2">Service</th></tr><tr><td>Monday</td><td><button>Reserve seat</button></td></tr></table>');
+    await g.intent('next');
+    expect(await g.intent('next')).toEqual(['spans 2 columns Service column 1 of 2']);
+    expect(await g.intent('next')).toEqual(['row 2 of 2 Monday column 1 of 2']);
+    expect(await g.intent('next')).toEqual(['Reserve seat, button column 2 of 2']);
+  });
+
+  it('retains protected-value and readonly guards when the reading stop is projected from a table cell',async()=>{
+    const f=await fixture('<button>Start</button><table><caption>Access</caption><tr><th>Kind</th><th>Value</th></tr><tr><td>Account</td><td><input id="password" type="password" aria-label="Password" value="private-cell-value"></td></tr></table><button>After</button>');
+    for(let i=0;i<5;i++)await f.intent('next');
+    expect(await f.page.evaluate(()=>document.activeElement?.id)).toBe('password');
+    expect(JSON.stringify(f.events)).not.toMatch(/private-cell-value|••/);
+    const g=await fixture('<button>Start</button><table><tr><td><input id="note" aria-label="Reference" readonly value="Fixed"></td></tr></table>');
+    await g.key('Tab');await g.key('Tab');
+    await expect(g.backend.execute({kind:'replaceText',text:'Changed'})).rejects.toThrow('actually focused');
+    expect(await g.page.locator('#note').inputValue()).toBe('Fixed');
+  });
+
   it('activates an actual summary and emits only the observed expanded/collapsed state receipt',async()=>{
     const f=await fixture('<button>Start</button><details><summary>Ticket conditions</summary><p>Refunds before departure.</p></details><button>Finish</button>',850);
     const hint='You are currently on a summary, inside of web content. To expand or collapse the contents of this item, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.';
@@ -205,7 +312,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await f.intent('previous')).toEqual(['heading, level 2, Overview']);
   });
 
-  it('retains the native fieldset legend stop, suppresses repeated control labels, and jumps by heading and form control', async () => {
+  it('retains the native fieldset legend and trailing label stops and jumps by heading and form control', async () => {
     const f = await fixture(`<h1>Shop</h1><hr>
       <fieldset><legend>Categories</legend><label><input type="checkbox"> Hammer</label><span aria-hidden="false"></span></fieldset>
       <hr><h2>Products</h2><a href="#p1"><h5>Claw Hammer</h5></a><a href="#p2"><h5>Thor Hammer</h5></a><input aria-label="Search">`);
@@ -213,7 +320,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     for (let index = 0; index < 8; index++) actual.push(...await f.intent('next'));
     expect(actual).not.toContain('separator');
     expect(actual.filter(line => line.trim() === 'Categories')).toHaveLength(1);
-    expect(actual.filter(line => line.trim() === 'Hammer')).toHaveLength(0);
+    expect(actual.filter(line => line.trim() === 'Hammer')).toHaveLength(1);
     expect(actual.every(line => line.trim() !== '')).toBe(true);
     const g = await fixture(`<h1>Shop</h1><p>Intro</p><button>Menu</button><h2>Filters</h2><input aria-label="Search"><h2>Products</h2>`);
     expect(await g.intent('heading.next')).toEqual(['heading, level 2, Filters']);
@@ -243,7 +350,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     const f = await fixture(`<button id="b">Add to cart</button><p role="status" id="s">Loaded text</p><p id="quiet"></p>
       <script>document.getElementById('b').addEventListener('click', () => { document.getElementById('s').textContent = 'Product added to cart'; document.getElementById('quiet').textContent = 'Shown only'; });</script>`);
     expect(f.initial.speech.join(' ')).not.toContain('Loaded text');
-    expect(await f.intent('activate')).toEqual(['Add to cart, button', 'Product added to cart']);
+    expect(await f.intent('activate')).toEqual(['Product added to cart']);
     // Spoken once: the next observation does not repeat it, and the unannounced paragraph is never spoken by itself.
     expect((await f.backend.observe()).speech).toEqual([]);
     const later = await f.intent('next');
@@ -338,12 +445,12 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await f.intent('activate')).toEqual(['checked, Agree, checkbox']);
     expect(await f.page.locator('input[type=checkbox]').isChecked()).toBe(true);
     expect(await f.intent('next')).toEqual(['Broken custom, unchecked, checkbox']);
-    expect(await f.intent('activate')).toEqual(['Broken custom, unchecked, checkbox']);
+    expect(await f.intent('activate')).toEqual([]);
     expect(await f.page.locator('[role=checkbox]').getAttribute('aria-checked')).toBe('false');
     await f.intent('next');
-    expect(await f.intent('activate')).toEqual(['Choice A, selected, radio button, 1 of 2']);
+    expect(await f.intent('activate')).toEqual(['selected, Choice A, radio button, 1 of 2']);
     await f.intent('next');
-    expect(await f.intent('activate')).toEqual(['Choice B, selected, radio button, 2 of 2']);
+    expect(await f.intent('activate')).toEqual(['selected, Choice B, radio button, 2 of 2']);
     expect(await f.page.locator('input[type=radio]').first().isChecked()).toBe(false);
   });
 

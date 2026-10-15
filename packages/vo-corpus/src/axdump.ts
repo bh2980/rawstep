@@ -56,6 +56,11 @@ export function focusedAxNode(dump: AxDump): AxNode | undefined {
   return node;
 }
 
+/** Safari commonly exposes button names in AXTitle; Chrome uses AXDescription. Never use a control's value as its name. */
+export function nativeNodeName(node:AxNode|undefined):string{
+  return [node?.AXTitle,node?.AXDescription].find((v):v is string=>typeof v==='string'&&!!v.trim())?.trim()??'';
+}
+
 /** A retry has a new attempt ID; even repeated stages refuse to replace raw observations. */
 export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string,dump:AxDump):Promise<string> {
   if(!/^[\w-]+$/.test(attemptId)||!/^[\w.-]+$/.test(stage))throw new Error("Invalid AX snapshot identity");

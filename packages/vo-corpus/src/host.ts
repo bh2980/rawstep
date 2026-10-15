@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { createServer, type Server } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { promisify } from "node:util";
+import { isDeepStrictEqual, promisify } from "node:util";
 import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 
@@ -16,6 +16,14 @@ const run = promisify(execFile);
 
 export type BrowserName = "safari" | "chrome";
 export const browserApps: Record<BrowserName, string> = { safari: "Safari", chrome: "Google Chrome" };
+
+/** Resuming a capture must retain the original browser and its native evidence profile. */
+export function collectionBrowser(requested?:string,captured?:string):BrowserName{
+  const browser=requested??captured??'safari';
+  if(!Object.hasOwn(browserApps,browser)||captured!==undefined&&!Object.hasOwn(browserApps,captured))throw new Error('Collection browser must be safari or chrome');
+  if(captured!==undefined&&browser!==captured)throw new Error('Cannot resume a native capture in a different browser; start a separate run');
+  return browser as BrowserName;
+}
 
 export interface Machine {
   /** "local", or the Tart VM name. */
@@ -89,11 +97,27 @@ export interface MachineFacts {
   voiceOverSettings: { "com.apple.VoiceOver4/default": string; "com.apple.VoiceOverUtility": string };
   locale: string;
   languages: string;
+  /** Application bundle version, distinct from the AT Driver's reported AT/OS version. */
+  voiceOverAppVersion?:string;
+  keyboardNavigation?:string;
+}
+
+/** Reject mixed capture cohorts; protected/unknown VO preferences still require separate uncertainty reporting. */
+export function assertResumeEnvironment(previous: {
+  machine: MachineFacts; settings: string; workflowStartProtocol: string; observationProtocol?: string; atDriver: Record<string, unknown>;
+}, current: typeof previous) {
+  for (const key of ["settings", "workflowStartProtocol", "observationProtocol"] as const) {
+    if (!previous[key] || previous[key] !== current[key]) throw new Error(`Cannot resume: ${key} differs or was not recorded; start a separate run`);
+  }
+  for (const key of ["machine", "macos", "build", "browser", "locale", "languages", "voiceOverAppVersion", "keyboardNavigation"] as const) {
+    if (!isDeepStrictEqual(previous.machine[key], current.machine[key])) throw new Error(`Cannot resume: observed environment field ${key} differs; start a separate run`);
+  }
+  if (!isDeepStrictEqual(previous.atDriver.capabilities, current.atDriver.capabilities)) throw new Error("Cannot resume: negotiated AT capabilities differ; start a separate run");
 }
 
 export async function machineFacts(machine: Machine, browser: BrowserName): Promise<MachineFacts> {
   const app = `/Applications/${browserApps[browser]}.app/Contents/Info`;
-  const [macos, build, version, settings, utility, locale, languages] = await Promise.all([
+  const [macos, build, version, settings, utility, locale, languages,voiceOverAppVersion,keyboardNavigation] = await Promise.all([
     output(machine, "sw_vers", ["-productVersion"]),
     output(machine, "sw_vers", ["-buildVersion"]),
     output(machine, "defaults", ["read", app, "CFBundleShortVersionString"]),
@@ -101,12 +125,15 @@ export async function machineFacts(machine: Machine, browser: BrowserName): Prom
     output(machine, "defaults", ["read", "com.apple.VoiceOverUtility"]),
     output(machine, "defaults", ["read", "-g", "AppleLocale"]),
     output(machine, "defaults", ["read", "-g", "AppleLanguages"]),
+    output(machine,'defaults',['read','/System/Library/CoreServices/VoiceOver.app/Contents/Info','CFBundleShortVersionString']),
+    output(machine,'defaults',['read','-g','AppleKeyboardUIMode']),
   ]);
   return {
     machine: machine.name, macos: macos ?? "unknown", build: build ?? "unknown",
     browser: { name: browser, version: version ?? "unknown" },
     voiceOverSettings: { "com.apple.VoiceOver4/default": settings ?? "unknown", "com.apple.VoiceOverUtility": utility ?? "unknown" },
     locale: locale ?? "unknown", languages: languages?.replace(/\s+/g, " ") ?? "unknown",
+    voiceOverAppVersion:voiceOverAppVersion??'unknown',keyboardNavigation:keyboardNavigation??'unknown',
   };
 }
 
@@ -129,7 +156,11 @@ export async function serveDirectory(directory: string, machine: Machine): Promi
   await new Promise<void>(done => server.listen(0, machine.pageHost, done));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Fixture server has no port");
-  return { origin: `http://${machine.pageHost}:${address.port}`, close: () => new Promise(done => server.close(() => done())) };
+  return { origin: `http://${machine.pageHost}:${address.port}`, close: () => new Promise<void>(done => {
+    server.close(()=>done());
+    // Chrome may leave a speculative socket with no HTTP request; it must not hide a collection error at shutdown.
+    server.closeAllConnections();
+  }) };
 }
 
 /** Opens the URL in the browser and brings it to the front, so VoiceOver reads it. */
@@ -164,6 +195,10 @@ export function requireFrontmost(machine: Machine, browser: BrowserName): (chord
   return async chord => {
     const front = await frontmostApp(machine);
     if (front !== browserApps[browser]) throw new Error(`Stopped before ${chord}: ${front ?? "an unknown app"} is in front of ${machine.name}, not ${browserApps[browser]}. Nothing was pressed.`);
+    if (browser === "chrome") {
+      const recovery = await machine.exec("osascript", ["-e", 'tell application "System Events" to tell process "Google Chrome" to get exists window "Restore pages?"']);
+      if (recovery.trim() === "true") throw new Error(`Stopped before ${chord}: Chrome's Restore pages? recovery window is open. This is an environment failure; nothing was pressed.`);
+    }
   };
 }
 

@@ -13,7 +13,7 @@ export interface Utterance {
 
 export interface Heard {
   utterances: Utterance[];
-  /** quiet: nothing new for quietMs. deadline: still talking at maxWaitMs, so the next listen may get the rest. */
+  /** quiet: receipt gap reached quietMs. Neither quiet nor deadline establishes that speech has finished. */
   reason: "quiet" | "deadline";
   startedAt: number;
   endedAt: number;
@@ -25,7 +25,7 @@ const named: Record<string, string> = {
   ...AT_DRIVER_KEYS,
   Ctrl: AT_DRIVER_KEYS.Control, Opt: AT_DRIVER_KEYS.Alt, Option: AT_DRIVER_KEYS.Alt, Cmd: AT_DRIVER_KEYS.Meta, Command: AT_DRIVER_KEYS.Meta,
   Left: AT_DRIVER_KEYS.ArrowLeft, Right: AT_DRIVER_KEYS.ArrowRight, Up: AT_DRIVER_KEYS.ArrowUp, Down: AT_DRIVER_KEYS.ArrowDown,
-  F4: "\uE034",
+  F1:"\uE031",F2:"\uE032",F3:"\uE033",F4:"\uE034",F5:"\uE035",
 };
 
 /** "VO+Cmd+H" → Control, Option, Command, "h". VO is Control+Option; single characters are lowercase key names. */
@@ -72,10 +72,12 @@ export class VoSession {
   }
 
   /** Sends one chord. Speech it causes is collected by the next listen(). */
-  async press(chord: string): Promise<void> {
+  async press(chord: string): Promise<{ requestedAt: number; acknowledgedAt: number }> {
     if (this.failure) throw new Error(this.failure);
     await this.beforePress?.(chord);
+    const requestedAt = this.now();
     await this.client.request("interaction.userIntent", { name: "pressKeys", keys: chordKeys(chord) });
+    return { requestedAt, acknowledgedAt: this.now() };
   }
 
   /** Everything spoken since the last listen, after speech has paused for quietMs (or maxWaitMs passed). */
@@ -102,10 +104,21 @@ export class VoSession {
   /** Discards whatever is buffered: speech from before a reset must not land in the next case. */
   drain(): void { this.buffer = []; }
 
-  /** Receipts arriving during a read-only AX dump still belong to the action preceding that dump. */
+  /** Raw receipts outside the listen window. Their causal attribution remains uncertain. */
   takeBuffered(): Utterance[] { return this.buffer.splice(0); }
 
   close(): Promise<void> { return this.client.close(); }
+}
+
+/** Receipt timestamps locate observation windows, not the cause or completion of speech. */
+export function speechAttribution(step: {
+  reason: string; utterances: Utterance[];
+  timing?: { requestedAt: number; observationEndedAt: number; requestClock?: "wire-request-v1" };
+}) {
+  const beforeRequest = step.timing ? step.utterances.filter(u => u.t < step.timing!.requestedAt).length : 0;
+  const afterWindow = step.timing ? step.utterances.filter(u => u.t > step.timing!.observationEndedAt).length : 0;
+  const status = beforeRequest || afterWindow || step.reason === "deadline" ? "uncertain" : step.timing?.requestClock === "wire-request-v1" ? "bounded-window" : "unmeasured";
+  return { status, beforeRequest, afterWindow, completionVerified: false };
 }
 
 export const spoken = (heard: Heard) => heard.utterances.map(u => u.text.trim()).filter(Boolean);

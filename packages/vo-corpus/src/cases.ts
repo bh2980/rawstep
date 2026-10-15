@@ -7,8 +7,8 @@ import { join } from "node:path";
  * live VoiceOver and the comparer replays them on the simulator. Speech is recorded per chord.
  *
  * Every page starts with a "Before marker" button and ends with an "After marker" button, and names are unique on the
- * page, so the speech alone shows where the VoiceOver cursor is. The runner presses VO+Home first and checks that the
- * speech names "Before marker"; a case whose start check fails is recorded as misaligned, not as data.
+ * page. Speech anchors help align the start; they do not independently observe the VoiceOver cursor. Failed starts
+ * are retained in the planned denominator. The start protocol is recorded separately for each collection environment.
  */
 export interface Case {
   /** Stable across regenerations: the same id always means the same page and chords. */
@@ -44,6 +44,7 @@ export interface CaseRecord {
   caseSet: string;
   caseId: string;
   source: "voiceover" | "simulator";
+  simulatorEnvironment?:{referenceBrowser:'safari'|'chrome';browser:{name:'chromium';version:string}};
   /** One collection attempt; a resumed partial case receives a different ID. */
   attemptId?: string;
   captureSessionId?: string;
@@ -52,16 +53,19 @@ export interface CaseRecord {
   unsupportedReason?: string;
   pageContext?: import("./real-pages.js").PageContext;
   /** Speech after the start chord (VO+Home); aligned when it names START_MARKER. */
-  start: { aligned: boolean; speech: string[]; commands?: string[]; axPath?: string; anchor?: { name: string; level?: number } };
+  start: { aligned: boolean; speech: string[]; commands?: string[]; axPath?: string; anchor?: { name: string; level?: number }; pageLoad?: import("./session.js").Heard };
   steps: {
     chord: string; utterances: { t: number; text: string }[]; reason: "quiet" | "deadline" | "unsupported";
     /** Relative to the run directory. AX evidence is separate from speech and may arrive later. */
     axPath?: string;
     axError?: string;
+    /** The action changed the front application; speech from this window cannot establish browser-profile fidelity. */
+    foregroundError?: string;
     /** Last measured start/post-action tree before this action, not an instantaneous pre-action capture. */
     beforeAxPath?: string;
     /** Host receipt-clock milliseconds, sharing the origin used by utterances[].t. Not synthesis latency. */
-    timing?: { requestedAt: number; acknowledgedAt: number; observationStartedAt: number; observationEndedAt: number };
+    timing?: { requestedAt: number; acknowledgedAt: number; observationStartedAt: number; observationEndedAt: number;
+      requestClock?: "wire-request-v1"; axObservationStartedAt?: number; axObservationEndedAt?: number };
     /** Generated-fixture DOM oracle, kept outside policy observations and speech scoring. */
     state?: import("./state.js").PageState;
   }[];

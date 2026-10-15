@@ -3,6 +3,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { casesFingerprint, type CaseSet } from "./cases.js";
 
+/** Verify what the run actually archived, rather than trusting a historical metadata hash alone. */
+export async function verifyArchivedInputs(runDir: string, expectedHash: string) {
+  const archive = join(runDir, "inputs");
+  const set = JSON.parse(await readFile(join(archive, "cases.json"), "utf8")) as CaseSet;
+  for (const path of set.cases.map(c => c.page).filter(Boolean)) {
+    const rel = relative(archive, resolve(archive, path));
+    if (!rel || rel.startsWith("..") || isAbsolute(rel)) throw new Error("Archived fixture path escapes input directory");
+  }
+  if (await casesFingerprint(archive, set) !== expectedHash) throw new Error("Archived fixture bytes differ from expected inputs");
+}
+
 /** Keep the actual input bytes with a new run; never replace a previous archive. */
 export async function archiveCaseInputs(casesDir: string, runDir: string, set: CaseSet, expectedHash: string) {
   const archive = join(runDir,"inputs"), files: {path:string;sha256:string;bytes:number}[] = [];

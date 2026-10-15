@@ -1031,3 +1031,121 @@ This design follows the distinction between modes/focus/review in the
 as a cost-control rationale, and treats duplicate/test overlap as an evaluation concern supported by
 [Lee et al., ACL 2022](https://aclanthology.org/2022.acl-long.577/). These references guide the design, not the native
 speech labels or a claim that any data quantity guarantees fidelity.
+
+#### Collection throughput and reproducible inputs (2026-10-15)
+
+Three consecutive native cohorts (`reading-units-v1`, `reading-units-transfer-v1`, `reading-returns-v1`) retained
+32/32 aligned workflows and 293 actions in approximately 17.1 minutes (9.1 + 5.5 + 2.5 minutes). Of those actions,
+229 contained non-marker main speech; every action has both a preceding observed AX reference and a post-action AX
+reference. No deadline or case-error flag occurred. This is about 1,030 actions or 800 content-bearing actions per
+hour on the current single VM. These are capture checks, not independent-example approval or proof of repeatability.
+Silence and marker observations remain in the archive; meaningful silence is also a target, not a reason to discard a
+transition. The reserved transfer cohort contributes aggregate capture counts only; its native text was not exposed
+for development.
+
+At 23:36 UTC, before the next state cohort, the raw inventory contained 39 native runs, 823 records, 784 aligned
+records, 712 distinct case keys, 4,023 actions, 3,206 content events and 1,303 distinct normalized content strings.
+2,262 actions referenced an existing post-action AX file, with no missing references or malformed lines. These counts
+include repeated, legacy, multilingual, calibration, test and failed-start observations. Distinct text is not the same
+as distinct input/context, and the totals are not a quality-approved training set.
+
+For planning only, assume 300–600 usable, varied observation transitions per collection hour after duplicate review,
+quality checks and time spent on repeatability. **This acceptance rate has not yet been measured.** Under that
+assumption, 10,000 usable transitions require about 17–34 collection hours and 30,000 require about 50–100 hours.
+At eight hours per night that is roughly 3–5 or 7–13 nights, before new collector/environment setup and experiment
+redesign. All figures include development/validation/test examples together; reserve complete input/site groups before
+counting the training subset. These estimates are for the current VoiceOver/Safari environment, not native NVDA,
+another locale, all command families, or a promised completion date. Live sites and unstable interactions may cost more.
+
+The reproducible-data machine should extend the existing generator → native collector → immutable archive → derived
+quality/split pipeline. Fix fixture bytes, starting state, action sequence and environment; then compare repeated native
+observations. Do not substitute deterministic simulator outputs for actual native labels. Initially repeat a small
+stratified cohort three times, preserving all receipts and instability flags; do not count repeats as independent
+scenarios or silently select the most convenient output. Factor combinations and event histories should cover roles,
+states, commands/context, dynamics and defects, with explicit constraints on meaningful combinations. One-factor
+contrasts remain grouped together across all readers/browsers; genuinely new templates and sites stay held out.
+
+`reading-state-v1` adds four frozen calibration inputs isolating radio `name` membership and physical Space versus
+VO+Space on the same checkbox HTML. It records initial activation, traversal/return and repeated activation, with AX
+after every action. The generator test checks byte-identical regenerated inputs and the exact one-factor differences.
+That proves input reproducibility; native output repeatability is a separate experiment.
+
+The first repeatability pilot completed all four inputs three times, with 20 planned actions per run and all starts
+aligned. All 20 action positions retained identical raw speech receipt sequences (ignoring timestamps), normalized
+full/main speech, and bounded native control/focus states across the three runs. No deadline or AX truncation flags
+occurred. The source record hashes, matching input/environment fingerprints and per-action checks are preserved in
+`data/analyses/reading-state-v1-native-repeatability.json`. This is 20 repeated transitions, not 60 independent examples,
+and establishes repeatability only for these controls and this observed environment. It does not prove all protected
+VoiceOver preferences are captured, full browser-state equivalence, or determinism on dynamic pages and real sites.
+
+For future model experiments, use one action transition as the sample unit: prior observed state/tree, available action
+history and environment as inputs; actual raw speech (including meaningful silence) and separately marked resulting
+state as targets. Future/post-action state must not leak into predictor inputs. Freeze validation/test groups before
+model fitting, then compare learning curves at increasing training sizes (for example 1k/3k/10k/30k) on the same
+untouched groups. Data quantity alone does not establish sufficiency for BERT, another classifier, a generator or
+complete screen-reader replacement. No model training is started by these collection changes.
+
+
+## Evaluation audit: 2026-10-15
+
+The common evaluation policy is shared with the NVDA effort; native navigation mechanics and results remain
+reader/browser specific. This audit reuses the existing collector, immutable archives, split planner and comparers.
+
+| Requirement | Existing evidence | Remaining limitation / change |
+| --- | --- | --- |
+| Separate speech/navigation/state/task metrics | Planned-step main/full speech, hint separation, native AX and model DOM state | Reports now explicitly label speech provisional, navigation/task unmeasured and complete state unavailable; no overall accuracy or 90% achievement claim |
+| Capture vs fidelity denominators | Missing, unsupported, unaligned, environment and redaction failures retained | Added planned/native-recorded/same-declared-command/comparable-window funnel and conditional speech alongside all-planned rates; independently verified input equivalence remains null |
+| Safari and Chrome profiles | Native browser metadata; separate simulator reference profiles; controlled native-pair comparer | Chrome is experimental; four control calibration cases are not broad/generalization evidence. Same declared settings cannot establish unknown protected VO preferences |
+| Input-group isolation | Connected template/site/contrast groups and frozen conflicts | Added exact action-sequence groups and conflict rejection. Semantic near-clones still require review before freeze; existing splits/results are preserved |
+| Delayed speech attribution | Raw receipt timestamps, bounded listen windows and per-action journals | Actual request clock now starts after foreground guard; AX start/end and page-load receipts are retained. Pre-request, post-window and deadline evidence marks attribution uncertain, stays in planned failures and is excluded only from the conditional comparison denominator. Quiet is never completion proof |
+| Model-independent sources | Archived fixture bytes, actions, pre/post AX references, environment, raw receipts and quality flags | Selection, VO cursor, protected preferences and interrupted in-flight command acknowledgements remain incompletely observed. Post-action state and actual speech are targets, never predictor inputs |
+| Public regression suite | Shared minimal synthetic HTML, action cases and native-derived integration fixtures | No complete public cross-reader release yet. Need a frozen representative update cohort, AT-specific command mappings and independent path/state/task oracles |
+
+`state` remains a compatibility field in analysis JSON and is explicitly a **partial DOM-ID oracle**, not State
+Accuracy. It now reports focus comparability, compared/native properties, model-only properties and unidentified native
+controls. Two null focus IDs and empty control maps cannot match. Missing state evidence stays in the planned denominator.
+
+The four-control calibration audit using model build `5363a30391acde9ab726aba97bfd4aa078d7c0aa6ef50b52efec4ff9a7f91e5d`
+found Safari main wording 20/20 and normalized full wording 18/20; Chrome wording/full wording 20/20, reproduced using
+an isolated Chrome 155.0.8059.80 browser bundle matching native Chrome. These are inspected calibration fixtures.
+For Safari the bounded state oracle has **0/20 joinable observations**, and for Chrome only 4/20 focus-ID agreements
+with no joinable control state properties. Each has 20 unidentified-control observations. Earlier 20/20 state results
+were empty-oracle agreement and must not be cited as state fidelity. Old reports/raw data are untouched; new evidence
+is in `data/analyses/{safari-v7,chrome155-v1}-controls-evaluation-audit/`. Speech attribution and input equivalence for
+these historical observations remain unverified.
+
+The input-only sequence audit found that `reading-units-transfer-v1.labelled-reference` uses the identical command
+sequence as two training cases. Under the stricter policy it cannot establish independent action-sequence generalization.
+The eight-case cohort's raw native answers were not opened by this audit. The original split remains immutable; the new
+planner rejects the conflicting frozen train/test merge instead of moving or renaming cases to manufacture a holdout.
+Input-only evidence is in `data/analyses/input-sequence-audit-2026-10-15T00-41-15Z/audit.json`.
+
+Next, prioritize independent reading-target and state observations, input-effect equivalence, and frozen compound task
+oracles. Use those to evaluate structural corrections on a genuinely separated new cohort. Preserve inspected cases as
+regressions and report their results separately. Increasing collection volume cannot repair these measurement gaps.
+
+New capture sessions identify the observation protocol. Resume checks now reject differing settings labels, start or
+observation protocols, observed OS/browser/locale/keyboard/VO versions and AT capabilities before appending a session.
+Legacy captures without a matching observation protocol require a separate new run. Volatile/private VO settings caches
+are preserved raw but are not compared as stable configuration or copied into public fixtures.
+
+A VM restart exposed Chrome's own `Restore pages?` dialog. It is in the Chrome process, so a frontmost-app check alone
+cannot establish that workflow keys reach the page. The failed attempt is retained separately, and the guard now also
+rejects this observed Chrome recovery window. Genuine in-page dialogs remain part of the test surface. Dismissing the
+recovery UI is environment preparation, never a successful scenario action.
+
+The v7 full legacy element regression completed 392 simulator starts against the existing 392 native records (391
+jointly aligned). It reports 1,035/1,342 planned main-wording matches (77.1%), 581/825 content matches (70.4%),
+563/803 spoken-content matches (70.1%), and 976/1,342 normalized full-speech matches (72.7%). There are 5 missing
+planned steps and 6 unsupported steps; neither is removed. Conditional main speech is 1,035/1,331 (77.8%). The
+native capture has no historical byte fingerprint and no independent attribution/input-equivalence verification, so
+this is a **legacy regression measurement**, not an independent evaluation or validated 90% result. The new report
+lives only in `data/runs/elements-v1-sim-2026-10-15T00-21-59-091Z/validation.{json,md}`.
+
+After closing the recovery window, a separate Chrome repeat completed all four control cases / 20 actions in 3.2
+minutes. All 20 request/ack/listen/AX timestamps were ordered and post-action AX files existed; all four page-load
+speech windows were retained. Its wording/full-wording comparison is 20/20, with 20 bounded attribution windows and
+no observed pre-request/post-window receipts. This is still calibration and does not prove causal attribution or
+speech completion. Derived results: `data/analyses/chrome155-v1-controls-new-timing/`. The failed pre-recovery attempt
+is separately reported as 0/20 planned comparison successes in `data/analyses/chrome155-v1-controls-recovery-failure/`;
+it is never replaced by the repeat or removed from capture performance accounting.

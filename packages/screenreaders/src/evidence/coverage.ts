@@ -36,8 +36,9 @@ function selection(filter: EvidenceCoverageFilter): Selection {
   const id = filter.profileId;
   const result: Selection = { known: true, atVersion: filter.atVersion, browserVersion: filter.browserVersion, osVersion: filter.osVersion };
   if (!id) return result;
-  if (['voiceover', 'voiceover-safari', 'voiceover-macos', 'mock-voiceover', 'english-dom-navigation-evidence-v2', 'english-dom-navigation-evidence-v3', 'english-dom-navigation-evidence-v4', 'english-dom-navigation-evidence-v5', 'english-dom-navigation-evidence-v6', 'voiceover for macos', 'voiceover (macos)', 'mock voiceover (simulation)'].includes(id)) return { ...result, at: 'voiceover', browser: 'safari' };
+  if (['voiceover', 'voiceover-safari', 'voiceover-macos', 'mock-voiceover', 'english-dom-navigation-evidence-v2', 'english-dom-navigation-evidence-v3', 'english-dom-navigation-evidence-v4', 'english-dom-navigation-evidence-v5', 'english-dom-navigation-evidence-v6', 'english-dom-navigation-evidence-v7', 'voiceover for macos', 'voiceover (macos)', 'mock voiceover (simulation)'].includes(id)) return { ...result, at: 'voiceover', browser: 'safari' };
   if (id === 'nvda') return { ...result, at: 'nvda' };
+  if(['voiceover-chrome','english-chrome-navigation-evidence-v1'].includes(id))return {...result,at:'voiceover',browser:'chrome'};
   if (['nvda-chrome', 'nvda-firefox', 'nvda-edge'].includes(id)) return { ...result, at: 'nvda', browser: id.slice(5) };
   const exact = EVIDENCE_CASES.find(item => item.profileId === id);
   if (!exact) return { ...result, known: false };

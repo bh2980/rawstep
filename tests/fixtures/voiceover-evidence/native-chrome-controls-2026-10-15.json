@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "referenceBrowser": "chrome",
+  "source": "native VoiceOver calibration; not held-out generalization",
+  "sourceRecordsSha256": "9c58c2a60be5c07e82285971d498e089750a498255f66848e881e4c3fd62aa62",
+  "environment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "browser": {
+      "name": "chrome",
+      "version": "155.0.8059.80"
+    },
+    "readerReported": {
+      "atName": "VoiceOver",
+      "atVersion": "26.6.2",
+      "platformName": "macos"
+    },
+    "locale": "en_KR",
+    "settingsLabel": "observed-en-2026-10-15-browser-reset"
+  },
+  "cases": [
+    {
+      "sourceCaseId": "reading-state-v1.radio-anonymous",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"radio\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "0df58094bce63056feaea1ccd98fbcf68e8192f1591dda008a2cdc477dcfb73c",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 36783,
+              "text": "Travel updates radio button, 1 of 1"
+            },
+            {
+              "t": 37336,
+              "text": "You are currently on a radio button, 1 of 1, inside of web content. To select this option, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": [
+            {
+              "t": 39384,
+              "text": "selected"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 41825,
+              "text": "After marker button"
+            },
+            {
+              "t": 42393,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 44369,
+              "text": "Travel updates selected radio button, 1 of 1"
+            },
+            {
+              "t": 44935,
+              "text": "You are currently on a selected radio button, 1 of 1, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": []
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-state-v1.radio-named",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"radio\" name=\"choice\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "39b0f5d97006664a14cb845713d0fac351a15bb8189638a1a447574593bb15c3",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 84733,
+              "text": "Travel updates radio button, 1 of 1"
+            },
+            {
+              "t": 85285,
+              "text": "You are currently on a radio button, 1 of 1, inside of web content. To select this option, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": [
+            {
+              "t": 87333,
+              "text": "selected"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 89759,
+              "text": "After marker button"
+            },
+            {
+              "t": 90317,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 92295,
+              "text": "Travel updates selected radio button, 1 of 1"
+            },
+            {
+              "t": 92859,
+              "text": "You are currently on a selected radio button, 1 of 1, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": []
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-state-v1.checkbox-vo",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"checkbox\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "4f8bfe67a9c51a0a70bd0a097b24538d3579ee699e4b0b85cc4c52367aa5fad6",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 132694,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 133268,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": [
+            {
+              "t": 135299,
+              "text": "checked"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 137747,
+              "text": "After marker button"
+            },
+            {
+              "t": 138310,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 140258,
+              "text": "Travel updates checked checkbox"
+            },
+            {
+              "t": 140826,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Space",
+          "utterances": [
+            {
+              "t": 142884,
+              "text": "unchecked"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "reading-state-v1.checkbox-physical",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Coastal interface study</title><body><button id=\"before\" autofocus>Before marker</button><label><input type=\"checkbox\">Travel updates</label><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "4f8bfe67a9c51a0a70bd0a097b24538d3579ee699e4b0b85cc4c52367aa5fad6",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 180676,
+              "text": "Travel updates unchecked checkbox"
+            },
+            {
+              "t": 181244,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "Space",
+          "utterances": [
+            {
+              "t": 183221,
+              "text": "checked Travel updates checkbox"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 185760,
+              "text": "After marker button"
+            },
+            {
+              "t": 186336,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 188214,
+              "text": "Travel updates checked checkbox"
+            },
+            {
+              "t": 188773,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "Space",
+          "utterances": [
+            {
+              "t": 190737,
+              "text": "unchecked Travel updates checkbox"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

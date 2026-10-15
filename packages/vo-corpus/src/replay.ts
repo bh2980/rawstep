@@ -19,7 +19,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { resolveTask, type Decision, type DecisionPolicy, type PolicyAction } from "rawstep";
-import { MOCK_VOICEOVER_PROFILE, runMockVoiceOverTask } from "rawstep/mock-voiceover";
+import { MOCK_VOICEOVER_PROFILE,MOCK_VOICEOVER_CHROME_PROFILE,runMockVoiceOverTask,type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";
 import { createBrowserSession } from "rawstep/browser";
 import { publicPageScript, realPageContext, accessiblePageContext, chromiumAccessibleText, hearsHeading } from "./real-pages.js";
 import { fixtureStateScript, type PageState } from "./state.js";
@@ -80,7 +80,7 @@ class ChordPolicy implements DecisionPolicy {
   }
 }
 
-export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, casesDir: string, anchor?: CaseRecord["start"]["anchor"]): Promise<CaseRecord> {
+export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, casesDir: string, anchor?: CaseRecord["start"]["anchor"],referenceBrowser:MockVoiceOverReferenceBrowser='safari',browserExecutablePath?:string): Promise<CaseRecord> {
   const record: CaseRecord = { caseSet: set.id, caseId: item.id, source: "simulator", start: { aligned: false, speech: [] }, steps: [] };
   const began = Date.now();
   if (item.startProtocol === "first-heading" && !anchor) { record.error="Native heading anchor unavailable; public sample preserved as failed"; return record; }
@@ -99,10 +99,11 @@ export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, c
       ...(set.syntheticInputs ? { inputOptions: Object.fromEntries(Object.keys(inputs).map(key => [key, { sensitive: false, description: "Public generated fixture character" }])) } : {}),
     }, casesDir);
     const outDir = await mkdtemp(join(tmpdir(), "vo-replay-"));
-    try { await runMockVoiceOverTask(task, { policy, outDir, warn: () => {}, observationMinWaitMs: item.listen?.minWaitMs,
+    try { await runMockVoiceOverTask(task, { policy, outDir, referenceBrowser,browserExecutablePath,warn: () => {}, observationMinWaitMs: item.listen?.minWaitMs,
       ...(item.url || set.syntheticInputs ? { browserSessionFactory: async (url, options) => {
         const session = await createBrowserSession(url, options);
         try {
+          record.simulatorEnvironment={referenceBrowser,browser:{name:'chromium',version:session.browser?.version()??'unknown'}};
           if (item.url) {
             if (item.viewport) await session.page.setViewportSize(item.viewport);
             await session.page.waitForTimeout(2000);
@@ -150,7 +151,9 @@ export async function replayCase(item: CaseSet["cases"][number], set: CaseSet, c
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  const { values } = parseArgs({ options: { cases: { type: "string" }, filter: { type: "string" }, limit: { type: "string" }, "anchors-native-run": {type:"string"} } });
+  const { values } = parseArgs({ options: { cases: { type: "string" }, filter: { type: "string" }, limit: { type: "string" }, "anchors-native-run": {type:"string"},'reference-browser':{type:'string',default:'safari'},'browser-executable':{type:'string'} } });
+  if(!['safari','chrome'].includes(values['reference-browser']!))throw new Error('Reference browser must be safari or chrome');
+  const referenceBrowser=values['reference-browser'] as MockVoiceOverReferenceBrowser;
   const casesDir = resolve(packageRoot, values.cases ?? "");
   const set = JSON.parse(await readFile(join(casesDir, "cases.json"), "utf8").catch(() => { throw new Error("Pass --cases <dir with cases.json>"); })) as CaseSet;
   const filter = values.filter ? new RegExp(values.filter) : undefined;
@@ -167,7 +170,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   for (const path of (await readdir(dist, { recursive: true })).filter(p => p.endsWith(".js")).sort()) buildHash.update(path).update(await readFile(join(dist, path)));
   await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, inputArchive, casesDir: casesDir.slice(packageRoot.length + 1), source: "simulator",
-    simulatorProfile: MOCK_VOICEOVER_PROFILE, simulatorBuildSha256: buildHash.digest("hex"), rawstepVersion, startedAt: new Date().toISOString(),
+    simulatorProfile: referenceBrowser==='chrome'?MOCK_VOICEOVER_CHROME_PROFILE:MOCK_VOICEOVER_PROFILE, referenceBrowser, ...(values['browser-executable']?{browserExecutablePath:resolve(values['browser-executable'])}:{}), simulatorBuildSha256: buildHash.digest("hex"), rawstepVersion, startedAt: new Date().toISOString(),
     ...(anchorRecords?{anchorSourceSha256:createHash("sha256").update(anchorRecords).digest("hex"),anchorSourceRun:resolve(values["anchors-native-run"]!)}:{}),
   }, null, 2));
   const started = Date.now();
@@ -175,7 +178,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   {
     for (const [index, item] of todo.entries()) {
       const t0 = Date.now();
-      const record = await replayCase(item, set, capturedCasesDir, anchors.get(item.id));
+      const record = await replayCase(item, set, capturedCasesDir, anchors.get(item.id),referenceBrowser,values['browser-executable']?resolve(values['browser-executable']):undefined);
       if (record.start.aligned) aligned++;
       await appendFile(join(out,"records.jsonl"),JSON.stringify(record)+'\n');
       const last = record.steps.at(-1);

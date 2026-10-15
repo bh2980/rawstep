@@ -32,6 +32,7 @@ const task = resolveTask({
 
 const trace = await runMockVoiceOverTask(task, {
   outDir: './runs/simulated',
+  referenceBrowser: 'safari', // or experimental 'chrome'; both execute in Chromium
   policy: new ScriptedPolicy([
     { action: { kind: 'intent', intent: 'activate' } },
     { action: { kind: 'intent', intent: 'activate' } },
@@ -44,9 +45,28 @@ Your page must supply the actions and completion state used by its task; the sni
 
 The wrapper accepts normal runner options including `policy`, `allowedActions`, budgets from the task, `signal`, `diagnosticScreenshots`, and `browserExecutablePath` (these library options are not exposed as CLI flags); it supplies the simulator backend and defaults `headless` to `true`. A `warn` callback can redirect the startup warning. Advanced injected browser sessions must provide a real compatible Chromium page. Policies receive the same model-neutral screen-reader-shaped observation contract, with `provenance: 'simulation'`, rather than a screenshot or privileged DOM selector. A policy can be scripted, local, remote, or model-backed; no provider is selected by Rawstep.
 
+## Browser reference profiles and evaluation limits
+
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v7`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v1`.
+The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
+compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
+browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
+
+Only confirmed browser differences are specialized so far: associated label reading stops, anonymous native-radio
+position announcements, and VO-activation versus physical-Space checkbox/radio receipts. Other shared behavior still
+needs independent Chrome validation. The inspected native controls are regression/calibration evidence, not a claim
+that the Chrome profile reproduces all VoiceOver behavior.
+
+Main and full speech, navigation, state and task outcomes must be evaluated separately. Native AX keyboard focus does
+not establish the native VO reading cursor. The corpus ID-based state oracle does not observe anonymous controls or
+complete text selection; empty evidence cannot count as success. Reports expose these gaps and retain collection
+failures in planned denominators. No validated overall 90% accuracy or native replacement is currently established.
+See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-audit-2026-10-15).
+
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v6` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves label text before its control while suppressing repeated label text after the control. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v7` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 The native profile also synthesizes selected English usage hints from role, state, enclosing container and navigation
 direction. It queues a hint 600 ms after the object's main receipt, polls it while observing, cancels pending hints on

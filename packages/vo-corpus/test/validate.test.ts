@@ -7,6 +7,14 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+test('matching words from a window that changed front application do not pass native validation',()=>{
+  const set:CaseSet={id:'browser-profile',generatedAt:'fixed',cases:[{id:'one',page:'one.html',chords:['VO+Right'],axes:{}}]};
+  const native:CaseRecord={caseSet:set.id,caseId:'one',source:'voiceover',start:{aligned:true,speech:[]},steps:[{chord:'VO+Right',reason:'quiet',foregroundError:'Safari is in front of Chrome',utterances:[{t:1,text:'Same words'}]}]};
+  const model:CaseRecord={...native,source:'simulator',steps:[{chord:'VO+Right',reason:'quiet',utterances:[{t:1,text:'Same words'}]}]};
+  const report=validateRuns(set,new Map([['one',native]]),new Map([['one',model]]));
+  assert.equal(report.all.matched,0);assert.equal(report.verdicts.environment,1);assert.equal(report.fullSpeech.matched,0);
+});
+
 test("validation includes every planned failure and separates markers, silence and hints", () => {
   const set: CaseSet = { id: "test", generatedAt: "fixed", cases: ["ok", "unsupported", "missing", "unaligned", "short"].map(id => ({ id, page: "test.html", chords: ["Tab", "Enter"], axes: { family: id } })) };
   const record = (id: string, source: CaseRecord["source"]): CaseRecord => ({ caseSet: set.id, caseId: id, source, start: { aligned: true, speech: [] }, steps: [
@@ -30,6 +38,15 @@ test("validation includes every planned failure and separates markers, silence a
   assert.equal(r.verdicts.missing, 3);
   assert.equal(r.verdicts.unaligned, 2);
   assert.equal(r.verdicts.unsupported, 1);
+  assert.deepEqual(r.conditionalSpeech, {matched:4,planned:4,rate:1});
+  assert.equal(r.funnel.plannedActions,10);
+  assert.equal(r.funnel.nativeRecordedActions,10);
+  assert.equal(r.funnel.sameDeclaredActions,7);
+  assert.equal(r.funnel.inputEquivalenceVerifiedActions,null);
+  assert.equal(r.evaluation.navigationAccuracy.rate,null);
+  assert.equal(r.evaluation.stateAccuracy.rate,null);
+  assert.equal(r.evaluation.taskSuccess.rate,null);
+  assert.equal(r.evaluation.thresholdAchievement,'unproven');
 });
 
 test("missing native steps do not become silent matches or disappear from content", () => {
@@ -52,4 +69,20 @@ test("fixture fingerprints change when page bytes change without regenerating me
     await writeFile(join(directory,"one.html"),"<button>Two</button>");
     assert.notEqual(await casesFingerprint(directory,set),before);
   } finally {await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('a matching late hint is retained raw but cannot pass as certain command speech',()=>{
+  const set:CaseSet={id:'late',generatedAt:'fixed',cases:[{id:'a',page:'a.html',chords:['VO+Right'],axes:{}}]};
+  const step:CaseRecord['steps'][number]={chord:'VO+Right',reason:'quiet',timing:{requestedAt:100,acknowledgedAt:110,observationStartedAt:110,observationEndedAt:200,requestClock:'wire-request-v1'},utterances:[{t:150,text:'Save button'},{t:250,text:'You are currently on a button.'}]};
+  const native:CaseRecord={caseSet:set.id,caseId:'a',source:'voiceover',start:{aligned:true,speech:[]},steps:[step]};
+  const model:CaseRecord={...native,source:'simulator'};
+  const original=JSON.stringify(native),report=validateRuns(set,new Map([['a',native]]),new Map([['a',model]]));
+  assert.equal(report.verdicts.attribution,1);
+  assert.equal(report.all.matched,0);
+  assert.equal(report.fullSpeech.matched,0);
+  assert.equal(report.all.planned,1);
+  assert.equal(report.conditionalSpeech.planned,0);
+  assert.equal(report.funnel.nativeAttribution.uncertain,1);
+  assert.equal(JSON.stringify(native),original);
 });

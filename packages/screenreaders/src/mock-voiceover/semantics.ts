@@ -93,6 +93,7 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   const disclosure = !node.protected && node.role === 'DisclosureTriangle';
   const switchControl = !node.protected && node.role === 'switch' && typeof node.checked === 'boolean';
   const heading = !node.protected && node.role === 'heading' && node.level !== undefined;
+  if(checkedStateChanged&&radio&&node.tagName==='input'&&node.checked===true)return ['selected',node.name,'radio button',node.position!==undefined&&node.setSize!==undefined?`${node.position} of ${node.setSize}`:''].filter(Boolean).join(', ');
   const buttonDescription = button && node.pressed === undefined && node.expanded === undefined && node.description && node.description !== node.name;
   // Native Space/VO+Space receipts for plain checked controls differ from navigation wording.
   if (checkedStateChanged && (checkbox || switchControl) && typeof node.checked === 'boolean'

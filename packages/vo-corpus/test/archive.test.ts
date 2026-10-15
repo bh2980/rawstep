@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { archiveCaseInputs } from "../src/archive.js";
+import { archiveCaseInputs, verifyArchivedInputs } from "../src/archive.js";
 import { casesFingerprint, type CaseSet } from "../src/cases.js";
 import { saveAxSnapshot, type AxDump } from "../src/axdump.js";
 
@@ -16,6 +16,7 @@ test("run input archive pins original bytes, survives source edits and refuses o
     const hash=await casesFingerprint(source,set);
     await writeFile(join(source,"split.json"),JSON.stringify({sources:[{caseSet:set.id,casesSha256:hash}]}));
     const result=await archiveCaseInputs(source,run,set,hash);
+    await verifyArchivedInputs(run,hash);
     assert.equal(result.directory,"inputs");assert.match(result.manifestSha256,/^[a-f0-9]{64}$/);
     await writeFile(join(source,"pages/one.html"),'<button>Changed</button>');
     assert.equal(await casesFingerprint(join(run,"inputs"),set),hash);
@@ -23,6 +24,8 @@ test("run input archive pins original bytes, survives source edits and refuses o
     assert.deepEqual(JSON.parse(await readFile(join(run,"inputs/split.json"),"utf8")),{sources:[{caseSet:set.id,casesSha256:hash}]});
     await assert.rejects(archiveCaseInputs(source,run,set,hash),/EEXIST/);
     await assert.rejects(archiveCaseInputs(source,join(root,"changed-run"),set,hash),/changed during input archival/);
+    await writeFile(join(run,"inputs/pages/one.html"),'<button>Tampered archive</button>');
+    await assert.rejects(verifyArchivedInputs(run,hash),/Archived fixture bytes differ/);
     set.cases[0]!.page='../secret.html';
     await assert.rejects(archiveCaseInputs(source,join(root,"escape-run"),set,hash),/escapes case directory/);
   } finally {await rm(root,{recursive:true,force:true});}

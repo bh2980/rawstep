@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planDatasetSplit } from "../src/dataset-split.js";
+import { actionSequenceGroup, planDatasetSplit } from "../src/dataset-split.js";
 
 test("split keeps template siblings, site siblings and contrast pairs connected and excludes calibrated components from tests",()=>{
   const items=[
@@ -29,4 +29,19 @@ test("new browser siblings keep an input group stable, and frozen split merges c
   assert.equal(frozen.groups[0]!.split,'test');
   assert.throws(()=>planDatasetSplit([{...first,fixedSplit:'train'},{...first,id:'other',fixedSplit:'test'}],'fixed'),/Frozen assignments conflict/);
   assert.throws(()=>planDatasetSplit([{...first,exposure:'calibration',fixedSplit:'test'}],'fixed'),/Frozen assignments conflict/);
+});
+
+
+test('identical action sequences connect different templates and reject frozen train/test leakage',()=>{
+  const group=actionSequenceGroup(['VO+Right','VO+Space','Tab']);
+  const items=[
+    {id:'a',templateGroup:'checkout',actionSequenceGroup:group,exposure:'unseen' as const},
+    {id:'b',templateGroup:'preferences',actionSequenceGroup:group,exposure:'unseen' as const},
+  ];
+  const split=planDatasetSplit(items,'fixed');
+  assert.equal(split.groups.length,1);
+  assert.equal(split.sequenceIsolation,'exact-sequence-grouped');
+  assert.notEqual(group,actionSequenceGroup(['VO+Right','Tab','VO+Space']));
+  assert.throws(()=>planDatasetSplit([{...items[0]!,fixedSplit:'train'},{...items[1]!,fixedSplit:'test'}],'fixed'),/Frozen assignments conflict/);
+  assert.equal(planDatasetSplit([{id:'legacy',templateGroup:'old',exposure:'unseen'}],'fixed').sequenceIsolation,'unverified');
 });

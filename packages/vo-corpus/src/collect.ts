@@ -3,8 +3,8 @@
  *   tsx src/collect.ts --vm vo-collector --cases data/cases/elements-v1
  *   tsx src/collect.ts --vm vo-collector --resume data/runs/elements-v1-<time>     (skips cases already recorded)
  *
- * Per case: load the page (auto-read speaks it all; that speech is discarded), VO+Home to the start marker, check the
- * speech names it, then press the case's chords and record what each one said. New precision cases save native AX after
+ * Per case: retain a bounded page-load speech window, synchronize the native start, then press the case's chords.
+ * Silence does not prove speech completion or causal attribution. New precision cases save native AX after
  * each action, with immutable attempt paths, input archives and a step journal. Stops the whole run when the browser is not in front or the AT Driver
  * connection drops: keys must never land anywhere else.
  */
@@ -14,9 +14,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { randomUUID } from "node:crypto";
-import { dumpAxTree, focusedAxNode, saveAxSnapshot, type AxDump } from "./axdump.js";
+import { dumpAxTree, focusedAxNode, nativeNodeName, saveAxSnapshot, type AxDump } from "./axdump.js";
 import { START_MARKER, casesFingerprint, type CaseRecord, type CaseSet } from "./cases.js";
-import { atDriverUrl, browserApps, machineFacts, navigateBrowser, requireFrontmost, resolveMachine, serveDirectory, type BrowserName } from "./host.js";
+import { assertResumeEnvironment, atDriverUrl, browserApps, collectionBrowser, machineFacts, navigateBrowser, requireFrontmost, resolveMachine, serveDirectory } from "./host.js";
 import { spoken, VoSession } from "./session.js";
 import { archiveCaseInputs } from "./archive.js";
 import { publicPageScript, realPageContext, accessiblePageContext, nativeAccessibleText, firstUniqueHeading, hearsHeading, type PageContext } from "./real-pages.js";
@@ -25,7 +25,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const { values } = parseArgs({ options: {
   vm: { type: "string" },
   url: { type: "string" },
-  browser: { type: "string", default: "safari" },
+  browser: { type: "string" },
   cases: { type: "string" },
   resume: { type: "string" },
   filter: { type: "string" },
@@ -34,11 +34,9 @@ const { values } = parseArgs({ options: {
   settings: { type: "string" },
   "no-ax": { type: "boolean", default: false },
 } });
-const browser = values.browser as BrowserName;
-if (!(browser in browserApps)) throw new Error(`--browser must be safari or chrome, not ${values.browser}`);
-
 const runDir = values.resume ? resolve(values.resume) : undefined;
 const meta = runDir ? JSON.parse(await readFile(join(runDir, "meta.json"), "utf8")) : undefined;
+const browser=collectionBrowser(values.browser,meta?.machine?.browser?.name),collectionProfile=`native-voiceover-${browser}`;
 const settings=values.settings??meta?.settings??"baseline-v1";
 const casesDir = runDir && existsSync(join(runDir,"inputs/cases.json")) ? join(runDir,"inputs") : resolve(packageRoot, meta?.casesDir ?? values.cases ?? "");
 if (!existsSync(join(casesDir, "cases.json"))) throw new Error("Pass --cases <dir with cases.json> or --resume <run dir>");
@@ -64,26 +62,32 @@ const session = new VoSession(values.url ?? atDriverUrl(machine), guard);
 const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?join(out,"inputs"):casesDir, machine);
 const started = Date.now();
 let aligned = 0;
-const workflowStartProtocol="Public: native AX marker focus then VO+Shift+F4. Local: VO+Home and VO+Cmd+F4 verification; synthetic fixtures may recover by bounded ordinary Tab to proven marker focus, then VO+Shift+F4. Workflow keys require final native marker focus.";
+const workflowStartProtocol="Synthetic local v3: prove native marker focus (up to 12 setup Tabs), then VO+Shift+F4 and fresh speech/focus verification before any workflow keys. Browser-specific AXTitle/AXDescription names are accepted. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
+const observationProtocol="host-receipts-v2: wire request/ack, bounded listen, AX start/end; preserve page-load and late raw receipts; no completion or causal attribution claim";
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);
-  await appendFile(join(out,'sessions.jsonl'),JSON.stringify({schemaVersion:1,captureSessionId,receiptClockOrigin:session.startedAt,settings,atDriver:negotiated,machine:facts,casesSha256,workflowStartProtocol})+'\n');
+  if (meta) assertResumeEnvironment(meta,{machine:facts,settings,workflowStartProtocol,observationProtocol,atDriver:negotiated});
+  await appendFile(join(out,'sessions.jsonl'),JSON.stringify({schemaVersion:1,collectionProfile,captureSessionId,receiptClockOrigin:session.startedAt,settings,atDriver:negotiated,machine:facts,casesSha256,workflowStartProtocol,observationProtocol})+'\n');
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
-    caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
+    caseSet: set.id, collectionProfile, casesGeneratedAt: set.generatedAt, casesSha256, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
     settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: facts, captureSessionId,
     inputArchive, stepJournal:"steps.jsonl", receiptClock: {origin:session.startedAt,basis:"host receipt time; not synthesis latency"},
-    workflowStartProtocol,
+    workflowStartProtocol, observationProtocol,
   }, null, 2));
   console.log(`${set.id}: ${todo.length} to run, ${done.size} already recorded -> ${out}`);
 
   for (const [index, item] of todo.entries()) {
     const attemptId = randomUUID();
-    await navigateBrowser(machine, browser, item.url ?? `${pages.origin}/${item.page}`);
-    await session.listen({ quietMs: 1_500, maxWaitMs: 30_000 }); // auto-read of the new page
+    try{await navigateBrowser(machine, browser, item.url ?? `${pages.origin}/${item.page}`);}
+    catch(error){
+      await appendFile(records,JSON.stringify({caseSet:set.id,caseId:item.id,source:'voiceover',attemptId,captureSessionId,receiptClockOrigin:session.startedAt,start:{aligned:false,speech:[]},steps:[],error:`Navigation failed: ${(error as Error).message}`} satisfies CaseRecord)+'\n');
+      throw error;
+    }
+    const pageLoad = await session.listen({ quietMs: 1_500, maxWaitMs: 30_000 });
     session.drain();
     let pageContext: PageContext | undefined;
-    let start: CaseRecord["start"] = { aligned: false, speech: [], commands: [] };
+    let start: CaseRecord["start"] = { aligned: false, speech: [], commands: [], pageLoad };
     let startAx: AxDump | undefined;
     let alignmentError: string | undefined;
     if (item.url) {
@@ -143,6 +147,24 @@ try {
         start.speech = spoken(await session.listen());
         start.aligned = start.speech.join(" ").includes(START_MARKER);
       } else alignmentError = "native keyboard focus did not reach the injected start marker";
+    } else if(set.syntheticInputs){
+      try{
+        const marker=()=>{const n=startAx&&focusedAxNode(startAx);return n?.AXRole==='AXButton'&&nativeNodeName(n)===START_MARKER;};
+        startAx=await dumpAxTree(machine,browserApps[browser]);
+        if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'initial-focus',startAx);
+        for(let i=0;!marker()&&i<12;i++){
+          await session.press('Tab');start.commands!.push('Tab');start.speech.push(...spoken(await session.listen()));
+          startAx=await dumpAxTree(machine,browserApps[browser]);
+          if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,`initial-focus-recovery-${i+1}`,startAx);
+        }
+        if(!marker())throw new Error('Native keyboard focus could not reach the start marker');
+        await session.press('VO+Shift+F4');start.commands!.push('VO+Shift+F4');
+        const fresh=spoken(await session.listen());start.speech.push(...fresh);
+        startAx=await dumpAxTree(machine,browserApps[browser]);
+        if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'verified-focus',startAx);
+        start.aligned=fresh.join(' ').includes(START_MARKER)&&marker();
+        if(!start.aligned)throw new Error('VoiceOver cursor and native keyboard focus did not both confirm the start marker');
+      }catch(error){start.aligned=false;alignmentError=`Start preparation failed: ${(error as Error).message}`;}
     } else for (let attempt = 0; attempt < 2 && !start.aligned; attempt++) {
       if (attempt === 1 && item.captureAxAfterSteps) {
         // A dismissed OS alert can leave the VO cursor outside Safari. Recover only from proven page keyboard focus.
@@ -163,7 +185,7 @@ try {
       start.aligned = speech.join(" ").includes(START_MARKER);
       start.speech = speech;
     }
-    if (start.aligned && item.captureAxAfterSteps) {
+    if (start.aligned && item.captureAxAfterSteps && (!set.syntheticInputs||item.url)) {
       await session.press("VO+Cmd+F4");
       start.commands!.push("VO+Cmd+F4");
       start.speech.push(...spoken(await session.listen()));
@@ -208,23 +230,27 @@ try {
     if (start.aligned) {
       aligned++;
       let beforeAxPath = start.axPath;
-      for (const [stepIndex, chord] of item.chords.entries()) {
-        const requestedAt = session.now();
-        await session.press(chord);
-        const acknowledgedAt = session.now();
+      try{for (const [stepIndex, chord] of item.chords.entries()) {
+        const { requestedAt, acknowledgedAt } = await session.press(chord);
         const heard = await session.listen(item.listen);
         const step: CaseRecord["steps"][number] = { chord, utterances: heard.utterances, reason: heard.reason,
-          ...(beforeAxPath?{beforeAxPath}:{}), timing:{requestedAt,acknowledgedAt,observationStartedAt:heard.startedAt,observationEndedAt:heard.endedAt} };
+          ...(beforeAxPath?{beforeAxPath}:{}), timing:{requestedAt,acknowledgedAt,observationStartedAt:heard.startedAt,observationEndedAt:heard.endedAt,requestClock:"wire-request-v1"} };
         if (item.captureAxAfterSteps && !values["no-ax"]) {
+          step.timing!.axObservationStartedAt = session.now();
           try {
-            step.axPath = await saveAxSnapshot(out,attemptId,`step-${stepIndex+1}`,await dumpAxTree(machine,browserApps[browser]));
+            const tree = await dumpAxTree(machine,browserApps[browser]);
+            step.timing!.axObservationEndedAt = session.now();
+            step.axPath = await saveAxSnapshot(out,attemptId,`step-${stepIndex+1}`,tree);
           } catch (error) { step.axError = (error as Error).message; }
-          step.utterances.push(...session.takeBuffered());
+          finally { step.timing!.axObservationEndedAt ??= session.now(); }
         }
+        try{await guard(`after ${chord}`);}catch(error){step.foregroundError=(error as Error).message;}
+        step.utterances.push(...session.takeBuffered());
         beforeAxPath = step.axPath;
         record.steps.push(step);
         await appendFile(join(out,"steps.jsonl"),JSON.stringify({schemaVersion:1,source:"voiceover",caseSet:set.id,caseId:item.id,attemptId,captureSessionId,receiptClockOrigin:session.startedAt,stepIndex,...step})+"\n");
-      }
+        if(step.foregroundError)throw new Error(step.foregroundError);
+      }}catch(error){record.error=(error as Error).message;await appendFile(records,JSON.stringify(record)+'\n');throw error;}
     } else record.error = alignmentError ?? "start marker not heard after VO+Home";
     await appendFile(records, JSON.stringify(record) + "\n");
     // Public samples retain failed starts in the denominator and continue to the next preselected URL.

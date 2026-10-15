@@ -23,7 +23,10 @@ export function formatUsageHint(node:SimulatedSemanticNode,context:HintContext={
     if(node.tagName!=='textarea')action='To enter text in this field, type.';
   }else if(role==='combobox'){label='combo box';action=`Type text or, to display a list of choices, ${click}`;}
   else if(role==='slider'){label='slider';action='To start interacting with the slider, press Control -Option -Shift -Down Arrow.';}
-  else if(role==='radio')label=`${node.checked?'selected ':''}radio button${node.position&&node.setSize?`, ${node.position} of ${node.setSize}`:''}`;
+  else if(role==='radio'){
+    label=`${node.checked?'selected ':''}radio button${node.position&&node.setSize?`, ${node.position} of ${node.setSize}`:''}`;
+    if(!node.checked)action=`To select this option, ${click}`;
+  }
   else if(role==='tab'){
     label=`${node.selected?'selected ':''}tab${node.position&&node.setSize?`, ${node.position} of ${node.setSize}`:''}`;
     if(!node.selected)action=`To select this option, ${click}`;
