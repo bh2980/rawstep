@@ -161,7 +161,8 @@ The caller supplies observed before/after values, UTF-16 selection ranges and th
 This function performs no action, changes no focus and preserves a copied structural context. It extracts the
 adapter's existing single-code-unit typing, selection/replacement, Left/Right, Home/End, deletion and multiline
 Enter receipt rules. These return `status: 'approximation'`, not a Native match certificate. Invalid/missing ranges,
-changed or missing focus, protected targets, multi-character input and other commands return `unsupported` without
+changed or missing focus, protected targets, multi-character input, rejected/rewritten value transitions,
+redirected insertion selections and other commands return `unsupported` without
 utterances. A nonempty field's focus-entry object announcement still uses `formatVoiceOverSpeech` with `focusEntry`;
 single-line Enter, popup/autofill, IME/grapheme editing, live regions, delayed hints and queue behavior are outside
 this API. The two browser profiles remain explicit even where the existing receipt calculation is shared.

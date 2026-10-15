@@ -33,6 +33,17 @@ it('reports unsupported or unmeasured inputs without returning guessed utterance
  expect(()=>formatVoiceOverEditing({...input,referenceBrowser:'other' as never})).toThrow(/browser/i);
 });
 
+it('does not pretend a redirected or rejected edit had the ordinary insertion/deletion receipt',()=>{
+ for(const changes of [
+  {after:edit('STA')},
+  {after:edit('star',1)},
+  {command:'Backspace',before:edit('star'),after:edit('star')},
+  {command:'ArrowLeft',before:edit('star'),after:edit('changed',0)},
+ ]){
+  const result=formatVoiceOverEditing({...input,...changes});expect(result.status).toBe('unsupported');expect(result).not.toHaveProperty('utterances');
+ }
+});
+
 const fixture=JSON.parse(gunzipSync(readFileSync(new URL('./fixtures/voiceover-evidence/native-practical-speech-tasks-2026-10-16.json.gz',import.meta.url))).toString()) as {profiles:{browser:'safari'|'chrome';rows:any[]}[]};
 it.each(fixture.profiles)('$browser preserved task edits keep old predictions and expose literal Native differences',p=>{
  const rows=p.rows.filter((r:any)=>r.caseId.endsWith('support-search')&&[1,2,3,10,11].includes(r.step));let literalMatches=0;

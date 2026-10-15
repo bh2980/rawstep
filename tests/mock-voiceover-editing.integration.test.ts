@@ -30,3 +30,16 @@ it.each(fixture.profiles)('$browser external editing API reproduces actual adapt
   await backend.close();expect(backend.getSpeechInputObservation()).toBeUndefined();
  }finally{await backend.close();await context.close();await browser.close();}
 },60000);
+
+it('retains unsupported editing input when a page rewrites the typed value',async()=>{
+ const browser=await launchTestBrowser(),page=await browser.newPage(),backend=new MockVoiceOverBackend(undefined,0);
+ try{
+  await page.setContent('<input aria-label="Code" oninput="this.value=this.value.toUpperCase()">');await page.bringToFront();
+  await backend.start();backend.attachSession({page});await backend.observe();await backend.execute({kind:'key',key:'Tab'});await backend.observe();
+  await backend.execute({kind:'typeText',text:'r'});await backend.observe();
+  const event=backend.getSpeechInputObservation()!.events.find(e=>e.kind==='editing');
+  expect(event).toMatchObject({kind:'editing',status:'unsupported',input:{text:'r',before:{value:''},after:{value:'R'}}});
+  if(event?.kind!=='editing')throw new Error('Missing editing observation');
+  expect(formatVoiceOverEditing(event.input,event.previousContext)).not.toHaveProperty('utterances');
+ }finally{await backend.close();await browser.close();}
+});
