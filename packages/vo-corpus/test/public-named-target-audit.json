@@ -1,0 +1,1397 @@
+{
+  "at": "2026-10-15T12:09:50.469Z",
+  "scope": "Native-derived target-conditioned speech only. Main/Full conditional accuracy and all-plan rates retained separately. Sampling fixes uniquely named enabled button/link slots, not representative element/site coverage. Raw website content and utterances stay local. No Navigation Accuracy, whole-engine State Accuracy, Task Success or Native completion claim.",
+  "methodology": "First v1 was initially unseen; its recovery and document-readiness reruns are inspected protocol development. V2 uses new excluded-domain sampling after helper/model freeze. All same-site attempts remain separate, never pooled as independent samples. Target attributes come from pre-request AX, not speech. Native keyboard focus selects setup only; actual reading-target quality still uses independently visible geometry/AX.",
+  "metadataIssues": [
+    "The v1 recovery plan inherited prose saying all list ancestry was unsupported; its frozen helper source already supported AXContentList. The original prose and all source hashes/data remain intact. Ready/v2 plan descriptions correct this.",
+    "Original v1 checked the source URL before archiving that failed AX snapshot; no missing source observation is reconstructed. Later attempts journal raw document probes before readiness validation."
+  ],
+  "attempts": [
+    {
+      "id": "public-named-target-v1",
+      "exposure": "initially-unseen",
+      "selected": [
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history",
+          "rank": "34b61b69314daa8bd7411d2c8ac1c6519ce0ae8347f79d064b491b74723b7922"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/",
+          "rank": "38e57ccf1fb3db0a2d790ed910f75a5fb63d0620a6c945b57e422393b53b2989"
+        }
+      ],
+      "seed": "9a9d4f515e7e245aa16f2605aadeaec0",
+      "pool": [
+        {
+          "family": "blog",
+          "url": "https://www.smashingmagazine.com/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.nasa.gov/news/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.npr.org/sections/news/"
+        },
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history"
+        },
+        {
+          "family": "shop",
+          "url": "https://www.uniqlo.com/us/en/"
+        },
+        {
+          "family": "service",
+          "url": "https://www.weather.gov/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.w3.org/WAI/tutorials/"
+        }
+      ],
+      "excludedPreviouslyPlannedDomains": [
+        "www.ebay.com",
+        "www.gutenberg.org",
+        "www.joshwcomeau.com",
+        "www.nps.gov"
+      ],
+      "frozenAt": "2026-10-15T11:25:22.843Z",
+      "modelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+      "sourcePlanSha256": "8aed8a013a405d5375ca027805e63d35efc46befa52c1e0a1cd537847491c367",
+      "sourceHashes": {
+        "src/speech-input.ts": "683abb8ea4f54fa4ef5ac89b3a086aeadd9435e769d6f89245ee92fbae32cc0b",
+        "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+        "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+        "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+        "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+        "data/probes/public-named-target.ts": "75efbec366c76dc6543648627475ac6cd6f6c0d3136b0f430c3c922a89bcedf9",
+        "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+        "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+        "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+        "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+        "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+        "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395"
+      },
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "be1e83745e11914d07ae19ec2fc99e76cc28083a9a749ef58220a18f6dd81e6e",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 3,
+            "inputVerified": 0,
+            "inputMismatch": 0,
+            "inputUnmeasured": 8,
+            "commandVerified": 3,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 7,
+              "native-action-missing": 5,
+              "environment-failure": 4,
+              "input-unmeasured": 1,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 6,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 1,
+          "trailingSpaceOnlyFullFailures": 0,
+          "rootFailures": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "kind": "environment",
+              "error": "Error: Error: Native source URL differs from selected site",
+              "affectedSlots": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 0,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source URL differs from selected site"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source URL differs from selected site"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 2,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source URL differs from selected site"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 3,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source URL differs from selected site"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": true,
+              "issues": [
+                "input-unmeasured"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "e1fedb54a62e7488e2644fb5938bd42cdd96def5495b229edd216659814d967c",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 3,
+            "inputVerified": 1,
+            "inputMismatch": 0,
+            "inputUnmeasured": 7,
+            "commandVerified": 3,
+            "inputEquivalent": 1,
+            "eligible": 1,
+            "issues": {
+              "input-not-constructed": 7,
+              "native-action-missing": 5,
+              "environment-failure": 4,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 1,
+              "eligible": 1,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.125
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 1,
+              "conditionalRate": 0,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 1,
+              "eligible": 1,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.125
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 6,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 1,
+          "trailingSpaceOnlyFullFailures": 1,
+          "rootFailures": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "kind": "environment",
+              "error": "Error: Error: axdump: no AXWebArea in the Google Chrome window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on).",
+              "affectedSlots": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 0,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: axdump: no AXWebArea in the Google Chrome window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on)."
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: axdump: no AXWebArea in the Google Chrome window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on)."
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 2,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: axdump: no AXWebArea in the Google Chrome window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on)."
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 3,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: axdump: no AXWebArea in the Google Chrome window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on)."
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "public-named-target-v1-recovery",
+      "exposure": "inspected-regression",
+      "selected": [
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history",
+          "rank": "34b61b69314daa8bd7411d2c8ac1c6519ce0ae8347f79d064b491b74723b7922"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/",
+          "rank": "38e57ccf1fb3db0a2d790ed910f75a5fb63d0620a6c945b57e422393b53b2989"
+        }
+      ],
+      "seed": "9a9d4f515e7e245aa16f2605aadeaec0",
+      "pool": [
+        {
+          "family": "blog",
+          "url": "https://www.smashingmagazine.com/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.nasa.gov/news/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.npr.org/sections/news/"
+        },
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history"
+        },
+        {
+          "family": "shop",
+          "url": "https://www.uniqlo.com/us/en/"
+        },
+        {
+          "family": "service",
+          "url": "https://www.weather.gov/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.w3.org/WAI/tutorials/"
+        }
+      ],
+      "excludedPreviouslyPlannedDomains": [
+        "www.ebay.com",
+        "www.gutenberg.org",
+        "www.joshwcomeau.com",
+        "www.nps.gov"
+      ],
+      "frozenAt": "2026-10-15T11:37:42.217Z",
+      "modelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+      "sourcePlanSha256": "1ca57ea1642d87311d8a5bd96e1b5396f22ee8d77019bcd53ceffb77bdd69fce",
+      "sourceHashes": {
+        "src/speech-input.ts": "7371cffce71202f389251d736022cda1cec997048fb95c8e1d1776d2db81fc9e",
+        "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+        "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+        "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+        "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+        "data/probes/public-named-target-recovery.ts": "d801440001d141c86f29be620409c5733fc35d6275131e36b225b146adf599f0",
+        "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+        "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+        "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+        "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+        "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+        "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395"
+      },
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "49cf3d3f6d5e8b96b81c7a88548fb854222a73aff9dbd66d91aecc2d7b56aa5e",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 3,
+            "inputVerified": 3,
+            "inputMismatch": 0,
+            "inputUnmeasured": 5,
+            "commandVerified": 3,
+            "inputEquivalent": 3,
+            "eligible": 3,
+            "issues": {
+              "input-not-constructed": 5,
+              "native-action-missing": 5,
+              "environment-failure": 4,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 3,
+              "eligible": 3,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.375
+            },
+            "fullSpeechExact": {
+              "matched": 2,
+              "eligible": 3,
+              "conditionalRate": 0.6666666666666666,
+              "allPlannedRate": 0.25
+            },
+            "hintCandidateExact": {
+              "matched": 3,
+              "eligible": 3,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.375
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 6,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 3,
+          "trailingSpaceOnlyFullFailures": 1,
+          "rootFailures": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "kind": "environment",
+              "error": "Error: Error: Native source is outside the selected site origin",
+              "affectedSlots": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 0,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 2,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 3,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "03c58f52a3ca3ac1eecfbbf6a7658373d1452abb5df703735d2405992588bb33",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 3,
+            "inputVerified": 3,
+            "inputMismatch": 0,
+            "inputUnmeasured": 5,
+            "commandVerified": 3,
+            "inputEquivalent": 3,
+            "eligible": 3,
+            "issues": {
+              "input-not-constructed": 5,
+              "native-action-missing": 5,
+              "environment-failure": 4,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 3,
+              "eligible": 3,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.375
+            },
+            "fullSpeechExact": {
+              "matched": 2,
+              "eligible": 3,
+              "conditionalRate": 0.6666666666666666,
+              "allPlannedRate": 0.25
+            },
+            "hintCandidateExact": {
+              "matched": 3,
+              "eligible": 3,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.375
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 6,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 3,
+          "trailingSpaceOnlyFullFailures": 1,
+          "rootFailures": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "kind": "environment",
+              "error": "Error: Error: Native source is outside the selected site origin",
+              "affectedSlots": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 0,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 2,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 3,
+              "constructedInput": false,
+              "issues": [
+                "Error: Error: Native source is outside the selected site origin"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "public-named-target-v1-ready",
+      "exposure": "inspected-regression",
+      "selected": [
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history",
+          "rank": "34b61b69314daa8bd7411d2c8ac1c6519ce0ae8347f79d064b491b74723b7922"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/",
+          "rank": "38e57ccf1fb3db0a2d790ed910f75a5fb63d0620a6c945b57e422393b53b2989"
+        }
+      ],
+      "seed": "9a9d4f515e7e245aa16f2605aadeaec0",
+      "pool": [
+        {
+          "family": "blog",
+          "url": "https://www.smashingmagazine.com/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.nasa.gov/news/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.npr.org/sections/news/"
+        },
+        {
+          "family": "search",
+          "url": "https://openlibrary.org/search?q=history"
+        },
+        {
+          "family": "shop",
+          "url": "https://www.uniqlo.com/us/en/"
+        },
+        {
+          "family": "service",
+          "url": "https://www.weather.gov/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.python.org/doc/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.w3.org/WAI/tutorials/"
+        }
+      ],
+      "excludedPreviouslyPlannedDomains": [
+        "www.ebay.com",
+        "www.gutenberg.org",
+        "www.joshwcomeau.com",
+        "www.nps.gov"
+      ],
+      "frozenAt": "2026-10-15T11:51:21.421Z",
+      "modelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+      "sourcePlanSha256": "200fc6abab067b8d919bdd88ff23c8f5d4526b89438a2476a7860ede0d715537",
+      "sourceHashes": {
+        "src/speech-input.ts": "7371cffce71202f389251d736022cda1cec997048fb95c8e1d1776d2db81fc9e",
+        "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+        "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+        "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+        "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+        "data/probes/public-named-target-ready.ts": "50838e231eb4178b3a8800bd75bccde45bb9da9c106acf45c349614532fa25c7",
+        "src/document-ready.ts": "4661bea09d012887d7ee8120bbd8931c9d7d5b3399e3b3f6aac3909b8ebd2cf6",
+        "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+        "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+        "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+        "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+        "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+        "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395"
+      },
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "cf9bff5aed03003397f706935ceeadb228e6f7ffd9032d7edc71dc4f48a711ea",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 6,
+            "inputVerified": 6,
+            "inputMismatch": 0,
+            "inputUnmeasured": 2,
+            "commandVerified": 6,
+            "inputEquivalent": 6,
+            "eligible": 5,
+            "issues": {
+              "input-not-constructed": 2,
+              "native-action-missing": 2,
+              "environment-failure": 1,
+              "previous-context-unverified": 1,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 5,
+              "eligible": 5,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.625
+            },
+            "fullSpeechExact": {
+              "matched": 4,
+              "eligible": 5,
+              "conditionalRate": 0.8,
+              "allPlannedRate": 0.5
+            },
+            "hintCandidateExact": {
+              "matched": 5,
+              "eligible": 5,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.625
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 12,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 6,
+          "trailingSpaceOnlyFullFailures": 1,
+          "rootFailures": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "kind": "environment",
+              "error": "Error: axdump: declared web keyboard focus was not independently confirmed",
+              "affectedSlots": [
+                0
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "status": "document-observed",
+              "attempts": 14,
+              "elapsedMs": 10888
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "status": "document-observed",
+              "attempts": 1,
+              "elapsedMs": 440
+            }
+          ],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "Error: axdump: declared web keyboard focus was not independently confirmed"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": true,
+              "issues": [
+                "previous-context-unverified"
+              ],
+              "previousContextReason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "329d22505ed2f092640d313450324d9c7318b99a5ef2924114bc28242b8e7b05",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 7,
+            "inputVerified": 5,
+            "inputMismatch": 0,
+            "inputUnmeasured": 3,
+            "commandVerified": 7,
+            "inputEquivalent": 5,
+            "eligible": 4,
+            "issues": {
+              "input-unmeasured": 2,
+              "previous-context-unverified": 1,
+              "input-not-constructed": 1,
+              "native-action-missing": 1,
+              "target-unavailable": 1
+            },
+            "mainSpeechExact": {
+              "matched": 4,
+              "eligible": 4,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.5
+            },
+            "fullSpeechExact": {
+              "matched": 3,
+              "eligible": 4,
+              "conditionalRate": 0.75,
+              "allPlannedRate": 0.375
+            },
+            "hintCandidateExact": {
+              "matched": 4,
+              "eligible": 4,
+              "conditionalRate": 1,
+              "allPlannedRate": 0.5
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 14,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 7,
+          "trailingSpaceOnlyFullFailures": 1,
+          "rootFailures": [
+            {
+              "url": "https://www.python.org/doc/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "status": "document-observed",
+              "attempts": 20,
+              "elapsedMs": 12821
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "status": "document-observed",
+              "attempts": 1,
+              "elapsedMs": 877
+            }
+          ],
+          "gapRows": [
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": true,
+              "issues": [
+                "input-unmeasured"
+              ]
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": true,
+              "issues": [
+                "previous-context-unverified"
+              ],
+              "previousContextReason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://openlibrary.org/search?q=history",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": true,
+              "issues": [
+                "input-unmeasured"
+              ]
+            },
+            {
+              "url": "https://www.python.org/doc/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "public-named-target-v2",
+      "exposure": "initially-unseen",
+      "selected": [
+        {
+          "family": "news",
+          "url": "https://www.nasa.gov/news/",
+          "rank": "11a598f5727ff40c1b452039ef553c9e4d4566ef6bce22ae9ed64f8720896d59"
+        },
+        {
+          "family": "news",
+          "url": "https://www.npr.org/sections/news/",
+          "rank": "21976bd1fe05810b300ef59156be626489d9fd0f1f1dca2e869158dd11be01e1"
+        }
+      ],
+      "seed": "7a37ed26634f93b81661f3013fab8560",
+      "pool": [
+        {
+          "family": "blog",
+          "url": "https://www.smashingmagazine.com/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.nasa.gov/news/"
+        },
+        {
+          "family": "news",
+          "url": "https://www.npr.org/sections/news/"
+        },
+        {
+          "family": "shop",
+          "url": "https://www.uniqlo.com/us/en/"
+        },
+        {
+          "family": "service",
+          "url": "https://www.weather.gov/"
+        },
+        {
+          "family": "documentation",
+          "url": "https://www.w3.org/WAI/tutorials/"
+        }
+      ],
+      "excludedPreviouslyPlannedDomains": [
+        "openlibrary.org",
+        "www.ebay.com",
+        "www.gutenberg.org",
+        "www.joshwcomeau.com",
+        "www.nps.gov",
+        "www.python.org"
+      ],
+      "frozenAt": "2026-10-15T12:03:35.899Z",
+      "modelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+      "sourcePlanSha256": "f3c9028c6fc2fe9294ca83fe295bc13a1df7fa8cdbafe553970ca210e151c0a6",
+      "sourceHashes": {
+        "src/speech-input.ts": "7371cffce71202f389251d736022cda1cec997048fb95c8e1d1776d2db81fc9e",
+        "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+        "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+        "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+        "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+        "data/probes/public-named-target-v2.ts": "12fc90ab5c2cacbd287d35c50157384c49d94c946f80441c8a945250e8cdf5fd",
+        "src/document-ready.ts": "4661bea09d012887d7ee8120bbd8931c9d7d5b3399e3b3f6aac3909b8ebd2cf6",
+        "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+        "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+        "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+        "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+        "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+        "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395"
+      },
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "a706c85b5e09540fba4ea27d7bd9be8a8ff5c70b96257411ebd51b48f657b9b9",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 7,
+            "inputVerified": 0,
+            "inputMismatch": 0,
+            "inputUnmeasured": 8,
+            "commandVerified": 7,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 7,
+              "native-action-missing": 1,
+              "target-unavailable": 1,
+              "input-unmeasured": 1,
+              "previous-context-unverified": 1
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 14,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 1,
+          "trailingSpaceOnlyFullFailures": 0,
+          "rootFailures": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            }
+          ],
+          "readiness": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "status": "document-observed",
+              "attempts": 1,
+              "elapsedMs": 1960
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "status": "document-observed",
+              "attempts": 5,
+              "elapsedMs": 3990
+            }
+          ],
+          "gapRows": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": true,
+              "issues": [
+                "input-unmeasured",
+                "previous-context-unverified"
+              ],
+              "previousContextReason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "stable unique visible target not established"
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "f8e3266294b93601c264aea25f0cd47602411f8b92eb242767eb8ddea45f09de",
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 5,
+            "inputVerified": 0,
+            "inputMismatch": 0,
+            "inputUnmeasured": 8,
+            "commandVerified": 5,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 7,
+              "native-action-missing": 3,
+              "target-unavailable": 3,
+              "input-unmeasured": 1,
+              "previous-context-unverified": 1
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "plannedSetupKeys": 16,
+          "observedSetupKeys": 10,
+          "plannedAXFocusPreparations": 8,
+          "sealedPredictionsBeforeRequest": 1,
+          "trailingSpaceOnlyFullFailures": 0,
+          "rootFailures": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                2
+              ]
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "kind": "target-unavailable",
+              "error": "Error: fewer than two uniquely named enabled controls of this role",
+              "affectedSlots": [
+                1,
+                3
+              ]
+            }
+          ],
+          "readiness": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "status": "document-observed",
+              "attempts": 1,
+              "elapsedMs": 606
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "status": "document-observed",
+              "attempts": 3,
+              "elapsedMs": 2026
+            }
+          ],
+          "gapRows": [
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            },
+            {
+              "url": "https://www.nasa.gov/news/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": true,
+              "issues": [
+                "input-unmeasured",
+                "previous-context-unverified"
+              ],
+              "previousContextReason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 0,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 1,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 2,
+              "role": "button",
+              "constructedInput": false,
+              "issues": [
+                "ancestor requires independently measured structural context not supplied by this probe"
+              ],
+              "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+              "previousContextReason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.npr.org/sections/news/",
+              "slot": 3,
+              "role": "link",
+              "constructedInput": false,
+              "issues": [
+                "target-unavailable"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

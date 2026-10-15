@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createConnection} from 'node:net';
 import {assertResumeEnvironment,collectionBrowser,localMachine,requireFrontmost,serveDirectory,type MachineFacts} from '../src/host.js';
+import {dumpAxTree} from '../src/axdump.js';
 
 test('native collection resumes the captured browser and refuses a profile switch',()=>{
   assert.equal(collectionBrowser(),'safari');
@@ -46,4 +47,11 @@ test('an active system permission alert stops keys even if System Events still m
  const machine={...localMachine,exec:async(_file:string,args:string[])=>args.includes('JavaScript')?'UserNotificationCenter':'Google Chrome'};
  await assert.rejects(requireFrontmost(machine,'chrome')('Tab'),/UserNotificationCenter/);
  await assert.rejects(requireFrontmost({...machine,exec:async()=>''},'safari')('Tab'),/unknown app/);
+});
+
+test('invalid named focus preparation fails before placing a helper or accessing the machine',async()=>{
+ const never=async()=>{throw new Error('machine must not be accessed');},machine={...localMachine,exec:never,place:never};
+ await assert.rejects(dumpAxTree(machine,'Safari',{focusTarget:{role:'AXButton',name:'Save'}}),/expected page URL/);
+ await assert.rejects(dumpAxTree(machine,'Safari',{focusWebAreaURL:'https://example.test/',focusTarget:{role:'AXLink',name:' '}}),/nonempty name/);
+ await assert.rejects(dumpAxTree(machine,'Safari',{focusStartURL:'a',focusWebAreaURL:'b'}),/one focus/);
 });

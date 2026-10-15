@@ -89,13 +89,16 @@ export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string; focusWebAreaURL?:string; visualCursor?:boolean } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string; focusWebAreaURL?:string; focusTarget?:{role:'AXButton'|'AXCheckBox'|'AXLink';name:string}; visualCursor?:boolean } = {}): Promise<AxDump> {
+  if(options.focusTarget&&(!options.focusWebAreaURL||!['AXButton','AXCheckBox','AXLink'].includes(options.focusTarget.role)||!options.focusTarget.name.trim()))throw new Error('Named focus requires an expected page URL, supported role and nonempty name');
+  if(options.focusStartURL&&options.focusWebAreaURL)throw new Error('Choose one focus preparation mode');
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
   if (options.maxStringLength) args.push("--max-string-length", String(options.maxStringLength));
   if (options.focusStartURL) args.push("--focus-start-url", options.focusStartURL);
   if (options.focusWebAreaURL) args.push("--focus-web-area-url",options.focusWebAreaURL);
+  if (options.focusTarget) args.push('--focus-role',options.focusTarget.role,'--focus-name',options.focusTarget.name);
   if (options.visualCursor) args.push("--visual-cursor", "capture");
   try {
     const stdout = await machine.exec(await machine.place(await ensureBinary()), args);

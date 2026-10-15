@@ -16,6 +16,8 @@ var maxNodes = 5000
 var maxStringLength = 500
 var focusStartURL: String?
 var focusWebAreaURL: String?
+var focusRole: String?
+var focusName: String?
 var visualCursor = false
 var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
@@ -29,6 +31,8 @@ while !arguments.isEmpty {
   case "--max-string-length": maxStringLength = Int(value) ?? maxStringLength
   case "--focus-start-url": focusStartURL = value
   case "--focus-web-area-url": focusWebAreaURL = value
+  case "--focus-role": focusRole = value
+  case "--focus-name": focusName = value
   case "--visual-cursor":
     guard value == "capture" else { fail("--visual-cursor requires capture") }
     visualCursor = true
@@ -37,6 +41,9 @@ while !arguments.isEmpty {
 }
 if appName.isEmpty { fail("--app is required (Safari or \"Google Chrome\")") }
 if focusStartURL != nil && focusWebAreaURL != nil { fail("choose one focus preparation mode") }
+if focusRole != nil || focusName != nil {
+  guard focusWebAreaURL != nil, let role = focusRole, ["AXButton","AXCheckBox","AXLink"].contains(role), let name = focusName, !name.isEmpty else { fail("named focus requires expected URL, supported role and nonempty name") }
+}
 if maxStringLength < 1 || maxStringLength > 1000000 { fail("--max-string-length must be between 1 and 1000000") }
 
 // Without the grant every call returns kAXErrorAPIDisabled. Do not prompt: the prompt would be a UI side effect.
@@ -90,21 +97,37 @@ if let expected = focusWebAreaURL {
   let actual = (attribute(webArea, "AXURL") as? URL)?.absoluteString ?? string(webArea, "AXURL")
   guard actual == expected else { fail("web-area focus URL differs from expected page") }
   guard NSWorkspace.shared.frontmostApplication?.processIdentifier == running.processIdentifier else { fail("browser is not frontmost for web-area focus") }
-  guard AXUIElementSetAttributeValue(webArea, "AXFocused" as CFString, kCFBooleanTrue) == .success else { fail("cannot focus web area") }
+  var target = webArea
+  if let role = focusRole, let name = focusName {
+    var queue = [webArea], matches: [AXUIElement] = [], scanned = 0
+    while !queue.isEmpty && scanned < 20000 {
+      let element = queue.removeFirst(); scanned += 1
+      let title = string(element,"AXTitle")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let description = string(element,"AXDescription")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if string(element,"AXRole") == role, (title.isEmpty ? description : title) == name, !matches.contains(where: { CFEqual($0,element) }) { matches.append(element) }
+      queue.append(contentsOf: elements(element,"AXChildren"))
+    }
+    guard queue.isEmpty, matches.count == 1 else { fail("named focus target missing or ambiguous") }
+    target = matches[0]
+  }
+  guard AXUIElementSetAttributeValue(target, "AXFocused" as CFString, kCFBooleanTrue) == .success else { fail("cannot focus declared web target") }
   var verified = false
   for _ in 0..<20 {
     if let current = attribute(application, "AXFocusedUIElement"), isElement(current) {
-      var queue = [webArea], scanned = 0
-      while !queue.isEmpty && scanned < 20000 {
-        let element = queue.removeFirst(); scanned += 1
-        if CFEqual(current, element) { verified = true; break }
-        queue.append(contentsOf: elements(element, "AXChildren"))
+      if focusRole != nil { verified = CFEqual(current,target) }
+      else {
+        var queue = [webArea], scanned = 0
+        while !queue.isEmpty && scanned < 20000 {
+          let element = queue.removeFirst(); scanned += 1
+          if CFEqual(current, element) { verified = true; break }
+          queue.append(contentsOf: elements(element, "AXChildren"))
+        }
       }
     }
     if verified { break }
     Thread.sleep(forTimeInterval: 0.05)
   }
-  guard verified else { fail("keyboard focus inside expected web area was not independently confirmed") }
+  guard verified else { fail("declared web keyboard focus was not independently confirmed") }
 }
 
 if let expected = focusStartURL {
@@ -235,6 +258,7 @@ if let focused {
   result["focusedRole"] = string(focused, "AXRole") ?? NSNull()
 }
 if let focusStartURL { result["focusPreparation"] = ["method": "AXFocused", "url": focusStartURL, "verified": true] as [String: Any] }
+if let focusWebAreaURL { result["focusPreparation"] = ["method": "AXFocused", "url": focusWebAreaURL, "role": focusRole ?? "AXWebArea", "name": focusName ?? "", "verified": true] as [String: Any] }
 if let cursorBefore {
   let after = captureVoiceOverOverlay()
   result["visualCursor"] = ["before": cursorBefore.payload, "after": after.payload,

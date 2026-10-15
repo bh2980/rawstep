@@ -19,6 +19,7 @@ import { START_MARKER, casesFingerprint, plannedCaseSet, type CaseRecord, type C
 import { assertResumeEnvironment, atDriverUrl, browserApps, collectionBrowser, machineFacts, navigateBrowser, requireFrontmost, resolveMachine, serveDirectory } from "./host.js";
 import { spoken, VoSession } from "./session.js";
 import { archiveCaseInputs } from "./archive.js";
+import {waitForNativeDocument} from './document-ready.js';
 import { publicPageScript, realPageContext, accessiblePageContext, nativeAccessibleText, firstUniqueHeading, hearsHeading, type PageContext } from "./real-pages.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -68,7 +69,7 @@ const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?joi
 const started = Date.now();
 let aligned = 0;
 const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public marker: native AX marker focus then VO+Shift+F4. Public first-heading v2: independently observed natural heading and heard heading alignment, followed by an AX snapshot; no marker focus transfer or marker check.";
-const observationProtocol=`host-receipts-v7: NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry and bounded native custom-content archives (AX schema v5); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
+const observationProtocol=`host-receipts-v8: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry and bounded native custom-content archives (AX schema v5); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);
@@ -85,10 +86,22 @@ try {
 
   for (const [index, item] of todo.entries()) {
     const attemptId = randomUUID();
+    const pageLoadObservationStartedAt=session.now();
     try{await navigateBrowser(machine, browser, item.url ?? `${pages.origin}/${item.page}`);}
     catch(error){
       await appendFile(records,JSON.stringify({caseSet:set.id,caseId:item.id,source:'voiceover',attemptId,captureSessionId,receiptClockOrigin:session.startedAt,start:{aligned:false,speech:[]},steps:[],error:`Navigation failed: ${(error as Error).message}`} satisfies CaseRecord)+'\n');
       throw error;
+    }
+    const documentReady=await waitForNativeDocument(()=>dumpAxTree(machine,browserApps[browser],{maxDepth:1,maxNodes:64}),item.url??`${pages.origin}/${item.page}`,{
+      onProbe:({snapshot,...probe})=>appendFile(join(out,'navigation.jsonl'),JSON.stringify({caseId:item.id,attemptId,captureSessionId,...probe,observedURL:snapshot?.root.AXURL,hasBody:!!snapshot?.root.children?.length,...(values['no-ax']?{}:{snapshot})})+'\n'),
+    });
+    await appendFile(join(out,'navigation-status.jsonl'),JSON.stringify({caseId:item.id,attemptId,captureSessionId,requestedURL:item.url??`${pages.origin}/${item.page}`,...documentReady})+'\n');
+    if(documentReady.status!=='document-observed'){
+      const error='Requested Native AX document was not observed before the navigation deadline';
+      const failedLoad={utterances:session.takeBuffered(),reason:'deadline' as const,startedAt:pageLoadObservationStartedAt,endedAt:session.now()};
+      await appendFile(records,JSON.stringify({caseSet:set.id,caseId:item.id,source:'voiceover',attemptId,captureSessionId,receiptClockOrigin:session.startedAt,start:{aligned:false,speech:failedLoad.utterances.map(u=>u.text),pageLoad:failedLoad},steps:[],error} satisfies CaseRecord)+'\n');
+      if(item.url){console.log(`[${index+1}/${todo.length}] ${item.id} ! document not observed`);continue;}
+      throw new Error(error);
     }
     const pageLoad = await session.listen({ quietMs: 1_500, maxWaitMs: 30_000 });
     session.drain();

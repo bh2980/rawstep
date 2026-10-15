@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {checkSpeechInput,observedSpeechInput} from '../src/speech-input.js';
+import {checkSpeechInput,observedSpeechInput,observedSpeechContext,nativeSpeechInput} from '../src/speech-input.js';
 import type {AxDump,AxNode} from '../src/axdump.js';
 import {generateSpeechContexts} from '../src/generate/speech-contexts.js';
 const input=generateSpeechContexts().speechInputs['speech-contexts-v1.sibling-regions-flat']![0]!;
@@ -82,6 +82,7 @@ test('target-conditioned inputs use AX and visible geometry while withholding un
  assert.equal(observed.input.target.semantic.name,'Prepare booking');assert.equal(observed.input.target.containers!.length,2);
  assert.equal(checkSpeechInput(observed.input,d).status,'verified');
  d.focusedPath=[99];assert.deepEqual(observedSpeechInput(d,'next_focusable_item'),observed);
+ delete node.AXDOMIdentifier;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'observed');
  d.root.children![0]!.children![0]!.AXRoleDescription='article';assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
  d.root.children![0]!.children![0]!.AXRoleDescription='region';delete node.AXCustomContent;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
 });
@@ -112,4 +113,52 @@ test('Native footer subrole identifies common semantics without copying browser-
   const expected=structuredClone(input);expected.target.containers=[{id:'footer',role:'contentinfo',name:'',items:1}];
   assert.equal(checkSpeechInput(expected,d).status,'verified');
  }
+});
+
+test('previous context observation does not depend on support for that object speech role',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;node.AXRole='AXTextField';
+ assert.equal(observedSpeechInput(d,'previous_focusable_item').status,'unmeasured');
+ const previous=observedSpeechContext(d);assert.equal(previous.status,'observed');
+ if(previous.status==='observed')assert.equal(previous.context.containers.length,2);
+ node.AXRole='AXGroup';node.AXRoleDescription='main';assert.equal(observedSpeechContext(d).status,'unmeasured');
+});
+
+test('unmapped Native landmarks cannot disappear into supposedly empty context',()=>{
+ const d=dump();Object.assign(d.root.children![0]!,{AXSubrole:'AXLandmarkSearch',AXRoleDescription:'search'});
+ assert.equal(checkSpeechInput(input,d).status,'unmeasured');
+ assert.equal(observedSpeechContext(d).status,'unmeasured');
+});
+
+test('constructing an intended AX target is separate from verifying its actual VoiceOver position',()=>{
+ const d=dump();d.root.children![0]!.children![0]!.children![0]!.AXCustomContent={status:'no-value',errorCode:-25212};delete d.visualCursor;
+ const candidate=nativeSpeechInput(d,[0,0,0],'next_focusable_item');assert.equal(candidate.status,'constructed');
+ if(candidate.status==='constructed')assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
+ assert.equal(nativeSpeechInput(d,[0,-1],'next_focusable_item').status,'unmeasured');
+ assert.equal(nativeSpeechInput({...d,truncated:true},[0,0,0],'next_focusable_item').status,'unmeasured');
+});
+
+test('link image/current-page and required inputs must agree with independent Native features',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!,expected=structuredClone(input);
+ node.AXRole='AXLink';expected.target.semantic.role='link';
+ node.children=[{AXRole:'AXGroup',children:[{AXRole:'AXImage'}]}];node.AXARIACurrent='page';
+ assert.equal(checkSpeechInput(expected,d).status,'mismatch');
+ Object.assign(expected.target.semantic,{containsImage:true,currentPage:true});assert.equal(checkSpeechInput(expected,d).status,'verified');
+ expected.target.semantic.required=true;assert.equal(checkSpeechInput(expected,d).status,'unmeasured');
+ node.AXRequired=false;assert.equal(checkSpeechInput(expected,d).status,'mismatch');
+ node.AXRequired=true;assert.equal(checkSpeechInput(expected,d).status,'verified');
+});
+
+test('Native content-list context is preserved for links and list markers without treating a listbox as a list',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ node.AXRole='AXLink';node.AXCustomContent={status:'no-value',errorCode:-25212};
+ const list={AXRole:'AXList',AXSubrole:'AXContentList',children:[node]};d.root.children![0]!.children=[list];
+ const candidate=nativeSpeechInput(d,[0,0,0],'next_item');assert.equal(candidate.status,'constructed');
+ if(candidate.status==='constructed'){
+  assert.deepEqual(candidate.input.target.containers!.map(c=>c.role),['main','list']);
+  assert.equal(checkSpeechInput(candidate.input,d).status,'verified');
+ }
+ node.AXRole='AXListMarker';const previous=observedSpeechContext(d);assert.equal(previous.status,'observed');
+ if(previous.status==='observed')assert.notEqual(previous.context.focusContext,previous.context.containers.at(-1));
+ list.AXSubrole='AXListBox';assert.equal(observedSpeechContext(d).status,'unmeasured');
+ if(candidate.status==='constructed')assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
 });

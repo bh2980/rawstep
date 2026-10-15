@@ -3,6 +3,7 @@
 Collects real VoiceOver speech through AT Driver, to calibrate Rawstep's VoiceOver simulator against it. macOS only.
 
 For the current speech-only API measurement, see [target-conditioned evaluation](../../docs/voiceover-target-conditioned-evaluation.md).
+The [new composition evaluation](../../docs/voiceover-landmark-transfer.md) preserves the first Safari/Chrome results: Main 32/32 and literal Full 28/32 each. The [actual-site audit](../../docs/voiceover-public-named-target-evaluation.md) retains all failed slots, recovery attempts and the next unseen-site measurement separately. These are speech-engine measurements with caller-owned targets/history.
 The [landmark reduction](../../docs/voiceover-landmark-speech.md) records the resulting unnamed-context fix and keeps first scores separate from regression.
 Its command gate keeps Native orientation descriptions separate from ordinary entry speech; same target alone does not
 establish equivalent inputs. The historical [live-page pilot](../../docs/voiceover-public-transfer-evaluation.md) failed
@@ -48,6 +49,8 @@ When running locally, leave the host alone. In a VM run, leave the guest window 
 frontmost-app or connection failure stops the run. `--resume <run-dir>` skips every recorded case, including misaligned
 ones: retry such cases in a fresh filtered run, and keep the failed attempt in the reliability totals.
 Use `--reverse` for a fresh run in reverse case order; `meta.json` records the order and resume keeps it by default.
+
+Observation protocol v8 waits for the requested Native AX document URL and a nonempty body before page preparation. `navigation.jsonl` preserves timestamped probes (root snapshots omitted with `--no-ax`), and `navigation-status.jsonl` records completion or timeout. This prevents stale-document starts; it does not establish network-idle, complete content or speech completion. Resume requires the same protocol.
 
 Speech is attributed to a step by time only: late speech can land in the next step. A quiet interval is not a native
 speech-completion signal, and silence after pressing a button does not prove the button activated.
