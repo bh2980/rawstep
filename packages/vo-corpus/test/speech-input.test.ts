@@ -164,6 +164,39 @@ test('Native content-list context is preserved for links and list markers withou
  if(candidate.status==='constructed')assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
 });
 
+test('link set inputs come from complete Native list children, including mixed control children',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ Object.assign(node,{AXRole:'AXLink',AXCustomContent:{status:'no-value',errorCode:-25212}});
+ const list:AxNode={AXRole:'AXList',AXSubrole:'AXContentList',AXElementId:20,children:[
+  {AXRole:'AXGroup',AXElementId:21,children:[{AXRole:'AXLink',AXElementId:22,AXTitle:'Earlier'}]},
+  {AXRole:'AXGroup',AXElementId:23,children:[node]},
+  {AXRole:'AXPopUpButton',AXElementId:24,AXTitle:'More'},
+ ]};d.root.children![0]!.children=[list];
+ const candidate=nativeSpeechInput(d,[0,0,1,0],'next_item');assert.equal(candidate.status,'constructed');if(candidate.status!=='constructed')return;
+ assert.equal(candidate.input.target.semantic.position,2);assert.equal(candidate.input.target.semantic.setSize,3);
+ assert.equal(checkSpeechInput(candidate.input,d).status,'verified');
+ const missing=structuredClone(candidate.input);delete missing.target.semantic.position;delete missing.target.semantic.setSize;
+ assert.equal(checkSpeechInput(missing,d).status,'mismatch');
+ const wrong=structuredClone(candidate.input);wrong.target.semantic.position=1;assert.equal(checkSpeechInput(wrong,d).status,'mismatch');
+ list.children![1]!.children!.push({AXRole:'AXLink',AXElementId:25,AXTitle:'Another choice'});assert.equal(nativeSpeechInput(d,[0,0,1,0],'next_item').status,'unmeasured');list.children![1]!.children!.pop();
+ list.children![1]!.AXTitle='Named item';assert.equal(nativeSpeechInput(d,[0,0,1,0],'next_item').status,'unmeasured');delete list.children![1]!.AXTitle;
+ list.childrenTruncated=true;assert.equal(nativeSpeechInput(d,[0,0,1,0],'next_item').status,'unmeasured');delete list.childrenTruncated;
+ delete list.children![0]!.AXElementId;assert.equal(nativeSpeechInput(d,[0,0,1,0],'next_item').status,'unmeasured');list.children![0]!.AXElementId=23;
+ assert.equal(nativeSpeechInput(d,[0,0,1,0],'next_item').status,'unmeasured');
+});
+
+test('a singleton still needs measured set metadata, while explicit or conflicting alias sets stay unmeasured',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ Object.assign(node,{AXRole:'AXLink',AXCustomContent:{status:'no-value',errorCode:-25212}});
+ const list:AxNode={AXRole:'AXList',AXSubrole:'AXContentList',AXElementId:20,children:[node]};d.root.children![0]!.children=[list];
+ const candidate=nativeSpeechInput(d,[0,0,0],'next_item');assert.equal(candidate.status,'constructed');if(candidate.status!=='constructed')return;
+ assert.deepEqual([candidate.input.target.semantic.position,candidate.input.target.semantic.setSize],[1,1]);
+ const missing=structuredClone(candidate.input);delete missing.target.semantic.position;delete missing.target.semantic.setSize;assert.equal(checkSpeechInput(missing,d).status,'mismatch');
+ node.AXARIAPosInSet=7;node.AXARIASetSize=20;assert.equal(nativeSpeechInput(d,[0,0,0],'next_item').status,'unmeasured');delete node.AXARIAPosInSet;delete node.AXARIASetSize;
+ d.root.children![0]!.children!.push({AXRole:'AXList',AXSubrole:'AXContentList',AXElementId:30,children:[{AXRole:'AXLink',AXElementId:31,AXTitle:'Earlier'},{...node}]});
+ assert.equal(checkSpeechInput(candidate.input,d).status,'unmeasured');
+});
+
 test('article inputs preserve the immediate exposed AX child rather than inventing a descendant label',()=>{
  const d=dump(),node={...button,AXCustomContent:{status:'observed',byteCount:0,rawBase64:'',entries:[]}};
  d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'article',AXTitle:'',AXDescription:'',children:[{AXRole:'AXGroup',AXRoleDescription:'group',AXTitle:'',children:[node]}]}];

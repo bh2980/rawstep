@@ -158,6 +158,11 @@ the later parent-context calibration/correction. Safari v20 / Chrome v14 use nea
 hints for named dialogs inside another exposed focus context. The standalone summary is retained. The corrected
 40/40 task replay is inspected regression, while its initial independent Main score remains 34/40 in each browser.
 
+The [new-site input audit](./voiceover-public-target-v3.md) separates the original comparison defect from observed-input
+regression: missing list-link set fields are now detected and constructed from complete Native AX, while ambiguous
+image-link outlines and failed preparations remain in the full denominator. These limited samples do not establish
+overall real-site accuracy.
+
 ## Run the bundled browser fixture
 
 Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and a profile with `screenReader: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.

@@ -1,0 +1,87 @@
+{
+  "scope": "Independent Native outline/AX ambiguity retained as unmeasured. Candidate roles and counts explain the measurement gap; no target inferred from speech or keyboard focus.",
+  "rows": [
+    {
+      "browser": "safari",
+      "url": "https://www.smashingmagazine.com/",
+      "slot": 2,
+      "category": "button",
+      "views": {
+        "previous": {
+          "axSha256": "99ccf70e2e7b89debdf423840eb05e971125e1b639e061fb2031ad4f6307fe82",
+          "status": "unavailable",
+          "reason": "isolated outline not established in both captures",
+          "candidateRoles": [],
+          "candidateCount": 0
+        },
+        "after": {
+          "axSha256": "45ea1b8d11c5dfb58f7f732d8c4dfbbb77707c3875d7cbcaee8120bb87b421ba",
+          "status": "observed",
+          "targetStatus": "unmatched",
+          "candidateRoles": [],
+          "candidateCount": 0
+        }
+      }
+    },
+    {
+      "browser": "safari",
+      "url": "https://www.uniqlo.com/us/en/",
+      "slot": 3,
+      "category": "link",
+      "views": {
+        "previous": {
+          "axSha256": "7626f28d0d722aad2b118ec5327317b1eed93e7891a3a76972b6767204d8e2fe",
+          "status": "observed",
+          "targetStatus": "ambiguous",
+          "candidateRoles": [
+            "AXGroup",
+            "AXLink",
+            "AXImage"
+          ],
+          "candidateCount": 3
+        },
+        "after": {
+          "axSha256": "eecaa096977df1bde8235c32e13fd585a1f00bc8cb4efd573c83ae37629b50b9",
+          "status": "observed",
+          "targetStatus": "ambiguous",
+          "candidateRoles": [
+            "AXGroup",
+            "AXLink",
+            "AXImage"
+          ],
+          "candidateCount": 3
+        }
+      }
+    },
+    {
+      "browser": "chrome",
+      "url": "https://www.uniqlo.com/us/en/",
+      "slot": 3,
+      "category": "link",
+      "views": {
+        "previous": {
+          "axSha256": "c7a84fd508fa2130cbb8f3cc6e8c6cbe40af0814709ae28b427bc6447d74bb96",
+          "status": "observed",
+          "targetStatus": "ambiguous",
+          "candidateRoles": [
+            "AXGroup",
+            "AXLink",
+            "AXImage"
+          ],
+          "candidateCount": 3
+        },
+        "after": {
+          "axSha256": "cdd7397298dfc6e2d1e3ddb0264ca8de6ff7ec04e56dd6dbfd4517d3437b9772",
+          "status": "observed",
+          "targetStatus": "ambiguous",
+          "candidateRoles": [
+            "AXGroup",
+            "AXLink",
+            "AXImage"
+          ],
+          "candidateCount": 3
+        }
+      }
+    }
+  ]
+}

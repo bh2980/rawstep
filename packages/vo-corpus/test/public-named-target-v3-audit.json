@@ -1,0 +1,918 @@
+{
+  "at": "2026-10-15T15:41:07.218Z",
+  "caseSet": "public-named-target-v3",
+  "classification": "first-evaluation-with-separate-input-equivalence-audit-and-inspected-input-regression",
+  "seed": "ef2cc8d61ff32b3ffa2d58cf5e55becb",
+  "pool": [
+    {
+      "family": "blog",
+      "url": "https://www.smashingmagazine.com/"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.uniqlo.com/us/en/"
+    },
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/"
+    }
+  ],
+  "selected": [
+    {
+      "family": "blog",
+      "url": "https://www.smashingmagazine.com/",
+      "rank": "3d8e61234974caa7ca68169adb7ff0e9ff3506a11c30fc963dd21fa956853216"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.uniqlo.com/us/en/",
+      "rank": "6361d41eda2654141ad32c6c738dace12f2df7f0c4c911b06e4e4e019ce71575"
+    }
+  ],
+  "excludedPreviouslyPlannedSiteGroups": [
+    "ebay.com",
+    "gutenberg.org",
+    "joshwcomeau.com",
+    "nasa.gov",
+    "npr.org",
+    "nps.gov",
+    "openlibrary.org",
+    "python.org"
+  ],
+  "frozenAt": "2026-10-15T15:16:01.893Z",
+  "sourceCommit": "c6c4ee8",
+  "modelBuildSha256": "8b86cf97886e5332846611e5bf6b264e86c3e8d06063427273cae752dd920ece",
+  "sourcePlanSha256": "9893ca7bcab43cc7971ee57e2555d103b1d923e4dd9ef7ef0767cb4ec631c745",
+  "originalSourceHashes": {
+    "src/speech-input.ts": "969d39f271b193666c0b33d81b23f0972503fafa38f3d8901b2a5aa4e8b61fb5",
+    "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+    "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+    "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+    "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+    "data/probes/public-named-target-v3.ts": "1a064c56b1f0c5951e616e0ee7d4fc47f85cd59e4783c022f40a55e347c4c89b",
+    "src/document-ready.ts": "4661bea09d012887d7ee8120bbd8931c9d7d5b3399e3b3f6aac3909b8ebd2cf6",
+    "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+    "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+    "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+    "axdump/axdump.swift": "994875fdc30dd8e5cc97b31772619d4a0dd251b9496654f209ca3969127081e8",
+    "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+    "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395",
+    "../screenreaders/src/mock-voiceover/speech.ts": "07aeb5bc6fa4bbd0e77324879d09a8d101ce4f0324a762fd23bbd57c1834575f",
+    "../screenreaders/src/mock-voiceover/usage-hints.ts": "00675be6a8d54d345c61bf87d5870261309de1874423cfca58ff6e6a75fd2ddc",
+    "../screenreaders/src/mock-voiceover/backend.ts": "236f5f1eb3d7651c82799b713f61e38a43a3728c6a04416f359b891c8cbfcb91"
+  },
+  "currentVerifierSha256": "c8dbde3a65b7012d35214fb5db7d6f90fd0c61ae2183e37aff4d1a060d150e7e",
+  "scope": "Native-derived target-conditioned speech on two sites from a declared four-site pool. No raw website utterances, names or AX trees published; originals remain local. Role selection biases toward uniquely named enabled button/link targets. Not representative web coverage, causal browser comparison, Navigation Accuracy, State Accuracy or Task Success.",
+  "qualityCorrection": "The original observer omitted list-link position/setSize and its verifier did not check them. Apply the corrected gate to every original input, including singleton/otherwise matching lists; never gate based on wording agreement. Original scores/predictions/raw data remain immutable. Added set values come only from archived pre-request AX trees, not Native speech. Recomputed predictions are post-inspection input regression, never a new independent evaluation. Missing reading geometry, previous context and failed preparations remain in all planned denominators.",
+  "collectionClassification": "Two original wrapper environment-failure slots are AX focus-preparation failures. No OS/browser outage is established by those errors; original category is retained in the wrapper summary.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR"
+      },
+      "sourceRecordsSha256": "e26fc9a4003d99301b84924e59ad9c70fbf5940e25ca65d53b4551f333691cea",
+      "sourceStepsSha256": "18382b1ed6280b1e4136dbb3413e4071645e43b4dc843cd120af2c10b715112c",
+      "originalWrapperSummary": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 5,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 7,
+        "inputEquivalent": 5,
+        "eligible": 5,
+        "issues": {
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2,
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "environment-failure": 1
+        },
+        "mainSpeechExact": {
+          "matched": 3,
+          "eligible": 5,
+          "conditionalRate": 0.6,
+          "allPlannedRate": 0.375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 5,
+          "conditionalRate": 0.6,
+          "allPlannedRate": 0.375
+        },
+        "hintCandidateExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "setupPlanned": 16,
+        "setupObserved": 14,
+        "scoredObserved": 7,
+        "unconstructedInputs": 1,
+        "environmentFailures": 1,
+        "unavailableTargets": 0
+      },
+      "auditedOriginal": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 3,
+        "inputMismatch": 2,
+        "inputUnmeasured": 3,
+        "commandVerified": 7,
+        "inputEquivalent": 3,
+        "eligible": 3,
+        "issues": {
+          "input-mismatch": 2,
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2,
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "focus-preparation-failure": 1
+        },
+        "mainSpeechExact": {
+          "matched": 3,
+          "eligible": 3,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 3,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.375
+        },
+        "hintCandidateExact": {
+          "matched": 3,
+          "eligible": 3,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.375
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "observedInputRegression": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 5,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 7,
+        "inputEquivalent": 5,
+        "eligible": 5,
+        "issues": {
+          "input-unmeasured": 2,
+          "previous-context-unverified": 2,
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "focus-preparation-failure": 1
+        },
+        "mainSpeechExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "hintCandidateExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "plannedSetupKeys": 16,
+      "observedSetupKeys": 14,
+      "plannedFocusPreparations": 8,
+      "observedSuccessfulFocusPreparations": 7,
+      "predictionsSealedBeforeRequest": 7,
+      "preRequestSourceTreesVerified": 7,
+      "documentReadiness": [
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 2723
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "status": "document-observed",
+          "attempts": 3,
+          "elapsedMs": 4353
+        }
+      ],
+      "rows": [
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "63005ffcd69c8b371521f68beb6e957bbc2589e56ede60b50c79790d956c08d3",
+          "regressionInputSha256": "63005ffcd69c8b371521f68beb6e957bbc2589e56ede60b50c79790d956c08d3",
+          "sourceAxSha256": "4c9f49a5b3a67f61020694b6c5d7a03fc31d060de265cc9aeb6b7fada8ac7390",
+          "nativeAxSha256": "a2f6fd125b959e7c2cbe70cc39f7adea470770d10ce6a808c5f1008ee5edf370"
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": false,
+          "originalFullMatched": false,
+          "auditedOriginal": {
+            "inputStatus": "mismatch",
+            "inputReasons": [
+              "link set metrics missing in input"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-mismatch"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "setMetrics": {
+            "position": 2,
+            "setSize": 4,
+            "source": "complete unique exposed Native content-list children in archived pre-request AX"
+          },
+          "originalInputSha256": "e3262ab49fcda4495fbeaffe7efc94ccb84f6a39bba54894923987656ebe3762",
+          "regressionInputSha256": "a1488db3d0e7f24d788b995bc07aff3dbe3ae6c235162ec16cf74eaad2022193",
+          "sourceAxSha256": "fb5cad7d92839cf27cd646170154c2c88cd0d4544ad5204b4ad98479163ceae2",
+          "nativeAxSha256": "b0b1472d7311a3b25f90338638ed4c74bba602b433a8bd39bb2f703fea0e2230"
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": false,
+          "originalMainMatched": null,
+          "originalFullMatched": null,
+          "auditedOriginal": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "originalInputSha256": "b3284b6beea08073efc6d81bcf987c01d6dbd31b22829dd6d9d2da71c0d2e5f5",
+          "regressionInputSha256": "b3284b6beea08073efc6d81bcf987c01d6dbd31b22829dd6d9d2da71c0d2e5f5",
+          "sourceAxSha256": "15d5852b4117791ea8605be5bad75842bf6638b60fdac00982209c7ea9fb1c25",
+          "nativeAxSha256": "45ea1b8d11c5dfb58f7f732d8c4dfbbb77707c3875d7cbcaee8120bb87b421ba"
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": false,
+          "originalFullMatched": false,
+          "auditedOriginal": {
+            "inputStatus": "mismatch",
+            "inputReasons": [
+              "link set metrics missing in input"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-mismatch"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "setMetrics": {
+            "position": 7,
+            "setSize": 17,
+            "source": "complete unique exposed Native content-list children in archived pre-request AX"
+          },
+          "originalInputSha256": "46046dda8ee90e2354b1d8cb4fefa552d8df6c9fe5a73f522c3b909c2f8f66ad",
+          "regressionInputSha256": "fa337b02c6f0ac58ea8477916d516572a3defeb2c1bdce61bbb181e7870bd07f",
+          "sourceAxSha256": "86f58e6d572bccf2546e29979cf10f4c4266b286cae98c7dda573148a4b8e70d",
+          "nativeAxSha256": "3d95f49b72e766aae99338a1c38fcb6b03e53515db4fdd92f80a013335c2cd93"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": false,
+          "originallyEligible": false,
+          "originalMainMatched": null,
+          "originalFullMatched": null,
+          "auditedOriginal": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [],
+            "eligible": false,
+            "issues": [
+              "input-not-constructed",
+              "native-action-missing",
+              "focus-preparation-failure"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [],
+            "eligible": false,
+            "issues": [
+              "input-not-constructed",
+              "native-action-missing",
+              "focus-preparation-failure"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "failure": {
+            "kind": "focus-confirmation",
+            "errorSha256": "7237d79538cdd04055152847baf2b26752d6ec574eba95d2f2add20977dad31a"
+          }
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "55ad4f65ed751b60ecbb4f67e697dc79e3b69d2c526436bef3c69afa49d07b8f",
+          "regressionInputSha256": "55ad4f65ed751b60ecbb4f67e697dc79e3b69d2c526436bef3c69afa49d07b8f",
+          "sourceAxSha256": "549cb2dd72eae228c42c8f58a553e94a1bb0e173e989ceb25152e4aefb080606",
+          "nativeAxSha256": "cbb5223d4c1ddd346855f901b0fd38f079acb8674370081a20a8ef6b11279fab"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "57ba83691232c78bbb9c57a73d11067d9d6d3f063c1ac8757903ea6718cd50c1",
+          "regressionInputSha256": "57ba83691232c78bbb9c57a73d11067d9d6d3f063c1ac8757903ea6718cd50c1",
+          "sourceAxSha256": "6584c7fe6f3cc6d100ac3bb599bdd3b6e8969695b0bda521ccd4dccf3c4fab36",
+          "nativeAxSha256": "647db74843d0b49e716ef9accda8e8ac27748987d98c08d211470853c88ed46c"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": false,
+          "originalMainMatched": null,
+          "originalFullMatched": null,
+          "auditedOriginal": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "originalInputSha256": "db3d23909d035569a4f9a0609d0d2479e020a0a5fe369318d71d45a73494ab41",
+          "regressionInputSha256": "db3d23909d035569a4f9a0609d0d2479e020a0a5fe369318d71d45a73494ab41",
+          "sourceAxSha256": "0c8e9fcf9806f0731177f0efe643383322811d87f3d0010a26fe045659a62ee9",
+          "nativeAxSha256": "eecaa096977df1bde8235c32e13fd585a1f00bc8cb4efd573c83ae37629b50b9"
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR"
+      },
+      "sourceRecordsSha256": "de302fb567a8999652274cf32dbaa66bc5510c23bc0b41f06a588bca8e4c0c7c",
+      "sourceStepsSha256": "9d81c616b4a2521e9ca43249386bd49620cb2f98e8c7c5f39bf4d4e52ac8def3",
+      "originalWrapperSummary": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 6,
+        "inputMismatch": 0,
+        "inputUnmeasured": 2,
+        "commandVerified": 7,
+        "inputEquivalent": 6,
+        "eligible": 6,
+        "issues": {
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "environment-failure": 1,
+          "input-unmeasured": 1,
+          "previous-context-unverified": 1
+        },
+        "mainSpeechExact": {
+          "matched": 5,
+          "eligible": 6,
+          "conditionalRate": 0.8333333333333334,
+          "allPlannedRate": 0.625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 6,
+          "conditionalRate": 0.8333333333333334,
+          "allPlannedRate": 0.625
+        },
+        "hintCandidateExact": {
+          "matched": 6,
+          "eligible": 6,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.75
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "setupPlanned": 16,
+        "setupObserved": 14,
+        "scoredObserved": 7,
+        "unconstructedInputs": 1,
+        "environmentFailures": 1,
+        "unavailableTargets": 0
+      },
+      "auditedOriginal": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 5,
+        "inputMismatch": 1,
+        "inputUnmeasured": 2,
+        "commandVerified": 7,
+        "inputEquivalent": 5,
+        "eligible": 5,
+        "issues": {
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "focus-preparation-failure": 1,
+          "input-mismatch": 1,
+          "input-unmeasured": 1,
+          "previous-context-unverified": 1
+        },
+        "mainSpeechExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "hintCandidateExact": {
+          "matched": 5,
+          "eligible": 5,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.625
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "observedInputRegression": {
+        "planned": 8,
+        "nativeObserved": 7,
+        "inputVerified": 6,
+        "inputMismatch": 0,
+        "inputUnmeasured": 2,
+        "commandVerified": 7,
+        "inputEquivalent": 6,
+        "eligible": 6,
+        "issues": {
+          "input-not-constructed": 1,
+          "native-action-missing": 1,
+          "focus-preparation-failure": 1,
+          "input-unmeasured": 1,
+          "previous-context-unverified": 1
+        },
+        "mainSpeechExact": {
+          "matched": 6,
+          "eligible": 6,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.75
+        },
+        "fullSpeechExact": {
+          "matched": 6,
+          "eligible": 6,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.75
+        },
+        "hintCandidateExact": {
+          "matched": 6,
+          "eligible": 6,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.75
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "plannedSetupKeys": 16,
+      "observedSetupKeys": 14,
+      "plannedFocusPreparations": 8,
+      "observedSuccessfulFocusPreparations": 7,
+      "predictionsSealedBeforeRequest": 7,
+      "preRequestSourceTreesVerified": 7,
+      "documentReadiness": [
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "status": "document-observed",
+          "attempts": 1,
+          "elapsedMs": 237
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "status": "document-observed",
+          "attempts": 1,
+          "elapsedMs": 1737
+        }
+      ],
+      "rows": [
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "8dede98fe9eabbe153c7f0706b98f9a3ff054ad2f98df8ba9a692daaa14786db",
+          "regressionInputSha256": "8dede98fe9eabbe153c7f0706b98f9a3ff054ad2f98df8ba9a692daaa14786db",
+          "sourceAxSha256": "2cdba804bc54ccf9877444cb9712bfcf3c337e11c1f9aba76a950afd831a8400",
+          "nativeAxSha256": "224eb8b7619b521918320cdc32f0d7f183e3e5826cf2ec64ec252f64b913546c"
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "6987f8aa0b0e725c5950f3655b3510b28e3d81fb2ab64a7f4959db923cbcb7a4",
+          "regressionInputSha256": "6987f8aa0b0e725c5950f3655b3510b28e3d81fb2ab64a7f4959db923cbcb7a4",
+          "sourceAxSha256": "239c5e97824647258a847bb684e84a5deef0cbad75013d352ca17eafd009222e",
+          "nativeAxSha256": "2b2289f06c436601db914127e8575a8eeb73545560ab95d61ac40e1dc56472ed"
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": false,
+          "originallyEligible": false,
+          "originalMainMatched": null,
+          "originalFullMatched": null,
+          "auditedOriginal": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [],
+            "eligible": false,
+            "issues": [
+              "input-not-constructed",
+              "native-action-missing",
+              "focus-preparation-failure"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [],
+            "eligible": false,
+            "issues": [
+              "input-not-constructed",
+              "native-action-missing",
+              "focus-preparation-failure"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "failure": {
+            "kind": "focus-target-unavailable",
+            "errorSha256": "e895cab282e95120c14dc6f819c22f05f9c75e02420e90692beb9db89d76e1c3"
+          }
+        },
+        {
+          "url": "https://www.smashingmagazine.com/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": false,
+          "originalFullMatched": false,
+          "auditedOriginal": {
+            "inputStatus": "mismatch",
+            "inputReasons": [
+              "link set metrics missing in input"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-mismatch"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "setMetrics": {
+            "position": 2,
+            "setSize": 4,
+            "source": "complete unique exposed Native content-list children in archived pre-request AX"
+          },
+          "originalInputSha256": "ee1f43aaf44f6e7b0536a9cb5792b046a5690bf53cfa8c95eafa3ea9da51b6ad",
+          "regressionInputSha256": "ee470e7420f7a0225a04c0d4f48e112d9e1c774cec709fbd7b7b65c35569fde3",
+          "sourceAxSha256": "1cb9c5f3998bc60255bcb452c309be980fa41ce43e26047b06b576e9c5e2022a",
+          "nativeAxSha256": "55e0bfe7c59c083db767d8a3da6b5915f0335991e03c54b44699fb897f5e2866"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "99ea831c0b5a59ea04617bd0d4cf1c32b7ac612739fdab330ee28790b83f9e3d",
+          "regressionInputSha256": "99ea831c0b5a59ea04617bd0d4cf1c32b7ac612739fdab330ee28790b83f9e3d",
+          "sourceAxSha256": "18b9b5813055bd14a8419a2f35abe8ae40c281409bac4fded8888b7e87e4e308",
+          "nativeAxSha256": "95d4d4b5d4815af2271a512755ccdf5c6e15e83e61eddd7e48331cb00a45780f"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "c02f1965f55bc18f17d243ddfc99547c839c026200fc5da0dfbf55600163684c",
+          "regressionInputSha256": "c02f1965f55bc18f17d243ddfc99547c839c026200fc5da0dfbf55600163684c",
+          "sourceAxSha256": "01f301598a350ae915d014906dfae9ab7e04b56418e20aa525fb4af00fba0912",
+          "nativeAxSha256": "65451075d3e21328e32816cfb50e73918987ef6f1de244019e706899b46f1a72"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "originallyEligible": true,
+          "originalMainMatched": true,
+          "originalFullMatched": true,
+          "auditedOriginal": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "observedInputRegression": {
+            "inputStatus": "verified",
+            "inputReasons": [],
+            "eligible": true,
+            "issues": [],
+            "mainMatched": true,
+            "fullMatched": true
+          },
+          "originalInputSha256": "8e1da909550822405803b29b7bbc6027d8ae3a660bd3c7180aa68a76f41e7c1a",
+          "regressionInputSha256": "8e1da909550822405803b29b7bbc6027d8ae3a660bd3c7180aa68a76f41e7c1a",
+          "sourceAxSha256": "fbfe3736c19f5eed1ed4b3afe6a1b3123384f5df2902f6a90d6ecdc49d412877",
+          "nativeAxSha256": "7fe2c0b49e1c3129725728b1c934c1a07ab73f82077ca55bf02f09c094340984"
+        },
+        {
+          "url": "https://www.uniqlo.com/us/en/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "originallyEligible": false,
+          "originalMainMatched": null,
+          "originalFullMatched": null,
+          "auditedOriginal": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "observedInputRegression": {
+            "inputStatus": "unmeasured",
+            "inputReasons": [
+              "stable unique visible target not established"
+            ],
+            "eligible": false,
+            "issues": [
+              "input-unmeasured",
+              "previous-context-unverified"
+            ],
+            "mainMatched": null,
+            "fullMatched": null
+          },
+          "setMetrics": {
+            "position": 5,
+            "setSize": 5,
+            "source": "complete unique exposed Native content-list children in archived pre-request AX"
+          },
+          "originalInputSha256": "e981da4890954171ee93a738c6e6e23d99d3829265281f6fb5341e1d9dedbfd8",
+          "regressionInputSha256": "cc739995c31646d35626a61a342a09d3f3d30628099b7805a5a85bc8d4cbe908",
+          "sourceAxSha256": "964509456190c22bb4518e7a58f49525d7e6be512611a9e8b646ee3836e8dfe4",
+          "nativeAxSha256": "cdd7397298dfc6e2d1e3ddb0264ca8de6ff7ec04e56dd6dbfd4517d3437b9772"
+        }
+      ]
+    }
+  ]
+}

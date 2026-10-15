@@ -1453,3 +1453,8 @@ The shared source fixture is generated with `--set speech-contexts-v1`; the publ
 The [dialog task and parent-context study](../../docs/voiceover-dialog-transfer.md) preserves the first actual-Rawstep-input
 evaluation, separate calibration and corrected regression. Generate its inspected update cases with `--set dialog-transfer-v1`
 and `--set dialog-parent-context-v1`. Original inputs/Native records remain immutable; regenerated inspected cases are regression.
+
+The [subsequent actual-site audit](../../docs/voiceover-public-target-v3.md) preserves first scores and the separate
+list-set input correction. `nativeSpeechInput`/`checkSpeechInput` now require independently measured list-link ordinals
+for complete default sets; incomplete, ambiguous or uncalibrated sets remain unmeasured. Public audit checks retain
+all planned slots; raw website AX and speech remain local.

@@ -7,17 +7,19 @@ function nativeContainerPath(dump:AxDump,path:number[]){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
   if(dump.truncated||dump.stringTruncations)return unknown('Native attributes are truncated');
   let node=dump.root;
+  const ancestors:AxNode[]=[];
   const containers:NonNullable<VoiceOverSpeechInput['target']['containers']>[number][]=[];
   for(const [i,index]of path.entries()){
     if(['AXTable','AXCell','AXOutline'].includes(node.AXRole??'')||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
     if(!Number.isSafeInteger(index)||index<0||!node.children?.[index])return unknown('Native target path missing');
+    ancestors.push(node);
     const s=scope(node);
     if(s?.role==='dialog'&&(s.items===undefined||s.items<1||!measuredName(node)||!s.name&&!dialogFirstChildName(node)))return unknown('Native dialog name, direct children or named first child unmeasured');
     if(s?.role==='article'&&(!measuredName(node)||!s.name&&!measuredName(node.children[index]!)))return unknown('Native article or entry child name attributes missing');
     if(s)containers.push({...s,...(s.role==='dialog'&&dialogFirstChildName(node)!==undefined?{firstChildName:dialogFirstChildName(node)}:{}),...(s.role==='article'&&measuredName(node.children[index]!)?{entryChildName:nativeNodeName(node.children[index])}:{}),id:String(node.AXDOMIdentifier||`scope:${path.slice(0,i).join('.')}:${s.role}:${s.name}`),items:s.items??0});
     node=node.children[index]!;
   }
-  return {status:'observed' as const,node,containers,path};
+  return {status:'observed' as const,node,containers,path,ancestors};
 }
 
 function observedContainerPath(dump:AxDump){
@@ -38,7 +40,7 @@ export function observedSpeechContext(dump:AxDump){
 export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
   const frame=nativeContainerPath(dump,path);if(frame.status!=='observed')return frame;
-  const {node,containers}=frame;
+  const {node,containers,ancestors}=frame;
   const semanticRole=role(node);if(!semanticRole)return unknown('target role outside this input verifier');
   if(typeof node.AXEnabled!=='boolean')return unknown('enabled state missing');
   const content=nativeCustomContent(node);if(content.status!=='observed')return unknown('additional content not measured');
@@ -47,13 +49,15 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   if(semanticRole==='button'&&node.AXRole==='AXCheckBox'&&pressed===undefined)return unknown('pressed state missing');
   if(semanticRole==='heading'&&nativeHeadingLevel(node)===undefined)return unknown('heading level missing');
   if(semanticRole==='checkbox'&&![0,1,2,false,true,'mixed'].includes(node.AXValue as never))return unknown('checked state missing');
+  const linkSet=semanticRole==='link'?nativeLinkSet(node,ancestors):undefined;
+  if(linkSet?.status==='unmeasured')return unknown(linkSet.reason);
   const description=content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' ');
   const input:VoiceOverSpeechInput={command,target:{identity:String(node.AXDOMIdentifier||`target:${path.join('.')}`),containers,semantic:{
     role:semanticRole,name:nativeNodeName(node),protected:false,disabled:!node.AXEnabled,readonly:false,required:node.AXRequired===true,multiline:false,modal:false,
     hasMoreContent:content.hasMoreContent,...(description?{description}:{}),...(typeof node.AXHelp==='string'&&node.AXHelp?{help:node.AXHelp}:{}),
     ...(pressed!==undefined?{pressed}:{}),...(typeof node.AXExpanded==='boolean'?{expanded:node.AXExpanded}:{}),
     ...(semanticRole==='checkbox'?{checked:node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true}:{}),
-    ...(semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node)}:{})
+    ...(semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node),...(linkSet?.status==='observed'?{position:linkSet.position,setSize:linkSet.setSize}:{})}:{})
   }}};
   return {status:'constructed' as const,input,unmeasuredFields:containers.flatMap((c,i)=>c.role==='dialog'?[]:[`target.containers.${i}.items`]),scope:'Native target attributes and ancestry only; reading position remains unverified. Dialog items count independently exposed Native children; other unused counts remain placeholders, not observed zeroes.'};
 }
@@ -68,6 +72,26 @@ export function observedSpeechInput(dump:AxDump,command:string){
 
 const measuredName=(n:AxNode)=>typeof n.AXTitle==='string'||typeof n.AXDescription==='string';
 const names=(a:unknown)=>typeof a==='string'?a.replace(/\s+/g,' ').trim():'';
+/** Default content-list ordinal from independently exposed Native children, never an utterance. */
+function nativeLinkSet(node:AxNode,ancestors:AxNode[]){
+  const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
+  const explicit=(n:AxNode)=>n.AXARIAPosInSet!==undefined||n.AXARIASetSize!==undefined;
+  if(explicit(node))return unknown('explicit Native link set attributes require separate calibration');
+  let index=ancestors.length-1;
+  while(index>=0&&!(ancestors[index]!.AXRole==='AXList'&&ancestors[index]!.AXSubrole==='AXContentList'))index--;
+  if(index<0)return {status:'not-applicable' as const};
+  const list=ancestors[index]!,item=ancestors[index+1]??node,children=list.children;
+  if(explicit(item))return unknown('explicit Native list-item set attributes require separate calibration');
+  let unit=item;
+  while(unit!==node){
+    const content=unit.children?.filter(c=>c.AXRole!=='AXListMarker');
+    if(unit.AXRole!=='AXGroup'||nativeNodeName(unit)||unit.childrenTruncated||content?.length!==1)return unknown('Native list item is not a single unnamed link unit');
+    unit=content[0]!;
+  }
+  if(!children?.length||list.childrenTruncated||children.some(c=>!Number.isSafeInteger(c.AXElementId)||Number(c.AXElementId)<=0)||new Set(children.map(c=>c.AXElementId)).size!==children.length)return unknown('complete unique Native list children required for link set metrics');
+  const position=children.indexOf(item)+1;
+  return position>0?{status:'observed' as const,position,setSize:children.length}:unknown('Native link list child missing');
+}
 const containsNativeImage=(n:AxNode):boolean=>(n.children??[]).some(child=>child.AXRole==='AXImage'||containsNativeImage(child));
 const roles:Record<string,string>={AXButton:'button',AXCheckBox:'checkbox',AXLink:'link',AXHeading:'heading'};
 const role=(n:AxNode)=>n.AXRole==='AXCheckBox'&&['AXToggle','AXToggleButton'].includes(String(n.AXSubrole))?'button':roles[n.AXRole??''];
@@ -122,6 +146,13 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   if(expected.role==='link'){
     if(!!expected.containsImage!==containsNativeImage(node))reasons.push('link image content differs');
     if(!!expected.currentPage!==(node.AXARIACurrent==='page'))reasons.push('current-page state differs');
+    const sets=chains.map(c=>nativeLinkSet(c.node,c.ancestors)),set=sets[0]!;
+    if(sets.some(s=>JSON.stringify(s)!==JSON.stringify(set)))return unknown('native alias link set metrics disagree');
+    if(set.status==='unmeasured')return unknown(set.reason);
+    if(set.status==='observed'){
+      if(expected.position===undefined||expected.setSize===undefined)reasons.push('link set metrics missing in input');
+      else if(expected.position!==set.position||expected.setSize!==set.setSize)reasons.push('link set metrics differ');
+    }else if(expected.position!==undefined||expected.setSize!==undefined)return unknown('Native link set metrics unmeasured');
   }
   if(expected.role==='heading'){
     const level=nativeHeadingLevel(node);

@@ -46,3 +46,7 @@ This result does **not** prove a 0% wording rate: no speech comparison met the i
 The next structural work is to independently establish article naming, dialog entry versus within-dialog context and frame/document boundaries. The library has article/dialog formatting paths, but parts of their Native naming/count behavior remain unverified; the existing Chromium browser adapter is limited to the main document. Those are distinct from the already verified plain button/link/checkbox/landmark wording. Loosening the gate, inventing missing counts or silently dropping frame/dialog/article context would create misleading scores. The two-news-site sample is also too small and narrow to establish generalization even if acquisition succeeded.
 
 The standard collector's v8 integration was checked on the existing plain-target fixture in **both Native browsers**, each with one requested document observed, one aligned start and both planned actions retained. That is a collector smoke check, not new speech accuracy evidence. Its Native reading-position description command remains separate from ordinary navigation wording.
+
+The [later v3 actual-site/input audit](./voiceover-public-target-v3.md) uses two further site groups after the dialog
+correction. It identifies missing list-link set metadata in the observer/verifier, preserves the original scores and
+reports corrected-input regression separately. The v1/v2 observations and results above remain historical evidence.
