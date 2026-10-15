@@ -24,6 +24,7 @@ import {generateHintSourceContext} from './hint-source-context.js';
 import {generateHintContextTransfer} from './hint-context-transfer.js';
 import {generateLinkedHeadingSource} from './linked-heading-source.js';
 import {generateLinkedHeadingTransfer} from './linked-heading-transfer.js';
+import {generatePracticalSpeechTasks} from './practical-speech-tasks.js';
 import { generateArticlePatterns } from "./article-patterns.js";
 import { generateDiversity } from "./diversity.js";
 import { generateArticleFollowup } from "./article-followup.js";
@@ -49,7 +50,7 @@ import {generateCheckboxSpeech,generateCheckboxEntryTiming} from './checkbox-spe
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { values } = parseArgs({ options: { set: { type: "string", default: "elements-v1" }, out: { type: "string" } } });
-const generators = {"linked-heading-source-v1":generateLinkedHeadingSource,"linked-heading-transfer-v1":generateLinkedHeadingTransfer, "elements-v1": generateElements, "screening-v1": generateScreening, "workflows-v1": generateWorkflows,
+const generators = {"practical-speech-tasks-v1":generatePracticalSpeechTasks,"linked-heading-source-v1":generateLinkedHeadingSource,"linked-heading-transfer-v1":generateLinkedHeadingTransfer, "elements-v1": generateElements, "screening-v1": generateScreening, "workflows-v1": generateWorkflows,
   "training-v2": () => generateExpanded("training"), "validation-v2": () => generateExpanded("validation"), "focus-followup-v3": generateFollowup, "page-patterns-v1": generatePagePatterns, "list-heuristics-v1":generateListHeuristics,"hint-context-transfer-v1":generateHintContextTransfer,"hint-source-context-v1":generateHintSourceContext,"table-group-hints-v1":generateTableGroupHints,"table-state-speech-v1":()=>generateTableStateSpeech('train'),"table-state-transfer-v1":()=>generateTableStateSpeech('test'),"list-profiles-measured-transfer-v1":generateMeasuredListTransfer,"list-profile-geometry-v1":generateListProfileGeometry,"list-profiles-v1":()=>generateListProfiles('train'),"list-profiles-transfer-v1":()=>generateListProfiles('test'), "article-patterns-v1":generateArticlePatterns, "diversity-v1":generateDiversity,
   "article-followup-v2":()=>generateArticleFollowup('train'),"article-transfer-v2":()=>generateArticleFollowup('test'),
   "hints-v1":()=>generateHints('train'),"hints-transfer-v1":()=>generateHints('test'),

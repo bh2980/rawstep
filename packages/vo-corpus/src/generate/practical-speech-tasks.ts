@@ -1,0 +1,27 @@
+import type {Case} from '../cases.js';
+
+/** Fresh whole tasks, including known evidence gaps; final-state oracles never enter formatter inputs. */
+export function generatePracticalSpeechTasks(){
+ const set='practical-speech-tasks-v1',pages:Record<string,string>={},cases:Case[]=[];
+ const add=(variant:string,body:string,script:string,chords:string[],taskOutcome:NonNullable<Case['taskOutcome']>,question:string)=>{
+  const id=set+'.'+variant;
+  pages[variant]=`<!doctype html><html lang=en><meta charset=utf-8><title>Community workspace</title><style>body{font:17px system-ui;padding:16px}button,input{margin:7px;padding:7px}label{display:block;margin:7px}section,fieldset,form{padding:8px}td,th{padding:10px}p{margin:10px}</style><body><button id=before autofocus>Before marker</button>${body}<button id=after>After marker</button><script>const byId=id=>document.getElementById(id);${script}</script></body></html>`;
+  cases.push({id,page:'pages/'+variant+'.html',chords,taskOutcome,captureAxAfterSteps:true,listen:{minWaitMs:2400,quietMs:1200,maxWaitMs:8500},axes:{family:'practical-speech-task-transfer',role:'compound-task',partition:'test',exposure:'unseen',templateGroup:id,siteGroup:id,contrastGroup:id,command:'whole-keyboard-task',oraclePurpose:'task-outcome',question}});
+ };
+ add('support-search',`<main aria-label="Help center"><form id=lookup aria-label="Article search"><label for=query>Search help articles</label><input id=query type=text autocomplete=off spellcheck=false><button id=search type=submit>Find articles</button></form><section aria-label="Search matches"><p id=summary></p><button id=result type=button hidden>Open map guidance</button></section><section aria-label="Article preview"><p id=selected></p></section></main>`,
+  `byId('lookup').onsubmit=event=>{event.preventDefault();const found=byId('query').value.toLowerCase()==='map';byId('result').hidden=!found;byId('summary').textContent=found?'One matching article':'No matching articles'};byId('result').onclick=()=>byId('selected').textContent='Selected: Map guidance'`,
+  ['Tab','m','a','p','Tab','Enter','Tab','Enter','Shift+Tab','Shift+Tab','Left','Right','Tab','Tab','Shift+Tab'],
+  {controls:[{role:'textbox',name:'Search help articles',state:{value:'map'}}],texts:['One matching article','Selected: Map guidance']},
+  'Can actual Rawstep text entry, submission, a dynamically revealed result and caret return finish the task? Keep edit/Enter speech and unverified text inputs separate from measured object reading.');
+ add('publication-settings',`<section aria-label="Reading preferences"><form aria-label="Publication options" onsubmit="return false"><fieldset><legend>Delivery settings</legend><label><input id=weekly type=checkbox checked>Weekly editions</label><button id=compact type=button aria-pressed=false>Use compact layout</button></fieldset><button id=apply type=button disabled>Apply publication settings</button><button id=restore type=button>Restore defaults</button><p id=receipt></p></form></section>`,
+  `const dirty=()=>byId('apply').disabled=false;byId('weekly').onchange=dirty;byId('compact').onclick=()=>{byId('compact').setAttribute('aria-pressed',String(byId('compact').getAttribute('aria-pressed')!=='true'));dirty()};byId('apply').onclick=()=>byId('receipt').textContent='Saved: weekly '+(byId('weekly').checked?'on':'off')+'; compact '+(byId('compact').getAttribute('aria-pressed')==='true'?'on':'off')+'.';byId('restore').onclick=()=>{byId('weekly').checked=true;byId('compact').setAttribute('aria-pressed','false');byId('apply').disabled=true;byId('receipt').textContent='Defaults restored.'}`,
+  ['Tab','Space','Tab','Space','Tab','Space','Shift+Tab','Space','Shift+Tab','Space','Tab','Tab','Space','Tab','Space','Shift+Tab','Space','Tab','Space'],
+  {controls:[{role:'checkbox',name:'Weekly editions',state:{checked:true}},{role:'button',name:'Use compact layout',state:{pressed:true}},{role:'button',name:'Apply publication settings',state:{disabled:false}}],texts:['Saved: weekly on; compact on.']},
+  'Do measured checkbox/button receipts and named form/group context transfer across save, restore, disabled Tab skipping and resave histories?');
+ add('supply-basket',`<section aria-label="Supply basket"><table><caption>Supplies</caption><thead><tr><th scope=col>Item</th><th scope=col>Quantity</th><th scope=col>Actions</th></tr></thead><tbody><tr><th scope=row>Drawing pads</th><td><input id=quantity aria-label="Drawing pad quantity" value=1 readonly tabindex=-1></td><td><button id=add type=button>Increase pads</button><button id=remove type=button disabled>Decrease pads</button></td></tr></tbody></table><button id=order type=button>Confirm supply order</button><p id=receipt role=status></p></section>`,
+  `const change=delta=>{byId('quantity').value=String(Number(byId('quantity').value)+delta);byId('remove').disabled=Number(byId('quantity').value)<=1};byId('add').onclick=()=>change(1);byId('remove').onclick=()=>change(-1);byId('order').onclick=()=>byId('receipt').textContent='Order placed: '+byId('quantity').value+' drawing pad.'`,
+  ['Tab','Space','Space','Tab','Space','Space','Tab','Space','Shift+Tab','Space','Tab','Space','Tab','Space'],
+  {controls:[{role:'textbox',name:'Drawing pad quantity',state:{value:'1'}},{role:'button',name:'Decrease pads',state:{disabled:true}}],texts:['Order placed: 1 drawing pad.']},
+  'Does disabling the currently focused table button preserve the next action target, and do status updates remain distinct from object and activation speech?');
+ return {pages,cases};
+}
