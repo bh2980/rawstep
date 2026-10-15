@@ -1,0 +1,1138 @@
+{
+  "schemaVersion": 1,
+  "scope": "Calibration of nearest focus context; no independent generalization claim. All command and native speech observations retained. Chrome inferred article naming is not fully asserted until its history-dependent behavior is understood.",
+  "inputs": [
+    {
+      "id": "context-return-v1.region-flat",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><section aria-label=\"Account preferences\"><div><button id=\"inner\">Change alerts</button></div><button id=\"outer\">Save preferences</button></section><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "6723885f8eb455aabf17b1bfbf3bdc6d3c45712cbec689777341ac5e6e9481e2",
+      "inferredArticle": false
+    },
+    {
+      "id": "context-return-v1.region-group",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><section aria-label=\"Account preferences\"><div role=\"group\" aria-label=\"Alerts\"><button id=\"inner\">Change alerts</button></div><button id=\"outer\">Save preferences</button></section><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "9b99e422263d14ddf7ac6e3dddc302c3f5e63f845668040c558e12a17d120fb3",
+      "inferredArticle": false
+    },
+    {
+      "id": "context-return-v1.article-flat-inferred",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><article><h2>Editorial desk</h2><div><button id=\"inner\">Review draft</button></div><button id=\"outer\">Publish draft</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "52ae3e3a0b72e0975a1a0b3da74067972f32e72698eb11d87b56b45d62852151",
+      "inferredArticle": true
+    },
+    {
+      "id": "context-return-v1.article-flat-named",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><article aria-label=\"Story tools\"><h2>Editorial desk</h2><div><button id=\"inner\">Review draft</button></div><button id=\"outer\">Publish draft</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "0738b0749debc03ee0733be6bf8f3d269327cd101a0fce3e606c79cbbedfdbfc",
+      "inferredArticle": false
+    },
+    {
+      "id": "context-return-v1.article-table-inferred",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><article><h2>Editorial desk</h2><table><caption>Draft actions</caption><tr><th>Action</th></tr><tr><td><button id=\"inner\">Review draft</button></td></tr></table><button id=\"outer\">Publish draft</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "f4981f1cd2c46fb2b02c2bd7310cf15f1d2e62b19ba36bac10fe173f5339754e",
+      "inferredArticle": true
+    },
+    {
+      "id": "context-return-v1.article-table-named",
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Publishing preferences</title><body><button id=\"before\" autofocus>Before marker</button><article aria-label=\"Story tools\"><h2>Editorial desk</h2><table><caption>Draft actions</caption><tr><th>Action</th></tr><tr><td><button id=\"inner\">Review draft</button></td></tr></table><button id=\"outer\">Publish draft</button></article><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "8e2308cb1dd36b0ef335598627a7e79d5662931300aab1a4958332c45685c17e",
+      "inferredArticle": false
+    }
+  ],
+  "nativeProfiles": [
+    {
+      "referenceBrowser": "safari",
+      "sourceRun": "context-return-v1-2026-10-15T02-53-00-887Z",
+      "sourceRecordsSha256": "a24c54790d83064b51c2110ded36ae107aeae516c129754a8cf8f46193e87af5",
+      "cases": [
+        {
+          "id": "context-return-v1.region-flat",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 8720,
+                  "text": "Change alerts button Account preferences region"
+                },
+                {
+                  "t": 9288,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 11251,
+                  "text": "Save preferences button"
+                },
+                {
+                  "t": 11831,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 13903,
+                  "text": "Change alerts button"
+                },
+                {
+                  "t": 14474,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 16317,
+                  "text": "Save preferences button"
+                },
+                {
+                  "t": 16884,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 18867,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 19447,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 21519,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 22092,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.region-group",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 32183,
+                  "text": "Change alerts button Alerts group"
+                },
+                {
+                  "t": 32749,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 34702,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 35278,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 37361,
+                  "text": "Change alerts button Alerts group"
+                },
+                {
+                  "t": 37930,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 39773,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 40342,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 42316,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 42892,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 45056,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 45620,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-flat-inferred",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 55467,
+                  "text": "Review draft button Editorial desk article"
+                },
+                {
+                  "t": 56046,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 58002,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 58581,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 60666,
+                  "text": "Review draft button"
+                },
+                {
+                  "t": 61233,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 63072,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 63650,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 65520,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 66099,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 68199,
+                  "text": "Publish draft button Editorial desk article"
+                },
+                {
+                  "t": 68765,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-flat-named",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 78577,
+                  "text": "Review draft button Story tools article"
+                },
+                {
+                  "t": 79144,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 81105,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 81672,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 83756,
+                  "text": "Review draft button"
+                },
+                {
+                  "t": 84316,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 86267,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 86852,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 88789,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 89364,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 91448,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 92025,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-table-inferred",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 102003,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 102581,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 104520,
+                  "text": "Publish draft button Editorial desk article"
+                },
+                {
+                  "t": 105095,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 107266,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 107827,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 109741,
+                  "text": "Publish draft button Editorial desk article"
+                },
+                {
+                  "t": 110315,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 112268,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 112840,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 115028,
+                  "text": "Publish draft button Editorial desk article"
+                },
+                {
+                  "t": 115593,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-table-named",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 125837,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 126404,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 128421,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 129006,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 131172,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 131742,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 133640,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 134216,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 136172,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 136750,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 138821,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 139392,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        }
+      ]
+    },
+    {
+      "referenceBrowser": "chrome",
+      "sourceRun": "context-return-v1-2026-10-15T02-57-56-840Z",
+      "sourceRecordsSha256": "b7c4c55fd299fc05dbf1306570386e474e3a4b8a6eba9ecc6756b9fcb18aff83",
+      "cases": [
+        {
+          "id": "context-return-v1.region-flat",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 12913,
+                  "text": "Change alerts button Account preferences region"
+                },
+                {
+                  "t": 13494,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 15664,
+                  "text": "Save preferences button"
+                },
+                {
+                  "t": 16229,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 18556,
+                  "text": "Change alerts button"
+                },
+                {
+                  "t": 19113,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 21352,
+                  "text": "Save preferences button"
+                },
+                {
+                  "t": 21920,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 24049,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 24613,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 26939,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 27507,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.region-group",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 38129,
+                  "text": "Change alerts button Alerts group"
+                },
+                {
+                  "t": 38701,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 40920,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 41488,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 43792,
+                  "text": "Change alerts button Alerts group"
+                },
+                {
+                  "t": 44349,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 46439,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 47018,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 49214,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 49797,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 52118,
+                  "text": "Save preferences button Account preferences region"
+                },
+                {
+                  "t": 52672,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-flat-inferred",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 63011,
+                  "text": "Review draft button article"
+                },
+                {
+                  "t": 63584,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 65683,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 66270,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 68512,
+                  "text": "Review draft button"
+                },
+                {
+                  "t": 69077,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 71164,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 71735,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 73840,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 74416,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 76668,
+                  "text": "Publish draft button Publish draft article"
+                },
+                {
+                  "t": 77230,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": false
+        },
+        {
+          "id": "context-return-v1.article-flat-named",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 87712,
+                  "text": "Review draft button Story tools article"
+                },
+                {
+                  "t": 88285,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 90384,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 90978,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 93298,
+                  "text": "Review draft button"
+                },
+                {
+                  "t": 93858,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 95931,
+                  "text": "Publish draft button"
+                },
+                {
+                  "t": 96509,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 98703,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 99271,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 101520,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 102093,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        },
+        {
+          "id": "context-return-v1.article-table-inferred",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 112427,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 113010,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 115186,
+                  "text": "Publish draft button Publish draft article"
+                },
+                {
+                  "t": 115759,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 118258,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 118817,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 120970,
+                  "text": "Publish draft button Publish draft article"
+                },
+                {
+                  "t": 121553,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 123738,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 124321,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 126676,
+                  "text": "Publish draft button Publish draft article"
+                },
+                {
+                  "t": 127249,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": false
+        },
+        {
+          "id": "context-return-v1.article-table-named",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 137997,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 138576,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 140758,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 141343,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 143760,
+                  "text": "Review draft button Draft actions table 1 column, 2 rows"
+                },
+                {
+                  "t": 144326,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "inner"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 146386,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 146959,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 149150,
+                  "text": "After marker button"
+                },
+                {
+                  "t": 149737,
+                  "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+                }
+              ],
+              "keyboardFocusId": "after"
+            },
+            {
+              "chord": "Shift+Tab",
+              "utterances": [
+                {
+                  "t": 152150,
+                  "text": "Publish draft button Story tools article"
+                },
+                {
+                  "t": 152717,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ],
+              "keyboardFocusId": "outer"
+            }
+          ],
+          "assertFullSpeech": true
+        }
+      ]
+    }
+  ]
+}

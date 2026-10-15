@@ -33,9 +33,12 @@ const { values } = parseArgs({ options: {
   reverse: { type: "boolean" },
   settings: { type: "string" },
   "no-ax": { type: "boolean", default: false },
+  "visual-cursor": {type:"boolean"},
 } });
 const runDir = values.resume ? resolve(values.resume) : undefined;
 const meta = runDir ? JSON.parse(await readFile(join(runDir, "meta.json"), "utf8")) : undefined;
+const captureVisualCursor=values['visual-cursor']??(meta?.captureVisualCursor===true);
+if(captureVisualCursor&&values['no-ax'])throw new Error('--visual-cursor requires preserved AX snapshots');
 const browser=collectionBrowser(values.browser,meta?.machine?.browser?.name),collectionProfile=`native-voiceover-${browser}`;
 const settings=values.settings??meta?.settings??"baseline-v1";
 const casesDir = runDir && existsSync(join(runDir,"inputs/cases.json")) ? join(runDir,"inputs") : resolve(packageRoot, meta?.casesDir ?? values.cases ?? "");
@@ -58,13 +61,14 @@ const ordered = reverse ? [...planned.cases].reverse() : planned.cases;
 const todo = ordered.filter(c => !done.has(c.id) && (!filter || filter.test(c.id))).slice(0, values.limit ? Number(values.limit) : undefined);
 
 const machine = await resolveMachine(values.vm);
+const readAX=(options:Parameters<typeof dumpAxTree>[2]={})=>dumpAxTree(machine,browserApps[browser],{...options,visualCursor:captureVisualCursor});
 const guard = requireFrontmost(machine, browser);
 const session = new VoSession(values.url ?? atDriverUrl(machine), guard);
 const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?join(out,"inputs"):casesDir, machine);
 const started = Date.now();
 let aligned = 0;
 const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
-const observationProtocol="host-receipts-v4: wire request/ack, bounded listen, AX start/end, optional native selection range and snapshot-local AX equality IDs (AX schema v3); preserve page-load and late raw receipts; no completion or causal attribution claim";
+const observationProtocol=`host-receipts-v5: wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry (AX schema v4); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);
@@ -73,7 +77,7 @@ try {
   if (!runDir) await writeFile(join(out, "meta.json"), JSON.stringify({
     caseSet: set.id, collectionProfile, casesGeneratedAt: set.generatedAt, casesSha256, casesDir: casesDir.slice(packageRoot.length + 1), caseOrder: reverse ? "reverse" : "forward",
     plannedCaseIds: todo.map(c=>c.id), plannedActions: todo.reduce((n,c)=>n+c.chords.length,0),
-    settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: facts, captureSessionId,
+    settings, startedAt: new Date().toISOString(), atDriver: negotiated, machine: facts, captureSessionId,captureVisualCursor,
     inputArchive, stepJournal:"steps.jsonl", receiptClock: {origin:session.startedAt,basis:"host receipt time; not synthesis latency"},
     workflowStartProtocol, observationProtocol,
   }, null, 2));
@@ -97,7 +101,7 @@ try {
       await guard("public-page preparation");
       try {
         if (item.startProtocol === "first-heading") {
-          startAx = await dumpAxTree(machine, browserApps[browser], { maxNodes:8000, maxStringLength:100000 });
+          startAx = await readAX({ maxNodes:8000, maxStringLength:100000 });
           if (!values["no-ax"]) {
             start.axPath = await saveAxSnapshot(out,attemptId,'preparation',startAx);
           }
@@ -122,7 +126,7 @@ try {
       // Ordinary Tab enters web content; then synchronize VO to proven native web focus, never to browser chrome.
       for (let i = 0; i < 10 && !focusedAxNode(startAx!); i++) {
         await session.press("Tab"); await session.listen();
-        startAx = await dumpAxTree(machine,browserApps[browser], {maxNodes:8000,maxStringLength:100000});
+        startAx = await readAX({maxNodes:8000,maxStringLength:100000});
       }
       if (focusedAxNode(startAx!)) {
         for (const chord of ["VO+Shift+F4","VO+Home"]) {
@@ -139,7 +143,7 @@ try {
     } else if (item.url) {
       // Safari DOM focus can leave native focus on a previous object. AX focus also brings the web area into focus.
       await machine.exec("osascript", ["-e", 'tell application "System Events" to tell process "Safari"\nset webArea to UI element 1 of scroll area 1 of group 1 of group 1 of tab group 1 of splitter group 1 of window 1\nset focused of webArea to true\nset focused of button "Before marker" of webArea to true\nend tell']);
-      startAx = await dumpAxTree(machine, browserApps[browser]);
+      startAx = await readAX();
       if (!values["no-ax"]) {
         start.axPath = await saveAxSnapshot(out,attemptId,'marker-focus',startAx);
       }
@@ -152,25 +156,25 @@ try {
     } else if(set.syntheticInputs){
       try{
         const marker=()=>{const n=startAx&&focusedAxNode(startAx);return n?.AXRole==='AXButton'&&nativeNodeName(n)===START_MARKER;};
-        startAx=await dumpAxTree(machine,browserApps[browser]);
+        startAx=await readAX();
         if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'initial-focus',startAx);
         if(!marker()){
           const preparation={method:'AXFocused' as const,requestedAt:session.now(),endedAt:0} as NonNullable<CaseRecord['start']['focusPreparation']>;
           start.focusPreparation=preparation;
-          try{startAx=await dumpAxTree(machine,browserApps[browser],{focusStartURL:`${pages.origin}/${item.page}`});
+          try{startAx=await readAX({focusStartURL:`${pages.origin}/${item.page}`});
             if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'AX-focus-preparation',startAx);
           }catch(error){preparation.error=(error as Error).message;}
           finally{preparation.endedAt=session.now();}
         }
         for(let i=0;!marker()&&i<12;i++){
           await session.press('Tab');start.commands!.push('Tab');start.speech.push(...spoken(await session.listen()));
-          startAx=await dumpAxTree(machine,browserApps[browser]);
+          startAx=await readAX();
           if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,`initial-focus-recovery-${i+1}`,startAx);
         }
         if(!marker())throw new Error('Native keyboard focus could not reach the start marker');
         await session.press('VO+Shift+F4');start.commands!.push('VO+Shift+F4');
         const fresh=spoken(await session.listen());start.speech.push(...fresh);
-        startAx=await dumpAxTree(machine,browserApps[browser]);
+        startAx=await readAX();
         if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'verified-focus',startAx);
         start.aligned=fresh.join(' ').includes(START_MARKER)&&marker();
         if(!start.aligned)throw new Error('VoiceOver cursor and native keyboard focus did not both confirm the start marker');
@@ -178,7 +182,7 @@ try {
     } else for (let attempt = 0; attempt < 2 && !start.aligned; attempt++) {
       if (attempt === 1 && item.captureAxAfterSteps) {
         // A dismissed OS alert can leave the VO cursor outside Safari. Recover only from proven page keyboard focus.
-        const focus = focusedAxNode(await dumpAxTree(machine, browserApps[browser]));
+        const focus = focusedAxNode(await readAX());
         if (focus?.AXRole === "AXButton" && focus.AXTitle === START_MARKER) {
           await session.press("VO+Shift+F4");
           start.commands!.push("VO+Shift+F4");
@@ -200,7 +204,7 @@ try {
       start.commands!.push("VO+Cmd+F4");
       start.speech.push(...spoken(await session.listen()));
       try {
-        startAx = await dumpAxTree(machine, browserApps[browser]);
+        startAx = await readAX();
         if (!values["no-ax"]) {
           start.axPath = await saveAxSnapshot(out,attemptId,'verified-focus',startAx);
         }
@@ -209,14 +213,14 @@ try {
           // Speech can name the VO marker while Safari keyboard focus remains in chrome. Only setup Tab is allowed here.
           for(let i=0;i<12;i++){
             await session.press('Tab');start.commands!.push('Tab');start.speech.push(...spoken(await session.listen()));
-            startAx=await dumpAxTree(machine,browserApps[browser]);
+            startAx=await readAX();
             if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,`focus-recovery-${i+1}`,startAx);
             focused=focusedAxNode(startAx);
             if(focused?.AXRole==='AXButton'&&focused.AXTitle===START_MARKER){
               await session.press('VO+Shift+F4');start.commands!.push('VO+Shift+F4');
               const synchronizedSpeech=spoken(await session.listen());start.speech.push(...synchronizedSpeech);
               if(!synchronizedSpeech.join(' ').includes(START_MARKER))throw new Error('VO cursor did not confirm proven marker focus after Tab recovery');
-              startAx=await dumpAxTree(machine,browserApps[browser]);
+              startAx=await readAX();
               if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'recovered-focus',startAx);
               focused=focusedAxNode(startAx);break;
             }
@@ -233,7 +237,7 @@ try {
     }
     const axPath = join(out, "ax", (item.page || item.id).replace(/[\\/]/g, "_").replace(/\.html$/, ".json"));
     if (start.aligned && !values["no-ax"] && !existsSync(axPath)) {
-      try { await writeFile(axPath, JSON.stringify(startAx ?? await dumpAxTree(machine, browserApps[browser])),{flag:'wx'}); }
+      try { await writeFile(axPath, JSON.stringify(startAx ?? await readAX()),{flag:'wx'}); }
       catch (error) { console.log(`  ! AX dump failed for ${item.page}: ${(error as Error).message}`); }
     }
     const record: CaseRecord = { caseSet: set.id, caseId: item.id, source: "voiceover", attemptId,captureSessionId,receiptClockOrigin:session.startedAt,start, steps: [], ...(pageContext ? { pageContext } : {}) };
@@ -248,7 +252,7 @@ try {
         if (item.captureAxAfterSteps && !values["no-ax"]) {
           step.timing!.axObservationStartedAt = session.now();
           try {
-            const tree = await dumpAxTree(machine,browserApps[browser]);
+            const tree = await readAX();
             step.timing!.axObservationEndedAt = session.now();
             step.axPath = await saveAxSnapshot(out,attemptId,`step-${stepIndex+1}`,tree);
           } catch (error) { step.axError = (error as Error).message; }

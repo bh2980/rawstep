@@ -15,6 +15,7 @@ var maxDepth = 60
 var maxNodes = 5000
 var maxStringLength = 500
 var focusStartURL: String?
+var visualCursor = false
 var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
   let flag = arguments.removeFirst()
@@ -26,6 +27,9 @@ while !arguments.isEmpty {
   case "--max-nodes": maxNodes = Int(value) ?? maxNodes
   case "--max-string-length": maxStringLength = Int(value) ?? maxStringLength
   case "--focus-start-url": focusStartURL = value
+  case "--visual-cursor":
+    guard value == "capture" else { fail("--visual-cursor requires capture") }
+    visualCursor = true
   default: fail("unknown flag \(flag)")
   }
 }
@@ -100,11 +104,12 @@ if let expected = focusStartURL {
   }
   guard verified else { fail("fixture start focus was not independently confirmed") }
 }
+let cursorBefore = visualCursor ? captureVoiceOverOverlay() : nil
 let focused: AXUIElement? = { let f = attribute(application, "AXFocusedUIElement"); return isElement(f) ? (f as! AXUIElement) : nil }()
 
 let wanted: [String] = [
   "AXRole", "AXSubrole", "AXRoleDescription", "AXTitle", "AXDescription", "AXValue", "AXHelp", "AXPlaceholderValue",
-  "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXSelectedTextRange", "AXExpanded", "AXRequired", "AXVisited",
+  "AXPosition", "AXSize", "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXSelectedTextRange", "AXExpanded", "AXRequired", "AXVisited",
   "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXARIACurrent", "AXInvalid", "AXURL",
 ]
 
@@ -124,6 +129,14 @@ func json(_ value: AnyObject) -> Any? {
     if CFGetTypeID(value) == AXUIElementGetTypeID() { return nil }
     if CFGetTypeID(value) == AXValueGetTypeID() {
       let ax = value as! AXValue
+      if AXValueGetType(ax) == .cgPoint {
+        var point = CGPoint.zero
+        if AXValueGetValue(ax, .cgPoint, &point) { return ["x": point.x, "y": point.y] }
+      }
+      if AXValueGetType(ax) == .cgSize {
+        var size = CGSize.zero
+        if AXValueGetValue(ax, .cgSize, &size) { return ["width": size.width, "height": size.height] }
+      }
       if AXValueGetType(ax) == .cfRange {
         var range = CFRange(location: 0, length: 0)
         if AXValueGetValue(ax, .cfRange, &range) { return ["location": range.location, "length": range.length] }
@@ -177,7 +190,7 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
 
 let tree = dump(webArea, depth: 0, path: [])
 var result: [String: Any] = [
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "app": appName,
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",
@@ -191,6 +204,12 @@ if let focused {
   result["focusedRole"] = string(focused, "AXRole") ?? NSNull()
 }
 if let focusStartURL { result["focusPreparation"] = ["method": "AXFocused", "url": focusStartURL, "verified": true] as [String: Any] }
+if let cursorBefore {
+  let after = captureVoiceOverOverlay()
+  result["visualCursor"] = ["before": cursorBefore.payload, "after": after.payload,
+    "stable": cursorBefore.frame != nil && cursorBefore.frame == after.frame,
+    "scope": "Isolated visible VO outline, not keyboard focus or a direct logical-cursor object API"] as [String: Any]
+}
 let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
 FileHandle.standardOutput.write(data)
 FileHandle.standardOutput.write(Data("\n".utf8))

@@ -1321,3 +1321,87 @@ Local source reports are `data/analyses/{safari-v8-practical-tasks-v1-independen
 with the original Chrome observer result in `chrome155-v2-practical-tasks-v1-independent/`, controlled native browser
 comparison in `native-browser-practical-tasks-v1/`, and all-attempt capture/source-log accounting in
 `practical-tasks-v1-capture-accounting/`. Inputs and engine were not changed between these profile evaluations.
+
+## Practical blockers and context correction (2026-10-15)
+
+The task evidence above supports using the current library for scripted regression of the listed interactions and
+their page outcomes. It does not justify waiting an arbitrary number of weeks before using that bounded scope, or
+claiming that strict native speech assertions and arbitrary browsing are ready. None of the three completed tasks
+failed its final targets or AX keyboard-focus path. Remaining speech differences, observer gaps and unsupported
+commands are separate limitations.
+
+`context-return-v1` isolates the practical context omission in six paired contrasts: a named region with/without an
+inner named group; an article with/without a named table; and explicit/inferred article names. The six-command
+Tab/Shift+Tab sequence is shared. Inputs were frozen at SHA
+`143fef05d8f6451d8d3dfe22b87def3b2a8a43811ffb3b83e3c89b45f3c79638` before both native browser captures against
+the unchanged v8/v2 build. These are calibration contrasts, deliberately connected in one contrast group, not six
+independent generalization examples. All 36 planned actions per browser were recorded, aligned and compared.
+
+The root error was retaining every ancestor as an already-announced context. Native Tab announces the nearest
+context, and announces an ancestor again after leaving the child. Safari v9 / Chrome v3 update that shared rule,
+add observed article context on focus moves, and correctly inflect one table column/row. Object-navigation context
+handling is retained. No fixture names or page structures are special-cased. The frozen candidate JS hash is
+`ab365a240e370e217811fc9884d11e781f8e9528414d255a59c53bea730d2982`.
+
+| Inspected cohort, regression results | Safari v8 → v9 | Chrome v2 → v3 |
+| --- | ---: | ---: |
+| Context contrasts: Main Speech Exact / 36 planned | 19 → 36 | 19 → 32 |
+| Context contrasts: normalized full speech / 36 | 19 → 36 | 19 → 32 |
+| Context contrasts: literal Full Speech Exact / 36 | 0 → 0 | 0 → 0 |
+| Practical tasks: Main Speech Exact / 29 planned | 27 → 29 | 22 → 23 |
+| Practical tasks: literal Full Speech Exact / 29 | 12 → 12 | 9 → 9 |
+| Practical tasks: joint Task Success / 3 | 3 → 3 | 3 → 3 |
+| Practical tasks: AX keyboard-focus agreement / 29 | 29 → 29 | 29 → 29 |
+| Practical tasks: bounded full-state matches / 29 | 21 → 21 | 21 → 21 |
+
+Literal Full Speech Exact includes punctuation, hints, repetitions and order; normalized full speech is a different
+legacy metric. Context test punctuation still differs on every action. These are all-plan counts, not a filtered
+success subset. The original independent composition evaluation remains 27/29 and 22/29; the new 29/29 and 23/29
+results are regression, not a new independent 90% achievement. No new overall State or Navigation Accuracy is claimed.
+
+Chrome's four remaining context-contrast failures share one unresolved root: unnamed articles have empty native AX
+names, yet VoiceOver sometimes names the article after the focus target on return. Initial entry and later return
+differ. The engine reports the article role without inventing that name. The six remaining Chrome practical speech
+failures comprise that article case, two disclosure receipts, and three text-entry receipts with repeated TTS requests.
+These need naming/history, disclosure-role, and request/cancellation contrasts respectively; they do not require a new
+collector or engine rewrite. The two bounded-state gaps documented above remain unchanged and still count as gaps.
+Group/listbox interaction, rotor and cross-frame commands remain explicitly unsupported; their implementation is
+additional feature work, not a reason to prevent testing the supported workflows.
+
+Public `tests/fixtures/voiceover-evidence/native-context-return-2026-10-15.json` preserves both browser receipt sets,
+shared HTML and source hashes. Its browser integration test checks all 72 keyboard-focus transitions. Normalized full
+speech is asserted for all Safari cases and the four named-context Chrome cases (60 actions); Chrome's two unresolved
+inferred-name workflows retain raw data and all four failures in the full 36-action corpus report. That narrower test
+assertion scope is not the reported evaluation denominator.
+
+```sh
+npm run test:integration -- tests/mock-voiceover-native-context.integration.test.ts
+corepack pnpm --dir packages/vo-corpus exec tsx src/generate/index.ts --set context-return-v1 --out data/cases/context-return-update-check
+```
+
+Local reproducible reports are `data/analyses/{safari-v8-context-return-v1-before,safari-v9-context-return-v1-after,
+chrome-v2-context-return-v1-before,chrome-v3-context-return-v1-after,safari-v9-practical-tasks-v1-regression,
+chrome-v3-practical-tasks-v1-regression}/`. Raw captures, failed earlier attempts and old reports are unchanged.
+
+### Reading-location observation, independently scoped
+
+VO cursor AppleScript queries timed out in browser context with AT Driver both on and off; an AT Driver-only cause
+has not been established. This blocks the direct logical-cursor oracle, not the separately observed speech, page
+state, focus transitions or task targets. Repeating those timeouts is unnecessary for the context correction.
+
+Optional `collect --visual-cursor` now saves isolated PNGs of VoiceOver's own transparent cursor window, before and
+after each AX observation, together with window ownership, guest capture times and AX geometry (schema v4,
+observation protocol v5). It sends no extra navigation input. Captures are disabled by default. A changed window layer,
+missing permission, blank/solid/multiple outline, movement during observation or ambiguous geometry is recorded as
+unavailable/unstable/unmeasured rather than guessed. The measured default outline has four-point padding; other
+profiles require calibration. Resume requires the same observation protocol and option.
+
+A Chrome end-to-end smoke re-executed two inspected contrasts: all 12 planned action observations had stable paired
+outlines and a unique snapshot-local AX geometry candidate. An independent Pillow check matched the alpha bounds of
+all 24 preserved PNGs to the Swift detector. Capture pairs plus AX took about 225–294 ms each. A preceding five-stop
+static-reading probe changed the outline from heading to table and three texts while AX keyboard focus stayed on the
+same button, establishing that this signal is independent of keyboard focus. A geometry candidate still does not
+establish the logical reading unit or native/model cursor parity; table cell/text ancestors, scrolling, clipped bounds
+and cursor tracking settings need further validation. Navigation Accuracy remains unmeasured. PNGs and post-state
+diagnostics are evaluator data, never policy/prediction inputs. The smoke is in
+`data/analyses/chrome-v3-visual-cursor-smoke/`, including independent pixel audit and all planned coverage counts.

@@ -1,6 +1,6 @@
-/** Read-only native browser AX web-area snapshot. AX keyboard focus is not the VoiceOver reading cursor. */
+/** Native AX snapshot, read-only unless explicit guarded start focus is requested. Optional visual capture is separate from AX keyboard focus. */
 import { execFile } from "node:child_process";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, stat, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -8,6 +8,7 @@ import type { Machine } from "./host.js";
 
 const run = promisify(execFile);
 const source = fileURLToPath(new URL("../axdump/axdump.swift", import.meta.url));
+const overlaySource = fileURLToPath(new URL("../axdump/cursor-overlay.swift", import.meta.url));
 const binary = fileURLToPath(new URL("../data/bin/axdump", import.meta.url));
 
 async function modified(path: string): Promise<number | undefined> {
@@ -16,10 +17,12 @@ async function modified(path: string): Promise<number | undefined> {
 
 /** Compiles the Swift source into data/bin once, and again when the source is newer. */
 async function ensureBinary(): Promise<string> {
-  const [built, edited] = [await modified(binary), await modified(source)];
+  const [built, edited] = [await modified(binary), Math.max(await modified(source) ?? 0,await modified(overlaySource) ?? 0)];
   if (built === undefined || (edited !== undefined && edited > built)) {
     await mkdir(fileURLToPath(new URL("../data/bin/", import.meta.url)), { recursive: true });
-    await run("swiftc", ["-O", source, "-o", binary]);
+    const combined = fileURLToPath(new URL("../data/bin/axdump-build.swift", import.meta.url));
+    await writeFile(combined,(await Promise.all([overlaySource,source].map(p=>readFile(p,"utf8")))).join("\n"));
+    await run("swiftc", ["-O", combined, "-o", binary]);
   }
   return binary;
 }
@@ -42,6 +45,7 @@ export interface AxDump {
   /** Child indices from the web area root to the focused element; null when focus is outside the web area. */
   focusedPath: number[] | null;
   root: AxNode;
+  visualCursor?: import("./cursor.js").VisualCursorCapture;
 }
 
 /** AXFocused on a stale web node is insufficient: Safari can report actual focus in browser chrome. */
@@ -72,12 +76,13 @@ export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string; visualCursor?:boolean } = {}): Promise<AxDump> {
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
   if (options.maxStringLength) args.push("--max-string-length", String(options.maxStringLength));
   if (options.focusStartURL) args.push("--focus-start-url", options.focusStartURL);
+  if (options.visualCursor) args.push("--visual-cursor", "capture");
   try {
     const stdout = await machine.exec(await machine.place(await ensureBinary()), args);
     return JSON.parse(stdout) as AxDump;

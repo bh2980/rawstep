@@ -6,8 +6,8 @@ import {formatUsageHint} from './usage-hints.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v8' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v2' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v9' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v3' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -23,6 +23,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Safari listboxes are outer reading units until explicit interaction. Native select and ARIA selected-option summaries differ. Listbox interaction itself remains unsupported pending native calibration.',
   'Linked text headings are projected as one reading unit, preserving nesting-dependent navigation wording and actual anchor focus. Mixed interactive/image headings need further calibration.',
   'Articles and named figures have observed entry/exit stops. Simple time elements with date-only datetime attributes repeat their text in the captured profile; other datetime formats remain uncalibrated.',
+  'Tab context announces the nearest named group, landmark, table or article when that context changes. Chrome unnamed-article focus naming is unresolved; only its article role is announced rather than inventing a name.',
   'Fragment activation moves the reading cursor to an observed same-document hash target without changing DOM focus manually. Repeated activation of an unchanged hash and browser-specific Tab preferences remain uncalibrated.',
   'Single-character editing echoes and caret/selection key receipts are calibrated on generated text inputs and textareas. Multi-character task input, native autocomplete/autofill and browser-specific focus selection need further validation.',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',
@@ -61,7 +62,7 @@ type AXNode = {
   properties?: { name: string; value: AXValue }[];
   ignoredReasons?: {name:string;value:AXValue}[];
 };
-type Container = { id: string; name: string; role: string; items: number; rows?: number; columns?: number };
+type Container = { id: string; name: string; inferredName?: boolean; role: string; items: number; rows?: number; columns?: number };
 type Cell = { table: string; row: number; column: number; rows: number; columns: number; header: string;rowSpan:number;columnSpan:number };
 type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; hintInCell?:boolean;hintTextFragment?:boolean; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
 type DOMMeta = { tag: string;text?:string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
@@ -101,6 +102,7 @@ export class MockVoiceOverBackend implements Backend {
   private hintTarget?: string;
   private pendingHint?: {text:string;dueAt:number};
   private announcedContainers: string[] = [];
+  private announcedFocusContext?: string;
   private announcedCell?: Cell;
   private announcedColumn?: Pick<Cell,'table'|'column'>;
   /** The document whose title was last spoken; a new one is announced by its title. */
@@ -126,7 +128,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'2':'8', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'3':'9', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -183,14 +185,23 @@ export class MockVoiceOverBackend implements Backend {
         this.announcedCell = c;
         this.announcedColumn = c;
       } else this.announcedCell = this.referenceBrowser === 'chrome' && node.cell && node.identity === this.focusedIdentity && this.focusedEdit ? node.cell : undefined;
-      const entered = (node.containers ?? []).filter(c => c.id !== node.axId && !this.announcedContainers.includes(c.id) && c.name);
+      const scopes = (node.containers ?? []).filter(c => c.id !== node.axId);
+      const entered = scopes.filter(c => !this.announcedContainers.includes(c.id) && c.name);
       const dialogs = entered.filter(c => c.role === 'dialog' || c.role === 'alertdialog');
       for (const c of dialogs) text = `${c.name} web dialog with ${c.items} items ${text}`;
       const groupWords: Record<string, string> = { group: 'group', radiogroup: 'radio group', tablist: 'tab group' };
-      for (const c of entered.filter(c => groupWords[c.role])) text += ` ${c.name} ${groupWords[c.role]}`;
-      for (const c of entered.filter(c => ['main','navigation','banner','contentinfo','complementary','region','form'].includes(c.role))) text += ` ${c.name} ${c.role}`;
-      for (const c of entered.filter(c => c.role === 'table')) text += ` ${c.name} table ${c.columns} columns, ${c.rows} rows`;
+      const landmarks = ['main','navigation','banner','contentinfo','complementary','region','form'];
+      const focusContexts = scopes.filter(c => c.role === 'article' || c.role === 'table' || !!c.name && (groupWords[c.role] || landmarks.includes(c.role)));
+      const nearest = focusContexts.at(-1);
+      // Leaving an inner context re-enters its ancestor even when that ancestor was visited before.
+      const focusMove = ['next_focusable_item','previous_focusable_item'].includes(this.sourceCommand);
+      const contexts = focusMove ? nearest && nearest.id !== this.announcedFocusContext ? [nearest] : [] : entered;
+      for (const c of contexts.filter(c => groupWords[c.role])) text += ` ${c.name} ${groupWords[c.role]}`;
+      for (const c of contexts.filter(c => landmarks.includes(c.role))) text += ` ${c.name} ${c.role}`;
+      for (const c of contexts.filter(c => c.role === 'table')) text += ` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
+      if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))text += ` ${[this.referenceBrowser==='chrome'&&c.inferredName?'':c.name,'article'].filter(Boolean).join(' ')}`;
       this.announcedContainers = (node.containers ?? []).map(c => c.id);
+      this.announcedFocusContext = nearest?.id;
     }
     const fingerprint = JSON.stringify([node?.identity, text]);
     if (!force && this.lastAnnouncement === fingerprint) return;
@@ -399,7 +410,7 @@ export class MockVoiceOverBackend implements Backend {
       while(cellOwner!==undefined&&!cellPositions.has(cellOwner))cellOwner=dom.get(cellOwner)?.parent;
       const cell=cellOwner===undefined?undefined:cellPositions.get(cellOwner);
       const container = !this.wording && !node.ignored && (list || description || table || ['article','menu','listbox'].includes(role) || (['figure','group','dialog','alertdialog','radiogroup','tablist'].includes(role) && !!name) || ['main','navigation','banner','contentinfo','complementary','region','form'].includes(role));
-      const scope = container ? { id: node.nodeId, name, role, items: 0 } : undefined;
+      const scope = container ? { id: node.nodeId, name, role, items: 0, ...(role==='article'&&!stringValue(node.name)?{inferredName:true}:{}) } : undefined;
       if (scope && table && node.backendDOMNodeId !== undefined) Object.assign(scope, tableSizes.get(node.backendDOMNodeId));
       if (scope) containers.set(scope.id, scope);
       const innerScopes = scope ? [...scopes, scope] : scopes;
@@ -543,7 +554,7 @@ export class MockVoiceOverBackend implements Backend {
     if (root && identity(root) !== this.documentIdentity) {
       this.documentIdentity = identity(root);
       this.hintTarget=undefined;this.pendingHint=undefined;
-      this.announcedContainers=[];this.announcedCell=undefined;this.announcedColumn=undefined;
+      this.announcedContainers=[];this.announcedFocusContext=undefined;this.announcedCell=undefined;this.announcedColumn=undefined;
       const title = stringValue(root.name).trim();
       if (title) this.announceText(title, 'page-title');
     }

@@ -77,6 +77,8 @@ describe('corpus counts and missing state/action coverage', () => {
       .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v7' } });
     expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v8' }))
       .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v8' } });
+    expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v9' }))
+      .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v9' } });
   });
   it('keeps raw source volume separate from calibrated cases and returns actual gaps', () => {
     const summary = summarizeEvidenceCoverage();

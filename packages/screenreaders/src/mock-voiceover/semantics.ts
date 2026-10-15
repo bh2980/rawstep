@@ -86,7 +86,7 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   if (!node.protected && node.role === 'listitem') return [node.marker ?? 'bullet', node.name, node.position !== undefined && node.setSize !== undefined ? `${node.position} of ${node.setSize}` : ''].filter(Boolean).join(', ');
   if (!node.protected && node.role === 'descriptionlist') return ['description list', node.name, `${node.setSize ?? 0} items`].filter(Boolean).join(', ');
   if (!node.protected && node.role === 'descriptionitem') return [node.name, `${node.position} of ${node.setSize}`].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'table' && node.rows !== undefined && node.columns !== undefined) return [node.name, 'table', `${node.columns} columns`, `${node.rows} rows`].filter(Boolean).join(', ');
+  if (!node.protected && node.role === 'table' && node.rows !== undefined && node.columns !== undefined) return [node.name, 'table', `${node.columns} ${node.columns===1?'column':'columns'}`, `${node.rows} ${node.rows===1?'row':'rows'}`].filter(Boolean).join(', ');
   const parts: string[] = [];
   // The observed plain-link navigation announcements put the role before its name.
   const link = !node.protected && node.role === 'link';

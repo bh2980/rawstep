@@ -2,7 +2,7 @@
 
 `MockVoiceOverBackend` is a browser-backed development and policy-testing adapter.
 It is **simulation evidence**, not native VoiceOver output or a conformance result.
-The `english-dom-navigation-evidence-v8` Safari reference profile makes a reproducible set of
+The `english-dom-navigation-evidence-v9` Safari reference profile makes a reproducible set of
 choices inspired by screen-reader object navigation. It does not claim exact macOS,
 Safari, VoiceOver wording, or interaction fidelity. Selected navigation wording is
 calibrated against versioned third-party output and selected local macOS/Safari 26.6.2 captures; see

@@ -20,7 +20,7 @@ const startsAligned = (c: CaseSet["cases"][number], a: CaseRecord | undefined, b
   && (c.startProtocol !== "first-heading" || !!a.start.anchor && !!b.start.anchor && normalize(a.start.anchor.name) === normalize(b.start.anchor.name) && a.start.anchor.level === b.start.anchor.level && hearsHeading(a.start.speech,a.start.anchor) && hearsHeading(b.start.speech,b.start.anchor));
 
 export async function evaluationSourceHashes() {
-  return Object.fromEntries(await Promise.all(["analyze.ts","validate.ts","compare.ts","state.ts","cases.ts","session.ts","native-compare.ts","axdump.ts","archive.ts","real-pages.ts","task-outcomes.ts"].map(async file => [file,createHash("sha256").update(await readFile(new URL(file,import.meta.url))).digest("hex")])));
+  return Object.fromEntries(await Promise.all(["analyze.ts","validate.ts","compare.ts","state.ts","cases.ts","session.ts","native-compare.ts","axdump.ts","archive.ts","real-pages.ts","task-outcomes.ts","cursor.ts"].map(async file => [file,createHash("sha256").update(await readFile(new URL(file,import.meta.url))).digest("hex")])));
 }
 
 export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simulator: Map<string, CaseRecord>,nativeFinalStates=new Map<string,PageState|undefined>()) {
@@ -74,7 +74,7 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
     evaluation: {
       speechStatus: "provisional",
       normalization: "Main speech and legacy fullSpeech: case-fold, remove commas/periods, collapse whitespace. fullSpeechExact retains case, punctuation, whitespace, hints and repetitions in receipt order; both full-text metrics join receipt boundaries with one space, so neither measures batching or audio timing. Raw receipts are preserved separately.",
-      navigationAccuracy: { status: "unmeasured", rate: null, reason: "No independently observed native VoiceOver reading cursor; AX keyboard focus is not a substitute." },
+      navigationAccuracy: { status: "unmeasured", rate: null, reason: "No validated native/model logical reading-target and location comparison; an observed visual outline alone is incomplete, and AX keyboard focus is not a substitute." },
       stateAccuracy: { status: "partial", rate: null, reason: "Only a bounded state oracle is available: DOM IDs or unique AX role/name identities and exposed properties; unobserved selection and ambiguous controls remain incomplete." },
       taskSuccess: { status: taskOutcomes.status, rate: taskOutcomes.rate, reason:taskOutcomes.planned?taskOutcomes.scope:"No independently frozen task outcome oracle.",matched:taskOutcomes.matched,planned:taskOutcomes.planned },
       thresholdAchievement: "unproven",
