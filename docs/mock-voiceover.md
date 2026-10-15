@@ -22,9 +22,9 @@ const input = {
   },
 };
 const entry = formatVoiceOverSpeech(input);
-console.log(entry.speech); // Save, button Preferences region
+console.log(entry.speech); // Save button Preferences region
 const within = formatVoiceOverSpeech(input, entry.context);
-console.log(within.speech); // Save, button
+console.log(within.speech); // Save button
 ```
 
 Pass each returned `context` into the next call for the same session. Reset it on a new document, and keep histories
@@ -104,8 +104,8 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v9`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v3`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v10`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v4`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -118,6 +118,8 @@ selection ranges to announce beginning/end/interior Latin-word caret context whe
 to a nonempty table field. Tab entry into such a field establishes row context for the following object movement.
 Safari counterparts require paired validation before sharing these new rules. Partial selections, interior non-Latin
 word boundaries, table-header repetition and editing hints remain incomplete.
+
+Safari v10 / Chrome v4 use observed space separators between generated speech parts, retaining punctuation inside names, descriptions and values. The low-level `formatSimulatedSpeech` default comma separators remain available. See [the correction and remaining gaps](./voiceover-speech-separators.md).
 
 Safari v9 / Chrome v3 correct Tab/Shift+Tab context transitions using paired native contrasts: announce the nearest
 group, named landmark, table or article on entry, and announce its ancestor again when leaving the inner context.
@@ -134,7 +136,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v9` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v10` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

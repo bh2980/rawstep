@@ -1,8 +1,9 @@
-# Mock VoiceOver browser simulation
+# Mock VoiceOver speech and browser adapter
 
-`MockVoiceOverBackend` is a browser-backed development and policy-testing adapter.
+`formatVoiceOverSpeech` accepts a caller-owned target, state and prior speech context without a browser.
+`MockVoiceOverBackend` uses the same formatter and provides a Chromium adapter for integration tests.
 It is **simulation evidence**, not native VoiceOver output or a conformance result.
-The `english-dom-navigation-evidence-v9` Safari reference profile makes a reproducible set of
+The `english-dom-navigation-evidence-v10` Safari reference profile makes a reproducible set of
 choices inspired by screen-reader object navigation. It does not claim exact macOS,
 Safari, VoiceOver wording, or interaction fidelity. Selected navigation wording is
 calibrated against versioned third-party output and selected local macOS/Safari 26.6.2 captures; see

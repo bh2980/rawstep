@@ -1,0 +1,959 @@
+{
+  "schemaVersion": 1,
+  "scope": "Targeted Native punctuation confirmation; calibration, not independent generalization. Full AX and overlays remain in local raw archives; source hashes and derived input-quality checks are retained here. Failed startup attempts remain in the attempt-expanded denominator.",
+  "caseSetMetadata": {
+    "id": "speech-content-punctuation-v1",
+    "generatedAt": "2026-10-15T06:44:40.436Z",
+    "syntheticInputs": true
+  },
+  "case": {
+    "id": "speech-content-punctuation-v1.content",
+    "page": "pages/content.html",
+    "chords": [
+      "Tab",
+      "Tab",
+      "Tab",
+      "Tab",
+      "Shift+Tab",
+      "Shift+Tab"
+    ],
+    "captureAxAfterSteps": true,
+    "listen": {
+      "minWaitMs": 1200,
+      "quietMs": 900,
+      "maxWaitMs": 6000
+    },
+    "axes": {
+      "family": "speech-content-punctuation",
+      "templateGroup": "speech-content-punctuation-v1",
+      "contrastGroup": "speech-content-punctuation-v1",
+      "partition": "train",
+      "exposure": "calibration",
+      "command": "focus-content"
+    }
+  },
+  "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Document actions</title><style>body{font:18px system-ui;padding:18px}button,label{display:block;margin:12px}</style><body><button id=\"before\" autofocus>Before marker</button><button id=\"first\">Save, review, and close.</button><label><input id=\"second\" type=\"checkbox\" checked>Reports, weekly.</label><button id=\"third\" aria-description=\"Copies, not originals.\">Print copies.</button><button id=\"fourth\">Review, October 1, 2026.</button><button id=\"after\">After marker</button></body></html>",
+  "htmlSha256": "be1321aee8a965a231e71155224b725b248d306b45bbe0fa3119fb65c8739aa6",
+  "plan": {
+    "frozenAt": "2026-10-15T06:44:40.463Z",
+    "scope": "Targeted native confirmation of source punctuation and generated separators. Calibration, not an independent generalization claim.",
+    "casesSha256": "2e6461674bbea20568732d04303767c9224e24ddd5e8be11e1279c3b9fdd0ad4",
+    "modelBuildSha256": "7135faff19cebc4d2155d1e1e009c2cceba6dc2c5aaeb59736138a607a3e8ddb",
+    "browsers": [
+      "safari",
+      "chrome"
+    ],
+    "settings": "baseline-v2-dnd",
+    "plannedActionsPerBrowser": 6,
+    "profiles": {
+      "safari": "english-dom-navigation-evidence-v10",
+      "chrome": "english-chrome-navigation-evidence-v4"
+    },
+    "inputChecks": "Stable unique visual candidate + native role/name/checked state; independently verify AXHelp equals the supplied description on described targets."
+  },
+  "attempts": [
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-44-40-874Z",
+      "declaredBrowser": "safari",
+      "metadataSaved": false,
+      "plannedActions": 6,
+      "observedActions": 0,
+      "failure": "vm-stopped"
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-48-03-159Z",
+      "declaredBrowser": "safari",
+      "metadataSaved": false,
+      "plannedActions": 6,
+      "observedActions": 0,
+      "failure": "guest-network-unreachable"
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-48-50-511Z",
+      "declaredBrowser": "safari",
+      "metadataSaved": false,
+      "plannedActions": 6,
+      "observedActions": 0,
+      "failure": "guest-network-unreachable"
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-49-57-215Z",
+      "declaredBrowser": "safari",
+      "metadataSaved": true,
+      "plannedActions": 6,
+      "observedActions": 6
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-51-07-984Z",
+      "declaredBrowser": "chrome",
+      "metadataSaved": true,
+      "plannedActions": 6,
+      "observedActions": 0,
+      "failure": "chrome-recovery-dialog"
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-54-10-738Z",
+      "declaredBrowser": "chrome",
+      "metadataSaved": true,
+      "plannedActions": 6,
+      "observedActions": 0,
+      "failure": "chrome-recovery-dialog"
+    },
+    {
+      "run": "speech-content-punctuation-v1-2026-10-15T06-55-51-901Z",
+      "declaredBrowser": "chrome",
+      "metadataSaved": true,
+      "plannedActions": 6,
+      "observedActions": 6
+    }
+  ],
+  "attemptSummary": {
+    "planned": 42,
+    "observed": 12,
+    "startupFailures": 5
+  },
+  "profiles": [
+    {
+      "browser": "safari",
+      "sourceRecordsSha256": "8ffcec137a219745b0ca8844508ed778fe29149aa6518ecb1766d170a0f75d4c",
+      "predictedAt": "2026-10-15T06:44:40.699Z",
+      "nativeStartedAt": "2026-10-15T06:49:58.085Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 6,
+        "observed": 6,
+        "basicInputVerified": 6,
+        "inputVerified": 4,
+        "inputUnmeasured": 2,
+        "mainSpeechExact": 4,
+        "fullSpeechExact": 4
+      },
+      "rows": [
+        {
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "name": "Save, review, and close.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 10150,
+              "text": "Save, review, and close. button"
+            },
+            {
+              "t": 10740,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "16f73f224b6313b45a58d35c68cad2cae443fe3ad13e258bddf31268e0b730ab",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Save, review, and close. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save, review, and close.",
+              "id": "first"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "checkbox",
+                "name": "Reports, weekly.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "checked": true,
+                "tagName": "input",
+                "inputType": "checkbox"
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 12901,
+              "text": "Reports, weekly. checked checkbox"
+            },
+            {
+              "t": 13481,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "e5c87c718be6df0e3dd6dfda3726d19a1b3688232de7eebc4f8455d6e9526692",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Reports, weekly. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Reports, weekly.",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 2,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "third",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 15682,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 16268,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "dd8229423658ea5743e8cfe01f1a7fc413e5aff7ebd738fb98da93dbce6c56dc",
+          "descriptionVerified": false,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": false,
+          "issues": [
+            "description-unmeasured"
+          ],
+          "fullSpeechExact": null,
+          "mainSpeechExact": null,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": false,
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "third"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "fourth",
+              "semantic": {
+                "role": "button",
+                "name": "Review, October 1, 2026.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 18430,
+              "text": "Review, October 1, 2026. button"
+            },
+            {
+              "t": 19008,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "f3187343b7ca8c8bcb91f17c605d851b33b4d70cf254030d0b5c178eb8d97352",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Review, October 1, 2026. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Review, October 1, 2026.",
+              "id": "fourth"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 4,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "third",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 21343,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 21903,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "f7da8797203879d87cc4308e22048f86f22213bcd25125972eaeac2ec200f6ea",
+          "descriptionVerified": false,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": false,
+          "issues": [
+            "description-unmeasured"
+          ],
+          "fullSpeechExact": null,
+          "mainSpeechExact": null,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": false,
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "third"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "checkbox",
+                "name": "Reports, weekly.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "checked": true,
+                "tagName": "input",
+                "inputType": "checkbox"
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 24102,
+              "text": "Reports, weekly. checked checkbox"
+            },
+            {
+              "t": 24674,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "674af1a390138db87f4020b36a5f36ef1fc4792f87fc13f910a6d2ab461d1ffe",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Reports, weekly. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Reports, weekly.",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "sourceRecordsSha256": "e1592470a715a018b3db9b02a038c5e14046095cd2bf3217b808a80d208b5e5e",
+      "predictedAt": "2026-10-15T06:44:40.700Z",
+      "nativeStartedAt": "2026-10-15T06:55:52.169Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 6,
+        "observed": 6,
+        "basicInputVerified": 6,
+        "inputVerified": 4,
+        "inputUnmeasured": 2,
+        "mainSpeechExact": 4,
+        "fullSpeechExact": 4
+      },
+      "rows": [
+        {
+          "step": 0,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "first",
+              "semantic": {
+                "role": "button",
+                "name": "Save, review, and close.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 9969,
+              "text": "Save, review, and close. button"
+            },
+            {
+              "t": 10550,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "5552272cc2af44c028ee1989d43c700ccbcd3386b888e5629f9a571dd545304c",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Save, review, and close. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Save, review, and close.",
+              "id": "first"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 1,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "checkbox",
+                "name": "Reports, weekly.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "checked": true,
+                "tagName": "input",
+                "inputType": "checkbox"
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 13236,
+              "text": "Reports, weekly. checked checkbox"
+            },
+            {
+              "t": 13809,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "73c40be2aa8b6cbfa1eac6953d08e614ec70716110e8bdba7d83d3e8258a3135",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Reports, weekly. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Reports, weekly.",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 2,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "third",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 16647,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 17232,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "58a633fc5a81f46377e69cd2e685cf3725002c86cdb95f3ecb371882ef0d866e",
+          "descriptionVerified": false,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": false,
+          "issues": [
+            "description-unmeasured"
+          ],
+          "fullSpeechExact": null,
+          "mainSpeechExact": null,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": false,
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "third"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 3,
+          "chord": "Tab",
+          "input": {
+            "target": {
+              "identity": "fourth",
+              "semantic": {
+                "role": "button",
+                "name": "Review, October 1, 2026.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 19753,
+              "text": "Review, October 1, 2026. button"
+            },
+            {
+              "t": 20327,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "0c3d23a3dbefbf8fe8e880c30e258ac3dc21b558203697d8d138d223acefdde0",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Review, October 1, 2026. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Review, October 1, 2026.",
+              "id": "fourth"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 4,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "third",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 22981,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 23550,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "dff6bfc9f880a8ebb5a89b7ce82a1a26a8558ae205b72276cec01d759cb831cc",
+          "descriptionVerified": false,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": false,
+          "issues": [
+            "description-unmeasured"
+          ],
+          "fullSpeechExact": null,
+          "mainSpeechExact": null,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": false,
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "third"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        },
+        {
+          "step": 5,
+          "chord": "Shift+Tab",
+          "input": {
+            "target": {
+              "identity": "second",
+              "semantic": {
+                "role": "checkbox",
+                "name": "Reports, weekly.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "checked": true,
+                "tagName": "input",
+                "inputType": "checkbox"
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 26046,
+              "text": "Reports, weekly. checked checkbox"
+            },
+            {
+              "t": 26611,
+              "text": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "nativeAxSha256": "b9b157c03418965e71b17c28eb81f2feccfde27d447ffcf0290ce3d64c94fbb0",
+          "descriptionVerified": true,
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "eligible": true,
+          "issues": [],
+          "fullSpeechExact": true,
+          "mainSpeechExact": true,
+          "diagnosticMainMatch": true,
+          "diagnosticFullMatch": true,
+          "prediction": {
+            "speech": "Reports, weekly. checked checkbox",
+            "usageHint": "You are currently on a checkbox, inside of web content. To select or deselect this checkbox, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "basicInputVerification": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "checkbox",
+              "name": "Reports, weekly.",
+              "id": "second"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          }
+        }
+      ]
+    }
+  ]
+}

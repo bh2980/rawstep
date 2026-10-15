@@ -65,6 +65,10 @@ describe('versioned observed-output reference cases', () => {
 
 describe('corpus counts and missing state/action coverage', () => {
   it('recognizes the updated simulation profile without increasing retained source evidence', () => {
+    for(const profileId of ['english-dom-navigation-evidence-v10','english-chrome-navigation-evidence-v4']){
+      const browser=profileId.includes('chrome')?'chrome':'safari';
+      expect(summarizeEvidenceCoverage({profileId})).toEqual({...summarizeEvidenceCoverage({profileId:browser==='chrome'?'voiceover-chrome':'voiceover-safari'}),filter:{profileId}});
+    }
     expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v3' }))
       .toEqual({ ...summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v2' }), filter: { profileId: 'english-dom-navigation-evidence-v3' } });
     expect(summarizeEvidenceCoverage({ profileId: 'english-dom-navigation-evidence-v4' }))

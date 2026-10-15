@@ -57,8 +57,8 @@ describe('speech engine with caller-owned target and history',()=>{
     const target:VoiceOverSpeechTarget={identity:'save',semantic:semantic({name:'Save'}),containers:[{id:'region',name:'Preferences',role:'region',items:2}]};
     const previous:VoiceOverSpeechContext={containers:['region'],focusContext:'region'};
     const snapshot=structuredClone(previous);
-    expect(formatVoiceOverSpeech({target,command:'next_focusable_item'},previous).speech).toBe('Save, button');
-    expect(formatVoiceOverSpeech({target,command:'next_focusable_item'},{containers:['region','group'],focusContext:'group'}).speech).toBe('Save, button Preferences region');
+    expect(formatVoiceOverSpeech({target,command:'next_focusable_item'},previous).speech).toBe('Save button');
+    expect(formatVoiceOverSpeech({target,command:'next_focusable_item'},{containers:['region','group'],focusContext:'group'}).speech).toBe('Save button Preferences region');
     expect(previous).toEqual(snapshot);
   });
 
@@ -78,9 +78,9 @@ describe('speech engine with caller-owned target and history',()=>{
     expect(formatVoiceOverSpeech({target,command:'next_focusable_item',focused:true,focusEntry:true,edit:{value:'abc',start:0,end:3,multiline:false}}).speech).toBe('abc contents selected Note edit text');
     const protectedTarget={...target,semantic:{...target.semantic,protected:true,value:'secret'}};
     const secure=formatVoiceOverSpeech({target:protectedTarget,command:'next_focusable_item',focused:true,focusEntry:true,edit:{value:'secret',start:0,end:6,multiline:false}});
-    expect(secure.speech).toBe('Note, secure text field');expect(secure.usageHint).toBeUndefined();
+    expect(secure.speech).toBe('Note secure text field');expect(secure.usageHint).toBeUndefined();
     const checkbox={identity:'check',semantic:semantic({role:'checkbox',name:'Updates',checked:true})};
-    expect(formatVoiceOverSpeech({target:checkbox,command:'next_item'}).speech).toBe('Updates, checked, checkbox');
-    expect(formatVoiceOverSpeech({target:checkbox,command:'activate_form_control',checkedStateChanged:true}).speech).toBe('checked, Updates, checkbox');
+    expect(formatVoiceOverSpeech({target:checkbox,command:'next_item'}).speech).toBe('Updates checked checkbox');
+    expect(formatVoiceOverSpeech({target:checkbox,command:'activate_form_control',checkedStateChanged:true}).speech).toBe('checked Updates checkbox');
   });
 });

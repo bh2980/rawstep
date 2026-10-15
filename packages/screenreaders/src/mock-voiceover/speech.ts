@@ -26,7 +26,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   const referenceBrowser=input.referenceBrowser??'safari';
   if(referenceBrowser!=='safari'&&referenceBrowser!=='chrome')throw new Error('Reference browser must be safari or chrome');
   const context:VoiceOverSpeechContext={...previous,containers:[...previous.containers],cell:previous.cell&&{...previous.cell},column:previous.column&&{...previous.column}};
-  let speech=formatSimulatedSpeech(node.semantic,checkedStateChanged,command);
+  let speech=formatSimulatedSpeech(node.semantic,checkedStateChanged,command,' ');
   const focusEntry=focused&&edit?.value&&!node.semantic.protected&&input.focusEntry;
   if(focusEntry&&edit){
     const selection=edit.value.slice(edit.start,edit.end),role=edit.multiline?'text entry area':'edit text';

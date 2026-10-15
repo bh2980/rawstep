@@ -39,6 +39,7 @@ it.each(fixture.nativeProfiles)('matches native $browser speech for the observed
     const native=splitSpeech(row.nativeUtterances);
     expect(normalize(result.speech),`${row.caseId} ${row.step} main`).toBe(normalize(native.main));
     expect(normalize(result.usageHint??''),`${row.caseId} ${row.step} hint`).toBe(normalize(native.hint));
+    expect([result.speech,...(result.usageHint?[result.usageHint]:[])],`${row.caseId} ${row.step} full receipts`).toEqual(row.nativeUtterances.map(u=>u.text));
     contexts.set(row.caseId,result.context);
   }
   // Historical first-evaluation metrics remain distinct from any later calibrated engine build.

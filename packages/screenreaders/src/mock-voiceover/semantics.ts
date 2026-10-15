@@ -53,8 +53,9 @@ const roleNames: Readonly<Record<string, string>> = {
  * Composite, evidence-informed navigation wording, not a version-specific VoiceOver emulator.
  * Only the rules referenced in docs/mock-voiceover-evidence.md have observed-output fixtures.
  * Other states, value/description timing, and activation announcements remain approximations.
+ * The compatibility default keeps comma separators; the context engine uses observed space separators.
  */
-export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateChanged = false, sourceCommand?:string): string {
+export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateChanged = false, sourceCommand?:string, partSeparator:', '|' ' = ', '): string {
   if(!node.protected&&node.role==='listbox'&&node.listboxSummary){
     const {native,options}=node.listboxSummary,selected=options.flatMap((o,i)=>o.selected?[{...o,position:i+1}]:[]);
     return [node.name,'list box',...(!native&&selected.length===1?[`1 item selected. ${selected[0]!.name} selected (${selected[0]!.position} of ${options.length})`]:[])].filter(Boolean).join(' ');
@@ -64,29 +65,29 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingParts?.length) return [`heading level ${node.level}`,...node.headingParts.map(p=>`${p.link?'link ':''}${p.text}`),node.headingParts.length>1?`${node.headingParts.length} items`:''].filter(Boolean).join(' ');
   if (!node.protected && node.role==='StaticText' && node.name==='.') return 'period';
   if (!node.protected && node.role==='StaticText' && node.timeValueRepeated) return `${node.name} ${node.name}`;
-  if (!node.protected && node.tagName === 'button' && node.role === 'button' && node.disabled && node.pressed === undefined && node.expanded === undefined && !node.hasPopup && !node.description && !node.value && !node.required && !node.readonly && !node.modal) return [node.name,'dimmed','button'].filter(Boolean).join(', ');
-  if (!node.protected && node.tagName === 'textarea') return [node.name, 'text entry area', node.value].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'slider' && node.value) return [node.value, node.name, 'slider'].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'button' && node.hasPopup === 'menu') return [node.name, 'menu pop up button'].filter(Boolean).join(', ');
+  if (!node.protected && node.tagName === 'button' && node.role === 'button' && node.disabled && node.pressed === undefined && node.expanded === undefined && !node.hasPopup && !node.description && !node.value && !node.required && !node.readonly && !node.modal) return [node.name,'dimmed','button'].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.tagName === 'textarea') return [node.name, 'text entry area', node.value].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'slider' && node.value) return [node.value, node.name, 'slider'].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'button' && node.hasPopup === 'menu') return [node.name, 'menu pop up button'].filter(Boolean).join(partSeparator);
   if (!node.protected && node.role === 'menuitem' && node.position !== undefined && node.setSize !== undefined) return `${node.name} menu item (${node.position} of ${node.setSize})`;
-  if (!node.protected && node.role === 'combobox' && node.hasPopup === 'listbox') return [node.name, 'list box pop up', node.expanded ? 'expanded' : 'collapsed', 'combo box'].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'textbox' && node.tagName === 'input' && node.autofill) return [node.value, node.name, node.description, node.required ? 'required' : '', node.invalid ? 'invalid data' : '', 'edit text with autofill menu'].filter(Boolean).join(', ');
+  if (!node.protected && node.role === 'combobox' && node.hasPopup === 'listbox') return [node.name, 'list box pop up', node.expanded ? 'expanded' : 'collapsed', 'combo box'].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'textbox' && node.tagName === 'input' && node.autofill) return [node.value, node.name, node.description, node.required ? 'required' : '', node.invalid ? 'invalid data' : '', 'edit text with autofill menu'].filter(Boolean).join(partSeparator);
   // Empty, explicitly named native inputs have type-specific field words. Placeholder/caret receipts need separate evidence.
   if (!node.protected && node.tagName === 'input' && !node.value && node.name && !node.nameFromPlaceholder && !node.autofill && !node.readonly) {
-    const field = ({ text: 'edit text', email: 'email field', tel: 'telephone number field', url: 'url field', number: 'incrementable number field', search: 'search text field' } as Record<string, string>)[node.inputType ?? 'text'];
-    if (field) return [node.name, node.description, node.required ? 'required' : '', node.invalid ? 'invalid data' : '', node.disabled ? 'dimmed' : '', field].filter(Boolean).join(', ');
+    const field = ({ text: 'edit text', email: 'email field', tel: 'telephone number field', url: 'URL field', number: 'incrementable number field', search: 'search text field' } as Record<string, string>)[node.inputType ?? 'text'];
+    if (field) return [node.name, node.description, node.required ? 'required' : '', node.invalid ? 'invalid data' : '', node.disabled ? 'dimmed' : '', field].filter(Boolean).join(partSeparator);
   }
   if (!node.protected && node.role === 'progressbar') {
     const min = node.valueMin ?? 0, max = node.valueMax ?? 100, value = node.value === undefined ? undefined : Number(node.value);
     const amount = value !== undefined && Number.isFinite(value) && max > min ? `${Math.round(100 * (Math.min(max, Math.max(min, value)) - min) / (max - min))}%` : 'indeterminate';
-    return [node.name, amount, 'progress indicator'].filter(Boolean).join(', ');
+    return [node.name, amount, 'progress indicator'].filter(Boolean).join(partSeparator);
   }
-  if (!node.protected && node.role === 'list') return ['list', node.name, node.setSize === undefined ? '' : `${node.setSize} ${node.setSize === 1 ? 'item' : 'items'}`, node.level && node.level > 1 ? `level ${node.level}` : ''].filter(Boolean).join(', ');
+  if (!node.protected && node.role === 'list') return ['list', node.name, node.setSize === undefined ? '' : `${node.setSize} ${node.setSize === 1 ? 'item' : 'items'}`, node.level && node.level > 1 ? `level ${node.level}` : ''].filter(Boolean).join(partSeparator);
   if (!node.protected && node.role === 'listitem' && node.marker === '' && !node.name) return '';
-  if (!node.protected && node.role === 'listitem') return [node.marker ?? 'bullet', node.name, node.position !== undefined && node.setSize !== undefined ? `${node.position} of ${node.setSize}` : ''].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'descriptionlist') return ['description list', node.name, `${node.setSize ?? 0} items`].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'descriptionitem') return [node.name, `${node.position} of ${node.setSize}`].filter(Boolean).join(', ');
-  if (!node.protected && node.role === 'table' && node.rows !== undefined && node.columns !== undefined) return [node.name, 'table', `${node.columns} ${node.columns===1?'column':'columns'}`, `${node.rows} ${node.rows===1?'row':'rows'}`].filter(Boolean).join(', ');
+  if (!node.protected && node.role === 'listitem') return [node.marker ?? 'bullet', node.name, node.position !== undefined && node.setSize !== undefined ? `${node.position} of ${node.setSize}` : ''].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'descriptionlist') return ['description list', node.name, `${node.setSize ?? 0} items`].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'descriptionitem') return [node.name, `${node.position} of ${node.setSize}`].filter(Boolean).join(partSeparator);
+  if (!node.protected && node.role === 'table' && node.rows !== undefined && node.columns !== undefined) return [node.name, 'table', `${node.columns} ${node.columns===1?'column':'columns'}, ${node.rows} ${node.rows===1?'row':'rows'}`].filter(Boolean).join(partSeparator);
   const parts: string[] = [];
   // The observed plain-link navigation announcements put the role before its name.
   const link = !node.protected && node.role === 'link';
@@ -98,12 +99,12 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   const disclosure = !node.protected && node.role === 'DisclosureTriangle';
   const switchControl = !node.protected && node.role === 'switch' && typeof node.checked === 'boolean';
   const heading = !node.protected && node.role === 'heading' && node.level !== undefined;
-  if(checkedStateChanged&&radio&&node.tagName==='input'&&node.checked===true)return ['selected',node.name,'radio button',node.position!==undefined&&node.setSize!==undefined?`${node.position} of ${node.setSize}`:''].filter(Boolean).join(', ');
+  if(checkedStateChanged&&radio&&node.tagName==='input'&&node.checked===true)return ['selected',node.name,'radio button',node.position!==undefined&&node.setSize!==undefined?`${node.position} of ${node.setSize}`:''].filter(Boolean).join(partSeparator);
   const buttonDescription = button && node.pressed === undefined && node.expanded === undefined && node.description && node.description !== node.name;
   // Native Space/VO+Space receipts for plain checked controls differ from navigation wording.
   if (checkedStateChanged && (checkbox || switchControl) && typeof node.checked === 'boolean'
     && !node.required && !node.disabled && !node.readonly && !node.description && !node.value) {
-    return [switchControl ? node.checked ? 'on' : 'off' : checkedState(node.checked), node.name, roleNames[node.role]].filter(Boolean).join(', ');
+    return [switchControl ? node.checked ? 'on' : 'off' : checkedState(node.checked), node.name, roleNames[node.role]].filter(Boolean).join(partSeparator);
   }
   if (heading) parts.push('heading', `level ${node.level}`);
   if (link) parts.push([node.currentPage ? 'current page link' : 'link', node.containsImage ? 'image' : ''].filter(Boolean).join(' '));
@@ -139,7 +140,7 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   if (!textbox && node.multiline) parts.push('multi-line');
   if (node.modal) parts.push('modal');
   if (!buttonDescription && node.description && node.description !== node.name) parts.push(node.description);
-  return parts.join(', ');
+  return parts.join(partSeparator);
 }
 
 function checkedState(value: boolean | 'mixed'): string {

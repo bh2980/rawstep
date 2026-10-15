@@ -10,9 +10,9 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: cal
   };
   const input={target,command:'next_focusable_item',referenceBrowser};
   const entry=formatVoiceOverSpeech(input);
-  assert.equal(entry.speech,'Save, button Preferences region');
+  assert.equal(entry.speech,'Save button Preferences region');
   const within=formatVoiceOverSpeech(input,entry.context);
-  assert.equal(within.speech,'Save, button');
+  assert.equal(within.speech,'Save button');
   const outside=formatVoiceOverSpeech({...input,target:{...target,identity:'outside',containers:[]}},within.context);
   const returning=formatVoiceOverSpeech(input,outside.context);
   assert.equal(returning.speech,entry.speech);
