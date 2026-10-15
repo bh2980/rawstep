@@ -44,6 +44,11 @@ See the [command reference](./docs/cli.md) for `init`, `ui`, `run`, `hints`, `re
 
 **Experimental, not an accessibility certification tool.** Task completion, visual-model confidence, simulated wording and imported reviewer claims are different evidence. None establishes whole-site accessibility or native assistive-technology parity.
 
+For caller-owned VoiceOver speech tests, `formatVoiceOverSpeech` formats an explicit reading and
+`formatVoiceOverActivation` returns ordered activation receipt candidates or an explicit unsupported result.
+Both are browser-free exports of `rawstep/mock-voiceover` and the package root. See the
+[speech API and executable example](./docs/mock-voiceover.md) and [Native evaluation limits](./docs/voiceover-activation-evaluation.md).
+
 ## Run the source locally
 
 For contributors. Requires Node.js22+ and the pinned pnpm version in `package.json`. Nothing needs to be published to npm.
