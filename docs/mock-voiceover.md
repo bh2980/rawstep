@@ -177,6 +177,11 @@ regression: missing list-link set fields are now detected and constructed from c
 image-link outlines and failed preparations remain in the full denominator. These limited samples do not establish
 overall real-site accuracy.
 
+The [four-site first evaluation](./voiceover-public-target-v4.md) preserves Safari Main 7/7 and Chrome 9/10,
+against 16 planned returns each. A separate all-input audit marks the Chrome compound link/heading input unmeasured;
+it does not increase the 7/16 and 9/16 all-planned match counts. Literal Full failures and missing previous context
+remain explicit. Native-supplied inputs do not establish Rawstep Chromium input equivalence on those sites.
+
 The [new article/form dialog compositions](./voiceover-dialog-compositions.md) retain the first predictions and a
 stricter input audit: 36/39 Safari and 39/39 Chrome planned actions have equivalent original inputs. Safari's three
 missing title-help inputs motivated source contrasts and the v21 / Chrome v15 projection correction. Actual Rawstep

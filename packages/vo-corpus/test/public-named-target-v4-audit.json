@@ -1,0 +1,1990 @@
+{
+  "at": "2026-10-15T19:53:13.575Z",
+  "caseSet": "public-named-target-v4",
+  "classification": "preserved-first-evaluation-now-inspected-regression",
+  "seed": "5a6842444d64c7036b99d9ea59183c28",
+  "declaredPool": [
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/",
+      "siteGroup": "weather.gov"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/",
+      "siteGroup": "w3.org"
+    },
+    {
+      "family": "blog",
+      "url": "https://css-tricks.com/",
+      "siteGroup": "css-tricks.com"
+    },
+    {
+      "family": "blog",
+      "url": "https://web.dev/blog",
+      "siteGroup": "web.dev"
+    },
+    {
+      "family": "news",
+      "url": "https://www.bbc.com/news",
+      "siteGroup": "bbc.com"
+    },
+    {
+      "family": "news",
+      "url": "https://www.theguardian.com/international",
+      "siteGroup": "theguardian.com"
+    },
+    {
+      "family": "search",
+      "url": "https://archive.org/search?query=history",
+      "siteGroup": "archive.org"
+    },
+    {
+      "family": "search",
+      "url": "https://search.worldcat.org/search?q=history",
+      "siteGroup": "worldcat.org"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.patagonia.com/home/",
+      "siteGroup": "patagonia.com"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.etsy.com/search?q=notebook",
+      "siteGroup": "etsy.com"
+    },
+    {
+      "family": "service",
+      "url": "https://www.usps.com/",
+      "siteGroup": "usps.com"
+    },
+    {
+      "family": "service",
+      "url": "https://weather.gc.ca/",
+      "siteGroup": "gc.ca"
+    },
+    {
+      "family": "documentation",
+      "url": "https://react.dev/learn",
+      "siteGroup": "react.dev"
+    },
+    {
+      "family": "documentation",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility",
+      "siteGroup": "mozilla.org"
+    },
+    {
+      "family": "documentation",
+      "url": "https://docs.djangoproject.com/en/stable/",
+      "siteGroup": "djangoproject.com"
+    },
+    {
+      "family": "documentation",
+      "url": "https://caniuse.com/",
+      "siteGroup": "caniuse.com"
+    }
+  ],
+  "pool": [
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/",
+      "siteGroup": "weather.gov"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/",
+      "siteGroup": "w3.org"
+    },
+    {
+      "family": "blog",
+      "url": "https://css-tricks.com/",
+      "siteGroup": "css-tricks.com"
+    },
+    {
+      "family": "blog",
+      "url": "https://web.dev/blog",
+      "siteGroup": "web.dev"
+    },
+    {
+      "family": "news",
+      "url": "https://www.bbc.com/news",
+      "siteGroup": "bbc.com"
+    },
+    {
+      "family": "news",
+      "url": "https://www.theguardian.com/international",
+      "siteGroup": "theguardian.com"
+    },
+    {
+      "family": "search",
+      "url": "https://archive.org/search?query=history",
+      "siteGroup": "archive.org"
+    },
+    {
+      "family": "search",
+      "url": "https://search.worldcat.org/search?q=history",
+      "siteGroup": "worldcat.org"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.patagonia.com/home/",
+      "siteGroup": "patagonia.com"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.etsy.com/search?q=notebook",
+      "siteGroup": "etsy.com"
+    },
+    {
+      "family": "service",
+      "url": "https://www.usps.com/",
+      "siteGroup": "usps.com"
+    },
+    {
+      "family": "service",
+      "url": "https://weather.gc.ca/",
+      "siteGroup": "gc.ca"
+    },
+    {
+      "family": "documentation",
+      "url": "https://react.dev/learn",
+      "siteGroup": "react.dev"
+    },
+    {
+      "family": "documentation",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility",
+      "siteGroup": "mozilla.org"
+    },
+    {
+      "family": "documentation",
+      "url": "https://docs.djangoproject.com/en/stable/",
+      "siteGroup": "djangoproject.com"
+    },
+    {
+      "family": "documentation",
+      "url": "https://caniuse.com/",
+      "siteGroup": "caniuse.com"
+    }
+  ],
+  "selected": [
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/",
+      "siteGroup": "weather.gov",
+      "rank": "03cfffee8a0040bd4a2506253e2f639fcab883b627aa1994da08c67601edf445"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/",
+      "siteGroup": "w3.org",
+      "rank": "2430903a58eb31e8664e177f3e856a42c59a4c9343ee14e1508a8d11e3e8d417"
+    },
+    {
+      "family": "blog",
+      "url": "https://web.dev/blog",
+      "siteGroup": "web.dev",
+      "rank": "2472c1b3971ef7cc61db46457e50991e40b9f298725d6fdc20f250ce1f33e419"
+    },
+    {
+      "family": "documentation",
+      "url": "https://react.dev/learn",
+      "siteGroup": "react.dev",
+      "rank": "2cc8116f2e56dfeca2774f5bd22292f0dca9a45bc18c24d98a303a3fc4fd3f56"
+    }
+  ],
+  "excludedPreviouslyPlannedDomains": [
+    "openlibrary.org",
+    "www.ebay.com",
+    "www.gutenberg.org",
+    "www.joshwcomeau.com",
+    "www.nasa.gov",
+    "www.npr.org",
+    "www.nps.gov",
+    "www.python.org",
+    "www.smashingmagazine.com",
+    "www.uniqlo.com"
+  ],
+  "excludedPreviouslyPlannedSiteGroups": [],
+  "frozenAt": "2026-10-15T19:38:36.999Z",
+  "sourceCommit": "e16f413",
+  "modelBuildSha256": "2276852e5c82fc5528c717074422fe02e31e5967ac42cdaca092cf0be4f14f9e",
+  "sourcePlanSha256": "466d9ddca1b074a9172a908c7cdc8df6943815ec0292300b5274c619de81050f",
+  "originalSourceHashes": {
+    "src/speech-input.ts": "a401774061160dce0de25c383bcc763f7f643058f4991021febcc1741579acd7",
+    "src/speech-evaluation.ts": "dcae9e74b27d48317a660e79fbd757ec405043ae092035c9c42d80bccbd20854",
+    "src/cursor.ts": "bda9296f2726e58f42e4d0ffee88926f4b63fd772244a6aa858a8169c3981236",
+    "src/axdump.ts": "fc1a077eda4febb84e508d04b02259f9b4bec1ef54b41c2f8d576d6e3daaa5d4",
+    "src/native-content.ts": "c1eb1cb2d8e45b32f1d20ffc2fc2698c5ea66c5f82923f18afc2ffc2b265458b",
+    "data/probes/public-named-target-v4.ts": "e081ae3b3e43dfbf3448ffd6c4254812ac29827f4e1af57ba74cfc42e3f18ccc",
+    "src/table-context.ts": "5141bd38ceeac58fe66782148d820b2e0a15260628d462359097fd483bcde019",
+    "test/public-transfer-pool-v2.json": "dd202e536084cdf57f6db265130e94300816448a9482228109b31a35b7f76f4e",
+    "src/document-ready.ts": "4661bea09d012887d7ee8120bbd8931c9d7d5b3399e3b3f6aac3909b8ebd2cf6",
+    "src/focus-sample.ts": "93a0b606ba778b3d3c5e200a3ec2b5857f5841c408f07319aac1cd9644b8702f",
+    "src/host.ts": "5af19f524035a16413cb76c4f06407a0db74be03575dd29a7a9c30e0ef5b61a1",
+    "src/session.ts": "96637855241f8b47d84bc49d9758f28934f6da8a3886dc58ff369a27c79b0cab",
+    "axdump/axdump.swift": "acaa9ee046d72c831e670b0e8ee7f9d43b2cf690bc5734d7d50e13a2ac050da7",
+    "axdump/cursor-overlay.swift": "8ae52b17d431a070b5659392f294139df06410291715ec8fc6ed5963c14a6b5f",
+    "axdump/custom-content.swift": "0dba8bd4206eb334c68bae22dae8e4623e44bf6c704e63053ecd96399903e395",
+    "../screenreaders/src/mock-voiceover/speech.ts": "4944b73024d501a6226abd6686e112e05cf584b3f7854d257a5315d6d2ae451e",
+    "../screenreaders/src/mock-voiceover/usage-hints.ts": "00675be6a8d54d345c61bf87d5870261309de1874423cfca58ff6e6a75fd2ddc",
+    "../screenreaders/src/mock-voiceover/backend.ts": "cae410e5c3498587c1022ab355475e61f1a608955d8c7f3b3f883fade30f31dc"
+  },
+  "scope": "Keep the same sites and four planned rounds; no reroll or replacement. Preserve setup, unknown inputs/contexts, state changes, environment failures and all missing actions in their stage denominators. All inspected sites become regression. No global web accuracy, causal browser difference, Navigation/State Accuracy/Task Success or native completion claim. Live browser content is not guaranteed identical; profiles measured separately.",
+  "inputScope": "Native-derived externally supplied targets; non-text button/checkbox/link/heading roles only. Plain Native AXContentList ancestry is preserved. Measured article entry-child metadata and single nonmodal dialog name/direct-child/first-child context are retained. Single-table focus inputs use independent membership/dimensions; consumed cell data require observed Native ranges/header references. Object returns needing table cell/column history remain unmeasured in this one-away protocol. List widgets/outline, nested tables/dialogs and nested web areas remain unmeasured. Non-applicable editable/protected/modal flags are false; native enabled/checked/pressed/expanded/heading/custom-content attributes supply modeled state. This does not validate Rawstep Chromium-to-Native target projection.",
+  "freezeScope": "Model and target-selection procedure fixed before either selected site is opened. Each target/state/previous-context input is derived from read-only Native AX after unscored setup and sealed before the scored Native return. Setup utterances are archived but never used for selection, inputs, predictions, filtering or replacement. Prequential target-conditioned evaluation, not a fully preauthored frozen-HTML experiment.",
+  "qualityCorrection": "Original page-source text digests accidentally received the AxDump envelope rather than its root and are empty-text digests. Keep them unchanged and derive separate AX-root text digests from preserved source snapshots. Neither digest establishes HTML/DOM equality or causal browser differences. This metadata did not affect target selection, predictions, quality gates or scores.",
+  "collectionClassification": "Preserve original wrapper environment labels; derived failure categories distinguish missing controls, focus preparation, document readiness and other collection failures. No OS outage is inferred from a focus failure.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR"
+      },
+      "sourceRecordsSha256": "f9ff79df5c4c97adc308c3686e15e82bcbd75a6c706023b1ba47edc331dafbc2",
+      "sourceStepsSha256": "ecf2dd66649cc10e0b6ae91f9e737d5707f0e8763cea06b5f46e808b436eaa94",
+      "originalWrapperSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 7,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 7,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 7,
+          "eligible": 7,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.4375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "hintCandidateExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "setupPlanned": 32,
+        "setupObserved": 32,
+        "scoredObserved": 16,
+        "unconstructedInputs": 1,
+        "environmentFailures": 0,
+        "unavailableTargets": 0
+      },
+      "reproducedFirstSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 7,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 7,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 7,
+          "eligible": 7,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.4375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "hintCandidateExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "plannedSetupKeys": 32,
+      "observedSetupKeys": 32,
+      "plannedFocusPreparations": 16,
+      "observedSuccessfulFocusPreparations": 16,
+      "predictionsSealedBeforeRequest": 15,
+      "preRequestSourceTreesVerified": 15,
+      "failureCategories": {},
+      "documentReadiness": [
+        {
+          "url": "https://www.weather.gov/",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 1257
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 808
+        },
+        {
+          "url": "https://web.dev/blog",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 1487
+        },
+        {
+          "url": "https://react.dev/learn",
+          "status": "document-observed",
+          "attempts": 1,
+          "elapsedMs": 1388
+        }
+      ],
+      "pageSources": [
+        {
+          "url": "https://www.weather.gov/",
+          "sourceAxSha256": "16f2190688730bf072d5b567f714f1766f406a72581166fc745c6f94e69d0919",
+          "axURL": "https://www.weather.gov/",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "3f07ec2d7267ac1041ef25b1df18be874d65c390341f1598ef02b06227e6a752",
+          "derivedRootTextLength": 11589,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "sourceAxSha256": "b88377e8d28153a0c4617db55e64f649ad351675746d4da35997033d04224e4b",
+          "axURL": "https://www.w3.org/WAI/tutorials/",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "44cb4d68a4e7cd86b1e110ebf60a31597087c6dd7d66a01277a6c2eb3309f09c",
+          "derivedRootTextLength": 4351,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://web.dev/blog",
+          "sourceAxSha256": "2a9101d3e3bf05ca4f64daced1588b0e3d8bb0eb5eacd4706bb6381799e739fc",
+          "axURL": "https://web.dev/blog",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "84fed84a5f0e93c8ab6a104b8abb825089374a7983e05249ef103b2ecfc3df5f",
+          "derivedRootTextLength": 5473,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://react.dev/learn",
+          "sourceAxSha256": "21ecff36c9f5f95fa8823088b5de827db217937c83ee87cceab1ca6059a858ec",
+          "axURL": "https://react.dev/learn",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "2774c9c6e1a99b9343254071eb1e7ed57f9d2113d8f00d347899234f72c94409",
+          "derivedRootTextLength": 12602,
+          "truncated": false,
+          "stringTruncations": 0
+        }
+      ],
+      "rows": [
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "f65afd378606892dc65d4346c898a170ec81213267e0ed1d96189a10c0486669",
+          "quality": {
+            "previous": {
+              "axSha256": "06c33a5805d3180274e80c00f5af7946baa60bdcc8e2f27245b1520c769b923b",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXTextField"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "fa91e49ca20104d4df8d65fbbc2da600eed9ddbec0010b6c1e096c821b9ff3f1",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "037ccb5398b311064fce3bcb419133a377731fe29837da650e2c6424662342ac",
+          "quality": {
+            "previous": {
+              "axSha256": "00c68f1ea33163772c4d374e4339666f6317b033d107afb8202e121afca41474",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "69629db4c31e7390e1a6c6d656c6cf0360c0a583e39311ccba98a89fc1ede95a",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "2876fa50632474f508d7ddc8fb7db0ed99fdb41203a22d87948f544c70e7b065",
+          "quality": {
+            "previous": {
+              "axSha256": "f9a5e33fc4e6b8b9d10ab36b427a04e50495e29e35fac3ca72301c307370a291",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXCheckBox"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "4ead5f8583907e87cff4db4f15d9dcc696afcb760231763088409350062c5c85",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "5447d10127b38da31d5c9bcad1c0e3d366dfdd99434f1c914e6ed12d56a1b19a",
+          "quality": {
+            "previous": {
+              "axSha256": "10a8034ec72c2c1289e87f3c9e40d23d0a988a2c7a9bb2065277504489e88be8",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "bf18327cfa84e8a733a23cc3711c74b9ca43d79dd32bd4a761dfd36f788c4641",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": false,
+          "candidateStatus": "unmeasured",
+          "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+          "beforeTargetStable": false,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "input-not-constructed"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "1d8da9a740de48f923131c2a3a47452e4ad8ced34b7aa8f6da12e984a6d4b760",
+          "quality": {
+            "previous": {
+              "axSha256": "05490dd7901371d33654289d2a10285e644340bd1b2baae434b65daf0957487b",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXTextField"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "0847b36cdee562392cf2c5e53d03cef1ab4e1f911b1d4593e3baa17ad45b3052",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "8eb0d76af5d981d00fe51df55b819d4ac45ae6d609d62bc7ae9bbbf1f0d56f2f",
+          "quality": {
+            "previous": {
+              "axSha256": "f3aa29e0c90103e60bfa071d413c3e59adbf023e8c13cb7b0c50ce26a46be459",
+              "status": "unavailable",
+              "reason": "isolated outline not established in both captures",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "e3d933a69aac074d4312b0e9760fbf213a633aa11ee20ef1ecfc23cb3f1c68b4",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "13423b76cde4a50702deb06700266e056b67da85d2d87f8a7c56046625833161",
+          "quality": {
+            "previous": {
+              "axSha256": "2a5833eb5c2606625504e70806c46c583be42bbce4ff3e5eaa2a9fb01009ce38",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "7eed8d3a27d0d522ca78883e7bf257c61fac2c874da73d5247dc59e245579212",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "eligible": false,
+          "issues": [
+            "input-unmeasured",
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "aad3ac4fde2dc75e6edd0489834f352ecc9869f6736e9aeec8bdcdf88a6c6603",
+          "quality": {
+            "previous": {
+              "axSha256": "ff8210464ed3b1dbd03f03183d3c710b6ed7ba86e8d2ff1f18fb23cbf7b75337",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXLink"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "68f645790079304d6e37a54611a08a90e38fcce28d1ae03322a40f8a60f71489",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXLink"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "bcd3075b1211b8f4b78b827122583c22c15a6d3771bafff7401bbcb37923e1cb",
+          "quality": {
+            "previous": {
+              "axSha256": "b515c631bb76eeee3b860d655997d11a272e86f32e37c4e742422d5a561633ec",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXPopUpButton"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "ae9000d3d48c1abb862f72580ae90674f402956ded98708a9a7a5d00057b6a9d",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "eligible": false,
+          "issues": [
+            "input-unmeasured"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "51d7720a5c9b694582fc38bbb5a7583f9b22f92f045ec1d186ad9638057283e0",
+          "quality": {
+            "previous": {
+              "axSha256": "6a539475bbf307c6499418b2e1e7a31bf61749c53c2da6020255a6d871f62077",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXStaticText"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "221fd5323d7b2c5cfc864410fc77555dc9dad6f634dec0c06a73f1065c1438e2",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "5a959bf4f665bbc8d436727d29bd242ad9a5ceacce2b4338ce136608e8ac5c6d",
+          "quality": {
+            "previous": {
+              "axSha256": "56bb045ed0e8a45f4c83f38b1d73ad3e9804740294eb37781c3058b7085ba2a6",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "3aaed3a1d4323b09014f7864e91fae8314af32c67b5aa04043bb6b877a425721",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "c77d97e4841e0bb2b959b80c360df1db4777bff65fbdcdbca11963577d296590",
+          "quality": {
+            "previous": {
+              "axSha256": "ea68c9cd32ea92515251fcaa8667cff35c13587c86d4ba5901f5dab35f665e43",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "e4e74deaf2968a51042bab89c7a1002c67bfde88765d29c0f10bd182225dbbaa",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "df5b52219b5925586971fc6a1a8a7536ce2691feb2878ccb306e30a4ea8de164",
+          "quality": {
+            "previous": {
+              "axSha256": "6cfa94b0d0b4dc255e9f6c356f15feb8bd59de14e5e4780bddad2a633ef9eede",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "65cfee2c6facb895270f9f9896f1c04d764c6503dc55149953be9c6948237886",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "0de2ccfe9faef7062cca42e1f5965c8eba012ee9e2226c689d6f2ba2c3cbbfcc",
+          "quality": {
+            "previous": {
+              "axSha256": "c6733b90e27ee68063731eeb3980e0fbe3f0a1aa8380754de798962e7fc462c3",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "0eb791c9cb16945b5672986f7f7eff79ed933a77efb923fa3f5761daa88f80e6",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "b30c062a4a904fdb9cff3b63398b7b4248fd4ccb7de2610808ce6fefbc6e5e6d",
+          "quality": {
+            "previous": {
+              "axSha256": "b8cc49e3aff4c4b3a18d5384924788f4cc5409a2db807f0819e32607b7ee933d",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "0ba603fdf783f32023836f2b9066baed851131eef2ff483d6f6adae7ff619571",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "2dfc5534b7b67e905b62286d6c3507647b9d36fce8e1526ddc3614abd6bcedf7",
+          "quality": {
+            "previous": {
+              "axSha256": "5bb44e5e389fa52449e328ba0a8f7fa9077d387ff668ab5f22be037e087dfb10",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "5fd6f4c6f716c5faa83edcbf81989f86afe035c1c20bdd1ea0a1101e9cb100e8",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR"
+      },
+      "sourceRecordsSha256": "198bdf58efb36a0a2336cfa149ca99c8e07d7e9bdb0947661c21b31a048b36e1",
+      "sourceStepsSha256": "728ac0def564b75bf8d5ba2ce2a342c8d5dd5d873a227fed9720ba0350698aa8",
+      "originalWrapperSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 10,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 4,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 9,
+          "eligible": 10,
+          "conditionalRate": 0.9,
+          "allPlannedRate": 0.5625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 10,
+          "conditionalRate": 0.5,
+          "allPlannedRate": 0.3125
+        },
+        "hintCandidateExact": {
+          "matched": 6,
+          "eligible": 10,
+          "conditionalRate": 0.6,
+          "allPlannedRate": 0.375
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "setupPlanned": 32,
+        "setupObserved": 32,
+        "scoredObserved": 16,
+        "unconstructedInputs": 1,
+        "environmentFailures": 0,
+        "unavailableTargets": 0
+      },
+      "reproducedFirstSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 10,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 4,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 9,
+          "eligible": 10,
+          "conditionalRate": 0.9,
+          "allPlannedRate": 0.5625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 10,
+          "conditionalRate": 0.5,
+          "allPlannedRate": 0.3125
+        },
+        "hintCandidateExact": {
+          "matched": 6,
+          "eligible": 10,
+          "conditionalRate": 0.6,
+          "allPlannedRate": 0.375
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "plannedSetupKeys": 32,
+      "observedSetupKeys": 32,
+      "plannedFocusPreparations": 16,
+      "observedSuccessfulFocusPreparations": 16,
+      "predictionsSealedBeforeRequest": 15,
+      "preRequestSourceTreesVerified": 15,
+      "failureCategories": {},
+      "documentReadiness": [
+        {
+          "url": "https://www.weather.gov/",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 909
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "status": "document-observed",
+          "attempts": 1,
+          "elapsedMs": 307
+        },
+        {
+          "url": "https://web.dev/blog",
+          "status": "document-observed",
+          "attempts": 2,
+          "elapsedMs": 854
+        },
+        {
+          "url": "https://react.dev/learn",
+          "status": "document-observed",
+          "attempts": 1,
+          "elapsedMs": 158
+        }
+      ],
+      "pageSources": [
+        {
+          "url": "https://www.weather.gov/",
+          "sourceAxSha256": "c3941d6202f73e9bf3d86bcaf2163aeb65f7beec21550acef18e9b0889f17be6",
+          "axURL": "https://www.weather.gov/",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "91d7029af597ea8fb8115cc1936206a1582b0a46afcaf084bc00b4c74980a7a6",
+          "derivedRootTextLength": 11629,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "sourceAxSha256": "9deaaaae4c6fdbcec85a3b4ec0fdf61cf7be127e993a218a94712b606e039249",
+          "axURL": "https://www.w3.org/WAI/tutorials/",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "f0cdc28bba521e08fd6573ab15702a55239ebe02721cd965d999bec12644f082",
+          "derivedRootTextLength": 4358,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://web.dev/blog",
+          "sourceAxSha256": "141f686da5c8dee9d55f298056c549537e42f2dd85a41aa92c8392e6021a3a95",
+          "axURL": "https://web.dev/blog",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "223598fe07bff489d819f1eea81d26c48231e2536138ed6d6b5cfd6a8aa52345",
+          "derivedRootTextLength": 5527,
+          "truncated": false,
+          "stringTruncations": 0
+        },
+        {
+          "url": "https://react.dev/learn",
+          "sourceAxSha256": "760b32d180c59a5784430a648393b0663f1c98270ab03a9735f2c2b1e001a0bf",
+          "axURL": "https://react.dev/learn",
+          "originalTextSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "originalTextDigestStatus": "invalid-envelope-passed-instead-of-root",
+          "derivedRootTextSha256": "459178a6ddac7cf562430a9955a5c31ccef7ba1442c6b4010d01c733f4547315",
+          "derivedRootTextLength": 13173,
+          "truncated": false,
+          "stringTruncations": 0
+        }
+      ],
+      "rows": [
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "c9577bbc3092ecf9bdaac6682377a393b122eeb0a15434b949cba9331807791f",
+          "quality": {
+            "previous": {
+              "axSha256": "2d9bc12d8a31f347833d3720970f61d0810d66724208df00f09ba5f9420601c5",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXTextField"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "89882cc1712b1d88c5fbd53ca70d4d69f7e6a526112d33efd402b9787fc1aa8d",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "6c0895499054757e6ce8ea8fd30636f16e58a3d1849efcc232d9fc44c8d60f78",
+          "quality": {
+            "previous": {
+              "axSha256": "ab4be7a29090e70afd30d8981f184ff45b717aa89f429ef7e7313343a57968f6",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "94a224b4be86508e59bff0908f7f089d559e588e7208f96c6a27e2f25dad946b",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "fb7ec743db377835732488b79098476b9a78caf7b9a57127db168aa6ba5b3b94",
+          "quality": {
+            "previous": {
+              "axSha256": "fd112e3293fb6daf001a5431744f24bb5b555a68e34bbbe4711c386fd3812668",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXCheckBox"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "8ce4b6d26ac3a45dcc7cb25d2d386cbab0625eb191a8ff39cde6e3f2e5f6fe39",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": false,
+          "hintMatched": false,
+          "predictionSha256": "b0c49146562d55a02da21bbbbd77133562df962d8e84c20c33cbd042ea10253d",
+          "quality": {
+            "previous": {
+              "axSha256": "60fa94291400da9f08730d52cf663c5b18c0ecc9febeabc2f6c04a43c4614b61",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "a01c284a5560db39cc079c58be2d41bb0c1e12882d0511c7c68c5b50688f36e3",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": false,
+          "candidateStatus": "unmeasured",
+          "candidateReason": "ancestor requires independently measured structural context not supplied by this probe",
+          "beforeTargetStable": false,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "input-not-constructed"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "3281346d5950d5c9dfaf776257fb316dbc37af946d20d76f008b7dfe1617caed",
+          "quality": {
+            "previous": {
+              "axSha256": "59125e3d39901737f239daa326d6d7546c6cf940308c2b223c373c59391e73cb",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXTextField"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "0ab6477a5fa89b4b0a91ab991b6d6a7f0c81300e1a615caa3190a60f43a61c06",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "0fd3d4b0e2fb1500e74e70719938182498dfeca3cb59f16c6b5e99cf09fc7cb0",
+          "quality": {
+            "previous": {
+              "axSha256": "d7669f57faeee83c5ffadc1e2aea29911e7c6828e14f1302eee1324ebb82ff05",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXGroup"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "cc4d01d2025b0c524c98e0632117b5053daef17e0aa4036441e182be0be47016",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "b25f4c5137f9cd99763fadc57fb27be540ab90529948c5ebdc4777aef467270a",
+          "quality": {
+            "previous": {
+              "axSha256": "9781d1feef8dc60b81a439f06849c16e5b18970c19ae2cc68e201447257840d4",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "4308639c914dddc3d79afca5641278f0eba204fd2dd5725cead7250afe5ffb32",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "eligible": false,
+          "issues": [
+            "input-unmeasured",
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "1e6791acb1d70b1f5cff8c021a5222e0c5163dc749c5a87aaae7f13e5835deef",
+          "quality": {
+            "previous": {
+              "axSha256": "1693d176a58b30da5e8730fa47b1980a3e65ebe5d0c092e7b10dcf3e92744b94",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXLink"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "b9d3c661423da388cae16f49061e73dbd7de0d3235ef08c5aea7b58017cfeb0a",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXGroup",
+                "AXLink"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "04eb2b9f00aafe0e9359f184652e4733ae6558dbcea6e6f81a22c5f5038174fd",
+          "quality": {
+            "previous": {
+              "axSha256": "e6730f035fa0ff439c7f7b98e3b54fa238ee629b3ecd831648cbcdce8dc2f669",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "a9d402a4e2a63c7570bd96ae885155855541786b84417d8ba945a7465c7ffc75",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": false,
+          "fullMatched": false,
+          "hintMatched": true,
+          "predictionSha256": "dd08559ef8d99e11a39f7e2a72f1fff9f374b79fddeffc439c9284b555e5cd42",
+          "quality": {
+            "previous": {
+              "axSha256": "1be51278a02126c2354cdf138344286bd396557d80fef4a71e8ff6bab2a85906",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXStaticText"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "7aad1a5201792ab4dfc1c3f00c1b574e27b010060d76b71868c487c233a92fd8",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "bc3a04e33e010495b33fbee0ff7edc4970e34463d59e8cae109422eb6c82351f",
+          "quality": {
+            "previous": {
+              "axSha256": "bfb9fb37c9c2e69aaaf9885ba0f87786569f691250ae18cba52f3cb628746609",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXLink",
+                "AXStaticText"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "9971a2418b7aaba59b812987884d390a397453778430247c244c3f2bf89984d3",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "e324c5c7058583ed894bc748bf54adc94a976b111e771a6d2bd646adc5d4a745",
+          "quality": {
+            "previous": {
+              "axSha256": "e7b107374c1b5e0f0877c50f3ed94053e62ace3f97106ac6042cd58f6b2478a5",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "52b85bc2029772323181ddb3cc4c45087223f87bfd0cb9fa42fdbc9679689214",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 0,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": false,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": false,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "f7aec9e7faa9bd13903d3972dcb4b0f9b5123c7d55b70e779545ac806bf498e3",
+          "quality": {
+            "previous": {
+              "axSha256": "dc91c3f9047994f2de82179827e507a79411e897137d8bf02474ce651045d03a",
+              "status": "observed",
+              "targetStatus": "unmatched",
+              "candidateRoles": [],
+              "candidateCount": 0,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "96dd318753e28b8f4a1c5c9e5758720d4da91ab7dee01d8fc84bc403a0536776",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 1,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "ff47a756c89003bb2ca7b371e223d6737ab71cdf9e7a86e5d4d195aeed0809f5",
+          "quality": {
+            "previous": {
+              "axSha256": "eb0a107b985af6a87dd5eaabc0ca1c0dcda8c3c4601af66698c34cfb7555665d",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXStaticText"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "4a1b46c6fcccacd06a94649ad280d4ddcd2943261b7e0dcdf74a3283a400bcce",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 2,
+          "category": "button",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "verified",
+          "inputReasons": [],
+          "eligible": true,
+          "issues": [],
+          "mainMatched": true,
+          "fullMatched": true,
+          "hintMatched": true,
+          "predictionSha256": "9775aa1c89bc51b5b23897567979689129d4dded853da124c261c1c6b356e3cf",
+          "quality": {
+            "previous": {
+              "axSha256": "3ce67027a8c30fce0e939ec0d7d20c522b1f3b9a4b20366c859bab92fcdd8cde",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "41ec852959146f40bf6a0c04df4309cc9a8977936c0b2dd5552a919db5267916",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXButton"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 3,
+          "category": "link",
+          "nativeObserved": true,
+          "inputConstructed": true,
+          "candidateStatus": "constructed",
+          "beforeTargetStable": true,
+          "previousContextVerified": true,
+          "tableHistoryUnmeasured": false,
+          "inputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "eligible": false,
+          "issues": [
+            "input-unmeasured"
+          ],
+          "mainMatched": null,
+          "fullMatched": null,
+          "hintMatched": null,
+          "predictionSha256": "349033cc0be58ad03da470ced9c5017468d9343e277af2385716b5a74b266d9e",
+          "quality": {
+            "previous": {
+              "axSha256": "5d45640e5a78a708d12b2335694b960c472fe01033a91dd2f64b0b29f58c3b4a",
+              "status": "observed",
+              "targetStatus": "unique-geometry-candidate",
+              "candidateRoles": [
+                "AXLink"
+              ],
+              "candidateCount": 1,
+              "truncated": false,
+              "stringTruncations": 0
+            },
+            "after": {
+              "axSha256": "8bccf56b9b9761c20da1f8dccca804e3a0b6fbaa80411599e7af7b83ee0074d4",
+              "status": "observed",
+              "targetStatus": "ambiguous",
+              "candidateRoles": [
+                "AXLink",
+                "AXImage"
+              ],
+              "candidateCount": 2,
+              "truncated": false,
+              "stringTruncations": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

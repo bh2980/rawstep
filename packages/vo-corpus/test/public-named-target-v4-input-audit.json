@@ -1,0 +1,682 @@
+{
+  "at": "2026-10-15T19:56:01.037Z",
+  "caseSet": "public-named-target-v4",
+  "classification": "post-inspection-input-quality-audit-of-unchanged-first-predictions",
+  "originalAuditSha256": "fc60de51064742029ebde71bc04e5fb392db7b380841ab62dab0540f8f5021c0",
+  "originalVerifierSha256": "a401774061160dce0de25c383bcc763f7f643058f4991021febcc1741579acd7",
+  "currentVerifierSha256": "1054b53295841c0e340e327198d3c2ec07b5a9298fcff29e4df14ead2cece4e0",
+  "modelBuildSha256": "2276852e5c82fc5528c717074422fe02e31e5967ac42cdaca092cf0be4f14f9e",
+  "scope": "Apply a conservative compound link/heading input gate to every original row, independent of speech agreement. The old observer supplied only primary AX link semantics and did not verify descendant/ancestor heading content. Do not relabel those incomplete inputs as verified wording failures or successes. No engine, original input, prediction or Native observation changed; no corrected-input success is claimed. Original first scores remain preserved separately; all sixteen planned slots per browser remain in the denominator.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "sourceRecordsSha256": "f9ff79df5c4c97adc308c3686e15e82bcbd75a6c706023b1ba47edc331dafbc2",
+      "originalFirstSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 7,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 7,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 7,
+          "eligible": 7,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.4375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "hintCandidateExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "auditedOriginal": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 7,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 7,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 7,
+          "eligible": 7,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.4375
+        },
+        "fullSpeechExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "hintCandidateExact": {
+          "matched": 3,
+          "eligible": 7,
+          "conditionalRate": 0.42857142857142855,
+          "allPlannedRate": 0.1875
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "b5af3b1ede2f74c518343e2ebd8a3a68441874b1ed0a47b3383ce52531689726",
+          "predictionSha256": "f65afd378606892dc65d4346c898a170ec81213267e0ed1d96189a10c0486669",
+          "nativeAxSha256": "fa91e49ca20104d4df8d65fbbc2da600eed9ddbec0010b6c1e096c821b9ff3f1"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "da7fda8c4c0553b8f9039b9e568ea7fec34c1f938e6add29d3042671f61207e6",
+          "predictionSha256": "037ccb5398b311064fce3bcb419133a377731fe29837da650e2c6424662342ac",
+          "nativeAxSha256": "69629db4c31e7390e1a6c6d656c6cf0360c0a583e39311ccba98a89fc1ede95a"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "fc559a788ec02109b2ba6a28105449f9ef834979a06051569e71cb1f27e2f7b0",
+          "predictionSha256": "2876fa50632474f508d7ddc8fb7db0ed99fdb41203a22d87948f544c70e7b065",
+          "nativeAxSha256": "4ead5f8583907e87cff4db4f15d9dcc696afcb760231763088409350062c5c85"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 3,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "04037ba74aafb23d459830981dd622edef46351fcd571dcbb40bd1f147f57dd9",
+          "predictionSha256": "5447d10127b38da31d5c9bcad1c0e3d366dfdd99434f1c914e6ed12d56a1b19a",
+          "nativeAxSha256": "bf18327cfa84e8a733a23cc3711c74b9ca43d79dd32bd4a761dfd36f788c4641"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 0,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-not-constructed"
+          ],
+          "predictionSha256": "1d8da9a740de48f923131c2a3a47452e4ad8ced34b7aa8f6da12e984a6d4b760",
+          "nativeAxSha256": "0847b36cdee562392cf2c5e53d03cef1ab4e1f911b1d4593e3baa17ad45b3052"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "179382c460d3c730e5d96848c2d4e31638bdfa39ebc062327512d3c2dcc09d12",
+          "predictionSha256": "8eb0d76af5d981d00fe51df55b819d4ac45ae6d609d62bc7ae9bbbf1f0d56f2f",
+          "nativeAxSha256": "e3d933a69aac074d4312b0e9760fbf213a633aa11ee20ef1ecfc23cb3f1c68b4"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "2e40e4fdf199d5a312a78cedfd15afdbc7a0fa817807999fdd6c1ade129669aa",
+          "predictionSha256": "13423b76cde4a50702deb06700266e056b67da85d2d87f8a7c56046625833161",
+          "nativeAxSha256": "7eed8d3a27d0d522ca78883e7bf257c61fac2c874da73d5247dc59e245579212"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 3,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-unmeasured",
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "8e6fbc574cc4b657ba1a131deeca04b93c71de649ac5f604a8affbbc12bd589d",
+          "predictionSha256": "aad3ac4fde2dc75e6edd0489834f352ecc9869f6736e9aeec8bdcdf88a6c6603",
+          "nativeAxSha256": "68f645790079304d6e37a54611a08a90e38fcce28d1ae03322a40f8a60f71489"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "2fc0007dc1b64990a3f75e66e6a2c95ab97693432e6d3410cf84b8ddb88ab1d2",
+          "predictionSha256": "bcd3075b1211b8f4b78b827122583c22c15a6d3771bafff7401bbcb37923e1cb",
+          "nativeAxSha256": "ae9000d3d48c1abb862f72580ae90674f402956ded98708a9a7a5d00057b6a9d"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 1,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-unmeasured"
+          ],
+          "originalInputSha256": "736eff5731387b146741b5029923b83fa46f3dfb9795e662b5159c9be5f06890",
+          "predictionSha256": "51d7720a5c9b694582fc38bbb5a7583f9b22f92f045ec1d186ad9638057283e0",
+          "nativeAxSha256": "221fd5323d7b2c5cfc864410fc77555dc9dad6f634dec0c06a73f1065c1438e2"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "ce19678a90f7f135cfba458bd6c29b90519939471e4fdf4ff91e4c2350eb6ad3",
+          "predictionSha256": "5a959bf4f665bbc8d436727d29bd242ad9a5ceacce2b4338ce136608e8ac5c6d",
+          "nativeAxSha256": "3aaed3a1d4323b09014f7864e91fae8314af32c67b5aa04043bb6b877a425721"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 3,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "35f22da1fce43d43e995289898351144c447f5b14e156506b7c147e6c1a9f32c",
+          "predictionSha256": "c77d97e4841e0bb2b959b80c360df1db4777bff65fbdcdbca11963577d296590",
+          "nativeAxSha256": "e4e74deaf2968a51042bab89c7a1002c67bfde88765d29c0f10bd182225dbbaa"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "2e7a25402c0826527147d3afe8405d567c9a3b14d7f50d44b744c25bd64f67d4",
+          "predictionSha256": "df5b52219b5925586971fc6a1a8a7536ce2691feb2878ccb306e30a4ea8de164",
+          "nativeAxSha256": "65cfee2c6facb895270f9f9896f1c04d764c6503dc55149953be9c6948237886"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "67e51bcb3b8805ae9409a0fcfdc7b9be87b7d2df20465c2aedafd03677b0f184",
+          "predictionSha256": "0de2ccfe9faef7062cca42e1f5965c8eba012ee9e2226c689d6f2ba2c3cbbfcc",
+          "nativeAxSha256": "0eb791c9cb16945b5672986f7f7eff79ed933a77efb923fa3f5761daa88f80e6"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "5006ec439490c64b356196926f8772c53e4274b70541cd08951c1ff21dc54a0f",
+          "predictionSha256": "b30c062a4a904fdb9cff3b63398b7b4248fd4ccb7de2610808ce6fefbc6e5e6d",
+          "nativeAxSha256": "0ba603fdf783f32023836f2b9066baed851131eef2ff483d6f6adae7ff619571"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 3,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "43ebe4f1d0b99b62ace76d70329755fa1ab95d982b0d69a5ca2066717c929e6a",
+          "predictionSha256": "2dfc5534b7b67e905b62286d6c3507647b9d36fce8e1526ddc3614abd6bcedf7",
+          "nativeAxSha256": "5fd6f4c6f716c5faa83edcbf81989f86afe035c1c20bdd1ea0a1101e9cb100e8"
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "sourceRecordsSha256": "198bdf58efb36a0a2336cfa149ca99c8e07d7e9bdb0947661c21b31a048b36e1",
+      "originalFirstSummary": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 13,
+        "inputMismatch": 0,
+        "inputUnmeasured": 3,
+        "commandVerified": 16,
+        "inputEquivalent": 13,
+        "eligible": 10,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 4,
+          "input-unmeasured": 2
+        },
+        "mainSpeechExact": {
+          "matched": 9,
+          "eligible": 10,
+          "conditionalRate": 0.9,
+          "allPlannedRate": 0.5625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 10,
+          "conditionalRate": 0.5,
+          "allPlannedRate": 0.3125
+        },
+        "hintCandidateExact": {
+          "matched": 6,
+          "eligible": 10,
+          "conditionalRate": 0.6,
+          "allPlannedRate": 0.375
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "auditedOriginal": {
+        "planned": 16,
+        "nativeObserved": 16,
+        "inputVerified": 12,
+        "inputMismatch": 0,
+        "inputUnmeasured": 4,
+        "commandVerified": 16,
+        "inputEquivalent": 12,
+        "eligible": 9,
+        "issues": {
+          "input-not-constructed": 1,
+          "previous-context-unverified": 4,
+          "input-unmeasured": 3
+        },
+        "mainSpeechExact": {
+          "matched": 9,
+          "eligible": 9,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.5625
+        },
+        "fullSpeechExact": {
+          "matched": 5,
+          "eligible": 9,
+          "conditionalRate": 0.5555555555555556,
+          "allPlannedRate": 0.3125
+        },
+        "hintCandidateExact": {
+          "matched": 5,
+          "eligible": 9,
+          "conditionalRate": 0.5555555555555556,
+          "allPlannedRate": 0.3125
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "ad7c683fde97ae9502286b55bb0b7c5e1d9745d41c807d5310cad0e77ece9fd7",
+          "predictionSha256": "c9577bbc3092ecf9bdaac6682377a393b122eeb0a15434b949cba9331807791f",
+          "nativeAxSha256": "89882cc1712b1d88c5fbd53ca70d4d69f7e6a526112d33efd402b9787fc1aa8d"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "0c56b9dbb7c4e313cfb7d7e48785796859f2a56706d3d86f4840517298c6e1fa",
+          "predictionSha256": "6c0895499054757e6ce8ea8fd30636f16e58a3d1849efcc232d9fc44c8d60f78",
+          "nativeAxSha256": "94a224b4be86508e59bff0908f7f089d559e588e7208f96c6a27e2f25dad946b"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "bbbc4aacefee077400691aacf58e09024912cdc9ab3ee24636d4fac9230e7825",
+          "predictionSha256": "fb7ec743db377835732488b79098476b9a78caf7b9a57127db168aa6ba5b3b94",
+          "nativeAxSha256": "8ce4b6d26ac3a45dcc7cb25d2d386cbab0625eb191a8ff39cde6e3f2e5f6fe39"
+        },
+        {
+          "url": "https://www.weather.gov/",
+          "slot": 3,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": false,
+          "issues": [],
+          "originalInputSha256": "6bee04a81a322cabcca62e35b0a1d7e2bd880c5e9a8a37e58c01f9e7edc34690",
+          "predictionSha256": "b0c49146562d55a02da21bbbbd77133562df962d8e84c20c33cbd042ea10253d",
+          "nativeAxSha256": "a01c284a5560db39cc079c58be2d41bb0c1e12882d0511c7c68c5b50688f36e3"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 0,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-not-constructed"
+          ],
+          "predictionSha256": "3281346d5950d5c9dfaf776257fb316dbc37af946d20d76f008b7dfe1617caed",
+          "nativeAxSha256": "0ab6477a5fa89b4b0a91ab991b6d6a7f0c81300e1a615caa3190a60f43a61c06"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "a4581c80127666a4c9f541a3a8ad1410680d7b2a2c49278ea06c83ea32d1b715",
+          "predictionSha256": "0fd3d4b0e2fb1500e74e70719938182498dfeca3cb59f16c6b5e99cf09fc7cb0",
+          "nativeAxSha256": "cc4d01d2025b0c524c98e0632117b5053daef17e0aa4036441e182be0be47016"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "285e14ee29f76a2f4a752152b53967123f74525a8fb7aeed6c6a256047f58469",
+          "predictionSha256": "b25f4c5137f9cd99763fadc57fb27be540ab90529948c5ebdc4777aef467270a",
+          "nativeAxSha256": "4308639c914dddc3d79afca5641278f0eba204fd2dd5725cead7250afe5ffb32"
+        },
+        {
+          "url": "https://www.w3.org/WAI/tutorials/",
+          "slot": 3,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-unmeasured",
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "534cea8ee21138bcb10e39efa3b25e925b4753ab36f10229c72de608849075ac",
+          "predictionSha256": "1e6791acb1d70b1f5cff8c021a5222e0c5163dc749c5a87aaae7f13e5835deef",
+          "nativeAxSha256": "b9d3c661423da388cae16f49061e73dbd7de0d3235ef08c5aea7b58017cfeb0a"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "e33542cbd347fe3b04fef80ea92e2ac683137a02eec556ae4f73df03da84ee10",
+          "predictionSha256": "04eb2b9f00aafe0e9359f184652e4733ae6558dbcea6e6f81a22c5f5038174fd",
+          "nativeAxSha256": "a9d402a4e2a63c7570bd96ae885155855541786b84417d8ba945a7465c7ffc75"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [
+            "compound link/heading reading unit requires independent input verification"
+          ],
+          "originallyEligible": true,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-unmeasured"
+          ],
+          "originalInputSha256": "25f6356b96ec9f4b305757382b5258cbf5bce15987841edea0cbb54900a70abd",
+          "predictionSha256": "dd08559ef8d99e11a39f7e2a72f1fff9f374b79fddeffc439c9284b555e5cd42",
+          "nativeAxSha256": "7aad1a5201792ab4dfc1c3f00c1b574e27b010060d76b71868c487c233a92fd8"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "379b03152f396b4074b4516214835afc98fd0183b349eb41b024b874072f9dd7",
+          "predictionSha256": "bc3a04e33e010495b33fbee0ff7edc4970e34463d59e8cae109422eb6c82351f",
+          "nativeAxSha256": "9971a2418b7aaba59b812987884d390a397453778430247c244c3f2bf89984d3"
+        },
+        {
+          "url": "https://web.dev/blog",
+          "slot": 3,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "39e6b0d4726a0354f97e77b4844f5cea0cecaed2cefc4ad01a378cb8b489e1d5",
+          "predictionSha256": "e324c5c7058583ed894bc748bf54adc94a976b111e771a6d2bd646adc5d4a745",
+          "nativeAxSha256": "52b85bc2029772323181ddb3cc4c45087223f87bfd0cb9fa42fdbc9679689214"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 0,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "previous-context-unverified"
+          ],
+          "originalInputSha256": "5c46fd1df80585996dcc130a7fa43ee88e8daad78e48ccd892a452d54b63dd32",
+          "predictionSha256": "f7aec9e7faa9bd13903d3972dcb4b0f9b5123c7d55b70e779545ac806bf498e3",
+          "nativeAxSha256": "96dd318753e28b8f4a1c5c9e5758720d4da91ab7dee01d8fc84bc403a0536776"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 1,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "9b52442285d789694f7557cc76851e27b34b18dd68c52ca64e3a704ebc514966",
+          "predictionSha256": "ff47a756c89003bb2ca7b371e223d6737ab71cdf9e7a86e5d4d195aeed0809f5",
+          "nativeAxSha256": "4a1b46c6fcccacd06a94649ad280d4ddcd2943261b7e0dcdf74a3283a400bcce"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 2,
+          "originalInputStatus": "verified",
+          "auditedInputStatus": "verified",
+          "inputReasons": [],
+          "originallyEligible": true,
+          "eligible": true,
+          "mainMatched": true,
+          "fullMatched": true,
+          "issues": [],
+          "originalInputSha256": "82961b08ed2743b2ef2ad7c4eceb06e853c60cea6256eeeccd05e580ec5ec58c",
+          "predictionSha256": "9775aa1c89bc51b5b23897567979689129d4dded853da124c261c1c6b356e3cf",
+          "nativeAxSha256": "41ec852959146f40bf6a0c04df4309cc9a8977936c0b2dd5552a919db5267916"
+        },
+        {
+          "url": "https://react.dev/learn",
+          "slot": 3,
+          "originalInputStatus": "unmeasured",
+          "auditedInputStatus": "unmeasured",
+          "inputReasons": [
+            "stable unique visible target not established"
+          ],
+          "originallyEligible": false,
+          "eligible": false,
+          "mainMatched": null,
+          "fullMatched": null,
+          "issues": [
+            "input-unmeasured"
+          ],
+          "originalInputSha256": "0a52f58a74079668333975e109a1672f3c2b235dbd18a0c740b73ce588c6d9d3",
+          "predictionSha256": "349033cc0be58ad03da470ced9c5017468d9343e277af2385716b5a74b266d9e",
+          "nativeAxSha256": "8bccf56b9b9761c20da1f8dccca804e3a0b6fbaa80411599e7af7b83ee0074d4"
+        }
+      ]
+    }
+  ]
+}

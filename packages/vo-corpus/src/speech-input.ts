@@ -43,11 +43,18 @@ export function observedSpeechContext(dump:AxDump){
     scope:'Visible previous object ancestor path after a declared focus/object move; model history projection, not a Native private speech-cache or navigation-accuracy measurement.'};
 }
 
+// A primary AX role alone cannot verify the formatter's compound heading/link projection.
+function compoundHeading(node:AxNode,ancestors:AxNode[]){
+  const contains=(n:AxNode,role:string):boolean=>(n.children??[]).some(c=>c.AXRole===role||contains(c,role));
+  return node.AXRole==='AXLink'&&(contains(node,'AXHeading')||ancestors.some(n=>n.AXRole==='AXHeading'))||node.AXRole==='AXHeading'&&contains(node,'AXLink');
+}
+
 /** Intended target input from Native attributes; this does not establish the VoiceOver reading position. */
 export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
   const frame=nativeContainerPath(dump,path);if(frame.status!=='observed')return frame;
   const {node,containers,ancestors}=frame;
+  if(compoundHeading(node,ancestors))return unknown('compound link/heading reading unit requires independent input verification');
   const semanticRole=role(node);if(!semanticRole)return unknown('target role outside this input verifier');
   if(typeof node.AXEnabled!=='boolean')return unknown('enabled state missing');
   const content=nativeCustomContent(node);if(content.status!=='observed')return unknown('additional content not measured');
@@ -144,6 +151,7 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     return {node,ancestors};
   });
   const {node}=chains[0]!,expected=input.target.semantic;
+  if(chains.some(c=>compoundHeading(c.node,c.ancestors))||expected.headingParts!==undefined||expected.headingLinkOrder!==undefined||expected.headingLink)return unknown('compound link/heading reading unit requires independent input verification');
   if(chains.some(c=>c.ancestors.some((n,i)=>unsupportedSpeechAncestor(n,i))))return unknown('dialog or nested web-area context not independently verified');
   if(chains.some(c=>c.ancestors.some(unmappedLandmark)))return unknown('Native landmark role outside this input verifier');
   if(chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXList'&&n.AXSubrole!=='AXContentList')))return unknown('Native list widget outside this input verifier');

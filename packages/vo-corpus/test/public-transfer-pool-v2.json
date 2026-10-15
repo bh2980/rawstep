@@ -1,0 +1,18 @@
+[
+ {"family":"service","url":"https://www.weather.gov/","siteGroup":"weather.gov"},
+ {"family":"documentation","url":"https://www.w3.org/WAI/tutorials/","siteGroup":"w3.org"},
+ {"family":"blog","url":"https://css-tricks.com/","siteGroup":"css-tricks.com"},
+ {"family":"blog","url":"https://web.dev/blog","siteGroup":"web.dev"},
+ {"family":"news","url":"https://www.bbc.com/news","siteGroup":"bbc.com"},
+ {"family":"news","url":"https://www.theguardian.com/international","siteGroup":"theguardian.com"},
+ {"family":"search","url":"https://archive.org/search?query=history","siteGroup":"archive.org"},
+ {"family":"search","url":"https://search.worldcat.org/search?q=history","siteGroup":"worldcat.org"},
+ {"family":"shop","url":"https://www.patagonia.com/home/","siteGroup":"patagonia.com"},
+ {"family":"shop","url":"https://www.etsy.com/search?q=notebook","siteGroup":"etsy.com"},
+ {"family":"service","url":"https://www.usps.com/","siteGroup":"usps.com"},
+ {"family":"service","url":"https://weather.gc.ca/","siteGroup":"gc.ca"},
+ {"family":"documentation","url":"https://react.dev/learn","siteGroup":"react.dev"},
+ {"family":"documentation","url":"https://developer.mozilla.org/en-US/docs/Web/Accessibility","siteGroup":"mozilla.org"},
+ {"family":"documentation","url":"https://docs.djangoproject.com/en/stable/","siteGroup":"djangoproject.com"},
+ {"family":"documentation","url":"https://caniuse.com/","siteGroup":"caniuse.com"}
+]

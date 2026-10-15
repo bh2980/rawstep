@@ -102,6 +102,21 @@ test('link and heading input verification keeps role and level independent from 
  node.AXValue=2;delete target.target.semantic.level;assert.equal(checkSpeechInput(target,d).status,'unmeasured');
 });
 
+test('a primary link/heading role cannot hide a compound reading unit from input verification',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!,target=structuredClone(input);
+ node.AXRole='AXLink';node.AXCustomContent={status:'no-value',errorCode:-25212};target.target.semantic.role='link';
+ node.children=[{AXRole:'AXHeading',AXValue:3,AXTitle:'Prepare booking'}];
+ assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+ assert.equal(nativeSpeechInput(d,[0,0,0],'next_item').status,'unmeasured');
+ node.children=[];assert.equal(checkSpeechInput(target,d).status,'verified');
+ target.target.semantic.headingLinkOrder='link-heading';assert.equal(checkSpeechInput(target,d).status,'unmeasured');delete target.target.semantic.headingLinkOrder;
+ node.AXRole='AXHeading';node.AXValue=3;node.children=[{AXRole:'AXLink',AXTitle:'Prepare booking'}];target.target.semantic.role='heading';target.target.semantic.level=3;
+ assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+ node.children=[];assert.equal(checkSpeechInput(target,d).status,'verified');
+ const parent=d.root.children![0]!.children![0]!;parent.AXRole='AXHeading';parent.AXValue=3;node.AXRole='AXLink';delete target.target.semantic.level;target.target.semantic.role='link';
+ assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+});
+
 test('target-conditioned inputs use AX and visible geometry while withholding unsupported contexts',()=>{
  const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
  node.AXCustomContent={status:'no-value',errorCode:-25212};
