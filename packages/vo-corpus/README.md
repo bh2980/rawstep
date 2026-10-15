@@ -662,6 +662,21 @@ node --import tsx src/real-pages.ts --out data/cases/public-dom-<new-id> --width
   --seed <recorded-seed> --count 8 --dom-fingerprint
 ```
 
+### New-domain sampling and the 2026-10-15 live pilot
+
+`real-pages.ts --pool <candidate-array.json>` accepts a separately recorded HTTPS candidate pool while preserving the
+historical default pool. Selection still uses seeded hash ranking and retains unavailable samples. The committed
+`test/public-transfer-v1` records a 12-candidate pool, seed, selected new domains and a new 24-action history. Its
+[quality report](../../docs/voiceover-public-transfer-evaluation.md) preserves two failed Native attempts: 48 planned
+actions each, no comparable action windows. The sites are inspected protocol-development material; the frozen
+original `unseen` input labels do not make them future holdouts. No live speech accuracy is established.
+
+Natural-heading starts now capture an anchored AX snapshot without invoking the unrelated marker-focus check.
+Safari AXHeading numeric AXValue supplies the observed level when AXARIALevel is absent; invalid levels remain
+unknown. Raw historical runs retain their original fields and failures. This live path currently supports Safari;
+Chrome live validation remains pending. The separate [activation API evaluation](../../docs/voiceover-activation-evaluation.md)
+reports the new pure API, independent synthetic first results and corrected regressions for both browsers.
+
 ### Collection audit and model-independent redesign (2026-10-15)
 
 The collection unit is an **observed transition**, not an isolated utterance: measured prior context and action history,

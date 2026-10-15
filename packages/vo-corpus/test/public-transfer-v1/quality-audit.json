@@ -1,0 +1,165 @@
+{
+  "at": "2026-10-15T09:55:57.119Z",
+  "scope": "Sampling/collection quality audit, not a speech accuracy evaluation. Preserve both attempts and all denominators. No source speech is copied into prediction inputs.",
+  "sourceCommit": "43a3c92",
+  "sampling": {
+    "seed": "669590104a1d26e61b611b52cde4a860",
+    "generatedAt": "2026-10-15T09:31:54.699Z",
+    "pool": [
+      {
+        "family": "blog",
+        "url": "https://www.joshwcomeau.com/"
+      },
+      {
+        "family": "blog",
+        "url": "https://www.smashingmagazine.com/"
+      },
+      {
+        "family": "news",
+        "url": "https://www.nasa.gov/news/"
+      },
+      {
+        "family": "news",
+        "url": "https://www.npr.org/sections/news/"
+      },
+      {
+        "family": "search",
+        "url": "https://www.gutenberg.org/ebooks/search/?query=history"
+      },
+      {
+        "family": "search",
+        "url": "https://openlibrary.org/search?q=history"
+      },
+      {
+        "family": "shop",
+        "url": "https://www.ebay.com/sch/i.html?_nkw=notebook"
+      },
+      {
+        "family": "shop",
+        "url": "https://www.uniqlo.com/us/en/"
+      },
+      {
+        "family": "service",
+        "url": "https://www.nps.gov/findapark/index.htm"
+      },
+      {
+        "family": "service",
+        "url": "https://www.weather.gov/"
+      },
+      {
+        "family": "documentation",
+        "url": "https://www.python.org/doc/"
+      },
+      {
+        "family": "documentation",
+        "url": "https://www.w3.org/WAI/tutorials/"
+      }
+    ],
+    "selected": [
+      {
+        "family": "blog",
+        "url": "https://www.joshwcomeau.com/",
+        "rank": "037768406b1077f8fec850df0829260527fd0933b7fda6928c5c8c3bd063605d"
+      },
+      {
+        "family": "service",
+        "url": "https://www.nps.gov/findapark/index.htm",
+        "rank": "0abc650e3db63cbef497792e48e2b913e1e0215eb4476a227a5d320e5450af40"
+      }
+    ],
+    "contentProtocol": "accessibility-text",
+    "protocol": "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples."
+  },
+  "casesSha256": "e27d084fd6b2abbd8a7e2239e40560693bcc17ed3122809b0d31d913762d0c14",
+  "model": {
+    "runDir": "data/runs/public-pages-669590104a1d26e61b611b52cde4a860-first-heading-sim-pre-native-2026-10-15T09-41-32-792Z",
+    "sealedAt": "2026-10-15T09:42:37.530Z",
+    "modelBuildSha256": "e91cc6e7de8a11608a49ea0c08afd0b2bf921b53d625b7695b8836c56eee3986",
+    "recordsSha256": "b1de7d994d65f80b15a2328fe2d816a105e372538651350cb4ef3b864831a7db",
+    "aligned": 2,
+    "observed": 48,
+    "metadataIssue": "Private model-first wrapper omitted casesGeneratedAt. The standard evaluator refused its metadata. Raw metadata was not edited; the archive byte hash and archived generatedAt are independently verified above. Future wrapper metadata must include this field."
+  },
+  "attempts": [
+    {
+      "run": "public-pages-669590104a1d26e61b611b52cde4a860-first-heading-2026-10-15T09-43-36-413Z",
+      "startedAt": "2026-10-15T09:43:36.911Z",
+      "recordsSha256": "4efc578c94570a8825673f418e7a61b0685da5df6d06b38450bf14721200ded4",
+      "workflowStartProtocol": "Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.",
+      "planned": 48,
+      "observed": 0,
+      "aligned": 0,
+      "cases": [
+        {
+          "caseId": "public.1.blog",
+          "aligned": false,
+          "observed": 0,
+          "error": "cannot reach the first unique native heading; public sample preserved as failed",
+          "anchor": {
+            "name": "Josh W Comeau homepage"
+          },
+          "sourceAx": "ax/attempts/6a10e74b-8892-4880-a9f1-fd88bd875387/preparation.json",
+          "sourceAxSha256": "17caf1fadc54428f6f96c6116ea612e18542ea2ee0dc9525c1a868651565acb0"
+        },
+        {
+          "caseId": "public.2.service",
+          "aligned": false,
+          "observed": 0,
+          "error": "keyboard focus is outside the start marker after VO+Cmd+F4",
+          "anchor": {
+            "name": "Find A Park"
+          },
+          "sourceAx": "ax/attempts/fbeb56fd-db6a-4934-852d-0be36ce44256/verified-focus.json",
+          "sourceAxSha256": "d5fa28ee546be30fdf57a23679ae0b507e1c3c89c5fc01d7b2a89ca56e5f9bc7"
+        }
+      ]
+    },
+    {
+      "run": "public-pages-669590104a1d26e61b611b52cde4a860-first-heading-2026-10-15T09-48-19-092Z",
+      "startedAt": "2026-10-15T09:48:20.107Z",
+      "recordsSha256": "48caac2126e1116e5f85cf79a633f83676f26fe90e77773da8837f05a77da2d1",
+      "workflowStartProtocol": "Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public marker: native AX marker focus then VO+Shift+F4. Public first-heading v2: independently observed natural heading and heard heading alignment, followed by an AX snapshot; no marker focus transfer or marker check.",
+      "planned": 48,
+      "observed": 0,
+      "aligned": 0,
+      "cases": [
+        {
+          "caseId": "public.1.blog",
+          "aligned": false,
+          "observed": 0,
+          "error": "cannot reach the first unique native heading; public sample preserved as failed",
+          "anchor": {
+            "name": "Josh W Comeau homepage",
+            "level": 1
+          },
+          "sourceAx": "ax/attempts/4373a40a-fb92-45e7-905a-8c74188ba05e/preparation.json",
+          "sourceAxSha256": "818cf59976a86ad1cc4595cee194fbe15fe864a8b5ed96283fab5ccb5813a4ab"
+        },
+        {
+          "caseId": "public.2.service",
+          "aligned": false,
+          "observed": 0,
+          "error": "cannot reach the first unique native heading; public sample preserved as failed",
+          "anchor": {
+            "name": "Find A Park",
+            "level": 1
+          },
+          "sourceAx": "ax/attempts/9885e47b-20e9-4a54-881f-fcde2381e40d/preparation.json",
+          "sourceAxSha256": "9b52f08ff90e623c25749b70b407305f1e83e8575857f7a1f84a85c984056979"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "uniquePlannedActions": 48,
+    "nativePlannedAcrossAttempts": 96,
+    "nativeObservedAcrossAttempts": 0,
+    "normallyComparableSpeech": 0,
+    "mainSpeechExact": null,
+    "fullSpeechExact": null,
+    "navigationAccuracy": null,
+    "stateAccuracy": null,
+    "taskSuccess": null
+  },
+  "classification": "Inspected protocol-development cohort. Neither selected site is a fresh future holdout. Native Chrome live-page collection remains unsupported by the existing collector. Do not substitute a different site for the failed sample."
+}

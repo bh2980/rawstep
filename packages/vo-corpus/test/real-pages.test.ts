@@ -43,6 +43,13 @@ test('the held-out public sample is fixed by the original seed and excludes hist
   for(const c of set.cases){assert.equal(historical.has(new URL(c.url).hostname),false);assert.equal(c.chords.length,24);assert.equal(c.axes.exposure,'unseen');assert.equal(c.captureAxAfterSteps,true);}
 });
 
+test('natural heading levels use the actual Safari AXValue without coercing unknown values',()=>{
+  const dump={truncated:false,focusedPath:null,root:{AXRole:'AXWebArea',children:[{AXRole:'AXHeading',AXTitle:'Page title',AXValue:1}]}} as AxDump;
+  assert.deepEqual(firstUniqueHeading(dump),{name:'Page title',level:1});
+  dump.root.children![0]!.AXValue='1';assert.deepEqual(firstUniqueHeading(dump),{name:'Page title'});
+  dump.root.children![0]!.AXValue=9;assert.deepEqual(firstUniqueHeading(dump),{name:'Page title'});
+});
+
 test("public-page harness preserves original content and handlers, adds stable markers, and records rendered text", async () => {
   const browser = await chromium.launch({ headless: true });
   try {

@@ -91,7 +91,10 @@ export function firstUniqueHeading(dump: AxDump): Anchor {
   if (dump.truncated || dump.stringTruncations) throw new Error("Native accessibility content is truncated");
   const headings: Anchor[] = [];
   const visit = (n: AxNode) => {
-    if (n.AXRole === "AXHeading") headings.push({ name: String(n.AXTitle || nativeAccessibleText(n)).trim().replace(/\s+/g," "), ...(typeof n.AXARIALevel === "number" ? {level:n.AXARIALevel} : {}) });
+    if (n.AXRole === "AXHeading") {
+      const level=n.AXARIALevel??n.AXValue;
+      headings.push({ name: String(n.AXTitle || nativeAccessibleText(n)).trim().replace(/\s+/g," "), ...(Number.isInteger(level)&&Number(level)>=1&&Number(level)<=6?{level:Number(level)}:{}) });
+    }
     for (const c of n.children ?? []) visit(c);
   };
   visit(dump.root);

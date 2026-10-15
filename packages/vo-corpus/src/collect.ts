@@ -67,7 +67,7 @@ const session = new VoSession(values.url ?? atDriverUrl(machine), guard);
 const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?join(out,"inputs"):casesDir, machine);
 const started = Date.now();
 let aligned = 0;
-const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
+const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public marker: native AX marker focus then VO+Shift+F4. Public first-heading v2: independently observed natural heading and heard heading alignment, followed by an AX snapshot; no marker focus transfer or marker check.";
 const observationProtocol=`host-receipts-v6: wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry and bounded native custom-content archives (AX schema v5); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
 try {
   const negotiated = await session.start();
@@ -199,7 +199,13 @@ try {
       start.aligned = speech.join(" ").includes(START_MARKER);
       start.speech = speech;
     }
-    if (start.aligned && item.captureAxAfterSteps && (!set.syntheticInputs||item.url)) {
+    if(start.aligned&&item.startProtocol==='first-heading'){
+      try{
+        startAx=await readAX();
+        if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'verified-heading',startAx);
+      }catch(error){start.aligned=false;alignmentError=`cannot capture anchored heading AX: ${(error as Error).message}`;}
+    }
+    if (start.aligned && item.startProtocol!=='first-heading' && item.captureAxAfterSteps && (!set.syntheticInputs||item.url)) {
       await session.press("VO+Cmd+F4");
       start.commands!.push("VO+Cmd+F4");
       start.speech.push(...spoken(await session.listen()));
