@@ -57,6 +57,10 @@ comparisons match when the observed target and shared HTML context are supplied.
 naming mismatches remain recorded. These results do not establish independent generalization or whole-engine
 accuracy. See [the context audit](./voiceover-speech-context-audit.md) for the data limitations.
 
+The [new context composition evaluation](./voiceover-speech-context-evaluation.md) records 60/60 Main Speech matches
+per browser on a frozen, initially unseen synthetic cohort, with literal full-speech failures and input-quality scope
+reported separately. It is now inspected regression evidence.
+
 ## Run the bundled browser fixture
 
 Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and a profile with `screenReader: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.

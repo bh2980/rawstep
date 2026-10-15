@@ -1405,3 +1405,19 @@ establish the logical reading unit or native/model cursor parity; table cell/tex
 and cursor tracking settings need further validation. Navigation Accuracy remains unmeasured. PNGs and post-state
 diagnostics are evaluator data, never policy/prediction inputs. The smoke is in
 `data/analyses/chrome-v3-visual-cursor-smoke/`, including independent pixel audit and all planned coverage counts.
+
+## Caller-owned speech context evaluation (2026-10-15)
+
+The current scope is the speech engine: Rawstep supplies the reading target, state and context. New navigation behavior
+was not added. Six new synthetic context scenarios were frozen with the speech inputs and model before either Native
+browser capture. Both Safari and Chrome completed 60/60 actions; target/state/ancestor input checks and Main Speech
+Exact were 60/60 each. Literal full-speech candidates were 0/60 due to generated commas; normalized main/hint request
+sequences matched 60/60. These are three new UI comparison pairs, not a whole-engine or random-site accuracy claim.
+The inspected inputs are now regression data. See [the report](../../docs/voiceover-speech-context-evaluation.md) for
+quality gates, denominators, hashes, unverified annotation fields and reproduction limits.
+
+`src/evaluate-speech.ts` replays the frozen pure formatter and verifies its saved predictions before reading scores.
+It reuses native AX/visual observation, receipt attribution and speech normalization. Every planned row remains in the
+report, including missing actions, unverified inputs/history and uncertain speech. It never launches or navigates a browser.
+The shared source fixture is generated with `--set speech-contexts-v1`; the public regression runs through
+`tests/mock-voiceover-speech-transfer.test.ts` without a VM.
