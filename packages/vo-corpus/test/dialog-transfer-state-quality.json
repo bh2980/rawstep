@@ -1,0 +1,728 @@
+{
+  "scope": "Separate raw-archive check that every state snapshot used in the first declared-field comparison is complete and has no unresolved object aliases. Does not overwrite first scores or claim broader State Accuracy.",
+  "fixtureSha256": "b5c00ba371da73619b40defc799aa3e5b646ae1785db33a1faecb97a564e4f19",
+  "planned": 80,
+  "verified": 80,
+  "rows": [
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 0,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 1,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 2,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 3,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 4,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 5,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 6,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 7,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 8,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 9,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 10,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 11,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 12,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 13,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 14,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 15,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 16,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 17,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 18,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 19,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 20,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 0,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 1,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 2,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 3,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 4,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 5,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 6,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 7,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 8,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 9,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 10,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 11,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 12,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 13,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 14,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 15,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 16,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 17,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "safari",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 18,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 0,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 1,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 2,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 3,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 4,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 5,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 6,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 7,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 8,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 9,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 10,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 11,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 12,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 13,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 14,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 15,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 16,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 17,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 18,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 19,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.delivery-preferences",
+      "step": 20,
+      "nativeStateObjects": 9,
+      "modelStateObjects": 9,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 0,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 1,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 2,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 3,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 4,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 5,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 6,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 7,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 8,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 9,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 10,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 11,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 12,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 13,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 14,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 15,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 16,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 17,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    },
+    {
+      "browser": "chrome",
+      "caseId": "dialog-transfer-v1.receipt-request",
+      "step": 18,
+      "nativeStateObjects": 8,
+      "modelStateObjects": 8,
+      "nativeObjectErrors": [],
+      "modelObjectErrors": []
+    }
+  ]
+}

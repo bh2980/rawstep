@@ -134,7 +134,7 @@ this API. The [activation evaluation](./voiceover-activation-evaluation.md) repo
 | --- | --- | --- |
 | Button/link/heading/checkbox reading and descriptions/help | Selected Native input/output pairs and new composition evaluations | Correct supplied role, state, description/help source and previous context; arbitrary combinations are not certified |
 | Landmark, named group and article context | Entry/return rules and controlled composition transfer | Complete exposed ancestor path and stable IDs; the Chromium projection is a separate check |
-| Nonmodal dialog context | Inspected 29-action regression per browser | Direct exposed children/name inputs; modal, nested and interaction-mode behavior remain uncalibrated |
+| Nonmodal dialog context | Standalone/parent contrasts and a 40-action actual-input task regression per browser | Direct exposed children/name inputs; modal, nested and mixed-command behavior remain uncalibrated |
 | State-change receipts | Activation API explicitly reports `modeled` or `unsupported` for its measured scope | Independently observed before/after state; a modeled silence is distinct from unsupported |
 | Editing, live updates, nested documents and speech timing | Partial legacy adapter rules or unmeasured behavior | Do not treat a generated object summary as a validated event sequence |
 
@@ -143,6 +143,20 @@ fallbacks and does not attach per-result Native validation status. Until those c
 validated, keep them outside a test's declared supported scope or mark the comparison unmeasured. Passing an
 empty history for unknown previous context cannot establish a valid speech match. Speech-only results and
 Rawstep input-projection/interaction results must be reported separately.
+
+For evaluator code that owns a `MockVoiceOverBackend`, call `getSpeechInputObservation()` after `observe()`.
+It returns a copied `mock-speech-inputs-v1` record with the completed observation's `windowId`, capture time and
+the actual formatter inputs plus their previous speech contexts. Reading events distinguish emitted announcements
+from suppressed duplicates; activation events retain `modeled`/`unsupported`. Compare the window IDs before joining
+this diagnostic to outputs. It does not perform an action or infer Native reading position. The record is absent from
+policy observations/events, excludes protected edit values and is cleared on close. Other fixture/user text can still
+be present, so keep evaluator archives outside policy inputs and apply the usual data-handling policy. These are
+Rawstep inputs, not independent evidence that the corresponding Native target/state/context is equal.
+
+The [dialog task study](./voiceover-dialog-transfer.md) records the first actual-input task result separately from
+the later parent-context calibration/correction. Safari v20 / Chrome v14 use nearest-context Tab wording and ordinary
+hints for named dialogs inside another exposed focus context. The standalone summary is retained. The corrected
+40/40 task replay is inspected regression, while its initial independent Main score remains 34/40 in each browser.
 
 ## Run the bundled browser fixture
 
@@ -200,8 +214,8 @@ and interaction-mode-dependent hints remain uncalibrated.
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v19`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v13`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v20`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v14`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -234,7 +248,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v19` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v20` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

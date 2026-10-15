@@ -1449,3 +1449,7 @@ It reuses native AX/visual observation, receipt attribution and speech normaliza
 report, including missing actions, unverified inputs/history and uncertain speech. It never launches or navigates a browser.
 The shared source fixture is generated with `--set speech-contexts-v1`; the public regression runs through
 `tests/mock-voiceover-speech-transfer.test.ts` without a VM.
+
+The [dialog task and parent-context study](../../docs/voiceover-dialog-transfer.md) preserves the first actual-Rawstep-input
+evaluation, separate calibration and corrected regression. Generate its inspected update cases with `--set dialog-transfer-v1`
+and `--set dialog-parent-context-v1`. Original inputs/Native records remain immutable; regenerated inspected cases are regression.

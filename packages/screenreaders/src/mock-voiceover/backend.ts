@@ -2,13 +2,13 @@ import type { CDPSession, Page } from '@rawstep/browser/types';
 import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 import { setTimeout as wait } from 'node:timers/promises';
-import {formatVoiceOverActivation} from './activation.js';
-import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContainer, type VoiceOverCell, type VoiceOverEditState} from './speech.js';
+import {formatVoiceOverActivation,type VoiceOverActivationInput} from './activation.js';
+import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechContext, type VoiceOverContainer, type VoiceOverCell, type VoiceOverEditState} from './speech.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v19' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v13' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v20' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v14' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -70,7 +70,12 @@ type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; s
 type DOMMeta = { tag: string;text?:string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
 type EditState = VoiceOverEditState;
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
-type Window = { id: string; startedAt: string; outputs: BackendOutput[] };
+export type MockVoiceOverSpeechInputObservation = {
+  protocol:'mock-speech-inputs-v1';windowId:string;capturedAt:string;
+  events:({kind:'reading';input:VoiceOverSpeechInput;previousContext:VoiceOverSpeechContext;emitted:boolean}
+    |{kind:'activation';input:VoiceOverActivationInput;previousContext:VoiceOverSpeechContext;status:'modeled'|'unsupported'})[];
+};
+type Window = { id: string; startedAt: string; outputs: BackendOutput[];speechInputs:MockVoiceOverSpeechInputObservation['events'] };
 type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
 
 /** Browser-backed testing adapter. It never connects to or claims to measure native VoiceOver. */
@@ -104,6 +109,7 @@ export class MockVoiceOverBackend implements Backend {
   private hintTarget?: string;
   private pendingHint?: {text:string;dueAt:number};
   private speechContext: VoiceOverSpeechContext = {containers:[]};
+  private speechInputObservation?: MockVoiceOverSpeechInputObservation;
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
@@ -137,6 +143,11 @@ export class MockVoiceOverBackend implements Backend {
     return () => { this.listeners.delete(listener); };
   }
 
+  /** Evaluator-only inputs used in the last completed window; never included in policy observations. */
+  getSpeechInputObservation(): MockVoiceOverSpeechInputObservation | undefined {
+    return this.speechInputObservation && structuredClone(this.speechInputObservation);
+  }
+
   private emit(event: unknown): void {
     for (const listener of this.listeners) {
       try { listener(structuredClone(event)); } catch { /* Subscribers own their failures. */ }
@@ -160,19 +171,22 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   private beginWindow(): Window {
-    return this.window ??= { id: `mock-voiceover-window-${this.nextWindow++}`, startedAt: new Date().toISOString(), outputs: [] };
+    return this.window ??= { id: `mock-voiceover-window-${this.nextWindow++}`, startedAt: new Date().toISOString(), outputs: [],speechInputs:[] };
   }
 
   private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, focusEntry = false): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
     let text = rendered?.speech ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged,this.sourceCommand) : fallback);
-    const formatted = !this.wording && node ? formatVoiceOverSpeech({
+    const input:VoiceOverSpeechInput|undefined = !this.wording && node ? {
       target:node,command:this.sourceCommand,referenceBrowser:this.referenceBrowser,
-      focused:node.identity===this.focusedIdentity,focusEntry,edit:this.focusedEdit,checkedStateChanged,
-    },this.speechContext) : undefined;
+      focused:node.identity===this.focusedIdentity,focusEntry,edit:node.semantic.protected?undefined:this.focusedEdit,checkedStateChanged,
+    } : undefined;
+    const previousContext=this.speechContext,formatted=input?formatVoiceOverSpeech(input,previousContext):undefined;
     if(formatted){text=formatted.speech;this.speechContext=formatted.context;}
     const fingerprint = JSON.stringify([node?.identity, text]);
-    if (!force && this.lastAnnouncement === fingerprint) return;
+    const emitted=force||this.lastAnnouncement!==fingerprint;
+    if(input)this.beginWindow().speechInputs.push(structuredClone({kind:'reading',input,previousContext,emitted}));
+    if (!emitted) return;
     this.lastAnnouncement = fingerprint;
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
@@ -639,8 +653,10 @@ export class MockVoiceOverBackend implements Backend {
           && before.semantic.role === after.semantic.role && before.semantic.name === after.semantic.name
           && typeof before.semantic.checked === 'boolean' && typeof after.semantic.checked === 'boolean'
           && before.semantic.checked !== after.semantic.checked;
-        const activation=!this.wording&&action.kind==='key'&&action.key==='Space'&&after
-          ?formatVoiceOverActivation({beforeTarget:before,target:after,command:'activate_form_control',referenceBrowser:this.referenceBrowser},this.speechContext):undefined;
+        const activationInput:VoiceOverActivationInput|undefined=!this.wording&&action.kind==='key'&&action.key==='Space'&&after
+          ?{beforeTarget:before,target:after,command:'activate_form_control',referenceBrowser:this.referenceBrowser}:undefined;
+        const activation=activationInput?formatVoiceOverActivation(activationInput,this.speechContext):undefined;
+        if(activationInput&&activation)this.beginWindow().speechInputs.push(structuredClone({kind:'activation',input:activationInput,previousContext:this.speechContext,status:activation.status}));
         if(activation?.status==='modeled'){
           this.speechContext=activation.context;
           for(const text of activation.utterances)this.announceText(text,'value-change');
@@ -846,6 +862,7 @@ export class MockVoiceOverBackend implements Backend {
         windowId: window.id, startedAt: window.startedAt, endedAt: new Date().toISOString(), reason: 'simulation-snapshot',
         outputs: [...window.outputs], speech: window.outputs.map(output => output.text),
       };
+      this.speechInputObservation={protocol:'mock-speech-inputs-v1',windowId:window.id,capturedAt:observation.endedAt,events:structuredClone(window.speechInputs)};
       this.window = undefined;
       return observation;
     } finally { this.busy = false; }
@@ -857,6 +874,7 @@ export class MockVoiceOverBackend implements Backend {
     this.session = undefined;
     this.page = undefined;
     this.nodes = [];
+    this.speechInputObservation=undefined;
     this.window = undefined;
     this.pendingHint=undefined;
     this.listeners.clear();

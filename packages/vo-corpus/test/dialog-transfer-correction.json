@@ -1,0 +1,1587 @@
+{
+  "generatedAt": "2026-10-15T15:06:51.464Z",
+  "classification": "inspected-regression-and-calibration",
+  "profiles": [
+    "english-dom-navigation-evidence-v20",
+    "english-chrome-navigation-evidence-v14"
+  ],
+  "modelBuildSha256": "8b86cf97886e5332846611e5bf6b264e86c3e8d06063427273cae752dd920ece",
+  "sourceHashes": {
+    "../screenreaders/src/mock-voiceover/backend.ts": "236f5f1eb3d7651c82799b713f61e38a43a3728c6a04416f359b891c8cbfcb91",
+    "../screenreaders/src/mock-voiceover/speech.ts": "07aeb5bc6fa4bbd0e77324879d09a8d101ce4f0324a762fd23bbd57c1834575f",
+    "../screenreaders/src/mock-voiceover/usage-hints.ts": "00675be6a8d54d345c61bf87d5870261309de1874423cfca58ff6e6a75fd2ddc"
+  },
+  "scope": "Replay original actual Rawstep inputs with current serial speech context; Native and first predictions unchanged. This report scores pure candidate sequences, not native timing. Separate actual-browser integration verifies all 40 actual full-output windows, target/scope joins and 82 declared state fields per profile. New Native-independent evaluation after this correction remains pending. Source/build hashes describe the collection worktree including pending diagnostics, not a pristine commit build.",
+  "cohorts": [
+    {
+      "cohort": "actual-input-task-regression",
+      "fixture": "native-dialog-transfer-2026-10-15.json",
+      "fixtureSha256": "b5c00ba371da73619b40defc799aa3e5b646ae1785db33a1faecb97a564e4f19",
+      "profiles": [
+        {
+          "browser": "safari",
+          "firstMainMatched": 34,
+          "firstFullMatched": 31,
+          "planned": 40,
+          "currentMainMatched": 40,
+          "currentFullCandidateMatched": 40,
+          "rows": [
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 0,
+              "inputSha256": "30fe62788691367d98fa0ee309ef2c8c793ae843b1d7863af8226aa0d3fe7025",
+              "speech": "Edit delivery button Request checkout main",
+              "utterances": [
+                "Edit delivery button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 1,
+              "inputSha256": "b4a768823feb5ef6f96268fa91a22c00524bbde2485166bf92cf84497b0517f4",
+              "speech": "Send tracking updates checked checkbox Notification settings group",
+              "utterances": [
+                "Send tracking updates checked checkbox Notification settings group",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 2,
+              "inputSha256": "bc888f549b69c954233d57aa8e7526ded9e36e27b47de818b20a24566e6b88f1",
+              "speech": "unchecked Send tracking updates checkbox",
+              "utterances": [
+                "unchecked Send tracking updates checkbox"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 3,
+              "inputSha256": "56fc56088361c4430972bdbe0df0039d1c3beb7d9d897170c6a6860c0c7e0f3d",
+              "speech": "Use recyclable packaging toggle button",
+              "utterances": [
+                "Use recyclable packaging toggle button",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 4,
+              "inputSha256": "becfb144116a62ea0b10b44162d9a69662dc40d4423d4c4170de62de513ba0c6",
+              "speech": "",
+              "utterances": [],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 5,
+              "inputSha256": "a821a3e5f09e8646b6ac50c41bf457bfecfa8fa670c5bf7cb87d592c1588b5f1",
+              "speech": "Review delivery terms collapsed button Delivery options web dialog",
+              "utterances": [
+                "Review delivery terms collapsed button Delivery options web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 6,
+              "inputSha256": "fb08ac179627205572d68ef74530c9f76818dae3cc1e9ce62ae2b174f019a786",
+              "speech": "Review delivery terms expanded button Review delivery terms expanded button",
+              "utterances": [
+                "Review delivery terms expanded button",
+                "Review delivery terms expanded button"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 7,
+              "inputSha256": "e196787c24c903fe174a7aee91576592e179ad3538bf2a3f35ebf7dfb30a1263",
+              "speech": "Keep delivery settings button",
+              "utterances": [
+                "Keep delivery settings button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 8,
+              "inputSha256": "4d58d89d41b792987c2421e27a646ede8fb87795361dc07c7253590859181fa7",
+              "speech": "Continue checkout button Request checkout main",
+              "utterances": [
+                "Continue checkout button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 9,
+              "inputSha256": "3f631bc44c872f0498c4f7d90ae81e07c52c794687672e5ee5baa46b63b61d12",
+              "speech": "Contact fulfilment button content information",
+              "utterances": [
+                "Contact fulfilment button content information",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 10,
+              "inputSha256": "f7becf611223918b76fbae9c0f8af0bec915736cc8a361e71289cd6d89052989",
+              "speech": "Continue checkout button Request checkout main",
+              "utterances": [
+                "Continue checkout button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 11,
+              "inputSha256": "5d8612a043972b5edced751cda1e81080639b68af21e4ad3861b7224ee3d587d",
+              "speech": "Keep delivery settings button Delivery options web dialog",
+              "utterances": [
+                "Keep delivery settings button Delivery options web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 12,
+              "inputSha256": "a717b23981b0437cc2530d9cf584ec9163566d8d235e4df8cea72f2608f977ae",
+              "speech": "Review delivery terms expanded button",
+              "utterances": [
+                "Review delivery terms expanded button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 13,
+              "inputSha256": "a949b84083f4163aa7617f7e3d39c845a45d4629a5012fa6f4980d43760f177e",
+              "speech": "Use recyclable packaging selected toggle button Notification settings group",
+              "utterances": [
+                "Use recyclable packaging selected toggle button Notification settings group",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 14,
+              "inputSha256": "0d3a458dde462df0750568043b440fb7acac04d78a2720b6e5a60a769e2a0bf0",
+              "speech": "Send tracking updates unchecked checkbox",
+              "utterances": [
+                "Send tracking updates unchecked checkbox",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 15,
+              "inputSha256": "9b85ec606651eb8916f83be473c73df12aeb87b0ab154fa1b6abcb618943e507",
+              "speech": "Edit delivery button Request checkout main",
+              "utterances": [
+                "Edit delivery button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 16,
+              "inputSha256": "dc804762426da408e336a29ed19803fab3ebf0d3469cc04e4ce9c93e00e40634",
+              "speech": "Send tracking updates unchecked checkbox Notification settings group",
+              "utterances": [
+                "Send tracking updates unchecked checkbox Notification settings group",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 17,
+              "inputSha256": "e15f8ca3356600b6d1fd2ccad32d192623cb6ee141ba026fd8920acd2a550115",
+              "speech": "Use recyclable packaging selected toggle button",
+              "utterances": [
+                "Use recyclable packaging selected toggle button",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 18,
+              "inputSha256": "c7ff82b7bc2316ab7df4599f319634a2b0135835a7458f94a71912a07bcdb316",
+              "speech": "Review delivery terms expanded button Delivery options web dialog",
+              "utterances": [
+                "Review delivery terms expanded button Delivery options web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 19,
+              "inputSha256": "e196787c24c903fe174a7aee91576592e179ad3538bf2a3f35ebf7dfb30a1263",
+              "speech": "Keep delivery settings button",
+              "utterances": [
+                "Keep delivery settings button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 20,
+              "inputSha256": "e2fc022f783c5b87b236bd0a6292f22de169103b3bf2c62ccf71ac081bda228c",
+              "speech": "",
+              "utterances": [],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 0,
+              "inputSha256": "0983779784b62106d0b9eca7b212d8b880f14d00fc408c56b9554238cdcd82a7",
+              "speech": "Choose format button Document request region",
+              "utterances": [
+                "Choose format button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 1,
+              "inputSha256": "1500056de47152c6b1f9c860aa47813e16d34b5fa6204913c2b035739183fc41",
+              "speech": "Invoice summary and 1 more item web dialog Inspect estimate button Invoice summary group",
+              "utterances": [
+                "Invoice summary and 1 more item web dialog Inspect estimate button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 2,
+              "inputSha256": "8c72998faa59687a090f10dfdaab32ce65d197afc50094a247b07679fc8b1591",
+              "speech": "Compare formats button",
+              "utterances": [
+                "Compare formats button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 3,
+              "inputSha256": "566983ba4360625780dc3ffcef61183d2797de8c9dbcce945eff6b92faeb7c9d",
+              "speech": "Include a printed receipt unchecked checkbox Document request region",
+              "utterances": [
+                "Include a printed receipt unchecked checkbox Document request region",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 4,
+              "inputSha256": "e5198bd906d38e24832661ab2fa9c96f5f2a4f2d42939b7aea3123cba08e00ec",
+              "speech": "checked Include a printed receipt checkbox",
+              "utterances": [
+                "checked Include a printed receipt checkbox"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 5,
+              "inputSha256": "c5d9a2db2261fde714dbec2d007c730f33a5dd55d63c5ce4979d257ca3b674f6",
+              "speech": "Submit request button",
+              "utterances": [
+                "Submit request button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 6,
+              "inputSha256": "6439596d718e2ed314748060634f0c108f0bebe41589cf5bc3003609b9f99668",
+              "speech": "Return to catalogue button content information",
+              "utterances": [
+                "Return to catalogue button content information",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 7,
+              "inputSha256": "82400bc053dd814014145dbfe837d2d6fcd7494639c1aed0d0ab4433b5e6ff81",
+              "speech": "Submit request button Document request region",
+              "utterances": [
+                "Submit request button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 8,
+              "inputSha256": "34c9c49f3695b113bae461be925184568b1ef3c7c2273caa7ffcab0cd0ef691c",
+              "speech": "Invoice summary and 1 more item web dialog Include a printed receipt checked checkbox",
+              "utterances": [
+                "Invoice summary and 1 more item web dialog Include a printed receipt checked checkbox",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 9,
+              "inputSha256": "a47cdd9ea6d3003d78a8d0279e8f46976544874a6ffd9ce4ad1956042b68e7d0",
+              "speech": "Compare formats button Invoice summary group",
+              "utterances": [
+                "Compare formats button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 10,
+              "inputSha256": "1c5ec14d46f21039c5ea9e899f2322e48fcd784491a5d6df134c4796aea896f2",
+              "speech": "Inspect estimate button",
+              "utterances": [
+                "Inspect estimate button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 11,
+              "inputSha256": "f529432a15586075a6cc5accec3de56f7e92e0e623ab0dceedef1986f9eeac11",
+              "speech": "Choose format button Document request region",
+              "utterances": [
+                "Choose format button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 12,
+              "inputSha256": "1500056de47152c6b1f9c860aa47813e16d34b5fa6204913c2b035739183fc41",
+              "speech": "Invoice summary and 1 more item web dialog Inspect estimate button Invoice summary group",
+              "utterances": [
+                "Invoice summary and 1 more item web dialog Inspect estimate button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 13,
+              "inputSha256": "8c72998faa59687a090f10dfdaab32ce65d197afc50094a247b07679fc8b1591",
+              "speech": "Compare formats button",
+              "utterances": [
+                "Compare formats button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 14,
+              "inputSha256": "bda7c23f404815a1dbb0b25ea68a3a454b7e3bd9fd80a2ae4f1a5a230d411518",
+              "speech": "Include a printed receipt checked checkbox Document request region",
+              "utterances": [
+                "Include a printed receipt checked checkbox Document request region",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 15,
+              "inputSha256": "c5d9a2db2261fde714dbec2d007c730f33a5dd55d63c5ce4979d257ca3b674f6",
+              "speech": "Submit request button",
+              "utterances": [
+                "Submit request button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 16,
+              "inputSha256": "6439596d718e2ed314748060634f0c108f0bebe41589cf5bc3003609b9f99668",
+              "speech": "Return to catalogue button content information",
+              "utterances": [
+                "Return to catalogue button content information",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 17,
+              "inputSha256": "82400bc053dd814014145dbfe837d2d6fcd7494639c1aed0d0ab4433b5e6ff81",
+              "speech": "Submit request button Document request region",
+              "utterances": [
+                "Submit request button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 18,
+              "inputSha256": "cda0ae66db3c10cac29053593b7ffbfbc101601b61bcf04074f26a1e2ee380ca",
+              "speech": "",
+              "utterances": [],
+              "mainExact": true,
+              "fullCandidateExact": true
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "firstMainMatched": 34,
+          "firstFullMatched": 31,
+          "planned": 40,
+          "currentMainMatched": 40,
+          "currentFullCandidateMatched": 40,
+          "rows": [
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 0,
+              "inputSha256": "e98ef90693692739b979b649e34763e3f715f1584b054bb9f9f9aed2f3a3c4e0",
+              "speech": "Edit delivery button Request checkout main",
+              "utterances": [
+                "Edit delivery button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 1,
+              "inputSha256": "9e5ccea9c1d5494f142f50aa36ce125a4531e636944e48ce7d5e48a932f76a48",
+              "speech": "Send tracking updates checked checkbox Notification settings group",
+              "utterances": [
+                "Send tracking updates checked checkbox Notification settings group",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 2,
+              "inputSha256": "ebb7959fe6180e2e4cb37fd415e256775f0f014c3dfdb3650810c60a40d190fc",
+              "speech": "unchecked Send tracking updates checkbox",
+              "utterances": [
+                "unchecked Send tracking updates checkbox"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 3,
+              "inputSha256": "09dfc2b1dba4e74eb5914cf4a950b4a2938fc896edef70d70bc3c8640de4d009",
+              "speech": "Use recyclable packaging toggle button",
+              "utterances": [
+                "Use recyclable packaging toggle button",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 4,
+              "inputSha256": "7b40e47462432dbb08fc0470eaf370f0ef6a96011c4749a2e894ce47ce22cafb",
+              "speech": "selected Use recyclable packaging toggle button",
+              "utterances": [
+                "selected Use recyclable packaging toggle button"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 5,
+              "inputSha256": "c5010c3ccced8f623cef8563a2746ae88244bbba730af207db535b94f40cbdf3",
+              "speech": "Review delivery terms collapsed button Delivery options dialog",
+              "utterances": [
+                "Review delivery terms collapsed button Delivery options dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 6,
+              "inputSha256": "918479598829ef258aaa0f746507880a544f950904d946a2ea0f635df14698c6",
+              "speech": "Review delivery terms expanded button Review delivery terms expanded button",
+              "utterances": [
+                "Review delivery terms expanded button",
+                "Review delivery terms expanded button"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 7,
+              "inputSha256": "e5690423dc13f1424d181f17ae3da6d8429097067a951eb4d6120e4ffa97ac6e",
+              "speech": "Keep delivery settings button",
+              "utterances": [
+                "Keep delivery settings button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 8,
+              "inputSha256": "18639849f38f1bb36d4daf59ef56dfdb5aedf0e0fb6a35fd2bf0a889e12d5143",
+              "speech": "Continue checkout button Request checkout main",
+              "utterances": [
+                "Continue checkout button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 9,
+              "inputSha256": "745508f1e5fc9de954793d83dbce53a5b57cf9f842c218394fbc01ed2fe9574e",
+              "speech": "Contact fulfilment button footer",
+              "utterances": [
+                "Contact fulfilment button footer",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 10,
+              "inputSha256": "4ab3b5f2a12d7995db0884d64ea6e76c74b6904b21324f0f01a6fd324c733887",
+              "speech": "Continue checkout button Request checkout main",
+              "utterances": [
+                "Continue checkout button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 11,
+              "inputSha256": "e56bd58a99e1b911481b79a03ec7f6d15b807d13451cce492889bd76896f64a9",
+              "speech": "Keep delivery settings button Delivery options dialog",
+              "utterances": [
+                "Keep delivery settings button Delivery options dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 12,
+              "inputSha256": "cd698cb1a1dc47067cd87380f68d821b7c472d92358ea4e1a577f262bfb8834b",
+              "speech": "Review delivery terms expanded button",
+              "utterances": [
+                "Review delivery terms expanded button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 13,
+              "inputSha256": "fea3a1520ff07a458e23f696a6206293ce565d9943fa6d2a3e29d2cf9da9dcf0",
+              "speech": "Use recyclable packaging selected toggle button Notification settings group",
+              "utterances": [
+                "Use recyclable packaging selected toggle button Notification settings group",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 14,
+              "inputSha256": "e84b78972f083d71217c98f2c140e6f816a9c3f8606a04f5913f5a93e4c1bfd4",
+              "speech": "Send tracking updates unchecked checkbox",
+              "utterances": [
+                "Send tracking updates unchecked checkbox",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 15,
+              "inputSha256": "0bbc2cdd904e7fb55ab38580e45628dbbb8f14fe9544484af2eb4f1987aa1941",
+              "speech": "Edit delivery button Request checkout main",
+              "utterances": [
+                "Edit delivery button Request checkout main",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 16,
+              "inputSha256": "069ae701154cf78e293f35c0a33be3541b85d75f4ed654c9929ee6e4c8b8902b",
+              "speech": "Send tracking updates unchecked checkbox Notification settings group",
+              "utterances": [
+                "Send tracking updates unchecked checkbox Notification settings group",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 17,
+              "inputSha256": "d9cdf1652ef00d9b48d3898e4521274cc1f87f05f03c4e1c108878422aaa49a8",
+              "speech": "Use recyclable packaging selected toggle button",
+              "utterances": [
+                "Use recyclable packaging selected toggle button",
+                "You are currently on a toggle button. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 18,
+              "inputSha256": "6cd066d22ff8851965285b012e5fe322209f011c44c5baa98c014126d5041bc1",
+              "speech": "Review delivery terms expanded button Delivery options dialog",
+              "utterances": [
+                "Review delivery terms expanded button Delivery options dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 19,
+              "inputSha256": "e5690423dc13f1424d181f17ae3da6d8429097067a951eb4d6120e4ffa97ac6e",
+              "speech": "Keep delivery settings button",
+              "utterances": [
+                "Keep delivery settings button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.delivery-preferences",
+              "step": 20,
+              "inputSha256": "1e771a90c29a3e67c2d0716fea25de9b61c4723501a70de6a83102f201cbcbcd",
+              "speech": "",
+              "utterances": [],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 0,
+              "inputSha256": "73fcf7abfbcdfbf9b658688976e9f420f95fc28d8cbbbc5f986d34f462a415bd",
+              "speech": "Choose format button Document request region",
+              "utterances": [
+                "Choose format button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 1,
+              "inputSha256": "6f09166bdbc470fa59adf1839100d8730cbba8c39ee550538c99b619138996cd",
+              "speech": "Invoice summary and 1 more item dialog Inspect estimate button Invoice summary group",
+              "utterances": [
+                "Invoice summary and 1 more item dialog Inspect estimate button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 2,
+              "inputSha256": "28aab456f8e2ad85c4a51d5adc1c3e24b0efb01535575e2580aa94cb2e8a6199",
+              "speech": "Compare formats button",
+              "utterances": [
+                "Compare formats button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 3,
+              "inputSha256": "97bd7d1b496dad6db5c2b7cddd0f77d5b6533ab121374dcf7bf90e216102f844",
+              "speech": "Include a printed receipt unchecked checkbox Document request region",
+              "utterances": [
+                "Include a printed receipt unchecked checkbox Document request region",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 4,
+              "inputSha256": "e37f82d0fe65fe943c5d978276e4d0b64cf0e9c458a3df49ce3f4311cb3d0307",
+              "speech": "checked Include a printed receipt checkbox",
+              "utterances": [
+                "checked Include a printed receipt checkbox"
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 5,
+              "inputSha256": "015526c499823853d8f6de73ed87d37f932be717dce0a75364d82d16707adbc4",
+              "speech": "Submit request button",
+              "utterances": [
+                "Submit request button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 6,
+              "inputSha256": "291f5cd6f24e7753adb661cac39209d02f8993a08455b7b69280a02df8cbc9a3",
+              "speech": "Return to catalogue button footer",
+              "utterances": [
+                "Return to catalogue button footer",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 7,
+              "inputSha256": "888c03425b9de78e390a74118031910d61b20817dc7f1777e079a89e81e8a5ce",
+              "speech": "Submit request button Document request region",
+              "utterances": [
+                "Submit request button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 8,
+              "inputSha256": "c5acb431df4ebd0a46d562ac1de5841acf0fe34500d37584caa4ec4ed6bd0954",
+              "speech": "Invoice summary and 1 more item dialog Include a printed receipt checked checkbox",
+              "utterances": [
+                "Invoice summary and 1 more item dialog Include a printed receipt checked checkbox",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 9,
+              "inputSha256": "1d1b91b9fba8974b309c44f77d62c4f0d5691b52e18d558fb8049555f94c9810",
+              "speech": "Compare formats button Invoice summary group",
+              "utterances": [
+                "Compare formats button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 10,
+              "inputSha256": "3e4aca08f79416e9dfb6f3550602e37ceb6ad7683ebd73c2696925ed94ef8a51",
+              "speech": "Inspect estimate button",
+              "utterances": [
+                "Inspect estimate button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 11,
+              "inputSha256": "1eec6b2da55bd7f761270835738bdac8a604626286deb5c1c36b3cd22d60e494",
+              "speech": "Choose format button Document request region",
+              "utterances": [
+                "Choose format button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 12,
+              "inputSha256": "6f09166bdbc470fa59adf1839100d8730cbba8c39ee550538c99b619138996cd",
+              "speech": "Invoice summary and 1 more item dialog Inspect estimate button Invoice summary group",
+              "utterances": [
+                "Invoice summary and 1 more item dialog Inspect estimate button Invoice summary group",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 13,
+              "inputSha256": "28aab456f8e2ad85c4a51d5adc1c3e24b0efb01535575e2580aa94cb2e8a6199",
+              "speech": "Compare formats button",
+              "utterances": [
+                "Compare formats button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 14,
+              "inputSha256": "14e9f7a7b2acadd88342a048c7909356347a7f8d048aed7bed36739a0391a412",
+              "speech": "Include a printed receipt checked checkbox Document request region",
+              "utterances": [
+                "Include a printed receipt checked checkbox Document request region",
+                "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 15,
+              "inputSha256": "015526c499823853d8f6de73ed87d37f932be717dce0a75364d82d16707adbc4",
+              "speech": "Submit request button",
+              "utterances": [
+                "Submit request button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 16,
+              "inputSha256": "291f5cd6f24e7753adb661cac39209d02f8993a08455b7b69280a02df8cbc9a3",
+              "speech": "Return to catalogue button footer",
+              "utterances": [
+                "Return to catalogue button footer",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 17,
+              "inputSha256": "888c03425b9de78e390a74118031910d61b20817dc7f1777e079a89e81e8a5ce",
+              "speech": "Submit request button Document request region",
+              "utterances": [
+                "Submit request button Document request region",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-transfer-v1.receipt-request",
+              "step": 18,
+              "inputSha256": "73d482178b7cc529875daf272bf1a123f8a649aa551176dc66910ae8577db4c4",
+              "speech": "",
+              "utterances": [],
+              "mainExact": true,
+              "fullCandidateExact": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "cohort": "parent-contrast-calibration",
+      "fixture": "native-dialog-parent-context-2026-10-15.json",
+      "fixtureSha256": "ad1c6126cb3b9203a0b457c55377c619b248e0af61396ad7746a4fb62e3b8a15",
+      "profiles": [
+        {
+          "browser": "safari",
+          "firstMainMatched": 18,
+          "firstFullMatched": 12,
+          "planned": 24,
+          "currentMainMatched": 24,
+          "currentFullCandidateMatched": 24,
+          "rows": [
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 0,
+              "inputSha256": "154802617010d1ae987b9eb60412e924fd3bb518b98b0c78270ae7175db379d9",
+              "speech": "Review controls web dialog with 4 items Keep note button",
+              "utterances": [
+                "Review controls web dialog with 4 items Keep note button",
+                "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 1,
+              "inputSha256": "605a454b174887750a44b3157c41c0f2ef92e302f31295116dd005dfbb91bdc3",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 2,
+              "inputSha256": "042a752476c97b4e55c513d961bc66c62dca3216d500965ee39e5cfed065177c",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 3,
+              "inputSha256": "77d03f52547f017cd418ff48d303ae04aeaa34a87f46e5ab84082d38942104ca",
+              "speech": "Review controls web dialog with 4 items Clear note button",
+              "utterances": [
+                "Review controls web dialog with 4 items Clear note button",
+                "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 4,
+              "inputSha256": "1d21d0bb95b493574dd6781bfbc017e01a5f8e1e6516ec937bb8a11b8a978e16",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button, inside of a web dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 5,
+              "inputSha256": "096caf4f48cbea46df976a40213230d6c1874dc8e4d87f80fed0bbfcea6b8cc0",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 0,
+              "inputSha256": "4cfe823521b4492e4e6027c51ff5b7296c79642fc1ff49f01a967093af718c91",
+              "speech": "Keep note button Review controls web dialog",
+              "utterances": [
+                "Keep note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 1,
+              "inputSha256": "ea1f142a8fa09804e2a0caa3fd6a6fe968c7124a4a7538587db04e0f5ccf79fd",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 2,
+              "inputSha256": "042a752476c97b4e55c513d961bc66c62dca3216d500965ee39e5cfed065177c",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 3,
+              "inputSha256": "53393eb2ed1f5be5d97cbb42f5ff8c34572e750c22e42bcfeb457e844f160880",
+              "speech": "Clear note button Review controls web dialog",
+              "utterances": [
+                "Clear note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 4,
+              "inputSha256": "122911e0083147c85436d6af16554465e0959b310aae90c27351d2f1f4335499",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 5,
+              "inputSha256": "096caf4f48cbea46df976a40213230d6c1874dc8e4d87f80fed0bbfcea6b8cc0",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 0,
+              "inputSha256": "8dfab3a1f8a2f88a57f0c4074c92f481750d80954509724ec52a27d889a05376",
+              "speech": "Keep note button Review controls web dialog",
+              "utterances": [
+                "Keep note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 1,
+              "inputSha256": "60c3d6f98fa18ddd159ca0f17a0cdb581d9b74cbbeaa0918bfa53b4d5f86b15e",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 2,
+              "inputSha256": "042a752476c97b4e55c513d961bc66c62dca3216d500965ee39e5cfed065177c",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 3,
+              "inputSha256": "20a446c112bdd388476318aef01008f9138a05766eaa0d9e4d4fdc4555a5136d",
+              "speech": "Clear note button Review controls web dialog",
+              "utterances": [
+                "Clear note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 4,
+              "inputSha256": "44b0aeb8f666ab7380ae4ca7cc3bd9247d09d7b0fb5df5333e54d1d954574a43",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 5,
+              "inputSha256": "096caf4f48cbea46df976a40213230d6c1874dc8e4d87f80fed0bbfcea6b8cc0",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 0,
+              "inputSha256": "3aa3fd73e36bef91c21a9357afba285adf8550afc1b53f09a2064755cbfb6f57",
+              "speech": "Keep note button Review controls web dialog",
+              "utterances": [
+                "Keep note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 1,
+              "inputSha256": "14f1650e92ac2be2728edd8f125f666ed1fe20de51e87fb2c45a19efc1feed3c",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 2,
+              "inputSha256": "042a752476c97b4e55c513d961bc66c62dca3216d500965ee39e5cfed065177c",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 3,
+              "inputSha256": "d382ea2239679a450ff4a8211941a34c44e4615bc0f34a48c0545a4722c3d549",
+              "speech": "Clear note button Review controls web dialog",
+              "utterances": [
+                "Clear note button Review controls web dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 4,
+              "inputSha256": "0df63c960ee98f4ff3519afdd08494d01408febb36ac8a465696e6c814988a83",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 5,
+              "inputSha256": "096caf4f48cbea46df976a40213230d6c1874dc8e4d87f80fed0bbfcea6b8cc0",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            }
+          ]
+        },
+        {
+          "browser": "chrome",
+          "firstMainMatched": 18,
+          "firstFullMatched": 12,
+          "planned": 24,
+          "currentMainMatched": 24,
+          "currentFullCandidateMatched": 24,
+          "rows": [
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 0,
+              "inputSha256": "fb7da5d8c4545790b793556d6c890aae9c6abdce114dc0dbf13ffd40ac0cb2fa",
+              "speech": "Review controls dialog with 4 items Keep note button",
+              "utterances": [
+                "Review controls dialog with 4 items Keep note button",
+                "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 1,
+              "inputSha256": "c7f7d412d3d2339627c3a7b38c97ee46df8d7a88f6704fdba80da5797e7a946f",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 2,
+              "inputSha256": "61d14555effeaa1b2f48547117a51e43511cfcd0c1d6878b01d441b5f5551db8",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 3,
+              "inputSha256": "0bea7b85f4d253e12de335247bfcd448016ce879289e9a8fe9432a5dd775d207",
+              "speech": "Review controls dialog with 4 items Clear note button",
+              "utterances": [
+                "Review controls dialog with 4 items Clear note button",
+                "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 4,
+              "inputSha256": "9e3dd2eba30c5dcc6461cf1e2656cf7c9926b41a2632cf4812261cb3ccec288a",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button, inside of a dialog. To click this button, press Control -Option -Space. To exit this group, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.anonymous",
+              "step": 5,
+              "inputSha256": "9fe988e9041532615fbab8c56f9ae49f63da511ffe0edf1db3182cf68be38e71",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 0,
+              "inputSha256": "8caf0420849452eb84fcff671e8b7d15b60a9c6fd60817e12050e3e7455cf78a",
+              "speech": "Keep note button Review controls dialog",
+              "utterances": [
+                "Keep note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 1,
+              "inputSha256": "7b536c5d665372ef18394120acc1fb245a374e0b9e35c21fc2a76a19c2120b31",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 2,
+              "inputSha256": "61d14555effeaa1b2f48547117a51e43511cfcd0c1d6878b01d441b5f5551db8",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 3,
+              "inputSha256": "3865d68f8829fae15110194c548cd12e1c3a88fa72c420517620af88cdd6d64c",
+              "speech": "Clear note button Review controls dialog",
+              "utterances": [
+                "Clear note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 4,
+              "inputSha256": "43943909fbe2f28b5225affb8d0795ae07ee69f515595276f8010ec85a81a2e4",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.main",
+              "step": 5,
+              "inputSha256": "9fe988e9041532615fbab8c56f9ae49f63da511ffe0edf1db3182cf68be38e71",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 0,
+              "inputSha256": "d9a2cf69e3615187836036014324125885ae1939d336e0e8f4f2394cb3081e96",
+              "speech": "Keep note button Review controls dialog",
+              "utterances": [
+                "Keep note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 1,
+              "inputSha256": "828d62d3d5dded7ce6b36a395f3446641a1f136b0254dd26a1653ebfd128209e",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 2,
+              "inputSha256": "61d14555effeaa1b2f48547117a51e43511cfcd0c1d6878b01d441b5f5551db8",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 3,
+              "inputSha256": "620b260b55cd11605d138cb4730c27d4ad3cde31cc431fbb47724b896470302f",
+              "speech": "Clear note button Review controls dialog",
+              "utterances": [
+                "Clear note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 4,
+              "inputSha256": "e7cda22bfc77e23d9ab15fbb680ac7efde2cf0a3b9b9fe0c01d1dd7bd9d8d9b7",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.region",
+              "step": 5,
+              "inputSha256": "9fe988e9041532615fbab8c56f9ae49f63da511ffe0edf1db3182cf68be38e71",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 0,
+              "inputSha256": "21f5fb7f0f4dba7f8b868382ac2df799d9a5ab9a482bb71c1adc4ad76ffde6a9",
+              "speech": "Keep note button Review controls dialog",
+              "utterances": [
+                "Keep note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 1,
+              "inputSha256": "931e93ba0fd636c987e458f8f83baf9ed952f0699151f11e4361b08d80235699",
+              "speech": "Clear note button",
+              "utterances": [
+                "Clear note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 2,
+              "inputSha256": "61d14555effeaa1b2f48547117a51e43511cfcd0c1d6878b01d441b5f5551db8",
+              "speech": "After marker button",
+              "utterances": [
+                "After marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 3,
+              "inputSha256": "06124e766b07f346e3b9d2bdd344e0319859cff921282f9b19a85e5a97ec7a9f",
+              "speech": "Clear note button Review controls dialog",
+              "utterances": [
+                "Clear note button Review controls dialog",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 4,
+              "inputSha256": "531321c74fb9b8d1839a7dfd2269d9402e575159c07c84527cfd365a8f7b9cdb",
+              "speech": "Keep note button",
+              "utterances": [
+                "Keep note button",
+                "You are currently on a button. To click this button, press Control -Option -Space."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            },
+            {
+              "caseId": "dialog-parent-context-v1.group",
+              "step": 5,
+              "inputSha256": "9fe988e9041532615fbab8c56f9ae49f63da511ffe0edf1db3182cf68be38e71",
+              "speech": "Before marker button",
+              "utterances": [
+                "Before marker button",
+                "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+              ],
+              "mainExact": true,
+              "fullCandidateExact": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
