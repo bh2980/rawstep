@@ -33,6 +33,16 @@ test('table dimensions require identifiable native rows and columns',()=>{
   assert.equal(checkSpeechInput(input,d).status,'unmeasured');
 });
 
+test('object reading cannot accept unmeasured or incorrect cell coordinates/header/spans',()=>{
+ const expected=generateSpeechContexts().speechInputs['speech-contexts-v1.nested-table-2-columns']![0]!;
+ const header:AxNode={AXRole:'AXCell',AXElementId:30,children:[{AXRole:'AXStaticText',AXValue:'Action'}]},cell:AxNode={AXRole:'AXCell',AXElementId:31,AXRowIndexRange:{location:1,length:1},AXColumnIndexRange:{location:1,length:1},AXColumnHeaderUIElements:{status:'observed',count:1,elementIds:[30]},children:[{...button,AXTitle:'Reserve camera'}]};
+ const table:AxNode={AXRole:'AXTable',AXTitle:'Equipment slots',children:[{AXRole:'AXRow',AXElementId:10,children:[header]},{AXRole:'AXRow',AXElementId:11,children:[cell]},{AXRole:'AXRow',AXElementId:12},{AXRole:'AXColumn',AXElementId:13},{AXRole:'AXColumn',AXElementId:14}]},d=dump();d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'region',AXTitle:'Resource planner',children:[{AXRole:'AXGroup',AXRoleDescription:'article',AXTitle:'Loan request',children:[table]}]}];
+ expected.command='next_item';assert.equal(checkSpeechInput(expected,d).status,'verified');
+ for(const [key,value]of [['row',0],['column',0],['header','Guessed header'],['rowSpan',2],['columnSpan',2]] as const){const wrong=structuredClone(expected);Object.assign(wrong.target.cell!,{[key]:value});assert.equal(checkSpeechInput(wrong,d).status,'mismatch');}
+ delete cell.AXRowIndexRange;assert.equal(checkSpeechInput(expected,d).status,'unmeasured');
+ expected.command='next_focusable_item';assert.equal(checkSpeechInput(expected,d).status,'verified');
+});
+
 test('description, help and more-content availability require independent Native attributes',()=>{
  const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
  const described=structuredClone(input);Object.assign(described.target.semantic,{description:'Independent note',hasMoreContent:true});

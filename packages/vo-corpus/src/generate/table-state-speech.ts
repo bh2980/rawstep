@@ -1,0 +1,26 @@
+import type {Case} from '../cases.js';
+
+/** Same checkbox/actions across contexts, followed by separately reserved table/form tasks. */
+export function generateTableStateSpeech(partition:'train'|'test'){
+ const set=partition==='train'?'table-state-speech-v1':'table-state-transfer-v1',pages:Record<string,string>={},cases:Case[]=[],focusTargets:Record<string,string[]>={};
+ const add=(variant:string,body:string,trace:[string,string][],taskOutcome:NonNullable<Case['taskOutcome']>)=>{
+  const id=set+'.'+variant;pages[variant]=`<!doctype html><html lang=en><meta charset=utf-8><title>Reminder settings</title><style>body{font:17px system-ui;padding:16px}button{margin:4px}table{border-collapse:separate;border-spacing:4px}td,th{padding:9px;text-align:left}input{margin:5px}</style><body><button id=before autofocus>Before marker</button>${body}<button id=after>After marker</button></body></html>`;
+  cases.push({id,page:'pages/'+variant+'.html',chords:trace.map(([,key])=>key),captureAxAfterSteps:true,listen:{minWaitMs:2400,quietMs:1200,maxWaitMs:8500},taskOutcome,axes:{family:partition==='train'?'table-checkbox-context-contrast':'table-form-state-transfer',role:'checkbox',partition,exposure:partition==='train'?'calibration':'unseen',templateGroup:partition==='train'?set:id,siteGroup:partition==='train'?'synthetic-table-checkbox-calibration':id,contrastGroup:set,command:partition==='train'?'space-vo-space-return':'state-path-save-return'}});focusTargets[id]=trace.map(([target])=>target);
+ };
+ const grid=(body:string)=>`<table id=grid><caption>Reminder schedule</caption><thead><tr><th scope=col>Event</th><th scope=col>Reminder</th></tr></thead><tbody>${body}</tbody></table>`;
+ if(partition==='train'){
+  const checkbox='<label><input id=choice type=checkbox>Email reminders</label>',trace:[string,string][]=[['choice','Tab'],['choice','Space'],['choice','Space'],['save','Tab'],['choice','Shift+Tab'],['choice','VO+Space'],['choice','VO+Space'],['save','Tab']];
+  for(const variant of ['flat','table','group-table']){
+   const table=grid(`<tr><td>Weekly briefing</td><td>${checkbox}</td></tr>`),body=variant==='flat'?checkbox:variant==='table'?table:`<section aria-label='Notification workspace'>${table}</section>`;
+   add(variant,body+'<button id=save>Save reminders</button>',trace,{controls:[{role:'checkbox',name:'Email reminders',state:{checked:false}}],texts:[]});
+  }
+ }else{
+  add('tour-planning',`<form aria-label='Tour reminders'><table id=grid><caption>Tour notification plan</caption><thead><tr><th scope=col>Tour</th><th scope=col>Notify</th><th scope=col>Action</th></tr></thead><tbody><tr><th scope=row>Morning tour</th><td><label><input id=first type=checkbox onchange='document.getElementById(&quot;second&quot;).disabled=!this.checked'>Notify for morning tour</label></td><td><button id=second type=button disabled onclick='document.getElementById(&quot;morning&quot;).textContent=&quot;Morning tour reserved&quot;'>Reserve morning tour</button></td></tr><tr><th scope=row>Evening tour</th><td><label><input id=third type=checkbox>Notify for evening tour</label></td><td><button id=fourth type=button onclick='document.getElementById(&quot;evening&quot;).textContent=&quot;Evening tour saved&quot;'>Keep evening plan</button></td></tr></tbody></table><button id=save type=button onclick='document.getElementById(&quot;saved&quot;).textContent=&quot;Tour reminder plan saved&quot;'>Publish reminder plan</button><p id=morning></p><p id=evening></p><p id=saved></p></form>`,
+   [['first','Tab'],['first','Space'],['second','Tab'],['second','Space'],['third','Tab'],['third','Space'],['fourth','Tab'],['fourth','Space'],['third','Shift+Tab'],['second','Shift+Tab'],['third','Tab'],['fourth','Tab'],['save','Tab'],['save','Space']],
+   {controls:[{role:'checkbox',name:'Notify for morning tour',state:{checked:true}},{role:'checkbox',name:'Notify for evening tour',state:{checked:true}},{role:'button',name:'Reserve morning tour',state:{disabled:false}}],texts:['Morning tour reserved','Evening tour saved','Tour reminder plan saved']});
+  add('folder-permissions',`<section aria-label='Workspace access'><table id=grid><caption>Workspace permissions</caption><thead><tr><th scope=col>Resource</th><th scope=col>Permission</th></tr></thead><tbody><tr><th scope=row>Public folder</th><td><div role=group aria-label='Folder permission'><label><input id=first type=checkbox>Allow folder updates</label></div></td></tr><tr><th scope=row>Reports</th><td><label><input id=second type=checkbox>Allow report exports</label></td></tr></tbody></table><button id=save onclick='document.getElementById(&quot;saved&quot;).textContent=&quot;Permission updates applied&quot;'>Apply permissions</button><p id=saved></p></section>`,
+   [['first','Tab'],['first','Space'],['second','Tab'],['second','Space'],['first','Shift+Tab'],['first','VO+Space'],['first','VO+Space'],['second','Tab'],['second','Space'],['second','Space'],['save','Tab'],['save','Space'],['second','Shift+Tab'],['first','Shift+Tab'],['second','Tab'],['save','Tab']],
+   {controls:[{role:'checkbox',name:'Allow folder updates',state:{checked:true}},{role:'checkbox',name:'Allow report exports',state:{checked:true}}],texts:['Permission updates applied']});
+ }
+ return {pages,cases,focusTargets};
+}

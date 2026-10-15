@@ -62,7 +62,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
     const c=node.cell,row=c.row>0&&(context.cell?.table!==c.table||context.cell?.row!==c.row)?`row ${c.row+1} of ${c.rows}`:'';
     const entered=context.cell?.table!==c.table||context.cell?.row!==c.row||context.cell?.column!==c.column;
     const columnChanged=context.column?.table!==c.table||context.column?.column!==c.column;
-    speech=[row,columnChanged&&c.row>0?c.header:'',entered&&c.rowSpan>1?`spans ${c.rowSpan} rows`:'',entered&&c.columnSpan>1?`spans ${c.columnSpan} columns`:'',['cell','columnheader','rowheader'].includes(node.semantic.role)?node.semantic.name:speech,entered?`column ${c.column+1} of ${c.columns}`:''].filter(Boolean).join(' ');
+    if(!checkboxChange)speech=[row,columnChanged&&c.row>0?c.header:'',entered&&c.rowSpan>1?`spans ${c.rowSpan} rows`:'',entered&&c.columnSpan>1?`spans ${c.columnSpan} columns`:'',['cell','columnheader','rowheader'].includes(node.semantic.role)?node.semantic.name:speech,entered?`column ${c.column+1} of ${c.columns}`:''].filter(Boolean).join(' ');
     context.cell={...c};context.column={table:c.table,column:c.column};
   }else context.cell=referenceBrowser==='chrome'&&node.cell&&focused&&edit?{...node.cell}:undefined;
   const scopes=(node.containers??[]).filter(c=>c.id!==node.axId);
@@ -91,6 +91,6 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
   const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId&&(c.role!=='dialog'||!!c.name));
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{referenceBrowser,parentRole:parent?.role,dialogAsFocusContext:!!parent&&focusDialogs.has(parent.id),inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
+  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{referenceBrowser,parentRole:parent?.role,dialogAsFocusContext:!!parent&&focusDialogs.has(parent.id),inCell:(node.hintInCell||!!node.cell)&&!(node.semantic.role==='checkbox'&&parent?.role==='group'&&parent.name),end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {...provenance,speech,usageHint,context};
 }

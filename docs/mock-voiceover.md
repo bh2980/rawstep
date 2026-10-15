@@ -265,6 +265,91 @@ node --import tsx --test packages/vo-corpus/test/list-profiles.test.ts packages/
 The task regression preserves all 28 literal receipt comparisons as diagnostics while only 24 retain comparable
 Native inputs/history in the audited score. Matching the other four strings does not promote them to successes.
 
+## Checkbox state events inside tables
+
+A confirmed checkbox state change uses its measured value-change receipt without the ordinary row/header/column
+reading prefix. Ordinary cell reading retains those structural words. This rule uses the existing role, change flag,
+command and cell context; it adds no movement operation and no element-name or fixture lookup. Other stored speech
+history behavior is unchanged. Physical Space still uses the guarded activation API; the existing adapter's VO activation
+path retains its reading diagnostic with `checkedStateChanged`. Both call the corrected shared formatter.
+
+[Three controlled contexts](../tests/fixtures/voiceover-evidence/native-table-state-calibration-2026-10-16.json)
+put the same checkbox and full Tab/Space/VO-activation/return sequence in flat content, a table and a named region
+around a table. The original frozen Safari v22 / Chrome v16 model matches 20/24 and 22/24 Main and literal Full
+windows. All 24 targets/used inputs per browser and all 12 boolean transitions are independently observed. The six
+wording failures share one cause: cell-reading prefixes leak into the first checked receipt after entry or return.
+The controls' final checked state is a fixture-health check, not three successful user tasks. Corrected inspected
+regressions match all 24 actual-input/receipt windows per browser.
+
+Two new table/form tasks were reserved before that Native calibration: a three-column tour plan where a checkbox
+enables a reservation button, and a permission table with row headers, a named group inside a cell and reverse returns.
+The original generator/case fingerprints, model JavaScript and actual Rawstep inputs/history/predictions were fixed
+before Native ran in either browser. Declared template/site/contrast groups and full sequences had no external prior
+collision; shared primitives are not global structural independence. The first transfer build is
+`46de2faf2ff7d887f162d5dfaa579698277c1e8438f1effebbbfd53600accd68` (Safari v23 / Chrome v17), from the collection
+worktree with earlier pending evaluator diagnostics; hashes do not claim a pristine commit build.
+The [immutable first transfer](../tests/fixtures/voiceover-evidence/native-table-state-transfer-2026-10-16.json) reports:
+
+| First independent composition result | Safari | Chrome |
+| --- | ---: | ---: |
+| Planned / Native observed / comparable | 30 / 30 / 30 | 30 / 30 / 30 |
+| Main Speech Exact | 30/30 | 30/30 |
+| Literal Full Speech Exact | 27/30 | 27/30 |
+| Independent outline/AX target joins | 30/30 | 30/30 |
+| Keyboard focus | 30/30 | 30/30 |
+| Declared state fields / boolean transitions | 74/74 / 9/9 | 74/74 / 9/9 |
+| Final task outcomes | 2/2 | 2/2 |
+
+State fields are repeated snapshots, not 74 distinct state transitions. Checked-change flags on the legacy VO path
+additionally require a proven same pre-action target and matching frozen-model/Native before/after boolean states.
+No unknown state, failed setup or ambiguous target was excluded from these 30 planned windows. These are two small
+authored tasks, now inspected regression material. Outline/AX target joins are narrower than general logical-cursor
+Navigation Accuracy; the result does not prove complete VoiceOver or real-web parity. Mixed object/Tab row-history,
+text editing, multiple column headers and native queue/completion/timing remain outside this evaluation.
+
+The three Full failures per browser have correct main speech but incorrectly add “inside of a cell” when a named
+group intervenes. Their first predictions and scores remain unchanged. Separate one-factor grouping controls address
+that counterexample before changing hint rules.
+
+Native AX schema v6 now preserves cell row/column ranges and bounded column/row-header reference IDs, with observed,
+unsupported, no-value, read-error and truncated data kept distinct. The [AX-only smoke](../tests/fixtures/voiceover-evidence/native-table-ax-metadata-2026-10-16.json)
+uses previously inspected pages and establishes attribute construction, not speech or reading-position accuracy.
+The [Apple header-reference API](https://developer.apple.com/documentation/applicationservices/kaxcolumnheaderuielementsattribute?language=objc)
+returns accessibility objects; references are joined by snapshot-local AX equality IDs to complete source nodes.
+No header is recovered from a spoken string. Missing ranges, dimensions, truncated/conflicting references and multiple
+headers stay unmeasured. Tab inputs can carry existing `hintInCell` membership without invented cell coordinates;
+non-focus inputs that consume cell fields require independent row/column/header/span observations. Old AX snapshots
+are not filled with new fields. Collector protocol v9 keeps new-schema attempts separate from older resume protocols.
+
+The [separate grouping calibration](../tests/fixtures/voiceover-evidence/native-table-group-hints-2026-10-16.json)
+keeps the checkbox, table, title and full four-key focus history constant across direct placement, an ordinary `div`,
+an unnamed explicit group and a named explicit group. Both browsers keep the cell location hint in the first three;
+only the nearest named group suppresses it. All 16 targets/used inputs per browser are observed, with first Main 16/16
+and literal Full 14/16. A pre-Native protocol clarification in the immutable acquisition metadata corrects the reused
+plan's generic state-event question: these cases contain focus commands only. Four final-state checks are fixture
+health, not successful user tasks.
+
+Safari v24 / Chrome v18 apply that measured named-group rule to checkbox hints while preserving cell geometry and
+ordinary row/column reading. Other roles or intervening container kinds need separate Native evidence. Actual-input
+regressions are separate from first evaluation: calibration 24/24, task compositions 30/30 and grouping controls 16/16
+literal Full windows per browser now match. The initially unseen task score remains Main 30/30, Full 27/30; subsequent
+hint correction makes it inspected regression rather than a new independent 100% result. Neither rule reads the
+fixture name, URL, goal or expected utterance.
+
+The [acquisition audit](../packages/vo-corpus/test/table-acquisition-audit.json) retains all six Native collection
+attempts: 140 planned actions, 140 case-record actions and 140 journal windows, with separate environment tuples,
+source hashes and model/cohort boundaries. No Safari preference was changed for these checkbox/button studies.
+The two-browser AX-only smoke is separate and has no VoiceOver test action or speech comparison. Regenerate the
+inspected update pages with the existing corpus sets `table-state-speech-v1`, `table-state-transfer-v1` and
+`table-group-hints-v1`, each into a new output directory. For browser-free formatter and actual-input browser regressions:
+
+```sh
+npm run build
+npm test -- tests/mock-voiceover-table-state.test.ts tests/mock-voiceover-table-group-hints.test.ts
+npm run test:integration -- tests/mock-voiceover-table-state.integration.test.ts
+node --import tsx --test packages/vo-corpus/test/table-state-speech.test.ts packages/vo-corpus/test/table-group-hints.test.ts packages/vo-corpus/test/table-context.test.ts packages/vo-corpus/test/speech-input.test.ts
+```
+
 ## Run a deterministic regression test
 
 After installing Rawstep and a compatible Chromium, run:
@@ -339,7 +424,7 @@ and interaction-mode-dependent hints remain uncalibrated.
 ## Browser reference profiles and evaluation limits
 
 `referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v21`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v16`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v18`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -372,7 +457,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v22` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v24` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

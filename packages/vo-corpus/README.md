@@ -1460,3 +1460,10 @@ for complete default sets; incomplete, ambiguous or uncalibrated sets remain unm
 all planned slots; raw website AX and speech remain local.
 
 The [new dialog compositions and combined-source calibration](../../docs/voiceover-dialog-compositions.md) preserve initially unseen actual-input task predictions, a separate missing-help input audit and corrected browser regressions. Generate inspected update cases with `--set dialog-compositions-v1` and controlled source contrasts with `--set description-help-combinations-v1`. The latter are calibration, including equal title/description strings; neither inspected set is a future holdout.
+
+
+Native AX schema v6 adds `AXRowIndexRange` and `AXColumnIndexRange` plus bounded header-reference IDs for tables,
+rows, columns and cells. Header-reference quality distinguishes unsupported/no-value/read-error/invalid-type/truncated
+from an observed empty array. IDs remain snapshot-local CFEqual identities. Used cell fields can be verified from
+Native ranges and referenced source nodes; old snapshots without these fields remain unmeasured. New runs use
+`host-receipts-v9`; older run metadata and observations are preserved and incompatible resumes are rejected.

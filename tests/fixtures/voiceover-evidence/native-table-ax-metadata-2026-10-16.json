@@ -1,0 +1,3555 @@
+{
+  "scope": "AX-only metadata smoke on already inspected speech-contexts pages. No VoiceOver command, utterance capture, reading-position measurement or new speech-fidelity claim. Full Native attribute snapshots include new ranges/header reference IDs; missing old fields remain missing.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "sourceAxSha256": "3642c2a9f5c88f8f6bae6cca335bfe3f3d19b00312b4bc2117c92079ef4e5945",
+      "dump": {
+        "app": "Safari",
+        "focusedPath": [
+          0
+        ],
+        "focusedRole": "AXButton",
+        "maxDepth": 60,
+        "maxNodes": 5000,
+        "maxStringLength": 500,
+        "nodeCount": 44,
+        "pid": 9504,
+        "root": {
+          "AXCustomContent": {
+            "errorCode": -25212,
+            "status": "no-value"
+          },
+          "AXDescription": "Workspace preferences",
+          "AXDOMClassList": [],
+          "AXDOMIdentifier": "",
+          "AXElementId": 1,
+          "AXEnabled": true,
+          "AXFocused": false,
+          "AXHelp": "",
+          "AXPosition": {
+            "x": 0,
+            "y": 82
+          },
+          "AXRole": "AXWebArea",
+          "AXRoleDescription": "HTML content",
+          "AXSelected": false,
+          "AXSize": {
+            "height": 626,
+            "width": 1024
+          },
+          "AXTitle": "",
+          "AXURL": "http://192.168.64.1:51023/pages/nested-table-2-columns.html",
+          "AXValue": "",
+          "AXVisited": false,
+          "children": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "before",
+              "AXElementId": 2,
+              "AXEnabled": true,
+              "AXFocused": true,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXPosition": {
+                "x": 22,
+                "y": 104
+              },
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 18,
+                "width": 91
+              },
+              "AXTitle": "Before marker",
+              "AXVisited": false
+            },
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Resource planner",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXPosition": {
+                "x": 20,
+                "y": 128
+              },
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "region",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 222,
+                "width": 984
+              },
+              "AXSubrole": "AXLandmarkRegion",
+              "AXTitle": "Resource planner",
+              "AXValue": "",
+              "AXVisited": false,
+              "children": [
+                {
+                  "AXCustomContent": {
+                    "errorCode": -25212,
+                    "status": "no-value"
+                  },
+                  "AXDescription": "Loan request",
+                  "AXDOMClassList": [],
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 4,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXHelp": "",
+                  "AXPosition": {
+                    "x": 30,
+                    "y": 138
+                  },
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "article",
+                  "AXSelected": false,
+                  "AXSize": {
+                    "height": 176,
+                    "width": 964
+                  },
+                  "AXSubrole": "AXDocumentArticle",
+                  "AXTitle": "Loan request",
+                  "AXValue": "",
+                  "AXVisited": false,
+                  "children": [
+                    {
+                      "AXColumnHeaderUIElements": {
+                        "count": 2,
+                        "elementIds": [
+                          6,
+                          7
+                        ],
+                        "status": "observed"
+                      },
+                      "AXCustomContent": {
+                        "errorCode": -25212,
+                        "status": "no-value"
+                      },
+                      "AXDescription": "",
+                      "AXDOMClassList": [],
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 5,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXHelp": "",
+                      "AXPosition": {
+                        "x": 36,
+                        "y": 144
+                      },
+                      "AXRole": "AXTable",
+                      "AXRoleDescription": "table",
+                      "AXRowHeaderUIElements": {
+                        "count": 0,
+                        "elementIds": [],
+                        "status": "observed"
+                      },
+                      "AXSelected": false,
+                      "AXSize": {
+                        "height": 134,
+                        "width": 195
+                      },
+                      "AXTitle": "Equipment slots",
+                      "AXValue": "",
+                      "AXVisited": false,
+                      "children": [
+                        {
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 36,
+                            "y": 144
+                          },
+                          "AXRole": "AXGroup",
+                          "AXRoleDescription": "group",
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 18,
+                            "width": 195
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 9,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 75,
+                                "y": 144
+                              },
+                              "AXRole": "AXStaticText",
+                              "AXRoleDescription": "text",
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 18,
+                                "width": 117
+                              },
+                              "AXTitle": "",
+                              "AXValue": "Equipment slots",
+                              "AXVisited": false
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 36,
+                            "y": 144
+                          },
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 28,
+                            "width": 194
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 53,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 142,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 36,
+                            "y": 144
+                          },
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 40,
+                            "width": 194
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 14,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 194
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 15,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 43,
+                                    "y": 205
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 57
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 16,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 194
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "first",
+                                  "AXElementId": 17,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 117,
+                                    "y": 205
+                                  },
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 101
+                                  },
+                                  "AXTitle": "Reserve camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 18,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 36,
+                            "y": 144
+                          },
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 40,
+                            "width": 194
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 19,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 236
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 20,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 43,
+                                    "y": 247
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 47
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 21,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 236
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "second",
+                                  "AXElementId": 22,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 117,
+                                    "y": 247
+                                  },
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 93
+                                  },
+                                  "AXTitle": "Reserve tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 23,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 38,
+                            "y": 164
+                          },
+                          "AXRole": "AXColumn",
+                          "AXRoleDescription": "column",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 112,
+                            "width": 67
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 53,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 14,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 194
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 15,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 43,
+                                    "y": 205
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 57
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 19,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 236
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 20,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 43,
+                                    "y": 247
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 47
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 24,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 106,
+                            "y": 164
+                          },
+                          "AXRole": "AXColumn",
+                          "AXRoleDescription": "column",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 112,
+                            "width": 123
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 142,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 16,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 194
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "first",
+                                  "AXElementId": 17,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 117,
+                                    "y": 205
+                                  },
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 101
+                                  },
+                                  "AXTitle": "Reserve camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 21,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 236
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 40,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "second",
+                                  "AXElementId": 22,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 117,
+                                    "y": 247
+                                  },
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 93
+                                  },
+                                  "AXTitle": "Reserve tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 25,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXHelp": "",
+                          "AXPosition": {
+                            "x": 38,
+                            "y": 164
+                          },
+                          "AXRole": "AXGroup",
+                          "AXRoleDescription": "group",
+                          "AXSelected": false,
+                          "AXSize": {
+                            "height": 28,
+                            "width": 191
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 38,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 53,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 0,
+                                "elementIds": [],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXHelp": "",
+                              "AXPosition": {
+                                "x": 106,
+                                "y": 164
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSize": {
+                                "height": 28,
+                                "width": 123
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXHelp": "",
+                                  "AXPosition": {
+                                    "x": 142,
+                                    "y": 169
+                                  },
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "AXCustomContent": {
+                        "errorCode": -25212,
+                        "status": "no-value"
+                      },
+                      "AXDescription": "",
+                      "AXDOMClassList": [],
+                      "AXDOMIdentifier": "third",
+                      "AXElementId": 26,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXHelp": "",
+                      "AXInvalid": "false",
+                      "AXPosition": {
+                        "x": 42,
+                        "y": 284
+                      },
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXSize": {
+                        "height": 18,
+                        "width": 122
+                      },
+                      "AXTitle": "Submit loan request",
+                      "AXVisited": false
+                    }
+                  ]
+                },
+                {
+                  "AXCustomContent": {
+                    "errorCode": -25212,
+                    "status": "no-value"
+                  },
+                  "AXDescription": "",
+                  "AXDOMClassList": [],
+                  "AXDOMIdentifier": "fourth",
+                  "AXElementId": 27,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXHelp": "",
+                  "AXInvalid": "false",
+                  "AXPosition": {
+                    "x": 32,
+                    "y": 320
+                  },
+                  "AXRole": "AXButton",
+                  "AXRoleDescription": "button",
+                  "AXSelected": false,
+                  "AXSize": {
+                    "height": 18,
+                    "width": 138
+                  },
+                  "AXTitle": "Close resource planner",
+                  "AXVisited": false
+                }
+              ]
+            },
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "after",
+              "AXElementId": 28,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXPosition": {
+                "x": 22,
+                "y": 356
+              },
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSize": {
+                "height": 18,
+                "width": 82
+              },
+              "AXTitle": "After marker",
+              "AXVisited": false
+            }
+          ]
+        },
+        "schemaVersion": 6,
+        "stringTruncations": 0,
+        "timestamp": "2026-10-15T18:37:19Z",
+        "truncated": false,
+        "windowTitle": "Workspace preferences"
+      },
+      "targetPath": [
+        1,
+        0,
+        0,
+        2,
+        1,
+        0
+      ],
+      "constructedObject": {
+        "command": "next_item",
+        "target": {
+          "identity": "first",
+          "containers": [
+            {
+              "role": "region",
+              "name": "Resource planner",
+              "id": "scope:1:region:Resource planner",
+              "items": 0
+            },
+            {
+              "role": "article",
+              "name": "Loan request",
+              "entryChildName": "Equipment slots",
+              "id": "scope:1.0:article:Loan request",
+              "items": 0
+            },
+            {
+              "role": "table",
+              "name": "Equipment slots",
+              "rows": 3,
+              "columns": 2,
+              "id": "scope:1.0.0:table:Equipment slots",
+              "items": 0
+            }
+          ],
+          "cell": {
+            "table": "scope:1.0.0:table:Equipment slots",
+            "row": 1,
+            "column": 1,
+            "rows": 3,
+            "columns": 2,
+            "header": "Action",
+            "rowSpan": 1,
+            "columnSpan": 1
+          },
+          "semantic": {
+            "role": "button",
+            "name": "Reserve camera",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          }
+        }
+      },
+      "constructedFocus": {
+        "command": "next_focusable_item",
+        "target": {
+          "identity": "first",
+          "containers": [
+            {
+              "role": "region",
+              "name": "Resource planner",
+              "id": "scope:1:region:Resource planner",
+              "items": 0
+            },
+            {
+              "role": "article",
+              "name": "Loan request",
+              "entryChildName": "Equipment slots",
+              "id": "scope:1.0:article:Loan request",
+              "items": 0
+            },
+            {
+              "role": "table",
+              "name": "Equipment slots",
+              "rows": 3,
+              "columns": 2,
+              "id": "scope:1.0.0:table:Equipment slots",
+              "items": 0
+            }
+          ],
+          "hintInCell": true,
+          "semantic": {
+            "role": "button",
+            "name": "Reserve camera",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          }
+        }
+      }
+    },
+    {
+      "browser": "chrome",
+      "sourceAxSha256": "aec86ae127213587460df55333725d10fbbd8f860a324a9cf86da864e3d75118",
+      "dump": {
+        "app": "Google Chrome",
+        "focusedPath": [
+          0
+        ],
+        "focusedRole": "AXButton",
+        "maxDepth": 60,
+        "maxNodes": 5000,
+        "maxStringLength": 500,
+        "nodeCount": 44,
+        "pid": 1241,
+        "root": {
+          "AXCustomContent": {
+            "errorCode": -25212,
+            "status": "no-value"
+          },
+          "AXDescription": "",
+          "AXDOMClassList": [],
+          "AXDOMIdentifier": "",
+          "AXElementId": 1,
+          "AXEnabled": true,
+          "AXFocused": false,
+          "AXPosition": {
+            "x": 22,
+            "y": 195
+          },
+          "AXRequired": false,
+          "AXRole": "AXWebArea",
+          "AXRoleDescription": "HTML content",
+          "AXSelected": false,
+          "AXSelectedTextRange": {
+            "length": 0,
+            "location": 0
+          },
+          "AXSize": {
+            "height": 493,
+            "width": 980
+          },
+          "AXTitle": "Workspace preferences",
+          "AXURL": "http://192.168.64.1:51023/pages/nested-table-2-columns.html",
+          "AXValue": "",
+          "AXVisited": false,
+          "children": [
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "before",
+              "AXElementId": 2,
+              "AXEnabled": true,
+              "AXFocused": true,
+              "AXInvalid": "false",
+              "AXPosition": {
+                "x": 44,
+                "y": 217
+              },
+              "AXRequired": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 21,
+                "width": 101
+              },
+              "AXTitle": "Before marker",
+              "AXValue": "",
+              "AXVisited": false
+            },
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "Resource planner",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 3,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXPosition": {
+                "x": 42,
+                "y": 244
+              },
+              "AXRequired": false,
+              "AXRole": "AXGroup",
+              "AXRoleDescription": "region",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 234,
+                "width": 940
+              },
+              "AXSubrole": "AXLandmarkRegion",
+              "AXTitle": "Resource planner",
+              "AXValue": "",
+              "AXVisited": false,
+              "children": [
+                {
+                  "AXCustomContent": {
+                    "errorCode": -25212,
+                    "status": "no-value"
+                  },
+                  "AXDescription": "Loan request",
+                  "AXDOMClassList": [],
+                  "AXDOMIdentifier": "",
+                  "AXElementId": 4,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXPosition": {
+                    "x": 52,
+                    "y": 254
+                  },
+                  "AXRequired": false,
+                  "AXRole": "AXGroup",
+                  "AXRoleDescription": "article",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXSize": {
+                    "height": 185,
+                    "width": 920
+                  },
+                  "AXSubrole": "AXDocumentArticle",
+                  "AXTitle": "Loan request",
+                  "AXValue": "",
+                  "AXVisited": false,
+                  "children": [
+                    {
+                      "AXColumnHeaderUIElements": {
+                        "count": 2,
+                        "elementIds": [
+                          6,
+                          7
+                        ],
+                        "status": "observed"
+                      },
+                      "AXCustomContent": {
+                        "errorCode": -25212,
+                        "status": "no-value"
+                      },
+                      "AXDescription": "",
+                      "AXDOMClassList": [],
+                      "AXDOMIdentifier": "",
+                      "AXElementId": 5,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXPosition": {
+                        "x": 58,
+                        "y": 260
+                      },
+                      "AXRequired": false,
+                      "AXRole": "AXTable",
+                      "AXRoleDescription": "table",
+                      "AXRowHeaderUIElements": {
+                        "errorCode": -25212,
+                        "status": "no-value"
+                      },
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXSize": {
+                        "height": 140,
+                        "width": 209
+                      },
+                      "AXTitle": "Equipment slots",
+                      "AXValue": "",
+                      "AXVisited": false,
+                      "children": [
+                        {
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 8,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 58,
+                            "y": 260
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXGroup",
+                          "AXRoleDescription": "group",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 18,
+                            "width": 209
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 9,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 103,
+                                "y": 260
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXStaticText",
+                              "AXRoleDescription": "text",
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 18,
+                                "width": 118
+                              },
+                              "AXTitle": "",
+                              "AXValue": "Equipment slots",
+                              "AXVisited": false
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 10,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 60,
+                            "y": 280
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 28,
+                            "width": 205
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 75,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 171,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 13,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 60,
+                            "y": 310
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 43,
+                            "width": 205
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 14,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 310
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 15,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 65,
+                                    "y": 322
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 19,
+                                    "width": 57
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 16,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 310
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "first",
+                                  "AXElementId": 17,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 139,
+                                    "y": 321
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 21,
+                                    "width": 115
+                                  },
+                                  "AXTitle": "Reserve camera",
+                                  "AXValue": "",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 18,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 60,
+                            "y": 355
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXRow",
+                          "AXRoleDescription": "row",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 43,
+                            "width": 205
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 19,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 355
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 20,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 65,
+                                    "y": 367
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 19,
+                                    "width": 47
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 21,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 355
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "second",
+                                  "AXElementId": 22,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 139,
+                                    "y": 366
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 21,
+                                    "width": 104
+                                  },
+                                  "AXTitle": "Reserve tripod",
+                                  "AXValue": "",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 23,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 58,
+                            "y": 260
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXColumn",
+                          "AXRoleDescription": "column",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 140,
+                            "width": 209
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 75,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 14,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 310
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 15,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 65,
+                                    "y": 322
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 19,
+                                    "width": 57
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Camera",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 19,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 355
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 20,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 65,
+                                    "y": 367
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 19,
+                                    "width": 47
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Tripod",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXColumnHeaderUIElements": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 24,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 58,
+                            "y": 260
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXColumn",
+                          "AXRoleDescription": "column",
+                          "AXRowHeaderUIElements": {
+                            "status": "unsupported"
+                          },
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 140,
+                            "width": 209
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 171,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 16,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 310
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "first",
+                                  "AXElementId": 17,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 139,
+                                    "y": 321
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 21,
+                                    "width": 115
+                                  },
+                                  "AXTitle": "Reserve camera",
+                                  "AXValue": "",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 21,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 355
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "cell",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 2
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 43,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "second",
+                                  "AXElementId": 22,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXInvalid": "false",
+                                  "AXPosition": {
+                                    "x": 139,
+                                    "y": 366
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXButton",
+                                  "AXRoleDescription": "button",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 21,
+                                    "width": 104
+                                  },
+                                  "AXTitle": "Reserve tripod",
+                                  "AXValue": "",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "AXCustomContent": {
+                            "errorCode": -25212,
+                            "status": "no-value"
+                          },
+                          "AXDescription": "",
+                          "AXDOMClassList": [],
+                          "AXDOMIdentifier": "",
+                          "AXElementId": 25,
+                          "AXEnabled": true,
+                          "AXFocused": false,
+                          "AXPosition": {
+                            "x": 22,
+                            "y": 195
+                          },
+                          "AXRequired": false,
+                          "AXRole": "AXGroup",
+                          "AXRoleDescription": "group",
+                          "AXSelected": false,
+                          "AXSelectedTextRange": {
+                            "length": 0,
+                            "location": 0
+                          },
+                          "AXSize": {
+                            "height": 1,
+                            "width": 1
+                          },
+                          "AXTitle": "",
+                          "AXValue": "",
+                          "AXVisited": false,
+                          "children": [
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  6
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 6,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 60,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 67
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 11,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 75,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 36
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Item",
+                                  "AXVisited": false
+                                }
+                              ]
+                            },
+                            {
+                              "AXColumnHeaderUIElements": {
+                                "count": 1,
+                                "elementIds": [
+                                  7
+                                ],
+                                "status": "observed"
+                              },
+                              "AXColumnIndexRange": {
+                                "length": 1,
+                                "location": 1
+                              },
+                              "AXCustomContent": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXDescription": "",
+                              "AXDOMClassList": [],
+                              "AXDOMIdentifier": "",
+                              "AXElementId": 7,
+                              "AXEnabled": true,
+                              "AXFocused": false,
+                              "AXPosition": {
+                                "x": 128,
+                                "y": 280
+                              },
+                              "AXRequired": false,
+                              "AXRole": "AXCell",
+                              "AXRoleDescription": "column header",
+                              "AXRowHeaderUIElements": {
+                                "errorCode": -25212,
+                                "status": "no-value"
+                              },
+                              "AXRowIndexRange": {
+                                "length": 1,
+                                "location": 0
+                              },
+                              "AXSelected": false,
+                              "AXSelectedTextRange": {
+                                "length": 0,
+                                "location": 0
+                              },
+                              "AXSize": {
+                                "height": 28,
+                                "width": 137
+                              },
+                              "AXTitle": "",
+                              "AXValue": "",
+                              "AXVisited": false,
+                              "children": [
+                                {
+                                  "AXCustomContent": {
+                                    "errorCode": -25212,
+                                    "status": "no-value"
+                                  },
+                                  "AXDescription": "",
+                                  "AXDOMClassList": [],
+                                  "AXDOMIdentifier": "",
+                                  "AXElementId": 12,
+                                  "AXEnabled": true,
+                                  "AXFocused": false,
+                                  "AXPosition": {
+                                    "x": 171,
+                                    "y": 285
+                                  },
+                                  "AXRequired": false,
+                                  "AXRole": "AXStaticText",
+                                  "AXRoleDescription": "text",
+                                  "AXSelected": false,
+                                  "AXSelectedTextRange": {
+                                    "length": 0,
+                                    "location": 0
+                                  },
+                                  "AXSize": {
+                                    "height": 18,
+                                    "width": 51
+                                  },
+                                  "AXTitle": "",
+                                  "AXValue": "Action",
+                                  "AXVisited": false
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "AXCustomContent": {
+                        "errorCode": -25212,
+                        "status": "no-value"
+                      },
+                      "AXDescription": "",
+                      "AXDOMClassList": [],
+                      "AXDOMIdentifier": "third",
+                      "AXElementId": 26,
+                      "AXEnabled": true,
+                      "AXFocused": false,
+                      "AXInvalid": "false",
+                      "AXPosition": {
+                        "x": 64,
+                        "y": 406
+                      },
+                      "AXRequired": false,
+                      "AXRole": "AXButton",
+                      "AXRoleDescription": "button",
+                      "AXSelected": false,
+                      "AXSelectedTextRange": {
+                        "length": 0,
+                        "location": 0
+                      },
+                      "AXSize": {
+                        "height": 21,
+                        "width": 135
+                      },
+                      "AXTitle": "Submit loan request",
+                      "AXValue": "",
+                      "AXVisited": false
+                    }
+                  ]
+                },
+                {
+                  "AXCustomContent": {
+                    "errorCode": -25212,
+                    "status": "no-value"
+                  },
+                  "AXDescription": "",
+                  "AXDOMClassList": [],
+                  "AXDOMIdentifier": "fourth",
+                  "AXElementId": 27,
+                  "AXEnabled": true,
+                  "AXFocused": false,
+                  "AXInvalid": "false",
+                  "AXPosition": {
+                    "x": 54,
+                    "y": 445
+                  },
+                  "AXRequired": false,
+                  "AXRole": "AXButton",
+                  "AXRoleDescription": "button",
+                  "AXSelected": false,
+                  "AXSelectedTextRange": {
+                    "length": 0,
+                    "location": 0
+                  },
+                  "AXSize": {
+                    "height": 21,
+                    "width": 154
+                  },
+                  "AXTitle": "Close resource planner",
+                  "AXValue": "",
+                  "AXVisited": false
+                }
+              ]
+            },
+            {
+              "AXCustomContent": {
+                "errorCode": -25212,
+                "status": "no-value"
+              },
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "after",
+              "AXElementId": 28,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXPosition": {
+                "x": 44,
+                "y": 484
+              },
+              "AXRequired": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXSize": {
+                "height": 21,
+                "width": 90
+              },
+              "AXTitle": "After marker",
+              "AXValue": "",
+              "AXVisited": false
+            }
+          ]
+        },
+        "schemaVersion": 6,
+        "stringTruncations": 0,
+        "timestamp": "2026-10-15T18:37:19Z",
+        "truncated": false,
+        "windowTitle": "Workspace preferences - Google Chrome"
+      },
+      "targetPath": [
+        1,
+        0,
+        0,
+        2,
+        1,
+        0
+      ],
+      "constructedObject": {
+        "command": "next_item",
+        "target": {
+          "identity": "first",
+          "containers": [
+            {
+              "role": "region",
+              "name": "Resource planner",
+              "id": "scope:1:region:Resource planner",
+              "items": 0
+            },
+            {
+              "role": "article",
+              "name": "Loan request",
+              "entryChildName": "Equipment slots",
+              "id": "scope:1.0:article:Loan request",
+              "items": 0
+            },
+            {
+              "role": "table",
+              "name": "Equipment slots",
+              "rows": 3,
+              "columns": 2,
+              "id": "scope:1.0.0:table:Equipment slots",
+              "items": 0
+            }
+          ],
+          "cell": {
+            "table": "scope:1.0.0:table:Equipment slots",
+            "row": 1,
+            "column": 1,
+            "rows": 3,
+            "columns": 2,
+            "header": "Action",
+            "rowSpan": 1,
+            "columnSpan": 1
+          },
+          "semantic": {
+            "role": "button",
+            "name": "Reserve camera",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          }
+        }
+      },
+      "constructedFocus": {
+        "command": "next_focusable_item",
+        "target": {
+          "identity": "first",
+          "containers": [
+            {
+              "role": "region",
+              "name": "Resource planner",
+              "id": "scope:1:region:Resource planner",
+              "items": 0
+            },
+            {
+              "role": "article",
+              "name": "Loan request",
+              "entryChildName": "Equipment slots",
+              "id": "scope:1.0:article:Loan request",
+              "items": 0
+            },
+            {
+              "role": "table",
+              "name": "Equipment slots",
+              "rows": 3,
+              "columns": 2,
+              "id": "scope:1.0.0:table:Equipment slots",
+              "items": 0
+            }
+          ],
+          "hintInCell": true,
+          "semantic": {
+            "role": "button",
+            "name": "Reserve camera",
+            "protected": false,
+            "disabled": false,
+            "readonly": false,
+            "required": false,
+            "multiline": false,
+            "modal": false,
+            "hasMoreContent": false
+          }
+        }
+      }
+    }
+  ]
+}

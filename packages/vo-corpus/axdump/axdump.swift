@@ -45,6 +45,7 @@ if focusRole != nil || focusName != nil {
   guard focusWebAreaURL != nil, let role = focusRole, ["AXButton","AXCheckBox","AXLink"].contains(role), let name = focusName, !name.isEmpty else { fail("named focus requires expected URL, supported role and nonempty name") }
 }
 if maxStringLength < 1 || maxStringLength > 1000000 { fail("--max-string-length must be between 1 and 1000000") }
+if maxNodes < 1 || maxDepth < 0 { fail("--max-nodes must be positive and --max-depth nonnegative") }
 
 // Without the grant every call returns kAXErrorAPIDisabled. Do not prompt: the prompt would be a UI side effect.
 if !AXIsProcessTrusted() {
@@ -158,6 +159,7 @@ let wanted: [String] = [
   "AXRole", "AXSubrole", "AXRoleDescription", "AXTitle", "AXDescription", "AXValue", "AXHelp", "AXPlaceholderValue",
   "AXPosition", "AXSize", "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXSelectedTextRange", "AXExpanded", "AXRequired", "AXVisited",
   "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXARIACurrent", "AXInvalid", "AXURL",
+  "AXRowIndexRange", "AXColumnIndexRange",
 ]
 
 var stringTruncations = 0
@@ -221,6 +223,17 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
     if secure && (name == "AXValue" || name == "AXSelectedTextRange") { node[name + "Withheld"] = true; continue }
     if let value = attribute(element, name), let converted = json(value) { node[name] = converted }
   }
+  if ["AXTable", "AXCell", "AXColumn", "AXRow"].contains(node["AXRole"] as? String ?? "") {
+    for name in ["AXColumnHeaderUIElements", "AXRowHeaderUIElements"] {
+      guard available.contains(name) else { node[name] = ["status": "unsupported"]; continue }
+      var value: CFTypeRef?
+      let error = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+      if error != .success { node[name] = ["status": error == .noValue ? "no-value" : "read-error", "errorCode": error.rawValue]; continue }
+      guard let headers = value as? [AXUIElement] else { node[name] = ["status": "invalid-type"]; continue }
+      node[name] = ["status": headers.count > maxNodes ? "truncated" : "observed", "count": headers.count,
+        "elementIds": headers.prefix(maxNodes).map(elementId)] as [String: Any]
+    }
+  }
   if secure { node["AXCustomContentWithheld"] = true }
   else if available.contains("AXCustomContent") {
     var content: CFTypeRef?
@@ -244,7 +257,7 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
 
 let tree = dump(webArea, depth: 0, path: [])
 var result: [String: Any] = [
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "app": appName,
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",
