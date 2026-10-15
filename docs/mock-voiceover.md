@@ -1,8 +1,61 @@
 # Simulated VoiceOver
 
-`mockVoiceOver` is an explicit browser-backed simulator for experimenting with policies, runner integration, and ordinary page behavior without a Mac. It launches real Chromium, reads that browser's current accessibility tree, maintains a separate navigation cursor, and lets the page's own handlers change its state. It does not replay fixture answers or hard-code a task outcome.
+`formatVoiceOverSpeech` generates English VoiceOver-style wording from the target, state, command and prior context supplied by Rawstep. It performs no navigation and launches no browser. Safari and Chrome reference profiles remain separate. The existing `mockVoiceOver` browser adapter uses this same formatter for target announcements; it also provides Chromium navigation and page interaction for integration tests.
 
 **This is a small VoiceOver-inspired approximation, not Apple VoiceOver. Its generated output cannot establish native screen-reader behavior, speech fidelity, or accessibility conformance.** Real VoiceOver and NVDA testing still requires the native machine backend (an assistive-technology environment with `backend` `voiceover` or `nvda`) and the appropriate host.
+
+## Generate speech from an externally selected target
+
+```js
+import { formatVoiceOverSpeech } from 'rawstep/mock-voiceover';
+
+const input = {
+  referenceBrowser: 'safari', // or 'chrome'; does not select or launch a browser
+  command: 'next_focusable_item', // the action Rawstep has already performed
+  target: {
+    identity: 'save', // stable within the current document
+    semantic: {
+      role: 'button', name: 'Save', protected: false, disabled: false,
+      readonly: false, required: false, multiline: false, modal: false,
+    },
+    containers: [{ id: 'settings', name: 'Preferences', role: 'region', items: 2 }],
+  },
+};
+const entry = formatVoiceOverSpeech(input);
+console.log(entry.speech); // Save, button Preferences region
+const within = formatVoiceOverSpeech(input, entry.context);
+console.log(within.speech); // Save, button
+```
+
+Pass each returned `context` into the next call for the same session. Reset it on a new document, and keep histories
+separate across browsers and sessions. Context IDs are caller-owned stable identifiers; `containers` are ordered
+outer to inner. Table coordinates in `target.cell` are zero-based. The optional `axId` identifies a target's own
+container when it is itself a structural boundary, so that boundary is not also treated as its ancestor.
+
+`semantic` contains the currently observed element state. `checkedStateChanged` distinguishes a checked-control
+transition from reading an already checked control. `focused` and `edit` describe independently observed keyboard focus and selection;
+`focusEntry: true` requests the existing focus-entry selection wording when such an entry was observed; they are not inferred from the previous speech. Commands
+use the existing formatter names: `next_item`/`previous_item`, `next_focusable_item`/`previous_focusable_item`,
+`next_heading`, `read_current`, and the other adapter command labels. These labels describe context, not an
+executable command API or a declaration that every VoiceOver command is supported.
+
+The return value contains `speech`, an optional `usageHint` candidate and the next serializable `context`.
+The function does not mutate its input or prior context. It does not schedule, cancel or attribute speech; callers
+must not interpret a returned hint as proof of native timing or queue behavior. Live-region event ordering,
+character-edit echoes and activation silence/repetition still have adapter-specific handling and are not fully
+covered by this target formatter. Unknown native context must be reported by the calling test as unmeasured;
+passing missing context as an empty history is not proof of a correct prediction.
+
+Run the browser-free executable example after installing Rawstep:
+
+```sh
+node --test node_modules/rawstep/examples/v2/voiceover-speech.test.mjs
+```
+
+The context-return Native fixtures are calibration/regression evidence: Safari 36/36 and Chrome 32/36 main-speech
+comparisons match when the observed target and shared HTML context are supplied. Four Chrome inferred-article
+naming mismatches remain recorded. These results do not establish independent generalization or whole-engine
+accuracy. See [the context audit](./voiceover-speech-context-audit.md) for the data limitations.
 
 ## Run the bundled browser fixture
 

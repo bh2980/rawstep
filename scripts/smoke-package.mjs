@@ -55,7 +55,7 @@ try {
   const pack = await packRawstep(directory, { environment });
   const unexpected = pack.files.filter(file => !/^(?:dist\/|native\/[^/]+\.py$|README(?:\.ko)?\.md$|LICENSE$|package\.json$|docs\/[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
   assert.deepEqual(unexpected, [], 'unexpected files in the tarball');
-  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'native/orca_bridge.py', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
+  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'native/orca_bridge.py', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json', 'examples/v2/voiceover-speech.test.mjs']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
   assert.ok(pack.files.some(file => /^dist\/dashboard-web\/assets\/.+\.js$/.test(file.path)), 'tarball is missing the dashboard JS bundle');
   assert.deepEqual(Object.keys(pack.manifest.dependencies).sort(), ['@ai-sdk/openai-compatible', 'ai', 'playwright', 'zod']);
   check('tarball contents and third-party-only dependency list');
@@ -109,20 +109,22 @@ try {
   assert.deepEqual(['./project', './hints', './runner', './screenshot', './systemone', './trace', './cli'].filter(name => !exportedModules.includes(name)), []);
   command(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
-    import { runTask, aggregateHints, readTrace } from 'rawstep';
+    import { runTask, aggregateHints, readTrace, formatVoiceOverSpeech as rootSpeech } from 'rawstep';
     import { runTask as lowLevelRunTask } from 'rawstep/runner';
-    import { MOCK_VOICEOVER_CHROME_PROFILE, runMockVoiceOverTask } from 'rawstep/mock-voiceover';
+    import { MOCK_VOICEOVER_CHROME_PROFILE, runMockVoiceOverTask, formatVoiceOverSpeech } from 'rawstep/mock-voiceover';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
     assert.notEqual(runTask, lowLevelRunTask);
     assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v3');
-    assert.equal(typeof runMockVoiceOverTask, 'function');
+    assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech);
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);
   check(`import { runTask, aggregateHints } from 'rawstep'; ${exportedModules.length} export-map entries import`);
+  command(process.execPath,['--test',join(directory,'node_modules/rawstep/examples/v2/voiceover-speech.test.mjs')]);
+  check('installed browser-free speech example preserves caller-owned context in both profiles');
 
   // 6. A TypeScript consumer compiles against the bundled declarations.
   await writeFile(join(directory, 'consumer.ts'), [
@@ -130,7 +132,7 @@ try {
     'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
     'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
     'import { SpeechDecisionPolicy } from "rawstep/policy";',
-    'import { type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
+    'import { formatVoiceOverSpeech, type VoiceOverSpeechContext, type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
@@ -138,6 +140,8 @@ try {
     'const referenceBrowser: MockVoiceOverReferenceBrowser = "chrome";',
     'const mockOptions: MockVoiceOverRunOptions = { policy, outDir: "./mock-output", referenceBrowser };',
     'void mockOptions;',
+    'const speech = formatVoiceOverSpeech({ command: "next_item", target: { identity: "save", semantic: { role: "button", name: "Save", protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false } } });',
+    'const speechContext: VoiceOverSpeechContext = speech.context; void speechContext;',
     'const task: Task = { url: "https://example.com", goal: "Read the page", verify: { all: [{ titleIncludes: "Example" }] } };',
     'const analyzer: TraceAnalyzer = { id: "example", analyze: async () => ({ summary: "Done", findings: [] }) };',
     'const model: ScreenshotModelAdapter = new SystemOneScreenshotAdapter(new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { inputs: ["text", "image"], maxChoices: 255, maxImages: 2 } }));',

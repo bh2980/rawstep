@@ -2,7 +2,7 @@ import type { CDPSession, Page } from '@rawstep/browser/types';
 import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 import { setTimeout as wait } from 'node:timers/promises';
-import {formatUsageHint} from './usage-hints.js';
+import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContainer, type VoiceOverCell, type VoiceOverEditState} from './speech.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
@@ -62,11 +62,11 @@ type AXNode = {
   properties?: { name: string; value: AXValue }[];
   ignoredReasons?: {name:string;value:AXValue}[];
 };
-type Container = { id: string; name: string; inferredName?: boolean; role: string; items: number; rows?: number; columns?: number };
-type Cell = { table: string; row: number; column: number; rows: number; columns: number; header: string;rowSpan:number;columnSpan:number };
+type Container = VoiceOverContainer;
+type Cell = VoiceOverCell;
 type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean; end?: boolean; containers?: Container[]; cell?: Cell; textGroup?: string; hintInCell?:boolean;hintTextFragment?:boolean; labelText?: boolean; popup?: { name: string; count: number; activeId?: string; active?: SimulatedSemanticNode } };
 type DOMMeta = { tag: string;text?:string; attributes: Record<string, string>; parent?: number; nodeId: number; generatedContent: boolean };
-type EditState = { value: string; start: number; end: number; multiline: boolean };
+type EditState = VoiceOverEditState;
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[] };
 type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
@@ -101,10 +101,7 @@ export class MockVoiceOverBackend implements Backend {
   private lastAnnouncement?: string;
   private hintTarget?: string;
   private pendingHint?: {text:string;dueAt:number};
-  private announcedContainers: string[] = [];
-  private announcedFocusContext?: string;
-  private announcedCell?: Cell;
-  private announcedColumn?: Pick<Cell,'table'|'column'>;
+  private speechContext: VoiceOverSpeechContext = {containers:[]};
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
@@ -164,45 +161,14 @@ export class MockVoiceOverBackend implements Backend {
     return this.window ??= { id: `mock-voiceover-window-${this.nextWindow++}`, startedAt: new Date().toISOString(), outputs: [] };
   }
 
-  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, textOverride?: string): void {
+  private announce(node: CursorNode | undefined, fallback = 'No accessible content', force = true, checkedStateChanged = false, focusEntry = false): void {
     const rendered = this.wording?.format(node?.semantic, { sourceCommand: this.sourceCommand, unmodeledContext: node?.unmodeledContext ?? true });
-    let text = rendered?.speech ?? textOverride ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged,this.sourceCommand) : fallback);
-    if (!this.wording && textOverride === undefined && this.referenceBrowser === 'chrome' && node?.cell && ['next_item','previous_item'].includes(this.sourceCommand)) {
-      const edit = this.focusedEdit;
-      if (node.identity === this.focusedIdentity && edit?.value && edit.start === edit.end && !node.semantic.protected) {
-        const left = edit.value.slice(0,edit.start).match(/[A-Za-z]+$/)?.[0], right = edit.value.slice(edit.start).match(/^[A-Za-z]+/)?.[0];
-        const caret = edit.start === 0 ? 'Insertion at beginning of text.' : edit.start === edit.value.length ? 'Insertion at end of text.'
-          : left && right ? `Insertion on word: ${left}${right} , between characters: ${left.at(-1)} and ${right[0]}` : undefined;
-        if (caret) text = [edit.value,caret,node.semantic.name,edit.multiline?'text entry area':'edit text'].filter(Boolean).join(' ');
-      }
-    }
-    if (!this.wording && node) {
-      if (node.cell && !node.end&&!['next_focusable_item','previous_focusable_item'].includes(this.sourceCommand)) {
-        const c = node.cell, row = c.row > 0 && (this.announcedCell?.table !== c.table || this.announcedCell?.row !== c.row) ? `row ${c.row + 1} of ${c.rows}` : '';
-        const entered=this.announcedCell?.table!==c.table||this.announcedCell?.row!==c.row||this.announcedCell?.column!==c.column;
-        const columnChanged=this.announcedColumn?.table!==c.table||this.announcedColumn?.column!==c.column;
-        text = [row, columnChanged&&c.row>0?c.header:'',entered&&c.rowSpan>1?`spans ${c.rowSpan} rows`:'',entered&&c.columnSpan>1?`spans ${c.columnSpan} columns`:'', ['cell','columnheader','rowheader'].includes(node.semantic.role)?node.semantic.name:text, entered?`column ${c.column + 1} of ${c.columns}`:''].filter(Boolean).join(' ');
-        this.announcedCell = c;
-        this.announcedColumn = c;
-      } else this.announcedCell = this.referenceBrowser === 'chrome' && node.cell && node.identity === this.focusedIdentity && this.focusedEdit ? node.cell : undefined;
-      const scopes = (node.containers ?? []).filter(c => c.id !== node.axId);
-      const entered = scopes.filter(c => !this.announcedContainers.includes(c.id) && c.name);
-      const dialogs = entered.filter(c => c.role === 'dialog' || c.role === 'alertdialog');
-      for (const c of dialogs) text = `${c.name} web dialog with ${c.items} items ${text}`;
-      const groupWords: Record<string, string> = { group: 'group', radiogroup: 'radio group', tablist: 'tab group' };
-      const landmarks = ['main','navigation','banner','contentinfo','complementary','region','form'];
-      const focusContexts = scopes.filter(c => c.role === 'article' || c.role === 'table' || !!c.name && (groupWords[c.role] || landmarks.includes(c.role)));
-      const nearest = focusContexts.at(-1);
-      // Leaving an inner context re-enters its ancestor even when that ancestor was visited before.
-      const focusMove = ['next_focusable_item','previous_focusable_item'].includes(this.sourceCommand);
-      const contexts = focusMove ? nearest && nearest.id !== this.announcedFocusContext ? [nearest] : [] : entered;
-      for (const c of contexts.filter(c => groupWords[c.role])) text += ` ${c.name} ${groupWords[c.role]}`;
-      for (const c of contexts.filter(c => landmarks.includes(c.role))) text += ` ${c.name} ${c.role}`;
-      for (const c of contexts.filter(c => c.role === 'table')) text += ` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
-      if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))text += ` ${[this.referenceBrowser==='chrome'&&c.inferredName?'':c.name,'article'].filter(Boolean).join(' ')}`;
-      this.announcedContainers = (node.containers ?? []).map(c => c.id);
-      this.announcedFocusContext = nearest?.id;
-    }
+    let text = rendered?.speech ?? (node ? formatSimulatedSpeech(node.semantic, checkedStateChanged,this.sourceCommand) : fallback);
+    const formatted = !this.wording && node ? formatVoiceOverSpeech({
+      target:node,command:this.sourceCommand,referenceBrowser:this.referenceBrowser,
+      focused:node.identity===this.focusedIdentity,focusEntry,edit:this.focusedEdit,checkedStateChanged,
+    },this.speechContext) : undefined;
+    if(formatted){text=formatted.speech;this.speechContext=formatted.context;}
     const fingerprint = JSON.stringify([node?.identity, text]);
     if (!force && this.lastAnnouncement === fingerprint) return;
     this.lastAnnouncement = fingerprint;
@@ -215,9 +181,7 @@ export class MockVoiceOverBackend implements Backend {
     if(!this.wording&&node){
       const hintTarget=node.semantic.role==='radio'?`${node.identity}:${node.semantic.checked}`:node.identity;
       if(this.hintTarget!==hintTarget){
-        const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId);
-        const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-        const text=formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{parentRole:parent?.role,inCell:node.hintInCell||!!node.cell,end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(this.sourceCommand),textFragment:node.hintTextFragment});
+        const text=formatted?.usageHint;
         this.pendingHint=text?{text,dueAt:Date.now()+600}:undefined;
       }
       this.hintTarget=hintTarget;
@@ -554,7 +518,7 @@ export class MockVoiceOverBackend implements Backend {
     if (root && identity(root) !== this.documentIdentity) {
       this.documentIdentity = identity(root);
       this.hintTarget=undefined;this.pendingHint=undefined;
-      this.announcedContainers=[];this.announcedFocusContext=undefined;this.announcedCell=undefined;this.announcedColumn=undefined;
+      this.speechContext={containers:[]};
       const title = stringValue(root.name).trim();
       if (title) this.announceText(title, 'page-title');
     }
@@ -731,9 +695,7 @@ export class MockVoiceOverBackend implements Backend {
     if (!after || node.identity !== this.focusedIdentity || node.semantic.protected) return false;
     const emit = (text: string) => { if (text) this.announceText(text, 'editing'); };
     if (action.kind === 'key' && (['Tab','Shift+Tab'].includes(action.key) || beforeFocus !== this.focusedIdentity) && after.value) {
-      const selection = after.value.slice(after.start, after.end), role = after.multiline ? 'text entry area' : 'edit text';
-      const caret = selection.length === after.value.length ? 'contents selected' : after.start === 0 ? 'Insertion at beginning of text.' : after.start === after.value.length ? 'Insertion at end of text.' : '';
-      this.announce(node, 'No accessible content', true, false, `${after.value} ${caret} ${node.semantic.name} ${role}`.replace(/\s+/g, ' ').trim());
+      this.announce(node, 'No accessible content', true, false, true);
       return true;
     }
     if (!before || beforeFocus !== this.focusedIdentity) return false;
