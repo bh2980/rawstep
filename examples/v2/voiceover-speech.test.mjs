@@ -18,3 +18,15 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: cal
   assert.equal(returning.speech,entry.speech);
   assert.match(returning.usageHint,/on a button/);
 });
+
+for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: caller distinguishes inline description from help`,()=>{
+  const semantic={role:'button',name:'Print copies.',protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false};
+  const input={target:{identity:'print',semantic},command:'next_focusable_item',referenceBrowser};
+  const inline=formatVoiceOverSpeech({...input,target:{...input.target,semantic:{...semantic,description:'Copies, not originals.',hasMoreContent:true}}});
+  assert.equal(inline.speech,'Print copies. Copies, not originals. button');
+  assert.match(inline.usageHint,/bring up the more content menu/);
+  const tooltip=formatVoiceOverSpeech({...input,target:{...input.target,semantic:{...semantic,help:'Copies, not originals.',hasMoreContent:false}}});
+  assert.equal(tooltip.speech,'Print copies. button');
+  assert.match(tooltip.usageHint,/^Copies, not originals\.  You are currently/);
+  assert.doesNotMatch(tooltip.usageHint,/more content menu/);
+});

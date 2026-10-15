@@ -9,6 +9,7 @@ import type { Machine } from "./host.js";
 const run = promisify(execFile);
 const source = fileURLToPath(new URL("../axdump/axdump.swift", import.meta.url));
 const overlaySource = fileURLToPath(new URL("../axdump/cursor-overlay.swift", import.meta.url));
+const contentSource = fileURLToPath(new URL("../axdump/custom-content.swift", import.meta.url));
 const binary = fileURLToPath(new URL("../data/bin/axdump", import.meta.url));
 
 async function modified(path: string): Promise<number | undefined> {
@@ -17,11 +18,11 @@ async function modified(path: string): Promise<number | undefined> {
 
 /** Compiles the Swift source into data/bin once, and again when the source is newer. */
 async function ensureBinary(): Promise<string> {
-  const [built, edited] = [await modified(binary), Math.max(await modified(source) ?? 0,await modified(overlaySource) ?? 0)];
+  const [built, edited] = [await modified(binary), Math.max(await modified(source) ?? 0,await modified(overlaySource) ?? 0,await modified(contentSource) ?? 0)];
   if (built === undefined || (edited !== undefined && edited > built)) {
     await mkdir(fileURLToPath(new URL("../data/bin/", import.meta.url)), { recursive: true });
     const combined = fileURLToPath(new URL("../data/bin/axdump-build.swift", import.meta.url));
-    await writeFile(combined,(await Promise.all([overlaySource,source].map(p=>readFile(p,"utf8")))).join("\n"));
+    await writeFile(combined,(await Promise.all([overlaySource,contentSource,source].map(p=>readFile(p,"utf8")))).join("\n"));
     await run("swiftc", ["-O", combined, "-o", binary]);
   }
   return binary;

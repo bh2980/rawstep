@@ -174,6 +174,13 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
     if secure && (name == "AXValue" || name == "AXSelectedTextRange") { node[name + "Withheld"] = true; continue }
     if let value = attribute(element, name), let converted = json(value) { node[name] = converted }
   }
+  if secure { node["AXCustomContentWithheld"] = true }
+  else if available.contains("AXCustomContent") {
+    var content: CFTypeRef?
+    let error = AXUIElementCopyAttributeValue(element,"AXCustomContent" as CFString,&content)
+    node["AXCustomContent"] = error == .success ? captureCustomContent(content, limit: limited)
+      : ["status": error == .noValue ? "no-value" : "read-error", "errorCode": error.rawValue]
+  } else { node["AXCustomContent"] = ["status": "unsupported"] }
   let children = available.contains("AXChildren") ? elements(element, "AXChildren") : []
   if depth >= maxDepth {
     if !children.isEmpty { node["childrenTruncated"] = children.count; truncated = true }
@@ -190,7 +197,7 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
 
 let tree = dump(webArea, depth: 0, path: [])
 var result: [String: Any] = [
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "app": appName,
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",

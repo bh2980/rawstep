@@ -39,6 +39,11 @@ use the existing formatter names: `next_item`/`previous_item`, `next_focusable_i
 `next_heading`, `read_current`, and the other adapter command labels. These labels describe context, not an
 executable command API or a declaration that every VoiceOver command is supported.
 
+`semantic.description` is inline description content. `semantic.help` is a help/usage-hint prefix;
+`semantic.hasMoreContent` independently supplies the observed additional-content-menu instruction. These fields
+must come from the caller's observed semantic source; an arbitrary description is not evidence of additional
+content. See [the controlled Native description-source study](./voiceover-description-sources.md) for scope and raw-receipt gaps.
+
 The return value contains `speech`, an optional `usageHint` candidate and the next serializable `context`.
 The function does not mutate its input or prior context. It does not schedule, cancel or attribute speech; callers
 must not interpret a returned hint as proof of native timing or queue behavior. Live-region event ordering,
@@ -104,8 +109,8 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v10`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v4`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v11`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v5`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -136,7 +141,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v10` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v11` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

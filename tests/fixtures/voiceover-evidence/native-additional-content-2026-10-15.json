@@ -1,0 +1,2827 @@
+{
+  "schemaVersion": 1,
+  "scope": "Controlled description-source calibration, now regression. Same template, contrast group and command history, not independent evaluation. Revised inputs derive description, help and hasMoreContent from observed AXCustomContent/AXHelp, never from speech. Frozen original inputs/predictions remain alongside revised ones. Main/hint receipt boundaries were manually reviewed for this cohort; raw receipts and timing remain unchanged. Stable unique visible geometry is input evidence, not Navigation Accuracy.",
+  "plan": {
+    "frozenAt": "2026-10-15T07:27:42.173Z",
+    "scope": "Controlled calibration: identical target, name, DOM structure and command history; description source is the only varied condition. No independent generalization claim.",
+    "casesSha256": "e20d40ffa02366effbc6a5fed6ab17972bd5d0741fb7e0af903bd553d81bcc7c",
+    "modelBuildSha256": "7135faff19cebc4d2155d1e1e009c2cceba6dc2c5aaeb59736138a607a3e8ddb",
+    "plannedActionsPerBrowser": 12,
+    "browsers": [
+      "safari",
+      "chrome"
+    ],
+    "settings": "baseline-v2-dnd",
+    "axSchemaVersion": 5,
+    "checks": "Independent visible target + role/name/ancestor checks; description from AXCustomContent or AXHelp, not utterances. Preserve no-value versus unsupported/read/decode failure. Compare first entry and return separately. No speech-engine changes until both captures finish."
+  },
+  "attemptSummary": {
+    "planned": 24,
+    "observed": 24,
+    "startupFailures": 0
+  },
+  "pages": [
+    {
+      "id": "additional-content-v1.none",
+      "page": "pages/none.html",
+      "chords": [
+        "Tab",
+        "Shift+Tab",
+        "Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 1500,
+        "quietMs": 1000,
+        "maxWaitMs": 6500
+      },
+      "axes": {
+        "family": "additional-content-source",
+        "source": "none",
+        "role": "button",
+        "templateGroup": "additional-content-v1",
+        "contrastGroup": "additional-content-v1",
+        "partition": "train",
+        "exposure": "calibration"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Description sources</title><style>body{font:18px system-ui;padding:18px}button{display:block;margin:12px}</style><body><button id=\"before\" autofocus>Before marker</button><button id=\"target\">Print copies.</button><span id=\"detail\" hidden>Copies, not originals.</span><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "2dacc5de83520412124711afc442c95ed893080db8daa72b0e77f001917f7c0b"
+    },
+    {
+      "id": "additional-content-v1.aria-description",
+      "page": "pages/aria-description.html",
+      "chords": [
+        "Tab",
+        "Shift+Tab",
+        "Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 1500,
+        "quietMs": 1000,
+        "maxWaitMs": 6500
+      },
+      "axes": {
+        "family": "additional-content-source",
+        "source": "aria-description",
+        "role": "button",
+        "templateGroup": "additional-content-v1",
+        "contrastGroup": "additional-content-v1",
+        "partition": "train",
+        "exposure": "calibration"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Description sources</title><style>body{font:18px system-ui;padding:18px}button{display:block;margin:12px}</style><body><button id=\"before\" autofocus>Before marker</button><button id=\"target\" aria-description=\"Copies, not originals.\">Print copies.</button><span id=\"detail\" hidden>Copies, not originals.</span><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "060e4fd5e62ad1f03da4492302ebe092df97eb57b2bb584c73fefb1fc55ea43e"
+    },
+    {
+      "id": "additional-content-v1.aria-describedby",
+      "page": "pages/aria-describedby.html",
+      "chords": [
+        "Tab",
+        "Shift+Tab",
+        "Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 1500,
+        "quietMs": 1000,
+        "maxWaitMs": 6500
+      },
+      "axes": {
+        "family": "additional-content-source",
+        "source": "aria-describedby",
+        "role": "button",
+        "templateGroup": "additional-content-v1",
+        "contrastGroup": "additional-content-v1",
+        "partition": "train",
+        "exposure": "calibration"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Description sources</title><style>body{font:18px system-ui;padding:18px}button{display:block;margin:12px}</style><body><button id=\"before\" autofocus>Before marker</button><button id=\"target\" aria-describedby=\"detail\">Print copies.</button><span id=\"detail\" hidden>Copies, not originals.</span><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "967610964fe03298c8120d2df213e21ebc183f7840a0163aa931fcb431551bd7"
+    },
+    {
+      "id": "additional-content-v1.title",
+      "page": "pages/title.html",
+      "chords": [
+        "Tab",
+        "Shift+Tab",
+        "Tab"
+      ],
+      "captureAxAfterSteps": true,
+      "listen": {
+        "minWaitMs": 1500,
+        "quietMs": 1000,
+        "maxWaitMs": 6500
+      },
+      "axes": {
+        "family": "additional-content-source",
+        "source": "title",
+        "role": "button",
+        "templateGroup": "additional-content-v1",
+        "contrastGroup": "additional-content-v1",
+        "partition": "train",
+        "exposure": "calibration"
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Description sources</title><style>body{font:18px system-ui;padding:18px}button{display:block;margin:12px}</style><body><button id=\"before\" autofocus>Before marker</button><button id=\"target\" title=\"Copies, not originals.\">Print copies.</button><span id=\"detail\" hidden>Copies, not originals.</span><button id=\"after\">After marker</button></body></html>",
+      "htmlSha256": "3010df3f53b1ed5849fc0a36e7457311130ababcfc0b185f6ffb5288d9bbee55"
+    }
+  ],
+  "profiles": [
+    {
+      "browser": "safari",
+      "run": "additional-content-v1-2026-10-15T07-27-42-538Z",
+      "sourceRecordsSha256": "ed458ca365183f196e2165c0bee75e096aa56870c5c51396a8184484b91a65c5",
+      "predictedAt": "2026-10-15T07:27:42.381Z",
+      "nativeStartedAt": "2026-10-15T07:27:42.869Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 12,
+        "observed": 12,
+        "basicInputVerified": 12,
+        "inputVerified": 12,
+        "originalInputEquivalent": 10,
+        "originalDiagnosticMain": 10,
+        "originalDiagnosticFull": 6,
+        "mainSpeechExact": 12,
+        "fullSpeechExact": 10
+      },
+      "rows": [
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 11698,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 12265,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 11609,
+            "acknowledgedAt": 12023,
+            "observationStartedAt": 12023,
+            "observationEndedAt": 13524,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 13524,
+            "axObservationEndedAt": 14100
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "3aa5d38576fcc549d4c5a15d144edf4148f6bb84438ef13ebb26857adc831db9",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 14559,
+              "text": "Before marker button"
+            },
+            {
+              "t": 15120,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 14356,
+            "acknowledgedAt": 15207,
+            "observationStartedAt": 15207,
+            "observationEndedAt": 16707,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 16707,
+            "axObservationEndedAt": 17827
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "075e37b4cb52a2a33792258abc0acb10137a38968b0c72888575fea1987fe9dc",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 18215,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 18785,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 18132,
+            "acknowledgedAt": 18531,
+            "observationStartedAt": 18531,
+            "observationEndedAt": 20032,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 20032,
+            "axObservationEndedAt": 20579
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "7478474425b0f58e5405a0f7e34c3984d66d148a9a1e05bc401925782dbed333",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 28723,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 29303,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 28626,
+            "acknowledgedAt": 29031,
+            "observationStartedAt": 29031,
+            "observationEndedAt": 30532,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 30532,
+            "axObservationEndedAt": 31109
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "cb87c45a489a9d0c4043853fdaa9178c48e5a5f44a63b4290a9f6e79ba7cddd3",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 31547,
+              "text": "Before marker button"
+            },
+            {
+              "t": 32107,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 31373,
+            "acknowledgedAt": 32192,
+            "observationStartedAt": 32192,
+            "observationEndedAt": 33693,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 33693,
+            "axObservationEndedAt": 34867
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "dd05b5bf19e0f4e2229a48cdcb6989c3fc9354d43839e4068ceb29df4e325520",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 35243,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 35826,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 35158,
+            "acknowledgedAt": 35571,
+            "observationStartedAt": 35571,
+            "observationEndedAt": 37072,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 37072,
+            "axObservationEndedAt": 37673
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "4e8e015e3f75fd4b9e575a06d67d5a96f3bab21af6a4c9c73b582f3905c1b397",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 46045,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 46625,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 45960,
+            "acknowledgedAt": 46368,
+            "observationStartedAt": 46368,
+            "observationEndedAt": 47869,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 47869,
+            "axObservationEndedAt": 48422
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "eb49f9393141550e3cd63328be0dec81e9309ae3ddf233467d5f15488bcb290b",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 48966,
+              "text": "Before marker button"
+            },
+            {
+              "t": 49524,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 48727,
+            "acknowledgedAt": 49608,
+            "observationStartedAt": 49608,
+            "observationEndedAt": 51110,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 51110,
+            "axObservationEndedAt": 52211
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "56edc438a8322c7e9adcdba6e0dbf5d6751fc85fc707c549d1e3364c525f6a42",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 52583,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 53163,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 52499,
+            "acknowledgedAt": 52897,
+            "observationStartedAt": 52897,
+            "observationEndedAt": 54399,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 54399,
+            "axObservationEndedAt": 54949
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "a18e7516b2380c7b2cff0e33d8a5da17c9566575a9c13076e7c08e16c24a8589",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "help": "Copies, not originals.",
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 63716,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 64273,
+              "text": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow. "
+            }
+          ],
+          "timing": {
+            "requestedAt": 63630,
+            "acknowledgedAt": 64042,
+            "observationStartedAt": 64042,
+            "observationEndedAt": 65544,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 65544,
+            "axObservationEndedAt": 66110
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "250e126dedb4c2126678ab0fc9c0ec0905f19c7216febe9941d86b7cf13b2d7d",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "Copies, not originals.",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": false,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": false,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 66602,
+              "text": "Before marker button"
+            },
+            {
+              "t": 67163,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 66398,
+            "acknowledgedAt": 67242,
+            "observationStartedAt": 67242,
+            "observationEndedAt": 68743,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 68743,
+            "axObservationEndedAt": 69880
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "19a90c93dbab1db7fb269cd8184794211d7e70fb3e008b02a91936bace464e67",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "help": "Copies, not originals.",
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 70260,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 70841,
+              "text": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow. "
+            }
+          ],
+          "timing": {
+            "requestedAt": 70177,
+            "acknowledgedAt": 70580,
+            "observationStartedAt": 70580,
+            "observationEndedAt": 72081,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 72081,
+            "axObservationEndedAt": 72659
+          },
+          "receiptClockOrigin": "2026-10-15T07:27:42.670Z",
+          "nativeAxSha256": "564f2641acb49453c51f3a57e650ff555798c6c50382bf306f98e3274205d877",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "Copies, not originals.",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": false,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": false,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "run": "additional-content-v1-2026-10-15T07-31-33-473Z",
+      "sourceRecordsSha256": "fad92615d81b78d38e4598b36e869a82f834157130e65ad3d531c1ce9839207a",
+      "predictedAt": "2026-10-15T07:27:42.382Z",
+      "nativeStartedAt": "2026-10-15T07:31:34.564Z",
+      "environment": {
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR"
+      },
+      "summary": {
+        "planned": 12,
+        "observed": 12,
+        "basicInputVerified": 12,
+        "inputVerified": 12,
+        "originalInputEquivalent": 10,
+        "originalDiagnosticMain": 10,
+        "originalDiagnosticFull": 6,
+        "mainSpeechExact": 12,
+        "fullSpeechExact": 10
+      },
+      "rows": [
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 13111,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 13690,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 12979,
+            "acknowledgedAt": 13412,
+            "observationStartedAt": 13412,
+            "observationEndedAt": 14912,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 14912,
+            "axObservationEndedAt": 15558
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "07f50b8cee75693b9ec48307d44e7699711ac4a3016ab134844cb553474292d3",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 17075,
+              "text": "Before marker button"
+            },
+            {
+              "t": 17647,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 16766,
+            "acknowledgedAt": 17703,
+            "observationStartedAt": 17703,
+            "observationEndedAt": 19204,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 19204,
+            "axObservationEndedAt": 20507
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "839e4371dcfa854b1d55c502e9037508195eddd9af1cc218dccdf5215bfc70b5",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.none",
+          "mode": "none",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 21810,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 22376,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 21622,
+            "acknowledgedAt": 22076,
+            "observationStartedAt": 22076,
+            "observationEndedAt": 23577,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 23577,
+            "axObservationEndedAt": 24371
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "95dfcaf74610930d5f5bd5d8052b5fb8b94ac923cda0eddae651407bb42a6143",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 34482,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 35068,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 34372,
+            "acknowledgedAt": 34783,
+            "observationStartedAt": 34783,
+            "observationEndedAt": 36284,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 36284,
+            "axObservationEndedAt": 36831
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "fece19112624462a16dcb51d8586c6be1f1c559b08e7b9866f71723037382996",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 37678,
+              "text": "Before marker button"
+            },
+            {
+              "t": 38240,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 37457,
+            "acknowledgedAt": 38317,
+            "observationStartedAt": 38317,
+            "observationEndedAt": 39818,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 39818,
+            "axObservationEndedAt": 40934
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "e41ae347f8deb5e8d0a3d89fb8a6d1c8956164f607ebd31d4841d09f6239b7f7",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-description",
+          "mode": "aria-description",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 41649,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 42235,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 41559,
+            "acknowledgedAt": 41959,
+            "observationStartedAt": 41959,
+            "observationEndedAt": 43460,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 43460,
+            "axObservationEndedAt": 44035
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "75b8941a5fe9638ac8942878f7d2a2feeb3525bda934fcca6a4bd513082d5b6b",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 52911,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 53484,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 52823,
+            "acknowledgedAt": 53233,
+            "observationStartedAt": 53233,
+            "observationEndedAt": 54735,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 54735,
+            "axObservationEndedAt": 55313
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "b23b0ff4d3c282681db15368ea3f13e12ec39f3ebc2faaac99b16647d6ae9002",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 56166,
+              "text": "Before marker button"
+            },
+            {
+              "t": 56743,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 55918,
+            "acknowledgedAt": 56799,
+            "observationStartedAt": 56799,
+            "observationEndedAt": 58300,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 58301,
+            "axObservationEndedAt": 59446
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "ddbcabc0a3c0bf33d4f86689a50dbbd4304dbfd44bcf6bc4d6c816a26caf7304",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.aria-describedby",
+          "mode": "aria-describedby",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals.",
+                "hasMoreContent": true
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 60401,
+              "text": "Print copies. Copies, not originals. button"
+            },
+            {
+              "t": 60988,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 60326,
+            "acknowledgedAt": 60701,
+            "observationStartedAt": 60701,
+            "observationEndedAt": 62203,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 62203,
+            "axObservationEndedAt": 62813
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "a035a1b36171ac86586733dca78d41364a1381624b31de107e98cfed5cca5eee",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": true,
+            "entries": [
+              {
+                "importance": 1,
+                "label": "description",
+                "value": "Copies, not originals."
+              }
+            ]
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. Press Control -Option -Command -Slash to bring up the more content menu. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 0,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "help": "Copies, not originals.",
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 72069,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 72652,
+              "text": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow. "
+            }
+          ],
+          "timing": {
+            "requestedAt": 71984,
+            "acknowledgedAt": 72372,
+            "observationStartedAt": 72372,
+            "observationEndedAt": 73873,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 73873,
+            "axObservationEndedAt": 74494
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "cafb7455f55d761dfe5e721814d5cfd6c1a5ff5f4bdd507aa7cd72577ee308aa",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "Copies, not originals.",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": false,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": false,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 1,
+          "chord": "Shift+Tab",
+          "originalInput": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "before",
+              "semantic": {
+                "role": "button",
+                "name": "Before marker",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "previous_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 75298,
+              "text": "Before marker button"
+            },
+            {
+              "t": 75871,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ],
+          "timing": {
+            "requestedAt": 75078,
+            "acknowledgedAt": 75941,
+            "observationStartedAt": 75941,
+            "observationEndedAt": 77442,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 77442,
+            "axObservationEndedAt": 78567
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "69652a6421d08a1145c3fca4a828628d0eaa63e02d65844059e3b63f97edabdf",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Before marker",
+              "id": "before"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": true,
+          "originalPrediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": true,
+            "fullSpeechExact": true
+          },
+          "prediction": {
+            "speech": "Before marker button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "additional-content-v1.title",
+          "mode": "title",
+          "step": 2,
+          "chord": "Tab",
+          "originalInput": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "description": "Copies, not originals."
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "input": {
+            "target": {
+              "identity": "target",
+              "semantic": {
+                "role": "button",
+                "name": "Print copies.",
+                "protected": false,
+                "disabled": false,
+                "readonly": false,
+                "required": false,
+                "multiline": false,
+                "modal": false,
+                "help": "Copies, not originals.",
+                "hasMoreContent": false
+              },
+              "containers": []
+            },
+            "command": "next_focusable_item"
+          },
+          "utterances": [
+            {
+              "t": 79253,
+              "text": "Print copies. button"
+            },
+            {
+              "t": 79840,
+              "text": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow. "
+            }
+          ],
+          "timing": {
+            "requestedAt": 79170,
+            "acknowledgedAt": 79557,
+            "observationStartedAt": 79557,
+            "observationEndedAt": 81058,
+            "requestClock": "wire-request-v1",
+            "axObservationStartedAt": 81058,
+            "axObservationEndedAt": 81671
+          },
+          "receiptClockOrigin": "2026-10-15T07:31:34.185Z",
+          "nativeAxSha256": "4ef496f69707d1c5e09ddd8f7a8ce15fea34637c6a12b63a4d494d4ae18f24dc",
+          "quality": {
+            "status": "verified",
+            "reasons": [],
+            "observedTarget": {
+              "role": "button",
+              "name": "Print copies.",
+              "id": "target"
+            },
+            "observedScopes": [],
+            "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Synthetic static markup supplies non-changing semantic defaults; unused cell coordinates are not independently verified."
+          },
+          "customContent": {
+            "status": "observed",
+            "hasMoreContent": false,
+            "entries": []
+          },
+          "observedHelp": "Copies, not originals.",
+          "attribution": {
+            "status": "bounded-window",
+            "beforeRequest": 0,
+            "afterWindow": 0,
+            "completionVerified": false
+          },
+          "inputVerified": true,
+          "originalInputEquivalent": false,
+          "originalPrediction": {
+            "speech": "Print copies. Copies, not originals. button",
+            "usageHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "originalDiagnostic": {
+            "mainSpeechExact": false,
+            "fullSpeechExact": false
+          },
+          "prediction": {
+            "speech": "Print copies. button",
+            "usageHint": "Copies, not originals.  You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "context": {
+              "containers": []
+            }
+          },
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        }
+      ]
+    }
+  ]
+}

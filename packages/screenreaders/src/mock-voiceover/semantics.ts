@@ -4,6 +4,10 @@ export type SimulatedSemanticNode = {
   name: string;
   value?: string;
   description?: string;
+  /** Native help is a hint prefix; it is separate from inline description content. */
+  help?: string;
+  /** Independently observed additional-content availability; not implied by description. */
+  hasMoreContent?: boolean;
   protected: boolean;
   disabled: boolean;
   readonly: boolean;

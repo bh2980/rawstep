@@ -6,8 +6,8 @@ import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContai
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v10' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v4' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v11' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v5' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -55,7 +55,7 @@ const unnamedContainerRoles = new Set(['paragraph', 'section', 'group', 'list', 
 const clickableRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab']);
 const editableRoles = new Set(['textbox', 'searchbox', 'spinbutton', 'combobox']);
 
-type AXValue = { value?: unknown; sources?: { type: string; superseded?: boolean; value?: { value?: unknown } }[] };
+type AXValue = { relatedNodes?:{backendDOMNodeId:number}[]; value?: unknown; sources?: { type: string; superseded?: boolean; value?: { value?: unknown } }[] };
 type AXNode = {
   nodeId: string; backendDOMNodeId?: number; parentId?: string; childIds?: string[];
   ignored: boolean; role?: AXValue; name?: AXValue; value?: AXValue; description?: AXValue;
@@ -125,7 +125,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'4':'10', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'5':'11', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -385,6 +385,17 @@ export class MockVoiceOverBackend implements Backend {
           if (meta) {
             semantic.tagName = meta.tag;
             if (meta.tag === 'input') { semantic.inputType = meta.attributes.type ?? 'text'; semantic.autofill = ['username','email','name','given-name','family-name'].includes(meta.attributes.autocomplete ?? ''); }
+          }
+          // CDP flattens inline descriptions and native tooltip help into one field.
+          // shortcut: combined/ambiguous sources need Native observations before projection.
+          const descriptionText=semantic.description,attrs=meta?.attributes??{};
+          const related=node.properties?.find(p=>p.name==='describedby')?.value.relatedNodes?.length;
+          const ariaDescription=attrs['aria-description']?.trim();
+          if(descriptionText){
+            if(descriptionText.trim()===ariaDescription||related&&descriptionText!==attrs.title)semantic.hasMoreContent=true;
+            else if(!related&&!ariaDescription&&descriptionText===attrs.title){
+              semantic.help=descriptionText;semantic.description=undefined;semantic.hasMoreContent=false;
+            }
           }
           semantic.hasPopup = typeof property(node, 'hasPopup') === 'string' ? property(node, 'hasPopup') as string : undefined;
           const invalid = property(node, 'invalid');

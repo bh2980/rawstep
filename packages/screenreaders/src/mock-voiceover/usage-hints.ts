@@ -47,5 +47,7 @@ export function formatUsageHint(node:SimulatedSemanticNode,context:HintContext={
   }
   // Container entry and reverse entry at an end stop do not offer the forward exit instruction.
   const exit=web&&(!container||context.end&&context.forward)?exitWeb:dialog?'To exit this group, press Control -Option -Shift -Up Arrow.':'';
-  return [`You are currently ${position} ${article} ${label}${location}.`,action,exit].filter(Boolean).join(' ');
+  const more=node.hasMoreContent?'Press Control -Option -Command -Slash to bring up the more content menu.':'';
+  const hint=[`You are currently ${position} ${article} ${label}${location}.`,action,more,exit].filter(Boolean).join(' ');
+  return node.help?`${node.help}  ${hint}`:hint;
 }
