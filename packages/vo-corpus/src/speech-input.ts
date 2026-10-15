@@ -167,24 +167,27 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   if(expected.expanded!==undefined){
     if(typeof node.AXExpanded!=='boolean')return unknown('expanded state missing');
     if(node.AXExpanded!==expected.expanded)reasons.push('expanded state differs');
-  }
+  }else if(typeof node.AXExpanded==='boolean')reasons.push('expanded state missing in input');
   if(expected.role==='checkbox'){
     if(![0,1,2,false,true,'mixed'].includes(node.AXValue as never))return unknown('checked state missing');
     const checked=node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true;
     if(checked!==expected.checked)reasons.push('checked state differs');
   }
-  if(expected.description!==undefined||expected.help!==undefined||expected.hasMoreContent!==undefined){
-    const contents=chains.map(c=>nativeCustomContent(c.node));
+  const contents=chains.map(c=>nativeCustomContent(c.node));
+  const observedExtra=contents.some(c=>c.status==='observed'&&c.hasMoreContent);
+  const observedHelp=chains.some(c=>typeof c.node.AXHelp==='string'&&!!c.node.AXHelp);
+  if(expected.description!==undefined||expected.help!==undefined||expected.hasMoreContent!==undefined||observedExtra||observedHelp){
     if(contents.some(c=>c.status!=='observed'))return unknown('native custom content unmeasured');
     if(contents.some(c=>JSON.stringify(c)!==JSON.stringify(contents[0])))return unknown('native alias custom content differs');
     const content=contents[0]!;
     if(content.status==='observed'){
-      if(expected.hasMoreContent!==undefined&&expected.hasMoreContent!==content.hasMoreContent)reasons.push('additional content availability differs');
-      if(expected.description!==undefined&&expected.description!==content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' '))reasons.push('inline description differs');
+      if((expected.hasMoreContent??false)!==content.hasMoreContent)reasons.push('additional content availability differs');
+      if((expected.description??'')!==content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' '))reasons.push('inline description differs');
     }
-    if(expected.help!==undefined){
+    if(expected.help!==undefined||observedHelp){
       if(chains.some(c=>typeof c.node.AXHelp!=='string'))return unknown('native help unmeasured');
-      if(chains.some(c=>c.node.AXHelp!==expected.help))reasons.push('native help differs');
+      if(chains.some(c=>c.node.AXHelp!==node.AXHelp))return unknown('native alias help differs');
+      if(node.AXHelp!==(expected.help??''))reasons.push('native help differs');
     }
   }
   const observedScopes=chains.map(c=>c.ancestors.flatMap(n=>{const s=scope(n);return s?[s]:[]}));

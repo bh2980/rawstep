@@ -60,3 +60,9 @@ Local source runs:
 - Pre-observation model JavaScript SHA-256: `7135faff19cebc4d2155d1e1e009c2cceba6dc2c5aaeb59736138a607a3e8ddb`
 
 The pre-observation model was Safari v10 / Chrome v4. The correction is Safari v11 / Chrome v5. The earlier punctuation fixture remains unchanged, including its four unmeasured description inputs; this new schema does not retroactively fill missing old observations.
+
+The later [combined-source study](./voiceover-dialog-compositions.md) adds controlled ARIA description plus title
+contrasts, including equal strings. Safari v21 preserves the native button's independent title-help prefix; Chrome v15
+retains inline description and omits the superseded title. The source-input verifier now catches omitted observed help,
+description and more-content fields. Original inputs/scores above remain unchanged; other roles and ambiguous sources
+remain uncalibrated.

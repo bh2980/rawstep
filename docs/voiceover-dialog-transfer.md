@@ -60,3 +60,5 @@ npm --prefix packages/vo-corpus run generate -- --set dialog-parent-context-v1 -
 ```
 
 Collect each regenerated directory separately with the existing [VM/relay commands](../packages/vo-corpus/README.md), preserving original run directories. The inspected tasks/contrasts are update/regression checks, never new holdouts. The new `getSpeechInputObservation()` [evaluator diagnostic](./mock-voiceover.md#evidence-boundaries-for-test-callers) exposes copied actual inputs per completed observation window outside policy observations; it does not observe Native VoiceOver.
+
+The subsequent [article/form composition study](./voiceover-dialog-compositions.md) evaluates the corrected nearest-context rule on new tasks. It preserves the first actual inputs and a separate stricter help-input audit: 36/39 Safari and 39/39 Chrome original inputs are comparable. Reading targets, five declared state changes and two save outcomes are separately measured. Later ARIA/title projection correction is inspected regression.

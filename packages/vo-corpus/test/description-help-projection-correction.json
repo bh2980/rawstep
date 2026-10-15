@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-15T16:42:02.689Z",
+  "scope": "Inspected regression after independent first task evaluation and separate source calibration. Actual Rawstep HTML/command reexecution verifies Native-observed source fields, resolved reading IDs/scopes, keyboard focus, declared state fields and outcomes. Not a new independent score, Native queue/timing claim or whole-engine Navigation/State accuracy.",
+  "sourceState": "Collection worktree with preserved pending evaluator diagnostics; full build/source hashes retained, not a pristine committed-source release.",
+  "profiles": {
+    "safari": "english-dom-navigation-evidence-v21",
+    "chrome": "english-chrome-navigation-evidence-v15"
+  },
+  "freeze": {
+    "sealedAt": "2026-10-15T16:38:25.938Z",
+    "modelBuildSha256": "78e1222c8d6ba7d3278ccf9fffee3df5159447024d8963299a1b5e57fe29a51d",
+    "scope": "Inspected correction regression build/sources fixed before replay. Native first predictions and original scores remain separate.",
+    "sourceHashes": {
+      "packages/screenreaders/src/mock-voiceover/backend.ts": "4fef43a816c7cf41969386d7b8bdd957616c7f5687a1e34e3a14324f34a0b152",
+      "packages/screenreaders/src/mock-voiceover/speech.ts": "07aeb5bc6fa4bbd0e77324879d09a8d101ce4f0324a762fd23bbd57c1834575f",
+      "packages/screenreaders/src/mock-voiceover/activation.ts": "45de05d5fc38fa3a857610088850673ab7358ad98291ede8f5022246e8521d68",
+      "packages/vo-corpus/src/speech-input.ts": "9ea0e6227fcc2fa859bb21623193bb58f1fe52299d6cd5e3fe742021e6ecf57d",
+      "tests/mock-voiceover-description-help.integration.test.ts": "c685c2b75cf4acb320b65449044807f08575c7f42c1eedac60b00ed6c269b18c",
+      "tests/mock-voiceover-help.integration.test.ts": "df33ab187d97bbd00ac20d667ea62a80c158f43e6b6972b04c7487596346a6b9"
+    }
+  },
+  "sourceArtifacts": {
+    "tests/fixtures/voiceover-evidence/native-dialog-compositions-2026-10-16.json": "65aa47e50bcacd8915982ba997960e773dc5fb09c6eb01cb4ec370d1265f8af7",
+    "tests/fixtures/voiceover-evidence/native-description-help-combinations-2026-10-16.json": "a411c86fbc32eb145352fb088ecac2c70e0918f6603e2fb579c3e34de15c15ec",
+    "packages/vo-corpus/test/description-help-input-audit.json": "7a44dd130967d91ae0ff9c8dd91173ce3f4d973467396432fe1b4703d26629ec"
+  },
+  "browserRegression": {
+    "command": "npm run test:integration -- tests/mock-voiceover-description-help.integration.test.ts tests/mock-voiceover-help.integration.test.ts",
+    "exitCode": 0,
+    "testFiles": 2,
+    "testsPassed": 6,
+    "sourceLogSha256": "3905f04375e66da88d2870df64ddd42d37755b4042cbe41dd06b90f987d9d563",
+    "rows": [
+      {
+        "cohort": "dialog-compositions",
+        "browser": "safari",
+        "actions": 39,
+        "literalFull": 36,
+        "fields": 97,
+        "fullContent": 39,
+        "actualInputVerified": 39
+      },
+      {
+        "cohort": "dialog-compositions",
+        "browser": "chrome",
+        "actions": 39,
+        "literalFull": 39,
+        "fields": 97,
+        "fullContent": 39,
+        "actualInputVerified": 39
+      },
+      {
+        "cohort": "description-help-combinations",
+        "browser": "safari",
+        "actions": 15,
+        "literalFull": 7,
+        "fields": 15,
+        "fullContent": 15,
+        "actualInputVerified": 15
+      },
+      {
+        "cohort": "description-help-combinations",
+        "browser": "chrome",
+        "actions": 15,
+        "literalFull": 13,
+        "fields": 15,
+        "fullContent": 15,
+        "actualInputVerified": 15
+      }
+    ],
+    "sourceFieldScope": "Role/name, inline description, help and more-content; same independently resolved target/ancestor context and separately observed keyboard focus. Declared control states are checked per action. Other semantic fields and unsupported roles are not promoted to general coverage.",
+    "fullContentDefinition": "Ordered actual output arrays with only Native final whitespace removed. Literal Full retains every final space and remains a separate count."
+  }
+}

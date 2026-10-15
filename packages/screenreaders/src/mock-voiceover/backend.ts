@@ -7,8 +7,8 @@ import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechCon
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v20' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v14' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v21' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v15' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -412,12 +412,16 @@ export class MockVoiceOverBackend implements Backend {
             if (meta.tag === 'input') { semantic.inputType = meta.attributes.type ?? 'text'; semantic.autofill = ['username','email','name','given-name','family-name'].includes(meta.attributes.autocomplete ?? ''); }
           }
           // CDP flattens inline descriptions and native tooltip help into one field.
-          // shortcut: combined/ambiguous sources need Native observations before projection.
+          // shortcut: combined title/ARIA help is calibrated on native buttons; other roles need Native evidence.
           const descriptionText=semantic.description,attrs=meta?.attributes??{};
           const related=node.properties?.find(p=>p.name==='describedby')?.value.relatedNodes?.length;
           const ariaDescription=attrs['aria-description']?.trim();
+          const nativeButton=role==='button'&&meta?.tag==='button';
           if(descriptionText){
-            if(descriptionText.trim()===ariaDescription||related&&descriptionText!==attrs.title)semantic.hasMoreContent=true;
+            if(descriptionText.trim()===ariaDescription||related&&(nativeButton||descriptionText!==attrs.title)){
+              semantic.hasMoreContent=true;
+              if(this.referenceBrowser==='safari'&&nativeButton&&attrs.title)semantic.help=attrs.title;
+            }
             else if(!related&&!ariaDescription&&descriptionText===attrs.title){
               semantic.help=descriptionText;semantic.description=undefined;semantic.hasMoreContent=false;
             }

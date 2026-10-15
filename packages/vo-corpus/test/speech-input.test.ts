@@ -40,9 +40,26 @@ test('description, help and more-content availability require independent Native
  node.AXCustomContent={status:'observed',byteCount:1,rawBase64:'eA==',entries:[{label:'description',value:'Independent note',importance:1}]};
  assert.equal(checkSpeechInput(described,d).status,'verified');
  described.target.semantic.description='Predicted but unobserved';assert.equal(checkSpeechInput(described,d).status,'mismatch');
- delete described.target.semantic.description;described.target.semantic.help='Observed help';
+ described.target.semantic.description='Independent note';described.target.semantic.help='Observed help';
  assert.equal(checkSpeechInput(described,d).status,'unmeasured');node.AXHelp='Observed help';assert.equal(checkSpeechInput(described,d).status,'verified');
  node.AXHelp='Different help';assert.equal(checkSpeechInput(described,d).status,'mismatch');
+});
+
+test('observed Native description and help cannot disappear from an otherwise equivalent input',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ node.AXCustomContent={status:'no-value',errorCode:-25212};node.AXHelp='Observed tooltip';
+ assert.equal(checkSpeechInput(input,d).status,'mismatch');
+ const supplied=structuredClone(input);supplied.target.semantic.help='Observed tooltip';
+ assert.equal(checkSpeechInput(supplied,d).status,'verified');
+ const aliases=d.root.children![0]!.children![0]!.children!;
+ aliases.push({...node,AXHelp:'Conflicting tooltip'});
+ assert.equal(checkSpeechInput(supplied,d).status,'unmeasured');aliases.pop();
+ delete node.AXHelp;delete supplied.target.semantic.help;
+ node.AXCustomContent={status:'observed',byteCount:1,rawBase64:'eA==',entries:[{label:'description',value:'Inline note',importance:1}]};
+ assert.equal(checkSpeechInput(supplied,d).status,'mismatch');
+ supplied.target.semantic.description='Inline note';
+ assert.equal(checkSpeechInput(supplied,d).status,'mismatch');
+ supplied.target.semantic.hasMoreContent=true;assert.equal(checkSpeechInput(supplied,d).status,'verified');
 });
 
 test('toggle and expansion inputs require their independently observed Native states',()=>{
@@ -57,6 +74,7 @@ test('toggle and expansion inputs require their independently observed Native st
  const expanded=structuredClone(input);expanded.target.semantic.expanded=false;
  assert.equal(checkSpeechInput(expanded,d).status,'unmeasured');
  node.AXExpanded=false;assert.equal(checkSpeechInput(expanded,d).status,'verified');
+ assert.equal(checkSpeechInput(input,d).status,'mismatch');
  node.AXExpanded=true;assert.equal(checkSpeechInput(expanded,d).status,'mismatch');
 });
 

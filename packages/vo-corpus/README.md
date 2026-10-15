@@ -1458,3 +1458,5 @@ The [subsequent actual-site audit](../../docs/voiceover-public-target-v3.md) pre
 list-set input correction. `nativeSpeechInput`/`checkSpeechInput` now require independently measured list-link ordinals
 for complete default sets; incomplete, ambiguous or uncalibrated sets remain unmeasured. Public audit checks retain
 all planned slots; raw website AX and speech remain local.
+
+The [new dialog compositions and combined-source calibration](../../docs/voiceover-dialog-compositions.md) preserve initially unseen actual-input task predictions, a separate missing-help input audit and corrected browser regressions. Generate inspected update cases with `--set dialog-compositions-v1` and controlled source contrasts with `--set description-help-combinations-v1`. The latter are calibration, including equal title/description strings; neither inspected set is a future holdout.

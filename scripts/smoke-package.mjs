@@ -117,8 +117,8 @@ try {
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
     assert.notEqual(runTask, lowLevelRunTask);
-    assert.equal(MOCK_VOICEOVER_PROFILE, 'english-dom-navigation-evidence-v20');
-    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v14');
+    assert.equal(MOCK_VOICEOVER_PROFILE, 'english-dom-navigation-evidence-v21');
+    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v15');
     assert.equal(typeof MockVoiceOverBackend.prototype.getSpeechInputObservation, 'function');
     assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech); assert.equal(rootActivation, formatVoiceOverActivation);
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');

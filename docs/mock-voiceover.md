@@ -163,6 +163,12 @@ regression: missing list-link set fields are now detected and constructed from c
 image-link outlines and failed preparations remain in the full denominator. These limited samples do not establish
 overall real-site accuracy.
 
+The [new article/form dialog compositions](./voiceover-dialog-compositions.md) retain the first predictions and a
+stricter input audit: 36/39 Safari and 39/39 Chrome planned actions have equivalent original inputs. Safari's three
+missing title-help inputs motivated source contrasts and the v21 / Chrome v15 projection correction. Actual Rawstep
+input/receipt regressions are separate from AX-supplied pure-formatter regressions and from the first independent score.
+Combined ARIA/title help is calibrated for native HTML buttons; unknown roles/contexts remain outside that claim.
+
 ## Run a deterministic regression test
 
 After installing Rawstep and a compatible Chromium, run:
