@@ -30,7 +30,7 @@ it('keeps activation receipts separate from structural reading history and calle
  const previous:VoiceOverSpeechContext={containers:['outer','table'],focusContext:'table',column:{table:'table',column:1}};
  const snapshot=structuredClone({beforeTarget,target,previous});
  const result=formatVoiceOverActivation({beforeTarget,target,command:'activate_form_control',referenceBrowser:'chrome'},previous);
- expect(result).toMatchObject({status:'modeled',utterances:['selected Options toggle button','Options selected toggle button','Options selected toggle button'],context:previous});
+ expect(result).toMatchObject({status:'modeled',evidenceProvenance:'simulation',nativeParityEstablished:false,utterances:['selected Options toggle button','Options selected toggle button','Options selected toggle button'],context:previous});
  expect({beforeTarget,target,previous}).toEqual(snapshot);expect(result.context).not.toBe(previous);expect(result.context.column).not.toBe(previous.column);
 });
 it('reports unsupported activation evidence explicitly instead of guessing an object announcement',()=>{
@@ -40,7 +40,7 @@ it('reports unsupported activation evidence explicitly instead of guessing an ob
   {...base,target:{...beforeTarget,semantic:{...semantic,disabled:true}}},
   {...base,beforeTarget:{...beforeTarget,semantic:{...semantic,pressed:false}},target:{...beforeTarget,semantic:{...semantic,pressed:'mixed' as const}}},
  ]){
-  const result=formatVoiceOverActivation(input);expect(result.status).toBe('unsupported');expect(result).not.toHaveProperty('utterances');
+  const result=formatVoiceOverActivation(input);expect(result).toMatchObject({status:'unsupported',evidenceProvenance:'simulation',nativeParityEstablished:false});expect(result).not.toHaveProperty('utterances');
  }
  expect(formatVoiceOverActivation(base)).toMatchObject({status:'modeled',utterances:[]});
 });

@@ -10,6 +10,7 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: cal
   };
   const input={target,command:'next_focusable_item',referenceBrowser};
   const entry=formatVoiceOverSpeech(input);
+  assert.equal(entry.status,'approximation');assert.equal(entry.nativeParityEstablished,false);
   assert.equal(entry.speech,'Save button Preferences region');
   const within=formatVoiceOverSpeech(input,entry.context);
   assert.equal(within.speech,'Save button');
@@ -46,6 +47,7 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: act
   const input={beforeTarget,target,command:'activate_form_control',referenceBrowser};
   const result=formatVoiceOverActivation(input);
   assert.equal(result.status,'modeled');
+  assert.equal(result.evidenceProvenance,'simulation');assert.equal(result.nativeParityEstablished,false);
   assert.deepEqual(result.utterances,referenceBrowser==='chrome'?['selected Options toggle button','Options selected toggle button','Options selected toggle button']:['Options selected toggle button','Options selected toggle button']);
   const noChange=formatVoiceOverActivation({...input,beforeTarget:target});
   assert.equal(noChange.status,'modeled');assert.deepEqual(noChange.utterances,[]);

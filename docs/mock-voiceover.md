@@ -56,7 +56,10 @@ is not an established mapping for Native VO+F3; see the [command calibration](./
 must come from the caller's observed semantic source; an arbitrary description is not evidence of additional
 content. See [the controlled Native description-source study](./voiceover-description-sources.md) for scope and raw-receipt gaps.
 
-The return value contains `speech`, an optional `usageHint` candidate and the next serializable `context`.
+The `VoiceOverSpeechResult` return value contains `speech`, an optional `usageHint` candidate and the next serializable
+`context`. Every result explicitly has `status: 'approximation'`, `evidenceProvenance: 'simulation'` and
+`nativeParityEstablished: false`. A previously matched regression pattern does not certify an arbitrary caller's
+target, state, history or browser environment. These fields do not measure input coverage or assign confidence.
 The function does not mutate its input or prior context. It does not schedule, cancel or attribute speech; callers
 must not interpret a returned hint as proof of native timing or queue behavior. Live-region event ordering,
 character-edit echoes and activation results are not fully covered by this target formatter.
@@ -120,7 +123,9 @@ before state and transitions **to** mixed pressed state return `status: 'unsuppo
 A mixed initial pressed state followed by a boolean state is supported. The existing target formatter remains available
 for an explicit object reading; it is not an activation-event fallback.
 
-`status: 'modeled'` returns ordered receipt candidates. `[]` represents a modeled silent activation and differs from
+`status: 'modeled'` means an implemented guarded event rule returns ordered receipt candidates; it is not a Native
+match verdict. Both activation result branches have `evidenceProvenance: 'simulation'` and
+`nativeParityEstablished: false`. `[]` represents a modeled silent activation and differs from
 unsupported evidence. Chrome pressed changes can precede the two object receipts from expansion; repeated strings
 are preserved. This is neither a speech queue nor a completion guarantee. A button activation preserves structural
 reading context; feed the returned context into the next call. The existing browser adapter delegates measured Space
@@ -138,8 +143,8 @@ this API. The [activation evaluation](./voiceover-activation-evaluation.md) repo
 | State-change receipts | Activation API explicitly reports `modeled` or `unsupported` for its measured scope | Independently observed before/after state; a modeled silence is distinct from unsupported |
 | Editing, live updates, nested documents and speech timing | Partial legacy adapter rules or unmeasured behavior | Do not treat a generated object summary as a validated event sequence |
 
-Command recognition is not an evidence/coverage checker. The object formatter still has approximate role/state
-fallbacks and does not attach per-result Native validation status. Until those combinations are independently
+Command recognition is not an evidence/coverage checker. The object formatter marks its role/state fallbacks as
+approximations; it never certifies a call as Native-verified. Until those combinations are independently
 validated, keep them outside a test's declared supported scope or mark the comparison unmeasured. Passing an
 empty history for unknown previous context cannot establish a valid speech match. Speech-only results and
 Rawstep input-projection/interaction results must be reported separately.
@@ -152,6 +157,15 @@ this diagnostic to outputs. It does not perform an action or infer Native readin
 policy observations/events, excludes protected edit values and is cleared on close. Other fixture/user text can still
 be present, so keep evaluator archives outside policy inputs and apply the usual data-handling policy. These are
 Rawstep inputs, not independent evidence that the corresponding Native target/state/context is equal.
+
+Browser outputs preserve the same distinction in `raw.wordingEvidence`: ordinary reading, hints, live/editing
+approximations and legacy activation fallbacks have `status: 'approximation'`; receipts emitted by the guarded
+activation API have `status: 'modeled'`. Both retain `nativeParityEstablished: false`. Alternative corpus formatters
+keep their own existing evidence objects. No status supplies a conformance verdict or an accuracy score.
+For an unsupported activation, the evaluator-only input observation now also retains its `reason`. The legacy browser
+adapter may still emit approximate fallback speech; it does not promote that fallback to a modeled activation.
+An empty speech array alone therefore cannot distinguish modeled silence from unsupported behavior. Pure API callers
+must branch on the activation result's `status`, as in the example above; the trace diagnostic is for evaluator code.
 
 The [dialog task study](./voiceover-dialog-transfer.md) records the first actual-input task result separately from
 the later parent-context calibration/correction. Safari v20 / Chrome v14 use nearest-context Tab wording and ordinary
@@ -242,8 +256,8 @@ and interaction-mode-dependent hints remain uncalibrated.
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v20`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v14`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v21`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v15`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -276,7 +290,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v20` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v21` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

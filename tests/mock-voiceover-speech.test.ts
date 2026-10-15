@@ -33,6 +33,15 @@ function targetFromInput(document:Document,id:string):VoiceOverSpeechTarget{
 }
 
 describe('speech engine with caller-owned target and history',()=>{
+  it.each(['safari','chrome'] as const)('never certifies an arbitrary %s caller input as Native-verified',referenceBrowser=>{
+    for(const state of [{role:'button'},{role:'uncalibrated-widget'},{role:'textbox',protected:true,value:'private-secret'},{role:'checkbox',checked:true}]){
+      const target:VoiceOverSpeechTarget={identity:'target',semantic:semantic({name:'Example',...state})};
+      const result=formatVoiceOverSpeech({target,referenceBrowser,command:'activate_button',checkedStateChanged:state.role==='checkbox'});
+      expect(result).toMatchObject({status:'approximation',evidenceProvenance:'simulation',nativeParityEstablished:false});
+      if(state.protected)expect(JSON.stringify(result)).not.toContain('private-secret');
+    }
+  });
+
   it.each(['safari','chrome'] as const)('rejects unknown %s commands without emitting speech or changing history',referenceBrowser=>{
     const target:VoiceOverSpeechTarget={identity:'save',semantic:semantic({name:'Save'}),containers:[{id:'region',name:'Preferences',role:'region',items:2}]};
     const previous:VoiceOverSpeechContext={containers:['region'],focusContext:'region'},snapshot=structuredClone(previous);

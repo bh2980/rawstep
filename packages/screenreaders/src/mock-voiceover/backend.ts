@@ -73,7 +73,7 @@ export type MockWordingOptions = { profile: string; metadata?: unknown; capabili
 export type MockVoiceOverSpeechInputObservation = {
   protocol:'mock-speech-inputs-v1';windowId:string;capturedAt:string;
   events:({kind:'reading';input:VoiceOverSpeechInput;previousContext:VoiceOverSpeechContext;emitted:boolean}
-    |{kind:'activation';input:VoiceOverActivationInput;previousContext:VoiceOverSpeechContext;status:'modeled'|'unsupported'})[];
+    |{kind:'activation';input:VoiceOverActivationInput;previousContext:VoiceOverSpeechContext;status:'modeled'|'unsupported';reason?:string})[];
 };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[];speechInputs:MockVoiceOverSpeechInputObservation['events'] };
 type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
@@ -190,7 +190,7 @@ export class MockVoiceOverBackend implements Backend {
     this.lastAnnouncement = fingerprint;
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
-      raw: { evidenceProvenance: 'simulation', profile: this.profile, ...(rendered ? { wordingEvidence: rendered.evidence } : {}), semanticSource: 'chromium-accessibility-tree', ...(node ? { semantic: { ...node.semantic } } : {}) },
+      raw: { evidenceProvenance: 'simulation', profile: this.profile, wordingEvidence:rendered?rendered.evidence:{status:'approximation',nativeParityEstablished:false}, semanticSource: 'chromium-accessibility-tree', ...(node ? { semantic: { ...node.semantic } } : {}) },
     };
     this.beginWindow().outputs.push(output);
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
@@ -205,10 +205,10 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region' | 'editing' | 'value-change' | 'usage-hint'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'live-region' | 'editing' | 'value-change' | 'usage-hint',wordingEvidence:{status:'modeled'|'approximation';nativeParityEstablished:false}={status:'approximation',nativeParityEstablished:false}): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
-      raw: { evidenceProvenance: 'simulation', profile: this.profile, semanticSource: 'chromium-accessibility-tree', announcement: kind },
+      raw: { evidenceProvenance: 'simulation', profile: this.profile, wordingEvidence, semanticSource: 'chromium-accessibility-tree', announcement: kind },
     };
     this.beginWindow().outputs.push(output);
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
@@ -660,10 +660,10 @@ export class MockVoiceOverBackend implements Backend {
         const activationInput:VoiceOverActivationInput|undefined=!this.wording&&action.kind==='key'&&action.key==='Space'&&after
           ?{beforeTarget:before,target:after,command:'activate_form_control',referenceBrowser:this.referenceBrowser}:undefined;
         const activation=activationInput?formatVoiceOverActivation(activationInput,this.speechContext):undefined;
-        if(activationInput&&activation)this.beginWindow().speechInputs.push(structuredClone({kind:'activation',input:activationInput,previousContext:this.speechContext,status:activation.status}));
+        if(activationInput&&activation)this.beginWindow().speechInputs.push(structuredClone({kind:'activation',input:activationInput,previousContext:this.speechContext,status:activation.status,...activation.status==='unsupported'?{reason:activation.reason}:{}}));
         if(activation?.status==='modeled'){
           this.speechContext=activation.context;
-          for(const text of activation.utterances)this.announceText(text,'value-change');
+          for(const text of activation.utterances)this.announceText(text,'value-change',{status:activation.status,nativeParityEstablished:activation.nativeParityEstablished});
         }else if(!this.wording&&this.referenceBrowser==='chrome'&&action.kind==='intent'&&action.intent==='activate'&&checkedStateChanged&&after&&after.semantic.role==='radio'){
           this.announceText('selected','value-change');
         }else if(!this.wording&&action.kind==='intent'&&action.intent==='activate'&&before&&after&&before.identity===after.identity&&after.semantic.role==='DisclosureTriangle'&&after.semantic.tagName==='summary'&&before.semantic.expanded!==after.semantic.expanded){
