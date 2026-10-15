@@ -1,0 +1,172 @@
+{
+  "scope": "Acquisition accounting only across different frozen models/cohorts. Never sum these as one accuracy score. Preserve terminal zero-action attempts, unattempted planned cases and downstream AX errors.",
+  "attempts": [
+    {
+      "cohort": "task",
+      "browser": "safari",
+      "run": "practical-speech-tasks-v1-2026-10-15T21-58-04-667Z",
+      "status": "completed",
+      "sourceRecordsSha256": "361cfb4518cad222d72c801c3a72e5c25c81dbf1132b61279c4ba8bce36701dc",
+      "plannedCases": 3,
+      "recordedCases": 3,
+      "plannedActions": 48,
+      "observedActions": 48,
+      "axErrors": 5,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "task",
+      "browser": "chrome",
+      "run": "practical-speech-tasks-v1-2026-10-15T22-01-41-409Z",
+      "status": "completed",
+      "sourceRecordsSha256": "b713a3b0faf19dc0f9a1c841abfcf33009c1be6b0827cc9e3498271dc91541ab",
+      "plannedCases": 3,
+      "recordedCases": 3,
+      "plannedActions": 48,
+      "observedActions": 48,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "source",
+      "browser": "safari",
+      "run": "button-disable-source-v1-2026-10-15T22-14-01-645Z",
+      "status": "navigation-failed-before-actions",
+      "sourceRecordsSha256": "7c167fe2f320870197f4c37fda92012f497b78f398e04f3b93a8157c30b6e76d",
+      "plannedCases": 4,
+      "recordedCases": 1,
+      "plannedActions": 8,
+      "observedActions": 0,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "source",
+      "browser": "safari",
+      "run": "button-disable-source-v1-2026-10-15T22-22-05-332Z",
+      "status": "completed",
+      "sourceRecordsSha256": "13dc4f2eec15b4597fc8395f1bb31a9b6ad3077e77540a25347cfebe47636e23",
+      "plannedCases": 4,
+      "recordedCases": 4,
+      "plannedActions": 8,
+      "observedActions": 8,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "source",
+      "browser": "chrome",
+      "run": "button-disable-source-v1-2026-10-15T22-23-09-822Z",
+      "status": "completed",
+      "sourceRecordsSha256": "3ddbc62ae10390af5623a357a0447cdc766db6cfd06118f044dad962643b5e37",
+      "plannedCases": 4,
+      "recordedCases": 4,
+      "plannedActions": 8,
+      "observedActions": 8,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "transfer",
+      "browser": "safari",
+      "run": "button-disable-transfer-v1-2026-10-15T22-37-10-000Z",
+      "status": "completed",
+      "sourceRecordsSha256": "0ea07629df328c4bf17ed5fb8b195fb6adad41341e04bfb2cb981bdd981639bc",
+      "plannedCases": 2,
+      "recordedCases": 2,
+      "plannedActions": 14,
+      "observedActions": 14,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    },
+    {
+      "cohort": "transfer",
+      "browser": "chrome",
+      "run": "button-disable-transfer-v1-2026-10-15T22-38-25-262Z",
+      "status": "completed",
+      "sourceRecordsSha256": "421bc287eb449bc6adfab1a8724e0e6a478bbf4a072b94fe2030da6dc8a6f70d",
+      "plannedCases": 2,
+      "recordedCases": 2,
+      "plannedActions": 14,
+      "observedActions": 14,
+      "axErrors": 0,
+      "environment": {
+        "settings": "baseline-v2-dnd",
+        "macos": "26.6.2",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "locale": "en_KR",
+        "voiceOverAppVersion": "10",
+        "observationProtocol": "host-receipts-v10: requested AX document URL/body gate with raw navigation probes; NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs, heading disclosure level, cell index ranges/header-reference IDs and geometry and bounded native custom-content archives (AX schema v7); isolated visible VO overlay paired captures enabled; preserve page-load and late receipts; no speech completion or logical-cursor identity claim"
+      }
+    }
+  ],
+  "totals": {
+    "plannedCases": 22,
+    "recordedCases": 19,
+    "plannedActions": 148,
+    "observedActions": 140
+  }
+}

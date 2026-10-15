@@ -27,3 +27,11 @@ test('unverified editing and fallback receipts cannot be advertised as perfect w
  }
  const p=fixture.profiles[1];for(const step of [5,11]){const r=p.rows.find((r:any)=>r.caseId.endsWith('supply-basket')&&r.step===step);assert.deepEqual(r.utterances,[]);assert.ok(r.prediction.utterances.length);assert.equal(r.diagnostic.events[0].status,'unsupported');}
 });
+test('next whole-task inputs were reserved before outcome inspection and retain their original fingerprint',()=>{
+ const reserved=JSON.parse(readFileSync(new URL('practical-speech-reserved-transfer-v2.json',import.meta.url),'utf8')),set=JSON.parse(reserved.casesJSON),hash=createHash('sha256').update(reserved.casesJSON);
+ for(const page of reserved.pages)hash.update(page.path).update(page.html);
+ assert.equal(hash.digest('hex'),reserved.reservation.casesSha256);assert.deepEqual(reserved.reservation.collisions,[]);assert.equal(set.cases.length,2);
+ assert.equal(set.cases.reduce((n:number,c:any)=>n+c.chords.length,0),30);assert.equal('profiles' in reserved,false);
+ const lastNativeObservation=Math.max(...fixture.profiles.flatMap((p:any)=>p.rows.map((r:any)=>Date.parse(r.receiptClockOrigin)+Math.max(r.timing.observationEndedAt,r.timing.axObservationEndedAt??0))));
+ assert.ok(Number.isFinite(lastNativeObservation));assert.ok(Date.parse(reserved.reservation.reservedAt)<lastNativeObservation);
+});

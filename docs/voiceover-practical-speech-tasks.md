@@ -43,15 +43,18 @@ and unchanged. Compression changes storage only; it does not remove unknown rows
 1. **Safari basket focus path diverges after self-disable.** At step 5, Space reduces quantity to one and disables the
    focused decrement button; both sides still identify that reading object. At step 6, Safari Tab reaches the initial
    marker while Chromium reaches order confirmation. The following Space consequently acts on different controls.
-   Later Shift+Tab reaches browser chrome, followed by Tab Overview and four AX capture errors. Treat the downstream
+   Later Shift+Tab reaches browser chrome, followed by Tab Overview and five raw AX capture errors. The original
+   speech evaluator reports four AX-error issues because its no-single-input branch does not also flag that error;
+   the acquisition audit counts all five. The original scores and issue counts remain unchanged. Treat the downstream
    failures as a cascade from the first divergence, not separate wording rules. The final Safari basket state is
    unmeasured, so the third task is not counted as success. Chrome completes the basket and both profiles complete
    search and settings. This is a browser/Rawstep interaction difference, not evidence to change the speech formatter.
 2. **Self-disabled-button fallback speech is wrong.** Chrome's two disable transitions are silent in Native, while
    the adapter emits a dimmed-button/table summary after the guarded activation API returns unsupported. Safari's
    first equivalent transition is also silent. These windows have two diagnostic events and were not accepted as
-   ordinary speech comparisons. A small enabled/disabled × bare/named-form Native contrast is the next correction
-   gate; the API must not infer arbitrary disabled-control receipts from these cases.
+   ordinary speech comparisons. The [separate enabled/disabled × bare/named-form contrast and reserved transfer](./voiceover-button-disable-speech.md)
+   now support a bounded plain-button silence rule. The first scores here remain unchanged; arbitrary disabled-control
+   receipts are still not established.
 3. **Safari exposes a different text-field role.** The same explicit `input[type=text]#query` is an AXSearchField in
    Safari and an ordinary AXTextField in Chrome. Safari says “search text field”; the Chromium-derived model says
    “edit text”. This is an input-projection difference to investigate with contrasts, not a generic wording synonym.

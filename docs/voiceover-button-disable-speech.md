@@ -61,3 +61,29 @@ These are preserved-data/current-code regressions. Fresh Native transfer must fr
 reserved pages before either profile; keep Main, Full, input quality, target/state checks and all-plan counts separate.
 The Safari focus-reset behavior after disabling a focused button remains a Rawstep/browser integration gap. It is
 not repaired by emitting silence, and this receipt correction does not establish whole-library 90% accuracy.
+
+## First corrected-model transfer
+
+The pre-reserved card and article/form/fieldset pages contain different complete reverse/return histories. Their
+HTML, commands and oracles retain the original reservation hash. Actual c174cae package inputs, prior contexts,
+independent CDP targets/state and predictions were fixed before either Native profile; analysis waited for both.
+
+Both Safari and Chrome observed all **14/14 planned actions**. Every input/command/previous context was comparable;
+Main and literal Full Speech Exact were **14/14**. Twelve declared movement targets, two stationary activation
+targets, fourteen disabled-state fields, two actual disable transitions and fourteen keyboard-focus observations
+matched per profile. Each profile's two final confirmation checks are fixture health; user tasks remain 0.
+The two last Space events have a single modeled activation input and no fallback or Native receipt.
+
+The [first transfer fixture](../tests/fixtures/voiceover-evidence/native-button-disable-transfer-v1-2026-10-16.json)
+is now regression evidence. These small compositions support the bounded receipt rule; they do not replace the
+original practical-task scores, fix Safari post-disable navigation, or validate editing/Enter/live queues.
+The [acquisition audit](../packages/vo-corpus/test/practical-speech-acquisition-audit.json) retains all seven task,
+source and transfer attempts: 148 planned actions and 140 observed. That total combines acquisition only across
+different models and must never be used as a single accuracy score.
+
+The browser regression replays actual inputs, independently checks Native before/after state, and compares literal
+receipts for all 44 source/transfer windows:
+
+```sh
+RAWSTEP_TEST_SUITE=browser corepack pnpm exec vitest run tests/mock-voiceover-button-disable.integration.test.ts
+```
