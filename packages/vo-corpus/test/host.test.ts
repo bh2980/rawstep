@@ -41,3 +41,9 @@ test('Chrome-owned crash recovery dialogs fail the guard even when Chrome is fro
   await assert.rejects(requireFrontmost({...machine,exec:async()=> 'Finder'},'chrome')('Tab'),/not Google Chrome/);
   await assert.doesNotReject(requireFrontmost({...machine,exec:async(_file:string,args:string[])=>args.join(' ').includes('Restore pages?')?'false':'Google Chrome'},'chrome')('Tab'));
 });
+
+test('an active system permission alert stops keys even if System Events still marks Chrome frontmost',async()=>{
+ const machine={...localMachine,exec:async(_file:string,args:string[])=>args.includes('JavaScript')?'UserNotificationCenter':'Google Chrome'};
+ await assert.rejects(requireFrontmost(machine,'chrome')('Tab'),/UserNotificationCenter/);
+ await assert.rejects(requireFrontmost({...machine,exec:async()=>''},'safari')('Tab'),/unknown app/);
+});

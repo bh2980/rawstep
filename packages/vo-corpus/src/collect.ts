@@ -68,7 +68,7 @@ const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?joi
 const started = Date.now();
 let aligned = 0;
 const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public marker: native AX marker focus then VO+Shift+F4. Public first-heading v2: independently observed natural heading and heard heading alignment, followed by an AX snapshot; no marker focus transfer or marker check.";
-const observationProtocol=`host-receipts-v6: wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry and bounded native custom-content archives (AX schema v5); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
+const observationProtocol=`host-receipts-v7: NSWorkspace active-application guard; wire request/ack, bounded listen, AX start/end, native selection, snapshot-local equality IDs and geometry and bounded native custom-content archives (AX schema v5); isolated visible VO overlay ${captureVisualCursor?'paired captures enabled':'disabled'}; preserve page-load and late receipts; no speech completion or logical-cursor identity claim`;
 try {
   const negotiated = await session.start();
   const captureSessionId=randomUUID(), facts=await machineFacts(machine,browser);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {checkSpeechInput} from '../src/speech-input.js';
+import {checkSpeechInput,observedSpeechInput} from '../src/speech-input.js';
 import type {AxDump,AxNode} from '../src/axdump.js';
 import {generateSpeechContexts} from '../src/generate/speech-contexts.js';
 const input=generateSpeechContexts().speechInputs['speech-contexts-v1.sibling-regions-flat']![0]!;
@@ -58,4 +58,58 @@ test('toggle and expansion inputs require their independently observed Native st
  assert.equal(checkSpeechInput(expanded,d).status,'unmeasured');
  node.AXExpanded=false;assert.equal(checkSpeechInput(expanded,d).status,'verified');
  node.AXExpanded=true;assert.equal(checkSpeechInput(expanded,d).status,'mismatch');
+});
+
+test('link and heading input verification keeps role and level independent from speech',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ const target=structuredClone(input);target.target.semantic.role='link';node.AXRole='AXLink';
+ assert.equal(checkSpeechInput(target,d).status,'verified');
+ node.AXRole='AXButton';assert.equal(checkSpeechInput(target,d).status,'mismatch');
+ node.AXRole='AXHeading';target.target.semantic.role='heading';target.target.semantic.level=2;
+ assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+ node.AXValue=2;assert.equal(checkSpeechInput(target,d).status,'verified');
+ node.AXARIALevel=3;assert.equal(checkSpeechInput(target,d).status,'mismatch');
+ node.AXARIALevel='2';assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+ delete node.AXARIALevel;node.AXValue=0;assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+ node.AXValue=2;delete target.target.semantic.level;assert.equal(checkSpeechInput(target,d).status,'unmeasured');
+});
+
+test('target-conditioned inputs use AX and visible geometry while withholding unsupported contexts',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ node.AXCustomContent={status:'no-value',errorCode:-25212};
+ const observed=observedSpeechInput(d,'next_focusable_item');assert.equal(observed.status,'observed');
+ if(observed.status!=='observed')return;
+ assert.equal(observed.input.target.semantic.name,'Prepare booking');assert.equal(observed.input.target.containers!.length,2);
+ assert.equal(checkSpeechInput(observed.input,d).status,'verified');
+ d.focusedPath=[99];assert.deepEqual(observedSpeechInput(d,'next_focusable_item'),observed);
+ d.root.children![0]!.children![0]!.AXRoleDescription='article';assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
+ d.root.children![0]!.children![0]!.AXRoleDescription='region';delete node.AXCustomContent;assert.equal(observedSpeechInput(d,'next_focusable_item').status,'unmeasured');
+});
+
+test('web dialogs and embedded web areas cannot pass as context-free button inputs',()=>{
+ for(const attributes of [{AXRole:'AXGroup',AXRoleDescription:'web dialog',AXSubrole:'AXApplicationDialog'},{AXRole:'AXWebArea'},{AXRole:'AXDialog'}]){
+  const d=dump();Object.assign(d.root.children![0]!,attributes);
+  assert.equal(checkSpeechInput(input,d).status,'unmeasured');
+ }
+});
+
+test('an exposed landmark without a name remains part of the independently checked speech input',()=>{
+ const d=dump(),button=d.root.children![0]!.children![0]!.children![0]!;
+ d.root.children=[{AXRole:'AXGroup',AXRoleDescription:'banner',children:[button]}];
+ const expected=structuredClone(input);expected.target.containers=[];
+ assert.equal(checkSpeechInput(expected,d).status,'mismatch');
+ expected.target.containers=[{id:'header',role:'banner',name:'',items:1}];
+ assert.equal(checkSpeechInput(expected,d).status,'verified');
+ button.AXCustomContent={status:'no-value',errorCode:-25212};
+ const observed=observedSpeechInput(d,'next_focusable_item');assert.equal(observed.status,'observed');
+ if(observed.status==='observed')assert.equal(observed.input.target.containers![0]!.role,'banner');
+});
+
+test('Native footer subrole identifies common semantics without copying browser-specific wording into the input',()=>{
+ for(const description of ['content information','footer']){
+  const d=dump(),button=d.root.children![0]!.children![0]!.children![0]!;
+  d.root.children=[{AXRole:'AXGroup',AXSubrole:'AXLandmarkContentInfo',AXRoleDescription:description,children:[button]}];
+  const expected=structuredClone(input);expected.target.containers=[{id:'footer',role:'contentinfo',name:'',items:1}];
+  assert.equal(checkSpeechInput(expected,d).status,'verified');
+ }
 });

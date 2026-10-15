@@ -187,7 +187,8 @@ export async function activateBrowser(machine: Machine, browser: BrowserName): P
 }
 
 export async function frontmostApp(machine: Machine): Promise<string | undefined> {
-  return output(machine, "osascript", ["-e", 'tell application "System Events" to get name of first application process whose frontmost is true']);
+  // System Events can keep Chrome marked frontmost while a UserNotificationCenter permission alert is active.
+  return await output(machine,"osascript",["-l","JavaScript","-e",'ObjC.import("AppKit"); ObjC.unwrap($.NSWorkspace.sharedWorkspace.frontmostApplication.localizedName);'])||undefined;
 }
 
 /** A beforePress guard: refuses to send keys unless the browser is in front, so nothing else (a system dialog) gets them. */

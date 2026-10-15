@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import type { CaseSet } from "./cases.js";
-import type { AxDump, AxNode } from "./axdump.js";
+import {nativeHeadingLevel,type AxDump,type AxNode} from './axdump.js';
 import { normalize } from "./compare.js";
 
 export const publicPagePool = [
@@ -92,8 +92,8 @@ export function firstUniqueHeading(dump: AxDump): Anchor {
   const headings: Anchor[] = [];
   const visit = (n: AxNode) => {
     if (n.AXRole === "AXHeading") {
-      const level=n.AXARIALevel??n.AXValue;
-      headings.push({ name: String(n.AXTitle || nativeAccessibleText(n)).trim().replace(/\s+/g," "), ...(Number.isInteger(level)&&Number(level)>=1&&Number(level)<=6?{level:Number(level)}:{}) });
+      const level=nativeHeadingLevel(n);
+      headings.push({ name: String(n.AXTitle || nativeAccessibleText(n)).trim().replace(/\s+/g," "), ...(level!==undefined?{level}:{}) });
     }
     for (const c of n.children ?? []) visit(c);
   };

@@ -1,0 +1,444 @@
+{
+  "measurementCorrection": "The original input builder and verifier both dropped Native-exposed landmarks with empty names. Prior input equivalence is therefore too weak. This separate current-verifier audit requires those roles and preserves original inputs, raw observations and prior scores; it is not a new independent test.",
+  "at": "2026-10-15T10:40:57.613Z",
+  "seed": "cc3bc670e8dabea4fc9af235ad117245",
+  "pool": [
+    {
+      "family": "blog",
+      "url": "https://www.smashingmagazine.com/"
+    },
+    {
+      "family": "news",
+      "url": "https://www.nasa.gov/news/"
+    },
+    {
+      "family": "news",
+      "url": "https://www.npr.org/sections/news/"
+    },
+    {
+      "family": "search",
+      "url": "https://www.gutenberg.org/ebooks/search/?query=history"
+    },
+    {
+      "family": "search",
+      "url": "https://openlibrary.org/search?q=history"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.ebay.com/sch/i.html?_nkw=notebook"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.uniqlo.com/us/en/"
+    },
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.python.org/doc/"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/"
+    }
+  ],
+  "selected": [
+    {
+      "family": "search",
+      "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+      "rank": "01523de0d8ed76e19f948b05f4d9333498a8a20ec56be5badc2f3e9135bada23"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+      "rank": "27eee590cf672cc120abb6c402e1b8f2f927054a2088bc23c7b2578f3d629f88"
+    }
+  ],
+  "excludedPreviouslyPlannedDomains": [
+    "www.joshwcomeau.com",
+    "www.nps.gov"
+  ],
+  "scope": "Two-site seeded pilot, no site replacement. Target-conditioned Tab returns, not simulator navigation. Same sites in recovery are inspected regression. No representative web generalization, causal browser comparison or 90% claim. Raw live-page content and potential personal/location text stay local; this audit contains only source URLs, counts, environment, generic measurement reasons and hashes.",
+  "environmentFinding": "The original System Events frontmost flag reported Chrome while NSWorkspace reported an active UserNotificationCenter local-network permission alert. The permission was granted under existing authorization; the collector now uses NSWorkspace and preserves failed observations. Recovery adds URL-guarded web-area keyboard focus, never treats keyboard focus as the VO cursor.",
+  "evaluationGate": "All planned rows retained. Input equivalence includes independently visible target/state and known command; eligibility additionally requires observed previous context, stable pre-request target and bounded receipt attribution. Missing input, unknown dialog/nested web-area context and out-of-web targets are unmeasured, not successful.",
+  "navigationAccuracy": null,
+  "stateAccuracy": null,
+  "taskSuccess": null,
+  "attempts": [
+    {
+      "id": "public-target-return-v1",
+      "sourcePlanSha256": "28ba86df0c99b8473bec9064d503068e44cd9806d2e260478f64874d4fa5b6b5",
+      "frozenAt": "2026-10-15T10:21:24.474Z",
+      "exposure": "initially-unseen-protocol-pilot",
+      "modelBuildSha256": "e91cc6e7de8a11608a49ea0c08afd0b2bf921b53d625b7695b8836c56eee3986",
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "a7ae8462d879f3b24e8373882e9cc3631c2d948e1b752894e4cb53ef3fb9e096",
+          "predictionsBeforeRequest": 2,
+          "plannedScoredActions": 8,
+          "plannedSetupActions": 16,
+          "observedSetupActions": 16,
+          "observedScoredActions": 8,
+          "constructedInputs": 2,
+          "unconstructedInputs": 6,
+          "previousContextUnmeasured": 8,
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 8,
+            "inputVerified": 0,
+            "inputMismatch": 0,
+            "inputUnmeasured": 8,
+            "commandVerified": 8,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 6,
+              "input-unmeasured": 2,
+              "previous-context-unverified": 2
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "inputUnknownReasons": [
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 0,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 1,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 2,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 3,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 0,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 1,
+              "reason": "target role outside this input verifier"
+            }
+          ],
+          "scopeCorrection": "The original wrapper summarized only constructed inputs under nativeObserved/inputUnmeasured. This separate audit counts every planned scored row and uses raw steps for observed actions; original files remain untouched. Current-verifier reanalysis is not a new independent evaluation."
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "587ffd507bfe39ecb5a3896afa0f246db59a1819280913cd9f9a738fadb8b896",
+          "predictionsBeforeRequest": 0,
+          "plannedScoredActions": 8,
+          "plannedSetupActions": 16,
+          "observedSetupActions": 16,
+          "observedScoredActions": 8,
+          "constructedInputs": 0,
+          "unconstructedInputs": 8,
+          "previousContextUnmeasured": 7,
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 8,
+            "inputVerified": 0,
+            "inputMismatch": 0,
+            "inputUnmeasured": 8,
+            "commandVerified": 8,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 8
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "inputUnknownReasons": [
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 0,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 1,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 2,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 3,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 0,
+              "reason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 1,
+              "reason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 2,
+              "reason": "ancestor requires independently measured structural context not supplied by this probe"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 3,
+              "reason": "ancestor requires independently measured structural context not supplied by this probe"
+            }
+          ],
+          "scopeCorrection": "The original wrapper summarized only constructed inputs under nativeObserved/inputUnmeasured. This separate audit counts every planned scored row and uses raw steps for observed actions; original files remain untouched. Current-verifier reanalysis is not a new independent evaluation."
+        }
+      ]
+    },
+    {
+      "id": "public-target-return-v1-recovery",
+      "sourcePlanSha256": "0cf9f8f886f456cec0c8e4cf48257283a3bbc91d66f879eeeb5d367e59aa70f8",
+      "frozenAt": "2026-10-15T10:31:06.294Z",
+      "exposure": "inspected-regression",
+      "modelBuildSha256": "e91cc6e7de8a11608a49ea0c08afd0b2bf921b53d625b7695b8836c56eee3986",
+      "profiles": [
+        {
+          "browser": "safari",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "safari",
+              "version": "26.6.2"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "63c497e930638462724da8a2f2da73789297bb6f68d7276e5bc0eee899284166",
+          "predictionsBeforeRequest": 2,
+          "plannedScoredActions": 8,
+          "plannedSetupActions": 18,
+          "observedSetupActions": 18,
+          "observedScoredActions": 8,
+          "constructedInputs": 2,
+          "unconstructedInputs": 6,
+          "previousContextUnmeasured": 7,
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 8,
+            "inputVerified": 2,
+            "inputMismatch": 0,
+            "inputUnmeasured": 6,
+            "commandVerified": 8,
+            "inputEquivalent": 2,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 6,
+              "previous-context-unverified": 2
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "inputUnknownReasons": [
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 0,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 1,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 2,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 3,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 0,
+              "reason": "target role outside this input verifier"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 2,
+              "reason": "target role outside this input verifier"
+            }
+          ],
+          "scopeCorrection": "The original wrapper summarized only constructed inputs under nativeObserved/inputUnmeasured. This separate audit counts every planned scored row and uses raw steps for observed actions; original files remain untouched. Current-verifier reanalysis is not a new independent evaluation."
+        },
+        {
+          "browser": "chrome",
+          "environment": {
+            "macos": "26.6.2",
+            "browser": {
+              "name": "chrome",
+              "version": "155.0.8059.80"
+            },
+            "locale": "en_KR"
+          },
+          "sourceRecordsSha256": "1cdcc3ee6ac1e4d322f02eb332ca0d0766e6d64fb14ed36918d368ab777c228e",
+          "predictionsBeforeRequest": 2,
+          "plannedScoredActions": 8,
+          "plannedSetupActions": 18,
+          "observedSetupActions": 18,
+          "observedScoredActions": 8,
+          "constructedInputs": 2,
+          "unconstructedInputs": 6,
+          "previousContextUnmeasured": 5,
+          "summary": {
+            "planned": 8,
+            "nativeObserved": 8,
+            "inputVerified": 0,
+            "inputMismatch": 2,
+            "inputUnmeasured": 6,
+            "commandVerified": 8,
+            "inputEquivalent": 0,
+            "eligible": 0,
+            "issues": {
+              "input-not-constructed": 6,
+              "input-mismatch": 2,
+              "previous-context-unverified": 1
+            },
+            "mainSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "fullSpeechExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "hintCandidateExact": {
+              "matched": 0,
+              "eligible": 0,
+              "conditionalRate": null,
+              "allPlannedRate": 0
+            },
+            "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+          },
+          "inputUnknownReasons": [
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 0,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 1,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 2,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.gutenberg.org/ebooks/search/?query=history",
+              "round": 3,
+              "reason": "stable unique visible target not established"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 1,
+              "reason": "target role outside this input verifier"
+            },
+            {
+              "url": "https://www.ebay.com/sch/i.html?_nkw=notebook",
+              "round": 2,
+              "reason": "stable unique visible target not established"
+            }
+          ],
+          "scopeCorrection": "The original wrapper summarized only constructed inputs under nativeObserved/inputUnmeasured. This separate audit counts every planned scored row and uses raw steps for observed actions; original files remain untouched. Current-verifier reanalysis is not a new independent evaluation."
+        }
+      ]
+    }
+  ]
+}

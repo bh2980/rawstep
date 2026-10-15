@@ -2,6 +2,12 @@
 
 Collects real VoiceOver speech through AT Driver, to calibrate Rawstep's VoiceOver simulator against it. macOS only.
 
+For the current speech-only API measurement, see [target-conditioned evaluation](../../docs/voiceover-target-conditioned-evaluation.md).
+The [landmark reduction](../../docs/voiceover-landmark-speech.md) records the resulting unnamed-context fix and keeps first scores separate from regression.
+Its command gate keeps Native orientation descriptions separate from ordinary entry speech; same target alone does not
+establish equivalent inputs. The historical [live-page pilot](../../docs/voiceover-public-transfer-evaluation.md) failed
+collection and does not establish real-page speech accuracy or freedom from overfitting.
+
 This package lives on a collection branch and is not merged into master. It will move to its own repository with
 `git subtree split --prefix=packages/vo-corpus`, so keep it self-contained:
 

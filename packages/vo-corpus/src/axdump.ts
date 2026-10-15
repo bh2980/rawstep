@@ -1,4 +1,4 @@
-/** Native AX snapshot, read-only unless explicit guarded start focus is requested. Optional visual capture is separate from AX keyboard focus. */
+/** Native AX snapshot, read-only unless explicit URL-guarded focus preparation is requested. Visual capture is separate from AX keyboard focus. */
 import { execFile } from "node:child_process";
 import { mkdir, stat, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -66,6 +66,12 @@ export function nativeNodeName(node:AxNode|undefined):string{
   return [node?.AXTitle,node?.AXDescription].find((v):v is string=>typeof v==='string'&&!!v.trim())?.trim()??'';
 }
 
+export function nativeHeadingLevel(node:AxNode):number|undefined{
+  if(node.AXRole!=='AXHeading')return undefined;
+  const value=node.AXARIALevel??node.AXValue;
+  return Number.isInteger(value)&&Number(value)>=1&&Number(value)<=6?Number(value):undefined;
+}
+
 /** Safari and Chrome expose ARIA toggle buttons with distinct subroles. Missing values stay unknown. */
 export function nativePressedState(node:AxNode):boolean|'mixed'|undefined{
   if(!(node.AXRole==='AXCheckBox'&&['AXToggle','AXToggleButton'].includes(String(node.AXSubrole))||node.AXRole==='AXButton'&&node.AXRoleDescription==='toggle button'))return undefined;
@@ -83,12 +89,13 @@ export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string; visualCursor?:boolean } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string; focusWebAreaURL?:string; visualCursor?:boolean } = {}): Promise<AxDump> {
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
   if (options.maxStringLength) args.push("--max-string-length", String(options.maxStringLength));
   if (options.focusStartURL) args.push("--focus-start-url", options.focusStartURL);
+  if (options.focusWebAreaURL) args.push("--focus-web-area-url",options.focusWebAreaURL);
   if (options.visualCursor) args.push("--visual-cursor", "capture");
   try {
     const stdout = await machine.exec(await machine.place(await ensureBinary()), args);

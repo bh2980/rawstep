@@ -1,0 +1,211 @@
+{
+  "at": "2026-10-15T10:50:16.639Z",
+  "classification": "inspected-regression",
+  "sourceFixtureSha256": "2ad1c286691b4455e913e8a7db721629def8952b7d0e69e75436b114660c8c08",
+  "sourceModelBuildSha256": "e91cc6e7de8a11608a49ea0c08afd0b2bf921b53d625b7695b8836c56eee3986",
+  "correctedModelBuildSha256": "6c92a01398ed0784b3eb66026be71a317de16c5bd0abb3553eb2505a11a991a2",
+  "profiles": {
+    "safari": "english-dom-navigation-evidence-v17",
+    "chrome": "english-chrome-navigation-evidence-v11"
+  },
+  "scope": "Real-site failure reduction, not a fresh unseen-site evaluation. All 60 Native actions and frozen predictions retained. Native AXLandmarkContentInfo is common input semantics despite Safari content information versus Chrome footer wording. Corrected regression uses the same authored inputs and Native outputs; original first scores remain unchanged.",
+  "sourceMetadataIssue": "The frozen plan inherited a prose listen-window description from an earlier protocol. Actual archived cases specify minWaitMs2000/quietMs1200/maxWaitMs7500; raw per-command timestamps are authoritative. The plan and raw observations were not edited.",
+  "currentVerifierSha256": "7bed8f32d0b3b0705f45286532d3ac8ec6e83c908a2e4f08ab710119b77ee1ac",
+  "currentFormatterSha256": "0fcc9e1b6cf896e9c177c5235ff221ff9db5d753bec5b46a9800f0e9402cc5c4",
+  "results": [
+    {
+      "browser": "safari",
+      "run": "landmark-speech-v1-2026-10-15T10-40-15-021Z",
+      "originalFirstEvaluation": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 26,
+        "inputMismatch": 4,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 26,
+        "eligible": 25,
+        "issues": {
+          "input-mismatch": 4,
+          "previous-context-unverified": 3
+        },
+        "mainSpeechExact": {
+          "matched": 17,
+          "eligible": 25,
+          "conditionalRate": 0.68,
+          "allPlannedRate": 0.5666666666666667
+        },
+        "fullSpeechExact": {
+          "matched": 17,
+          "eligible": 25,
+          "conditionalRate": 0.68,
+          "allPlannedRate": 0.5666666666666667
+        },
+        "hintCandidateExact": {
+          "matched": 25,
+          "eligible": 25,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8333333333333334
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "sameFrozenPredictionsWithCorrectedNativeScopeVerifier": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 30,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 30,
+        "eligible": 30,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 20,
+          "eligible": 30,
+          "conditionalRate": 0.6666666666666666,
+          "allPlannedRate": 0.6666666666666666
+        },
+        "fullSpeechExact": {
+          "matched": 20,
+          "eligible": 30,
+          "conditionalRate": 0.6666666666666666,
+          "allPlannedRate": 0.6666666666666666
+        },
+        "hintCandidateExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "correctedRegression": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 30,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 30,
+        "eligible": 30,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      }
+    },
+    {
+      "browser": "chrome",
+      "run": "landmark-speech-v1-2026-10-15T10-43-58-188Z",
+      "originalFirstEvaluation": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 26,
+        "inputMismatch": 4,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 26,
+        "eligible": 25,
+        "issues": {
+          "input-mismatch": 4,
+          "previous-context-unverified": 3
+        },
+        "mainSpeechExact": {
+          "matched": 17,
+          "eligible": 25,
+          "conditionalRate": 0.68,
+          "allPlannedRate": 0.5666666666666667
+        },
+        "fullSpeechExact": {
+          "matched": 17,
+          "eligible": 25,
+          "conditionalRate": 0.68,
+          "allPlannedRate": 0.5666666666666667
+        },
+        "hintCandidateExact": {
+          "matched": 25,
+          "eligible": 25,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.8333333333333334
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "sameFrozenPredictionsWithCorrectedNativeScopeVerifier": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 30,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 30,
+        "eligible": 30,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 20,
+          "eligible": 30,
+          "conditionalRate": 0.6666666666666666,
+          "allPlannedRate": 0.6666666666666666
+        },
+        "fullSpeechExact": {
+          "matched": 20,
+          "eligible": 30,
+          "conditionalRate": 0.6666666666666666,
+          "allPlannedRate": 0.6666666666666666
+        },
+        "hintCandidateExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "correctedRegression": {
+        "planned": 30,
+        "nativeObserved": 30,
+        "inputVerified": 30,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 30,
+        "inputEquivalent": 30,
+        "eligible": 30,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 30,
+          "eligible": 30,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      }
+    }
+  ]
+}

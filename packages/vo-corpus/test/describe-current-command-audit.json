@@ -1,0 +1,575 @@
+{
+  "at": "2026-10-15T10:22:49.062Z",
+  "sourceSha256": "9b6598cc324cad581cb194369648bc221e635a9c7ef530b39b4038f4292fbddf",
+  "scope": "Post-calibration measurement correction, not a new model evaluation. The original frozen candidate scores and raw data remain intact. VO+F3 has no validated mapping to read_current. Ordinary entry and Native orientation must stay separate; orientation is unmeasured for the speech API, not a scored navigation wording failure.",
+  "profiles": [
+    {
+      "browser": "safari",
+      "planned": 16,
+      "entry": {
+        "planned": 8,
+        "nativeObserved": 8,
+        "inputVerified": 8,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 8,
+        "inputEquivalent": 8,
+        "eligible": 8,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 8,
+          "eligible": 8,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 7,
+          "eligible": 8,
+          "conditionalRate": 0.875,
+          "allPlannedRate": 0.875
+        },
+        "hintCandidateExact": {
+          "matched": 8,
+          "eligible": 8,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "orientation": {
+        "planned": 8,
+        "nativeObserved": 8,
+        "inputVerified": 8,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 0,
+        "inputEquivalent": 0,
+        "eligible": 0,
+        "issues": {
+          "speech-command-unmeasured": 8
+        },
+        "mainSpeechExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "fullSpeechExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "hintCandidateExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "describe-current-v1.plain",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.plain",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.mixed-toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.mixed-toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.disclosure",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.disclosure",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.described-checkbox",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.described-checkbox",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.described-toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.described-toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.link",
+          "step": 0,
+          "chord": "VO+Right",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.link",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.heading",
+          "step": 0,
+          "chord": "VO+Right",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        },
+        {
+          "caseId": "describe-current-v1.heading",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "planned": 16,
+      "entry": {
+        "planned": 8,
+        "nativeObserved": 8,
+        "inputVerified": 8,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 8,
+        "inputEquivalent": 8,
+        "eligible": 8,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 8,
+          "eligible": 8,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 7,
+          "eligible": 8,
+          "conditionalRate": 0.875,
+          "allPlannedRate": 0.875
+        },
+        "hintCandidateExact": {
+          "matched": 8,
+          "eligible": 8,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "orientation": {
+        "planned": 8,
+        "nativeObserved": 8,
+        "inputVerified": 8,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 0,
+        "inputEquivalent": 0,
+        "eligible": 0,
+        "issues": {
+          "speech-command-unmeasured": 8
+        },
+        "mainSpeechExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "fullSpeechExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "hintCandidateExact": {
+          "matched": 0,
+          "eligible": 0,
+          "conditionalRate": null,
+          "allPlannedRate": 0
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "describe-current-v1.plain",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.plain",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.mixed-toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.mixed-toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.disclosure",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.disclosure",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.described-checkbox",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.described-checkbox",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.described-toggle",
+          "step": 0,
+          "chord": "Tab",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.described-toggle",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.link",
+          "step": 0,
+          "chord": "VO+Right",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": true
+        },
+        {
+          "caseId": "describe-current-v1.link",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        },
+        {
+          "caseId": "describe-current-v1.heading",
+          "step": 0,
+          "chord": "VO+Right",
+          "commandVerification": {
+            "status": "verified"
+          },
+          "issues": [],
+          "eligible": true,
+          "mainSpeechExact": true,
+          "fullSpeechExact": false
+        },
+        {
+          "caseId": "describe-current-v1.heading",
+          "step": 1,
+          "chord": "VO+F3",
+          "commandVerification": {
+            "status": "unmeasured",
+            "reason": "Native chord has no established speech-command mapping"
+          },
+          "issues": [
+            "speech-command-unmeasured"
+          ],
+          "eligible": false,
+          "mainSpeechExact": null,
+          "fullSpeechExact": null
+        }
+      ]
+    }
+  ]
+}

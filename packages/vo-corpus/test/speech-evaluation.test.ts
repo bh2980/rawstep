@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {evaluateSpeechCandidate,summarizeSpeechCandidates} from '../src/speech-evaluation.js';
+import {evaluateSpeechCandidate,summarizeSpeechCandidates,verifySpeechCommand} from '../src/speech-evaluation.js';
 import {generateSpeechContexts} from '../src/generate/speech-contexts.js';
 
 test('identical text without independently verified inputs never counts as an accurate prediction',()=>{
@@ -23,6 +23,10 @@ test('eligible main speech, literal full speech and uncertain attribution retain
   const options={chord:'Tab',startAligned:true,previousContextVerified:true};
   const valid=evaluateSpeechCandidate(input,prediction,native,dump,options);
   assert.equal(valid.eligible,true);assert.equal(valid.mainSpeechExact,true);assert.equal(valid.fullSpeechExact,false);assert.equal(valid.hintCandidateExact,true);
+  const otherCommand=evaluateSpeechCandidate({...input,command:'next_item'},prediction,native,dump,options);
+  assert.equal(otherCommand.diagnosticMainMatch,true);assert.equal(otherCommand.eligible,false);assert.equal(otherCommand.mainSpeechExact,null);assert.ok(otherCommand.issues.includes('speech-command-mismatch'));
+  const orientation=evaluateSpeechCandidate({...input,command:'read_current'},{speech:'Save button'}, {...native,chord:'VO+F3'},dump,{...options,chord:'VO+F3'});
+  assert.equal(orientation.eligible,false);assert.equal(orientation.mainSpeechExact,null);assert.equal(orientation.commandVerification.status,'unmeasured');
   const late=evaluateSpeechCandidate(input,prediction,{...native,utterances:[{t:31,text:'Save button'}]},dump,options);
   assert.equal(late.eligible,false);assert.equal(late.attribution?.status,'uncertain');
   const summary=summarizeSpeechCandidates([valid,late]);
@@ -32,4 +36,11 @@ test('eligible main speech, literal full speech and uncertain attribution retain
   assert.equal(silent.mainSpeechExact,true);assert.equal(silent.fullSpeechExact,true);
   const repeated=evaluateSpeechCandidate(input,{speech:'Save button Save button',utterances:['Save button','Save button']},{...native,utterances:[{t:20,text:'Save button'},{t:21,text:'Save button'}]},dump,options);
   assert.equal(repeated.mainSpeechExact,true);assert.equal(repeated.fullSpeechExact,true);
+});
+
+test('Native orientation is not silently mapped to ordinary current-item or navigation reading',()=>{
+ assert.equal(verifySpeechCommand('read_current','VO+F3').status,'unmeasured');
+ assert.equal(verifySpeechCommand('read_current','VO+A').status,'unmeasured');
+ assert.equal(verifySpeechCommand('previous_item','VO+Left').status,'verified');
+ assert.equal(verifySpeechCommand('activate_button','Space').status,'mismatch');
 });

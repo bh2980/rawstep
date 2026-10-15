@@ -1,6 +1,7 @@
 import {formatSimulatedSpeech, type SimulatedSemanticNode} from './semantics.js';
 import {formatUsageHint} from './usage-hints.js';
 
+/** Keep Native-exposed landmark roles even when their accessible name is empty. */
 export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;role:string;items:number;rows?:number;columns?:number};
 export type VoiceOverCell = {table:string;row:number;column:number;rows:number;columns:number;header:string;rowSpan:number;columnSpan:number};
 export type VoiceOverEditState = {value:string;start:number;end:number;multiline:boolean};
@@ -53,11 +54,11 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   for(const c of entered.filter(c=>c.role==='dialog'||c.role==='alertdialog'))speech=`${c.name} web dialog with ${c.items} items ${speech}`;
   const groupWords:Record<string,string>={group:'group',radiogroup:'radio group',tablist:'tab group'};
   const landmarks=['main','navigation','banner','contentinfo','complementary','region','form'];
-  const nearest=scopes.filter(c=>c.role==='article'||c.role==='table'||!!c.name&&(groupWords[c.role]||landmarks.includes(c.role))).at(-1);
+  const nearest=scopes.filter(c=>c.role==='article'||c.role==='table'||landmarks.includes(c.role)||!!c.name&&groupWords[c.role]).at(-1);
   const focusMove=['next_focusable_item','previous_focusable_item'].includes(command);
   const contexts=focusMove?nearest&&nearest.id!==context.focusContext?[nearest]:[]:entered;
   for(const c of contexts.filter(c=>groupWords[c.role]))speech+=` ${c.name} ${groupWords[c.role]}`;
-  for(const c of contexts.filter(c=>landmarks.includes(c.role)))speech+=` ${c.name} ${c.role}`;
+  for(const c of contexts.filter(c=>landmarks.includes(c.role)))speech+=` ${[c.name,c.role==='contentinfo'?referenceBrowser==='chrome'?'footer':'content information':c.role].filter(Boolean).join(' ')}`;
   for(const c of contexts.filter(c=>c.role==='table'))speech+=` ${[c.name,'table',`${c.columns} ${c.columns===1?'column':'columns'}, ${c.rows} ${c.rows===1?'row':'rows'}`].filter(Boolean).join(' ')}`;
   if(focusMove)for(const c of contexts.filter(c=>c.role==='article'))speech+=` ${[referenceBrowser==='chrome'&&c.inferredName?'':c.name,'article'].filter(Boolean).join(' ')}`;
   context.containers=(node.containers??[]).map(c=>c.id);context.focusContext=nearest?.id;
