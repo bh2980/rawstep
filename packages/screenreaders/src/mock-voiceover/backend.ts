@@ -2,12 +2,13 @@ import type { CDPSession, Page } from '@rawstep/browser/types';
 import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 import { setTimeout as wait } from 'node:timers/promises';
+import {formatVoiceOverActivation} from './activation.js';
 import {formatVoiceOverSpeech, type VoiceOverSpeechContext, type VoiceOverContainer, type VoiceOverCell, type VoiceOverEditState} from './speech.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v14' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v8' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v16' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v10' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -125,7 +126,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'8':'14', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'10':'16', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -627,7 +628,12 @@ export class MockVoiceOverBackend implements Backend {
           && before.semantic.role === after.semantic.role && before.semantic.name === after.semantic.name
           && typeof before.semantic.checked === 'boolean' && typeof after.semantic.checked === 'boolean'
           && before.semantic.checked !== after.semantic.checked;
-        if(!this.wording&&this.referenceBrowser==='chrome'&&action.kind==='intent'&&action.intent==='activate'&&checkedStateChanged&&after&&after.semantic.role==='radio'){
+        const activation=!this.wording&&action.kind==='key'&&action.key==='Space'&&after
+          ?formatVoiceOverActivation({beforeTarget:before,target:after,command:'activate_form_control',referenceBrowser:this.referenceBrowser},this.speechContext):undefined;
+        if(activation?.status==='modeled'){
+          this.speechContext=activation.context;
+          for(const text of activation.utterances)this.announceText(text,'value-change');
+        }else if(!this.wording&&this.referenceBrowser==='chrome'&&action.kind==='intent'&&action.intent==='activate'&&checkedStateChanged&&after&&after.semantic.role==='radio'){
           this.announceText('selected','value-change');
         }else if(!this.wording&&action.kind==='intent'&&action.intent==='activate'&&before&&after&&before.identity===after.identity&&after.semantic.role==='DisclosureTriangle'&&after.semantic.tagName==='summary'&&before.semantic.expanded!==after.semantic.expanded){
           this.announceText(after.semantic.expanded?'expanded':'collapsed','value-change');

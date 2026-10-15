@@ -1,0 +1,102 @@
+{
+  "id": "public-pages-669590104a1d26e61b611b52cde4a860-first-heading",
+  "generatedAt": "2026-10-15T09:31:54.699Z",
+  "cases": [
+    {
+      "id": "public.1.blog",
+      "page": "",
+      "url": "https://www.joshwcomeau.com/",
+      "viewport": {
+        "width": 1024,
+        "height": 626
+      },
+      "chords": [
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Left",
+        "VO+Left",
+        "VO+Left",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "Tab",
+        "Shift+Tab",
+        "VO+Cmd+H",
+        "VO+Right",
+        "VO+Left",
+        "VO+Cmd+H"
+      ],
+      "startProtocol": "first-heading",
+      "captureAxAfterSteps": true,
+      "axes": {
+        "family": "blog",
+        "role": "real-page",
+        "command": "read-only-navigation",
+        "partition": "test",
+        "source": "live-public-page",
+        "exposure": "unseen",
+        "siteGroup": "www.joshwcomeau.com",
+        "templateGroup": "https://www.joshwcomeau.com/",
+        "contrastGroup": "public-transfer-v1"
+      }
+    },
+    {
+      "id": "public.2.service",
+      "page": "",
+      "url": "https://www.nps.gov/findapark/index.htm",
+      "viewport": {
+        "width": 1024,
+        "height": 626
+      },
+      "chords": [
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Left",
+        "VO+Left",
+        "VO+Left",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "VO+Right",
+        "Tab",
+        "Shift+Tab",
+        "VO+Cmd+H",
+        "VO+Right",
+        "VO+Left",
+        "VO+Cmd+H"
+      ],
+      "startProtocol": "first-heading",
+      "captureAxAfterSteps": true,
+      "axes": {
+        "family": "service",
+        "role": "real-page",
+        "command": "read-only-navigation",
+        "partition": "test",
+        "source": "live-public-page",
+        "exposure": "unseen",
+        "siteGroup": "www.nps.gov",
+        "templateGroup": "https://www.nps.gov/findapark/index.htm",
+        "contrastGroup": "public-transfer-v1"
+      }
+    }
+  ]
+}

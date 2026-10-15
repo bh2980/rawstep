@@ -1,0 +1,30 @@
+{
+  "originalGeneratedCasesSha256": "863afb0a0e3d30667cd5cccc2f8090e63aa0a7ade35e5070f0426a1b0adafada",
+  "reason": "Before any Native observation: keep selected sites/seed fixed, author a new read-only history and full per-action AX capture; freeze final bytes separately.",
+  "chords": [
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Left",
+    "VO+Left",
+    "VO+Left",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "VO+Right",
+    "Tab",
+    "Shift+Tab",
+    "VO+Cmd+H",
+    "VO+Right",
+    "VO+Left",
+    "VO+Cmd+H"
+  ]
+}

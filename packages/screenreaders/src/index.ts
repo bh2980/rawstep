@@ -7,3 +7,5 @@ export type { MockVoiceOverRunOptions, MockVoiceOverReferenceBrowser, MockWordin
 // Corpus errors live in a data-free module so the root never loads the research corpus (see `@rawstep/screenreaders/evidence`).
 export { UnsupportedCorpusPatternError } from './evidence/unsupported.js';
 export type { CorpusSpeechResult } from './evidence/learned.js';
+
+export {formatVoiceOverSpeech,formatVoiceOverActivation,type VoiceOverSpeechInput,type VoiceOverSpeechContext,type VoiceOverSpeechTarget,type VoiceOverActivationInput,type VoiceOverActivationResult} from './mock-voiceover/index.js';

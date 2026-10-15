@@ -1,6 +1,6 @@
 /** Public live pages: seeded sampling, read-only object navigation, identical start markers in both browsers. */
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
@@ -24,10 +24,11 @@ export const publicPagePool = [
   { family: "shop", url: "https://www.ikea.com/us/en/cat/bookcases-shelving-units-st002/" },
 ] as const;
 
-export function samplePublicPages(seed: string, count: number) {
-  if (!Number.isSafeInteger(count) || count < 1 || count > publicPagePool.length) throw new Error(`Page count must be between 1 and ${publicPagePool.length}`);
+export function samplePublicPages(seed: string, count: number, pool:readonly {family:string;url:string}[]=publicPagePool) {
+  if(!Array.isArray(pool)||pool.some(p=>!p||typeof p.family!=='string'||!p.family.trim()||typeof p.url!=='string'||!URL.canParse(p.url)||new URL(p.url).protocol!=='https:'||new URL(p.url).username||new URL(p.url).password)||new Set(pool.map(p=>p.url)).size!==pool.length)throw new Error('Pool must contain unique HTTPS candidates with family labels');
+  if (!Number.isSafeInteger(count) || count < 1 || count > pool.length) throw new Error(`Page count must be between 1 and ${pool.length}`);
   // Hash ranking is deterministic and independent of whether a page later succeeds.
-  return publicPagePool.map(page => ({ ...page, rank: createHash("sha256").update(seed + "\0" + page.url).digest("hex") })).sort((a, b) => a.rank.localeCompare(b.rank)).slice(0, count);
+  return pool.map(page => ({ ...page, rank: createHash("sha256").update(seed + "\0" + page.url).digest("hex") })).sort((a, b) => a.rank.localeCompare(b.rank)).slice(0, count);
 }
 
 // Only the two harness buttons are added; original page content and handlers stay live.
@@ -121,11 +122,12 @@ export function chromiumAccessibleText(nodes: {nodeId:string;childIds?:string[];
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  const { values } = parseArgs({ options: { out: { type: "string" }, seed: { type: "string" }, count: { type: "string", default: "8" }, width: { type: "string" }, height: { type: "string" }, "first-heading": {type:"boolean"}, "dom-fingerprint":{type:"boolean"} } });
+  const { values } = parseArgs({ options: { out: { type: "string" }, pool: {type:"string"}, seed: { type: "string" }, count: { type: "string", default: "8" }, width: { type: "string" }, height: { type: "string" }, "first-heading": {type:"boolean"}, "dom-fingerprint":{type:"boolean"} } });
   if (!values.out || !values.width || !values.height) throw new Error("Usage: real-pages.ts --out <directory> --width <Safari width> --height <Safari height> [--seed value] [--count 8]");
   const viewport = { width: Number(values.width), height: Number(values.height) };
   if (!Number.isSafeInteger(viewport.width) || !Number.isSafeInteger(viewport.height) || viewport.width < 1 || viewport.height < 1) throw new Error("Invalid viewport");
-  const seed = values.seed ?? randomBytes(16).toString("hex"), chosen = samplePublicPages(seed, Number(values.count)), generatedAt = new Date().toISOString();
+  const pool=values.pool?JSON.parse(await readFile(values.pool,"utf8")):publicPagePool;
+  const seed = values.seed ?? randomBytes(16).toString("hex"), chosen = samplePublicPages(seed, Number(values.count),pool), generatedAt = new Date().toISOString();
   if (values["first-heading"] && values["dom-fingerprint"]) throw new Error("Heading anchors and DOM marker fingerprints are separate protocols");
   const set: CaseSet = { id: `public-pages-${seed}${values["first-heading"] ? "-first-heading" : values["dom-fingerprint"] ? "-visible-dom-v1" : ""}`, generatedAt,
     cases: chosen.map((p, i) => ({ id: `public.${i + 1}.${p.family}`, page: "", url: p.url, viewport,
@@ -136,6 +138,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const out = resolve(values.out);
   await mkdir(out, { recursive: true });
   await writeFile(join(out, "cases.json"), JSON.stringify(set, null, 2), { flag: "wx" });
-  await writeFile(join(out, "sampling.json"), JSON.stringify({ seed, generatedAt, pool: publicPagePool, selected: chosen, contentProtocol: values["dom-fingerprint"] ? "visible-dom-v1" : values["first-heading"] ? "accessibility-text" : "rendered-text-v1", protocol: values["first-heading"] ? "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples." : "Fixed candidates, seeded hash ranking before collection. No replacement of failed pages; navigation only. Adds two fixture markers. Pages remain live; hashes and viewports must match before scoring speech as a match." }, null, 2), { flag: "wx" });
+  await writeFile(join(out, "sampling.json"), JSON.stringify({ seed, generatedAt, pool, selected: chosen, contentProtocol: values["dom-fingerprint"] ? "visible-dom-v1" : values["first-heading"] ? "accessibility-text" : "rendered-text-v1", protocol: values["first-heading"] ? "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples." : "Fixed candidates, seeded hash ranking before collection. No replacement of failed pages; navigation only. Adds two fixture markers. Pages remain live; hashes and viewports must match before scoring speech as a match." }, null, 2), { flag: "wx" });
   console.log(`${chosen.length} seeded public pages -> ${out}`);
 }

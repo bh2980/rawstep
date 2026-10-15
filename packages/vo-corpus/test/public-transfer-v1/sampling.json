@@ -1,0 +1,68 @@
+{
+  "seed": "669590104a1d26e61b611b52cde4a860",
+  "generatedAt": "2026-10-15T09:31:54.699Z",
+  "pool": [
+    {
+      "family": "blog",
+      "url": "https://www.joshwcomeau.com/"
+    },
+    {
+      "family": "blog",
+      "url": "https://www.smashingmagazine.com/"
+    },
+    {
+      "family": "news",
+      "url": "https://www.nasa.gov/news/"
+    },
+    {
+      "family": "news",
+      "url": "https://www.npr.org/sections/news/"
+    },
+    {
+      "family": "search",
+      "url": "https://www.gutenberg.org/ebooks/search/?query=history"
+    },
+    {
+      "family": "search",
+      "url": "https://openlibrary.org/search?q=history"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.ebay.com/sch/i.html?_nkw=notebook"
+    },
+    {
+      "family": "shop",
+      "url": "https://www.uniqlo.com/us/en/"
+    },
+    {
+      "family": "service",
+      "url": "https://www.nps.gov/findapark/index.htm"
+    },
+    {
+      "family": "service",
+      "url": "https://www.weather.gov/"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.python.org/doc/"
+    },
+    {
+      "family": "documentation",
+      "url": "https://www.w3.org/WAI/tutorials/"
+    }
+  ],
+  "selected": [
+    {
+      "family": "blog",
+      "url": "https://www.joshwcomeau.com/",
+      "rank": "037768406b1077f8fec850df0829260527fd0933b7fda6928c5c8c3bd063605d"
+    },
+    {
+      "family": "service",
+      "url": "https://www.nps.gov/findapark/index.htm",
+      "rank": "0abc650e3db63cbef497792e48e2b913e1e0215eb4476a227a5d320e5450af40"
+    }
+  ],
+  "contentProtocol": "accessibility-text",
+  "protocol": "First unique native AX heading anchors both browsers without modifying the page or enabling Safari JavaScript automation. Samples body reading after that heading, not the earlier header. AX-text fingerprints are conservative; engine/content differences remain failures. No replacement of failed samples."
+}

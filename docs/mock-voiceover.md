@@ -47,8 +47,8 @@ content. See [the controlled Native description-source study](./voiceover-descri
 The return value contains `speech`, an optional `usageHint` candidate and the next serializable `context`.
 The function does not mutate its input or prior context. It does not schedule, cancel or attribute speech; callers
 must not interpret a returned hint as proof of native timing or queue behavior. Live-region event ordering,
-character-edit echoes and activation silence/repetition still have adapter-specific handling and are not fully
-covered by this target formatter. Unknown native context must be reported by the calling test as unmeasured;
+character-edit echoes and activation results are not fully covered by this target formatter.
+Use the separate activation API below for its explicitly modeled state events. Unknown native context must be reported by the calling test as unmeasured;
 passing missing context as an empty history is not proof of a correct prediction.
 
 For a verified checkbox change, `activate_form_control` describes physical Space and `activate_button` describes VO activation.
@@ -77,9 +77,44 @@ main result in each browser. Corrections reach 21/21 on those inspected regressi
 the first evaluation. [The sample coverage audit](./voiceover-sample-coverage.md) separates archive volume from
 verified independent examples and records the Safari/forward-reading imbalance.
 
-The [button state study](./voiceover-button-state-speech.md) distinguishes reading from activation receipts.
-Toggle roles take precedence over expanded wording. Activation silence, repeated receipts and Chrome pressed-change
-ordering remain gaps in this pure target formatter; Native state conversion now preserves both browser subroles and mixed states.
+The [button state study](./voiceover-button-state-speech.md) separates reading from activation receipts.
+Toggle roles take precedence over expanded wording. Native state conversion preserves both browser subroles and mixed states.
+
+### Format an activation already performed by Rawstep
+
+```js
+import {formatVoiceOverActivation} from 'rawstep/mock-voiceover';
+const beforeTarget = {
+  identity: 'options',
+  semantic: {
+    role: 'button', tagName: 'button', name: 'Options', pressed: false,
+    protected: false, disabled: false, readonly: false, required: false,
+    multiline: false, modal: false,
+  },
+};
+const target = {...beforeTarget, semantic: {...beforeTarget.semantic, pressed: true}};
+const result = formatVoiceOverActivation({
+  beforeTarget, target, command: 'activate_form_control', referenceBrowser: 'chrome',
+});
+if (result.status === 'unsupported') throw new Error(result.reason);
+console.log(result.utterances); // ['selected Options toggle button']; Safari returns []
+```
+
+Supply independently observed before/after targets, not expected speech. `activate_form_control` means physical
+Space; `activate_button` means VO activation. The function models physical Space on a stable native HTML button
+with stable non-state semantics, and isolated boolean checkbox transitions for either command. Button VO activation,
+changed identity/name/other semantics, appearing/disappearing state attributes, protected/disabled controls, unknown
+before state and transitions **to** mixed pressed state return `status: 'unsupported'` with a reason and no utterances.
+A mixed initial pressed state followed by a boolean state is supported. The existing target formatter remains available
+for an explicit object reading; it is not an activation-event fallback.
+
+`status: 'modeled'` returns ordered receipt candidates. `[]` represents a modeled silent activation and differs from
+unsupported evidence. Chrome pressed changes can precede the two object receipts from expansion; repeated strings
+are preserved. This is neither a speech queue nor a completion guarantee. A button activation preserves structural
+reading context; feed the returned context into the next call. The existing browser adapter delegates measured Space
+events to this same function while retaining its legacy approximations for other actions. Keep the two browser profiles
+and their histories separate. Live-region announcements, navigation, event interruption and timing remain outside
+this API. The [activation evaluation](./voiceover-activation-evaluation.md) reports calibration, frozen first evaluation and corrected regression separately.
 
 ## Run the bundled browser fixture
 
@@ -124,8 +159,8 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v14`.
-`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v8`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v16`.
+`referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v10`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
 browser. `MOCK_VOICEOVER_CHROME_PROFILE` and `MockVoiceOverReferenceBrowser` are public exports.
@@ -156,7 +191,7 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v14` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v16` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
 
 Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
 is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected

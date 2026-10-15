@@ -13,7 +13,7 @@ The inputs and Safari v13 / Chrome v7 JavaScript build were frozen before either
 | Expanded state changes | Two identical current-state object receipts | Two identical current-state object receipts |
 | Pressed and expanded change together | Two identical toggle-button object receipts | One pressed-change receipt followed by two identical toggle-button object receipts |
 
-On entry and return, a pressed button is read as a toggle button. When pressed and expanded coexist, expanded wording is omitted in both profiles. This role precedence now applies in the shared formatter, independent of names, fixture IDs or HTML layouts. Safari v14 / Chrome v8 identify that change. The pure target formatter still lacks the observed activation silence, repeated receipt arrays and Chrome pressed-change order; these results do not claim to fix that separate event-output problem.
+On entry and return, a pressed button is read as a toggle button. When pressed and expanded coexist, expanded wording is omitted in both profiles. This role precedence now applies in the shared formatter, independent of names, fixture IDs or HTML layouts. Safari v14 / Chrome v8 identify that change. The pure target formatter is an object-reading function. The separate [activation API and transfer evaluation](./voiceover-activation-evaluation.md) now address the measured silence, repeated receipt arrays and Chrome pressed-change order.
 
 Native exposes the pressed state as AXCheckBox + AXToggle in Safari and AXCheckBox + AXToggleButton in Chrome, with values 0, 1 and 2. The old Native-state converter interpreted Safari mixed as false, and Chrome toggles as checkboxes. It now preserves false/true/mixed as pressed state and maps both subroles to button. Invalid or missing values remain unknown. Original AX files and historical derived reports are unchanged; rerunning the state analyzer uses the corrected mapping.
 
@@ -23,7 +23,7 @@ The original speech-input verifier did not independently validate pressed/expand
 
 Safari omits AXExpanded on the combined pressed/expanded control. Four target inputs therefore remain unmeasured; the intervening marker verifies, but lacks verified preceding context. Neither missing property nor correct-looking speech becomes input equivalence. Of eight planned state transitions, six are verified and two unmeasured in Safari; all eight are verified in Chrome. These checks establish supplied speech states, not whole-engine State Accuracy or VO navigation position.
 
-| Per-browser denominator / metric | Safari frozen | Chrome frozen | Safari current regression | Chrome current regression |
+| Per-browser denominator / metric | Safari frozen | Chrome frozen | Safari v14 target regression | Chrome v8 target regression |
 | --- | ---: | ---: | ---: | ---: |
 | Planned / Native observed | 25/25 | 25/25 | 25/25 | 25/25 |
 | Independently verified inputs | 21/25 | 25/25 | 21/25 | 25/25 |
@@ -34,7 +34,7 @@ Safari omits AXExpanded on the combined pressed/expanded control. Four target in
 
 The current formatter reproduces all 15 reading/return rows per browser, including the three combined-control rows, as a text diagnostic. Safari's five ineligible rows remain excluded from conditional accuracy and retained in the all-plan denominator. Reading success does not erase the activation failures. Repeated receipts stay in Main Speech; they are not collapsed to inflate its score. The original frozen predictions and first evaluation remain intact.
 
-The immediate structural gap is the pure API's single object announcement plus optional hint: it cannot yet express an empty event or ordered repeated announcements from an activation. The adapter already has some event handling, but its toggle rules also need the browser distinction measured here. A follow-up should share event formatting between the pure API and adapter, using independently observed before/after states, without moving navigation into the speech library. VO activation, timing preference changes and new UI compositions require separate evidence; this physical-Space cohort does not establish their behavior. Native completion, Navigation Accuracy and Task Success remain unmeasured.
+The immediate structural gap is the pure API's single object announcement plus optional hint: it cannot yet express an empty event or ordered repeated announcements from an activation. The adapter already has some event handling, but its toggle rules also need the browser distinction measured here. The [subsequent activation API](./voiceover-activation-evaluation.md) shares measured event formatting with the adapter using independently observed before/after states; it adds no navigation. VO activation, timing preference changes and new UI compositions require separate evidence; this physical-Space cohort does not establish their behavior. Native completion, Navigation Accuracy and Task Success remain unmeasured.
 
 ## Reproduce
 

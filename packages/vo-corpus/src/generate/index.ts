@@ -24,6 +24,7 @@ import {generatePracticalTasks} from './practical-tasks.js';
 import {generateContextReturn} from './context-return.js';
 import {generateSpeechContexts} from './speech-contexts.js';
 import {generateSpeechTransfer} from './speech-transfer.js';
+import {generateActivationTransfer} from './activation-transfer.js';
 import {generateButtonStateSpeech} from './button-state-speech.js';
 import {generateCheckboxSpeech,generateCheckboxEntryTiming} from './checkbox-speech.js';
 
@@ -33,7 +34,7 @@ const generators = { "elements-v1": generateElements, "screening-v1": generateSc
   "training-v2": () => generateExpanded("training"), "validation-v2": () => generateExpanded("validation"), "focus-followup-v3": generateFollowup, "page-patterns-v1": generatePagePatterns, "list-heuristics-v1":generateListHeuristics, "article-patterns-v1":generateArticlePatterns, "diversity-v1":generateDiversity,
   "article-followup-v2":()=>generateArticleFollowup('train'),"article-transfer-v2":()=>generateArticleFollowup('test'),
   "hints-v1":()=>generateHints('train'),"hints-transfer-v1":()=>generateHints('test'),
-  "reading-units-v1":()=>generateReadingUnits('train'),"reading-units-transfer-v1":()=>generateReadingUnits('test'),"reading-returns-v1":generateReadingReturns,"reading-state-v1":generateReadingState,"focus-context-v1":generateFocusContext,"listbox-interaction-v1":generateListboxInteraction,"practical-tasks-v1":generatePracticalTasks,"context-return-v1":generateContextReturn,"speech-contexts-v1":generateSpeechContexts,"speech-transfer-v1":generateSpeechTransfer,"checkbox-speech-v1":generateCheckboxSpeech,"checkbox-entry-timing-v1":generateCheckboxEntryTiming,"button-state-speech-v1":generateButtonStateSpeech };
+  "reading-units-v1":()=>generateReadingUnits('train'),"reading-units-transfer-v1":()=>generateReadingUnits('test'),"reading-returns-v1":generateReadingReturns,"reading-state-v1":generateReadingState,"focus-context-v1":generateFocusContext,"listbox-interaction-v1":generateListboxInteraction,"practical-tasks-v1":generatePracticalTasks,"context-return-v1":generateContextReturn,"speech-contexts-v1":generateSpeechContexts,"speech-transfer-v1":generateSpeechTransfer,"checkbox-speech-v1":generateCheckboxSpeech,"checkbox-entry-timing-v1":generateCheckboxEntryTiming,"button-state-speech-v1":generateButtonStateSpeech,"activation-transfer-v1":generateActivationTransfer };
 const generator = Object.hasOwn(generators, values.set!) ? generators[values.set as keyof typeof generators] : undefined;
 if (!generator) throw new Error(`--set must be ${Object.keys(generators).join(", ")}`);
 const out = resolve(packageRoot, values.out ?? `data/cases/${values.set}`);

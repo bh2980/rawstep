@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFileSync} from 'node:fs';
 import test from "node:test";
 import { publicPagePool, samplePublicPages, realPageContext, prepareRealPageScript, publicPageScript, firstUniqueHeading, hearsHeading, nativeAccessibleText, chromiumAccessibleText, accessiblePageContext } from "../src/real-pages.js";
 import { chromium } from "playwright";
@@ -21,6 +22,25 @@ test("live pages with different content cannot count as speech matches", () => {
   const native = new Map([["page", record("voiceover", "Original")]]);
   assert.equal(validateRuns(set, native, new Map([["page", record("simulator", "Changed")]])).verdicts.environment, 1);
   assert.equal(validateRuns(set, native, new Map([["page", record("simulator", "Original")]])).all.rate, 1);
+});
+
+test('a separately recorded candidate pool can hold out new sites without mutating historical sampling',()=>{
+  const pool=[{family:'blog',url:'https://new.example/blog'},{family:'shop',url:'https://other.example/shop'}],before=structuredClone(pool);
+  const sample=samplePublicPages('frozen',2,pool);assert.equal(sample.length,2);assert.deepEqual(pool,before);
+  assert.deepEqual(samplePublicPages('frozen',2,pool),sample);
+  assert.equal(samplePublicPages('frozen',1,pool)[0]!.url,sample[0]!.url);
+  assert.throws(()=>samplePublicPages('frozen',2,[pool[0]!,pool[0]!]));
+  assert.throws(()=>samplePublicPages('frozen',1,[{family:'blog',url:'file:///tmp/page.html'}]));
+  assert.throws(()=>samplePublicPages('frozen',1,[{family:'blog',url:'https://user:secret@example.com/'}]));
+});
+
+test('the held-out public sample is fixed by the original seed and excludes historical candidate sites',()=>{
+  const read=(name:string)=>JSON.parse(readFileSync(new URL(name,import.meta.url),'utf8'));
+  const pool=read('./public-transfer-pool-v1.json'),sampling=read('./public-transfer-v1/sampling.json'),set=read('./public-transfer-v1/cases.json');
+  assert.deepEqual(samplePublicPages(sampling.seed,2,pool),sampling.selected);
+  assert.deepEqual(set.cases.map((c:{url:string})=>c.url),sampling.selected.map((p:{url:string})=>p.url));
+  const historical=new Set(publicPagePool.map(p=>new URL(p.url).hostname));
+  for(const c of set.cases){assert.equal(historical.has(new URL(c.url).hostname),false);assert.equal(c.chords.length,24);assert.equal(c.axes.exposure,'unseen');assert.equal(c.captureAxAfterSteps,true);}
 });
 
 test("public-page harness preserves original content and handlers, adds stable markers, and records rendered text", async () => {

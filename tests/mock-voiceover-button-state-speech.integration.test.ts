@@ -5,7 +5,7 @@ import {MockVoiceOverBackend} from '@rawstep/screenreaders/mock-voiceover/backen
 const fixture=JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-button-state-speech-2026-10-15.json',import.meta.url),'utf8')) as {
  pages:{id:string;html:string}[];profiles:{browser:'safari'|'chrome';rows:{caseId:string;chord:string;utterances:{text:string}[]}[]}[];
 };
-it.each(fixture.profiles)('reads toggle/disclosure combinations after actual state changes for $browser',async profile=>{
+it.each(fixture.profiles)('shares ordered button activation receipts with the $browser adapter',async profile=>{
  const browser=await launchTestBrowser();
  for(const c of fixture.pages){
   const page=await browser.newPage(),backend=new MockVoiceOverBackend(undefined,850,profile.browser);
@@ -14,8 +14,7 @@ it.each(fixture.profiles)('reads toggle/disclosure combinations after actual sta
    for(const row of profile.rows.filter(r=>r.caseId===c.id)){
     await backend.execute({kind:'key',key:row.chord});
     const observed=await backend.observe();
-    // Activation receipt discrepancies are preserved by the separate pure-API evidence test.
-    if(row.chord!=='Space')expect(observed.speech).toEqual(row.utterances.map(u=>u.text));
+    expect(observed.speech).toEqual(row.utterances.map(u=>u.text));
    }
   }finally{await backend.close();await page.close();}
  }

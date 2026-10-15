@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {formatVoiceOverSpeech} from 'rawstep/mock-voiceover';
+import {formatVoiceOverSpeech,formatVoiceOverActivation} from 'rawstep/mock-voiceover';
 
 for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: caller supplies target and prior context`,()=>{
   const target={
@@ -36,4 +36,17 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: VO 
   const result=formatVoiceOverSpeech({target:{identity:'backup',semantic},command:'activate_button',checkedStateChanged:true,referenceBrowser});
   assert.equal(result.speech,referenceBrowser==='chrome'?'checked':'checked Backup reminders checkbox');
   assert.equal(result.usageHint,undefined);
+});
+
+for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: activation receipts can be silent or repeated`,()=>{
+  const beforeTarget={identity:'options',semantic:{role:'button',tagName:'button',name:'Options',pressed:false,expanded:false,protected:false,disabled:false,readonly:false,required:false,multiline:false,modal:false}};
+  const target={...beforeTarget,semantic:{...beforeTarget.semantic,pressed:true,expanded:true}};
+  const input={beforeTarget,target,command:'activate_form_control',referenceBrowser};
+  const result=formatVoiceOverActivation(input);
+  assert.equal(result.status,'modeled');
+  assert.deepEqual(result.utterances,referenceBrowser==='chrome'?['selected Options toggle button','Options selected toggle button','Options selected toggle button']:['Options selected toggle button','Options selected toggle button']);
+  const noChange=formatVoiceOverActivation({...input,beforeTarget:target});
+  assert.equal(noChange.status,'modeled');assert.deepEqual(noChange.utterances,[]);
+  const unknown=formatVoiceOverActivation({...input,beforeTarget:undefined});
+  assert.equal(unknown.status,'unsupported');assert.equal('utterances' in unknown,false);
 });

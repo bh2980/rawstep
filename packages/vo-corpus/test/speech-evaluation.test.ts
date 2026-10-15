@@ -28,4 +28,8 @@ test('eligible main speech, literal full speech and uncertain attribution retain
   const summary=summarizeSpeechCandidates([valid,late]);
   assert.equal(summary.mainSpeechExact.matched,1);assert.equal(summary.mainSpeechExact.conditionalRate,1);assert.equal(summary.mainSpeechExact.allPlannedRate,.5);
   assert.equal(summary.fullSpeechExact.matched,0);
+  const silent=evaluateSpeechCandidate(input,{speech:'',utterances:[]},{...native,utterances:[]},dump,options);
+  assert.equal(silent.mainSpeechExact,true);assert.equal(silent.fullSpeechExact,true);
+  const repeated=evaluateSpeechCandidate(input,{speech:'Save button Save button',utterances:['Save button','Save button']},{...native,utterances:[{t:20,text:'Save button'},{t:21,text:'Save button'}]},dump,options);
+  assert.equal(repeated.mainSpeechExact,true);assert.equal(repeated.fullSpeechExact,true);
 });
