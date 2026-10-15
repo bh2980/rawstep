@@ -17,6 +17,8 @@ for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: cal
   const returning=formatVoiceOverSpeech(input,outside.context);
   assert.equal(returning.speech,entry.speech);
   assert.match(returning.usageHint,/on a button/);
+  assert.throws(()=>formatVoiceOverSpeech({...input,command:'not_a_voiceover_command'},entry.context),RangeError);
+  assert.equal(formatVoiceOverSpeech(input,entry.context).speech,'Save button');
 });
 
 for(const referenceBrowser of ['safari','chrome'])test(`${referenceBrowser}: caller distinguishes inline description from help`,()=>{

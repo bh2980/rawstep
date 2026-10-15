@@ -42,6 +42,15 @@ use the existing formatter names: `next_item`/`previous_item`, `next_focusable_i
 `next_heading`, `read_current`, and the other adapter command labels. These labels describe context, not an
 executable command API or a declaration that every VoiceOver command is supported.
 
+Unknown command labels throw `RangeError` before formatting or updating speech history. Misspellings and raw
+VoiceOver chords such as `VO+U` must not produce a plausible object announcement. Recognized contexts are
+`next_item`, `previous_item`, `next_focusable_item`, `previous_focusable_item`, `next_heading`, `previous_heading`,
+`next_form_control`, `read_current`, `read_focused`, `activate_button`, `activate_form_control`, `enter`, `escape`
+and `enter_text`. The existing adapter also supplies arrow keys, `Home`, `End`, `Shift+Home`, `Shift+End`,
+`Backspace`, `Delete` and `ControlOrMeta+A` as object-reading contexts when no separate event rule handles them.
+Those compatibility contexts do not model edit echoes, activation receipts or a rotor. In particular, `read_current`
+is not an established mapping for Native VO+F3; see the [command calibration](./voiceover-target-conditioned-evaluation.md).
+
 `semantic.description` is inline description content. `semantic.help` is a help/usage-hint prefix;
 `semantic.hasMoreContent` independently supplies the observed additional-content-menu instruction. These fields
 must come from the caller's observed semantic source; an arbitrary description is not evidence of additional
@@ -118,6 +127,22 @@ reading context; feed the returned context into the next call. The existing brow
 events to this same function while retaining its legacy approximations for other actions. Keep the two browser profiles
 and their histories separate. Live-region announcements, navigation, event interruption and timing remain outside
 this API. The [activation evaluation](./voiceover-activation-evaluation.md) reports calibration, frozen first evaluation and corrected regression separately.
+
+### Evidence boundaries for test callers
+
+| Area | Current evidence | What the caller must still establish |
+| --- | --- | --- |
+| Button/link/heading/checkbox reading and descriptions/help | Selected Native input/output pairs and new composition evaluations | Correct supplied role, state, description/help source and previous context; arbitrary combinations are not certified |
+| Landmark, named group and article context | Entry/return rules and controlled composition transfer | Complete exposed ancestor path and stable IDs; the Chromium projection is a separate check |
+| Nonmodal dialog context | Inspected 29-action regression per browser | Direct exposed children/name inputs; modal, nested and interaction-mode behavior remain uncalibrated |
+| State-change receipts | Activation API explicitly reports `modeled` or `unsupported` for its measured scope | Independently observed before/after state; a modeled silence is distinct from unsupported |
+| Editing, live updates, nested documents and speech timing | Partial legacy adapter rules or unmeasured behavior | Do not treat a generated object summary as a validated event sequence |
+
+Command recognition is not an evidence/coverage checker. The object formatter still has approximate role/state
+fallbacks and does not attach per-result Native validation status. Until those combinations are independently
+validated, keep them outside a test's declared supported scope or mark the comparison unmeasured. Passing an
+empty history for unknown previous context cannot establish a valid speech match. Speech-only results and
+Rawstep input-projection/interaction results must be reported separately.
 
 ## Run the bundled browser fixture
 

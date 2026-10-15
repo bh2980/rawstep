@@ -33,6 +33,17 @@ function targetFromInput(document:Document,id:string):VoiceOverSpeechTarget{
 }
 
 describe('speech engine with caller-owned target and history',()=>{
+  it.each(['safari','chrome'] as const)('rejects unknown %s commands without emitting speech or changing history',referenceBrowser=>{
+    const target:VoiceOverSpeechTarget={identity:'save',semantic:semantic({name:'Save'}),containers:[{id:'region',name:'Preferences',role:'region',items:2}]};
+    const previous:VoiceOverSpeechContext={containers:['region'],focusContext:'region'},snapshot=structuredClone(previous);
+    for(const command of ['','not_a_voiceover_command','next_itme','VO+U','toString']){
+      expect(()=>formatVoiceOverSpeech({target,command,referenceBrowser},previous)).toThrowError(RangeError);
+      expect(()=>formatVoiceOverSpeech({target,command,referenceBrowser},previous)).toThrowError('Unsupported VoiceOver speech command');
+      expect(previous).toEqual(snapshot);
+    }
+    expect(formatVoiceOverSpeech({target,command:'next_focusable_item',referenceBrowser},previous).speech).toBe('Save button');
+  });
+
   it.each(fixture.nativeProfiles)('replays native $referenceBrowser context speech without launching a browser',profile=>{
     expect(profile.sourceRecordsSha256).toMatch(/^[a-f0-9]{64}$/);
     let matched=0,unresolved=0;

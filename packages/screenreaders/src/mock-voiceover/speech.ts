@@ -1,6 +1,13 @@
 import {formatSimulatedSpeech, type SimulatedSemanticNode} from './semantics.js';
 import {formatUsageHint} from './usage-hints.js';
 
+// Recognized caller contexts, not a claim of Native coverage for every target/command combination.
+const speechCommands=new Set([
+  'next_item','previous_item','next_focusable_item','previous_focusable_item','next_heading','previous_heading',
+  'next_form_control','read_current','read_focused','activate_button','activate_form_control','enter','escape','enter_text',
+  'ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','Shift+Home','Shift+End','Backspace','Delete','ControlOrMeta+A',
+]);
+
 /** Keep Native-exposed landmark roles even when their accessible name is empty. */
 export type VoiceOverContainer = {id:string;name:string;inferredName?:boolean;/** Native exposed first-child name, used for an unnamed dialog summary. */ firstChildName?:string;/** Name of the immediate exposed AX child on the path to the target; empty is meaningful. */ entryChildName?:string;role:string;items:number;rows?:number;columns?:number};
 export type VoiceOverCell = {table:string;row:number;column:number;rows:number;columns:number;header:string;rowSpan:number;columnSpan:number};
@@ -24,6 +31,7 @@ export type VoiceOverSpeechInput = {
 /** Existing English wording rules. Returns a hint candidate, not a native speech queue or completion signal. */
 export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:VoiceOverSpeechContext={containers:[]}) {
   const {target:node,command,focused,edit,checkedStateChanged}=input;
+  if(!speechCommands.has(command))throw new RangeError(`Unsupported VoiceOver speech command: ${command}`);
   const referenceBrowser=input.referenceBrowser??'safari';
   if(referenceBrowser!=='safari'&&referenceBrowser!=='chrome')throw new Error('Reference browser must be safari or chrome');
   const context:VoiceOverSpeechContext={...previous,containers:[...previous.containers],cell:previous.cell&&{...previous.cell},column:previous.column&&{...previous.column}};
