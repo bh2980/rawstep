@@ -36,7 +36,7 @@ export function generateArticleEntryUpdate(){
  const pages:Record<string,string>={},cases:Case[]=[];
  const add=(sourceCaseId:string,html:string,chords:string[])=>{
   const key=sourceCaseId.replaceAll('.','-');pages[key]=html;
-  cases.push({...base.cases[0]!,id:'article-entry-update-v1.'+key,page:'pages/'+key+'.html',chords,axes:{family:'article-entry-update',role:'button',partition:'regression',exposure:'inspected',templateGroup:'article-entry-update-v1',contrastGroup:'article-entry-update-v1',command:'focus-entry-and-return',sourceCaseId}});
+  cases.push({...base.cases[0]!,id:'article-entry-update-v1.'+key,page:'pages/'+key+'.html',chords,axes:{family:'article-entry-update',role:'button',partition:'regression',exposure:'calibration',evaluationUse:'inspected-regression',templateGroup:'article-entry-update-v1',contrastGroup:'article-entry-update-v1',command:'focus-entry-and-return',sourceCaseId}});
  };
  for(const c of base.cases)add(c.id,base.pages[c.page.slice(6,-5)]!,c.chords);
  const original=base.pages['heading-before']!,legacyChords=['Tab','Tab','Shift+Tab','Tab','Tab','Shift+Tab'];

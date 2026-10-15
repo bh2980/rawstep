@@ -24,8 +24,12 @@ test('article contrasts share commands and real focus targets, with browser-spec
 test('the representative update suite preserves every inspected page and command sequence',async()=>{
  const {readFile}=await import('node:fs/promises'),{generateArticleEntryUpdate}=await import('../src/generate/article-context-speech.js');
  const fixture=JSON.parse(await readFile(new URL('../../../tests/fixtures/voiceover-evidence/native-article-entry-child-v2-2026-10-15.json',import.meta.url),'utf8'));
- const update=generateArticleEntryUpdate();assert.equal(update.cases.length,11);assert.equal(update.cases.reduce((n,c)=>n+c.chords.length,0),74);
+ const {planDatasetSplit,actionSequenceGroup}=await import('../src/dataset-split.js');
+ const update=generateArticleEntryUpdate();
+ const split=planDatasetSplit(update.cases.map(c=>({id:c.id,templateGroup:c.axes.templateGroup!,contrastGroup:c.axes.contrastGroup,actionSequenceGroup:actionSequenceGroup(c.chords),exposure:c.axes.exposure as 'calibration'})),'article-update-regression');
+ assert.ok(split.groups.every(g=>g.split==='train'&&g.calibrationForced));
+ assert.equal(update.cases.length,11);assert.equal(update.cases.reduce((n,c)=>n+c.chords.length,0),74);
  for(const c of update.cases){const original=fixture.pages.find((p:{id:string})=>p.id===c.axes.sourceCaseId);
-  assert.ok(original);assert.equal(update.pages[c.page.slice(6,-5)],original.html);assert.deepEqual(c.chords,original.chords);assert.equal(c.axes.exposure,'inspected');
+  assert.ok(original);assert.equal(update.pages[c.page.slice(6,-5)],original.html);assert.deepEqual(c.chords,original.chords);assert.equal(c.axes.exposure,'calibration');assert.equal(c.axes.evaluationUse,'inspected-regression');
  }
 });
