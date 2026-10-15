@@ -5,7 +5,7 @@ import {dirname,join,resolve} from "node:path";
 import {pathToFileURL} from "node:url";
 import {casesFingerprint,plannedCaseSet,type CaseRecord,type CaseSet} from "./cases.js";
 import {evaluationSourceHashes,validateRuns} from "./validate.js";
-import {comparePageState,nativePageState,summarizeState} from "./state.js";
+import {comparePageState,nativePageState,summarizeState,type PageState} from "./state.js";
 import type {AxDump} from "./axdump.js";
 import {normalize} from "./compare.js";
 import {speechAttribution} from "./session.js";
@@ -73,20 +73,23 @@ if(import.meta.url===pathToFileURL(process.argv[1]??'').href){
   const planned=plannedCaseSet(set,nativePlan);
   const selected={...planned,cases:planned.cases.filter(c=>partition==='all'||c.axes.partition===partition)};
   if(!selected.cases.length)throw new Error('No cases in requested partition');
-  const report=validateRuns(selected,native,model),states=[];
+  const states=[],nativeFinalStates=new Map<string,PageState|undefined>();
   const qualityWarnings=selected.cases.flatMap(c=>native.has(c.id)?captureWarnings(native.get(c.id)!):[]);
   for(const c of selected.cases)for(const [i,chord]of c.chords.entries()){
     const a=native.get(c.id),b=model.get(c.id),x=a?.steps[i],y=b?.steps[i];
     const ax=x?.axPath?await readFile(join(nativeDir,x.axPath),'utf8').then(s=>JSON.parse(s) as AxDump).catch(()=>undefined):undefined;
     if(ax?.truncated||ax?.stringTruncations)qualityWarnings.push({caseId:c.id,step:i,flag:'native-AX-truncated'});
-    const state=comparePageState(ax?nativePageState(ax):undefined,y?.state);
-    if(!a?.start.aligned||!b?.start.aligned||x?.foregroundError||y?.foregroundError||x?.chord!==chord||y?.chord!==chord||y?.reason==='unsupported'){state.matched=false;state.differences.push('workflow missing, unsupported or unaligned');}
+    const nativeState=ax?nativePageState(ax):undefined;
+    if(i===c.chords.length-1)nativeFinalStates.set(c.id,nativeState);
+    const state=comparePageState(nativeState,y?.state);
+    if(!a?.start.aligned||!b?.start.aligned||x?.foregroundError||y?.foregroundError||x?.chord!==chord||y?.chord!==chord||y?.reason==='unsupported'){state.matched=false;state.focusMatched=null;state.differences.push('workflow missing, unsupported or unaligned');}
     states.push({caseId:c.id,step:i,chord,...state});
   }
+  const report=validateRuns(selected,native,model,nativeFinalStates);
   await mkdir(dirname(out),{recursive:true});await mkdir(out);
   const summary={schemaVersion:2,evaluationProtocol:report.evaluationProtocol,evaluatorSourceHashes:await evaluationSourceHashes(),analyzedAt:new Date().toISOString(),partition,casesSha256:hash,sourceHashes,referenceBrowser:referenceBrowsers.voiceover,capturePlan:{caseSetCases:set.cases.length,nativePlannedCaseIds:planned.cases.map(c=>c.id),explicit:nativePlan!==undefined},
     nativeRun:nativeDir,modelRun:modelDir,metrics:{cases:report.plannedCases,aligned:report.alignedCases,all:report.all,content:report.content,spoken:report.spoken,fullSpeech:report.fullSpeech,fullSpeechExact:report.fullSpeechExact,contentFullSpeech:report.contentFullSpeech,verdicts:report.verdicts,state:summarizeState(states),funnel:report.funnel,conditionalSpeech:report.conditionalSpeech,conditionalFullSpeech:report.conditionalFullSpeech,evaluation:report.evaluation},
-    queue:firstDivergences(report),hints:hintComparison(report),qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Hints have a separate comparison; full-speech metrics retain their ordering with other receipts.'};
+    queue:firstDivergences(report),hints:hintComparison(report),taskOutcomes:report.taskOutcomes,qualityWarnings,note:'Queue groups only the first divergence per case to limit cascading-order inflation. Quality warnings require curation and do not remove original failures from metrics. Setup, language, unsupported commands and behavioral mismatches stay distinct. Post-action state is a target, not a model input. Hints have a separate comparison; full-speech metrics retain their ordering with other receipts.'};
   await writeFile(join(out,'summary.json'),JSON.stringify(summary,null,2),{flag:'wx'});
   await writeFile(join(out,'speech.json'),JSON.stringify(report,null,2),{flag:'wx'});
   await writeFile(join(out,'state.json'),JSON.stringify(states,null,2),{flag:'wx'});

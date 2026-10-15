@@ -92,3 +92,22 @@ export function generateFocusContext(){
   add(units,'cell-input','prefilled-tab',['Tab','Right','Tab','Shift+Tab','Left','VO+Left','VO+Right'],prefill);
   return {pages,cases};
 }
+
+/** Separate outer object navigation from explicit interaction with composite controls. */
+export function generateListboxInteraction(){
+  const pages:Record<string,string>={},cases:Case[]=[];
+  const options=['Coast','Forest','Harbor'];
+  const variants=[
+    {id:'native',body:'<label for="routes">Destination</label><select id="routes" size="3">'+options.map((name,i)=>`<option${i===1?' selected':''}>${name}</option>`).join('')+'</select>',entry:['VO+Right','VO+Right']},
+    ...(['single','none','multiple'] as const).map(mode=>({id:`aria-${mode}`,body:`<div id="routes" role="listbox" aria-label="Destination" tabindex="0"${mode==='multiple'?' aria-multiselectable="true"':''}>`+options.map((name,i)=>`<div role="option" aria-selected="${mode==='none'?false:mode==='multiple'?i!==1:i===1}"><span>${name}</span></div>`).join('')+'</div>',entry:['VO+Right']})),
+  ];
+  for(const variant of variants)for(const interaction of [false,true]){
+    const id=`${variant.id}-${interaction?'interact':'outer'}`;
+    pages[id]=`<!doctype html><html lang="en"><meta charset="utf-8"><title>Destination preferences</title><body><button id="before" autofocus>Before marker</button>${variant.body}<button id="after">After marker</button></body></html>`;
+    cases.push({id:`listbox-interaction-v1.${id}`,page:`pages/${id}.html`,
+      chords:[...variant.entry,...(interaction?['VO+Shift+Down','VO+Right','VO+Left','VO+Shift+Up','VO+Right','VO+Left']:['VO+Right','VO+Left','Tab','Shift+Tab'])],
+      captureAxAfterSteps:true,listen:{minWaitMs:1000,quietMs:800,maxWaitMs:6000},
+      axes:{family:'composite-listbox',role:'listbox',state:variant.id,partition:'train',exposure:'calibration',templateGroup:`listbox-interaction-v1.${variant.id}`,contrastGroup:'listbox-interaction-v1.selection-and-interaction',command:interaction?'enter-exit-interaction':'outer-object-and-tab'}});
+  }
+  return {pages,cases};
+}

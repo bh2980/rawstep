@@ -6,7 +6,7 @@ import {formatUsageHint} from './usage-hints.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v7' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v8' as const;
 export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v2' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
@@ -20,6 +20,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Quick navigation covers next/previous heading and next form control only. Native previous-heading input is unresolved in the local collector. Group interaction, rotor, speech queue/interruption and cross-frame navigation are unimplemented.',
   'Live regions are polled during an explicit minimum observation window; successive observed text changes are preserved. Polling can miss brief changes and does not simulate native queue timing or interruption.',
   'List item markers, positions, nested list levels and end boundaries are projected from Chromium and DOM metadata, calibrated to local captures.',
+  'Safari listboxes are outer reading units until explicit interaction. Native select and ARIA selected-option summaries differ. Listbox interaction itself remains unsupported pending native calibration.',
   'Linked text headings are projected as one reading unit, preserving nesting-dependent navigation wording and actual anchor focus. Mixed interactive/image headings need further calibration.',
   'Articles and named figures have observed entry/exit stops. Simple time elements with date-only datetime attributes repeat their text in the captured profile; other datetime formats remain uncalibrated.',
   'Fragment activation moves the reading cursor to an observed same-document hash target without changing DOM focus manually. Repeated activation of an unchanged hash and browser-specific Tab preferences remain uncalibrated.',
@@ -125,7 +126,7 @@ export class MockVoiceOverBackend implements Backend {
     return {
       backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
       profile: this.profile, capabilities: this.capabilities, limitations: [...MOCK_VOICEOVER_LIMITATIONS,...(!this.wording&&this.referenceBrowser==='chrome'?['Chrome reference profile is experimental: native controls and selected table-field caret contexts are calibrated; broader structure, partial selections, non-Latin interior word positions, editing hints and task fidelity require independent validation.']:[])], ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
-      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'2':'7', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
+      environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: this.referenceBrowser==='chrome'?'2':'8', platformName: 'chromium', locale: 'en', nativeScreenReader: false,...(!this.wording?{referenceBrowser:this.referenceBrowser}:{}) },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',
     };
   }
@@ -355,6 +356,7 @@ export class MockVoiceOverBackend implements Backend {
       return false;
     };
     const labelControls = (n: AXNode): string[] => namedLeafRoles.has(stringValue(n.role)) ? [stringValue(n.name)] : children(n).flatMap(labelControls);
+    const listboxOptions=(n:AXNode):{name:string;selected:boolean}[]=>children(n).flatMap(c=>stringValue(c.role)==='option'?[{name:stringValue(c.name),selected:property(c,'selected')===true}]:stringValue(c.role)==='listbox'?[]:listboxOptions(c));
     const listText = (n: AXNode): string => {
       const role = stringValue(n.role);
       if (role === 'ListMarker' || namedLeafRoles.has(role) || role === 'list') return '';
@@ -434,6 +436,7 @@ export class MockVoiceOverBackend implements Backend {
           if(role==='article')semantic.name=name;
           if(projection){semantic.level=projection.level;semantic.headingParts=projection.parts;semantic.headingLink=!!projection.target;if(projection.name)semantic.name=projection.name;if(projection.outer)semantic.headingLinkOrder='link-heading';}
           if(timeUnit){semantic.name=timeUnit.name;semantic.timeValueRepeated=timeUnit.repeated;}
+          if(role==='listbox'&&this.referenceBrowser==='safari')semantic.listboxSummary={native:meta?.tag==='select',options:listboxOptions(node)};
           if (list) { semantic.setSize = children(node).filter(c => stringValue(c.role) === 'listitem').length; semantic.level = innerScopes.filter(c => c.role === 'list').length; }
           if (table && scope) { semantic.rows = (scope as Container).rows; semantic.columns = (scope as Container).columns; }
           if (description) semantic.setSize = children(node).filter(c => c.backendDOMNodeId !== undefined && dom.get(c.backendDOMNodeId)?.tag === 'dt').length;
@@ -592,7 +595,8 @@ export class MockVoiceOverBackend implements Backend {
       if (move) {
         const currentIndex = this.nodes.findIndex(node => node.identity === this.cursor);
         let index = currentIndex + move.step;
-        while (move.match && index >= 0 && index < this.nodes.length && !move.match(this.nodes[index]!.semantic.role)) index += move.step;
+        while (index >= 0 && index < this.nodes.length && (move.match&&!move.match(this.nodes[index]!.semantic.role)
+          || !this.wording&&this.referenceBrowser==='safari'&&this.nodes[index]!.containers?.some(c=>c.role==='listbox'&&c.id!==this.nodes[index]!.axId))) index += move.step;
         if (index >= 0 && index < this.nodes.length) {
           this.cursor = this.nodes[index]!.identity;
           if (!this.wording) { await this.focusCursor(signal); await this.refresh(signal); }

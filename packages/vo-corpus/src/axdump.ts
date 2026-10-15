@@ -72,11 +72,12 @@ export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string
 }
 
 /** Exit code 2 (accessibility permission missing) and other failures throw with the dumper's message. */
-export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number } = {}): Promise<AxDump> {
+export async function dumpAxTree(machine: Machine, app: string, options: { maxDepth?: number; maxNodes?: number; maxStringLength?: number; focusStartURL?: string } = {}): Promise<AxDump> {
   const args = ["--app", app];
   if (options.maxDepth) args.push("--max-depth", String(options.maxDepth));
   if (options.maxNodes) args.push("--max-nodes", String(options.maxNodes));
   if (options.maxStringLength) args.push("--max-string-length", String(options.maxStringLength));
+  if (options.focusStartURL) args.push("--focus-start-url", options.focusStartURL);
   try {
     const stdout = await machine.exec(await machine.place(await ensureBinary()), args);
     return JSON.parse(stdout) as AxDump;

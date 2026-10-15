@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "referenceBrowser": "safari",
+  "sourceRun": "elements-v1-2026-10-14T05-11-20-479Z",
+  "sourceRecordsSha256": "5bf26da70f514fbab7044e02c7d84d0a0f0dfef4236b9070b0a57a585ccb54db",
+  "scope": "Inspected legacy regression evidence; full raw receipt text retained. No independent VO cursor or modern attribution evidence. Starting keyboard focus is explicitly prepared on the public marker in the regression harness.",
+  "cases": [
+    {
+      "sourceCaseId": "select-listbox-size.next",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>select-listbox-size</title></head><body><button type=\"button\" autofocus>Before marker</button><label for=\"s\">Ruby ant target</label><select id=\"s\" size=\"3\"><option>Ruby ant a</option><option>Ruby ant b</option><option>Ruby ant c</option></select><button type=\"button\">After marker</button></body></html>",
+      "htmlSha256": "7b026921c6863ad8794ad880a12f50e7a4213c3be3952c70e6d6eca14bc5a27a",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3282045,
+              "text": "Ruby ant target"
+            },
+            {
+              "t": 3282614,
+              "text": "You are currently on a selectable text, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3284381,
+              "text": "Ruby ant target list box"
+            },
+            {
+              "t": 3284932,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3286664,
+              "text": "After marker button"
+            },
+            {
+              "t": 3287228,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3288942,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3291208,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 3293524,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 3295800,
+              "text": "Ruby ant target list box"
+            },
+            {
+              "t": 3296366,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "select-listbox-size.tab",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>select-listbox-size</title></head><body><button type=\"button\" autofocus>Before marker</button><label for=\"s\">Ruby ant target</label><select id=\"s\" size=\"3\"><option>Ruby ant a</option><option>Ruby ant b</option><option>Ruby ant c</option></select><button type=\"button\">After marker</button></body></html>",
+      "htmlSha256": "7b026921c6863ad8794ad880a12f50e7a4213c3be3952c70e6d6eca14bc5a27a",
+      "steps": [
+        {
+          "chord": "Tab",
+          "utterances": [
+            {
+              "t": 3304844,
+              "text": "Ruby ant target list box"
+            },
+            {
+              "t": 3305413,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "Shift+Tab",
+          "utterances": [
+            {
+              "t": 3307268,
+              "text": "Before marker button"
+            },
+            {
+              "t": 3307836,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "listbox-role.next",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>listbox-role</title></head><body><button type=\"button\" autofocus>Before marker</button><div role=\"listbox\" aria-label=\"Rust hen list\" tabindex=\"0\"><div role=\"option\" aria-selected=\"false\">Rust hen one</div><div role=\"option\" aria-selected=\"true\">Rust hen two</div><div role=\"option\" aria-selected=\"false\">Rust hen three</div></div><button type=\"button\">After marker</button></body></html>",
+      "htmlSha256": "7f70d6470a0c0d8ff81ebb8fdd9c1d6d0b3dcc87515b2390e7babb172189872c",
+      "steps": [
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 824649,
+              "text": "Rust hen list list box 1 item selected. Rust hen two selected (2 of 3)"
+            },
+            {
+              "t": 825208,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 826957,
+              "text": "After marker button"
+            },
+            {
+              "t": 827523,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 829235,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 831536,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 833818,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Right",
+          "utterances": [
+            {
+              "t": 836119,
+              "text": "After marker button"
+            }
+          ]
+        },
+        {
+          "chord": "VO+Left",
+          "utterances": [
+            {
+              "t": 838415,
+              "text": "Rust hen list list box 1 item selected. Rust hen two selected (2 of 3)"
+            },
+            {
+              "t": 838979,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceCaseId": "listbox-role.tab",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>listbox-role</title></head><body><button type=\"button\" autofocus>Before marker</button><div role=\"listbox\" aria-label=\"Rust hen list\" tabindex=\"0\"><div role=\"option\" aria-selected=\"false\">Rust hen one</div><div role=\"option\" aria-selected=\"true\">Rust hen two</div><div role=\"option\" aria-selected=\"false\">Rust hen three</div></div><button type=\"button\">After marker</button></body></html>",
+      "htmlSha256": "7f70d6470a0c0d8ff81ebb8fdd9c1d6d0b3dcc87515b2390e7babb172189872c",
+      "steps": [
+        {
+          "chord": "Tab",
+          "utterances": [
+            {
+              "t": 847441,
+              "text": "Rust hen list list box 1 item selected. Rust hen two selected (2 of 3)"
+            },
+            {
+              "t": 848020,
+              "text": "You are currently on a list box, inside of web content. To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        },
+        {
+          "chord": "Shift+Tab",
+          "utterances": [
+            {
+              "t": 849859,
+              "text": "Before marker button"
+            },
+            {
+              "t": 850426,
+              "text": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

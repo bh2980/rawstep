@@ -1,4 +1,4 @@
-// Dumps the macOS accessibility tree of a browser's web area as JSON. Read-only: AX attribute reads only, no activation, keys or clicks.
+// Dumps the browser web AX tree. Read-only unless --focus-start-url explicitly requests verified fixture-marker focus.
 // Usage: axdump --app Safari|"Google Chrome" [--max-depth 60] [--max-nodes 5000]
 // Exit codes: 0 ok, 1 no app/window/web area or bad usage, 2 accessibility permission missing.
 import AppKit
@@ -14,6 +14,7 @@ var appName = ""
 var maxDepth = 60
 var maxNodes = 5000
 var maxStringLength = 500
+var focusStartURL: String?
 var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
   let flag = arguments.removeFirst()
@@ -24,6 +25,7 @@ while !arguments.isEmpty {
   case "--max-depth": maxDepth = Int(value) ?? maxDepth
   case "--max-nodes": maxNodes = Int(value) ?? maxNodes
   case "--max-string-length": maxStringLength = Int(value) ?? maxStringLength
+  case "--focus-start-url": focusStartURL = value
   default: fail("unknown flag \(flag)")
   }
 }
@@ -77,6 +79,27 @@ guard let webArea = findWebArea(window) else {
   fail("no AXWebArea in the \(appName) window. Chrome exposes its web tree only while an assistive technology is active (VoiceOver on).")
 }
 
+if let expected = focusStartURL {
+  let actual = (attribute(webArea, "AXURL") as? URL)?.absoluteString ?? string(webArea, "AXURL")
+  guard actual == expected else { fail("fixture focus URL differs from expected page") }
+  var queue = [webArea], markers: [AXUIElement] = [], scanned = 0
+  while !queue.isEmpty && scanned < 20000 {
+    let element = queue.removeFirst(); scanned += 1
+    if string(element, "AXRole") == "AXButton",
+       (string(element, "AXTitle") == "Before marker" || string(element, "AXDescription") == "Before marker"),
+       (string(element, "AXDOMIdentifier") ?? "before") == "before",
+       !markers.contains(where: { CFEqual($0, element) }) { markers.append(element) }
+    queue.append(contentsOf: elements(element, "AXChildren"))
+  }
+  guard queue.isEmpty, markers.count == 1 else { fail("fixture start marker missing or ambiguous") }
+  guard AXUIElementSetAttributeValue(markers[0], "AXFocused" as CFString, kCFBooleanTrue) == .success else { fail("cannot focus fixture start marker") }
+  var verified = false
+  for _ in 0..<20 {
+    if let current = attribute(application, "AXFocusedUIElement"), isElement(current), CFEqual(current, markers[0]) { verified = true; break }
+    Thread.sleep(forTimeInterval: 0.05)
+  }
+  guard verified else { fail("fixture start focus was not independently confirmed") }
+}
 let focused: AXUIElement? = { let f = attribute(application, "AXFocusedUIElement"); return isElement(f) ? (f as! AXUIElement) : nil }()
 
 let wanted: [String] = [
@@ -167,6 +190,7 @@ result["focusedPath"] = focusedPath ?? NSNull()
 if let focused {
   result["focusedRole"] = string(focused, "AXRole") ?? NSNull()
 }
+if let focusStartURL { result["focusPreparation"] = ["method": "AXFocused", "url": focusStartURL, "verified": true] as [String: Any] }
 let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
 FileHandle.standardOutput.write(data)
 FileHandle.standardOutput.write(Data("\n".utf8))

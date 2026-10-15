@@ -8,6 +8,8 @@ export interface PageState {
   controls: Record<string, ControlState>;
   /** Independently captured AX identity plus actual DOM/native state; not a simulator prediction or VO cursor. */
   objects?: StateObject[];
+  /** Independently observed exposed static text, for predeclared synthetic-task outcome checks. */
+  texts?: string[];
   objectErrors?: string[];
   /** Native state-bearing objects lacking DOM IDs; a unique AX identity may still join them in newer observations. */
   unidentifiedControls?: number;
@@ -40,8 +42,12 @@ export const fixtureStateScript = `(() => {
 export function nativePageState(dump: AxDump): PageState | undefined {
   if (dump.truncated || dump.stringTruncations) return undefined;
   const controls: PageState["controls"] = {};
-  const objects: StateObject[] = [], objectErrors: string[] = [], sourceObjects = new Map<string,StateObject>(), focus = focusedAxNode(dump);
+  const objects: StateObject[] = [], texts = new Set<string>(), objectErrors: string[] = [], sourceObjects = new Map<string,StateObject>(), focus = focusedAxNode(dump);
   function visit(n: AxNode) {
+    if(n.AXRole==='AXStaticText'){
+      const text=typeof n.AXValue==='string'?n.AXValue:nativeNodeName(n);
+      if(text)texts.add(text);
+    }
     const id = n.AXDOMIdentifier, role = nativeStateRole(n);
     const s: PageState["controls"][string] = {};
     if (["AXTextField", "AXTextArea", "AXSlider", "AXComboBox", "AXIncrementor"].includes(n.AXRole ?? "") && n.AXSubrole !== "AXSecureTextField" && ["string", "number"].includes(typeof n.AXValue)) s.value = String(n.AXValue);
@@ -74,11 +80,13 @@ export function nativePageState(dump: AxDump): PageState | undefined {
   }
   visit(dump.root);
   const unidentifiedControls=objects.filter(o=>!o.id&&Object.keys(o.state).length).length;
-  return { focusId: String(focus?.AXDOMIdentifier || "") || null, controls, objects, ...(unidentifiedControls ? { unidentifiedControls } : {}), ...(objectErrors.length?{objectErrors}:{}) };
+  return { focusId: String(focus?.AXDOMIdentifier || "") || null, controls, objects, texts:[...texts], ...(unidentifiedControls ? { unidentifiedControls } : {}), ...(objectErrors.length?{objectErrors}:{}) };
 }
 
 const stateRoles = new Set(["button", "link", "checkbox", "radio", "switch", "textbox", "combobox", "spinbutton", "slider", "tab", "option", "popupbutton", "disclosuretriangle"]);
 function nativeStateRole(n: AxNode) {
+  // Chrome exposes native summary as an AXButton with this role description; retain the raw role in its AX snapshot.
+  if(n.AXRole==='AXButton'&&n.AXRoleDescription==='disclosure triangle')return 'disclosuretriangle';
   if (n.AXRoleDescription === "tab") return "tab";
   if (n.AXSubrole === "AXToggle") return "button";
   return ({ AXTextField: "textbox", AXTextArea: "textbox", AXRadioButton: "radio", AXIncrementor: "spinbutton" } as Record<string,string>)[n.AXRole ?? ""] ?? (n.AXRole ?? "").replace(/^AX/, "").toLowerCase();
@@ -105,7 +113,7 @@ export async function fixturePageState(page: Page): Promise<PageState> {
         objects.push({ ...observed, role, name: String(node.name?.value ?? "").trim(), sourceId:`chromium-ax:${node.nodeId}` });
       } catch { objectErrors.push(`Unresolved ${role} DOM state`); }
     }
-    return { ...legacy, objects, ...(objectErrors.length ? { objectErrors } : {}) };
+    return { ...legacy, objects, texts:[...new Set(tree.nodes.filter(n=>!n.ignored&&n.role?.value==='StaticText').map(n=>String(n.name?.value??'')).filter(Boolean))], ...(objectErrors.length ? { objectErrors } : {}) };
   } finally {
     await cdp.send("Runtime.releaseObjectGroup", { objectGroup }).catch(() => {});
     await cdp.detach();
@@ -143,6 +151,7 @@ function compareStateObjects(native: PageState, simulator: PageState) {
   }
   const nativeFocus = a.find(o => o.focused), modelFocus = b.find(o => o.focused);
   coverage.focusComparable = !!nativeFocus && !!modelFocus && pairs.has(nativeFocus);
+  const focusMatched=coverage.focusComparable?pairs.get(nativeFocus!)===modelFocus:null;
   if (coverage.focusComparable && pairs.get(nativeFocus!) !== modelFocus) differences.push("keyboard focus objects differ");
   for (const [object, target] of pairs) for (const [property, value] of Object.entries(object.state)) {
     const actual = target.state[property as keyof ControlState];
@@ -156,7 +165,7 @@ function compareStateObjects(native: PageState, simulator: PageState) {
   const missing = !coverage.focusComparable && coverage.comparedProperties === 0;
   if (missing) differences.push("no independently joinable focus or state properties");
   if (native.objectErrors?.length || simulator.objectErrors?.length) differences.push("state observation contains unresolved objects");
-  return { matched: !missing && differences.length === 0, missing, differences, coverage };
+  return { matched: !missing && differences.length === 0, missing, differences, coverage, focusMatched };
 }
 
 export function comparePageState(native: PageState | undefined, simulator: PageState | undefined) {
@@ -170,7 +179,7 @@ export function comparePageState(native: PageState | undefined, simulator: PageS
     unidentifiedNativeControls: native?.unidentifiedControls ?? 0,
     identityMethod: "dom-id" as "dom-id" | "unique-ax-identity", ambiguousObjects: 0, roleNameJoins: 0,
   };
-  if (!native || !simulator) return { matched: false, missing: true, differences: ["state evidence missing"], coverage };
+  if (!native || !simulator) return { matched: false, missing: true, differences: ["state evidence missing"], coverage, focusMatched:null };
   if (coverage.focusComparable && native.focusId !== simulator.focusId) differences.push(`focus: native=${native.focusId}, simulated=${simulator.focusId}`);
   for (const [id, properties] of Object.entries(native.controls)) for (const [property, value] of Object.entries(properties)) {
     const actual = simulator.controls[id]?.[property as keyof typeof properties];
@@ -183,7 +192,7 @@ export function comparePageState(native: PageState | undefined, simulator: PageS
   const missing = !coverage.focusComparable && coverage.nativeProperties === 0;
   if (missing) differences.push("no independently joinable focus or state properties");
   if (native.objectErrors?.length || simulator.objectErrors?.length) differences.push("state observation contains unresolved objects");
-  return { matched: !missing && differences.length === 0, missing, differences, coverage };
+  return { matched: !missing && differences.length === 0, missing, differences, coverage, focusMatched:coverage.focusComparable?native.focusId===simulator.focusId:null };
 }
 
 /** Agreement on a bounded independently joined state oracle, never Navigation Accuracy or complete State Accuracy. */
@@ -193,6 +202,7 @@ export function summarizeState(rows: ReturnType<typeof comparePageState>[]) {
     scope: "Native AX keyboard focus and exposed state properties joined by DOM ID or independently unique AX role/name; excludes VO reading cursor, unexposed selection/state properties and ambiguous identities",
     matched: rows.filter(r => r.matched).length, planned: rows.length, missing: rows.filter(r => r.missing).length,
     focusComparable: rows.filter(r => r.coverage.focusComparable).length,
+    keyboardFocus: {matched:rows.filter(r=>r.focusMatched===true).length,comparable:rows.filter(r=>r.focusMatched!==null).length,planned:rows.length,scope:'Native AX keyboard focus only; not VoiceOver reading cursor or Navigation Accuracy'},
     nativeProperties: rows.reduce((n, r) => n + r.coverage.nativeProperties, 0),
     comparedProperties: rows.reduce((n, r) => n + r.coverage.comparedProperties, 0),
     simulatorOnlyProperties: rows.reduce((n, r) => n + r.coverage.simulatorOnlyProperties, 0),

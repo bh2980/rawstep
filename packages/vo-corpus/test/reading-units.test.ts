@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {generateReadingUnits,generateReadingReturns,generateReadingState,generateFocusContext} from '../src/generate/reading-units.js';
+import {generateReadingUnits,generateReadingReturns,generateReadingState,generateFocusContext,generateListboxInteraction} from '../src/generate/reading-units.js';
 import {planDatasetSplit} from '../src/dataset-split.js';
 
 test('reading-unit contrasts stay grouped and reserved compositions contain no variant titles',()=>{
@@ -44,4 +44,19 @@ test('focus-entry experiments share input identity across entry commands and ret
   assert.equal(set.pages['prefilled-tab'],set.pages['prefilled-vo']);
   assert.equal(set.pages['typed-return-end'],units.pages['cell-input']);
   assert.ok(set.cases.every(c=>c.axes.partition==='train'&&c.axes.exposure==='calibration'));
+});
+
+test('composite interaction contrasts retain identical input bytes and one connected calibration group',()=>{
+  const set=generateListboxInteraction();
+  for(const variant of ['native','aria-single','aria-none','aria-multiple']){
+    assert.equal(set.pages[`${variant}-outer`],set.pages[`${variant}-interact`]);
+    const pair=set.cases.filter(c=>c.axes.state===variant);
+    assert.equal(pair.length,2);
+    assert.equal(pair[0]!.axes.templateGroup,pair[1]!.axes.templateGroup);
+  }
+  assert.equal(set.pages['aria-none-outer']!.replaceAll('aria-selected="false"','aria-selected="?"'),set.pages['aria-single-outer']!.replaceAll(/aria-selected="(?:true|false)"/g,'aria-selected="?"'));
+  const split=planDatasetSplit(set.cases.map(c=>({id:c.id,templateGroup:c.axes.templateGroup!,contrastGroup:c.axes.contrastGroup,exposure:'calibration' as const,fixedSplit:'train' as const})),'fixed');
+  assert.equal(split.groups.length,1);
+  assert.equal(split.groups[0]!.members.length,8);
+  assert.ok(set.cases.every(c=>c.captureAxAfterSteps&&c.axes.partition==='train'));
 });

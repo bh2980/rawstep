@@ -47,7 +47,7 @@ The wrapper accepts normal runner options including `policy`, `allowedActions`, 
 
 ## Browser reference profiles and evaluation limits
 
-`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v7`.
+`referenceBrowser: 'safari'` (default) selects `english-dom-navigation-evidence-v8`.
 `referenceBrowser: 'chrome'` selects the experimental `english-chrome-navigation-evidence-v2`.
 The option selects observed VoiceOver conventions; the renderer remains Chromium. `browserExecutablePath` can pin a
 compatible Chromium/Chrome build. Corpus runs record the actual renderer version separately from the native reference
@@ -72,7 +72,13 @@ See the [collector evaluation audit](../packages/vo-corpus/README.md#evaluation-
 
 ## Supported profile
 
-The current `english-dom-navigation-evidence-v7` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+The current `english-dom-navigation-evidence-v8` profile uses Chromium's CDP accessibility tree and DOM metadata for the main document. It projects group/landmark boundaries, lists, tables, linked-heading reading units and article/figure boundaries. It preserves associated label text in DOM order, including the separately observed trailing label stops. Selected wording, editing and state-change receipts use local macOS/Safari 26.6.2 observations; see [the calibration scope](mock-voiceover-evidence.md). It uses Chromium rather than reproducing Safari's accessibility engine.
+
+Safari v8 treats an outer listbox as one object: next/previous skip its internal options. A single selected ARIA option
+is summarized with its position; the inspected native HTML select omits that summary. This is based on four inspected
+legacy navigation/Tab workflows, not an independent evaluation. Explicit listbox interaction, multiple-selection
+summaries and Chrome counterparts are pending the separate `listbox-interaction-v1` native experiment. Internal AX
+options remain available to the existing combobox active-descendant observer; the widget's DOM is not rewritten.
 
 The native profile also synthesizes selected English usage hints from role, state, enclosing container and navigation
 direction. It queues a hint 600 ms after the object's main receipt, polls it while observing, cancels pending hints on

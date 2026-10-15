@@ -26,6 +26,8 @@ export interface Case {
   listen?: { minWaitMs?: number; quietMs?: number; maxWaitMs?: number };
   /** Save a native AX snapshot after each action, in addition to the initial page tree. */
   captureAxAfterSteps?: boolean;
+  /** Frozen outcome targets, evaluated after execution; never supplied to the replay policy. */
+  taskOutcome?: import("./task-outcomes.js").TaskOutcome;
   /** What the case covers, for coverage tables: e.g. { role: "checkbox", state: "checked", name: "label-wrap", command: "next" }. */
   axes: Record<string, string>;
 }
@@ -53,7 +55,8 @@ export interface CaseRecord {
   unsupportedReason?: string;
   pageContext?: import("./real-pages.js").PageContext;
   /** Speech after the start chord (VO+Home); aligned when it names START_MARKER. */
-  start: { aligned: boolean; speech: string[]; commands?: string[]; axPath?: string; anchor?: { name: string; level?: number }; pageLoad?: import("./session.js").Heard };
+  start: { aligned: boolean; speech: string[]; commands?: string[]; axPath?: string; anchor?: { name: string; level?: number }; pageLoad?: import("./session.js").Heard;
+    focusPreparation?:{method:'AXFocused';requestedAt:number;endedAt:number;error?:string} };
   steps: {
     chord: string; utterances: { t: number; text: string }[]; reason: "quiet" | "deadline" | "unsupported";
     /** Relative to the run directory. AX evidence is separate from speech and may arrive later. */

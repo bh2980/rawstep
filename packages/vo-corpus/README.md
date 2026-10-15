@@ -1233,3 +1233,91 @@ Release-check reports from the committed evaluator sources are
 source hashes. Comparison failure can include missing observation or identity ambiguity; it is not automatically a
 confirmed simulator-state error. The known full-text differences and unmeasured native cursor keep replacement and
 independent 90% achievement unproven.
+
+## Practical task validation (2026-10-15)
+
+`practical-tasks-v1` adds three new compositions: bulletin registration (checkbox, text entry and save), delivery
+reservation (native disclosure, radio arrows and save), and basket checkout (table-contained buttons, quantity changes,
+enable/disable transition and confirmation). Before observing outputs, all HTML, commands and final-state targets were
+frozen at input SHA `d84109d6a796f04c26c32b0a50bf80b9668e106025246f70e3a310669603a968`, against the frozen Safari v8 /
+Chrome v2 JS build `b045908a729093d8af360d842c06d2ade95650aa9e5425929a27385bac77194b`. The input audit found no declared
+template/site/contrast-group or exact full-command-sequence overlap with 761 earlier input cases. This is a small
+synthetic composition evaluation, not a random live-site benchmark or proof of general 90% fidelity. Its outputs are
+now inspected, so future tuning against this cohort is regression work.
+
+| Frozen composition evaluation | Safari 26.6.2 reference / model v8 | Chrome 155.0.8059.80 reference / model v2 |
+| --- | ---: | ---: |
+| Native task outcomes satisfied | 3/3 | 3/3 |
+| Simulator task outcomes satisfied | 3/3 | 3/3 |
+| Joint Task Success (both independently satisfy targets) | 3/3 | 3/3 |
+| Main Speech Exact, all planned actions | 27/29 (93.1%) | 22/29 (75.9%) |
+| Full Speech Exact, literal full text | 12/29 (41.4%) | 9/29 (31.0%) |
+| Independently joined AX keyboard focus agreement | 29/29 | 29/29 |
+| Bounded complete-state comparisons matching | 21/29 | 21/29 |
+| Native actions recorded / planned in successful capture | 29/29 | 29/29 |
+| Independently observed VO cursor / Navigation Accuracy | unavailable | unavailable |
+
+Conditional main-speech accuracy equals planned main-speech accuracy in these successful captures: all 29 actions
+are comparable in each. It does not include an earlier Chrome setup failure: that attempt remains separately reported
+with 0/29 native actions, while the recovered Chrome and Safari captures each have 29/29. Across all three native
+attempts, 58/87 planned actions and 6/9 planned case attempts were captured/aligned. There are only three distinct
+input tasks, each evaluated in two browser profiles. Do not discard the failed attempt or count repeats as new cases.
+
+The first Chrome attempt remained in browser chrome/default-browser infobar during setup. Local synthetic setup v4
+can explicitly AX-focus the unique `Before marker` only after checking the exact expected fixture URL, then reads
+actual native AX focus and synchronizes VoiceOver. This fixes a collection-start problem, not simulator navigation.
+The default AX dumper stays read-only; focus requires the explicit URL flag. A live negative check rejected a different
+URL without changing focus. Both completed browser captures use the same setup v4, English environment and
+`baseline-v2-dnd` (guest Do Not Disturb on, guest muted, Tart `--no-audio`). Safari JavaScript from Apple Events stays off.
+
+Failure analysis distinguishes these root causes rather than treating every later step as a new error:
+
+* Both profiles omit outer-region/article context on two Tab transitions. The actions reach the correct controls and
+  the tasks finish. This is an existing context-transition rule needing a focused boundary contrast, not a new feature.
+* Chrome native summary is exposed as `AXButton` / role description `disclosure triangle`, with different entry/Enter
+  receipts from Safari. The task oracle initially left this native outcome unknown because of its canonical role map;
+  that observer mapping was corrected and checked independently. The original 2-success/1-unknown report is retained.
+  The simulator's Chrome summary wording/notification rule still needs a browser-specific correction.
+* Chrome text entry emits repeated TTS text requests in this composition; the input value is nevertheless exactly
+  `noa`. The original voice-server log confirms the repetitions upstream of WebSocket transport, with intervening
+  cancellation events. Do not deduplicate raw observations or blindly double the simulator's echo. Label/context
+  contrasts and voice-request lifecycle observation are needed before a rule is inferred. These text receipts do not
+  prove how many repetitions would have been audible.
+* Safari's eight nonmatching complete-state rows all have an extra unnamed expanded AX group that cannot currently
+  be joined to a model object. Chrome's eight rows all differ on the unfocused, read-only quantity field's selected
+  range after programmatic value updates. Quantity, checked/expanded targets, enabled state, confirmation text and
+  keyboard focus satisfy the frozen tasks. The full-state counts above retain these gaps; they are not reclassified as
+  complete State Accuracy. Native DOM-range versus AX-range observation is needed before changing caret behavior.
+
+The initial desktop cursor/server on/off contrast was not sufficient to establish an AT Driver-only cause. Subsequent
+detached-server and browser-context queries timed out with the server both on and off. Independent VO cursor location
+remains unmeasured. That prevents a full reading-path Navigation Accuracy claim; it does not prevent the separately
+observed task outcomes, keyboard focus, bounded state or speech comparisons above. No further cursor workaround is
+required to use these bounded workflow tests.
+
+Current use supported by this experiment is scripted regression of native form controls, disclosure/radio operation,
+button actions inside a table and resulting page state. It does not validate arbitrary table-cell navigation, group
+interaction, rotor, cross-frame tasks or unknown websites. Unsupported interaction commands still fail explicitly.
+Exact native wording assertions, particularly for Chrome, remain limited by the listed speech differences.
+
+The public regression fixture `test/native-practical-task-outcomes.json` keeps shared HTML/commands/targets once,
+browser-specific original text receipts separately, selected original final AX node attributes, environment versions
+and source hashes. The subset does not claim to be a whole tree or cursor observation. The test executes every task
+through the existing public simulator runner and checks the original native and model outcomes independently:
+
+```sh
+corepack pnpm --dir packages/vo-corpus exec tsx --test test/practical-tasks.test.ts
+corepack pnpm exec tsx packages/vo-corpus/src/generate/index.ts --set practical-tasks-v1 --out data/cases/practical-tasks-update-check
+```
+
+For a native update check, collect that newly generated directory separately with `--browser safari` and
+`--browser chrome`, retaining the same setup/settings; replay each reference profile and run `src/analyze.ts` with
+partition `test` into new report directories. Never replace the frozen original run. `Case.taskOutcome` targets and
+post-state text/controls are evaluator-only: they are not passed to the replay policy or supplied as prediction inputs.
+The outcome evaluator cannot pass empty targets, ambiguous identities, absent state or an interrupted workflow;
+equal native/model failures do not count as task success.
+
+Local source reports are `data/analyses/{safari-v8-practical-tasks-v1-independent,chrome155-v2-practical-tasks-v1-observer-corrected}/`,
+with the original Chrome observer result in `chrome155-v2-practical-tasks-v1-independent/`, controlled native browser
+comparison in `native-browser-practical-tasks-v1/`, and all-attempt capture/source-log accounting in
+`practical-tasks-v1-capture-accounting/`. Inputs and engine were not changed between these profile evaluations.

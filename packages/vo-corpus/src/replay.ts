@@ -172,7 +172,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     caseSet: set.id, casesGeneratedAt: set.generatedAt, casesSha256, inputArchive, casesDir: casesDir.slice(packageRoot.length + 1), source: "simulator",
     plannedCaseIds: todo.map(c=>c.id), plannedActions: todo.reduce((n,c)=>n+c.chords.length,0),
     simulatorProfile: referenceBrowser==='chrome'?MOCK_VOICEOVER_CHROME_PROFILE:MOCK_VOICEOVER_PROFILE, referenceBrowser, ...(values['browser-executable']?{browserExecutablePath:resolve(values['browser-executable'])}:{}), simulatorBuildSha256: buildHash.digest("hex"), rawstepVersion, startedAt: new Date().toISOString(),
-    ...(set.syntheticInputs ? {stateObservationProtocol:"fixture-state-v2: independent CDP AX identities and DOM control state, optional text selection, no VO cursor evidence"} : {}),
+    ...(set.syntheticInputs ? {stateObservationProtocol:"fixture-state-v3: independent CDP AX identities, DOM control state, editable selection and exposed static text; no VO cursor evidence"} : {}),
     ...(anchorRecords?{anchorSourceSha256:createHash("sha256").update(anchorRecords).digest("hex"),anchorSourceRun:resolve(values["anchors-native-run"]!)}:{}),
   }, null, 2));
   const started = Date.now();

@@ -37,6 +37,7 @@ export type SimulatedSemanticNode = {
   headingLinkOrder?: 'link-heading';
   headingLink?: boolean;
   timeValueRepeated?: boolean;
+  listboxSummary?: {native:boolean;options:{name:string;selected:boolean}[]};
 };
 
 const roleNames: Readonly<Record<string, string>> = {
@@ -54,6 +55,10 @@ const roleNames: Readonly<Record<string, string>> = {
  * Other states, value/description timing, and activation announcements remain approximations.
  */
 export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateChanged = false, sourceCommand?:string): string {
+  if(!node.protected&&node.role==='listbox'&&node.listboxSummary){
+    const {native,options}=node.listboxSummary,selected=options.flatMap((o,i)=>o.selected?[{...o,position:i+1}]:[]);
+    return [node.name,'list box',...(!native&&selected.length===1?[`1 item selected. ${selected[0]!.name} selected (${selected[0]!.position} of ${options.length})`]:[])].filter(Boolean).join(' ');
+  }
   if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingLinkOrder==='link-heading') return sourceCommand==='next_heading'
     ? `${node.name} link heading level ${node.level}` : `link heading level ${node.level} ${node.name}`;
   if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingParts?.length) return [`heading level ${node.level}`,...node.headingParts.map(p=>`${p.link?'link ':''}${p.text}`),node.headingParts.length>1?`${node.headingParts.length} items`:''].filter(Boolean).join(' ');

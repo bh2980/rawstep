@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compareRuns, normalize, splitSpeech, type StepRow } from "./compare.js";
 import { casesFingerprint, plannedCaseSet, type CaseRecord, type CaseSet } from "./cases.js";
-import { comparePageState, nativePageState, summarizeState } from "./state.js";
+import { comparePageState, nativePageState, summarizeState, type PageState } from "./state.js";
+import {summarizeTaskOutcomes} from './task-outcomes.js';
 import type { AxDump } from "./axdump.js";
 import { hearsHeading } from "./real-pages.js";
 import { speechAttribution } from "./session.js";
@@ -19,10 +20,10 @@ const startsAligned = (c: CaseSet["cases"][number], a: CaseRecord | undefined, b
   && (c.startProtocol !== "first-heading" || !!a.start.anchor && !!b.start.anchor && normalize(a.start.anchor.name) === normalize(b.start.anchor.name) && a.start.anchor.level === b.start.anchor.level && hearsHeading(a.start.speech,a.start.anchor) && hearsHeading(b.start.speech,b.start.anchor));
 
 export async function evaluationSourceHashes() {
-  return Object.fromEntries(await Promise.all(["analyze.ts","validate.ts","compare.ts","state.ts","cases.ts","session.ts","native-compare.ts","axdump.ts","archive.ts","real-pages.ts"].map(async file => [file,createHash("sha256").update(await readFile(new URL(file,import.meta.url))).digest("hex")])));
+  return Object.fromEntries(await Promise.all(["analyze.ts","validate.ts","compare.ts","state.ts","cases.ts","session.ts","native-compare.ts","axdump.ts","archive.ts","real-pages.ts","task-outcomes.ts"].map(async file => [file,createHash("sha256").update(await readFile(new URL(file,import.meta.url))).digest("hex")])));
 }
 
-export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simulator: Map<string, CaseRecord>) {
+export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simulator: Map<string, CaseRecord>,nativeFinalStates=new Map<string,PageState|undefined>()) {
   const compared = new Map(compareRuns(native, simulator, new Map(set.cases.map(c => [c.id, c]))).rows.map(r => [`${r.caseId}:${r.step}`, r]));
   const rows: Row[] = [];
   for (const c of set.cases) for (const [step, chord] of c.chords.entries()) {
@@ -49,8 +50,9 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
   const rates = Object.values(families).flatMap(f => f.rate === null ? [] : [f.rate]);
   const comparable = rows.filter(r => ["exact", "normalized", "mismatch", "language"].includes(r.verdict));
   const plannedSteps = set.cases.flatMap(c => c.chords.map((chord, step) => ({ chord, native: native.get(c.id)?.steps[step], model: simulator.get(c.id)?.steps[step] })));
+  const taskOutcomes=summarizeTaskOutcomes(set,native,simulator,nativeFinalStates);
   return {
-    evaluationProtocol: "voiceover-evaluation-v3",
+    evaluationProtocol: "voiceover-evaluation-v4",
     caseSet: set.id, casesGeneratedAt: set.generatedAt, plannedCases: set.cases.length,
     nativeCases: set.cases.filter(c => native.has(c.id)).length, simulatorCases: set.cases.filter(c => simulator.has(c.id)).length,
     alignedCases: set.cases.filter(c => startsAligned(c,native.get(c.id),simulator.get(c.id))).length,
@@ -74,12 +76,12 @@ export function validateRuns(set: CaseSet, native: Map<string, CaseRecord>, simu
       normalization: "Main speech and legacy fullSpeech: case-fold, remove commas/periods, collapse whitespace. fullSpeechExact retains case, punctuation, whitespace, hints and repetitions in receipt order; both full-text metrics join receipt boundaries with one space, so neither measures batching or audio timing. Raw receipts are preserved separately.",
       navigationAccuracy: { status: "unmeasured", rate: null, reason: "No independently observed native VoiceOver reading cursor; AX keyboard focus is not a substitute." },
       stateAccuracy: { status: "partial", rate: null, reason: "Only a bounded state oracle is available: DOM IDs or unique AX role/name identities and exposed properties; unobserved selection and ambiguous controls remain incomplete." },
-      taskSuccess: { status: "unmeasured", rate: null, reason: "No independently frozen task outcome oracle." },
+      taskSuccess: { status: taskOutcomes.status, rate: taskOutcomes.rate, reason:taskOutcomes.planned?taskOutcomes.scope:"No independently frozen task outcome oracle.",matched:taskOutcomes.matched,planned:taskOutcomes.planned },
       thresholdAchievement: "unproven",
     },
     contentFullSpeech: { matched: content.filter(r => r.fullSpeechMatched).length, planned: content.length, rate: content.length ? content.filter(r => r.fullSpeechMatched).length / content.length : null },
     familyMacroRate: rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
-    verdicts: Object.fromEntries([...new Set(rows.map(r => r.verdict))].sort().map(v => [v, rows.filter(r => r.verdict === v).length])), families, rows,
+    verdicts: Object.fromEntries([...new Set(rows.map(r => r.verdict))].sort().map(v => [v, rows.filter(r => r.verdict === v).length])), families, rows,taskOutcomes,
   };
 }
 
@@ -123,7 +125,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const nativeRun = await readRun(nativeDir, "voiceover"), simulatorRun = await readRun(simDir, "simulator");
   if (nativeRun.referenceBrowser && nativeRun.referenceBrowser !== simulatorRun.referenceBrowser) throw new Error("Native browser differs from simulator reference browser; validate profiles independently");
   const planned=plannedCaseSet(set,nativeRun.plannedCaseIds);
-  const native = nativeRun.records, simulator = simulatorRun.records, report = { ...validateRuns(planned, native, simulator), evaluatorSourceHashes:await evaluationSourceHashes(), capturePlan:{caseSetCases:set.cases.length,nativePlannedCaseIds:planned.cases.map(c=>c.id),explicit:nativeRun.plannedCaseIds!==undefined}, integrity: { native: nativeRun.integrity, simulator: simulatorRun.integrity } };
+  const native = nativeRun.records, simulator = simulatorRun.records,nativeFinalStates=new Map<string,PageState|undefined>();
   const out=outputDir??simDir;
   if(outputDir)await mkdir(out);
   if (set.syntheticInputs) {
@@ -131,12 +133,15 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     for (const c of planned.cases) for (const [step, chord] of c.chords.entries()) {
       const a = native.get(c.id), b = simulator.get(c.id), x = a?.steps[step], y = b?.steps[step];
       const ax = x?.axPath ? await readFile(join(nativeDir, x.axPath), "utf8").then(text => JSON.parse(text) as AxDump).catch(() => undefined) : undefined;
-      const comparison = comparePageState(ax ? nativePageState(ax) : undefined, y?.state);
-      if (!a?.start.aligned || !b?.start.aligned || x?.foregroundError || y?.foregroundError || x?.chord !== chord || y?.chord !== chord || y?.reason === "unsupported") { comparison.matched = false; comparison.differences.push("workflow unavailable or unaligned"); }
+      const nativeState=ax?nativePageState(ax):undefined;
+      if(step===c.chords.length-1)nativeFinalStates.set(c.id,nativeState);
+      const comparison = comparePageState(nativeState, y?.state);
+      if (!a?.start.aligned || !b?.start.aligned || x?.foregroundError || y?.foregroundError || x?.chord !== chord || y?.chord !== chord || y?.reason === "unsupported") { comparison.matched = false; comparison.focusMatched=null; comparison.differences.push("workflow unavailable or unaligned"); }
       states.push({ caseId: c.id, step, chord, ...comparison });
     }
     await writeFile(join(out, "state-validation.json"), JSON.stringify({ ...summarizeState(states), rows: states }, null, 2),{flag:"wx"});
   }
+  const report = { ...validateRuns(planned, native, simulator,nativeFinalStates), evaluatorSourceHashes:await evaluationSourceHashes(), capturePlan:{caseSetCases:set.cases.length,nativePlannedCaseIds:planned.cases.map(c=>c.id),explicit:nativeRun.plannedCaseIds!==undefined}, integrity: { native: nativeRun.integrity, simulator: simulatorRun.integrity } };
   await writeFile(join(out, "validation.json"), JSON.stringify(report, null, 2),{flag:"wx"});
   const text = renderValidation(report) + `\nCapture plan: ${planned.cases.length}/${set.cases.length} fixture cases planned before native execution (${report.capturePlan.explicit?"explicit capture plan":"legacy complete-set assumption"}); absent planned observations remain failures.\nFixture integrity: native — ${report.integrity.native}; simulator — ${report.integrity.simulator}.\n`;
   await writeFile(join(out, "validation.md"), text,{flag:"wx"});

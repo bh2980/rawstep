@@ -1,0 +1,1438 @@
+{
+  "schemaVersion": 1,
+  "scope": "Public synthetic task inputs, original Native TTS text receipts, and selected final AX node attributes. This is a derived subset, not a full AX tree or reading-cursor observation.",
+  "inputs": [
+    {
+      "case": {
+        "id": "practical-tasks-v1.bulletin-registration",
+        "page": "pages/bulletin-registration.html",
+        "chords": [
+          "VO+Right",
+          "VO+Right",
+          "Tab",
+          "Space",
+          "Tab",
+          "n",
+          "o",
+          "a",
+          "Tab",
+          "Enter",
+          "VO+Right",
+          "VO+Left"
+        ],
+        "taskOutcome": {
+          "controls": [
+            {
+              "role": "checkbox",
+              "name": "Bulletin updates",
+              "state": {
+                "checked": true
+              }
+            },
+            {
+              "role": "textbox",
+              "name": "Contact name",
+              "state": {
+                "value": "noa"
+              }
+            }
+          ],
+          "texts": [
+            "Saved contact: noa; bulletin enabled"
+          ]
+        },
+        "captureAxAfterSteps": true,
+        "listen": {
+          "minWaitMs": 1000,
+          "quietMs": 800,
+          "maxWaitMs": 6000
+        },
+        "axes": {
+          "family": "practical-composition",
+          "role": "compound-task",
+          "partition": "test",
+          "exposure": "unseen",
+          "templateGroup": "practical-tasks-v1.bulletin-registration",
+          "siteGroup": "synthetic-practical-v1.bulletin-registration",
+          "command": "object-keyboard-and-state"
+        }
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Community service desk</title><style>body{font:18px system-ui;padding:20px}label{display:block}button,input,summary{margin:8px}td,th{padding:12px}</style><body><button id=\"before\" autofocus>Before marker</button><main><h2>Bulletin settings</h2><form aria-label=\"Bulletin preferences\"><label><input id=\"bulletin\" type=\"checkbox\">Bulletin updates</label><label>Contact name<input id=\"contact\" autocomplete=\"off\"></label><button id=\"save\" type=\"button\">Save contact</button></form><p id=\"receipt\" role=\"status\"></p></main><button id=\"after\">After marker</button><script>const byId=id=>document.getElementById(id);byId(\"save\").onclick=()=>byId(\"receipt\").textContent=\"Saved contact: \"+byId(\"contact\").value+\"; bulletin \"+(byId(\"bulletin\").checked?\"enabled\":\"disabled\")</script></body></html>",
+      "htmlSha256": "62102cd875b59f58ab1ef22b729b31d504e8c2b9fd459bc1221304503beb2e61"
+    },
+    {
+      "case": {
+        "id": "practical-tasks-v1.delivery-reservation",
+        "page": "pages/delivery-reservation.html",
+        "chords": [
+          "Tab",
+          "Enter",
+          "Tab",
+          "Down",
+          "Tab",
+          "Space",
+          "VO+Right",
+          "VO+Left"
+        ],
+        "taskOutcome": {
+          "controls": [
+            {
+              "role": "disclosuretriangle",
+              "name": "Delivery details",
+              "state": {
+                "expanded": true
+              }
+            },
+            {
+              "role": "radio",
+              "name": "Morning slot",
+              "state": {
+                "checked": false
+              }
+            },
+            {
+              "role": "radio",
+              "name": "Evening slot",
+              "state": {
+                "checked": true
+              }
+            }
+          ],
+          "texts": [
+            "Delivery saved: evening"
+          ]
+        },
+        "captureAxAfterSteps": true,
+        "listen": {
+          "minWaitMs": 1000,
+          "quietMs": 800,
+          "maxWaitMs": 6000
+        },
+        "axes": {
+          "family": "practical-composition",
+          "role": "compound-task",
+          "partition": "test",
+          "exposure": "unseen",
+          "templateGroup": "practical-tasks-v1.delivery-reservation",
+          "siteGroup": "synthetic-practical-v1.delivery-reservation",
+          "command": "object-keyboard-and-state"
+        }
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Community service desk</title><style>body{font:18px system-ui;padding:20px}label{display:block}button,input,summary{margin:8px}td,th{padding:12px}</style><body><button id=\"before\" autofocus>Before marker</button><section aria-label=\"Delivery scheduling\"><h2>Delivery slot</h2><details><summary id=\"disclosure\">Delivery details</summary><fieldset><legend>Time window</legend><label><input id=\"morning\" type=\"radio\" name=\"slot\" value=\"morning\" checked>Morning slot</label><label><input id=\"evening\" type=\"radio\" name=\"slot\" value=\"evening\">Evening slot</label></fieldset><button id=\"reserve\">Save delivery slot</button></details><p id=\"receipt\" role=\"status\"></p></section><button id=\"after\">After marker</button><script>const byId=id=>document.getElementById(id);byId(\"reserve\").onclick=()=>byId(\"receipt\").textContent=\"Delivery saved: \"+document.querySelector(\"input[name=slot]:checked\").value</script></body></html>",
+      "htmlSha256": "e63088f98ee39c25f63fe8bdcf2fdd544317f4ad9057dec690f3b18c903845db"
+    },
+    {
+      "case": {
+        "id": "practical-tasks-v1.basket-checkout",
+        "page": "pages/basket-checkout.html",
+        "chords": [
+          "Tab",
+          "Space",
+          "Space",
+          "Tab",
+          "Enter",
+          "Tab",
+          "Enter",
+          "VO+Right",
+          "VO+Left"
+        ],
+        "taskOutcome": {
+          "controls": [
+            {
+              "role": "textbox",
+              "name": "Basket quantity",
+              "state": {
+                "value": "2"
+              }
+            },
+            {
+              "role": "button",
+              "name": "Remove one tote",
+              "state": {
+                "disabled": false
+              }
+            }
+          ],
+          "texts": [
+            "Order confirmed: 2 items"
+          ]
+        },
+        "captureAxAfterSteps": true,
+        "listen": {
+          "minWaitMs": 1000,
+          "quietMs": 800,
+          "maxWaitMs": 6000
+        },
+        "axes": {
+          "family": "practical-composition",
+          "role": "compound-task",
+          "partition": "test",
+          "exposure": "unseen",
+          "templateGroup": "practical-tasks-v1.basket-checkout",
+          "siteGroup": "synthetic-practical-v1.basket-checkout",
+          "command": "object-keyboard-and-state"
+        }
+      },
+      "html": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Community service desk</title><style>body{font:18px system-ui;padding:20px}label{display:block}button,input,summary{margin:8px}td,th{padding:12px}</style><body><button id=\"before\" autofocus>Before marker</button><article><h2>Basket review</h2><table><caption>Current basket</caption><tr><th>Item</th><th>Action</th></tr><tr><td>Canvas tote<input id=\"quantity\" aria-label=\"Basket quantity\" value=\"1\" readonly tabindex=\"-1\"></td><td><button id=\"add\">Add one tote</button><button id=\"remove\" disabled>Remove one tote</button></td></tr></table><button id=\"checkout\">Confirm basket</button><p id=\"receipt\" role=\"status\"></p></article><button id=\"after\">After marker</button><script>const byId=id=>document.getElementById(id);const update=delta=>{byId(\"quantity\").value=String(Number(byId(\"quantity\").value)+delta);byId(\"remove\").disabled=Number(byId(\"quantity\").value)<=1};byId(\"add\").onclick=()=>update(1);byId(\"remove\").onclick=()=>update(-1);byId(\"checkout\").onclick=()=>byId(\"receipt\").textContent=\"Order confirmed: \"+byId(\"quantity\").value+\" items\"</script></body></html>",
+      "htmlSha256": "8cb04c5069da38c7b95f3ea0a003d8d65f46d7204a926a4673dd137c7495fdcc"
+    }
+  ],
+  "nativeProfiles": [
+    {
+      "browser": "chrome",
+      "sourceRun": "practical-tasks-v1-2026-10-15T02-21-08-219Z",
+      "sourceRecordsSha256": "2e4252cac45bbb8e24a9924475d35396bb5b33408ad7c57a010cef1bdb432fb3",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "chrome",
+          "version": "155.0.8059.80"
+        },
+        "voiceOverAppVersion": "10",
+        "keyboardNavigation": "3",
+        "locale": "en_KR",
+        "languages": "( \"en-US\" )"
+      },
+      "settings": "baseline-v2-dnd",
+      "cases": [
+        {
+          "caseId": "practical-tasks-v1.bulletin-registration",
+          "steps": [
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 9043,
+                  "text": "main"
+                },
+                {
+                  "t": 9605,
+                  "text": "You are currently on a main, inside of web content."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 11739,
+                  "text": "heading level 2 Bulletin settings"
+                },
+                {
+                  "t": 12298,
+                  "text": "You are currently on a heading level 2."
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 14398,
+                  "text": "Bulletin updates unchecked checkbox Bulletin preferences form"
+                },
+                {
+                  "t": 14967,
+                  "text": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": [
+                {
+                  "t": 17115,
+                  "text": "checked Bulletin updates checkbox"
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 19814,
+                  "text": "Contact name edit text"
+                },
+                {
+                  "t": 20380,
+                  "text": "You are currently on a text field. To enter text in this field, type."
+                }
+              ]
+            },
+            {
+              "chord": "n",
+              "utterances": [
+                {
+                  "t": 22658,
+                  "text": "n"
+                },
+                {
+                  "t": 22658,
+                  "text": "n"
+                },
+                {
+                  "t": 23228,
+                  "text": "You are currently on a text field. To enter text in this field, type."
+                },
+                {
+                  "t": 23665,
+                  "text": "n"
+                },
+                {
+                  "t": 23675,
+                  "text": "n"
+                }
+              ]
+            },
+            {
+              "chord": "o",
+              "utterances": [
+                {
+                  "t": 25433,
+                  "text": "o"
+                },
+                {
+                  "t": 25433,
+                  "text": "o"
+                },
+                {
+                  "t": 26426,
+                  "text": "no"
+                },
+                {
+                  "t": 26426,
+                  "text": "no"
+                }
+              ]
+            },
+            {
+              "chord": "a",
+              "utterances": [
+                {
+                  "t": 28195,
+                  "text": "a"
+                },
+                {
+                  "t": 28218,
+                  "text": "a"
+                },
+                {
+                  "t": 29225,
+                  "text": "noa"
+                },
+                {
+                  "t": 29245,
+                  "text": "noa"
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 30993,
+                  "text": "Save contact button"
+                },
+                {
+                  "t": 31556,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": [
+                {
+                  "t": 33871,
+                  "text": "Saved contact: noa; bulletin enabled"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 36466,
+                  "text": "end of Bulletin preferences form"
+                },
+                {
+                  "t": 37035,
+                  "text": "You are currently on a form."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 39230,
+                  "text": "Save contact button"
+                },
+                {
+                  "t": 39812,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "bulletin",
+              "AXElementId": 7,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXCheckBox",
+              "AXRoleDescription": "checkbox",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Bulletin updates",
+              "AXValue": 1,
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "contact",
+              "AXElementId": 10,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 3
+              },
+              "AXTitle": "Contact name",
+              "AXValue": "noa",
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 13,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRequired": false,
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "",
+              "AXValue": "Saved contact: noa; bulletin enabled",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/7581a516-6e66-45ce-b3d1-9fae5ea40dfd/step-12.json",
+          "sourceFinalAXSha256": "08de4bd285d92088d23bbea83cb335085707173748caea35ae025bb938ca2a87"
+        },
+        {
+          "caseId": "practical-tasks-v1.delivery-reservation",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 51028,
+                  "text": "Delivery details collapsed disclosure triangle, group Delivery scheduling region"
+                },
+                {
+                  "t": 51592,
+                  "text": "You are currently on a disclosure triangle, group. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": [
+                {
+                  "t": 53856,
+                  "text": "Delivery details expanded disclosure triangle, group"
+                },
+                {
+                  "t": 53872,
+                  "text": "Delivery details expanded disclosure triangle, group"
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 56612,
+                  "text": "Morning slot selected radio button, 1 of 2 Time window group"
+                },
+                {
+                  "t": 57183,
+                  "text": "You are currently on a selected radio button, 1 of 2."
+                }
+              ]
+            },
+            {
+              "chord": "Down",
+              "utterances": [
+                {
+                  "t": 59294,
+                  "text": "Morning slot radio button, 1 of 2"
+                },
+                {
+                  "t": 59324,
+                  "text": "Evening slot selected radio button, 2 of 2"
+                },
+                {
+                  "t": 59901,
+                  "text": "You are currently on a selected radio button, 2 of 2."
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 61912,
+                  "text": "Save delivery slot button Delivery scheduling region"
+                },
+                {
+                  "t": 62485,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": [
+                {
+                  "t": 64917,
+                  "text": "Delivery saved: evening"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 67485,
+                  "text": "Delivery saved: evening"
+                },
+                {
+                  "t": 68051,
+                  "text": "You are currently on a selectable text."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 70092,
+                  "text": "Save delivery slot button"
+                },
+                {
+                  "t": 70649,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "disclosure",
+              "AXElementId": 7,
+              "AXEnabled": true,
+              "AXExpanded": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "disclosure triangle",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Delivery details",
+              "AXValue": "",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "morning",
+              "AXElementId": 12,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXRadioButton",
+              "AXRoleDescription": "radio button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Morning slot",
+              "AXValue": 0,
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "evening",
+              "AXElementId": 13,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXRadioButton",
+              "AXRoleDescription": "radio button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Evening slot",
+              "AXValue": 1,
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 16,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRequired": false,
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "",
+              "AXValue": "Delivery saved: evening",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/d7a2c285-9368-4cb0-a229-8e4510e4c992/step-8.json",
+          "sourceFinalAXSha256": "abca6f8a5c658a600ab29fd7faf4934a32b1675c3695f504f4b78de6af13b1c8"
+        },
+        {
+          "caseId": "practical-tasks-v1.basket-checkout",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 82408,
+                  "text": "Add one tote button Current basket table 2 columns, 2 rows"
+                },
+                {
+                  "t": 82989,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": []
+            },
+            {
+              "chord": "Space",
+              "utterances": []
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 90710,
+                  "text": "Remove one tote button"
+                },
+                {
+                  "t": 91280,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": []
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 96184,
+                  "text": "Confirm basket button Confirm basket article"
+                },
+                {
+                  "t": 96757,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": [
+                {
+                  "t": 99077,
+                  "text": "Order confirmed: 2 items"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 101750,
+                  "text": "Order confirmed: 2 items"
+                },
+                {
+                  "t": 102311,
+                  "text": "You are currently on a selectable text."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 104535,
+                  "text": "Confirm basket button"
+                },
+                {
+                  "t": 105096,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "Basket quantity",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "quantity",
+              "AXElementId": 17,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Basket quantity",
+              "AXValue": "2",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "remove",
+              "AXElementId": 20,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Remove one tote",
+              "AXValue": "",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "Basket quantity",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "quantity",
+              "AXElementId": 17,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Basket quantity",
+              "AXValue": "2",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "remove",
+              "AXElementId": 20,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "Remove one tote",
+              "AXValue": "",
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 26,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXRequired": false,
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 0
+              },
+              "AXTitle": "",
+              "AXValue": "Order confirmed: 2 items",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/5f571468-dd2c-483d-8642-377b5169f00e/step-9.json",
+          "sourceFinalAXSha256": "e6aabffec7f6fb81c58ec521cbedae8137e1ab0297a01ea3dfa3956eeff152b9"
+        }
+      ]
+    },
+    {
+      "browser": "safari",
+      "sourceRun": "practical-tasks-v1-2026-10-15T02-23-28-958Z",
+      "sourceRecordsSha256": "1751f0b51871936d837a4b389bbe151b90b4f8ebabd73841337fb08ebf5e71e2",
+      "environment": {
+        "macos": "26.6.2",
+        "build": "25G83",
+        "browser": {
+          "name": "safari",
+          "version": "26.6.2"
+        },
+        "voiceOverAppVersion": "10",
+        "keyboardNavigation": "3",
+        "locale": "en_KR",
+        "languages": "( \"en-US\" )"
+      },
+      "settings": "baseline-v2-dnd",
+      "cases": [
+        {
+          "caseId": "practical-tasks-v1.bulletin-registration",
+          "steps": [
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 12230,
+                  "text": "main"
+                },
+                {
+                  "t": 12782,
+                  "text": "You are currently on a main, inside of web content."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 14750,
+                  "text": "heading level 2 Bulletin settings"
+                },
+                {
+                  "t": 15314,
+                  "text": "You are currently on a heading level 2."
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 17295,
+                  "text": "Bulletin updates unchecked checkbox Bulletin preferences form"
+                },
+                {
+                  "t": 17855,
+                  "text": "You are currently on a checkbox. To select or deselect this checkbox, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": [
+                {
+                  "t": 19795,
+                  "text": "checked Bulletin updates checkbox"
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 22288,
+                  "text": "Contact name edit text"
+                },
+                {
+                  "t": 22856,
+                  "text": "You are currently on a text field. To enter text in this field, type."
+                }
+              ]
+            },
+            {
+              "chord": "n",
+              "utterances": [
+                {
+                  "t": 24698,
+                  "text": "n"
+                },
+                {
+                  "t": 25265,
+                  "text": "You are currently on a text field. To enter text in this field, type."
+                },
+                {
+                  "t": 25711,
+                  "text": "n"
+                },
+                {
+                  "t": 26342,
+                  "text": "You are currently on a text field. To enter text in this field, type."
+                }
+              ]
+            },
+            {
+              "chord": "o",
+              "utterances": [
+                {
+                  "t": 28239,
+                  "text": "o"
+                },
+                {
+                  "t": 29254,
+                  "text": "no"
+                }
+              ]
+            },
+            {
+              "chord": "a",
+              "utterances": [
+                {
+                  "t": 30772,
+                  "text": "a"
+                },
+                {
+                  "t": 31790,
+                  "text": "noa"
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 33213,
+                  "text": "Save contact button"
+                },
+                {
+                  "t": 33792,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": [
+                {
+                  "t": 35853,
+                  "text": "Saved contact: noa; bulletin enabled"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 38214,
+                  "text": "end of Bulletin preferences form"
+                },
+                {
+                  "t": 38776,
+                  "text": "You are currently on a form."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 40670,
+                  "text": "Save contact button"
+                },
+                {
+                  "t": 41230,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "bulletin",
+              "AXElementId": 8,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXCheckBox",
+              "AXRoleDescription": "checkbox",
+              "AXSelected": false,
+              "AXTitle": "Bulletin updates",
+              "AXValue": 1,
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "contact",
+              "AXElementId": 12,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXPlaceholderValue": "",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 3
+              },
+              "AXTitle": "Contact name",
+              "AXValue": "noa",
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 15,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXTitle": "",
+              "AXValue": "Saved contact: noa; bulletin enabled",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/271a8a71-05e1-4d30-b5be-c22effc8b526/step-12.json",
+          "sourceFinalAXSha256": "b58e5f445a7f41ed3bd011594d81c1edccb4087b8a7a2ed1dbd9620a444af8f1"
+        },
+        {
+          "caseId": "practical-tasks-v1.delivery-reservation",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 51361,
+                  "text": "Delivery details collapsed summary Delivery scheduling region"
+                },
+                {
+                  "t": 51941,
+                  "text": "You are currently on a summary. To expand or collapse the contents of this item, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": []
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 56423,
+                  "text": "Morning slot selected radio button, 1 of 2 Time window group"
+                },
+                {
+                  "t": 57003,
+                  "text": "You are currently on a selected radio button, 1 of 2."
+                }
+              ]
+            },
+            {
+              "chord": "Down",
+              "utterances": [
+                {
+                  "t": 58958,
+                  "text": "Morning slot radio button, 1 of 2"
+                },
+                {
+                  "t": 58988,
+                  "text": "Evening slot selected radio button, 2 of 2"
+                },
+                {
+                  "t": 59572,
+                  "text": "You are currently on a selected radio button, 2 of 2."
+                }
+              ]
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 61581,
+                  "text": "Save delivery slot button Delivery scheduling region"
+                },
+                {
+                  "t": 62147,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": [
+                {
+                  "t": 64293,
+                  "text": "Delivery saved: evening"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 66734,
+                  "text": "Delivery saved: evening"
+                },
+                {
+                  "t": 67298,
+                  "text": "You are currently on a selectable text."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 69370,
+                  "text": "Save delivery slot button"
+                },
+                {
+                  "t": 69932,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "disclosure",
+              "AXElementId": 7,
+              "AXEnabled": true,
+              "AXExpanded": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXRole": "AXDisclosureTriangle",
+              "AXRoleDescription": "summary",
+              "AXSelected": false,
+              "AXSubrole": "AXSummary",
+              "AXTitle": "Delivery details",
+              "AXValue": true,
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "morning",
+              "AXElementId": 12,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXRadioButton",
+              "AXRoleDescription": "radio button",
+              "AXSelected": false,
+              "AXTitle": "Morning slot",
+              "AXValue": 0,
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "evening",
+              "AXElementId": 15,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXRequired": false,
+              "AXRole": "AXRadioButton",
+              "AXRoleDescription": "radio button",
+              "AXSelected": false,
+              "AXTitle": "Evening slot",
+              "AXValue": 1,
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 19,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXTitle": "",
+              "AXValue": "Delivery saved: evening",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/62d803f3-9f6f-4a26-839b-bd381b61f2e7/step-8.json",
+          "sourceFinalAXSha256": "75e3802caeec40892a3ca8eeaf3d45e4eb23378923b9be5fe7678d2281e7b89c"
+        },
+        {
+          "caseId": "practical-tasks-v1.basket-checkout",
+          "steps": [
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 81138,
+                  "text": "Add one tote button Current basket table 2 columns, 2 rows"
+                },
+                {
+                  "t": 81711,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Space",
+              "utterances": []
+            },
+            {
+              "chord": "Space",
+              "utterances": []
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 88978,
+                  "text": "Remove one tote button"
+                },
+                {
+                  "t": 89549,
+                  "text": "You are currently on a button, inside of a cell. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": []
+            },
+            {
+              "chord": "Tab",
+              "utterances": [
+                {
+                  "t": 94198,
+                  "text": "Confirm basket button Basket review article"
+                },
+                {
+                  "t": 94784,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            },
+            {
+              "chord": "Enter",
+              "utterances": [
+                {
+                  "t": 96907,
+                  "text": "Order confirmed: 2 items"
+                }
+              ]
+            },
+            {
+              "chord": "VO+Right",
+              "utterances": [
+                {
+                  "t": 99553,
+                  "text": "Order confirmed: 2 items"
+                },
+                {
+                  "t": 100130,
+                  "text": "You are currently on a selectable text."
+                }
+              ]
+            },
+            {
+              "chord": "VO+Left",
+              "utterances": [
+                {
+                  "t": 102063,
+                  "text": "Confirm basket button"
+                },
+                {
+                  "t": 102631,
+                  "text": "You are currently on a button. To click this button, press Control -Option -Space."
+                }
+              ]
+            }
+          ],
+          "selectedFinalAXNodes": [
+            {
+              "AXDescription": "Basket quantity",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "quantity",
+              "AXElementId": 17,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXPlaceholderValue": "",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 1
+              },
+              "AXTitle": "Basket quantity",
+              "AXValue": "2",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "remove",
+              "AXElementId": 21,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXTitle": "Remove one tote",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "Basket quantity",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "quantity",
+              "AXElementId": 17,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXPlaceholderValue": "",
+              "AXRequired": false,
+              "AXRole": "AXTextField",
+              "AXRoleDescription": "text field",
+              "AXSelected": false,
+              "AXSelectedTextRange": {
+                "length": 0,
+                "location": 1
+              },
+              "AXTitle": "Basket quantity",
+              "AXValue": "2",
+              "AXVisited": false
+            },
+            {
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "remove",
+              "AXElementId": 21,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXInvalid": "false",
+              "AXRole": "AXButton",
+              "AXRoleDescription": "button",
+              "AXSelected": false,
+              "AXTitle": "Remove one tote",
+              "AXVisited": false
+            },
+            {
+              "AXARIAAtomic": false,
+              "AXDescription": "",
+              "AXDOMClassList": [],
+              "AXDOMIdentifier": "",
+              "AXElementId": 27,
+              "AXEnabled": true,
+              "AXFocused": false,
+              "AXHelp": "",
+              "AXRole": "AXStaticText",
+              "AXRoleDescription": "text",
+              "AXSelected": false,
+              "AXTitle": "",
+              "AXValue": "Order confirmed: 2 items",
+              "AXVisited": false
+            }
+          ],
+          "sourceFinalAXPath": "ax/attempts/eb03ea4a-f828-4246-a4be-8c70a38a31ef/step-9.json",
+          "sourceFinalAXSha256": "02592e328229237e51b3354229d29f45c8887ba7480bc62ea595698f5d2f96b3"
+        }
+      ]
+    }
+  ],
+  "caseSetMetadata": {
+    "id": "practical-tasks-v1",
+    "generatedAt": "2026-10-15T02:16:38.261Z",
+    "syntheticInputs": true
+  },
+  "sourceCasesSha256": "d84109d6a796f04c26c32b0a50bf80b9668e106025246f70e3a310669603a968"
+}

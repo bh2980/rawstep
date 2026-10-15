@@ -2,12 +2,14 @@
 
 `MockVoiceOverBackend` is a browser-backed development and policy-testing adapter.
 It is **simulation evidence**, not native VoiceOver output or a conformance result.
-The `english-dom-navigation-evidence-v3` profile makes a deliberately small, reproducible set of
+The `english-dom-navigation-evidence-v8` Safari reference profile makes a reproducible set of
 choices inspired by screen-reader object navigation. It does not claim exact macOS,
 Safari, VoiceOver wording, or interaction fidelity. Selected navigation wording is
 calibrated against versioned third-party output and selected local macOS/Safari 26.6.2 captures; see
 [the evidence and limits](../../../../docs/mock-voiceover-evidence.md). This composite
 profile is not one specific macOS/Safari version.
+An experimental Chrome reference profile is selected separately. See the
+[public API and current support boundaries](../../../../docs/mock-voiceover.md).
 
 The backend implements the generic `Backend` interface: `start`, `execute`,
 `observe`, `subscribe`, and `close`. Call `attachSession({ page })` with the task's existing
@@ -31,8 +33,8 @@ objects remain browsable when Chromium exposes them. There is no viewport,
 opacity, or tab-order filter. Redundant text descendants of named controls and
 headings are suppressed. Unnamed structural wrappers are omitted.
 
-The flat accessibility cursor is separate from DOM focus. Next/previous do not
-focus page elements. Cursor identity uses Chromium backend DOM node IDs so an
+The projected accessibility cursor is separate from DOM focus. Next/previous focus
+actual focusable DOM objects; static reading stops preserve keyboard focus. Cursor identity uses Chromium backend DOM node IDs so an
 insertion does not silently retarget the cursor. If its node disappears, the next
 surviving object from the previous order is selected, or the preceding survivor,
 or the first new object. Replacing a DOM text node also replaces its identity.
@@ -46,8 +48,8 @@ this profile.
 
 ## Supported actions
 
-- Intents: `next`, `previous`, `readCurrent`, `readFocused`, `activate`
-- Browser keys: `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`
+- Intents: `next`, `previous`, `readCurrent`, `readFocused`, `activate`, `heading.next`, `heading.previous`, `form.next`, `headings.list`
+- Browser keys: `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`, arrows, `Home`, `End`, `Shift+Home`, `Shift+End`, `Backspace`, `Delete`, `ControlOrMeta+A`
 - Named task inputs: `typeText` and `replaceText`, through the runner's input gate
 
 `activate` uses a guarded DOM `.click()` for supported exposed control roles and
@@ -70,7 +72,7 @@ applies to other input values and echoed page content.
 A typed semantic formatter produces deterministic English speech, such as
 `Agree, checked, checkbox` or `Settings, dialog, modal`. Only the current or
 explicitly requested focused object is spoken. Current-object semantic changes can
-produce new output on observation. This is not a live-region announcement model. For plain checkboxes and switches, Space or simulated activation of the same control with an observed boolean checked
+produce new output on observation. Explicit minimum observation windows poll live-region changes; brief changes and native speech scheduling remain incomplete. For plain checkboxes and switches, Space or simulated activation of the same control with an observed boolean checked
 change uses state-first wording. Navigation remains name-first for those controls. Replacement, renaming, mixed-state
 transitions and combinations with required/disabled/readonly/value/description retain heuristic wording. Other activation
 announcements remain heuristic, including actions that native VoiceOver might leave silent.
@@ -79,7 +81,7 @@ sanitized semantic details can appear in diagnostic output metadata.
 
 ## Unsupported behavior
 
-Group interaction, rotor navigation, quick navigation, VoiceOver verbosity and
+Group interaction, rotor navigation, Quick Nav modes, VoiceOver verbosity and
 preferences, speech queues, earcons, live-region timing, browser chrome, operating-
 system dialogs, and cross-frame traversal are not simulated. Unsupported intents
 and keys fail explicitly. The backend traverses only the attached Chromium main

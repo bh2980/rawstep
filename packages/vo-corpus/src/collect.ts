@@ -63,7 +63,7 @@ const session = new VoSession(values.url ?? atDriverUrl(machine), guard);
 const pages = await serveDirectory(existsSync(join(out,"inputs/cases.json"))?join(out,"inputs"):casesDir, machine);
 const started = Date.now();
 let aligned = 0;
-const workflowStartProtocol="Synthetic local v3: prove native marker focus (up to 12 setup Tabs), then VO+Shift+F4 and fresh speech/focus verification before any workflow keys. Browser-specific AXTitle/AXDescription names are accepted. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
+const workflowStartProtocol="Synthetic local v4: prove native marker focus; if absent, AX-focus the unique fixture start button only at the expected page URL, independently verify focus (up to 12 setup Tabs remain fallback), then VO+Shift+F4 and fresh speech/focus verification. Legacy local: VO+Home and VO+Cmd+F4. Public: native AX marker focus then VO+Shift+F4.";
 const observationProtocol="host-receipts-v4: wire request/ack, bounded listen, AX start/end, optional native selection range and snapshot-local AX equality IDs (AX schema v3); preserve page-load and late raw receipts; no completion or causal attribution claim";
 try {
   const negotiated = await session.start();
@@ -154,6 +154,14 @@ try {
         const marker=()=>{const n=startAx&&focusedAxNode(startAx);return n?.AXRole==='AXButton'&&nativeNodeName(n)===START_MARKER;};
         startAx=await dumpAxTree(machine,browserApps[browser]);
         if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'initial-focus',startAx);
+        if(!marker()){
+          const preparation={method:'AXFocused' as const,requestedAt:session.now(),endedAt:0} as NonNullable<CaseRecord['start']['focusPreparation']>;
+          start.focusPreparation=preparation;
+          try{startAx=await dumpAxTree(machine,browserApps[browser],{focusStartURL:`${pages.origin}/${item.page}`});
+            if(!values['no-ax'])start.axPath=await saveAxSnapshot(out,attemptId,'AX-focus-preparation',startAx);
+          }catch(error){preparation.error=(error as Error).message;}
+          finally{preparation.endedAt=session.now();}
+        }
         for(let i=0;!marker()&&i<12;i++){
           await session.press('Tab');start.commands!.push('Tab');start.speech.push(...spoken(await session.listen()));
           startAx=await dumpAxTree(machine,browserApps[browser]);

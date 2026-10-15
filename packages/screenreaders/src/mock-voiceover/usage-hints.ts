@@ -32,6 +32,7 @@ export function formatUsageHint(node:SimulatedSemanticNode,context:HintContext={
     if(!node.selected)action=`To select this option, ${click}`;
   }else if(role==='menuitem'){label='menu item';action=`To choose this menu item, ${click} To close this menu, press Escape.`;}
   else if(role==='option')label='selectable list item';
+  else if(role==='listbox'&&node.listboxSummary){label='list box';action='To begin interacting with the items in this list, press Control -Option -Shift -Down Arrow.';}
   else if(role==='image'){label='image';article='an';action='To begin interacting with the contents of this image, press Control -Option -Shift -Down Arrow.';}
   else if(role==='StaticText'||context.inCell&&['cell','columnheader','rowheader'].includes(role))label=context.textFragment?'text element':'selectable text';
   else if(role==='listitem')label=node.name?'text element':'list marker';

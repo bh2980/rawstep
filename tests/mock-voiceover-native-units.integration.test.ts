@@ -10,7 +10,8 @@ type NativeFixture={
 };
 const native=JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-reading-units-2026-10-15.json',import.meta.url),'utf8')) as NativeFixture;
 const chrome=JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-chrome-controls-2026-10-15.json',import.meta.url),'utf8')) as NativeFixture;
-const cases=([{fixture:native,referenceBrowser:'safari'},{fixture:chrome,referenceBrowser:'chrome'}] as const).flatMap(({fixture,referenceBrowser})=>fixture.cases.map(c=>({...c,referenceBrowser,sourceRecordsSha256:fixture.sourceRecordsSha256})));
+const listbox=JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-safari-listbox-2026-10-14.json',import.meta.url),'utf8')) as NativeFixture;
+const cases=([{fixture:native,referenceBrowser:'safari'},{fixture:chrome,referenceBrowser:'chrome'},{fixture:listbox,referenceBrowser:'safari'}] as const).flatMap(({fixture,referenceBrowser})=>fixture.cases.map(c=>({...c,referenceBrowser,sourceRecordsSha256:fixture.sourceRecordsSha256})));
 let browser:Browser;
 beforeAll(async()=>{browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.RAWSTEP_TEST_BROWSER_PATH?{executablePath:process.env.RAWSTEP_TEST_BROWSER_PATH}:{})});});
 afterAll(async()=>{await browser?.close();});
@@ -21,11 +22,13 @@ describe('native reading-unit workflow receipts replayed in real Chromium',()=>{
     expect(c.sourceRecordsSha256).toMatch(/^[a-f0-9]{64}$/);
     const context=await browser.newContext(),page=await context.newPage(),backend=new MockVoiceOverBackend(undefined,undefined,c.referenceBrowser as MockVoiceOverReferenceBrowser);
     try{
-      await page.setContent(c.html);await page.bringToFront();await backend.start();backend.attachSession({page});
+      await page.setContent(c.html);await page.bringToFront();
+      await page.getByRole('button',{name:'Before marker',exact:true}).focus();
+      await backend.start();backend.attachSession({page});
       await backend.observe();await backend.execute({kind:'intent',intent:'readCurrent'});
       expect((await backend.observe()).speech.join(' ')).toContain('Before marker');
       for(const [index,step]of c.steps.entries()){
-        if(step.chord==='Space')await backend.execute({kind:'key',key:'Space'});
+        if(['Space','Tab','Shift+Tab'].includes(step.chord))await backend.execute({kind:'key',key:step.chord});
         else if(['VO+Right','VO+Left','VO+Space'].includes(step.chord))await backend.execute({kind:'intent',intent:step.chord==='VO+Right'?'next':step.chord==='VO+Left'?'previous':'activate'});
         else throw new Error('Unmapped native fixture chord');
         const actual=await backend.observe();
