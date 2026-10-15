@@ -54,3 +54,5 @@ node --import tsx --test packages/vo-corpus/test/article-context-speech.test.ts 
 ```
 
 The speech tests replay caller-owned inputs without a VM. The browser tests execute all 148 new calibration actions through existing Chromium controls and compare projected speech; the older 72-action context regression now also asserts unnamed-article wording. These are input-projection/focus checks, not a Native logical-cursor accuracy claim. Keep the existing collection environment and relay instructions in [vo-corpus](../packages/vo-corpus/README.md).
+
+The [subsequent prespecified composition evaluation](./voiceover-article-transfer.md) tests the corrected rule on two newly authored multi-article/state UIs. It retains failed collection attempts separately from the 34/34 completed speech comparisons per profile; those results are distinct from the inspected regression table above.

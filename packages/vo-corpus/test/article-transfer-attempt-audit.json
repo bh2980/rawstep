@@ -1,0 +1,87 @@
+{
+  "auditedAt": "2026-10-15T13:23:13.215Z",
+  "scope": "Post-capture source/accounting supplement. Original frozen plan, first scores, inputs and Native observations unchanged. Every attempt input archive verified against the same original fingerprint.",
+  "firstEvaluationSha256": "66d9f945ec93baddf6b79b326aaae8cb5237372cd270c1cbeef1eaf98ae83260",
+  "casesSha256": "dd77e13f51ab735deafee05c40549094a533823e709c057da66371b651a02f10",
+  "attempts": [
+    {
+      "run": "article-transfer-v1-2026-10-15T13-02-29-494Z",
+      "browser": "safari",
+      "attemptRole": "primary-partial",
+      "planned": 34,
+      "nativeObserved": 5,
+      "metadataPresent": true,
+      "inputsVerified": true,
+      "inputManifestSha256": "fd6410bf1507656543257c881ffe0ffcb4127b83b7cb89b18f7d5a0376d44de3",
+      "recordsSha256": "8c606f26d93238a92865aaa30242315185c849f21c89e7f7a9305bc11b1984ff",
+      "rootErrors": [
+        {
+          "caseId": "article-transfer-v1.civic-notices",
+          "error": "AT Driver WebSocket connection error"
+        }
+      ]
+    },
+    {
+      "run": "article-transfer-v1-2026-10-15T13-07-53-094Z",
+      "browser": "safari",
+      "attemptRole": "environment-startup",
+      "planned": 34,
+      "nativeObserved": 0,
+      "metadataPresent": false,
+      "inputsVerified": true,
+      "inputManifestSha256": "fd6410bf1507656543257c881ffe0ffcb4127b83b7cb89b18f7d5a0376d44de3",
+      "recordsSha256": null,
+      "rootErrors": []
+    },
+    {
+      "run": "article-transfer-v1-2026-10-15T13-09-27-041Z",
+      "browser": "safari",
+      "attemptRole": "fixed-input-recovery",
+      "planned": 34,
+      "nativeObserved": 34,
+      "metadataPresent": true,
+      "inputsVerified": true,
+      "inputManifestSha256": "fd6410bf1507656543257c881ffe0ffcb4127b83b7cb89b18f7d5a0376d44de3",
+      "recordsSha256": "4d9f4fad8a68aaadb7cdf9b4b515dc411c98f663439edbf7f1b149864022f702",
+      "rootErrors": []
+    },
+    {
+      "run": "article-transfer-v1-2026-10-15T13-12-20-401Z",
+      "browser": "chrome",
+      "attemptRole": "primary-environment-blocked",
+      "planned": 34,
+      "nativeObserved": 0,
+      "metadataPresent": true,
+      "inputsVerified": true,
+      "inputManifestSha256": "fd6410bf1507656543257c881ffe0ffcb4127b83b7cb89b18f7d5a0376d44de3",
+      "recordsSha256": "afc5f3036b64e46acf2b74ec746518a82d475804d36a45c7439d6dfeeae8d586",
+      "rootErrors": [
+        {
+          "caseId": "article-transfer-v1.civic-notices",
+          "error": "Start preparation failed: Stopped before VO+Shift+F4: Chrome's Restore pages? recovery window is open. This is an environment failure; nothing was pressed."
+        }
+      ]
+    },
+    {
+      "run": "article-transfer-v1-2026-10-15T13-15-16-823Z",
+      "browser": "chrome",
+      "attemptRole": "fixed-input-recovery",
+      "planned": 34,
+      "nativeObserved": 34,
+      "metadataPresent": true,
+      "inputsVerified": true,
+      "inputManifestSha256": "fd6410bf1507656543257c881ffe0ffcb4127b83b7cb89b18f7d5a0376d44de3",
+      "recordsSha256": "8bf4ae7e44991996d8737a8f41c0c296f45c22df36748e88ce1f541fff44b8fa",
+      "rootErrors": []
+    }
+  ],
+  "totals": {
+    "attempts": 5,
+    "uniquePlannedActions": 68,
+    "plannedExecutions": 170,
+    "nativeObservations": 73,
+    "environmentFailureAttempts": 3,
+    "completeAttempts": 2,
+    "matchedEligibleReceipts": 73
+  }
+}

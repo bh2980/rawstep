@@ -4,6 +4,7 @@ Collects real VoiceOver speech through AT Driver, to calibrate Rawstep's VoiceOv
 
 For the current speech-only API measurement, see [target-conditioned evaluation](../../docs/voiceover-target-conditioned-evaluation.md).
 The [new composition evaluation](../../docs/voiceover-landmark-transfer.md) preserves the first Safari/Chrome results: Main 32/32 and literal Full 28/32 each. The [actual-site audit](../../docs/voiceover-public-named-target-evaluation.md) retains all failed slots, recovery attempts and the next unseen-site measurement separately. These are speech-engine measurements with caller-owned targets/history.
+The [new article composition evaluation](../../docs/voiceover-article-transfer.md) records fixed-model Safari/Chrome Main and Full 34/34 each after environment recovery, with all five attempts and failures retained separately.
 The [article entry calibration](../../docs/voiceover-article-entry-speech.md) preserves immediate exposed AX child names and provides an 11-page, 74-action update suite (`article-entry-update-v1`). It reports inspected regression separately from new-UI evidence.
 The [landmark reduction](../../docs/voiceover-landmark-speech.md) records the resulting unnamed-context fix and keeps first scores separate from regression.
 Its command gate keeps Native orientation descriptions separate from ordinary entry speech; same target alone does not
